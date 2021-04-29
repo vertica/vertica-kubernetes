@@ -1,0 +1,41 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Setup a headless service so that we have DNS entries for each of the stable
+# pod names.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vertica.headless-svc-name" . }}
+  labels:
+    vertica.com/svc-type: headless
+    {{ include "vertica.common-labels" . | nindent 4 }}
+    {{ include "vertica.server-labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    {{ include "vertica.common-labels" . | nindent 4 }}
+    {{ include "vertica.server-labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  ports:
+    - port: 22
+      name: ssh
+  clusterIP: None

@@ -1,0 +1,61 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+suite: test labels and annotations in server config map and svc
+templates:
+  - configmap.yaml
+  - ext-svc.yaml
+  - headless-svc.yaml
+tests:
+  - it: should have no annotations by default
+    asserts:
+      - isNull:
+          path: metadata.annotations
+  - it: allow annotations and custom labels to be set
+    set:
+      annotations:
+        gitRef: "abcd123"
+        buildDate: "2/16/2021"
+      labels:
+        component: "telco"
+        isProd: false
+    asserts:
+      - equal:
+          path: metadata.annotations.gitRef
+          value: "abcd123"
+      - equal:
+          path: metadata.annotations.buildDate
+          value: "2/16/2021"
+      - equal:
+          path: metadata.labels.component
+          value: "telco"
+      - equal:
+          path: metadata.labels.isProd
+          value: false
+  - it: has some conventional labels that exist for all objects
+    set:
+      db:
+        name: mydb
+    asserts:
+      - equal:
+          path: metadata.labels.app\.kubernetes\.io\/name
+          value: vertica
+      - equal:
+          path: metadata.labels.app\.kubernetes\.io\/instance
+          value: RELEASE-NAME
+      - equal:
+          path: metadata.labels.app\.kubernetes\.io/component
+          value: database
+      - equal:
+          path: metadata.labels.vertica\.com\/database
+          value: mydb

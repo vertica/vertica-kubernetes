@@ -1,0 +1,134 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Default values for vertica.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+
+image:
+  pullPolicy: "IfNotPresent"
+
+  pullSecrets: []
+    # If accessing the docker registry requires authentication, this is the
+    # name of the secret that has the credentials.  This secret must be created
+    # ahead of time and in the same namespace
+    # See: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
+    # - name: registry-cred
+
+  server:
+    name: "verticadocker/vertica-k8s"
+    tag: "10.1.1-0"
+
+labels: {}
+  # Additional labels to apply to all Kubernetes objects created by this chart.
+  # part-of: my-app
+
+annotations: {}
+  # Additional annotations to apply to all objects created by this chart.
+  # gitRef: "764f7da"
+
+db:
+  # The name of the database on the cluster
+  name: "verticadb"
+
+  superuserPasswordSecret: {}
+    # The name of a secret that contains the password for the database
+    # superuser.  The secret must be in the same namespace as the statefulset.
+    # If this is not set then we assume that the database is setup without a
+    # password.
+    # name: my-secret
+    # key: password
+
+  licenseSecret: {}
+    # The name of a secret that contains the contents of license files.  The
+    # secret must be in the same namespace as the statefulset.  Each of the
+    # keys in the secret will be mounted as files in /home/dbadmin/licensing/mnt.
+    # name: license-secret
+
+  storage:
+    local:
+      # The path in the pod to mount the PV
+      path: "/home/dbadmin/local-data"
+
+      # By default we don't specify a storage class.  If not present, the PVC won't
+      # use one and will rely on k8s to choose the default storage class.  If
+      # present, this will be set in the PVC to control where the data goes.
+      # storageClass:
+
+      # The request size for the data.  This is the minimum size that is required
+      # when picking a PV to attach the PVC too.
+      size: 500Gi
+
+    communal:
+      # The path to communal storage. This should be the s3 endpoint or it may
+      # be a mount point if using a shared file system. The latter requires
+      # additional config for 'volume:'.
+      path: "s3://<s3-bucket>"
+
+
+subclusters:
+  # NOTE: we only support a single subcluster, named default_subcluster.  The
+  # config for any subsequent subcluster is ignored.
+  defaultsubcluster:
+    # The number of server pods to have in the cluster.  Each pod is analogous to
+    # a Vertica host.
+    replicaCount: 3
+
+    nodeSelector: {}
+      # Add specific node selector labels to control where the server pod is scheduled.
+      # If left blank then no selectors are added.
+      # See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+      # key: value
+
+    affinity: {}
+      # Add any affinity or anti-affinity to the pod to control where it gets scheduled.
+      # See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+      # podAffinity:
+      #   requiredDuringSchedulingIgnoredDuringExecution:
+      #   - labelSelector:
+      #       matchExpressions:
+      #       - key: security
+      #         operator: In
+      #         values:
+      #         - S1
+      #     topologyKey: topology.kubernetes.io/zone
+
+    # PriorityClassName given to Pods of this StatefulSet
+    # See: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+    # priorityClassName:
+
+    # Taints and tolerations.
+    # See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+    tolerations: []
+
+    resources:
+      # Both requests and limits can be specified here.  The default limit was
+      # selected as bare minimum and should not be used for any *real* use cases
+      # with Vertica.  Refer to this when deciding on the size of the cluster:
+      # https://www.vertica.com/kb/Recommendations-for-Sizing-Vertica-Nodes-and-Clusters
+      requests:
+        cpu: 4
+      limits:
+        memory: 16Gi
+
+    service:
+      type: ClusterIP
+
+      # Specify the nodePort value when using the NodePort service types.
+      # See: https://kubernetes.io/docs/concepts/services-networking/service/#nodeport
+      # nodePort:
+
+      # Specify the externalIP value
+      # See: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
+      # externalIPs:

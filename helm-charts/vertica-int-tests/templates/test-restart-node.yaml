@@ -1,0 +1,73 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-restart-node
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o xtrace
+
+    # Assumptions: 1. Vertica has been installed on all pods. 2. A Vertica DB is created with k >= 1 and >= 3 nodes
+    POD2_NAME=$(kubectl get pods --selector=vertica.com/usage=server,app.kubernetes.io/name=vertica -o jsonpath="{.items[2].metadata.name}")
+    # kill the Pod, it should be ok regardless of which Pod we kill
+    kubectl --namespace={{ .Release.Namespace }} delete pod $POD2_NAME --grace-period=0
+    # wait for result for max ~ 10 mins
+    COUNT=1
+    WAITTIME=600
+    while [ $COUNT -lt $WAITTIME ]
+    do
+       GREP_INIT_RESULT=$(kubectl logs $POD2_NAME -c configinit | grep -c "IP address of local Vertica node has been updated successfully")
+       if [ $GREP_INIT_RESULT == 1 ]
+       then
+           GREP_APP_RESULT=$(kubectl logs $POD2_NAME | grep -c "Local Vertica node has been restarted successfully")
+           if [ $GREP_APP_RESULT == 1 ]
+           then
+               exit 0
+           fi
+       fi
+       COUNT=$(( COUNT+1 ))
+       sleep 1
+    done
+    exit 1
+---
+apiVersion: testing.kyma-project.io/v1alpha1
+kind: TestDefinition
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+    order: "1"
+  name: test-restart-node
+spec:
+  description: |
+    Kill a Kubernetes Pod and wait for the Vertica node in the Pod to restart. The pre-req for
+    this test to run is to have an existing Vertica database running
+  template:
+    spec:
+      containers:
+        - name: test
+          image: quay.io/helmpack/chart-testing:v3.3.1
+          command: ["/bin/entrypoint.sh"]
+          volumeMounts:
+            - name: entrypoint-volume
+              mountPath: /bin/entrypoint.sh
+              readOnly: true
+              subPath: entrypoint.sh
+      volumes:
+        - name: entrypoint-volume
+          configMap:
+            defaultMode: 0700
+            name: script-restart-node

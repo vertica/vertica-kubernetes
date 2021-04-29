@@ -1,0 +1,8 @@
+test_output.*
+*.rpm
+cert/
+logs.log
+.vscode/
+unit-tests.xml
+int-tests-output/
+stern.pid

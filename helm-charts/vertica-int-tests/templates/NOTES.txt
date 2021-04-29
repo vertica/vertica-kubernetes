@@ -1,0 +1,9 @@
+Running test suite.  
+
+Check the logs of the testcase pod to see the status of an individual test.
+
+   kubectl logs oct-tp-testsuite-sanity-test-install-0
+
+To check the status of the test suite, run this script:
+
+   scripts/int-tests-status.sh

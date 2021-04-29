@@ -1,0 +1,77 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-tls-server-mode
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    cat << EOF > /tmp/verify.sh
+    #!/bin/sh
+    set -o xtrace
+    set -o errexit
+
+    SU_PASSWD=\$(cat /etc/podinfo/superuser-passwd 2> /dev/null || :)
+    if [ -n "\$SU_PASSWD" ]
+    then
+      VSQL_PASSWD_OPT="-w \$SU_PASSWD"
+    fi
+
+    vsql \$VSQL_PASSWD_OPT -m require -c "select user_name, ssl_state from sessions where session_id=current_session();" 2>&1 | tee /home/dbadmin/vsql_cmds.out
+    grep "dbadmin   | Server" /home/dbadmin/vsql_cmds.out
+    EOF
+
+    ALL_PODS=$(kubectl get pods --selector=vertica.com/usage=server,app.kubernetes.io/name=vertica -o=jsonpath='{.items[*].metadata.name}')
+    for pod_name in $ALL_PODS
+    do
+      kubectl cp /tmp/verify.sh $pod_name:/home/dbadmin/verify.sh
+      kubectl exec $pod_name -i -- sh /home/dbadmin/verify.sh
+    done
+---
+apiVersion: testing.kyma-project.io/v1alpha1
+kind: TestDefinition
+metadata:
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: test-verify-tls-server-mode
+spec:
+  description: |
+    Verify TLS is setup in server mode.  This assumes TLS setup has already occurred.
+  template:
+    spec:
+      containers:
+        - name: test
+          image: quay.io/helmpack/chart-testing:v3.3.1
+          command: ["/bin/entrypoint.sh"]
+          volumeMounts:
+            - name: entrypoint-volume
+              mountPath: /bin/entrypoint.sh
+              readOnly: true
+              subPath: entrypoint.sh
+            - name: server-tls-parms
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: entrypoint-volume
+          configMap:
+            defaultMode: 0700
+            name: script-verify-tls-server-mode
+        - name: server-tls-parms
+          secret:
+            secretName: {{ .Values.tls.serverSecret }}
