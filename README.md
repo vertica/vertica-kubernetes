@@ -27,7 +27,7 @@ Use `kubectl` to set up the configuration directory and install Vertica with the
     $ SELECTOR=vertica.com/usage=server,app.kubernetes.io/name=vertica,app.kubernetes.io/instance=$RELEASE
     $ NAMESPACE=my-namespace
     $ ALL_HOSTS=$(kubectl get pods -n $NAMESPACE --selector=$SELECTOR -o=jsonpath='{range .items[*]}{.metadata.name}.{.spec.subdomain},{end}' | sed 's/.$//')
-    $ POD_NAME=$(kubect1.l get pods -n $NAMESPACE --selector=$SELECTOR -o jsonpath="{.items[0].metadata.name}")
+    $ POD_NAME=$(kubectl get pods -n $NAMESPACE --selector=$SELECTOR -o jsonpath="{.items[0].metadata.name}")
     ```
 2. Run the `install_vertica` script to install Vertica, and add all of the pods to the Vertica cluster in the `my-release` instance: 
     ```
@@ -51,7 +51,7 @@ Use `kubectl` to create a database in the `my-release` instance using [admintool
     $ SELECTOR=vertica.com/usage=server,app.kubernetes.io/name=vertica,app.kubernetes.io/instance=$RELEASE
     $ NAMESPACE=my-namespace
     $ ALL_HOSTS=$(kubectl get pods -n $NAMESPACE --selector=$SELECTOR -o=jsonpath='{range .items[*]}{.metadata.name}.{.spec.subdomain},{end}' | sed 's/.$//')
-    $ POD_NAME=$(kubect1.l get pods -n $NAMESPACE --selector=$SELECTOR -o jsonpath="{.items[0].metadata.name}")
+    $ POD_NAME=$(kubectl get pods -n $NAMESPACE --selector=$SELECTOR -o jsonpath="{.items[0].metadata.name}")
     ```
 
 2. Create a configuration file called `auth_params.conf`. This file contains your S3 credentials, including your access key, secret key, and S3 endpoint. In the following command, replace values enclosed in angle brackets (<>) with values for your environment:
@@ -74,7 +74,7 @@ Use `kubectl` to create a database in the `my-release` instance using [admintool
       --hosts=$ALL_HOSTS \
       --communal-storage-location=s3://<bucket-name> \
       -x /home/dbadmin/auth_params.conf \
-      --shard-count=12 
+      --shard-count=12 \
       --depot-path=/home/dbadmin/local-data/depot \
       --database <database-name>
     ```
