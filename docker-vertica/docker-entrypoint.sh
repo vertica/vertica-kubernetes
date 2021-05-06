@@ -19,8 +19,11 @@ start_agent_when_ready(){
         if [ -f /opt/vertica/config/admintools.conf ]; then
             # safe to try to run admintools
             db=$(/opt/vertica/bin/admintools -t show_active_db) || true
+            # If we ask too early --- before this container's database has been
+            # created, the output is not a database name (nor is it empty), it
+            # is an error message that begins "admintools cannot be run..."
             case "$db"x in
-                x)
+                x|*admintools*cannot*)
                     sleep 15
                     ;;
                 *)

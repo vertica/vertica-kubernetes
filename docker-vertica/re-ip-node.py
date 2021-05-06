@@ -37,6 +37,12 @@ def getActiveDB():
     activeDbStr = getCommandResult(args, "get active db").rstrip()
     if not activeDbStr:
         return ""
+    # show_active_db is the first admintools command to run in this script
+    # if this command cannot run, e.g., in case of admintools.conf is broken, 
+    # then we assume any further admintools command cannot run
+    admintoolsCannotRunMsg = "admintools cannot be run with the current system state"
+    if admintoolsCannotRunMsg in activeDbStr:
+        return ""
     # split output by " ", following the output format of show_active_db
     activeDb = activeDbStr.split(" ")[0]
     print(f"active database is: {activeDb}")
