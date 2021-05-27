@@ -130,7 +130,9 @@ After the database is created, we attempt to restart Vertica each time a pod is 
 
 # Persistence
 
-Each pod uses a PV to store local data. This is mounted in the container at `/home/dbadmin/local-data`. This directory contains the following subdirectories:
+Each pod uses a PV to store local data. The PV is mounted in the container at `/home/dbadmin/local-data`. You must set permissions on the PV mount to 0777, or you get a "Permissions Denied" error when the container starts. If the PV was dynamically provisioned, you might need to manually change permissions with `chmod` after it is created.
+
+The local-data directory contains the following subdirectories:
 
 * **/home/dbadmin/local-data/data/**: Stores the local catalogs. When creating the database, use this as the data directory.
 * **/home/dbadmin/local-data/depot/**: When creating the database, use this as the depot directory.  
