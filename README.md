@@ -1,6 +1,6 @@
 # Introduction
 
-This chart uses the Helm package manager to create a Vertica deployment on a Kubernetes cluster.  
+This chart uses the [Helm package manager](https://helm.sh/) to create a Vertica deployment on a Kubernetes cluster.  
 
 # Prerequisites
 
