@@ -1,0 +1,9 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete pod v-crash-before-createdb-defsc-0
+    namespaced: true
+  - command: kubectl delete pod v-crash-before-createdb-defsc-1
+    namespaced: true
+  - command: kubectl delete pod v-crash-before-createdb-defsc-2
+    namespaced: true

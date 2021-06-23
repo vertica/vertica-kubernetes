@@ -1,0 +1,36 @@
+# About
+
+* Maintained by: The [vertica-kubernetes community](https://github.com/vertica/vertica-kubernetes)
+* Docker Community: [Docker Forums](https://forums.docker.com/), [Stack Overflow](https://stackoverflow.com/questions/tagged/docker)
+
+# Supported Tags
+* [11.0.0-0-minimal, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-vertica/Dockerfile)
+* [11.0.0-0](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-vertica/Dockerfile)
+* [10.1.1-0](https://github.com/vertica/vertica-kubernetes/blob/v0.1.0/docker-vertica/Dockerfile)
+
+# Quick Reference
+
+* [Vertica-Kubernetes GitHub repository](https://github.com/vertica/vertica-kubernetes)
+* [Vertica Helm chart repository](https://github.com/vertica/charts)
+* [Official Vertica Documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm)
+* Supported architectures: `amd64`
+
+# What is Vertica?
+
+Vertica is a unified analytics platform, based on a massively scalable architecture with the broadest set of analytical functions spanning event and time series, pattern matching, geospatial and end-to-end in-database machine learning. Vertica enables you to easily apply these powerful functions to the largest and most demanding analytical workloads, arming you and your customers with predictive business insights faster than any analytics data warehouse in the market. Vertica provides a unified analytics platform across major public clouds and on-premises data centers and integrates data in cloud object storage and HDFS without forcing you to move any of your data.
+
+https://www.vertica.com/
+
+![](https://raw.githubusercontent.com/vertica/vertica-kubernetes/main/vertica-logo.png)
+
+# How to Use This Image
+
+This image runs the Vertica engine.  It is optimized for use with the VerticaDB Operator.  That operator will manage a Vertica [Eon Mode](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes.
+
+We offer two different sizes of the image.  The one ending with *-minimal* has the optional [Tensorflow package](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/AnalyzingData/MachineLearning/UsingExternalModels/UsingTensorFlow/TensorFlowExample.htm) removed to save space.  If you require this package then you need to use the image without the *-minimal* suffix.  
+
+See the official [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes) for a brief overview on how to install, configure, and uninstall the operator. See the [official Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm) for an in-depth look at the Vertica on Kubernetes architecture.
+
+# License
+
+View the [license information](https://www.vertica.com/end-user-license-agreement-ce-version/) for this image.

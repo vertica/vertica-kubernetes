@@ -1,0 +1,59 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verifies access to the external service through port 5433.  It does this
+# by connecting using vsql
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-ksafety-test
+data:
+  test.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    CLUSTER_IP=v-scale-up-and-down-main
+    KSAFE=$(vsql -h $CLUSTER_IP -tAc "select get_design_ksafe()")
+  
+    if [[ $KSAFE == "1" ]]; then
+      exit 0
+    else
+      exit 5  # incorrect value of ksafe
+    fi
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-ksafety
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: replace-with-kustomize
+      command: ["/home/dbadmin/test.sh"]
+      volumeMounts:
+        - name: test-script
+          mountPath: /home/dbadmin/test.sh
+          readOnly: true
+          subPath: test.sh
+  volumes:
+    - name: test-script
+      configMap:
+        defaultMode: 0777
+        name: script-verify-ksafety-test

@@ -2,7 +2,52 @@ test_output.*
 *.rpm
 cert/
 logs.log
+int-tests-output/
 .vscode/
 unit-tests.xml
-int-tests-output/
-stern.pid
+kuttl-test.xml
+kubeconfig
+run.out
+local-soak.cfg
+
+# Generated files from create-kustomize-overlay.sh
+overlay/
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin
+testbin/*
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Kubernetes Generated files - skip generated files, except for vendored files
+
+!vendor/**/zz_generated.*
+
+# editor and IDE paraphernalia
+.idea
+*.swp
+*.swo
+*~
+
+# Omit some fully generated files
+config/crd/bases/vertica.com_verticadbs.yaml
+config/rbac/role.yaml
+api/v1alpha1/zz_generated.deepcopy.go
+
+# Omit generated files for helm verticadb-operator
+helm-charts/verticadb-operator/templates/*.yaml
+helm-charts/verticadb-operator/crds/*
+helm-charts/verticadb-webhook/templates/*.yaml
+helm-charts/verticadb-webhook/crds/*
+
+# Omit overlays files
+config/overlays/

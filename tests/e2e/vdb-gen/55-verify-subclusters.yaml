@@ -1,0 +1,72 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verify that the subcluster we attach to is the correct one.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-connected-subcluster
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    cat << EOF > /tmp/verify.sh
+    #!/bin/sh
+    set -o xtrace
+    set -o errexit
+
+    EXPECTED_SUBCLUSTER=\$1
+    Q="select subcluster_name from subclusters where node_name = (select node_name from sessions where session_id = current_session())"
+    vsql -w superuser -tAc "\$Q"
+    vsql -w superuser -tAc "\$Q" | grep \$EXPECTED_SUBCLUSTER
+    EOF
+
+    VDB_NAME=v-vdb-gen-revive
+    SUBCLUSTERS="sc1 sc2"
+    for subcluster in $SUBCLUSTERS
+    do
+      SELECTOR=app.kubernetes.io/name=vertica,app.kubernetes.io/instance=$VDB_NAME,vertica.com/subcluster=$subcluster
+      ALL_PODS=$(kubectl get pods --selector=$SELECTOR -o=jsonpath='{.items[*].metadata.name}')
+      for pod_name in $ALL_PODS
+      do
+        kubectl cp /tmp/verify.sh $pod_name:/home/dbadmin/verify.sh
+        kubectl exec $pod_name -i -- sh /home/dbadmin/verify.sh $subcluster
+      done
+    done
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-connected-subcluster-after-revive
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: quay.io/helmpack/chart-testing:v3.3.1
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0700
+        name: script-verify-connected-subcluster
