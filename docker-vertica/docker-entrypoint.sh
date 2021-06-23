@@ -41,58 +41,16 @@ start_agent_when_ready(){
     done 
 }
 
-restartNode(){
-    if [ ! -f /opt/vertica/config/admintools.conf ]
-    then
-        echo "Vertica is not installed, expect manual user intervention for install.";
-        sudo /usr/sbin/sshd -D
-        # If we get here we fail to force restart of container:
-        exit 1  
-    fi
-    # restart local Vertica node
-    echo "Restart local node"
-    /opt/vertica/sbin/python3 /opt/vertica/bin/re-ip-node.py --restart-node
-    sudo /usr/sbin/sshd -D
-}
-
-reIpNode(){
-    if [ ! -d /opt/vertica/config/licensing ] || [ -z $(ls -A /opt/vertica/config/licensing/*) ]
-    then
-        echo "Installing license..."
-        mkdir -p /opt/vertica/config/licensing
-        cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing
-    fi
-    echo "Update IP address on local node"
-    /opt/vertica/sbin/python3 /opt/vertica/bin/re-ip-node.py --re-ip-node
-    exit $?
-}
-
-defaultEntrypoint(){
-    echo "Vertica container is now running"
-    sudo /usr/sbin/sshd -D
+# We copy back the logrotate files in their original location /opt/vertica/config/
+# that's because we have a Persistent Volume that backs /opt/vertica/config, so it starts up empty and must be populated
+copy_logrotate_files(){
+    cp -r /home/dbadmin/logrotate/* /opt/vertica/config/
+    rm -rf /home/dbadmin/logrotate
 }
 
 start_cron
+copy_logrotate_files
 start_agent_when_ready &
 
-case $# in
-    1) 
-        case $1 in
-            restart-vertica-node)
-                restartNode
-                ;;
-            re-ip-vertica-node)
-                reIpNode
-                ;;
-            *)
-                echo "Invalid argument: $1"
-                exit 1
-                ;;
-        esac
-        ;;
-    *)
-        defaultEntrypoint
-        ;;
-esac
-
-
+echo "Vertica container is now running"
+sudo /usr/sbin/sshd -D

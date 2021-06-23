@@ -1,0 +1,2 @@
+kind: Removed
+body: helm chart (vertica) was removed as it was made obsolete by the verticadb-operator

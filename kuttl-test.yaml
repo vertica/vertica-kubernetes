@@ -1,0 +1,71 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+testDirs:
+  - tests/e2e
+parallel: 6
+timeout: 480
+commands:
+  # The tests depend on the minio operator, ensure that it is installed.
+  - command: kubectl krew update
+  - command: kubectl krew install minio
+  - command: kubectl minio init
+
+  # Create the kustomize overlay files to set the image to use.
+  - command: tests/create-kustomize-overlay.sh $VERTICA_IMG
+
+  # Create the helm chart
+  - command: make helm-create-resources vdb-gen
+  - command: make undeploy-webhook
+    ignoreFailure: true
+  - command: make deploy-webhook
+
+  # We do a pre-pull of the vertica-k8s image to avoid timeouts
+  # during the test run.
+  - command: kubectl delete pod vertica-k8s-image-pull
+    namespaced: true
+    ignoreFailure: true
+  - command: bash -c "kustomize build tests/manifests/image-pull/overlay | kubectl -n $NAMESPACE apply -f - "
+  - command: kubectl wait --for=condition=Ready pod --timeout=7m vertica-k8s-image-pull
+    namespaced: true
+  - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
+    namespaced: true
+
+  # We do a pre-pul of the vertica-k8s image version latest and 10.1.1-0
+  # that we will use for the test upgrade-vertica.
+  - command: bash -c "sed 's+replace-with-kustomize+verticadocker/vertica-k8s:10.1.1-0+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
+  - command: kubectl wait --for=condition=Ready pod --timeout=7m vertica-k8s-image-pull
+    namespaced: true
+  - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
+    namespaced: true
+  - command: bash -c "sed 's+replace-with-kustomize+verticadocker/vertica-k8s:latest+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
+  - command: kubectl wait --for=condition=Ready pod --timeout=7m vertica-k8s-image-pull
+    namespaced: true
+  - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
+    namespaced: true
+
+  
+  
+
+  # We use stern to collect the pod output of any test that creates a pod with
+  # the 'stern=include' label.  By default, the output of this is stored in a
+  # file in int-tests-output/
+  - command: scripts/save-ancillary-logs.sh
+    background: true
+
+  # We have another stern to collect the output for all of the operators.  By
+  # default, the output of this is stored in a file in int-tests-output/
+  - script: scripts/save-operator-logs.sh
+    background: true

@@ -53,3 +53,13 @@ strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
 # it changes the checksums used to verify the libraries when loaded
 /opt/vertica/oss/python3/bin/python3 \
     /tmp/package-checksum-patcher.py /opt/vertica/packages/*
+
+# (optional) minimal images remove packages that aren't auto installed
+if [ "$MINIMAL" = "YES" ]
+then 
+  cd /opt/vertica/packages
+  for i in $(find . -name package.conf -exec grep Autoinstall=False {} + | cut -d"/" -f2)
+  do
+   rm -rf $i
+  done
+fi

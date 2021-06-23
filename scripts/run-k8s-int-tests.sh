@@ -1,11 +1,27 @@
 #!/bin/bash
 
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+DEF_TAG=kind
+
 # The make targets and  the invoked shell scripts are directly run from the root directory.
 function usage {
     echo "$0 -l <log_dir>  -n <cluster_name> -t <tag_name> [-h]"
     echo "  l   Log directory.   default: PWD"
     echo "  n   Name of the kind cluster. default: vertica"
-    echo "  t   Tag. default: default-1"
+    echo "  t   Tag. default: $DEF_TAG"
     exit
 }
 
@@ -40,8 +56,8 @@ if [ -z ${CLUSTER_NAME} ]; then
 fi
 
 if [ -z ${TAG} ]; then
-    TAG=default-1
-    echo "Assigned default value 'default-1' to TAG"
+    TAG=$DEF_TAG
+    echo "Assigned default value '$TAG' to TAG"
 fi
 
 if [ -z ${INT_TEST_OUTPUT_DIR} ]; then
@@ -67,7 +83,7 @@ function copy_rpm {
 
 # Setup the k8s cluster and switch context
 function setup_cluster {
-    echo "Setting up kind cluster with $TAG tag and $CLUSTER_NAME name"
+    echo "Setting up kind cluster named $CLUSTER_NAME"
     scripts/kind.sh  init "$CLUSTER_NAME"
     if [ $? -ne 0 ]; then
       echo "Unable to create the $CLUSTER_NAME cluster"
@@ -81,14 +97,14 @@ function setup_integration_tests {
     echo "Setting up integration tests"
     scripts/setup-int-tests.sh
     if [ $? -ne 0 ]; then
-      echo "Unable to create the $CLUSTER_NAME cluster"
+      echo "Unable to call setup-int-tests.sh"
       exit 1
     fi
 }
 
-# Build vertica and python tools images, push to kind environment and deploy to the cluster
+# Build vertica images, push to kind environment and deploy to the cluster
 function build_and_deploy {
-    echo "Building vertica and python tools container images"
+    echo "Building vertica container images"
     make  docker-build
     echo "Pushing the images to kind cluster"
     scripts/push-to-kind.sh -t $TAG "$CLUSTER_NAME"
@@ -104,8 +120,6 @@ function build_and_deploy {
 function run_integration_tests {
   echo "Saving the test status log in $INT_TEST_OUTPUT_DIR/integration_run.log "
   make run-int-tests > "$INT_TEST_OUTPUT_DIR"/integration_run.log
-  echo "Saving final ocutpus pod status in $INT_TEST_OUTPUT_DIR/pod_status.csv "
-  kubectl get pods --selector=testing.kyma-project.io/created-by-octopus=true > "$INT_TEST_OUTPUT_DIR"/pod_status.csv
 }
 
 trap cleanup EXIT

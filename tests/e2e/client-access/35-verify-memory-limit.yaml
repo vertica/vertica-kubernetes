@@ -1,0 +1,73 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verify that Vertica node correctly reads information from /etc/podinfo/memory-limit. The pre-req for
+# this test to run is to have an existing Vertica database running
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-memory-limit
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o xtrace
+    set -o errexit
+
+    VDB_NAME=v-client-access
+    SELECTOR=app.kubernetes.io/name=vertica,app.kubernetes.io/instance=$VDB_NAME
+    POD_NAME=$(kubectl get pods --selector=$SELECTOR -o jsonpath="{.items[0].metadata.name}")
+    MEM_LIMIT_BYTES=$(kubectl exec $POD_NAME  -i -- cat /etc/podinfo/memory-limit)
+    echo "Memory limit is ${MEM_LIMIT_BYTES} bytes"
+
+    cat << EOF > /tmp/vsql_mem_limit_cmds.in
+    select total_memory_bytes from host_resources order by host_name limit 1;
+    select case when round((rs.max_memory_size_kb * 1024)/hr.total_memory_bytes, 2) < 0.95 then 'passed' else 'failed' end from resource_pool_status as rs, host_resources as hr where rs.pool_name = 'general' limit 1;
+    EOF
+
+    kubectl cp /tmp/vsql_mem_limit_cmds.in $POD_NAME:/home/dbadmin/vsql_mem_limit_cmds.in
+    kubectl exec $POD_NAME -i -- sh -c "cd /home/dbadmin && vsql --echo-queries --file vsql_mem_limit_cmds.in 2>&1 | tee vsql_mem_limit_cmds.out"
+
+    cat << EOF > /tmp/vsql_mem_limit_cmds_verify.sh
+    set -e
+    cd /home/dbadmin
+    cat vsql_mem_limit_cmds.out
+    grep $MEM_LIMIT_BYTES vsql_mem_limit_cmds.out
+    grep "passed" vsql_mem_limit_cmds.out
+    EOF
+
+    kubectl cp /tmp/vsql_mem_limit_cmds_verify.sh $POD_NAME:/home/dbadmin/vsql_mem_limit_cmds_verify.sh
+    kubectl exec $POD_NAME -i -- sh /home/dbadmin/vsql_mem_limit_cmds_verify.sh
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-memory-limit
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: quay.io/helmpack/chart-testing:v3.3.1
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0700
+        name: script-verify-memory-limit

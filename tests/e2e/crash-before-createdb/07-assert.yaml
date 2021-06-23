@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Event
+reason: Installing
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
+  name: v-crash-before-createdb
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-crash-before-createdb-defsc-0
+status:
+  phase: Running
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-crash-before-createdb-defsc-1
+status:
+  phase: Running
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-crash-before-createdb-defsc-2
+status:
+  phase: Running

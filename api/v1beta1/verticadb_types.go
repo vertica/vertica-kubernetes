@@ -1,0 +1,537 @@
+/*
+Copyright 2021.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1beta1
+
+import (
+	"regexp"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+)
+
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+// Important: Run "make" to regenerate code after modifying this file
+
+const VerticaDBKind = "VerticaDB"
+const VerticaDBAPIVersion = "vertica.com/v1beta1"
+
+// VerticaDBSpec defines the desired state of VerticaDB
+type VerticaDBSpec struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=IfNotPresent
+	// This dictates the image pull policy to use
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// ImagePullSecrets is an optional list of references to secrets in the same
+	// namespace to use for pulling the image. If specified, these secrets will
+	// be passed to individual puller implementations for them to use. For
+	// example, in the case of docker, only DockerConfig type secrets are
+	// honored.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="verticadocker/vertica-k8s:10.1.1-0"
+	// The docker image name that contains Vertica.
+	Image string `json:"image,omitempty"`
+
+	// Custom labels that will be added to all of the objects that the operator
+	// will create.
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Custom annotations that will be added to all of the objects that the
+	// operator will create.
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// +kubebuilder:default:=true
+	// +kubebuilder:validation:Optional
+	// State to indicate whether the operator will restart Vertica if the
+	// process is not running. Under normal cicumstances this is set to true.
+	// The purpose of this is to allow a maintenance window, such as an
+	// upgrade, without the operator interfering.
+	AutoRestartVertica bool `json:"autoRestartVertica"`
+
+	// +kubebuilder:default:="vertdb"
+	// +kubebuilder:validation:Optional
+	// The name of the database.  This cannot be updated once the CRD is created.
+	DBName string `json:"dbName"`
+
+	// +kubebuilder:default:=12
+	// +kubebuilder:validation:Optional
+	// The number of shards to create in the database. This cannot be updated
+	// once the CRD is created.
+	ShardCount int `json:"shardCount"`
+
+	// +kubebuilder:validation:Optional
+	// An optional name for a secret that contains the password for the
+	// database's superuser. If this is not set, then we assume no such password
+	// is set for the database. If this is set, it is up the user to create this
+	// secret before deployment. The secret must have a key named password.
+	SuperuserPasswordSecret string `json:"superuserPasswordSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// The name of a secret that contains the contents of license files. The
+	// secret must be in the same namespace as the CRD. Each of the keys in the
+	// secret will be mounted as files in /home/dbadmin/licensing/mnt. If this
+	// is set prior to installing of hosts the call to update_vertica will
+	// include one of the licenses from the secret -- if there are multiple
+	// licenses it will pick one by selecting the first one alphabetically.
+	// The user is responsible for installing any additional licenses or if the
+	// license was added to the secret after install.
+	LicenseSecret string `json:"licenseSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// Ignore the cluster lease when doing a revive or start_db.  Use this with
+	// caution, as ignoring the cluster lease when another system is using the
+	// same communal storage will cause corruption.
+	IgnoreClusterLease bool `json:"ignoreClusterLease,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=Create
+	// The initialization policy defines how to setup the database.  Available
+	// options are to create a new database or revive an existing one.
+	InitPolicy CommunalInitPolicy `json:"initPolicy"`
+
+	// +kubebuilder:validation:Optional
+	// This specifies the order of nodes when doing a revive.  Each entry
+	// contains an index to a subcluster, which is an index in Subclusters[],
+	// and a pod count of the number of pods include from the subcluster.
+	//
+	// For example, suppose the database you want to revive has the following setup:
+	// v_db_node0001: subcluster A
+	// v_db_node0002: subcluster A
+	// v_db_node0003: subcluster B
+	// v_db_node0004: subcluster A
+	// v_db_node0005: subcluster B
+	// v_db_node0006: subcluster B
+	//
+	// And the Subcluster[] array is defined as {'A', 'B'}.  The revive order
+	// would be:
+	// - {subclusterIndex:0, podCount:2}  # 2 pods from subcluster A
+	// - {subclusterIndex:1, podCount:1}  # 1 pod from subcluster B
+	// - {subclusterIndex:0, podCount:1}  # 1 pod from subcluster A
+	// - {subclusterIndex:1, podCount:2}  # 2 pods from subcluster B
+	//
+	// If InitPolicy is not Revive, this field can be ignored.
+	ReviveOrder []SubclusterPodCount `json:"reviveOrder,omitempty"`
+
+	// Contains details about the communal storage.
+	Communal CommunalStorage `json:"communal"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={requestSize:"500Gi", dataPath:"/data", depotPath:"/depot"}
+	// Contain details about the local storage
+	Local LocalStorage `json:"local"`
+
+	Subclusters []Subcluster `json:"subclusters"`
+
+	// +kubebuilder:default:="1"
+	// +kubebuilder:validation:Optional
+	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
+	// suitable for test environments because we have no fault tolerance and the cluster
+	// can only have between 1 and 3 pods.  If set to 1, we have fault tolerance if nodes
+	// die and the cluster has a minimum of 3 pods.
+	//
+	// This value cannot change after the initial creation of the VerticaDB.
+	KSafety KSafetyType `json:"kSafety,omitempty"`
+
+	// +kubebuilder:default:=0
+	// +kubebuilder:validation:Optional
+	// If a reconciliation iteration needs to be requeued this controls the
+	// amount of time in seconds to wait.  If this is set to 0, then the requeue
+	// time will increase using an exponential backoff algorithm.  Caution, when
+	// setting this to some positive value the exponential backoff is disabled.
+	// This should be reserved for test environments as an error scenario could
+	// easily consume the logs.
+	RequeueTime int `json:"requeueTime,omitempty"`
+}
+
+type CommunalInitPolicy string
+
+const (
+	// The database in the communal path will be initialized with a create_db.
+	// There must not already be a database in the communal path.
+	CommunalInitPolicyCreate = "Create"
+	// The database in the communal path will be initialized in the VerticaDB
+	// through a revive_db.  The communal path must have a preexisting database.
+	CommunalInitPolicyRevive = "Revive"
+)
+
+type KSafetyType string
+
+const (
+	KSafety0 KSafetyType = "0"
+	KSafety1 KSafetyType = "1"
+)
+
+// Defines a number of pods for a specific subcluster
+type SubclusterPodCount struct {
+	// +kubebuilder:validation:required
+	// The index of the subcluster.  This is an index into Subclusters[]
+	SubclusterIndex int `json:"subclusterIndex"`
+
+	// +kubebuilder:validation:Optional
+	// The number of pods paired with this subcluster.  If this is omitted then,
+	// all remaining pods in the subcluster will be used.
+	PodCount int `json:"podCount,omitempty"`
+}
+
+// Holds details about the communal storage
+type CommunalStorage struct {
+	// +kubebuilder:validation:required
+	// The path to the communal storage. This must be the s3 bucket. You specify
+	// this using the s3:// bucket notation. For example:
+	// s3://bucket-name/key-name. The bucket must be created prior to creating
+	// the VerticaDB.  This field is required and cannot change after creation.
+	Path string `json:"path"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=false
+	// If true, the operator will include the VerticaDB's UID in the path.  This
+	// option exists if you reuse the communal path in the same endpoint as it
+	// forces each database path to be unique.
+	IncludeUIDInPath bool `json:"includeUIDInPath,omitempty"`
+
+	// +kubebuilder:validation:required
+	// The URL to the s3 endpoint. The endpoint must be prefaced with http:// or
+	// https:// to know what protocol to connect with. This field is required
+	// and cannot change after creation.
+	Endpoint string `json:"endpoint"`
+
+	// +kubebuilder:validation:required
+	// The name of a secret that contains the credentials to connect to the
+	// communal S3 endpoint. The secret must have the following keys set:
+	// accessey and secretkey.
+	CredentialSecret string `json:"credentialSecret"`
+}
+
+type LocalStorage struct {
+	// +kubebuilder:validation:Optional
+	// The local data stores the local catalog, depot and config files. This
+	// defines the name of the storageClass to use for that volume. This will be
+	// set when creating the PVC. By default, it is not set. This means that
+	// that the PVC we create will have the default storage class set in
+	// Kubernetes.
+	StorageClass string `json:"storageClass,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:="500Gi"
+	// The minimum size of the local data volume when picking a PV.
+	RequestSize resource.Quantity `json:"requestSize,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=/data
+	// The path in the container to the local catalog.  When initializing the
+	// database with revive, the local path here must match the path that was
+	// used when the database was first created.
+	DataPath string `json:"dataPath"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=/depot
+	// The path in the container to the depot.  When initializing the database with
+	// revive, this path must match the depot path used when the database was
+	// first created.
+	DepotPath string `json:"depotPath"`
+}
+
+type Subcluster struct {
+	// +kubebuilder:validation:required
+	// The name of the subcluster. This is a required parameter. This cannot
+	// change after CRD creation.
+	Name string `json:"name"`
+
+	// +kubebuilder:default:=3
+	// +kubebuilder:Minimum:=3
+	// +kubebuilder:validation:Optional
+	// The number of pods that the subcluster will have. This determines the
+	// number of Vertica nodes that it will have. Changing this number will
+	// either delete or schedule new pods.
+	//
+	// The database has a k-safety of 1. So, if this is a primary subcluster,
+	// the minimum value is 3. If this is a secondary subcluster, the minimum is
+	// 0.
+	//
+	// Note, you must have a valid license to pick a value larger than 3. The
+	// default license that comes in the vertica container is for the community
+	// edition, which can only have 3 nodes. The license can be set with the
+	// db.licenseSecret parameter.
+	Size int32 `json:"size"`
+
+	// +kubebuilder:default:=true
+	// +kubebuilder:validation:Optional
+	// Indicates whether the subcluster is a primary or secondary. You must have
+	// at least one primary subcluster in the database.
+	IsPrimary bool `json:"isPrimary"`
+
+	// A map of label keys and values to restrict Vertica node scheduling to workers
+	// with matchiing labels.
+	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Like nodeSelector this allows you to constrain the pod only to certain
+	// pods. It is more expressive than just using node selectors.
+	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
+	// The priority class name given to pods in this subcluster. This affects
+	// where the pod gets scheduled.
+	// More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
+	// Any tolerations and taints to use to aid in where to schedule a pod.
+	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+
+	// This defines the resource requests and limits for pods in the subcluster.
+	// It is advisable that the request and limits match as this ensures the
+	// pods are assigned to the guaranteed QoS class. This will reduces the
+	// chance that pods are chosen by the OOM killer.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// +kubebuilder:default:=ClusterIP
+	// +kubebuilder:validation:Optional
+	// Identifies the type of Kubernetes service to use for external client
+	// connectivity. The default is to use a ClusterIP, which sets a stable IP
+	// and port to use that is accessible only from within Kubernetes itself.
+	// Depending on the service type chosen the user may need to set other
+	// config knobs to further config it. These other knobs follow this one.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// When setting serviceType to NodePort, this parameter allows you to define the
+	// port that is opened at each node. If using NodePort and this is omitted,
+	// Kubernetes will choose the port automatically. This port must be from
+	// within the defined range allocated by the control plane (default is
+	// 30000-32767).
+	NodePort int32 `json:"nodePort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Allows the service object to be attached to a list of external IPs that you
+	// specify. If not set, the external IP list is left empty in the service object.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
+	ExternalIPs []string `json:"externalIPs,omitempty"`
+}
+
+// VerticaDBStatus defines the observed state of VerticaDB
+type VerticaDBStatus struct {
+	// A count of the number of pods that have been installed into the vertica cluster.
+	InstallCount int32 `json:"installCount"`
+
+	// A count of the number of pods that have been added to the database.
+	AddedToDBCount int32 `json:"addedToDBCount"`
+
+	// A count of the number of pods that have a running vertica process.
+	UpNodeCount int32 `json:"upNodeCount"`
+
+	// The number of subclusters in the database
+	SubclusterCount int32 `json:"subclusterCount"`
+
+	// Status per subcluster.
+	Subclusters []SubclusterStatus `json:"subclusters,omitempty"`
+
+	// Conditions for VerticaDB
+	Conditions []VerticaDBCondition `json:"conditions,omitempty"`
+}
+
+// VerticaDBConditionType defines type for VerticaDBCondition
+type VerticaDBConditionType string
+
+const (
+	// AutoRestartVertica indicates whether the operator should restart the vertica process
+	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
+	// DBInitialized indicateds the database has been created or revived
+	DBInitialized VerticaDBConditionType = "DBInitialized"
+)
+
+// Fixed index entries for each condition.
+const (
+	AutoRestartVerticaIndex = iota
+	DBInitializedIndex
+)
+
+// VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
+// index in the condition array
+var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
+	AutoRestartVertica: AutoRestartVerticaIndex,
+	DBInitialized:      DBInitializedIndex,
+}
+
+// VerticaDBCondition defines condition for VerticaDB
+type VerticaDBCondition struct {
+	// Type is the type of the condition
+	Type VerticaDBConditionType `json:"type"`
+
+	// Status is the status of the condition
+	// can be True, False or Unknown
+	Status corev1.ConditionStatus `json:"status"`
+
+	// Last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+}
+
+// SubclusterStatus defines the per-subcluster status that we track
+type SubclusterStatus struct {
+	// Name of the subcluster
+	Name string `json:"name"`
+
+	// A count of the number of pods that have been installed into the subcluster.
+	InstallCount int32 `json:"installCount"`
+
+	// A count of the number of pods that have been added to the database for this subcluster.
+	AddedToDBCount int32 `json:"addedToDBCount"`
+
+	// A count of the number of pods that have a running vertica process in this subcluster.
+	UpNodeCount int32 `json:"upNodeCount"`
+
+	Detail []VerticaDBPodStatus `json:"detail"`
+}
+
+// VerticaDBPodStatus holds state for a single pod in a subcluster
+type VerticaDBPodStatus struct {
+	// This is set to true if /opt/vertica/config has been bootstrapped.
+	Installed bool `json:"installed"`
+	// This is set to true if the DB exists and the pod has been added to it.
+	AddedToDB bool `json:"addedToDB"`
+	// This is the vnode name that Vertica internally assigned this pod (e.g. v_<dbname>_nodexxxx)
+	VNodeName string `json:"vnodeName"`
+	// True means the vertica process is running on this pod and it can accept
+	// connections on port 5433.
+	UpNode bool `json:"upNode"`
+}
+
+//+kubebuilder:object:root=true
+//+kubebuilder:subresource:status
+//+kubebuilder:resource:categories=all;verticadbs,shortName=vdb
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+//+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
+//+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
+//+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
+//+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
+//+kubebuilder:printcolumn:name="AutoRestartVertica",type="string",JSONPath=".status.conditions[0].status"
+
+// VerticaDB is the Schema for the verticadbs API
+type VerticaDB struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   VerticaDBSpec   `json:"spec,omitempty"`
+	Status VerticaDBStatus `json:"status,omitempty"`
+}
+
+//+kubebuilder:object:root=true
+
+// VerticaDBList contains a list of VerticaDB
+type VerticaDBList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VerticaDB `json:"items"`
+}
+
+func init() {
+	SchemeBuilder.Register(&VerticaDB{}, &VerticaDBList{})
+}
+
+const (
+	// Annotations that we add by parsing vertica --version output
+	VersionAnnotation   = "vertica.com/version"
+	BuildDateAnnotation = "vertica.com/buildDate"
+	BuildRefAnnotation  = "vertica.com/buildRef"
+)
+
+// ExtractNamespacedName gets the name and returns it as a NamespacedName
+func (v *VerticaDB) ExtractNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      v.ObjectMeta.Name,
+		Namespace: v.ObjectMeta.Namespace,
+	}
+}
+
+// MakeVDBName is a helper that creates a sample name for test purposes
+func MakeVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-sample", Namespace: "default"}
+}
+
+// MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
+// This is intended for test purposes.
+func MakeVDB() *VerticaDB {
+	nm := MakeVDBName()
+	return &VerticaDB{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "vertica.com/v1beta1",
+			Kind:       "VerticaDB",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        nm.Name,
+			Namespace:   nm.Namespace,
+			UID:         "abcdef-ghi",
+			Annotations: make(map[string]string),
+		},
+		Spec: VerticaDBSpec{
+			AutoRestartVertica: true,
+			Labels:             make(map[string]string),
+			Annotations:        make(map[string]string),
+			Image:              "vertica-k8s:latest",
+			InitPolicy:         CommunalInitPolicyCreate,
+			Communal: CommunalStorage{
+				Path:             "s3://nimbusdb/mspilchen",
+				Endpoint:         "http://minio",
+				CredentialSecret: "s3-auth",
+			},
+			Local: LocalStorage{
+				DataPath:  "/data",
+				DepotPath: "/depot",
+			},
+			DBName:     "db",
+			ShardCount: 12,
+			Subclusters: []Subcluster{
+				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP},
+			},
+		},
+	}
+}
+
+// GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
+func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
+	scMap := map[string]*Subcluster{}
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		scMap[sc.Name] = sc
+	}
+	return scMap
+}
+
+// IsValidSubclusterName validates the subcluster name is valid.  We have rules
+// about its name because it is included in the name of the statefulset, so we
+// must adhere to the Kubernetes rules for object names.
+func IsValidSubclusterName(scName string) bool {
+	r := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?$`)
+	return r.MatchString(scName)
+}
+
+func (v *VerticaDB) GetVerticaVersion() (string, bool) {
+	ver, ok := v.ObjectMeta.Annotations[VersionAnnotation]
+	return ver, ok
+}

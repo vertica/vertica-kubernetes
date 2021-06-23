@@ -17,27 +17,56 @@
 
 set -e
 
-TAG=latest
+function setImageWithTag() {
+    TAG=$1
+    IMAGES="vertica-k8s:$TAG verticadb-operator:$TAG verticadb-webhook:$TAG"
+}
 
-while getopts "t:" opt
+TAG=kind
+setImageWithTag $TAG
+
+function usage() {
+    echo "usage: push-to-kind.sh [-i <image>] [-t <tag>] [<name>]"
+    echo
+    echo "Options:"
+    echo "  -i     Image names to push.  Defaults to: $IMAGES"
+    echo "  -t     Tag name to use with each image.  This is mutually exclusive"
+    echo "         with -i as it will set the image names with this tag."
+    echo "         Defaults to: $TAG"
+    echo
+    echo "Positional Arguments:"
+    echo " <name>  Name of the cluster to push to.  If unset, it will pick from the current context."
+    exit 1
+}
+
+while getopts "i:t:h" opt
 do
     case $opt in
-        t) TAG=$OPTARG;;
+        t)
+            setImageWithTag $OPTARG
+            ;;
+        i)
+            IMAGES=$OPTARG
+            ;;
+        h) 
+            usage
+            ;;
+        \?)
+            echo "ERROR: unrecognized option: -$opt"
+            usage
+            ;;
     esac
 done
 
 if [ $(( $# - $OPTIND )) -lt 0 ]
 then
-    echo "usage: push-to-kind.sh [-t <tag>] <name>"
-    echo
-    echo "Options:"
-    echo "  -t     Tag to use for the images.  Defaults to latest"
-    echo
-    echo "Positional Arguments:"
-    echo " <name>  Name of the cluster to push to"
-    exit 1
+    # Typical kind cluster name is something like: kind-matt1
+    # We only want what is after 'kind-'
+    CLUSTER_NAME=$(kubectl config current-context | cut -d"-" -f2)
+else
+    CLUSTER_NAME=${@:$OPTIND:1}
 fi
-CLUSTER_NAME=${@:$OPTIND:1}
+echo "Pushing to cluster ${CLUSTER_NAME}"
 
 if [[ -z $GOPATH ]]
 then
@@ -45,7 +74,7 @@ then
 fi
 PATH=$GOPATH/go/bin:$PATH
 
-for imageName in vertica-k8s python-tools
+for imageName in $IMAGES
 do
-    kind load docker-image --name ${CLUSTER_NAME} ${imageName}:${TAG}
+    kind load docker-image --name ${CLUSTER_NAME} ${imageName}
 done
