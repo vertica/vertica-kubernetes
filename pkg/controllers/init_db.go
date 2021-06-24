@@ -102,6 +102,10 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
+	if err := changeDepotPermissions(ctx, g.Vdb, g.PRunner, podList); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
 
 	cmd := g.initializer.genCmd(getHostList(podList))

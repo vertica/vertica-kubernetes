@@ -1,0 +1,31 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # Setup and use a plugin that allows us to treat a git repository as a helm chart.
+  - command: helm plugin install https://github.com/aslafy-z/helm-git --version 0.10.0
+    ignoreFailure: true # The plugin may already exist
+  - command: helm repo add local-path-provisioner git+https://github.com/rancher/local-path-provisioner@deploy/chart?ref=v0.0.19
+  - command: helm repo update
+
+  # Cleanup any cluster scope objects from a prior helm install.
+  - command: kubectl delete storageclass v-private-pv-local-path
+    ignoreFailure: true # storageClass may not exist
+  - command: kubectl delete clusterrole v-private-pv-local-path-provisioner
+    ignoreFailure: true # clusterrole may not exist
+  - command: kubectl delete clusterrolebinding v-private-pv-local-path-provisioner
+    ignoreFailure: true # clusterrolebinding may not exist
+  - command: helm install v-private-pv local-path-provisioner/local-path-provisioner --values local-path-helm-overrides.yaml
+    namespaced: true
