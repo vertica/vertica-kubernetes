@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-webhook
 spec:
-  image: verticadocker/vertica-k8s:latest # we hardcode the image name here because it will be use in Step 45
+  image: replace-with-kustomize
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"

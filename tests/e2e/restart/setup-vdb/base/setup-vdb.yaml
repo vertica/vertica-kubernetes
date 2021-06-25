@@ -24,6 +24,7 @@ spec:
     credentialSecret: minio-creds-secret
   dbName: spilchendb2
   shardCount: 20
+  requeueTime: 4
   subclusters:
     - name: defsc
       size: 3
