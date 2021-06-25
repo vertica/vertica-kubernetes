@@ -22,7 +22,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // AgentReconciler will ensure the agent is running
@@ -38,18 +37,6 @@ type AgentReconciler struct {
 func MakeAgentReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &AgentReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
-}
-
-func (a *AgentReconciler) GetClient() client.Client {
-	return a.VRec.Client
-}
-
-func (a *AgentReconciler) GetVDB() *vapi.VerticaDB {
-	return a.Vdb
-}
-
-func (a *AgentReconciler) CollectPFacts(ctx context.Context) error {
-	return a.PFacts.Collect(ctx, a.Vdb)
 }
 
 // Reconcile will ensure the agent is running and start it if it isn't

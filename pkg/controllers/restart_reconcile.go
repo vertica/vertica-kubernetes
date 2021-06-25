@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -62,29 +61,17 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	return &RestartReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
 }
 
-func (r *RestartReconciler) GetClient() client.Client {
-	return r.VRec.Client
-}
-
-func (r *RestartReconciler) GetVDB() *vapi.VerticaDB {
-	return r.Vdb
-}
-
-func (r *RestartReconciler) CollectPFacts(ctx context.Context) error {
-	return r.PFacts.Collect(ctx, r.Vdb)
-}
-
 // Reconcile will ensure each pod is UP in the vertica sense.
 // On success, each node will have a running vertica process.
 func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.Spec.AutoRestartVertica {
-		err := status.UpdateCondition(ctx, r.GetClient(), r.Vdb,
+		err := status.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
 			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},
 		)
 		return ctrl.Result{}, err
 	}
 
-	err := status.UpdateCondition(ctx, r.GetClient(), r.Vdb,
+	err := status.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
 		vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
 	)
 	if err != nil {

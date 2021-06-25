@@ -52,18 +52,6 @@ func MakeObjReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Logge
 	return &ObjReconciler{Client: cli, Scheme: scheme, Log: log, Vdb: vdb, PFacts: pfacts}
 }
 
-func (o *ObjReconciler) GetClient() client.Client {
-	return o.Client
-}
-
-func (o *ObjReconciler) GetVDB() *vapi.VerticaDB {
-	return o.Vdb
-}
-
-func (o *ObjReconciler) CollectPFacts(ctx context.Context) error {
-	return o.PFacts.Collect(ctx, o.Vdb)
-}
-
 // Reconcile is the main driver for reconciliation of Kubernetes objects.
 // This will ensure the desired svc and sts objects exist and are in the correct state.
 func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {

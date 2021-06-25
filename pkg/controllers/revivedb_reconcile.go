@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ReviveDBReconciler will revive a database if one doesn't exist in the vdb yet.
@@ -47,18 +46,6 @@ type ReviveDBReconciler struct {
 func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &ReviveDBReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
-}
-
-func (r *ReviveDBReconciler) GetClient() client.Client {
-	return r.VRec.Client
-}
-
-func (r *ReviveDBReconciler) GetVDB() *vapi.VerticaDB {
-	return r.Vdb
-}
-
-func (r *ReviveDBReconciler) CollectPFacts(ctx context.Context) error {
-	return r.PFacts.Collect(ctx, r.Vdb)
 }
 
 // Reconcile will ensure a DB exists and revive one if it doesn't

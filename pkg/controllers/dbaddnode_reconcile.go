@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"yunion.io/x/pkg/tristate"
 )
 
@@ -44,18 +43,6 @@ type DBAddNodeReconciler struct {
 func MakeDBAddNodeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &DBAddNodeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
-}
-
-func (d *DBAddNodeReconciler) GetClient() client.Client {
-	return d.VRec.Client
-}
-
-func (d *DBAddNodeReconciler) GetVDB() *vapi.VerticaDB {
-	return d.Vdb
-}
-
-func (d *DBAddNodeReconciler) CollectPFacts(ctx context.Context) error {
-	return d.PFacts.Collect(ctx, d.Vdb)
 }
 
 // Reconcile will ensure a DB exists and create one if it doesn't

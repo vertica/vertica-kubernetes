@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // DBRemoveSubclusterReconciler will remove subclusters from the database
@@ -43,18 +42,6 @@ type DBRemoveSubclusterReconciler struct {
 func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &DBRemoveSubclusterReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
-}
-
-func (d *DBRemoveSubclusterReconciler) GetClient() client.Client {
-	return d.VRec.Client
-}
-
-func (d *DBRemoveSubclusterReconciler) GetVDB() *vapi.VerticaDB {
-	return d.Vdb
-}
-
-func (d *DBRemoveSubclusterReconciler) CollectPFacts(ctx context.Context) error {
-	return d.PFacts.Collect(ctx, d.Vdb)
 }
 
 // Reconcile will remove any subcluster that no longer exists in the vdb.
