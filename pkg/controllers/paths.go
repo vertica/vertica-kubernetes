@@ -57,3 +57,19 @@ func debugDumpAdmintoolsConf(ctx context.Context, prunner cmds.PodRunner, atPod 
 	// Since this is for debugging purposes all errors are ignored
 	prunner.ExecInPod(ctx, atPod, ServerContainer, cmd...) // nolint:errcheck
 }
+
+// changeDepotPermissions ensures dbadmin owns the depot directory.  When the
+// directory are first mounted they are owned by root.  Vertica handles changing
+// the ownership of the config, log and data directory.  This function exists to
+// handle the depot directory.
+func changeDepotPermissions(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podList []*PodFact) error {
+	cmd := []string{
+		"sudo", "chown", "dbadmin:verticadba", "-R", fmt.Sprintf("%s/%s", paths.LocalDataPath, paths.GetPVSubPath(vdb, "depot")),
+	}
+	for _, pod := range podList {
+		if _, _, err := prunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
+			return err
+		}
+	}
+	return nil
+}

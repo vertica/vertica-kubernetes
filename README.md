@@ -252,7 +252,7 @@ To minimize the number of errors, we will validate that the image can only chang
 
 # Persistence
 
-Each pod uses a PV to store local data. The PV is mounted in the container at `/home/dbadmin/local-data`. You must set permissions on the PV mount to 0777, or you get a "Permissions Denied" error when the container starts. If the PV was dynamically provisioned, you might need to manually change permissions with `chmod` after it is created.
+Each pod uses a PV to store local data. The PV is mounted in the container at `/home/dbadmin/local-data`. You must set permissions on the PV mount to 0775, or the operator could get a "Permissions Denied" error. If the PV was dynamically provisioned, you might need to manually change permissions with `chmod` after it is created.
 
 The local-data directory contains the following subdirectories:
 
