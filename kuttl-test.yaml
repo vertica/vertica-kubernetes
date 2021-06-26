@@ -56,8 +56,8 @@ commands:
   - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
     namespaced: true
 
-  
-  
+
+
 
   # We use stern to collect the pod output of any test that creates a pod with
   # the 'stern=include' label.  By default, the output of this is stored in a
@@ -68,4 +68,9 @@ commands:
   # We have another stern to collect the output for all of the operators.  By
   # default, the output of this is stored in a file in int-tests-output/
   - script: scripts/save-operator-logs.sh
+    background: true
+
+  # And another stern to collect the output from any vertica pods.  By default,
+  # this stores it in a file in int-tests-output/
+  - script: scripts/save-vertica-logs.sh
     background: true
