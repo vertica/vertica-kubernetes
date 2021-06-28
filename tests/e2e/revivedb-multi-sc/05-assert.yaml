@@ -21,3 +21,10 @@ status:
   pools:
     - ssName: minio-ss-0
       state: PoolInitialized
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: minio-ss-0-0
+status:
+  phase: Running

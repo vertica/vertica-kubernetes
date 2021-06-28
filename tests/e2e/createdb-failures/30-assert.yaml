@@ -31,3 +31,10 @@ involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaDB
   name: v-createdb-failures
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: minio-ss-0-0
+status:
+  phase: Running
