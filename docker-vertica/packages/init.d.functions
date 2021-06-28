@@ -86,3 +86,10 @@ echo_success() {
   return 0
 }
 
+echo_failure() {
+    echo -n "["
+    echo -n $"FAILED"
+    echo -n "]"
+    echo -ne "\r"
+    return 1
+}
