@@ -16,5 +16,21 @@
 # Delete the PVC to trigger removal of the data.   We do thes because when a
 # stateful set is deleted the PVC sticks around to retain the storage.
 
+<<<<<<< HEAD:scripts/blastdb.sh
 PVCS=$(kubectl --selector=app.kubernetes.io/name=vertica get pvc | tail -n +2 | awk '{print $1}')
 kubectl delete pvc $PVCS
+=======
+# Install krew
+(
+  set -x; cd "$(mktemp -d)" &&
+  OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+  ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+  curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
+  tar zxvf krew.tar.gz &&
+  KREW=./krew-"${OS}_${ARCH}" &&
+  "$KREW" install krew
+)
+
+PATH="${PATH}:${HOME}/.krew/bin"
+kubectl krew install kutt
+>>>>>>> Update setup-int-tests.sh:scripts/setup-int-tests.sh
