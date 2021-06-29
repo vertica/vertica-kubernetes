@@ -55,7 +55,7 @@ func (a *AgentReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 		}
 		// We don't start the vertica agent if running ipv6 since the agent
 		// currently doesn't work in that mode.  This can be removed once
-		// VER-77406 is addressed.
+		// that is addressed.
 		if isIPv6(pod.podIP) {
 			continue
 		}
