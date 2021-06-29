@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // InstallReconciler will handle reconcile for install of vertica
@@ -53,18 +52,6 @@ func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PRunner: prunner,
 		PFacts:  pfacts,
 	}
-}
-
-func (d *InstallReconciler) GetClient() client.Client {
-	return d.VRec.Client
-}
-
-func (d *InstallReconciler) GetVDB() *vapi.VerticaDB {
-	return d.Vdb
-}
-
-func (d *InstallReconciler) CollectPFacts(ctx context.Context) error {
-	return d.PFacts.Collect(ctx, d.Vdb)
 }
 
 // Reconcile will ensure Vertica is installed and running in the pods.
@@ -99,7 +86,7 @@ func (d *InstallReconciler) runUpdateVerticaAddHosts(ctx context.Context) error 
 		return nil
 	}
 
-	licensePath, err := license.GetPath(ctx, d.GetClient(), d.Vdb)
+	licensePath, err := license.GetPath(ctx, d.VRec.Client, d.Vdb)
 	if err != nil {
 		return err
 	}

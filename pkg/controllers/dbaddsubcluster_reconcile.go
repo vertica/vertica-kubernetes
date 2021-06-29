@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // DBAddSubclusterReconciler will create a new subcluster if necessary
@@ -45,18 +44,6 @@ type SubclustersSet map[string]bool
 func MakeDBAddSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &DBAddSubclusterReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
-}
-
-func (d *DBAddSubclusterReconciler) GetClient() client.Client {
-	return d.VRec.Client
-}
-
-func (d *DBAddSubclusterReconciler) GetVDB() *vapi.VerticaDB {
-	return d.Vdb
-}
-
-func (d *DBAddSubclusterReconciler) CollectPFacts(ctx context.Context) error {
-	return d.PFacts.Collect(ctx, d.Vdb)
 }
 
 // Reconcile will ensure a subcluster exists for each one defined in the vdb.

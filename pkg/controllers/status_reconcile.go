@@ -45,18 +45,6 @@ func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Lo
 	return &StatusReconciler{Client: cli, Scheme: scheme, Log: log, Vdb: vdb, PFacts: pfacts}
 }
 
-func (s *StatusReconciler) GetClient() client.Client {
-	return s.Client
-}
-
-func (s *StatusReconciler) GetVDB() *vapi.VerticaDB {
-	return s.Vdb
-}
-
-func (s *StatusReconciler) CollectPFacts(ctx context.Context) error {
-	return s.PFacts.Collect(ctx, s.Vdb)
-}
-
 // Reconcile will update the status of the Vdb based on the pod facts
 func (s *StatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	// We base our status on the pod facts, so ensure our facts are up to date.

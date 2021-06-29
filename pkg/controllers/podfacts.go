@@ -77,6 +77,9 @@ type PodFact struct {
 	// The compat21 node name that Vertica assignes to the pod. This is only set
 	// if installation has occurred.
 	compat21NodeName string
+
+	// Is the agent running in this pod?
+	agentRunning bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -181,9 +184,13 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		return err
 	}
 
-	// set pf.upNode, but we can skip if the db doesn't exist
+	// set pf.upNode and pf.agentRunning, but we can skip if the db doesn't
+	// exist
 	if !pf.dbExists.IsFalse() {
 		if err := p.checkIfNodeIsUp(ctx, &pf); err != nil {
+			return err
+		}
+		if err := p.checkIfAgentRunning(ctx, &pf); err != nil {
 			return err
 		}
 	}
@@ -268,6 +275,19 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 		pf.upNode = true
 	}
 
+	return nil
+}
+
+// checkIfAgentRunning will check if the Vertica agent is running and set state in pf.agentRunning
+func (p *PodFacts) checkIfAgentRunning(ctx context.Context, pf *PodFact) error {
+	pf.agentRunning = false
+	if !pf.isPodRunning {
+		return nil
+	}
+
+	if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "/opt/vertica/sbin/vertica_agent", "status"); err == nil {
+		pf.agentRunning = true
+	}
 	return nil
 }
 

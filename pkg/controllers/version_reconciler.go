@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // VersionReconciler will set the version as annotations in the vdb.
@@ -42,18 +41,6 @@ type VersionReconciler struct {
 func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &VersionReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
-}
-
-func (v *VersionReconciler) GetClient() client.Client {
-	return v.VRec.Client
-}
-
-func (v *VersionReconciler) GetVDB() *vapi.VerticaDB {
-	return v.Vdb
-}
-
-func (v *VersionReconciler) CollectPFacts(ctx context.Context) error {
-	return v.PFacts.Collect(ctx, v.Vdb)
 }
 
 // Reconcile will update the annotation in the Vdb with Vertica version info

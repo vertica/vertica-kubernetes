@@ -31,6 +31,11 @@ import (
 // reconciliation process.
 type ReconcileActor interface {
 	Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error)
+}
+
+// ScaledownActor is an interface that handles a part of scale down, either
+// db_remove_node or uninstall.
+type ScaledownActor interface {
 	GetClient() client.Client
 	GetVDB() *vapi.VerticaDB
 	CollectPFacts(ctx context.Context) error
@@ -40,7 +45,7 @@ type ReconcileActor interface {
 // This is a common function that is used by the DBRemoveNodeReconciler and
 // UninstallReconciler. It will call a func (scaleDownFunc) for a range of pods
 // that are to be scaled down.
-func scaledownSubcluster(ctx context.Context, act ReconcileActor, sc *vapi.Subcluster,
+func scaledownSubcluster(ctx context.Context, act ScaledownActor, sc *vapi.Subcluster,
 	scaleDownFunc func(context.Context, *vapi.Subcluster, int32, int32) (ctrl.Result, error)) (ctrl.Result, error) {
 	if sc == nil {
 		return ctrl.Result{}, nil

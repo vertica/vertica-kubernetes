@@ -211,7 +211,7 @@ func createInstallPodsHelper(ctx context.Context, ipv6 bool) (podList []*PodFact
 	pfact := MakePodFacts(k8sClient, fpr)
 	actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
 	drecon := actor.(*InstallReconciler)
-	licensePath, _ := license.GetPath(ctx, drecon.GetClient(), drecon.Vdb)
+	licensePath, _ := license.GetPath(ctx, k8sClient, drecon.Vdb)
 	verticaUpdateCmd = drecon.genCmdInstall(podList, licensePath)
 
 	return podList, verticaUpdateCmd

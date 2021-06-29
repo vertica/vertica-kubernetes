@@ -32,7 +32,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -54,18 +53,6 @@ type CreateDBReconciler struct {
 func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &CreateDBReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
-}
-
-func (c *CreateDBReconciler) GetClient() client.Client {
-	return c.VRec.Client
-}
-
-func (c *CreateDBReconciler) GetVDB() *vapi.VerticaDB {
-	return c.Vdb
-}
-
-func (c *CreateDBReconciler) CollectPFacts(ctx context.Context) error {
-	return c.PFacts.Collect(ctx, c.Vdb)
 }
 
 // Reconcile will ensure a DB exists and create one if it doesn't

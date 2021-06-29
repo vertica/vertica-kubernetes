@@ -26,7 +26,7 @@ __pids_var_run() {
 	        if [ -n "$pid" ]; then
 	                return 0
 	        fi
-y		return 1 # "Program is dead and /var/run pid file exists"
+		return 1 # "Program is dead and /var/run pid file exists"
 	fi
 	return 3 # "Program is not running"
 }
@@ -86,3 +86,10 @@ echo_success() {
   return 0
 }
 
+echo_failure() {
+    echo -n "["
+    echo -n $"FAILED"
+    echo -n "]"
+    echo -ne "\r"
+    return 1
+}
