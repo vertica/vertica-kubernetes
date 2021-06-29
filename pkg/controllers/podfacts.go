@@ -280,14 +280,12 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 
 // checkIfAgentRunning will check if the Vertica agent is running and set state in pf.agentRunning
 func (p *PodFacts) checkIfAgentRunning(ctx context.Context, pf *PodFact) error {
+	pf.agentRunning = false
 	if !pf.isPodRunning {
-		pf.agentRunning = false
 		return nil
 	}
 
-	if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "/opt/vertica/sbin/vertica_agent", "status"); err != nil {
-		pf.agentRunning = false
-	} else {
+	if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "/opt/vertica/sbin/vertica_agent", "status"); err == nil {
 		pf.agentRunning = true
 	}
 	return nil
