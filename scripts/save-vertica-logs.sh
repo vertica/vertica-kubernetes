@@ -13,19 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -o xtrace
-set -o errexit
+# This saves the log of any pod running vertica
 
-# Install krew
-(
-  set -x; cd "$(mktemp -d)" &&
-  OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
-  ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
-  curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz" &&
-  tar zxvf krew.tar.gz &&
-  KREW=./krew-"${OS}_${ARCH}" &&
-  "$KREW" install krew
-)
-
-PATH="${PATH}:${HOME}/.krew/bin"
-kubectl krew install kuttl
+OP=${INT_TEST_OUTPUT_DIR:-int-tests-output}/vertica.log
+mkdir -p $(dirname $OP)
+echo "Saving vertica logs to $OP"
+stern --selector app.kubernetes.io/name=vertica --all-namespaces --timestamps > $OP 2>&1

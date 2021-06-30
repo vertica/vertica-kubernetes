@@ -79,7 +79,11 @@ RUN set -x \
   && chmod 600 /root/.ssh/* \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
-  && chown -R dbadmin:verticadba /home/dbadmin/
+  && chown -R dbadmin:verticadba /home/dbadmin/ \
+  # On older docker versions, the ownership of /opt/vertica is not preserved in
+  # the COPY.  Working around this by changing it so that all files and
+  # directories are world writeable.
+  && chmod 777 -R /opt/vertica
 
 ##############################################################################################
 FROM centos:centos${OS_VERSION}
@@ -88,7 +92,7 @@ ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
 COPY --from=builder /opt/vertica /opt/vertica
-COPY --from=builder /home/ /home/
+COPY --from=builder /home/dbadmin /home/dbadmin
 COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /etc/ssh /etc/ssh
 COPY --from=builder /var/spool/cron /var/spool/cron
@@ -100,6 +104,10 @@ ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ADD ./packages/init.d.functions /etc/rc.d/init.d/functions
 
 RUN set -x \
+  # COPY may not preserve file permissions on older docker versions.  This is a
+  # workaround for that.  This will cause the image to increase a bit, but there
+  # isn't much we copy over for this directory.
+  && chown -R $DBADMIN_UID:$DBADMIN_GID /home/dbadmin \
   # Update is needed to be confident that we're picking up
   # fixed libraries.  We depend on malware check of container afterwards 
   && yum -y update --security \

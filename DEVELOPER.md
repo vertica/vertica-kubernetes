@@ -37,13 +37,6 @@ Test the container out by checking the status of the nodes:
 kubectl get nodes
 ```
 
-After Kind is up, you need to configure it to run the integration tests.  The `setup-int-tests.sh` script encompasses all of the setup:
-
-```
-scripts/setup-int-tests.sh
-```
-
-
 
 # Kind Cleanup
 

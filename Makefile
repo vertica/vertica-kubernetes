@@ -65,10 +65,13 @@ endif
 
 # Image URL to use for building/pushing of the operator
 OPERATOR_IMG ?= verticadb-operator:$(TAG)
+export OPERATOR_IMG
 # Image URL to use for building/pushing of the webhook
 WEBHOOK_IMG ?= verticadb-webhook:$(TAG)
+export WEBHOOK_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= vertica-k8s:$(TAG)
+export VERTICA_IMG
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
 # Produce CRDs that work back to Kubernetes 2.11 (no version conversion)

@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -o errexit
 
 DEF_TAG=kind
 
@@ -68,6 +69,9 @@ fi
 PACKAGES_DIR=docker-vertica/packages #RPM file should be in this directory to create docker image.
 RPM_FILE=vertica-x86_64.RHEL6.latest.rpm
 export INT_TEST_OUTPUT_DIR
+export VERTICA_IMG=vertica-k8s:$TAG
+export OPERATOR_IMG=verticadb-operator:$TAG
+export WEBHOOK_IMG=verticadb-operator:$TAG
 
 # cleanup the deployed k8s cluster
 function cleanup {
@@ -78,42 +82,22 @@ function cleanup {
 # Copy rpm to the PACKAGES_DIR for the image to be built
 function copy_rpm {
     #This expects the rpm in $INT_TEST_OUTPUT_DIR and copies the file to $PACKAGES_DIR
-    cp "$INT_TEST_OUTPUT_DIR"/"$RPM_FILE" "$PACKAGES_DIR"/"$RPM_FILE"
+    cp -p "$INT_TEST_OUTPUT_DIR"/"$RPM_FILE" "$PACKAGES_DIR"/"$RPM_FILE"
 }
 
 # Setup the k8s cluster and switch context
 function setup_cluster {
     echo "Setting up kind cluster named $CLUSTER_NAME"
     scripts/kind.sh  init "$CLUSTER_NAME"
-    if [ $? -ne 0 ]; then
-      echo "Unable to create the $CLUSTER_NAME cluster"
-      exit 1
-    fi
     kubectx kind-"$CLUSTER_NAME"
 }
 
-# Setup integration tests
-function setup_integration_tests {
-    echo "Setting up integration tests"
-    scripts/setup-int-tests.sh
-    if [ $? -ne 0 ]; then
-      echo "Unable to call setup-int-tests.sh"
-      exit 1
-    fi
-}
-
-# Build vertica images, push to kind environment and deploy to the cluster
-function build_and_deploy {
-    echo "Building vertica container images"
-    make  docker-build
-    echo "Pushing the images to kind cluster"
-    scripts/push-to-kind.sh -t $TAG "$CLUSTER_NAME"
-    if [ $? -ne 0 ]; then
-      echo "Unable to push the docker images to $CLUSTER_NAME nodes"
-      exit 1
-    fi
-    echo "Deploy vertica in kind cluster"
-    make  deploy-kind
+# Build vertica images and push them to the kind environment
+function build_and_push {
+    echo "Building all of the container images"
+    make  docker-build vdb-gen
+    echo "Pushing the images to the kind cluster"
+    make  docker-push
 }
 
 # Run integration tests and store the pod status in a file
@@ -125,7 +109,6 @@ function run_integration_tests {
 trap cleanup EXIT
 copy_rpm
 setup_cluster
-setup_integration_tests
-build_and_deploy
+build_and_push
 run_integration_tests
 cleanup
