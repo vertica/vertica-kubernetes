@@ -11,21 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+---
+apiVersion: v1
+kind: Service
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
-metadata:
-  name: v-restart
-spec:
-  image: replace-with-kustomize
-  superuserPasswordSecret: su-passwd
-  communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
-    credentialSecret: minio-creds-secret
-  dbName: spilchendb2
-  shardCount: 20
-  requeueTime: 4
-  restartTimeout: 1500
-  subclusters:
-    - name: defsc
-      size: 3

@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	LicensingMountName = "licensing"
-	PodInfoMountName   = "podinfo"
+	LicensingMountName    = "licensing"
+	PodInfoMountName      = "podinfo"
+	SuperuserPasswordPath = "superuser-passwd"
 )
 
 // buildExtSvc creates desired spec for the external service.
@@ -98,7 +99,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 // buildVolumes builds up a list of volumes to include in the sts
 func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
-	vols = append(vols, buildPodInfoVolume())
+	vols = append(vols, buildPodInfoVolume(vdb))
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
@@ -118,59 +119,72 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 // buildPodInfoVolume constructs the volume that has the /etc/podinfo files.
-func buildPodInfoVolume() corev1.Volume {
+func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	projSources := []corev1.VolumeProjection{
+		{
+			DownwardAPI: &corev1.DownwardAPIProjection{
+				Items: []corev1.DownwardAPIVolumeFile{
+					{
+						Path: "memory-limit",
+						ResourceFieldRef: &corev1.ResourceFieldSelector{
+							Resource:      "limits.memory",
+							ContainerName: ServerContainer,
+						},
+					},
+					{
+						Path: "memory-request",
+						ResourceFieldRef: &corev1.ResourceFieldSelector{
+							Resource:      "requests.memory",
+							ContainerName: ServerContainer,
+						},
+					},
+					{
+						Path: "cpu-limit",
+						ResourceFieldRef: &corev1.ResourceFieldSelector{
+							Resource:      "limits.cpu",
+							ContainerName: ServerContainer,
+						},
+					},
+					{
+						Path: "cpu-request",
+						ResourceFieldRef: &corev1.ResourceFieldSelector{
+							Resource:      "requests.cpu",
+							ContainerName: ServerContainer,
+						},
+					},
+					{
+						Path: "labels",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.labels",
+						},
+					},
+					{
+						Path: "name",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.name",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// If these is a superuser password, include that in the projection
+	if vdb.Spec.SuperuserPasswordSecret != "" {
+		secretProj := &corev1.SecretProjection{
+			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
+			Items: []corev1.KeyToPath{
+				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
+			},
+		}
+		projSources = append(projSources, corev1.VolumeProjection{Secret: secretProj})
+	}
+
 	return corev1.Volume{
 		Name: PodInfoMountName,
 		VolumeSource: corev1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
-				Sources: []corev1.VolumeProjection{
-					{
-						DownwardAPI: &corev1.DownwardAPIProjection{
-							Items: []corev1.DownwardAPIVolumeFile{
-								{
-									Path: "memory-limit",
-									ResourceFieldRef: &corev1.ResourceFieldSelector{
-										Resource:      "limits.memory",
-										ContainerName: ServerContainer,
-									},
-								},
-								{
-									Path: "memory-request",
-									ResourceFieldRef: &corev1.ResourceFieldSelector{
-										Resource:      "requests.memory",
-										ContainerName: ServerContainer,
-									},
-								},
-								{
-									Path: "cpu-limit",
-									ResourceFieldRef: &corev1.ResourceFieldSelector{
-										Resource:      "limits.cpu",
-										ContainerName: ServerContainer,
-									},
-								},
-								{
-									Path: "cpu-request",
-									ResourceFieldRef: &corev1.ResourceFieldSelector{
-										Resource:      "requests.cpu",
-										ContainerName: ServerContainer,
-									},
-								},
-								{
-									Path: "labels",
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.labels",
-									},
-								},
-								{
-									Path: "name",
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.name",
-									},
-								},
-							},
-						},
-					},
-				},
+				Sources: projSources,
 			},
 		},
 	}
@@ -197,9 +211,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 				ReadinessProbe: &corev1.Probe{
 					Handler: corev1.Handler{
 						Exec: &corev1.ExecAction{
-							Command: []string{"bash", "-c",
-								fmt.Sprintf("vertica --status -D %s/%s/v_*_catalog",
-									vdb.Spec.Local.DataPath, vdb.Spec.DBName)},
+							Command: []string{"bash", "-c", buildReadinessProbeSQL(vdb)},
 						},
 					},
 				},
@@ -246,6 +258,7 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 				},
 				Spec: buildPodSpec(vdb, sc),
 			},
+			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				{
@@ -309,4 +322,29 @@ func buildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *
 		},
 	}
 	return secret
+}
+
+// makeUpdateStrategy will create the updateStrategy to use for the statefulset.
+func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
+	// kSafety0 needs to use the OnDelete strategy.  kSafety 0 means that as
+	// soon as one pod goes down, all pods go down with it.  So we can't have a
+	// rolling update strategy as it just won't work.  As soon as we delete one
+	// pod, the vertica process on the other gets shut down.  We would need to
+	// call admintools -t start_db after each pod gets delete and rescheduled.
+	// kSafety0 is for test purposes, which is why its okay to have a different
+	// strategy for it.
+	if vdb.Spec.KSafety == vapi.KSafety0 {
+		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
+	}
+	return appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
+}
+
+// buildReadinessProbeSQL returns the SQL to use that will check if the pod is ready.
+func buildReadinessProbeSQL(vdb *vapi.VerticaDB) string {
+	passwd := ""
+	if vdb.Spec.SuperuserPasswordSecret != "" {
+		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
+	}
+
+	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
 }
