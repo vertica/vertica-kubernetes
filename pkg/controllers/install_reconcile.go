@@ -92,7 +92,7 @@ func (d *InstallReconciler) runUpdateVerticaAddHosts(ctx context.Context) error 
 	}
 
 	pod := d.findPodToInstallFrom()
-	debugDumpAdmintoolsConf(ctx, d.PRunner, pod)
+	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, pods)
 
 	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.InstallingPods,
 		"Calling update_vertica to add the following pods as new hosts: %s", genPodNames(pods))
@@ -106,7 +106,7 @@ func (d *InstallReconciler) runUpdateVerticaAddHosts(ctx context.Context) error 
 	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.InstallSucceeded,
 		"Successfully called update_vertica to add new hosts and it took %s", time.Since(start))
 
-	debugDumpAdmintoolsConf(ctx, d.PRunner, pod)
+	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, pods)
 
 	// Invalidate the pod facts cache since its out of date due to the install
 	d.PFacts.Invalidate()

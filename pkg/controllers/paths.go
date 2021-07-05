@@ -58,6 +58,13 @@ func debugDumpAdmintoolsConf(ctx context.Context, prunner cmds.PodRunner, atPod 
 	prunner.ExecInPod(ctx, atPod, ServerContainer, cmd...) // nolint:errcheck
 }
 
+// debugDumpAdmintoolsConfForPods will dump debug information for admintools.conf for a list of pods
+func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner, pods []*PodFact) {
+	for _, pod := range pods {
+		debugDumpAdmintoolsConf(ctx, prunner, pod.name)
+	}
+}
+
 // changeDepotPermissions ensures dbadmin owns the depot directory.  When the
 // directory are first mounted they are owned by root.  Vertica handles changing
 // the ownership of the config, log and data directory.  This function exists to
