@@ -365,5 +365,36 @@ var _ = Describe("obj_reconcile", func() {
 			curSize = *sts.Spec.Replicas
 			Expect(curSize).Should(Equal(newSize))
 		})
+
+		It("should have updateStrategy OnDelete for kSafety 0", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.KSafety = vapi.KSafety0
+			createCrd(vdb)
+			defer deleteCrd(vdb)
+
+			updateStrategyHelper(ctx, vdb, appsv1.OnDeleteStatefulSetStrategyType)
+		})
+
+		It("should have updateStrategy RollingUpdate for kSafety 1", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.KSafety = vapi.KSafety1
+			createCrd(vdb)
+			defer deleteCrd(vdb)
+
+			updateStrategyHelper(ctx, vdb, appsv1.RollingUpdateStatefulSetStrategyType)
+		})
 	})
 })
+
+func updateStrategyHelper(ctx context.Context, vdb *vapi.VerticaDB, expectedUpdateStrategy appsv1.StatefulSetUpdateStrategyType) {
+	pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+	objr := MakeObjReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
+	res, err := objr.Reconcile(ctx, &ctrl.Request{})
+	ExpectWithOffset(1, err).Should(Succeed())
+	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+
+	sts := &appsv1.StatefulSet{}
+	nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+	ExpectWithOffset(1, k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+	ExpectWithOffset(1, sts.Spec.UpdateStrategy.Type).Should(Equal(expectedUpdateStrategy))
+}

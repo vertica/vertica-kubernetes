@@ -69,7 +69,9 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{}, // Check for stale admintools.conf
+				{}, // remove old config
+				{}, // Debug info for admintools.conf before update_vertica
+				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 		}
 		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
@@ -101,10 +103,14 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{}, // Check for stale admintools.conf
+				{}, // Remove old admintools.conf
+				{}, // Debug info for admintools.conf before update_vertica
+				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
-				{}, // Check for stale admintools.conf
+				{}, // Remove old admintools.conf
+				{}, // Debug info for admintools.conf before update_vertica
+				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}
 		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)

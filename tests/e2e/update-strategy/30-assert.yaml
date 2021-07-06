@@ -14,18 +14,9 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-restart
-spec:
-  image: replace-with-kustomize
-  superuserPasswordSecret: su-passwd
-  communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
-    credentialSecret: minio-creds-secret
-  dbName: spilchendb2
-  shardCount: 20
-  requeueTime: 4
-  restartTimeout: 1500
+  name: v-ks-1-update-strategy
+status:
   subclusters:
-    - name: defsc
-      size: 3
+    - installCount: 3
+      addedToDBCount: 3
+      upNodeCount: 3
