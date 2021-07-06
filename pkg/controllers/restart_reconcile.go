@@ -490,12 +490,12 @@ func (r *RestartReconciler) genMapFile(
 		nodeName := pod.compat21NodeName
 		var oldIP string
 		oldIP, ok = oldIPs[nodeName]
-		// If we are missing the old IP, we bail out. This could be due to a
-		// stale admintools.conf, so we need to flow this back to stop the
-		// reconciliation.
+		// If we are missing the old IP, we skip and don't fail.  Re-ip allows
+		// for a subset of the nodes and the host may already be removed from
+		// the cluster anyway.
 		if !ok {
-			r.Log.Info("Could not find old IP for vertica node name", "node", nodeName, "pod", pod.name)
-			return mapContents, ipChanging, ok
+			ok = true // reset to true in case this is the last pod
+			continue
 		}
 		if oldIP != pod.podIP {
 			ipChanging = true

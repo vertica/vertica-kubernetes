@@ -149,7 +149,7 @@ make lint
 
 We have unit tests for both the helm chart and the Go operator.  
 
-The unit tests for the helm chart are stored in `helm-charts/vertica/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic).  [This document](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md) describes the format for the tests.
+The unit tests for the helm chart are stored in `helm-charts/verticadb-operator/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic).  [This document](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md) describes the format for the tests.
 
 Unit testing for the Go operator uses the Go testing infrastructure.  Some of the tests standup a mock Kubernetes control plane using envtest, and runs the operator against that.  As is standard with Go, the test files are included in package directories and end with `_test.go`.
 
