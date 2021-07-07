@@ -72,7 +72,6 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // remove old config
-				{}, // Debug info for admintools.conf before update_vertica
 				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 		}
@@ -108,12 +107,10 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf before update_vertica
 				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf before update_vertica
 				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}
@@ -215,7 +212,6 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 Hint: Existing hosts are: 10.244.2.64, 10.244.1.120, 10.244.3.246\n`, pfact.Detail[pn].podIP)
 		fpr.Results = cmds.CmdResults{
 			pn: []cmds.CmdResult{
-				{}, // Dump admintools.conf
 				{Stdout: updateFailure, Err: errors.New("update_vertica fails")},        // run update_vertica
 				{Stdout: fmt.Sprintf("node0001 = %s,/d,/d\n", pfact.Detail[pn].podIP)}}, // Get of compat21 node name
 		}
