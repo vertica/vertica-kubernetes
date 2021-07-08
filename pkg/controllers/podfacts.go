@@ -408,6 +408,13 @@ func (p *PodFacts) findRestartablePods() []*PodFact {
 	})
 }
 
+// findInstalledPods returns a list of pods that have had the installer run
+func (p *PodFacts) findInstalledPods() []*PodFact {
+	return p.filterPods((func(v *PodFact) bool {
+		return v.isInstalled.IsTrue() && v.isPodRunning
+	}))
+}
+
 // findReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
 // An empty list implies there are no pods that match the criteria.
 func (p *PodFacts) findReIPPods(onlyPodsWithoutDBs bool) []*PodFact {

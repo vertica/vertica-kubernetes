@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -41,6 +42,7 @@ type UninstallReconciler struct {
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
+	ExecPod types.NamespacedName // Pod to execute uninstall from.
 }
 
 // MakeUninstallReconciler will build and return the UninstallReconciler object.
@@ -110,8 +112,8 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 			// Requeue since we couldn't find a running pod
 			return ctrl.Result{Requeue: true}, nil
 		}
-		if err := s.execATCmd(ctx, *execPod, podsToUninstall, cmd); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to call update_vertica to remove hosts: %w", err)
+		if res, err := s.execATCmd(ctx, *execPod, podsToUninstall, cmd); err != nil || res.Requeue {
+			return res, err
 		}
 		// Remove the installer indicator file so that we do an install if we then
 		// opt to scale out again.
@@ -131,18 +133,31 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 }
 
 // execATCmd will execute the admintools command and handle event logging
-func (s *UninstallReconciler) execATCmd(ctx context.Context, atPod types.NamespacedName, pods []*PodFact, cmd []string) error {
+func (s *UninstallReconciler) execATCmd(ctx context.Context, atPod types.NamespacedName, pods []*PodFact,
+	cmd []string) (ctrl.Result, error) {
 	s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.UninstallPods,
 		"Calling update_vertica to remove hosts for the following pods: %s", genPodNames(pods))
 	start := time.Now()
-	if _, _, err := s.PRunner.ExecInPod(ctx, atPod, ServerContainer, cmd...); err != nil {
+	stdout, _, err := s.PRunner.ExecInPod(ctx, atPod, ServerContainer, cmd...)
+	if err != nil {
+		r := regexp.MustCompile(`Unable to remove host\(s\) \[(.*)\]: not part of the cluster`)
+		m := r.FindStringSubmatch(stdout)
+		if m != nil {
+			s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.UninstallHostsMissing,
+				"Failed while calling update_vertica because hosts were missing: %s", m[1])
+			if err2 := s.repairMissingHosts(ctx, m[1]); err2 != nil {
+				return ctrl.Result{}, err2
+			}
+			// Requeue to try the uninstall again
+			return ctrl.Result{Requeue: true}, nil
+		}
 		s.VRec.EVRec.Event(s.Vdb, corev1.EventTypeWarning, events.UninstallFailed,
 			"Failed while calling update_vertica")
-		return err
+		return ctrl.Result{}, err
 	}
 	s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.UninstallSucceeded,
 		"Successfully called update_vertica to remove hosts and it took %s", time.Since(start))
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // findPodsSuitableForScaleDown will return a list of host names that can be uninstalled
@@ -198,9 +213,35 @@ func (s *UninstallReconciler) genCmdRemoveInstallIndicator() []string {
 // findPodToUninstallFrom will find a suitable pod to run the install from.
 // If no pod is found nil is returned.
 func (s *UninstallReconciler) findPodToUninstallFrom() *types.NamespacedName {
-	for uninstallPod, pod := range s.PFacts.Detail {
-		if pod.isPodRunning {
-			return &uninstallPod
+	if s.ExecPod == (types.NamespacedName{}) {
+		for uninstallPod, pod := range s.PFacts.Detail {
+			if pod.isPodRunning {
+				s.ExecPod = uninstallPod
+				break
+			}
+		}
+	}
+	if s.ExecPod == (types.NamespacedName{}) {
+		return nil
+	}
+	return &s.ExecPod
+}
+
+// repairMissingHosts if we come across hosts that have already been removed, we
+// are going to remove the install indicator file for each.  This way on the
+// next iteration, it will not consider removing them.
+func (s *UninstallReconciler) repairMissingHosts(ctx context.Context, missingHosts string) error {
+	// The existing hosts comes in the form: '10.244.1.120'.  We need to find
+	// the pod that corresponds to this IP and remove the install indicator file.
+	cmd := s.genCmdRemoveInstallIndicator()
+	for _, quotedHost := range strings.Split(missingHosts, " ") {
+		host := strings.Trim(quotedHost, "'") // Remove ' that surrounds it
+		for _, pod := range s.PFacts.Detail {
+			if pod.podIP == host {
+				if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

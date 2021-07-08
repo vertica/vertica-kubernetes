@@ -273,25 +273,6 @@ var _ = Describe("restart_reconciler", func() {
 		))
 	})
 
-	It("should requeue reconciliation if a node is missing in the map file", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 2
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
-		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-
-		// We leave the commands in the pod runner blank. This causes us to find
-		// nothing in the admintools.conf, forcing a requeue.
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1})
-		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts)
-		r := act.(*RestartReconciler)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-	})
-
 	It("should not detect that map file has no IPs that are changing", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]

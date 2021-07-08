@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("k8s/install_reconcile_test", func() {
@@ -66,11 +67,11 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		pfact := MakePodFacts(k8sClient, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = tristate.False
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // remove old config
-				{}, // Debug info for admintools.conf before update_vertica
 				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 		}
@@ -100,16 +101,16 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		pfact := MakePodFacts(k8sClient, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = tristate.False
+		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = tristate.False
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf before update_vertica
 				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf before update_vertica
 				{}, // Debug info for admintools.conf after update_vertica
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}
@@ -192,6 +193,35 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		podList, verticaUpdateCmd := createInstallPodsHelper(ctx, false)
 		Expect(verticaUpdateCmd).ShouldNot(ContainElement("--ipv6"))
 		Expect(podsAllHaveIPv6(podList)).Should(BeFalse())
+	})
+
+	It("should try to uninstall if install fails because hosts already exists", func() {
+		vdb := vapi.MakeVDB()
+		const PodIndex = 0
+		const ScIndex = 0
+		sc := &vdb.Spec.Subclusters[ScIndex]
+		sc.Size = 1
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsWithNoInstall(ctx, vdb, fpr, 1)
+
+		pn := names.GenPodName(vdb, sc, PodIndex)
+		updateFailure := fmt.Sprintf(`Unable to add host(s) ['%s']: already part of the cluster 
+Hint: Existing hosts are: 10.244.2.64, 10.244.1.120, 10.244.3.246\n`, pfact.Detail[pn].podIP)
+		fpr.Results = cmds.CmdResults{
+			pn: []cmds.CmdResult{
+				{Stdout: updateFailure, Err: errors.New("update_vertica fails")},        // run update_vertica
+				{Stdout: fmt.Sprintf("node0001 = %s,/d,/d\n", pfact.Detail[pn].podIP)}}, // Get of compat21 node name
+		}
+		r := MakeInstallReconciler(vrec, logger, vdb, fpr, pfact)
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeTrue())
+		// The failure should cause us to try and remove the host
+		cmds := fpr.FindCommands("update_vertica --remove-hosts")
+		Expect(len(cmds)).Should(Equal(1))
 	})
 })
 
