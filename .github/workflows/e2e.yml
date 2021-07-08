@@ -15,12 +15,12 @@ jobs:
     steps:
 
     - uses: khan/pull-request-comment-trigger@master
-        id: check
-        with:
-          trigger: '@run-e2e'
-          reaction: rocket
-        env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+      id: check
+      with:
+        trigger: '@run-e2e'
+        reaction: rocket
+      env:
+        GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
     - uses: actions/checkout@v2
       if: steps.check.outputs.triggered == 'true'
