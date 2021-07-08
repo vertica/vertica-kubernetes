@@ -6,11 +6,23 @@ This repository has the code for a Kubernetes operator that manages Vertica Anal
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.19.3+).  
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0+)
 
+# Installing the CRD
+
+***The instructions for installing the CRD are intended for use when this repo has created the 1.0.0 GitHub release.  This will not happen until August 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) for steps on how to install.***<br>
+
+The `CustomResourceDefinition` can be installed with a YAML manifest:
+
+```
+$ kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.0.0/verticadbs.vertica.com-crd.yaml
+```
+
+Installing the webhook or operator helm chart will also install it if not already done so.
+
 # Installing the Operator
 
-***The instructions for installing the operator are intended for use when the image and helm chart are publicly hosted.  This will not happen until the end of July 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) to compile the operator and package it in a container.***<br>
+***The instructions for installing the operator are intended for use when the image and helm chart are publicly hosted.  This will not happen until August 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) to compile the operator and package it in a container.***<br>
 
-You need to install the CRD and deploy the operator before it can manage a Vertica database.  We provide a helm chart to handle this.  Run the following command to download and install the chart.
+You need to install the operator before it can manage a Vertica database.  We provide a helm chart to handle this.  Run the following command to download and install the chart.
 
 ```
 $ helm repo add vertica-charts https://vertica.github.io/charts
@@ -23,7 +35,7 @@ Only one instance of the chart can be installed in a namespace.  The operator wi
 
 # Installing the Webhook
 
-***The instructions for installing the webhook are intended for use when the image and helm chart are publicly hosted.  This will not happen until the end of July 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) to compile the webhook and package it in a container.***<br>
+***The instructions for installing the webhook are intended for use when the image and helm chart are publicly hosted.  This will not happen until August 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) to compile the webhook and package it in a container.***<br>
 
 A separate install is needed to install a webhook for an admission controller.  An [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) is a REST endpoint that you setup within Kubernetes that will verify proposed changes to the custom resource are allowed.  Running with the admission controller is optional, but it is highly encouraged as it will prevent simple errors being made when modifying the custom resource.
 
@@ -273,7 +285,7 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 |-------------|-------------|---------------|
 | imagePullPolicy | Determines how often Kubernetes pulls the specified image. For details, see [Updating Images](https://kubernetes.io/docs/concepts/containers/images/#updating-images) in the Kubernetes documentation. | If the image tag ends with latest, we use Always.  Otherwise we use IfNotPresent
 | imagePullSecrets | A list of secrets consisting of credentials for authentication to a private container repository. For details, see [Specifying imagePullSecrets](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod) in the Kubernetes documentation. | Not set |
-| image | The name of the container that runs the server.  If hosting the containers in a private container repository this name must include the path to that repository.  Vertica doesn't allow communications between nodes running different versions.  So this will only be allowed to change if autoRestartVertica is disabled.| verticadocker/vertica-k8s:11.0.0-0-minimal |
+| image | The name of the container that runs the server.  If hosting the containers in a private container repository this name must include the path to that repository.  Vertica doesn't allow communications between nodes running different versions.  So this will only be allowed to change if autoRestartVertica is disabled.| verticadocker/vertica-k8s:10.1.1-0 |
 | labels | Custom labels added to all of the objects that the operator creates. | Not set
 | annotations | Custom annotations added to all of the objects that the operator creates. | Not set
 | autoRestartVertica | State to indicate whether the operator will restart vertica if the process is not running.  Under normal circumstances this is set to true.  The purpose of this is to allow maintenance window, such as an upgrade, without the operator interfering. | true

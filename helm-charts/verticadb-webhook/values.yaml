@@ -18,4 +18,4 @@
 
 
 image:
-  name: verticadb-webhook:kind
+  name: verticadocker/verticadb-webhook:1.0.0
