@@ -3,7 +3,6 @@ name: Operator e2e tests
 on: 
   push:
     branches: [ main ]
-  workflow_dispatch: {}
   issue_comment:
     types: [created]
 
