@@ -12,9 +12,7 @@
 # limitations under the License.
 apiVersion: v2
 name: verticadb-webhook
-description: A Helm chart to deploy the webhook
+description: An admission controller webhook for validating VerticaDB CRs
 type: application
 # Versions follow Semantic Versioning (https://semver.org/)
-version: 0.1.0
-# This is the version number of the webhook that is being deployed.
-appVersion: "0.1.0"
+version: 1.0.0

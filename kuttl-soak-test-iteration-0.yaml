@@ -19,14 +19,23 @@ parallel: 1
 timeout: 900
 namespace: soak
 commands:
+  # Create the helm charts
+  - command: make helm-create-resources kuttl-step-gen kustomize
+
   # Deploy the operator
-  - command: sh -c "make deploy NAMESPACE=soak"
+  - command: make undeploy-webhook
+    ignoreFailure: true
+  - command: make deploy-webhook
+  - command: sh -c "make deploy-operator NAMESPACE=soak"
 
   # Create the kustomize overlay files to set the image to use.
   - command: tests/create-kustomize-overlay.sh $LICENSE_OPT $VERTICA_IMG
 
   # Create minio tenant and the vdb
-  - command: bash -c "kustomize build tests/manifests/soak-setup/overlay | kubectl -n soak apply -f -"
+  - command: kubectl krew update
+  - command: kubectl krew install minio
+  - command: kubectl minio init
+  - command: bash -c "bin/kustomize build tests/manifests/soak-setup/overlay | kubectl -n soak apply -f -"
 
   # Wait for the creation of the database
   - command: kubectl -n soak wait --for=condition=DBInitialized --timeout=900s vdb v

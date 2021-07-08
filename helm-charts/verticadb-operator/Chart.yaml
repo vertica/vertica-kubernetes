@@ -12,9 +12,7 @@
 # limitations under the License.
 apiVersion: v2
 name: verticadb-operator
-description: A Helm chart to deploy the verticadb operator
+description: An operator that can deploy and manage Vertica clusters
 type: application
 # Versions follow Semantic Versioning (https://semver.org/)
-version: 0.1.0
-# This is the version number of Verticadb operator that is being deployed.
-appVersion: "0.1.0"
+version: 1.0.0

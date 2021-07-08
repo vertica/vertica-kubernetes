@@ -18,4 +18,4 @@
 
 
 image:
-  name: verticadb-operator:kind
+  name: verticadocker/verticadb-operator:1.0.0
