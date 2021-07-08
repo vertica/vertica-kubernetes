@@ -277,15 +277,6 @@ func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, s
 	return &pfacts
 }
 
-func createPodFactsWithAgentNotRunning(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(k8sClient, fpr)
-	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
-	for _, pod := range pfacts.Detail {
-		pod.agentRunning = false
-	}
-	return &pfacts
-}
-
 const testAccessKey = "dummy"
 const testSecretKey = "dummy"
 

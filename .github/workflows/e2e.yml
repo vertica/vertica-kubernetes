@@ -1,0 +1,78 @@
+name: Operator e2e tests
+
+on: 
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+  issue_comment:
+    types: [created]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: khan/pull-request-comment-trigger@master
+        id: check
+        with:
+          trigger: '@run-e2e'
+          reaction: rocket
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
+    - uses: actions/checkout@v2
+      if: steps.check.outputs.triggered == 'true'
+
+    - name: Set up Go
+      if: steps.check.outputs.triggered == 'true'
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.2
+
+
+    - name: Install kubectl
+      if: steps.check.outputs.triggered == 'true'
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        kubectl version --client
+    
+    - name: Install kubectx   
+      if: steps.check.outputs.triggered == 'true'
+      env:
+          KUBECTX_URL: https://github.com/ahmetb/kubectx/releases/download/v0.9.3/kubectx
+      run: |
+        curl -fsSLO $KUBECTX_URL
+        chmod +x kubectx
+        sudo install -o root -g root -m 0755 kubectx /usr/local/bin/kubectx
+        
+    - name: Install stern and Download vertica RPM package
+      if: steps.check.outputs.triggered == 'true'
+      env:
+          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-10.1.1-0.x86_64.RHEL6.rpm"
+          STERN_URL: "https://github.com/stern/stern/releases/download/v1.19.0/stern_1.19.0_linux_amd64.tar.gz"
+      run: |
+        curl -fsSLO $STERN_URL 
+        tar zxvf stern_1.19.0_linux_amd64.tar.gz
+        sudo cp stern_1.19.0_linux_amd64/stern /usr/local/bin/
+        curl $VERTICA_CE_URL -o vertica-x86_64.RHEL6.latest.rpm
+      
+    - name: Run e2e tests
+      if: steps.check.outputs.triggered == 'true'
+      env:
+          KREW_URL: "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz"
+      run: |
+        (
+        set -x; cd "$(mktemp -d)" &&
+        OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+        ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+        curl -fsSLO $KREW_URL &&
+        tar zxvf krew.tar.gz &&
+        KREW=./krew-"${OS}_${ARCH}" &&
+        "$KREW" install krew
+        )
+        export PATH=$PATH:$HOME/.krew/bin
+        scripts/run-k8s-int-tests.sh
+        

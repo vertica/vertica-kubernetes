@@ -132,8 +132,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Ensure the vertica agent is running on each pod
-		MakeAgentReconciler(r, log, vdb, prunner, &pfacts),
 		// Handle calls to admintools -t db_add_subcluster
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
