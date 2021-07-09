@@ -129,7 +129,8 @@ A good pull request means:
 
 Go to your fork in GitHub and [make a Pull Request](https://help.github.com/articles/creating-a-pull-request/) to `vertica:main`. 
 
-About CI, unit tests are run automatically for each commit in the PR and, comment '/run-e2e' in the PR to trigger the end-to-end tests.
+### About CI
+Unit tests are run automatically for each commit in the PR and, comment '/run-e2e' in the PR to trigger the end-to-end tests.
 
 ### Sign the CLA
 Before we can accept a pull request, we first ask people to sign a Contributor License Agreement (or CLA). We ask this so that we know that contributors have the right to donate the code. You should notice a comment from **CLAassistant** on your pull request page, follow this comment to sign the CLA electronically. 
