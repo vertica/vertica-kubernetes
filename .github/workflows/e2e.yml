@@ -15,7 +15,7 @@ jobs:
      (github.event_name == 'issue_comment' && github.event.comment.body == '/support') ||
      github.event_name == 'push' ||
      github.event_name == 'workflow_dispatch'
-     
+
     runs-on: ubuntu-latest
     steps:
 
@@ -66,4 +66,9 @@ jobs:
         )
         export PATH=$PATH:$HOME/.krew/bin
         scripts/run-k8s-int-tests.sh
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: my-artifact
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/*.log
         
