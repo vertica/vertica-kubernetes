@@ -26,4 +26,6 @@ spec:
           value: minio
         - name: AWS_SECRET_ACCESS_KEY
           value: minio123
+        - name: AWS_EC2_METADATA_DISABLED
+          value: 'true'
   restartPolicy: Never
