@@ -263,7 +263,7 @@ deploy-operator: manifests kustomize ## Using helm, deploy the controller to the
 	helm install -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG}
 
 deploy-webhook: manifests kustomize install-cert-manager ## Using helm, deploy the webhook to the K8s cluster specified in ~/.kube/config.
-	helm install -n vertica $(WEBHOOK_RELEASE_NAME) $(WEBHOOK_CHART) --set image.name=${WEBHOOK_IMG} --create-namespace
+	helm install --wait -n vertica $(WEBHOOK_RELEASE_NAME) $(WEBHOOK_CHART) --set image.name=${WEBHOOK_IMG} --create-namespace
 
 undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)

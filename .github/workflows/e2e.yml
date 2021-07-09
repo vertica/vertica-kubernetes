@@ -1,8 +1,6 @@
 name: Operator e2e tests
 
 on: 
-  pull_request:
-     types: [opened]
   push:
      branches: [main]
   issue_comment:

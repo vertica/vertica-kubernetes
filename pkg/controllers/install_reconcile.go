@@ -66,8 +66,8 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 
 // analyzeFacts will look at the collected facts and determine the course of action
 func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, error) {
-	if err := d.runUpdateVerticaAddHosts(ctx); err != nil {
-		return ctrl.Result{}, err
+	if res, err := d.runUpdateVerticaAddHosts(ctx); err != nil || res.Requeue {
+		return res, err
 	}
 
 	if d.anyPodsNotRunning() {
@@ -77,48 +77,57 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 }
 
 // runUpdateVerticaAddHosts will call 'update_vertica --add-hosts' for any pods that have not yet bootstrapped the config.
-func (d *InstallReconciler) runUpdateVerticaAddHosts(ctx context.Context) error {
+func (d *InstallReconciler) runUpdateVerticaAddHosts(ctx context.Context) (ctrl.Result, error) {
 	pods, err := d.getInstallTargets(ctx)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 	if len(pods) == 0 {
-		return nil
+		return ctrl.Result{}, nil
 	}
 
 	licensePath, err := license.GetPath(ctx, d.VRec.Client, d.Vdb)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 
 	pod := d.findPodToInstallFrom()
-	debugDumpAdmintoolsConf(ctx, d.PRunner, pod)
+	installedPods := d.PFacts.findInstalledPods()
+	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 
 	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.InstallingPods,
 		"Calling update_vertica to add the following pods as new hosts: %s", genPodNames(pods))
 	start := time.Now()
 	cmd := d.genCmdInstall(pods, licensePath)
-	if _, _, err := d.PRunner.ExecInPod(ctx, pod, ServerContainer, cmd...); err != nil {
+	if stdout, _, err := d.PRunner.ExecInPod(ctx, pod, ServerContainer, cmd...); err != nil {
+		r := regexp.MustCompile(`Unable to add host\(s\) \[(.*)\]: already part of the cluster`)
+		m := r.FindStringSubmatch(stdout)
+		if m != nil {
+			d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.InstallHostExists,
+				"Failed while calling update_vertica because host(s) already installed: %s", m[1])
+			return d.removeExistingHosts(ctx, pod, m[1])
+		}
 		d.VRec.EVRec.Event(d.Vdb, corev1.EventTypeWarning, events.InstallFailed,
 			"Failed while calling update_vertica")
-		return fmt.Errorf("failed to call update_vertica to add new hosts: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to call update_vertica to add new hosts: %w", err)
 	}
 	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.InstallSucceeded,
 		"Successfully called update_vertica to add new hosts and it took %s", time.Since(start))
 
-	debugDumpAdmintoolsConf(ctx, d.PRunner, pod)
+	installedPods = append(installedPods, pods...)
+	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 
 	// Invalidate the pod facts cache since its out of date due to the install
 	d.PFacts.Invalidate()
 
-	return d.createInstallIndicators(ctx, pods)
+	return ctrl.Result{}, d.createInstallIndicators(ctx, pods)
 }
 
 // getInstallTargets finds the list of hosts/pods that we will call update_vertica with.
 func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, error) {
 	podList := make([]*PodFact, 0, len(d.PFacts.Detail))
 	for _, v := range d.PFacts.Detail {
-		if v.isInstalled.IsFalse() {
+		if v.isInstalled.IsFalse() && v.dbExists.IsFalse() {
 			podList = append(podList, v)
 
 			if v.hasStaleAdmintoolsConf {
@@ -131,7 +140,7 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 	return podList, nil
 }
 
-// createInstallIndicator will create the install indicator file for all pods passed in
+// createInstallIndicators will create the install indicator file for all pods passed in
 func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []*PodFact) error {
 	for _, v := range pods {
 		compat21Node, err := d.fetchCompat21NodeNum(ctx, v)
@@ -235,4 +244,35 @@ func (d *InstallReconciler) anyPodsNotRunning() bool {
 		}
 	}
 	return false
+}
+
+// removeExistingHosts is called when the install fails due to hosts already being
+// in the cluster.  This can happen if the operator is killed before it has a
+// chance to create the install indicator file.  We will repair it by removing
+// the host to allow a subsequent install to be successful.
+func (d *InstallReconciler) removeExistingHosts(ctx context.Context, adminPod types.NamespacedName,
+	existingHosts string) (ctrl.Result, error) {
+	// The existing hosts comes in the form: '10.244.1.120'.  We need to find
+	// the pod that corresponds to this IP so that we can create a command to
+	// remove them.  Each pod we find will be added to the existingPods list.
+	existingPods := []*PodFact{}
+	for _, quotedHost := range strings.Split(existingHosts, " ") {
+		host := strings.Trim(quotedHost, "'") // Remove ' that surrounds it
+		for _, pod := range d.PFacts.Detail {
+			if pod.podIP == host {
+				existingPods = append(existingPods, pod)
+			}
+		}
+	}
+
+	if len(existingPods) > 0 {
+		cmd := genCmdUninstall(existingPods)
+		if _, _, err := d.PRunner.ExecInPod(ctx, adminPod, ServerContainer, cmd...); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Requeue so that we try the install again now that we uninstalled the
+	// hosts that were already part of the cluster.
+	return ctrl.Result{Requeue: true}, nil
 }

@@ -273,25 +273,6 @@ var _ = Describe("restart_reconciler", func() {
 		))
 	})
 
-	It("should requeue reconciliation if a node is missing in the map file", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 2
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
-		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-
-		// We leave the commands in the pod runner blank. This causes us to find
-		// nothing in the admintools.conf, forcing a requeue.
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1})
-		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts)
-		r := act.(*RestartReconciler)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-	})
-
 	It("should not detect that map file has no IPs that are changing", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
@@ -441,9 +422,10 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(lastCmd.Command).Should(ContainElement("list_allnodes"))
 	})
 
-	It("should call start_db with --ignore-cluster-lease option", func() {
+	It("should call start_db with --ignore-cluster-lease and --timeout options", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.IgnoreClusterLease = true
+		vdb.Spec.RestartTimeout = 500
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
 		createPods(ctx, vdb, AllPodsRunning)
@@ -460,6 +442,26 @@ var _ = Describe("restart_reconciler", func() {
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "start_db")
 		Expect(len(restart)).Should(Equal(1))
 		Expect(restart[0].Command).Should(ContainElements("--ignore-cluster-lease"))
+		Expect(restart[0].Command).Should(ContainElements("--timeout=500"))
+	})
+
+	It("should call restart_node with --timeout option", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.RestartTimeout = 800
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Size = 2
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0})
+
+		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts)
+		r := act.(*RestartReconciler)
+		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{}))
+		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
+		Expect(len(restart)).Should(Equal(1))
+		Expect(restart[0].Command).Should(ContainElements("--timeout=800"))
 	})
 
 	It("should call re_ip for pods that haven't installed the db", func() {

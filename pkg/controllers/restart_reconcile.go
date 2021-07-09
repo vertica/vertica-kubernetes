@@ -111,6 +111,13 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		}
 	}
 
+	// Kill any rogue vertica process that may still be running.  Vertica thinks
+	// the nodes are down, so any left over process can be cleaned up.
+	downPods := r.PFacts.findRestartablePods()
+	if err := r.killOldProcesses(ctx, downPods); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// re_ip/start_db require all pods to be running that have run the
 	// installation.  This check is done when we generate the map file
 	// (genMapFile).
@@ -172,6 +179,10 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 	}
 	vnodeList := genRestartVNodeList(downPods)
 	ipList := genRestartIPList(downPods)
+
+	if err := r.killOldProcesses(ctx, downPods); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	debugDumpAdmintoolsConf(ctx, r.PRunner, r.ATPod)
 
@@ -351,6 +362,9 @@ func (r *RestartReconciler) restartCluster(ctx context.Context) (ctrl.Result, er
 	if r.Vdb.Spec.IgnoreClusterLease {
 		cmd = append(cmd, "--ignore-cluster-lease")
 	}
+	if r.Vdb.Spec.RestartTimeout != 0 {
+		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
+	}
 	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Calling 'admintools -t start_db' to restart the cluster")
 	start := time.Now()
@@ -383,15 +397,35 @@ func genRestartIPList(downPods []*PodFact) []string {
 	return ipList
 }
 
+// killOldProcesses will remove any running vertica processes.  At this point,
+// we have determined the nodes are down, so we are cleaning up so that it
+// doesn't impact the restart.
+func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFact) error {
+	for _, pod := range pods {
+		cmd := []string{
+			"bash", "-c", "for pid in $(pgrep ^vertica$); do kill -n SIGKILL $pid; done",
+		}
+		// Avoid all errors since the process may not even be running
+		if _, _, err := r.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // genRestartNodeCmd returns the command to run to restart a pod
 func (r *RestartReconciler) genRestartNodeCmd(vnodeList, ipList []string) []string {
-	return []string{
+	cmd := []string{
 		"-t", "restart_node",
 		"--database=" + r.Vdb.Spec.DBName,
 		"--hosts=" + strings.Join(vnodeList, ","),
 		"--new-host-ips=" + strings.Join(ipList, ","),
 		"--noprompt",
 	}
+	if r.Vdb.Spec.RestartTimeout != 0 {
+		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
+	}
+	return cmd
 }
 
 // parseNodesFromAdmintoolConf will parse out the vertica node and IP from admintools.conf output.
@@ -456,12 +490,12 @@ func (r *RestartReconciler) genMapFile(
 		nodeName := pod.compat21NodeName
 		var oldIP string
 		oldIP, ok = oldIPs[nodeName]
-		// If we are missing the old IP, we bail out. This could be due to a
-		// stale admintools.conf, so we need to flow this back to stop the
-		// reconciliation.
+		// If we are missing the old IP, we skip and don't fail.  Re-ip allows
+		// for a subset of the nodes and the host may already be removed from
+		// the cluster anyway.
 		if !ok {
-			r.Log.Info("Could not find old IP for vertica node name", "node", nodeName, "pod", pod.name)
-			return mapContents, ipChanging, ok
+			ok = true // reset to true in case this is the last pod
+			continue
 		}
 		if oldIP != pod.podIP {
 			ipChanging = true

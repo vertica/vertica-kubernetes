@@ -135,6 +135,12 @@ type VerticaDBSpec struct {
 	// If InitPolicy is not Revive, this field can be ignored.
 	ReviveOrder []SubclusterPodCount `json:"reviveOrder,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// The timeout, in seconds, to use when admintools restarts a node or the
+	// entire cluster.  If omitted, we use the admintools default timeout
+	// of 20 minutes.
+	RestartTimeout int `json:"restartTimeout,omitempty"`
+
 	// Contains details about the communal storage.
 	Communal CommunalStorage `json:"communal"`
 

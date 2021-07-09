@@ -149,7 +149,7 @@ make lint
 
 We have unit tests for both the helm chart and the Go operator.  
 
-The unit tests for the helm chart are stored in `helm-charts/vertica/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic).  [This document](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md) describes the format for the tests.
+The unit tests for the helm chart are stored in `helm-charts/verticadb-operator/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic).  [This document](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md) describes the format for the tests.
 
 Unit testing for the Go operator uses the Go testing infrastructure.  Some of the tests standup a mock Kubernetes control plane using envtest, and runs the operator against that.  As is standard with Go, the test files are included in package directories and end with `_test.go`.
 
@@ -201,22 +201,30 @@ helm uninstall release_name -n random
 
 ## Run Integration and e2e Tests
 
-The integration tests are run through Kubernetes itself.  We use kuttl as the testing framework.  The operator must be running **as a Kubernetes deployment**. You can push the operator to the Kind cluster by:
+The integration tests are run through Kubernetes itself.  We use kuttl as the testing framework.  The operator and the webhook must be running **as a Kubernetes deployment**. You can push them by issuing the following command:
 ```
-make docker-build-operator docker-push-operator
+make docker-build-operator docker-build-webhook docker-push-operator docker-push-webhook
 ```
 
-**NB:** Make sure that your operator Dockerfile is up to date before starting the tests.
-You can use this make target to kick off the test:
+Make sure that your operator Dockerfile is up to date before starting the tests.
+```
+make helm-create-resources
+```
+
+Ensure your Kubernetes cluster has a default storageClass.  Most of the e2e tests do not specify any storageClass and uses the default.  Refer to the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) for steps on how to do that.
+
+Finally, you can use this make target to kick off the test:
 ```
 make run-int-tests
 ```
 
-You can also call `kubectl kuttl` from the command line if you want more control -- for instance running a single test or preventing cleanup when the test ends. For example, you can run a single e2e test by:
+You can also call `kubectl kuttl` from the command line if you want more control -- for instance running a single test or preventing cleanup when the test ends. For example, you can run a single e2e test and keep the namespace around with this command:
 
 ```
-kubectl kuttl test --test <name-of-your-test>
+kubectl kuttl test --test <name-of-your-test> --skip-delete
 ```
+
+See the [kuttl docs](https://kuttl.dev/docs/cli.html#flags) for a complete list of flags you can use.
 
 ## Run Soak Tests
 

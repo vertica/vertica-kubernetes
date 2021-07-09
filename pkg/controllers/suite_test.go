@@ -266,6 +266,24 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 	return &pfacts
 }
 
+func createPodFactsWithNoInstall(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner, numPodsToChange int) *PodFacts {
+	pfacts := MakePodFacts(k8sClient, fpr)
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
+	// Change a number of pods to indicate install is not done.  Due to the map that
+	// stores the pod facts, the specific pods we change are non-deterministic.
+	podsChanged := 0
+	for _, pfact := range pfacts.Detail {
+		if podsChanged == numPodsToChange {
+			break
+		}
+		pfact.dbExists = tristate.False
+		pfact.upNode = false
+		pfact.isInstalled = tristate.False
+		podsChanged++
+	}
+	return &pfacts
+}
+
 func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	fpr *cmds.FakePodRunner, podsDownByIndex []int32) *PodFacts {
 	pfacts := MakePodFacts(k8sClient, fpr)

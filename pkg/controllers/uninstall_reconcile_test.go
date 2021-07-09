@@ -17,12 +17,15 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -105,6 +108,37 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 			"--remove-hosts",
 			pfacts.Detail[uninstallPods[0]].dnsName+","+pfacts.Detail[uninstallPods[1]].dnsName,
 		))
+	})
+
+	It("should remove indicator file and requeue if any host isn't part of the cluster", func() {
+		vdb := vapi.MakeVDB()
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Size = 2
+		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdbCopy)
+		sc.Size = 1 // mimic a pending db_remove_node
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+
+		// Setup a fake pod runner so that the uninstall fails.
+		execPod := names.GenPodName(vdb, sc, 0)
+		fpr = &cmds.FakePodRunner{Results: cmds.CmdResults{
+			execPod: []cmds.CmdResult{
+				{Stdout: fmt.Sprintf(`Error: Unable to remove host(s) ['%s']: not part of the cluster 
+Hint: Valid hosts are: 10.244.1.163\nInstallation FAILED with errors.`, pfacts.Detail[names.GenPodName(vdb, sc, 1)].podIP),
+					Err: errors.New("command terminated with exit code 1")},
+			}}}
+		act := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := act.(*UninstallReconciler)
+		r.ExecPod = execPod
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeTrue())
+		rmInstallInd := fpr.FindCommands(fmt.Sprintf("rm %s", paths.InstallerIndicatorFile))
+		Expect(len(rmInstallInd)).Should(Equal(1))
 	})
 
 })

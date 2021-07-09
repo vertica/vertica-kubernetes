@@ -1,0 +1,36 @@
+# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-ks-0-update-strategy
+status:
+  subclusters:
+    - upNodeCount: 1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-0-update-strategy-sc1-0
+spec:
+  containers:
+    - volumeMounts:
+        - mountPath: /home/dbadmin/local-data
+        - mountPath: /opt/vertica/config
+        - mountPath: /opt/vertica/log
+        - mountPath: /data
+        - mountPath: /depot
+        - mountPath: /etc/podinfo
+        - mountPath: /home/dbadmin/licensing/mnt
+        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
