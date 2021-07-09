@@ -68,6 +68,7 @@ jobs:
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2
+      if: always()
       with:
         name: my-artifact
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/*.log
