@@ -12,7 +12,7 @@ jobs:
   build:
     
     if: | 
-     (github.event_name == 'issue_comment' && github.event.comment.body == '/support') ||
+     (github.event.issue.pull_request && github.event.comment.body == '/run-e2e') ||
      github.event_name == 'push' ||
      github.event_name == 'workflow_dispatch'
 
