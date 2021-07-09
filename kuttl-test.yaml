@@ -15,7 +15,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 testDirs:
   - tests/e2e
-parallel: 2
+parallel: 6
 timeout: 480
 commands:
   # The tests depend on the minio operator, ensure that it is installed.
