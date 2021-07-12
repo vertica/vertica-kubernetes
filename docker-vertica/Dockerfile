@@ -145,7 +145,5 @@ EXPOSE 5433
 EXPOSE 5444
 USER dbadmin
 LABEL os_family="centos"
-LABEL os_version=$OS_VERSION
 LABEL image_name="vertica_k8s"
 LABEL maintainer="K8 Team"
-LABEL minimal=$MINIMAL
