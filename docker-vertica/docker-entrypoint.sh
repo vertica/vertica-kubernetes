@@ -17,7 +17,7 @@ copy_config_files() {
     sudo mkdir -p /opt/vertica/config/licensing
     sudo cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing
     sudo chown -R dbadmin:verticadba /opt/vertica/config/licensing
-    sudo chmod -R 0777 /opt/vertica/config/licensing
+    sudo chmod -R 0755 /opt/vertica/config/licensing
 }
 
 start_cron
