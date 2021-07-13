@@ -44,6 +44,7 @@ ifneq (,$(wildcard $(LOCAL_SOAK_CFG)))
 endif
 
 GOLANGCI_LINT_VER=1.41.1
+LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
 KIND_CHECK=kubectl get node -o=jsonpath='{.items[0].spec.providerID}' | grep 'kind://' -c
@@ -126,11 +127,11 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: install-unittest-plugin manifests generate fmt vet lint
+test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-report
 	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./... -coverprofile cover.out 2>&1 | $(GO_JUNIT_REPORT) > ${LOGDIR}/unit-test-report.xml 
 
 .PHONY: lint
 lint: helm-create-resources ## Lint the helm charts and the Go operator
@@ -156,9 +157,10 @@ ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 	kubectl krew install kuttl
 endif
 
+
 .PHONY: run-int-tests
 run-int-tests: install-kuttl-plugin vdb-gen ## Run the integration tests
-	kubectl kuttl test --report xml
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR}
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
@@ -284,6 +286,10 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+
+GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
+get-go-junit-report: ## Download go-junit-report locally if necessary.
+	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
