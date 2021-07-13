@@ -24,7 +24,7 @@ commands:
   - command: kubectl minio init
 
   # Create the kustomize overlay files to set the image to use.
-  - command: tests/create-kustomize-overlay.sh $VERTICA_IMG
+  - command: tests/create-kustomize-overlay.sh $VERTICA_IMG $VLOGGER_IMG
 
   # Create the helm chart
   - command: make helm-create-resources vdb-gen

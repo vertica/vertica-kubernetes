@@ -170,6 +170,12 @@ type VerticaDBSpec struct {
 	// This should be reserved for test environments as an error scenario could
 	// easily consume the logs.
 	RequeueTime int `json:"requeueTime,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Optional sidecar containers that run along side the vertica server.  The
+	// operator adds the same volume mounts that are in the vertica server
+	// container to each sidecar container.
+	Sidecars []corev1.Container `json:"sidecars,omitempty"`
 }
 
 type CommunalInitPolicy string

@@ -15,14 +15,17 @@
 
 set -o errexit
 
-DEF_IMAGE_NAME="verticadocker/vertica-k8s:latest"
+DEF_VERTICA_IMAGE_NAME="verticadocker/vertica-k8s:latest"
+DEF_VLOGGER_IMAGE_NAME="verticadocker/vertica-logger:latest"
 LICENSE=
 
 function usage {
-    echo "usage: $0 [-vh] [-l <licenseName>] [<imageName>]"
+    echo "usage: $0 [-vh] [-l <licenseName>] [<imageName> [<vloggerImageName>]] "
     echo
-    echo "  <imageName>    Image name to use for VerticaDB CRD."
-    echo "                 If omitted, it defaults to $DEF_IMAGE_NAME "
+    echo "  <imageName>         Image name to use in the VerticaDB CR."
+    echo "                      If omitted, it defaults to $DEF_VERTICA_IMAGE_NAME "
+    echo "  <vloggerImageName>  Image name to use for the vertica logger sidecar in"
+    echo "                      the VerticaDB CR.  If omitted, it defaults to $DEF_VLOGGER_IMAGE_NAME "
     echo
     echo "Options:"
     echo "  -v                 Verbose output"
@@ -51,11 +54,19 @@ while getopts "hvl:" opt; do
     esac
 done
 
-IMAGE_NAME=${@:$OPTIND:1}
-if [ -z "${IMAGE_NAME}" ]; then
-    IMAGE_NAME=$DEF_IMAGE_NAME
+VERTICA_IMAGE_NAME=${@:$OPTIND:1}
+if [ -z "${VERTICA_IMAGE_NAME}" ]; then
+    VERTICA_IMAGE_NAME=$DEF_VERTICA_IMAGE_NAME
+    VLOGGER_IMAGE_NAME=$DEF_VLOGGER_IMAGE_NAME
+else
+    VLOGGER_IMAGE_NAME=${@:$OPTIND+1:2}
 fi
-echo "Using image name: $IMAGE_NAME"
+if [ -z "${VLOGGER_IMAGE_NAME}" ]; then
+    VLOGGER_IMAGE_NAME=$DEF_VLOGGER_IMAGE_NAME
+fi
+
+echo "Using vertica server image name: $VERTICA_IMAGE_NAME"
+echo "Using vertica logger image name: $VLOGGER_IMAGE_NAME"
 if [ -n "$LICENSE" ]; then
     echo "Using license name: $LICENSE"
 fi
@@ -64,7 +75,8 @@ function create_kustomization {
     BASE_DIR=$1
     echo "" > kustomization.yaml
     kustomize edit add base $BASE_DIR
-    kustomize edit set image replace-with-kustomize=$IMAGE_NAME
+    kustomize edit set image replace-with-kustomize=$VERTICA_IMAGE_NAME
+    kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMAGE_NAME
 
     # If license was specified we create a patch file to set that.
     if [[ -n "$LICENSE" ]]
