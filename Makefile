@@ -72,6 +72,9 @@ export WEBHOOK_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= vertica-k8s:$(TAG)
 export VERTICA_IMG
+# Image URL to use for the logger sidecar
+VLOGGER_IMG ?= vertica-logger:$(TAG)
+export VLOGGER_IMG
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
 # Produce CRDs that work back to Kubernetes 2.11 (no version conversion)
@@ -178,6 +181,9 @@ docker-build-operator: test ## Build operator docker image with the manager.
 docker-build-webhook: test ## Build webhook docker image.
 	docker build -t ${WEBHOOK_IMG} -f docker-webhook/Dockerfile .
 
+docker-build-vlogger:  ## Build vertica logger docker image
+	docker build -t ${VLOGGER_IMG} -f docker-vlogger/Dockerfile .
+
 docker-push-operator: ## Push operator docker image with the manager.
 ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${OPERATOR_IMG}
@@ -190,6 +196,13 @@ ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${WEBHOOK_IMG}
 else
 	scripts/push-to-kind.sh -i ${WEBHOOK_IMG}
+endif
+
+docker-push-vlogger:  ## Push vertica logger docker image
+ifeq ($(shell $(KIND_CHECK)), 0)
+	docker push ${VLOGGER_IMG}
+else
+	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
 endif
 
 .PHONY: docker-build-vertica
@@ -205,9 +218,9 @@ else
 	scripts/push-to-kind.sh -i ${VERTICA_IMG}
 endif
 
-docker-build: docker-build-vertica docker-build-operator docker-build-webhook  ## Build all docker images
+docker-build: docker-build-vertica docker-build-operator docker-build-webhook docker-build-vlogger ## Build all docker images
 
-docker-push: docker-push-vertica docker-push-operator docker-push-webhook  ## Push all docker images
+docker-push: docker-push-vertica docker-push-operator docker-push-webhook docker-push-vlogger ## Push all docker images
 
 kuttl-step-gen: ## Builds the kuttl-step-gen tool
 	go build -o bin/$@ ./cmd/$@

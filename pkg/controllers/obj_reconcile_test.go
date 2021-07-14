@@ -383,16 +383,52 @@ var _ = Describe("obj_reconcile", func() {
 
 			updateStrategyHelper(ctx, vdb, appsv1.RollingUpdateStatefulSetStrategyType)
 		})
+
+		It("should allow a custom sidecar for logging", func() {
+			vdb := vapi.MakeVDB()
+			cpuResource := resource.MustParse("100")
+			memResource := resource.MustParse("64Mi")
+			vloggerImg := "custom-vlogger:latest"
+			pullPolicy := corev1.PullNever
+			vdb.Spec.Sidecars = append(vdb.Spec.Sidecars, corev1.Container{
+				Name:            "vlogger",
+				Image:           vloggerImg,
+				ImagePullPolicy: pullPolicy,
+				Resources: corev1.ResourceRequirements{
+					Limits:   corev1.ResourceList{"cpu": cpuResource, "memory": memResource},
+					Requests: corev1.ResourceList{"cpu": cpuResource, "memory": memResource},
+				},
+			})
+			createCrd(vdb)
+			defer deleteCrd(vdb)
+
+			sts := &appsv1.StatefulSet{}
+			nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(len(sts.Spec.Template.Spec.Containers)).Should(Equal(2))
+			Expect(sts.Spec.Template.Spec.Containers[1].Image).Should(Equal(vloggerImg))
+			Expect(sts.Spec.Template.Spec.Containers[1].ImagePullPolicy).Should(Equal(pullPolicy))
+			Expect(sts.Spec.Template.Spec.Containers[1].Resources.Limits["cpu"]).Should(Equal(cpuResource))
+			Expect(sts.Spec.Template.Spec.Containers[1].Resources.Requests["memory"]).Should(Equal(memResource))
+		})
+
+		It("should include imagePullSecrets if specified in the vdb", func() {
+			vdb := vapi.MakeVDB()
+			const PullSecretName = "docker-info"
+			vdb.Spec.ImagePullSecrets = append(vdb.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: PullSecretName})
+			createCrd(vdb)
+			defer deleteCrd(vdb)
+
+			sts := &appsv1.StatefulSet{}
+			nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(len(sts.Spec.Template.Spec.ImagePullSecrets)).Should(Equal(1))
+			Expect(sts.Spec.Template.Spec.ImagePullSecrets).Should(ContainElement(vdb.Spec.ImagePullSecrets[0]))
+		})
 	})
 })
 
 func updateStrategyHelper(ctx context.Context, vdb *vapi.VerticaDB, expectedUpdateStrategy appsv1.StatefulSetUpdateStrategyType) {
-	pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-	objr := MakeObjReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
-	res, err := objr.Reconcile(ctx, &ctrl.Request{})
-	ExpectWithOffset(1, err).Should(Succeed())
-	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
-
 	sts := &appsv1.StatefulSet{}
 	nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
 	ExpectWithOffset(1, k8sClient.Get(ctx, nm, sts)).Should(Succeed())

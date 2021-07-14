@@ -14,3 +14,5 @@
 images:
   - path: spec/image
     kind: VerticaDB
+  - path: spec/sidecars/image
+    kind: VerticaDB

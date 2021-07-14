@@ -17,6 +17,9 @@ metadata:
   name: v-revive-multi-sc
 spec:
   image: replace-with-kustomize
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
   ignoreClusterLease: true
   communal:
     path: "s3://nimbusdb/db"

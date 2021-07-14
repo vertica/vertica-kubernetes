@@ -62,6 +62,7 @@ The structure of the repo is as follows:
 - **docker-vertica/**: has the necessary files to build a container of the Vertica server.  The RPM package that we depend on to build the container has to be sourced separately and isn't included in this repo.
 - **docker-operator/**: has the necessary files to build the container that holds the operator.
 - **docker-webhook/**: has the necessary files to build the container that holds the webhook. 
+- **docker-vlogger/**: has the necessary files to build the container that runs the vlogger sidecar.  This sidecar will tail the vertica.log to stdout.  This is used only for development purposes to aid in testing out the sidecar property in the CR.
 - **scripts/**: contains scripts that were written for the repository.  Some are needed by the Makefile to run some targets.  While others, such as *upgrade-vertica.sh* automate some manual tasks.
 - **api/**: defines the spec of the CRD
 - **pkg/**: includes all of the packages that we wrote for the operator
@@ -83,6 +84,7 @@ We currently make use of a few containers:
 - **docker-vertica/Dockerfile**: This container is the long-running container that runs the vertica daemon.
 - **docker-operator/Dockerfile**: This is the container that runs the operator.
 - **docker-webhook/Dockerfile**: This is the container that runs the webhook.
+- **docker-vlogger/Dockerfile**: This is the container that runs the vertica logger.  It will tail the output of vertica.log to stdout.  This is used for testing purposes.  Some e2e tests use this as a sidecar to the vertica server container.
 
 In order to run Vertica in Kubernetes, we need to package Vertica inside a container.  This container is then referenced in the YAML file when we install the helm chart.
 
@@ -103,7 +105,7 @@ By default, this creates containers that are stored in the local docker daemon. 
 - **OPERATOR_IMG**: Name of the image for the operator.
 - **VERTICA_IMG**: Name of the image for vertica.
 - **WEBHOOK_IMG**: Name of the image for the webhook.
-
+- **VLOGGER_IMG**: Name of the image for the vertica logger sidecar.
 
 If necessary these variables can include the url of the registry.  For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`
 
@@ -262,6 +264,26 @@ Events:
   Normal  CreateDBSucceeded        92s    verticadb-operator  Successfully created database with subcluster 'sc1'. It took 32.5709857s
   Normal  ClusterRestartStarted    36s    verticadb-operator  Calling 'admintools -t start_db' to restart the cluster
   Normal  ClusterRestartSucceeded  28s    verticadb-operator  Successfully called 'admintools -t start_db' and it took 8.8401312s
+```
+
+## vertica.log
+
+You may need to inspect the contents of the vertica.log to diagnose a problem with the Vertica server.  There are a few ways this can be done.
+
+You can drop into the container and navigate to the directory where is is stored.  The exact location is dependent on your CR.  You can refer to the [Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm?zoom_highlight=vertica.log) to find the location.  
+
+You can also deploy a sidecar to captures the vertica.log and prints it to stdout.  If this sidecar is enabled you can use `kubectl logs` to inspect it.  This sidecar can be used by adding the following into your CR:
+
+```
+  sidecars:
+    - name: vlogger
+      image: <imageName>
+```
+
+The image <imageName> is a container that you build yourself.  An example container can be found in `docker-vlogger`.  Once it is running you can inspect the logs by using this sidecar.
+
+```
+$ kubectl logs vertica-sc1-0 -c vlogger
 ```
 
 ## Memory Profiling
