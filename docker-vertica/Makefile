@@ -9,6 +9,8 @@ all: docker-build-vertica
 docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 	docker build \
 		-f Dockerfile \
+		--label minimal=${MINIMAL_VERTICA_IMG} \
+		--label os_version=${OS_VERSION} \
 		--build-arg MINIMAL=${MINIMAL_VERTICA_IMG} \
 		--build-arg VERTICA_RPM=${VERTICA_RPM} \
 		--build-arg OS_VERSION=${OS_VERSION} \
