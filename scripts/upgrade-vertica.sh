@@ -91,10 +91,10 @@ PS_OPT=
 [[ -n "$PASSWORD" ]] && PS_OPT="--password $PASSWORD"
 
 SELECTOR="app.kubernetes.io/instance=$VDB_NAME"
+FIELD_SELECTOR="status.phase=Running"
 GET_VDB="kubectl get vdb $VDB_NAME $NS_OPT"
 GET_POD="kubectl get pod $NS_OPT --selector=$SELECTOR"
 declare -a GET_STS=($(kubectl get sts  --selector=$SELECTOR -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' $NS_OPT))
-POD_NAME=$(${GET_POD} -o=jsonpath='{.items[0].metadata.name}')
 VDB_DBNAME=$(${GET_VDB} -o=jsonpath='{.spec.dbName}')
 TOTAL_PODS=$(${GET_POD} --no-headers | wc -l)
 
@@ -123,9 +123,22 @@ kubectl patch vdb $VDB_NAME --type=merge -p '{"spec": {"autoRestartVertica": fal
 kubectl wait --for=condition=AutoRestartVertica=False vdb/$VDB_NAME --timeout="${TIMEOUT}"s $NS_OPT 1> /dev/null
 echo "autoRestartVertica successfully disabled"
 
-echo "starting stop_db..."
-kubectl exec $NS_OPT $POD_NAME -- admintools -t stop_db -F -d $VDB_DBNAME $PS_OPT 1> /dev/null
-echo "cluster down"
+RUNNING_PODS=$(${GET_POD} --field-selector=$FIELD_SELECTOR 2> /dev/null | grep ${VDB_NAME} | wc -l)
+if [ $RUNNING_PODS -gt 0 ]
+then
+    POD_NAME=$(${GET_POD} --field-selector=$FIELD_SELECTOR -o=jsonpath='{.items[0].metadata.name}')
+    UP_NODES=$(kubectl exec $NS_OPT $POD_NAME -- admintools -t list_allnodes | awk '{print $5}' | grep UP | wc -l)
+    if [ $UP_NODES -ne 0 ]
+    then
+        echo "starting stop_db..."
+        kubectl exec $NS_OPT $POD_NAME -- admintools -t stop_db -F -d $VDB_DBNAME $PS_OPT 1> /dev/null
+        echo "cluster down"
+    else
+        echo "Skip SHUTDOWN CLUSTER: no nodes are up"
+    fi
+else
+    echo "Skip SHUTDOWN CLUSTER: no PODS are running"
+fi
 
 echo
 echo "updating $VDB_NAME with image $NEW_IMAGE"
