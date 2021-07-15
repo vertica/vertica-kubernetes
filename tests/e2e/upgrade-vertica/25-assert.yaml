@@ -24,4 +24,7 @@ metadata:
   name: v-upgrade-vertica
 status:
   subclusters:
+    ## When you update the crd with a wrong image, 
+    ## the last pod will try to update the image and fail with an ImagePullErr status, 
+    ## so the installCount will go down from 3 to 2.
     - installCount: 2

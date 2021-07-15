@@ -11,6 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This step and beyond will emulate the situation when,
+# pods are running but there is no vertica nodes UP.
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:

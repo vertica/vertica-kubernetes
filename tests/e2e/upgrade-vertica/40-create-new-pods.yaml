@@ -11,6 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# We delete the existing statefulset to create a new one
+# with pods in a  running state but with nodes down. 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 delete:
