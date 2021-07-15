@@ -123,9 +123,21 @@ kubectl patch vdb $VDB_NAME --type=merge -p '{"spec": {"autoRestartVertica": fal
 kubectl wait --for=condition=AutoRestartVertica=False vdb/$VDB_NAME --timeout="${TIMEOUT}"s $NS_OPT 1> /dev/null
 echo "autoRestartVertica successfully disabled"
 
-echo "starting stop_db..."
-kubectl exec $NS_OPT $POD_NAME -- admintools -t stop_db -F -d $VDB_DBNAME $PS_OPT 1> /dev/null
-echo "cluster down"
+RUNNING_PODS=$(${GET_POD} --field-selector=status.phase=Running 2> /dev/null | grep ${VDB_NAME} | wc -l)
+if [ $RUNNING_PODS -eq $TOTAL_PODS ]
+then
+    UP_NODES=$(kubectl exec $NS_OPT $POD_NAME -- admintools -t list_allnodes | awk '{print $5}' | grep UP | wc -l)
+    if [ $UP_NODES -ne 0 ]
+    then
+        echo "starting stop_db..."
+        kubectl exec $NS_OPT $POD_NAME -- admintools -t stop_db -F -d $VDB_DBNAME $PS_OPT 1> /dev/null
+        echo "cluster down"
+    else
+        echo "Skip SHOTDOWN CLUSTER: no nodes are up -- the cluster is already down"
+    fi
+else
+    echo "Skip SHOTDOWN CLUSTER: no nodes are up -- bad image in pods"
+fi
 
 echo
 echo "updating $VDB_NAME with image $NEW_IMAGE"
