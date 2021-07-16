@@ -14,8 +14,17 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  # We are verifying two things here:
+  # - logrotate will shrink the log file
+  # - we continue to tail the log output after logrotate
   - script: kubectl exec -n $NAMESPACE v-mc-restart-sc1-0 -- admintools -t logrotate -d vertdb --maxsize 0 &&
          n1=$(kubectl exec -n $NAMESPACE v-mc-restart-sc1-0 -- ls -l /data/vertdb/v_vertdb_node0001_catalog/vertica.log | awk '{print $5}') &&
          kubectl exec -n $NAMESPACE v-mc-restart-sc1-0 -- /opt/vertica/oss/python3/bin/python3 -m vertica.do_logrotate &&
          n2=$(kubectl exec -n $NAMESPACE v-mc-restart-sc1-0 -- ls -l /data/vertdb/v_vertdb_node0001_catalog/vertica.log | awk '{print $5}') &&
-         if [ "$n2" -ge "$n1" ] ; then exit 1 ; else exit 0 ; fi
+         if [ "$n2" -ge "$n1" ] ; then echo "log file size did not shrink"; exit 1 ; fi &&
+         l1=$(kubectl logs -n $NAMESPACE v-mc-restart-sc1-0 -c vlogger | tail -5) &&
+         l2=$l1 &&
+         until [ "$l1" != "$l2" ]; do sleep 2; l2=$(kubectl logs -n $NAMESPACE v-mc-restart-sc1-0 -c vlogger | tail -5); done &&
+         echo "logs changed after logrotate" &&
+         exit 0
+    timeout: 120

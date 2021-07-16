@@ -194,38 +194,58 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
-		NodeSelector: sc.NodeSelector,
-		Affinity:     sc.Affinity,
-		Tolerations:  sc.Tolerations,
-		Containers: []corev1.Container{
-			{
-				Image:           vdb.Spec.Image,
-				ImagePullPolicy: vdb.Spec.ImagePullPolicy,
-				Name:            ServerContainer,
-				Resources:       sc.Resources,
-				Ports: []corev1.ContainerPort{
-					{ContainerPort: 5433, Name: "vertica"},
-					{ContainerPort: 5434, Name: "vertica-int"},
-					{ContainerPort: 22, Name: "ssh"},
-				},
-				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"bash", "-c", buildReadinessProbeSQL(vdb)},
-						},
-					},
-				},
-				Env: []corev1.EnvVar{
-					{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-					}},
-				},
-				VolumeMounts: buildVolumeMounts(vdb),
-			},
-		},
+		NodeSelector:                  sc.NodeSelector,
+		Affinity:                      sc.Affinity,
+		Tolerations:                   sc.Tolerations,
+		ImagePullSecrets:              vdb.Spec.ImagePullSecrets,
+		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 	}
+}
+
+// makeServerContainer builds the spec for the server container
+func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
+	return corev1.Container{
+		Image:           vdb.Spec.Image,
+		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
+		Name:            ServerContainer,
+		Resources:       sc.Resources,
+		Ports: []corev1.ContainerPort{
+			{ContainerPort: 5433, Name: "vertica"},
+			{ContainerPort: 5434, Name: "vertica-int"},
+			{ContainerPort: 22, Name: "ssh"},
+		},
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"bash", "-c", buildReadinessProbeSQL(vdb)},
+				},
+			},
+		},
+		Env: []corev1.EnvVar{
+			{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
+			}},
+		},
+		VolumeMounts: buildVolumeMounts(vdb),
+	}
+}
+
+// makeContainers creates the list of containers to include in the pod spec.
+func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
+	cnts := []corev1.Container{makeServerContainer(vdb, sc)}
+	for i := range vdb.Spec.Sidecars {
+		c := vdb.Spec.Sidecars[i]
+		// Append the standard volume mounts to the container.  This is done
+		// because some of the the mount path include the UID, which isn't know
+		// prior to the creation of the VerticaDB.
+		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb)...)
+		// As a convenience, add the database path as an environment variable.
+		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: paths.GetDBDataPath(vdb)})
+		cnts = append(cnts, c)
+	}
+	return cnts
 }
 
 // getStorageClassName returns a  pointer to the StorageClass

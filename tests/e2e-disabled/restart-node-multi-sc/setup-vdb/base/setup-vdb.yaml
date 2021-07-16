@@ -17,6 +17,9 @@ metadata:
   name: v-mc-restart
 spec:
   image: replace-with-kustomize
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
