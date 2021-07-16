@@ -44,6 +44,7 @@ ifneq (,$(wildcard $(LOCAL_SOAK_CFG)))
 endif
 
 GOLANGCI_LINT_VER=1.41.1
+LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
 KIND_CHECK=kubectl get node -o=jsonpath='{.items[0].spec.providerID}' | grep 'kind://' -c
@@ -72,6 +73,9 @@ export WEBHOOK_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= vertica-k8s:$(TAG)
 export VERTICA_IMG
+# Image URL to use for the logger sidecar
+VLOGGER_IMG ?= vertica-logger:$(TAG)
+export VLOGGER_IMG
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
 # Produce CRDs that work back to Kubernetes 2.11 (no version conversion)
@@ -84,6 +88,7 @@ GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_PLUGIN_INSTALLED=$(shell helm plugin list | grep -c '^unittest')
 KUTTL_PLUGIN_INSTALLED=$(shell kubectl krew list | grep -c '^kuttl')
+INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -126,11 +131,15 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: install-unittest-plugin manifests generate fmt vet lint
+test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-report
 	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
+ifdef INTERACTIVE
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+else
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test -v ./... -coverprofile cover.out 2>&1 | $(GO_JUNIT_REPORT) | tee ${LOGDIR}/unit-test-report.xml 
+endif
 
 .PHONY: lint
 lint: helm-create-resources ## Lint the helm charts and the Go operator
@@ -159,9 +168,9 @@ endif
 .PHONY: run-int-tests
 run-int-tests: install-kuttl-plugin vdb-gen ## Run the integration tests
 ifeq (${PARALLEL}, )
-	kubectl kuttl test --report xml
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR}
 else
-	kubectl kuttl test --report xml --parallel $(PARALLEL)
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(PARALLEL)
 endif
 
 .PHONY: run-soak-tests
@@ -182,6 +191,9 @@ docker-build-operator: test ## Build operator docker image with the manager.
 docker-build-webhook: test ## Build webhook docker image.
 	docker build -t ${WEBHOOK_IMG} -f docker-webhook/Dockerfile .
 
+docker-build-vlogger:  ## Build vertica logger docker image
+	docker build -t ${VLOGGER_IMG} -f docker-vlogger/Dockerfile .
+
 docker-push-operator: ## Push operator docker image with the manager.
 ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${OPERATOR_IMG}
@@ -194,6 +206,13 @@ ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${WEBHOOK_IMG}
 else
 	scripts/push-to-kind.sh -i ${WEBHOOK_IMG}
+endif
+
+docker-push-vlogger:  ## Push vertica logger docker image
+ifeq ($(shell $(KIND_CHECK)), 0)
+	docker push ${VLOGGER_IMG}
+else
+	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
 endif
 
 .PHONY: docker-build-vertica
@@ -209,9 +228,9 @@ else
 	scripts/push-to-kind.sh -i ${VERTICA_IMG}
 endif
 
-docker-build: docker-build-vertica docker-build-operator docker-build-webhook  ## Build all docker images
+docker-build: docker-build-vertica docker-build-operator docker-build-webhook docker-build-vlogger ## Build all docker images
 
-docker-push: docker-push-vertica docker-push-operator docker-push-webhook  ## Push all docker images
+docker-push: docker-push-vertica docker-push-operator docker-push-webhook docker-push-vlogger ## Push all docker images
 
 kuttl-step-gen: ## Builds the kuttl-step-gen tool
 	go build -o bin/$@ ./cmd/$@
@@ -224,7 +243,7 @@ CERT_MANAGER_VER=1.3.1
 install-cert-manager: ## Install the cert-manager
 	kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml
 	scripts/wait-for-cert-manager-ready.sh -t 180
-     
+	 
 uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml 
 
@@ -288,6 +307,10 @@ controller-gen: ## Download controller-gen locally if necessary.
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize: ## Download kustomize locally if necessary.
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+
+GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
+get-go-junit-report: ## Download go-junit-report locally if necessary.
+	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
