@@ -158,7 +158,11 @@ endif
 
 .PHONY: run-int-tests
 run-int-tests: install-kuttl-plugin vdb-gen ## Run the integration tests
+ifeq (${PARALLEL}, )
 	kubectl kuttl test --report xml
+else
+	kubectl kuttl test --report xml --parallel $(PARALLEL)
+endif
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
