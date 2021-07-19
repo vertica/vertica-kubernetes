@@ -5,7 +5,11 @@ on:
      branches: [main]
   issue_comment:
     types: [created]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      parallel:
+        description: 'Maximum number of tests to run at once'
+        required: false
 
 jobs:
 
@@ -65,11 +69,13 @@ jobs:
         "$KREW" install krew
         )
         export PATH=$PATH:$HOME/.krew/bin
+        E2E_PARALLELISM=${{ github.event.inputs.parallel }}
+        [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2
       if: always()
       with:
-        name: my-artifact
+        name: e2e-logs
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/*.log
         
