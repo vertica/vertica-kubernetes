@@ -58,7 +58,6 @@ jobs:
     - name: Run e2e tests
       env:
           KREW_URL: "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz"
-          E2E_PARALLELISM: ${{ github.event.inputs.parallel }}
       run: |
         (
         set -x; cd "$(mktemp -d)" &&
@@ -70,7 +69,8 @@ jobs:
         "$KREW" install krew
         )
         export PATH=$PATH:$HOME/.krew/bin
-        [ -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
+        E2E_PARALLELISM=${{ github.event.inputs.parallel }}
+        [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2
