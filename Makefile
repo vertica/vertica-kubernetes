@@ -83,6 +83,10 @@ CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
 WEBHOOK_RELEASE_NAME?=vdb-webhook
+# Maximum number of tests to run at once. (default 2)
+# Set it to any value not greater than 8 to override the default one
+E2E_PARALLELISM?=2
+export E2E_PARALLELISM
 
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
@@ -167,11 +171,7 @@ endif
 
 .PHONY: run-int-tests
 run-int-tests: install-kuttl-plugin vdb-gen ## Run the integration tests
-ifeq (${PARALLEL}, )
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR}
-else
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(PARALLEL)
-endif
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM)
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
