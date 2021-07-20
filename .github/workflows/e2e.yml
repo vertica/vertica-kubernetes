@@ -3,8 +3,8 @@ name: Operator e2e tests
 on: 
   push:
      branches: [main]
-  issue_comment:
-    types: [created]
+  pull_request:
+    types: [opened]
   workflow_dispatch:
     inputs:
       parallel:
@@ -14,11 +14,6 @@ on:
 jobs:
 
   build:
-    
-    if: | 
-     (github.event.issue.pull_request && github.event.comment.body == '/run-e2e') ||
-     github.event_name == 'push' ||
-     github.event_name == 'workflow_dispatch'
 
     runs-on: ubuntu-latest
     steps:
