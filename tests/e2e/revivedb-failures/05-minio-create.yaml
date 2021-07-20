@@ -26,6 +26,8 @@ apiVersion: minio.min.io/v2
 kind: Tenant
 metadata:
   name: minio
+  labels:
+    stern: include
 spec:
   image: minio/minio:RELEASE.2021-02-24T18-44-45Z
   imagePullPolicy: IfNotPresent
