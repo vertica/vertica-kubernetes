@@ -19,7 +19,7 @@ spec:
   image: replace-with-kustomize
   communal:
     path: "s3://nimbusdb/db/empty"
-    endpoint: "http://minio"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
   initPolicy: Revive

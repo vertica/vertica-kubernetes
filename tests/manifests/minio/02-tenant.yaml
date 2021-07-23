@@ -11,20 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# MinIO Tenant Definition
 apiVersion: minio.min.io/v2
 kind: Tenant
 metadata:
   name: minio
-status:
-  currentState: Initialized
-  availableReplicas: 1
+  labels:
+    stern: include
+spec:
+  image: minio/minio:RELEASE.2021-02-24T18-44-45Z
+  imagePullPolicy: IfNotPresent
+  credsSecret:
+    name: minio-creds-secret
   pools:
-    - ssName: minio-ss-0
-      state: PoolInitialized
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: minio-ss-0-0
-status:
-  phase: Running
+    - servers: 1
+      volumesPerServer: 4
+      volumeClaimTemplate:
+        metadata:
+          name: data
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 250Mi
+  mountPath: /export
+  requestAutoCert: false

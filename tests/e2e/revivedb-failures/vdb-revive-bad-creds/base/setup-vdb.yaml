@@ -18,8 +18,8 @@ metadata:
 spec:
   image: replace-with-kustomize
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    path: "s3://revivedb-failures"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: custom-creds
     includeUIDInPath: false
   initPolicy: Revive

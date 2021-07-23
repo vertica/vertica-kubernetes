@@ -92,6 +92,12 @@ EOF
 }
 
 function create_pod_kustomization {
+    # Skip directory if it doesn't have any kustomization config
+    if [ ! -d $1/base ]
+    then
+      return 0
+    fi
+
     TC_OVERLAY=$1/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
@@ -99,6 +105,35 @@ function create_pod_kustomization {
         echo "Creating overlay in $TC_OVERLAY"
     fi
     create_kustomization ../base
+    popd > /dev/null
+}
+
+function create_s3_bucket_kustomization {
+    if [ ! -d $1 ]
+    then
+      return 0
+    fi
+
+    TC_OVERLAY=$1/create-s3-bucket/overlay
+    mkdir -p $TC_OVERLAY
+    pushd $TC_OVERLAY > /dev/null
+    cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../../../manifests/s3-bucket/base
+patches:
+- target:
+    version: v1
+    kind: Pod
+    name: create-s3-bucket
+  patch: |-
+    - op: replace
+      path: "/spec/containers/0/env/0"
+      value:
+        name: S3_BUCKET
+        value: $(basename $1)
+EOF
     popd > /dev/null
 }
 
@@ -113,4 +148,8 @@ done
 for tdir in manifests/*
 do
     create_pod_kustomization $tdir
+done
+for tdir in e2e/* e2e-disabled/*
+do
+    create_s3_bucket_kustomization $tdir
 done

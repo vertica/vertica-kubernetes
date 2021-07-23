@@ -18,11 +18,6 @@ testDirs:
 parallel: 2
 timeout: 600
 commands:
-  # The tests depend on the minio operator, ensure that it is installed.
-  - command: kubectl krew update
-  - command: kubectl krew install minio
-  - command: kubectl minio init
-
   # Create the kustomize overlay files to set the image to use.
   - command: tests/create-kustomize-overlay.sh $VERTICA_IMG $VLOGGER_IMG
 
@@ -56,7 +51,18 @@ commands:
   - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
     namespaced: true
 
-
+  # Setup a minio tenant for use with all testcases.  Each testcase is still
+  # responsible for creating and destroying their own bucket.  Use the following
+  # endpoint to access this tenant: https://minio.kuttl-e2e-communal
+  - command: kubectl delete namespace kuttl-e2e-communal
+    ignoreFailure: true
+  - command: kubectl create namespace kuttl-e2e-communal
+  - command: kubectl krew update
+  - command: kubectl krew install minio
+  - command: kubectl minio init
+  - command: kubectl apply -f tests/manifests/minio/01-creds.yaml -n kuttl-e2e-communal
+  - command: kubectl apply -f tests/manifests/minio/02-tenant.yaml -n kuttl-e2e-communal
+  - command: scripts/wait-for-minio.sh -n kuttl-e2e-communal
 
   # We use stern to collect the pod output of any test that creates a pod with
   # the 'stern=include' label.  By default, the output of this is stored in a

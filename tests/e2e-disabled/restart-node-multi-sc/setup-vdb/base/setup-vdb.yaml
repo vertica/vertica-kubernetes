@@ -22,7 +22,7 @@ spec:
       image: kustomize-vlogger-image
   communal:
     path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
   dbName: vertdb
   shardCount: 16

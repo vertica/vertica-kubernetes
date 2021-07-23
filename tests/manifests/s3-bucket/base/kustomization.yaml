@@ -11,20 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: minio.min.io/v2
-kind: Tenant
-metadata:
-  name: minio
-status:
-  currentState: Initialized
-  availableReplicas: 1
-  pools:
-    - ssName: minio-ss-0
-      state: PoolInitialized
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: minio-ss-0-0
-status:
-  phase: Running
+bases:
+  - ../../../kustomize-base
+
+resources:
+  - creation.yaml

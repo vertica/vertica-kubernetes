@@ -12,6 +12,7 @@ local-soak.cfg
 
 # Generated files from create-kustomize-overlay.sh
 overlay/
+create-s3-bucket-overlay/
 
 # Binaries for programs and plugins
 *.exe

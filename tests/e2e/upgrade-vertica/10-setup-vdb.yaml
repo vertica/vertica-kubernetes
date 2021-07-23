@@ -18,8 +18,8 @@ metadata:
 spec:
   image: verticadocker/vertica-k8s:10.1.1-0
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    path: "s3://upgrade-vertica"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret:  minio-creds-secret
   local:
     requestSize: 100Mi
