@@ -14,6 +14,7 @@
 # limitations under the License.
 
 set -o errexit
+set -o pipefail
 
 DEF_TAG=kind
 
