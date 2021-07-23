@@ -22,6 +22,8 @@ spec:
     endpoint: "http://minio"
     credentialSecret: minio-creds-secret
     includeUIDInPath: true
+  local:
+    requestSize: 100Mi
   subclusters:
     - name: sc1
       size: 3

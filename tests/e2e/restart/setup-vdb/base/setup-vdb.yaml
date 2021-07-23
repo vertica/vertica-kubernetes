@@ -22,6 +22,8 @@ spec:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
     credentialSecret: minio-creds-secret
+  local:
+    requestSize: 100Mi
   dbName: spilchendb2
   shardCount: 20
   requeueTime: 4

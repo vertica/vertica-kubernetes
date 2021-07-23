@@ -27,6 +27,7 @@ spec:
   local:
     dataPath: "/new-data"
     depotPath: "/new-depot"
+    requestSize: 10Mi
   dbName: vertdb
   subclusters:
     - name: main

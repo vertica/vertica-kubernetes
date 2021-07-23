@@ -21,6 +21,8 @@ spec:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
     credentialSecret:  minio-creds-secret
+  local:
+    requestSize: 100Mi
   dbName: vd
   shardCount: 17
   subclusters:

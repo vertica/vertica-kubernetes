@@ -23,6 +23,8 @@ spec:
     endpoint: "http://minio"
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
+  local:
+    requestSize: 100Mi
   initPolicy: Revive
   local:
     dataPath: /my-data
