@@ -110,6 +110,7 @@ RUN set -x \
   && chown -R $DBADMIN_UID:$DBADMIN_GID /home/dbadmin \
   # Update is needed to be confident that we're picking up
   # fixed libraries.  We depend on malware check of container afterwards 
+  && yum -q -y update \
   && yum -y update --security \
   # CentOS 8 - enable powertools to fix locales issue
   && bash -c "if [ \"$(rpm -E %{rhel})\" == '8' ]; then yum install -q -y dnf-plugins-core glibc-locale-source; yum -q config-manager --set-enabled powertools; fi" \
