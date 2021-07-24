@@ -22,12 +22,11 @@ spec:
     endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
-  local:
-    requestSize: 100Mi
   initPolicy: Create
   local:
     dataPath: /my-data
     depotPath: /home/dbadmin/depot
+    requestSize: 100Mi
   dbName: vertdb
   subclusters:
     - name: main

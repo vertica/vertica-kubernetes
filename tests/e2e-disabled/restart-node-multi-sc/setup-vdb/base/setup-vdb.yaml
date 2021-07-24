@@ -21,7 +21,7 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://nimbusdb/db"
+    path: "s3://restart-node-multi-sc"
     endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
   dbName: vertdb

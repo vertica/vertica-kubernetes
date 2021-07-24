@@ -17,7 +17,7 @@ metadata:
   name: v-vdb-gen-revive
 spec:
   communal:
-    path: "s3://nimbusdb/db"
+    path: "s3://vdb-gen"
     endpoint: "http://minio.kuttl-e2e-communal"
   dbName: vertdb
   shardCount: 6

@@ -16,5 +16,5 @@ kind: TestStep
 delete:
   - apiVersion: vertica.com/v1beta1
     kind: VerticaDB
-  - apiVersion: minio.min.io/v2
-    kind: Tenant
+  - apiVersion: v1
+    kind: PersistentVolumeClaim:w
