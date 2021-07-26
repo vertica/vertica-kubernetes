@@ -11,21 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: create-s3-bucket
-spec:
-  containers:
-    - name: aws
-      image: amazon/aws-cli
-      command:
-        ["aws", "s3", "mb", "--endpoint", "http://minio.kuttl-e2e-communal", "s3://nimbusdb/db"]
-      env:
-        - name: AWS_ACCESS_KEY_ID
-          value: minio
-        - name: AWS_SECRET_ACCESS_KEY
-          value: minio123
-        - name: AWS_EC2_METADATA_DISABLED
-          value: 'true'
-  restartPolicy: Never
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build create-s3-bucket/overlay | kubectl -n $NAMESPACE apply -f - "

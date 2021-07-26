@@ -11,25 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+# Pod to create a bucket in minio
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-revive-failures-communal-path-empty
+  name: delete-s3-bucket
+  labels:
+    stern: include
 spec:
-  image: replace-with-kustomize
-  communal:
-    path: "s3://revivedb-failures/empty"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
-    includeUIDInPath: false
-  initPolicy: Revive
-  local:
-    dataPath: "/data"
-    depotPath: "/depot"
-    requestSize: 10Mi
-  dbName: vertdb
-  subclusters:
-    - name: main
-      size: 2
-  kSafety: "0"
-  requeueTime: 4
+  containers:
+  - name: aws
+    image: amazon/aws-cli
+    command:
+        ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://$S3_BUCKET"]
+    env:
+      - name: S3_BUCKET
+        value: $(S3_BUCKET)
+      - name: AWS_ACCESS_KEY_ID
+        value: minio
+      - name: AWS_SECRET_ACCESS_KEY
+        value: minio123
+      - name: AWS_EC2_METADATA_DISABLED
+        value: 'true'
+      - name: S3_EP
+        value: http://minio.kuttl-e2e-communal
+  restartPolicy: Never

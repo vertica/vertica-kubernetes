@@ -121,12 +121,41 @@ function create_s3_bucket_kustomization {
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/s3-bucket/base
+- ../../../../manifests/create-s3-bucket/base
 patches:
 - target:
     version: v1
     kind: Pod
     name: create-s3-bucket
+  patch: |-
+    - op: replace
+      path: "/spec/containers/0/env/0"
+      value:
+        name: S3_BUCKET
+        value: $(basename $1)
+EOF
+    popd > /dev/null
+}
+
+function delete_s3_bucket_kustomization {
+    if [ ! -d $1 ]
+    then
+      return 0
+    fi
+
+    TC_OVERLAY=$1/delete-s3-bucket/overlay
+    mkdir -p $TC_OVERLAY
+    pushd $TC_OVERLAY > /dev/null
+    cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../../../manifests/delete-s3-bucket/base
+patches:
+- target:
+    version: v1
+    kind: Pod
+    name: delete-s3-bucket
   patch: |-
     - op: replace
       path: "/spec/containers/0/env/0"
@@ -152,4 +181,5 @@ done
 for tdir in e2e/* e2e-disabled/*
 do
     create_s3_bucket_kustomization $tdir
+    delete_s3_bucket_kustomization $tdir
 done

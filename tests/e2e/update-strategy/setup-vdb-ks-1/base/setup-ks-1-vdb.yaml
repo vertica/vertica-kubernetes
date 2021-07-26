@@ -18,7 +18,7 @@ metadata:
 spec:
   image: replace-with-kustomize
   communal:
-    path: "s3://revivedb-3-node/ks-1"
+    path: "s3://update-strategy/ks-1"
     endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
     includeUIDInPath: true
