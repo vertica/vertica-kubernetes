@@ -26,20 +26,22 @@ TAG=kind
 setImageWithTag $TAG
 
 function usage() {
-    echo "usage: push-to-kind.sh [-i <image>] [-t <tag>] [<name>]"
+    echo "usage: push-to-kind.sh [-i <image>] [-t <tag>] [-f <file>] [<name>]"
     echo
     echo "Options:"
     echo "  -i     Image names to push.  Defaults to: $IMAGES"
     echo "  -t     Tag name to use with each image.  This is mutually exclusive"
     echo "         with -i as it will set the image names with this tag."
     echo "         Defaults to: $TAG"
+    echo "  -f     Read a list of images from the given file.  If file is '-',"
+    echo "         it will read from stdin."
     echo
     echo "Positional Arguments:"
     echo " <name>  Name of the cluster to push to.  If unset, it will pick from the current context."
     exit 1
 }
 
-while getopts "i:t:h" opt
+while getopts "i:t:f:h" opt
 do
     case $opt in
         t)
@@ -50,6 +52,14 @@ do
             ;;
         h) 
             usage
+            ;;
+        f)
+            if [ "$OPTARG" = "-" ]
+            then
+              OPTARG=/dev/stdin
+            fi
+            # Build an image list from the file and strip out any comments
+            IMAGES=$(cat $OPTARG | sed '/^[[:blank:]]*#/d;s/#.*//')
             ;;
         \?)
             echo "ERROR: unrecognized option: -$opt"
