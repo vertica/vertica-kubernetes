@@ -99,6 +99,8 @@ function build_and_push {
     make  docker-build vdb-gen
     echo "Pushing the images to the kind cluster"
     make  docker-push
+    echo "Pushing the external images to the kind cluster"
+    scripts/push-to-kind -f tests/external-images.txt
 }
 
 # Run integration tests and store the pod status in a file
