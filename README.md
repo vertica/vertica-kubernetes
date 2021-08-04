@@ -8,8 +8,6 @@ This repository contains the code for a Kubernetes operator that manages Vertica
 
 # Installing the CRD
 
-***The instructions for installing the CRD are intended for use when this repo has created the 1.0.0 GitHub release.  This will not happen until August 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) for steps on how to install.***<br>
-
 Install the `CustomResourceDefinition` with a YAML manifest:
 
 ```
@@ -19,8 +17,6 @@ $ kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/downlo
 Both the webhook and operator Helm chart install the CRD if it is not currently installed.
 
 # Installing the Operator
-
-***The instructions for installing the operator are intended for use when the image and helm chart are publicly hosted.  This will not happen until August 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) to compile the operator and package it in a container.***<br>
 
 Install the operator with a Helm chart to manage a Vertica database. Run the following commands to download and install the chart:
 
@@ -34,8 +30,6 @@ You can install only one instance of the chart in a namespace. The operator moni
 
 
 # Installing the Webhook
-
-***The instructions for installing the webhook are intended for use when the image and helm chart are publicly hosted.  This will not happen until August 2021.  Until then, refer to the [developer instructions](DEVELOPER.md) to compile the webhook and package it in a container.***<br>
 
 A separate install is required to install a webhook for an admission controller. An [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) is a REST endpoint that you set up within Kubernetes that verifies proposed changes to the custom resource are allowed. Running with the admission controller is optional, but it is highly encouraged to prevent simple errors from being made when modifying the custom resource.
 
