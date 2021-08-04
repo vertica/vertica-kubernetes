@@ -268,7 +268,7 @@ The following steps are included automated in the `scripts/upgrade-vertica.sh` s
    ```
 4. Update the container tag in the CR:
    ```
-   $ kubectl patch verticadb vert-cluster --type=merge --patch '{"spec": {"image": "verticadocker/vertica-k8s:11.1.1-0"}}'
+   $ kubectl patch verticadb vert-cluster --type=merge --patch '{"spec": {"image": "vertica/vertica-k8s:11.1.1-0"}}'
    ```
 5. Delete the pods so that they can pickup the new image. The simplest way to delete the pods is to delete the StatefulSsets so the operator regenerates them:
    ```
@@ -314,7 +314,7 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 | communal.path | The path to the communal storage. This must be a s3 bucket. You specify this using the s3:// bucket notation. For example: `s3://bucket-name/key-name`. You must create this bucket before creating the VerticaDB. This field is required and cannot change after creation.  If `initPolicy` is *Create*, then this path must be empty.  If the `initPolicy` is *Revive*, then this path must be non-empty. |  |
 | dbName | The name to use for the database.  When `initPolicy` is `Revive`, this must match the name of the database that used when it was originally created. | vertdb
 | ignoreClusterLease | Ignore the cluster lease when doing a revive or start_db. Use this with caution, as ignoring the cluster lease when another system is using the same communal storage will cause corruption. | false
-| image | The name of the container that runs the server.  If hosting the containers in a private container repository, this name must include the path to that repository.  Vertica doesn't allow communications between nodes running different versions, so this is allowed to change only if `autoRestartVertica` is disabled.| vertica/vertica-k8s:10.1.1-0 |
+| image | The name of the container that runs the server.  If hosting the containers in a private container repository, this name must include the path to that repository.  Vertica doesn't allow communications between nodes running different versions, so this is allowed to change only if `autoRestartVertica` is disabled.| vertica/vertica-k8s:11.0.0-0-minimal |
 | imagePullPolicy | Determines how often Kubernetes pulls the specified image. For details, see [Updating Images](https://kubernetes.io/docs/concepts/containers/images/#updating-images) in the Kubernetes documentation. | If the image tag ends with `latest`, we use `Always`.  Otherwise we use `IfNotPresent`.
 | imagePullSecrets | A list of secrets consisting of credentials for authentication to a private container repository. For details, see [Specifying imagePullSecrets](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod) in the Kubernetes documentation. |  |
 | initPolicy | Specifies how to initialize the database in Kubernetes. Available options are: *Create* or *Revive*.  *Create* forces the creation of a new database. *Revive* initializes the database with the use of the revive command. | Create |
