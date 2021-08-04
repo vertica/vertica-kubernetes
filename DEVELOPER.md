@@ -154,7 +154,7 @@ We have unit tests for both the Helm chart and the Go operator.
 
 Unit tests for the Helm chart are stored in `helm-charts/verticadb-operator/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic). For details about the test format, review the [helm-unittest GitHub repo](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md).
 
-Unit tests for the Go operator use the Go testing infrastructure. Some of the tests stand up a mock Kubernetes control plane using envtest, and runs the operator against that. Per Go standards Go, the test files are included in package directories and end with `_test.go`.
+Unit tests for the Go operator use the Go testing infrastructure. Some of the tests stand up a mock Kubernetes control plane using envtest, and runs the operator against that. Per Go standards, the test files are included in package directories and end with `_test.go`.
 
 The Helm chart testing and Go lang unit tests can be run like this:
 
