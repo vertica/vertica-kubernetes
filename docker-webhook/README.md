@@ -22,9 +22,9 @@ https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/
 
 # How to Use This Image
 
-This image is used to deploy the webhook for VerticaDB operator. The webhook will be deployed at cluster scope. It will validate requests (and reject the invalid ones) to the VerticaDB CRD deployed into any namespaces.
+This image is used to deploy the [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/) for the Vertica operator. The admission controller is a cluster-scoped webhook that prevents invalid state changes to the custom resource instance. When you save a change to a custom resource instance, the admission controller webhook queries a REST endpoint that provides state rules for custom resource objects. If a change violates the state rules, the admission controller prevents the change and returns a error.
 
-See the official [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes) for a brief overview on how to install, configure, and uninstall the operator. See the [official Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm) for an in-depth look at the Vertica on Kubernetes architecture.
+See the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes) for a brief overview on how to install and configure the operator. See the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Containers/ContainerizedVertica.htm) for an in-depth look at the Vertica on Kubernetes architecture.
 
 # License
 

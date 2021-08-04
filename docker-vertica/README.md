@@ -25,11 +25,13 @@ https://www.vertica.com/
 
 # How to Use This Image
 
-This image runs the Vertica engine.  It is optimized for use with the VerticaDB Operator.  That operator will manage a Vertica [Eon Mode](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes.
+This image runs the Vertica server that is optimized for use with the [Vertica operator](https://github.com/vertica/vertica-kubernetes/tree/main/docker-operator). The operator automates management and administrative tasks for an [Eon Mode](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes. 
 
-We offer two different sizes of the image.  The one ending with *-minimal* has the optional [Tensorflow package](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/AnalyzingData/MachineLearning/UsingExternalModels/UsingTensorFlow/TensorFlowExample.htm) removed to save space.  If you require this package then you need to use the image without the *-minimal* suffix.  
+Vertica provides two versions of this image, depending on whether you require the TensorFlow package:
+- If you do not require the TensorFlow package, Vertica recommends downloading the image with the *-minimal* [supported tag](#supported-tags) suffix. Because it does not include the TensorFlow package, it has a reduced size. The *-minimal* image is the default image included in the [Vertica Helm chart](https://github.com/vertica/charts).
+- If you do require the TensorFlow package, download an image without the *-minimal* suffix. For details about TensorFlow and Vertica, see [Setting up TensorFlow Support in Vertica](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/AnalyzingData/MachineLearning/UsingExternalModels/UsingTensorFlow/TensorFlowExample.htm).
 
-See the official [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes) for a brief overview on how to install, configure, and uninstall the operator. See the [official Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm) for an in-depth look at the Vertica on Kubernetes architecture.
+For a brief overview on how to install and configure the operator, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
 
 # License
 
