@@ -18,7 +18,7 @@ metadata:
 spec:
   containers:
     - name: aws
-      image: amazon/aws-cli
+      image: amazon/aws-cli:2.2.24
       command:
         ["aws", "s3", "mb", "--endpoint", "http://minio", "s3://nimbusdb/db"]
       env:
