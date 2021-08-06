@@ -78,8 +78,17 @@ type PodFact struct {
 	// if installation has occurred.
 	compat21NodeName string
 
-	// Is the agent running in this pod?
-	agentRunning bool
+	// True if the end user license agreement has been accepted
+	eulaAccepted tristate.TriState
+
+	// True if the container has the sudo executable
+	hasSudo bool
+
+	// True if /opt/vertica/config/logrotate is writable by dbadmin
+	logrotateIsWritable bool
+
+	// True if /opt/vertica/config/share is writable by dbadmin
+	configShareExists bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -184,15 +193,34 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		return err
 	}
 
-	// set pf.upNode and pf.agentRunning, but we can skip if the db doesn't
+	// set pf.upNode, but we can skip if the db doesn't
 	// exist
 	if !pf.dbExists.IsFalse() {
 		if err := p.checkIfNodeIsUp(ctx, &pf); err != nil {
 			return err
 		}
-		if err := p.checkIfAgentRunning(ctx, &pf); err != nil {
-			return err
-		}
+	}
+
+	// set pf.eulaAccepted
+	if err := p.checkEulaAcceptance(ctx, &pf); err != nil {
+		return err
+	}
+
+	// set pf.hasSudo
+	if err := p.checkIfSudoExists(ctx, &pf); err != nil {
+		return err
+	}
+
+	// SPILLY - put these checks in a list
+
+	// set pf.logrotateIsWritable
+	if err := p.checkIsLogrotateWritable(ctx, &pf); err != nil {
+		return err
+	}
+
+	// set pf.configShareIsWritable
+	if err := p.checkThatConfigShareExists(ctx, &pf); err != nil {
+		return err
 	}
 
 	p.Detail[pf.name] = &pf
@@ -225,6 +253,51 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 		}
 	} else {
 		pf.isInstalled = tristate.None
+	}
+	return nil
+}
+
+// checkEulaAcceptance will check if the end user license agreement has been accepted
+func (p *PodFacts) checkEulaAcceptance(ctx context.Context, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "cat", paths.EulaAcceptanceFile); err != nil {
+			if !strings.Contains(stderr, fmt.Sprintf("cat: %s: No such file or directory", paths.EulaAcceptanceFile)) {
+				return err
+			}
+			pf.eulaAccepted = tristate.False
+		} else {
+			pf.eulaAccepted = tristate.True
+		}
+	}
+	return nil
+}
+
+// checkIfSudoExists will check if sudo exists in the pod
+func (p *PodFacts) checkIfSudoExists(ctx context.Context, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "which", "sudo"); err == nil {
+			pf.hasSudo = true
+		}
+	}
+	return nil
+}
+
+// checkIsLogrotateWritable will verify that dbadmin has write access to /opt/vertica/config/logrotate
+func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "test", "-w", "/opt/vertica/config/logrotate"); err == nil {
+			pf.logrotateIsWritable = true
+		}
+	}
+	return nil
+}
+
+// checkThatConfigShareExists will verify that /opt/vertica/config/share exists
+func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "test", "-d", "/opt/vertica/config/share"); err == nil {
+			pf.configShareExists = true
+		}
 	}
 	return nil
 }
@@ -275,19 +348,6 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 		pf.upNode = true
 	}
 
-	return nil
-}
-
-// checkIfAgentRunning will check if the Vertica agent is running and set state in pf.agentRunning
-func (p *PodFacts) checkIfAgentRunning(ctx context.Context, pf *PodFact) error {
-	pf.agentRunning = false
-	if !pf.isPodRunning {
-		return nil
-	}
-
-	if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "/opt/vertica/sbin/vertica_agent", "status"); err == nil {
-		pf.agentRunning = true
-	}
 	return nil
 }
 

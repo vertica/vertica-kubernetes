@@ -17,6 +17,7 @@ package cmds
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -83,6 +84,13 @@ func (f *FakePodRunner) ExecAdmintools(ctx context.Context, podName types.Namesp
 func (f *FakePodRunner) ExecVSQL(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
 	command = UpdateVsqlCmd(f.SUPassword, command...)
+	return f.ExecInPod(ctx, podName, contName, command...)
+}
+
+// CopyToPod will mimic a real copy file into a pod
+func (f *FakePodRunner) CopyToPod(ctx context.Context, podName types.NamespacedName,
+	contName string, sourceFile string, destFile string) (stdout, stderr string, err error) {
+	command := []string{"sh", "-c", fmt.Sprintf("cat > %s", destFile)}
 	return f.ExecInPod(ctx, podName, contName, command...)
 }
 

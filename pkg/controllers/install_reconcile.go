@@ -18,39 +18,40 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"regexp"
-	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/lithammer/dedent"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // InstallReconciler will handle reconcile for install of vertica
 type InstallReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	VRec     *VerticaDBReconciler
+	Log      logr.Logger
+	Vdb      *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner  cmds.PodRunner
+	PFacts   *PodFacts
+	ATWriter atconf.Writer
 }
 
 // MakeInstallReconciler will build and return the InstallReconciler object.
 func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &InstallReconciler{
-		VRec:    vdbrecon,
-		Log:     log,
-		Vdb:     vdb,
-		PRunner: prunner,
-		PFacts:  pfacts,
+		VRec:     vdbrecon,
+		Log:      log,
+		Vdb:      vdb,
+		PRunner:  prunner,
+		PFacts:   pfacts,
+		ATWriter: atconf.MakeClusterWriter(log, vdb, prunner),
 	}
 }
 
@@ -70,6 +71,15 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 		return res, err
 	}
 
+	if err := d.acceptEulaIfMissing(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// SPILLY - put these checks in a list
+	if err := d.checkConfigDir(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if d.anyPodsNotRunning() {
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -86,34 +96,27 @@ func (d *InstallReconciler) runUpdateVerticaAddHosts(ctx context.Context) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	licensePath, err := license.GetPath(ctx, d.VRec.Client, d.Vdb)
+	installedPods := d.PFacts.findInstalledPods()
+	ipsToInstall := []string{}
+	for _, p := range pods {
+		ipsToInstall = append(ipsToInstall, p.podIP)
+	}
+	installPod := types.NamespacedName{}
+	if len(installedPods) != 0 {
+		installPod = d.findPodToInstallFrom()
+	}
+
+	atConfTempFile, err := d.ATWriter.AddHosts(ctx, installPod, ipsToInstall)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	// SPILLY - ensure we cleanup/remove temp file if we don't return success from AddHosts
+	defer os.Remove(atConfTempFile)
 
-	pod := d.findPodToInstallFrom()
-	installedPods := d.PFacts.findInstalledPods()
 	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
-
-	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.InstallingPods,
-		"Calling update_vertica to add the following pods as new hosts: %s", genPodNames(pods))
-	start := time.Now()
-	cmd := d.genCmdInstall(pods, licensePath)
-	if stdout, _, err := d.PRunner.ExecInPod(ctx, pod, ServerContainer, cmd...); err != nil {
-		r := regexp.MustCompile(`Unable to add host\(s\) \[(.*)\]: already part of the cluster`)
-		m := r.FindStringSubmatch(stdout)
-		if m != nil {
-			d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.InstallHostExists,
-				"Failed while calling update_vertica because host(s) already installed: %s", m[1])
-			return d.removeExistingHosts(ctx, pod, m[1])
-		}
-		d.VRec.EVRec.Event(d.Vdb, corev1.EventTypeWarning, events.InstallFailed,
-			"Failed while calling update_vertica")
-		return ctrl.Result{}, fmt.Errorf("failed to call update_vertica to add new hosts: %w", err)
+	if err := d.distributeAdmintoolsConf(ctx, atConfTempFile); err != nil {
+		return ctrl.Result{}, err
 	}
-	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.InstallSucceeded,
-		"Successfully called update_vertica to add new hosts and it took %s", time.Since(start))
-
 	installedPods = append(installedPods, pods...)
 	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 
@@ -121,6 +124,47 @@ func (d *InstallReconciler) runUpdateVerticaAddHosts(ctx context.Context) (ctrl.
 	d.PFacts.Invalidate()
 
 	return ctrl.Result{}, d.createInstallIndicators(ctx, pods)
+}
+
+// acceptEulaIfMissing will accept the end user license agreement if any pods have not yet signed it
+func (d *InstallReconciler) acceptEulaIfMissing(ctx context.Context) error {
+	for _, p := range d.PFacts.Detail {
+		if !p.eulaAccepted.IsFalse() || !p.isPodRunning {
+			continue
+		}
+		if err := d.acceptEulaInPod(ctx, p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkConfigDir will check that certain directories in /opt/vertica/config
+// exists and are writable by dbadmin
+func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
+	for _, p := range d.PFacts.Detail {
+		if !p.isPodRunning {
+			continue
+		}
+		if !p.logrotateIsWritable {
+			// We enforce this in the docker entrypoint of the container too.  But
+			// we have this here for backwards compatibility for images 11.0 or older.
+			_, _, err := d.PRunner.ExecInPod(ctx, p.name, ServerContainer,
+				"sudo", "chown", "-R", "dbadmin:verticadba", "/opt/vertica/config/logrotate")
+			if err != nil {
+				return err
+			}
+		}
+
+		if !p.configShareExists {
+			_, _, err := d.PRunner.ExecInPod(ctx, p.name, ServerContainer,
+				"mkdir", "/opt/vertica/config/share")
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // getInstallTargets finds the list of hosts/pods that we will call update_vertica with.
@@ -140,6 +184,20 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 	return podList, nil
 }
 
+// distributeAdmintoolsConf will copy the d.ATConfTempFile to all of the pods
+func (d *InstallReconciler) distributeAdmintoolsConf(ctx context.Context, atConfTempFile string) error {
+	for _, p := range d.PFacts.Detail {
+		if !p.isPodRunning {
+			continue
+		}
+		_, _, err := d.PRunner.CopyToPod(ctx, p.name, ServerContainer, atConfTempFile, paths.AdminToolsConf)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // createInstallIndicators will create the install indicator file for all pods passed in
 func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []*PodFact) error {
 	for _, v := range pods {
@@ -147,6 +205,7 @@ func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []
 		if err != nil {
 			return fmt.Errorf("failed to extract compat21 node name: %w", err)
 		}
+		// SPILLY - search through usage of update_vertica or UpdateVertica (function names) and update
 		// Create the install indicator file. This is used to know that this
 		// instance of the vdb has called update_vertica for this pod. The
 		// /opt/vertica/config is backed by a PV, so it is possible that we
@@ -179,30 +238,7 @@ func (d *InstallReconciler) fetchCompat21NodeNum(ctx context.Context, pf *PodFac
 	return "", fmt.Errorf("could not find compat21 node in output")
 }
 
-// genCmdInstall generates the command to run to install vertica at a list of nodes
-func (d *InstallReconciler) genCmdInstall(pods []*PodFact, licensePath string) []string {
-	hosts := make([]string, 0, len(pods))
-	for _, pod := range pods {
-		hosts = append(hosts, pod.dnsName)
-	}
-
-	updateVerticaCmd := []string{
-		"sudo", "/opt/vertica/sbin/update_vertica",
-		"--license", licensePath,
-		"--accept-eula",
-		"--failure-threshold", "NONE",
-		"--dba-user-password-disabled",
-		"--no-system-configuration",
-		"--no-package-checks",
-		"--point-to-point",
-		"--data-dir", d.Vdb.Spec.Local.DataPath,
-		"--add-hosts", strings.Join(hosts, ","),
-	}
-	if podsAllHaveIPv6(pods) {
-		return append(updateVerticaCmd, "--ipv6")
-	}
-	return updateVerticaCmd
-}
+// SPILLY - test with ipv6
 
 // genCmdCreateInstallIndicator generates the command to create the install indicator file
 func (d *InstallReconciler) genCmdCreateInstallIndicator(compat21Node string) []string {
@@ -246,33 +282,37 @@ func (d *InstallReconciler) anyPodsNotRunning() bool {
 	return false
 }
 
-// removeExistingHosts is called when the install fails due to hosts already being
-// in the cluster.  This can happen if the operator is killed before it has a
-// chance to create the install indicator file.  We will repair it by removing
-// the host to allow a subsequent install to be successful.
-func (d *InstallReconciler) removeExistingHosts(ctx context.Context, adminPod types.NamespacedName,
-	existingHosts string) (ctrl.Result, error) {
-	// The existing hosts comes in the form: '10.244.1.120'.  We need to find
-	// the pod that corresponds to this IP so that we can create a command to
-	// remove them.  Each pod we find will be added to the existingPods list.
-	existingPods := []*PodFact{}
-	for _, quotedHost := range strings.Split(existingHosts, " ") {
-		host := strings.Trim(quotedHost, "'") // Remove ' that surrounds it
-		for _, pod := range d.PFacts.Detail {
-			if pod.podIP == host {
-				existingPods = append(existingPods, pod)
-			}
-		}
+// acceptEulaInPod will run a script that will accept the eula in the given pod
+func (d *InstallReconciler) acceptEulaInPod(ctx context.Context, pf *PodFact) error {
+	tmp, err := ioutil.TempFile("", "accept_eula.py.")
+	if err != nil {
+		return err
+	}
+	defer tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	// A python script that will accept the eula
+	acceptEulaPython := `
+		import vertica.shared.logging
+		import vertica.tools.eula_checker
+		vertica.shared.logging.setup_admintool_logging()
+		vertica.tools.eula_checker.EulaChecker().write_acceptance()
+	`
+	_, err = tmp.WriteString(dedent.Dedent(acceptEulaPython))
+	if err != nil {
+		return err
+	}
+	tmp.Close()
+
+	const inContPyFn = "/opt/vertica/config/accept_eula.py"
+	_, _, err = d.PRunner.CopyToPod(ctx, pf.name, ServerContainer, tmp.Name(), inContPyFn)
+	if err != nil {
+		return err
 	}
 
-	if len(existingPods) > 0 {
-		cmd := genCmdUninstall(existingPods)
-		if _, _, err := d.PRunner.ExecInPod(ctx, adminPod, ServerContainer, cmd...); err != nil {
-			return ctrl.Result{}, err
-		}
+	_, _, err = d.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "/opt/vertica/oss/python3/bin/python3", inContPyFn)
+	if err != nil {
+		return err
 	}
-
-	// Requeue so that we try the install again now that we uninstalled the
-	// hosts that were already part of the cluster.
-	return ctrl.Result{Requeue: true}, nil
+	return nil
 }

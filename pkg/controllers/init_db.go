@@ -35,7 +35,7 @@ import (
 
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
-	genCmd(hostList []string) []string
+	genCmd(ctx context.Context, hostList []string) ([]string, error)
 	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, atPod types.NamespacedName) error
 	getAdditionalAuthParms() string
@@ -108,7 +108,10 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 
 	debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
 
-	cmd := g.initializer.genCmd(getHostList(podList))
+	cmd, err := g.initializer.genCmd(ctx, getHostList(podList))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	if res, err := g.initializer.execCmd(ctx, atPod, cmd); err != nil || res.Requeue {
 		return res, err
 	}

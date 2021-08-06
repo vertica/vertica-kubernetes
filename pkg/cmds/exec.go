@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -34,6 +36,8 @@ type PodRunner interface {
 	ExecInPod(ctx context.Context, podName types.NamespacedName, contName string, command ...string) (string, string, error)
 	ExecVSQL(ctx context.Context, podName types.NamespacedName, contName string, command ...string) (string, string, error)
 	ExecAdmintools(ctx context.Context, podName types.NamespacedName, contName string, command ...string) (string, string, error)
+	CopyToPod(ctx context.Context, podName types.NamespacedName, contName string, sourceFile string,
+		destFile string) (stdout, stderr string, err error)
 }
 
 type ClusterPodRunner struct {
@@ -52,7 +56,7 @@ func (c *ClusterPodRunner) logInfoCmd(podName types.NamespacedName, command ...s
 	var sb strings.Builder
 	for i := 0; i < len(command); i++ {
 		switch command[i] {
-		case "--password", "-w":
+		case "--password":
 			sb.WriteString(command[i])
 			sb.WriteString(" ")
 			sb.WriteString("*******")
@@ -73,42 +77,29 @@ func (c *ClusterPodRunner) ExecInPod(ctx context.Context, podName types.Namespac
 		execErr bytes.Buffer
 	)
 
-	c.logInfoCmd(podName, command...)
+	err = c.postExec(podName, contName, command, &execOut, &execErr, nil)
+	return execOut.String(), execErr.String(), err
+}
 
-	cli, err := kubernetes.NewForConfig(c.Cfg)
+// CopyToPod copies a file into a container's pod
+func (c *ClusterPodRunner) CopyToPod(ctx context.Context, podName types.NamespacedName,
+	contName string, sourceFile string, destFile string) (stdout, stderr string, err error) {
+	var (
+		execOut bytes.Buffer
+		execErr bytes.Buffer
+	)
+
+	// Copying a file simplies cat's the contents from stdin
+	command := []string{"sh", "-c", fmt.Sprintf("cat > %s", destFile)}
+
+	inFile, err := os.Open(sourceFile)
 	if err != nil {
-		return "", "", fmt.Errorf("could not get clientset: %v", err)
+		return "", "", err
 	}
+	defer inFile.Close()
 
-	restClient := cli.CoreV1().RESTClient()
-	req := restClient.Post().
-		Resource("pods").
-		Name(podName.Name).
-		Namespace(podName.Namespace).
-		SubResource("exec")
-	req.VersionedParams(&corev1.PodExecOptions{
-		Container: contName,
-		Command:   command,
-		Stdout:    true,
-		Stderr:    true,
-	}, scheme.ParameterCodec)
-
-	exec, err := remotecommand.NewSPDYExecutor(c.Cfg, "POST", req.URL())
-	if err != nil {
-		return "", "", fmt.Errorf("failed to init executor: %v", err)
-	}
-
-	err = exec.Stream(remotecommand.StreamOptions{
-		Stdout: &execOut,
-		Stderr: &execErr,
-	})
-	c.Log.Info("ExecInPod stream", "pod", podName, "err", err, "stdout", execOut.String(), "stderr", execErr.String())
-
-	if err != nil {
-		return execOut.String(), execErr.String(), fmt.Errorf("could not execute: %v", err)
-	}
-
-	return execOut.String(), execErr.String(), nil
+	err = c.postExec(podName, contName, command, &execOut, &execErr, inFile)
+	return execOut.String(), execErr.String(), err
 }
 
 // ExecVSQL appends options to the vsql command and calls ExecInPod
@@ -129,7 +120,7 @@ func (c *ClusterPodRunner) ExecAdmintools(ctx context.Context, podName types.Nam
 func UpdateVsqlCmd(passwd string, cmd ...string) []string {
 	prefix := []string{"vsql"}
 	if passwd != "" {
-		prefix = []string{"vsql", "-w", passwd}
+		prefix = []string{"vsql", "--password", passwd}
 	}
 	cmd = append(prefix, cmd...)
 	return cmd
@@ -170,4 +161,51 @@ func getSupportingPasswdSlice() []string {
 		"db_add_node", "db_add_subcluster", "db_remove_node",
 		"db_remove_subcluster", "create_db", "restart_node", "start_db",
 	}
+}
+
+// postExec makes the actual POST call to the REST endpoint to do the exec
+func (c *ClusterPodRunner) postExec(podName types.NamespacedName, contName string, command []string,
+	execOut, execErr *bytes.Buffer, execIn io.Reader) error {
+	c.logInfoCmd(podName, command...)
+
+	cli, err := kubernetes.NewForConfig(c.Cfg)
+	if err != nil {
+		return fmt.Errorf("could not get clientset: %v", err)
+	}
+
+	hasStdin := false
+	if execIn != nil {
+		hasStdin = true
+	}
+	restClient := cli.CoreV1().RESTClient()
+	req := restClient.Post().
+		Resource("pods").
+		Name(podName.Name).
+		Namespace(podName.Namespace).
+		SubResource("exec")
+	req.VersionedParams(&corev1.PodExecOptions{
+		Container: contName,
+		Command:   command,
+		Stdout:    true,
+		Stderr:    true,
+		Stdin:     hasStdin,
+	}, scheme.ParameterCodec)
+
+	exec, err := remotecommand.NewSPDYExecutor(c.Cfg, "POST", req.URL())
+	if err != nil {
+		return fmt.Errorf("failed to init executor: %v", err)
+	}
+
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdout: execOut,
+		Stderr: execErr,
+		Stdin:  execIn,
+	})
+	c.Log.Info("ExecInPod stream", "pod", podName, "err", err, "stdout", execOut.String(), "stderr", execErr.String())
+
+	if err != nil {
+		return fmt.Errorf("could not execute: %v", err)
+	}
+
+	return nil
 }

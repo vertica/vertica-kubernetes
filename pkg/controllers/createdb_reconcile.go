@@ -27,6 +27,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
@@ -182,7 +183,12 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 }
 
 // genCmd will return the command to run in the pod to create the database
-func (c *CreateDBReconciler) genCmd(hostList []string) []string {
+func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]string, error) {
+	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
+	if err != nil {
+		return []string{}, err
+	}
+
 	return []string{
 		"-t", "create_db",
 		"--skip-fs-checks",
@@ -195,5 +201,6 @@ func (c *CreateDBReconciler) genCmd(hostList []string) []string {
 		"--database", c.Vdb.Spec.DBName,
 		"--force-cleanup-on-failure",
 		"--noprompt",
-	}
+		"--license", licPath,
+	}, nil
 }

@@ -31,6 +31,7 @@ const (
 	PodInfoPath            = "/etc/podinfo"
 	AdminToolsConf         = "/opt/vertica/config/admintools.conf"
 	AuthParmsFile          = "/home/dbadmin/auth_parms.conf"
+	EulaAcceptanceFile     = "/opt/vertica/config/d5415f948449e9d4c421b568f2411140.dat"
 )
 
 // GenInstallerIndicatorFileName returns the name of the installer indicator file.
