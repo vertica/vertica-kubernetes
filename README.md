@@ -283,6 +283,8 @@ To minimize the number of errors, we validate that the image can only change whe
 
 Each pod uses a PV to store local data. The PV is mounted in the container at `/home/dbadmin/local-data`. 
 
+Select a [recommended storage format type](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/SupportedPlatforms/MCandServer.htm) as the `fsType` value for your StorageClass.
+
 The `local-data` directory contains the following subdirectories:
 
 * /home/dbadmin/local-data/*\<uid\>*/data/: Stores the local catalogs and any temporary files. There is a symlink to this path to the `local.dataPath` parameter. **Default**: `/data`.
