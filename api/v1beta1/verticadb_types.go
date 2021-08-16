@@ -50,7 +50,7 @@ type VerticaDBSpec struct {
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="verticadocker/vertica-k8s:10.1.1-0"
+	// +kubebuilder:default:="vertica/vertica-k8s:11.0.0-0-minimal"
 	// The docker image name that contains Vertica.
 	Image string `json:"image,omitempty"`
 

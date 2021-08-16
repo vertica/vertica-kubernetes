@@ -1,6 +1,6 @@
-First off, thank you for considering contributing to *vertica-kubernetes* and helping make it even better than it is today!
+Thank you for contributing to *vertica-kubernetes*!
 
-This document will guide you through the contribution process. There are a number of ways you can help:
+This document guides you through the contribution process. There are a number of ways you can help:
 
  - [Bug Reports](#bug-reports)
  - [Feature Requests](#feature-requests)
@@ -8,28 +8,26 @@ This document will guide you through the contribution process. There are a numbe
  
 # Bug Reports
 
-If you find a bug, submit an [issue](https://github.com/vertica/vertica-kubernetes/issues) with a complete and reproducible bug report. If the issue can't be reproduced, it will be closed. If you opened an issue, but figured out the answer later on your own, comment on the issue to let people know, then close the issue.
+If you find a bug, [submit an issue](https://github.com/vertica/vertica-kubernetes/issues) with a complete and reproducible bug report. If the issue can't be reproduced, it will be closed. If you opened an issue and then later resolved it on your own, comment on the issue and then close the issue.
 
-For issues (e.g. security related issues) that are **not suitable** to be reported publicly on the GitHub issue system, report your issues to [Vertica open source team](mailto:vertica-opensrc@microfocus.com) directly or file a case with Vertica support if you have a support account.
+For issues that are **not suitable** to be reported publicly on the GitHub issue system (e.g. security related issues), report your issues to [Vertica open source team](mailto:vertica-opensrc@microfocus.com) directly or file a case with Vertica support, if you have a support account.
 
 # Feature Requests
 
-Feel free to share your ideas for how to improve *vertica-kubernetes*. We’re always open to suggestions.
-You can open an [issue](https://github.com/vertica/vertica-kubernetes/issues)
-with details describing what feature(s) you'd like added or changed.
+The Vertica team is always open to suggestions -- feel free to share your ideas about how to improve *vertica-kubernetes*. To provide suggestions, [open an issue](https://github.com/vertica/vertica-kubernetes/issues) with details describing what feature(s) you would like added or changed.
 
 # Code Contributions
 
-## Step 1: Fork
+## 1. Fork
 
-Fork the project [on Github](https://github.com/vertica/vertica-kubernetes) and check out your copy locally.
+Fork the [project on Github](https://github.com/vertica/vertica-kubernetes) and check out your copy locally:
 
 ```shell
 git clone git@github.com:vertica/vertica-kubernetes.git
 cd vertica-kubernetes
 ```
 
-Your GitHub repository will be called "origin" in Git. You should also setup **vertica/vertica-kubernetes** as an "upstream" remote.
+Your GitHub repository is called "origin" in Git. You should also setup **vertica/vertica-kubernetes** as an "upstream" remote:
 
 ```shell
 git remote add upstream git@github.com:vertica/vertica-kubernetes.git
@@ -45,7 +43,7 @@ git config --global user.name "John Smith"
 git config --global user.email "email@example.com"
 ```
 
-## Step 2: Branch
+## 2. Branch
 
 Create a new branch for the work with a descriptive name:
 
@@ -53,17 +51,17 @@ Create a new branch for the work with a descriptive name:
 git checkout -b my-fix-branch
 ```
 
-## Step 3: Setup the development environment
+## 3. Set up the development environment
 
-Refer to the [develolper](DEVELOPER.md) document on how to setup your environment.
+Refer to the [developer](DEVELOPER.md) document to setup your environment.
 
-## Step 4: Implement your fix or feature
+## 4. Implement your fix or feature
 
 At this point, you're ready to make your changes.
 
 ### License Headers
 
-Every file in this project must use the following Apache 2.0 header (with the appropriate year or years in the "[yyyy]" box; if a copyright statement from another party is already present in the code, you may add the statement on top of the existing copyright statement):
+Every file in this project must use the following Apache 2.0 header. Make sure that you replace the `[yyyy]` box on the first line with the appropriate year or years. If a copyright statement from another party is already present in the code, you should add the statement on top of the existing copyright statement:
 
 ```
 Copyright (c) [yyyy] Micro Focus or one of its affiliates.
@@ -83,32 +81,35 @@ limitations under the License.
 
 ### Commits
 
-Make some changes on your branch, then stage and commit as often as necessary:
+After you make changes on your branch, stage and commit as often as necessary:
 
 ```shell
 git add .
 git commit -m 'Add new e2e test for nodePort'
 ```
 
-When writing the commit message, try to describe precisely what the commit does. The commit message should be in lines of 72 chars maximum. Include the issue number `#N`, if the commit is related to an issue.
+When writing the commit message:
+- Describe precisely what the commit does.
+- Limit each line of the commit message to 72 characters.
+- Include the issue number `#N`, if the commit is related to an issue.
 
 ### Tests
 
-Each code change should have a corresponding test that covers it.  We have two levels of test: unit tests and end-to-end (e2e) tests.  It is desirable to add both types of tests.  The e2e tests can take a while to run, so often times adding to an existing test is sufficient.
+Each code change should have a corresponding test that covers it.  We have two levels of tests: unit tests and end-to-end (e2e) tests.  Is is desirable to add both types of tests.  The e2e tests can take a while to run, so often times adding to an existing test is sufficient.
 
-## Step 6: Push and Rebase
+## 6. Push and Rebase
 
-You can publish your work on GitHub just by doing:
+Publish your work on GitHub:
 
 ```shell
 git push origin my-fix-branch
 ```
 
-When you go to your GitHub page, you will notice commits made on your local branch is pushed to the remote repository.
+When you go to your GitHub page, you will notice that commits made on your local branch are pushed to the remote repository.
 
 When upstream (vertica/vertica-kubernetes) has changed, you should rebase your work. The **rebase** command creates a linear history by moving your local commits onto the tip of the upstream commits.
 
-You can rebase your branch locally and force-push to your GitHub repository by doing:
+Rebase your branch locally and force-push to your GitHub repository:
 
 ```shell
 git checkout my-fix-branch
@@ -118,27 +119,29 @@ git push -f origin my-fix-branch
 ```
 
 
-## Step 7: Make a Pull Request
+## 7. Create a Pull Request
 
-When you think your work is ready to be pulled into *vertica-kubernetes*, you should create a pull request(PR) at GitHub.
+When your work is ready to be pulled into *vertica-kubernetes*, you should create a pull request (PR) at GitHub.
 
-A good pull request means:
+A good pull request has:
  - commits with one logical change in each
  - well-formed messages for each commit
- - documentation and tests, if needed
+ - documentation and tests, if applicable
 
-Go to your fork in GitHub and [make a Pull Request](https://help.github.com/articles/creating-a-pull-request/) to `vertica:main`. 
+Go to your fork in GitHub, and [create a Pull Request](https://help.github.com/articles/creating-a-pull-request/) to `vertica:main`. 
 
 ### About CI
-Unit tests are run automatically for each commit in the PR. About end-to-end tests, they are triggered when a new PR is opened and for next commits in the PR, you can run them manually by selecting the workflow among the list in the "Actions" section of github.
+Unit tests are run automatically for each commit in the PR. End-to-end tests (e2e) are triggered when a new PR is opened. After you create the PR, you can run e2e tests manually for each subsequent commit by selecting the workflow among the list in the **Actions** section of Github.
 
 ### Sign the CLA
-Before we can accept a pull request, we first ask people to sign a Contributor License Agreement (or CLA). We ask this so that we know that contributors have the right to donate the code. You should notice a comment from **CLAassistant** on your pull request page, follow this comment to sign the CLA electronically. 
+Before we accept a pull request, we ask contributors to sign a Contributor License Agreement (CLA) to confirm they have the right to donate the code. To electronically sign the CLA, follow the comment from **CLAassistant** on your pull request page. 
 
 ### Review
-Pull requests are usually reviewed within a few days. If there are comments to address, apply your changes in new commits, rebase your branch and force-push to the same branch, re-run the test suite to ensure tests are still passing. 
+Pull requests are usually reviewed within a few days. To address comments:
+1. Apply your changes in new commits.
+2. Rebase your branch and force-push to the same branch.
+3. Re-run the test suite to ensure that tests are still passing. 
 
-In order to produce a clean commit history, our maintainers would do squash merging once your PR is approved, which means combining all commits of your PR into a single commit in the master branch.
+To produce a clean commit history, our maintainers do squash merging after your PR is approved. Squash merging combines all of your PR commits into a single commit in the master branch.
 
 After your pull request is merged, you can safely delete your branch and pull the changes from the upstream repository.
-

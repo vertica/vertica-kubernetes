@@ -10,7 +10,7 @@
 
 * [Vertica-Kubernetes GitHub repository](https://github.com/vertica/vertica-kubernetes)
 * [Vertica Helm chart repository](https://github.com/vertica/charts)
-* [Official Vertica Documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm)
+* [Vertica Documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm)
 * Supported architectures: `amd64`
 
 # What is Vertica?
@@ -23,9 +23,17 @@ https://www.vertica.com/
 
 # How to Use This Image
 
-This image is used to deploy the VerticaDB operator.  That operator will manage a Vertica [Eon Mode](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes.
+This image is used to deploy the VerticaDB operator. The operator manages a Vertica [Eon Mode](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes, and automates the following administrative tasks:
+- Installing Vertica
+- Creating and reviving a Vertica database
+- Restarting and rescheduling DOWN pods to maintain quorum
+- Subcluster scaling
+- Service management and health monitoring for pods
+- Load balancing for internal and external traffic
 
-See the official [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes) for a brief overview on how to install, configure, and uninstall the operator. See the [official Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm) for an in-depth look at the Vertica on Kubernetes architecture.
+Vertica recommends that you download the [docker-webhook](https://github.com/vertica/vertica-kubernetes/tree/main/docker-webhook) image to install the [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/) with the operator. The admission controller uses a webhook to verify changes to mutable states in a custom resource instance.
+
+For a brief overview on how to install and configure the operator, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
 
 # License
 

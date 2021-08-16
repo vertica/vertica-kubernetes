@@ -1,12 +1,12 @@
 # Introduction
 
-This guide explains how to setup an environment to develop and test the Vertica operator.
+This guide explains how to set up an environment to develop and test the Vertica operator.
 
 # Software Setup
-Use of this repo obviously requires a working Kubernetes cluster.  In addition to that, we require the following software to be installed in order to run the integration tests:
+Developing with this repo requires a working Kubernetes cluster. Additionally, the integration tests require the following software:
 
 - [go](https://golang.org/doc/install) (version 1.16.2)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.20.1).  If you are using a real Kubernetes cluster this will already be installed.
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.20.1).  If you are using a real Kubernetes cluster, this is already installed.
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
 - [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)
 - [kubens](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubens) (version 0.9.1)
@@ -16,25 +16,42 @@ Use of this repo obviously requires a working Kubernetes cluster.  In addition t
 - [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
 - [changie](https://github.com/miniscruff/changie) (version 0.5.0)
 
+# Repo Structure
+
+- **docker-vertica/**: has the necessary files to build a Vertica server container. The build process requires that you provide a Vertica version 10.1.1 or higher RPM package. The RPM is not included in this repo.
+- **docker-operator/**: has the necessary files to build the container that holds the operator
+- **docker-webhook/**: has the necessary files to build the container that holds the webhook
+- **docker-vlogger/**: has the necessary files to build the container that runs the vlogger sidecar. This sidecar will tail the vertica.log to stdout. This is used only for development purposes to aid in testing out the sidecar property in the custom resource (CR).
+- **scripts/**: contains scripts for the repository. Some scripts run Makefile targes, while others, such as *upgrade-vertica.sh*, automate manual tasks.
+- **api/**: defines the spec of the custom resource definition (CRD)
+- **pkg/**: includes all of the packages that for the operator
+- **cmd/**: contains source code for each of the executables
+- **bin/**: contains the compiled or downloaded binaries that this repository depends on
+- **config/**: generated files of all of the manifests that make up the operator. Of particular importance is *config/crd/bases/vertica.com_verticadbs.yaml*, which shows a sample spec for our CRD.
+- **tests/**: has the test files for e2e and soak testing
+- **changes/**: stores the changelog for past releases and details about the changes for the next release
+- **hack/**: includes a boilerplate file of a copyright that is included on the generated files
+- **helm-charts/**: contains the Helm charts that this repository builds
+
 # Kind Setup
-[Kind](https://kind.sigs.k8s.io/) is a way to setup a multi-node Kubernetes cluster using Docker.  It mimics a multi-node setup by starting a separate container for each node.  The requirements for running Kind are quite low - it is possible to set this up on your own laptop.  This is the intended deployment to run the tests in an automated fashion.
+[Kind](https://kind.sigs.k8s.io/) is a way to set up a multi-node Kubernetes cluster using Docker. It mimics a multi-node setup by starting a separate container for each node.  The machine requirements for running Kind are minimal - it is possible to set this up on your own laptop. This is the intended deployment to run the tests in an automated fashion.
 
-We have a wrapper that you can use to setup Kind and create a cluster suitable for testing Vertica. The following command creates a cluster named `cluster1` that has one master node and one worker node. It takes only a few minutes to complete:  
-
-```
-scripts/kind.sh init cluster1
-```
-
-After it returns, change the context to use the cluster. The cluster has its own kubectl context named kind-cluster1:
+We have a wrapper that you can use to set up Kind and create a cluster that is suitable for testing Vertica. The following command creates a cluster named `cluster1` that has one master node and one worker node. It completes after a few minutes:  
 
 ```
-kubectx kind-cluster1
+$ scripts/kind.sh init cluster1
 ```
 
-Test the container out by checking the status of the nodes:
+When the command completes, change the context to use the cluster. The cluster has its own kubectl context named `kind-cluster1`:
 
 ```
-kubectl get nodes
+$ kubectx kind-cluster1
+```
+
+To test the container, check the status of the nodes:
+
+```
+$ kubectl get nodes
 ```
 
 
@@ -43,10 +60,10 @@ kubectl get nodes
 After you are done with the cluster, you can delete it with our helper script. Substitute `cluster1` with the name of your cluster:
 
 ```
-scripts/kind.sh term cluster1
+$ scripts/kind.sh term cluster1
 ```
 
-If you forgot your name, run Kind directly to get the clusters installed:
+If you forgot the cluster name, run Kind directly to get all of the installed clusters:
 
 ```
 $ PATH=$PATH:$HOME/go/bin
@@ -54,202 +71,212 @@ $ kind get clusters
 cluster1
 ```
 
-# Developer Workflow
-
-## Make Changes
-
-The structure of the repo is as follows:
-- **docker-vertica/**: has the necessary files to build a container of the Vertica server.  The RPM package that we depend on to build the container has to be sourced separately and isn't included in this repo.
-- **docker-operator/**: has the necessary files to build the container that holds the operator.
-- **docker-webhook/**: has the necessary files to build the container that holds the webhook. 
-- **docker-vlogger/**: has the necessary files to build the container that runs the vlogger sidecar.  This sidecar will tail the vertica.log to stdout.  This is used only for development purposes to aid in testing out the sidecar property in the CR.
-- **scripts/**: contains scripts that were written for the repository.  Some are needed by the Makefile to run some targets.  While others, such as *upgrade-vertica.sh* automate some manual tasks.
-- **api/**: defines the spec of the CRD
-- **pkg/**: includes all of the packages that we wrote for the operator
-- **cmd/**: contain source code for each of the executables
-- **bin/**: contains the compiled or downloaded binaries that this repository depends on
-- **config/**: generated files of all of the manifests that make up theoperator.  Of particular importance is *config/crd/bases/vertica.com_verticadbs.yaml*, which shows a sample spec for our CRD.
-- **tests/**: has the test files for e2e and soak testing
-- **changes/**: stores changelog for past releases and details about the changes for the next release
-- **hack/**: includes a boilerplate file of a copyright that is included on the generated files
-- **helm-charts/**: contains the helm charts that are built by this repository
-
 ## Add a changelog entry
 
 The changelog file is generated by [Changie](https://github.com/miniscruff/changie).  It separates the changelog generation from commit history, so any PR that has a notable change should add new changie entries.
 
-## Build and Push Vertica Container
+# Developer Workflow
 
-We currently make use of a few containers:
-- **docker-vertica/Dockerfile**: This container is the long-running container that runs the vertica daemon.
-- **docker-operator/Dockerfile**: This is the container that runs the operator.
-- **docker-webhook/Dockerfile**: This is the container that runs the webhook.
-- **docker-vlogger/Dockerfile**: This is the container that runs the vertica logger.  It will tail the output of vertica.log to stdout.  This is used for testing purposes.  Some e2e tests use this as a sidecar to the vertica server container.
+**IMPORTANT**: You must have a Vertica version 10.1.1 or higher RPM to build the *docker-vertica* container. **This repo DOES NOT include an RPM**. 
 
-In order to run Vertica in Kubernetes, we need to package Vertica inside a container.  This container is then referenced in the YAML file when we install the helm chart.
-
-Before you can build the *docker-vertica* container, **you need to get a vertica RPM since we do not include one in this repo**.  The RPM must be for Vertica version 10.1.1 or higher.  Once you have one, you put it in the `docker-vertica/packages` directory with the name `vertica-x86_64.RHEL6.latest.rpm`.
+Store the RPM in the `docker-vertica/packages` directory with the name `vertica-x86_64.RHEL6.latest.rpm`:
 
 ```
-cp /dir/vertica-x86_64.RHEL6.latest.rpm docker-vertica/packages/
+$ cp /dir/vertica-x86_64.RHEL6.latest.rpm docker-vertica/packages/
 ```
 
-Run this make target to build the necessary containers:
+## 1. Building and Pushing Vertica Container
 
-```
-make docker-build
-```
+We currently use the following containers:
+- **docker-vertica/Dockerfile**: The long-running container that runs the vertica daemon.
+- **docker-operator/Dockerfile**: The container that runs the operator.
+- **docker-webhook/Dockerfile**: The container that runs the webhook.
+- **docker-vlogger/Dockerfile**: The container that runs the vertica logger. It will tail the output of vertica.log to stdout. This is used for testing purposes. Some e2e tests use this as a sidecar to the Vertica server container.
 
-By default, this creates containers that are stored in the local docker daemon. The tag is either `latest` or if running in a Kind environment it is `kind`.  You can control the container names by setting the following environment variables prior to running the make target.
+To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
 
-- **OPERATOR_IMG**: Name of the image for the operator.
-- **VERTICA_IMG**: Name of the image for vertica.
-- **WEBHOOK_IMG**: Name of the image for the webhook.
-- **VLOGGER_IMG**: Name of the image for the vertica logger sidecar.
+By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the   following environment variables prior to running the make target.  
 
-If necessary these variables can include the url of the registry.  For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`
+- **OPERATOR_IMG**: Operator image name.
+- **VERTICA_IMG**: Vertica image name.
+- **WEBHOOK_IMG**: Webhook image name.
+- **VLOGGER_IMG**: Vertica logger sidecar image name.
 
-The vertica container can be built in two sizes -- minimal size removes the tensorflow package that saves 240MB.  The default is the full image size.  To build the minimal containe, invoke the make target like this:
+If necessary, these variables can include the url of the registry. For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`.
 
-```
-make docker-build MINIMAL_VERTICA_IMG=YES
-```
+Vertica provides 2 container sizes: the default, full image, and the minimal image that does not include the 240MB Tensorflow package.
 
-You need to make these containers available to the Kubernetes cluster.  You can push them with the following make target.
+1. Run the `docker-build` make target to build the necessary containers. The following command uses the default image:
+   ```
+   $ make docker-build
+   ``` 
 
-```
-make docker-push
-```
+   To build the minimal container, invoke the make target with `MINIMAL_IMG=YES`:
 
-This command will honour the same environment variables of the image as listed above.
+   ```
+   $ make docker-build MINIMAL_VERTICA_IMG=YES
+   ```
+   Due to the size of the vertica image, this step can take in excess of 10 minutes when run on a laptop.
 
-Due to the size of the vertica image, this step can take in excess of 10 minutes when run on a laptop.
+2. Make these containers available to the Kubernetes cluster.  Push them to the Kubernetes cluster with the following make target:
+
+   ```
+   $ make docker-push
+   ```
+
+   This command honors the same environment variables used when creating the image.
 
 If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images.
 
-## Generate controller files
+## 2. Generating controller files
 
-We use the operator-sdk framework for the operator.  It provides tools to generate code to avoid having to write the boilerplate code ourselves.  As such, depending on what you changed you may need to periodically regenerate files.  You can do that with this command:
+Vertica uses the [operator-sdk framework](https://sdk.operatorframework.io/) for the operator. It provides tools to generate code so that you do not have to manually write boilerplate code. Depending on what you changed you may need to periodically regenerate files with the following command:
 
 ```
-make generate manifests
+$ make generate manifests
 ```
 
-## Run Linter
+## 3. Running Linters
 
 We run two different linters:
-1. **Helm lint**: This uses the chart verification test that is built into Helm.
-2. **Go lint**: This uses a few linters that you can use with Go lang.
+1. **Helm lint**: Uses the chart verification test that is built into Helm.
+2. **Go lint**: Uses a few linters that you can run with golang.
 
 Both of these linters can be run with this command:
 
 ```
-make lint
+$ make lint
 ```
 
-## Run Unit Tests
+## 4. Running Unit Tests
 
-We have unit tests for both the helm chart and the Go operator.  
+We have unit tests for both the Helm chart and the Go operator.  
 
-The unit tests for the helm chart are stored in `helm-charts/verticadb-operator/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic).  [This document](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md) describes the format for the tests.
+Unit tests for the Helm chart are stored in `helm-charts/verticadb-operator/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic). For details about the test format, review the [helm-unittest GitHub repo](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md).
 
-Unit testing for the Go operator uses the Go testing infrastructure.  Some of the tests standup a mock Kubernetes control plane using envtest, and runs the operator against that.  As is standard with Go, the test files are included in package directories and end with `_test.go`.
+Unit tests for the Go operator use the Go testing infrastructure. Some of the tests stand up a mock Kubernetes control plane using envtest, and runs the operator against that. Per Go standards, the test files are included in package directories and end with `_test.go`.
 
-The helm chart testing and Go lang unit tests can be run like this:
-
-```
-make run-unit-tests
-```
-
-## Run Operator
-
-There are three ways to run the operator: 1) You can run the operator locally in your shell , 2) you can package it in a container and deploy it in Kubernetes as a deployment object, or 3) you can run it using the verticadb-operator helm chart.  The first method is quicker to get the running, but it isn't the way the operator will run in real Kubernetes environments.
-
-1.  Locally
+The Helm chart testing and Go lang unit tests can be run like this:
 
 ```
-make install run
+$ make run-unit-tests
 ```
 
-This will run the operator synchronously in your shell.  You can hit Ctrl+C to stop the operator.
-**NB:** With this method, you can run only ad-hoc tests, not integration and e2e tests
+## 5. Running the Operator
 
-2. Kubernetes Deployment
+There are three ways to run the operator:
+1. Locally in your shell.
+2. Packaged in a container and deployed it in Kubernetes as a deployment object
+3. With the [verticadb-operator Helm chart](https://vertica.github.io/charts/).
 
-You can have the operator watch the entire cluster or a specific namespace. To do that you should set the environment variable **WATCH_NAMESPACE**. The operator will be deployed in that specific namespace and will be triggered only if the verticadb is deployed in that namespace. If you specify a not existing namespace you will get an error and the operator deployment will be interrupted.
-Here are the commands:
-```
-WATCH_NAMESPACE=your_namespace
-make docker-build deploy
-```
+### Option 1: Locally
 
-This will run the operator as a deployment within Kubernetes.  You can run `make undeploy` to tear down the deployment.
+This method runs the operator synchronously in your shell. It is the fastest way get up and running, but it does not mimic the way that the operator runs in a real Kubernetes environment.
 
-3. Helm Chart release
-
-This is the most convenient way to run the operator. But before creating a release, you need to generate the manifests helm will use to install the operator. For that, simply use the target **helm-create-resources** :
-```
-make helm-create-resources
-```
-Now you can install the verticadb-operator in a specific namespace by running the **helm install** command. Example:
-```
-helm install -n random release_name helm-charts/verticadb-operator
-```
-This will run the operator in a namespace called **random** and will use the default image:tag defined in **.Values.image.name**. You can use `--set image.name=<img:tag>` to specify the image name and tag.
-To tear down the release with your operator, just run **helm uninstall** command. Example:
-```
-helm uninstall release_name -n random
-```
-
-## Run Integration and e2e Tests
-
-The integration tests are run through Kubernetes itself.  We use kuttl as the testing framework.  The operator and the webhook must be running **as a Kubernetes deployment**. You can push them by issuing the following command:
-```
-make docker-build-operator docker-build-webhook docker-push-operator docker-push-webhook
-```
-
-Make sure that your operator Dockerfile is up to date before starting the tests.
-```
-make helm-create-resources
-```
-
-Ensure your Kubernetes cluster has a default storageClass.  Most of the e2e tests do not specify any storageClass and uses the default.  Refer to the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) for steps on how to do that.
-
-Finally, you can use this make target to kick off the test:
-```
-make run-int-tests
-```
-
-You can also call `kubectl kuttl` from the command line if you want more control -- for instance running a single test or preventing cleanup when the test ends. For example, you can run a single e2e test and keep the namespace around with this command:
+Enter the following command:
 
 ```
-kubectl kuttl test --test <name-of-your-test> --skip-delete
+$ make install run
 ```
 
-See the [kuttl docs](https://kuttl.dev/docs/cli.html#flags) for a complete list of flags you can use.
+Press **Ctrl+C** to stop the operator.
 
-## Run Soak Tests
+**NOTE:** When you run the operator locally, you can run only ad-hoc tests, not integration and e2e tests
 
-The soak test will test the operator over a long interval.  It works by splitting the test into multiple iterations.  Each iteration will generate a random workload that is comprised of pod kills and scaling.  At the end of each iteration we will wait for everything to come up.  If successful, it will proceed to do another iteration.  It continues this for a set number of iterations or indefinitely.
+### Option 2: Kubernetes Deployment
+
+You can have the operator watch the entire cluster or a specific namespace.
+
+To watch a specific namespaces, set the **WATCH_NAMESPACE** environment variable. The operator is deployed in that specific namespace and is triggered only if the Vertica database is deployed in that namespace. If you specify a namespace that does not exist, you get an error and the operator deployment is interrupted.
+
+The following commands specify a namespace and deploy the operator:
+```
+$ WATCH_NAMESPACE=your_namespace
+$ make docker-build deploy
+```
+
+This runs the operator as a deployment within Kubernetes. To tear down the deployment, run the `undeploy` make target:
+```
+$ make undeploy
+```
+
+### Option 3: Helm Chart release
+
+This is the most convenient way to run the operator. Before you create a release with the Helm chart, you must generate the manifests that Helm uses to install the operator.
+
+1. Run the `helm-create-resources` make target to generate the manifests:
+
+   ```
+   $ make helm-create-resources
+   ```
+
+2. Install the verticadb-operator in a specific namespace with the `helm install` command:
+   ```
+   $ helm install -n random release_name helm-charts/verticadb-operator
+   ```
+   The previous command does the following:
+   - Creates a release named `release_name`
+   - Runs the operator in a namespace called **random**
+   - Uses the default `image:tag` defined in **.Values.image.name**. Use `--set image.name=<img:tag>` to specify the image name and tag.
+
+To tear down the release with your operator, run `helm uninstall` with the :
+
+```
+$ helm uninstall release_name -n random
+```
+
+## 6. Running Integration and e2e Tests
+
+The integration tests are run through Kubernetes itself. We use kuttl as the testing framework. The operator and the webhook must be running **as a Kubernetes deployment**.
+
+Ensure that your Kubernetes cluster has a default storageClass. Most of the e2e tests do not specify any storageClass and use the default. For details about setting your storageClass, refer to the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
+
+1. Push the operator and webhook with the following command:
+   ```
+   $ make docker-build-operator docker-build-webhook docker-push-operator docker-push-webhook
+   ```
+2. Verify that your operator Dockerfile is up-to-date before starting the tests.
+   ```
+   $ make helm-create-resources
+   ```
+3. Start the test with the following make target:
+   ```
+   $ make run-int-tests
+   ```
+
+You can also call `kubectl kuttl` from the command line if you want more control, such as running a single test or preventing cleanup when the test ends. For example, you can run a single e2e test and persist namespace with this command:
+
+```
+$ kubectl kuttl test --test <name-of-your-test> --skip-delete
+```
+
+For a complete list of flags that you can use, see the [kuttl docs](https://kuttl.dev/docs/cli.html#flags).
+
+## 7. Running Soak Tests
+
+The soak test will test the operator over a long interval. It splits the test into multiple iterations. Each iteration generates a random workload that is comprised of pod kills and scaling. At the end of each iteration, the test waits for everything to come up. If the test is successful, it proceeds to another iteration. It repeats this process for a set number of iterations or indefinitely.
 
 The tests in an iteration are run through kuttl.  The random test generation is done by the kuttl-step-gen tool.
 
 You can run this test with the following make target:
 
 ```
-make run-soak-tests
+$ make run-soak-tests
 ```
 
 ## Help
+
 ```
-make help
+$ make help
 ```
 
 # Problem Determination
 
+The following sections provide troubleshooting tips for your deployment.
+
 ## Kubernetes Events
 
-The operator will generate Kubernetes events for some key scenarios.  This can be a useful tool when trying to understand what the operator is doing.  You can use the following command to see the events that were generated for an operator.
+The operator generates Kubernetes events for some key scenarios. This can be a useful tool when trying to understand what the operator is doing. Use the following command to view the events:
 
 ```
 $ kubectl describe vdb mydb
@@ -266,60 +293,63 @@ Events:
   Normal  ClusterRestartSucceeded  28s    verticadb-operator  Successfully called 'admintools -t start_db' and it took 8.8401312s
 ```
 
-## vertica.log
+## Retrieving Logs with vertica.log
 
-You may need to inspect the contents of the vertica.log to diagnose a problem with the Vertica server.  There are a few ways this can be done.
+You might need to inspect the contents of the vertica.log to diagnose a problem with the Vertica server.  There are a few ways this can be done:
 
-You can drop into the container and navigate to the directory where is is stored.  The exact location is dependent on your CR.  You can refer to the [Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm?zoom_highlight=vertica.log) to find the location.  
+- Drop into the container and navigate to the directory where is is stored. The exact location depends on your CR.  You can refer to the [Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm) to find the location.  
 
-You can also deploy a sidecar to captures the vertica.log and prints it to stdout.  If this sidecar is enabled you can use `kubectl logs` to inspect it.  This sidecar can be used by adding the following into your CR:
+- Deploy a sidecar to captures the vertica.log and prints it to stdout.  If this sidecar is enabled you can use `kubectl logs` to inspect it.  This sidecar can be used by adding the following into your CR:
 
-```
-  sidecars:
-    - name: vlogger
-      image: <imageName>
-```
+  ```
+    sidecars:
+      - name: vlogger
+        image: <imageName>
+  ```
 
-The image <imageName> is a container that you build yourself.  An example container can be found in `docker-vlogger`.  Once it is running you can inspect the logs by using this sidecar.
+  The image <imageName> is a container that you build yourself.  Vertica provides an example container in `docker-vlogger`. After it is running, inspect the logs by using this sidecar:
 
-```
-$ kubectl logs vertica-sc1-0 -c vlogger
-```
+  ```
+  $ kubectl logs vertica-sc1-0 -c vlogger
+  ```
 
 ## Memory Profiling
 
-You can use the memory profiler to see where the big allocations are occurring and to help detect any memory leaks.  The toolset is [Google's pprof](https://golang.org/pkg/net/http/pprof/).  By default it is off.  You can enable it by adding a parameter when you start the operator.  The following are instructions on how to enable it for an already deployed operator.
+The memory profiler lets you view where the big allocations are occurring and to help detect any memory leaks. The toolset is [Google's pprof](https://golang.org/pkg/net/http/pprof/).
 
-1. Add the flag to the running deployment.
+By default, the memory profiler is disabled. To enable it, add a parameter when you start the operator.  The following steps enable the memory profiler for a deployed operator.
 
-```
-kubectl edit deployment operator-controller-manager
-```
+1. Use `kubectl edit` to open the running deployment for editing:
 
-Then locate where the arguments are passed to the manager and add the argument `--enable-profiler`.  The arguments will look like this:
+   ```
+   $ kubectl edit deployment operator-controller-manager
+   ```
 
-```
-      ...
-      - args:
-        - --health-probe-bind-address=:8081
-        - --metrics-bind-address=127.0.0.1:8080
-        - --leader-elect
-        - --enable-profiler
-        command:
-        - /manager
-      ...
-```
+2. Locate where the arguments are passed to the manager, and add `--enable-profiler`:
 
-2.  Wait until the operator is redeployed.
-3.  Port forward 6060 to access the webUI for the profiler.  The name of the pod will differ for each deployment, so be sure to find the one specific to your cluster.
+   ```
+         ...
+         - args:
+           - --health-probe-bind-address=:8081
+           - --metrics-bind-address=127.0.0.1:8080
+           - --leader-elect
+           - --enable-profiler
+           command:
+           - /manager
+         ...
+   ```
 
-```
-kubectl port-forward --address 0.0.0.0 pod/operator-controller-manager-5dd5b54df4-2krcr 6060:6060
-```
+2. Wait until the operator is redeployed.
+3. Port forward 6060 to access the webUI for the profiler. The name of the pod differs for each deployment, so be sure to find the one specific to your cluster:
 
-4.  With a webbrowser or the standalone tool connect to `http://localhost:6060/debug/pprof` -- replace localhost with the host that you ran the `kubectl port-forward` command on.  The standalone tool can be invoke like this:
+   ```
+   $ kubectl port-forward --address 10.20.30.40 pod/operator-controller-manager-5dd5b54df4-2krcr 6060:6060
+   ```
 
-```
-go tool pprof http://localhost:6060/debug/pprof
-```
+4. Use a web browser or the standalone tool to connect to `http://localhost:6060/debug/pprof`.
+   If you use a web browser, replace `localhost` with the host that you used in the previous `kubectl port-forward` command.
+   Invoke the standalone tool with the following command:
 
+   ```
+   $ go tool pprof http://localhost:6060/debug/pprof
+   ```
