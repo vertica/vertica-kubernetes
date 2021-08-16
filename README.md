@@ -46,10 +46,10 @@ After cert-manager completes, install the webhook:
 ```
 $ helm repo add vertica-charts https://vertica.github.io/charts
 $ helm repo update
-$ helm install vdb-webhook vertica-charts/verticadb-webhook
+$ helm install -n vertica --create-namespace vdb-webhook vertica-charts/verticadb-webhook
 ```
 
-The webhook is cluster-scoped. It is installed into only one namespace and is used by operators installed in any namespaces.
+The webhook is cluster-scoped. It is installed into only one namespace (vertica) and is used by operators installed in any namespaces.
 
 # Deploying Vertica
 
