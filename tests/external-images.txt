@@ -1,0 +1,17 @@
+# List of images that we pull during the e2e tests.  All of
+# these images are external, and so are open to rate limiting.
+# To avoid pull issues during the test runs in kind, you can use
+# this file with push-to-kind.sh to ensure they are in the kind
+# nodes.
+#    scripts/push-to-kind.sh -f tests/external-images.txt
+#
+verticadocker/vertica-k8s:latest
+verticadocker/vertica-k8s:10.1.1-0
+minio/minio:RELEASE.2021-02-24T18-44-45Z
+amazon/aws-cli:2.2.24
+quay.io/helmpack/chart-testing:v3.3.1
+bitnami/kubectl:1.20.4
+minio/operator:v4.0.2
+minio/console:v0.6.3
+rancher/local-path-provisioner:v0.0.19
+gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
