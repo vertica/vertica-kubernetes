@@ -100,7 +100,6 @@ EOF
     cat <<- EOF >> $tmpfile
 nodes:
 - role: control-plane
-- role: worker
 EOF
     if [[ -n "$PORT" ]]
     then

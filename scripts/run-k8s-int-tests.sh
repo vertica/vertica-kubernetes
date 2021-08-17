@@ -77,6 +77,7 @@ export VLOGGER_IMG=vertica-logger:$TAG
 
 # cleanup the deployed k8s cluster
 function cleanup {
+    df -h
     scripts/kind.sh term $CLUSTER_NAME
 }
 
