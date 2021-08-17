@@ -4,13 +4,13 @@
 * Docker Community: [Docker Forums](https://forums.docker.com/), [Stack Overflow](https://stackoverflow.com/questions/tagged/docker)
 
 # Supported Tags
-* [1.0.0, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-operator/Dockerfile)
+* [1.0.0, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-webhook/Dockerfile)
 
 # Quick Reference
 
 * [Vertica-Kubernetes GitHub repository](https://github.com/vertica/vertica-kubernetes)
 * [Vertica Helm chart repository](https://github.com/vertica/charts)
-* [Official Vertica Documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm)
+* [Official Vertica Documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Home.htm)
 * [Using Admission Controllers](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/)
 * Supported architectures: `amd64`
 
