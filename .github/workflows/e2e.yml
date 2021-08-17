@@ -13,7 +13,7 @@ on:
 
 jobs:
 
-  build:
+  e2e:
 
     runs-on: ubuntu-latest
     steps:

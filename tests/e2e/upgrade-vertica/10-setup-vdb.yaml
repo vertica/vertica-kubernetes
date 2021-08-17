@@ -17,6 +17,7 @@ metadata:
   name: v-upgrade-vertica
 spec:
   image: verticadocker/vertica-k8s:10.1.1-0
+  imagePullPolicy: IfNotPresent
   communal:
     path: "s3://upgrade-vertica"
     endpoint: "http://minio.kuttl-e2e-communal"

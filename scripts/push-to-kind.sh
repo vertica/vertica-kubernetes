@@ -68,6 +68,11 @@ do
     esac
 done
 
+GREEN='\033[0;32m'
+ORANGE='\033[0;33m'
+YELLOW='\033[1;33m'
+NC='\033[0m'  # No color
+
 if [ $(( $# - $OPTIND )) -lt 0 ]
 then
     # Typical kind cluster name is something like: kind-matt1
@@ -76,7 +81,7 @@ then
 else
     CLUSTER_NAME=${@:$OPTIND:1}
 fi
-echo "Pushing to cluster ${CLUSTER_NAME}"
+printf "${YELLOW}Pushing to cluster ${GREEN}${CLUSTER_NAME}${NC}\n"
 
 if [[ -z $GOPATH ]]
 then
@@ -86,5 +91,13 @@ PATH=$GOPATH/go/bin:$PATH
 
 for imageName in $IMAGES
 do
+    printf "${YELLOW}Image: ${GREEN}$imageName${NC}\n"
+    # Image must exist locally before pushing to kind
+    if [[ "$(docker images -q $imageName 2> /dev/null)" == "" ]]
+    then
+      printf "${ORANGE}Image not present locally, doing a docker pull${NC}\n"
+      docker pull $imageName
+    fi
+
     kind load docker-image --name ${CLUSTER_NAME} ${imageName}
 done

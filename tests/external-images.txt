@@ -8,6 +8,16 @@
 verticadocker/vertica-k8s:latest
 verticadocker/vertica-k8s:10.1.1-0
 minio/minio:RELEASE.2021-02-24T18-44-45Z
-amazon/aws-cli
+amazon/aws-cli:2.2.24
 quay.io/helmpack/chart-testing:v3.3.1
 bitnami/kubectl:1.20.4
+minio/operator:v4.0.2
+minio/console:v0.6.3
+rancher/local-path-provisioner:v0.0.19
+gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+
+# Images that are used as the base in our containers
+centos:centos7.9.2009
+golang:1.15
+gcr.io/distroless/static:nonroot
+alpine:3.13
