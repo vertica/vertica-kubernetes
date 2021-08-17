@@ -171,7 +171,7 @@ endif
 
 .PHONY: run-int-tests
 run-int-tests: install-kuttl-plugin vdb-gen ## Run the integration tests
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM)
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) --test client-access
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests

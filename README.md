@@ -89,7 +89,7 @@ By default, we use the [Community Edition (CE)](https://www.vertica.com/landing-
 To use your own license, add it to a secret in the same namespace as the operator. The following command copies the license into a secret named `license`:
 
 ```
-$ kubectl create secret generic license –from-file=license.key=/path/to/license.key
+$ kubectl create secret generic license --from-file=license.key=/path/to/license.key
 ```
 
 Next, specify the name of the secret in the CR by populating the `licenseSecret` field:
