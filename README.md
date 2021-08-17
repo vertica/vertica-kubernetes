@@ -84,7 +84,7 @@ There are many parameters available to fine-tune the deployment. For a complete 
 
 # Vertica License
 
-By default, we use the [Community Edition (CE)](https://www.vertica.com/landing-page/start-your-free-trial-today/) license if no license is provided. The CE license limits the number pods in a cluster to 3, and the dataset size to 1TB. Use your own license to extend the cluster past these limits.
+By default, we use the [Community Edition (CE)](https://www.vertica.com/download/vertica/trial-download/?) license if no license is provided. The CE license limits the number pods in a cluster to 3, and the dataset size to 1TB. Use your own license to extend the cluster past these limits.
 
 To use your own license, add it to a secret in the same namespace as the operator. The following command copies the license into a secret named `license`:
 
@@ -237,7 +237,7 @@ The operator can migrate an existing database into Kubernetes. The operator revi
 
 The idiomatic way to upgrade in Kubernetes is a rolling update model, which means the new image container is *rolled* out to the cluster. At any given time, some pods are running the old version, and some are running the new version.
 
-However, Vertica does not support a cluster running mixed releases. The documented steps to [upgrade Vertica](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/InstallationGuide/Upgrade/RunningUpgradeScript.htm) are summarized below:
+However, Vertica does not support a cluster running mixed releases. The documented steps to [upgrade Vertica](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/InstallationGuide/Upgrade/RunningUpgradeScript.htm) are summarized below:
 
 1.	Stop the entire cluster.
 2.	Update the RPM at each host.
@@ -340,10 +340,10 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 
 # Additional Details
 
-For additional details on the internals of Vertica, see the [Vertica Documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm).
+For additional details on the internals of Vertica, see the [Vertica Documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Home.htm).
 
 # Developers
-For details about setting up an environment to develop and run tests, see the [developer instructions](DEVELOPER.md) and the [Vertica Integrator's Guide](https://verticaintegratorsguide.org/wiki/index.php?title=Main_Page).
+For details about setting up an environment to develop and run tests, see the [developer instructions](DEVELOPER.md).
 
 # Licensing
 

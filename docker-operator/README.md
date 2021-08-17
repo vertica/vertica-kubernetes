@@ -10,7 +10,7 @@
 
 * [Vertica-Kubernetes GitHub repository](https://github.com/vertica/vertica-kubernetes)
 * [Vertica Helm chart repository](https://github.com/vertica/charts)
-* [Vertica Documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Home.htm)
+* [Vertica Documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Home.htm)
 * Supported architectures: `amd64`
 
 # What is Vertica?

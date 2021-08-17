@@ -297,7 +297,7 @@ Events:
 
 You might need to inspect the contents of the vertica.log to diagnose a problem with the Vertica server.  There are a few ways this can be done:
 
-- Drop into the container and navigate to the directory where is is stored. The exact location depends on your CR.  You can refer to the [Vertica documentation](https://www.vertica.com/docs/10.1.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm) to find the location.  
+- Drop into the container and navigate to the directory where is is stored. The exact location depends on your CR.  You can refer to the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm) to find the location.  
 
 - Deploy a sidecar to captures the vertica.log and prints it to stdout.  If this sidecar is enabled you can use `kubectl logs` to inspect it.  This sidecar can be used by adding the following into your CR:
 
