@@ -77,6 +77,7 @@ export VLOGGER_IMG=vertica-logger:$TAG
 
 # cleanup the deployed k8s cluster
 function cleanup {
+    df -h
     scripts/kind.sh term $CLUSTER_NAME
 }
 
@@ -99,6 +100,8 @@ function build_and_push {
     make  docker-build vdb-gen
     echo "Pushing the images to the kind cluster"
     make  docker-push
+    echo "Pushing the external images to the kind cluster"
+    scripts/push-to-kind.sh -f tests/external-images.txt
 }
 
 # Run integration tests and store the pod status in a file

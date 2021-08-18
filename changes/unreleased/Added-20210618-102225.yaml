@@ -1,3 +1,0 @@
-kind: Added
-body: Standalone tool (vdb-gen) that can be used to create a CR from a database for
-  the purpose of migrating it to Kubernetes.
