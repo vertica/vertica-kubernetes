@@ -19,8 +19,10 @@ spec:
   image: replace-with-kustomize
   communal:
     path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: s3-auth
+  local:
+    requestSize: 100Mi
   labels:
     app: kuttl
     ver: 0.7.2

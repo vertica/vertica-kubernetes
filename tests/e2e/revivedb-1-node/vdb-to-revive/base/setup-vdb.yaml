@@ -20,10 +20,12 @@ spec:
   superuserPasswordSecret: su-passwd
   ignoreClusterLease: true
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    path: "s3://revivedb-1-node"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
+  local:
+    requestSize: 100Mi
   initPolicy: Revive
   dbName: vertdb
   subclusters:

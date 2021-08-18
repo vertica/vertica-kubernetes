@@ -18,4 +18,4 @@ metadata:
   name: v-webhook
 spec:
   local:
-    requestSize: 500Gi
+    requestSize: 100Mi

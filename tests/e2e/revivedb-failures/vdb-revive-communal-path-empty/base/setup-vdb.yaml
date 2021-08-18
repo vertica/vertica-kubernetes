@@ -18,14 +18,15 @@ metadata:
 spec:
   image: replace-with-kustomize
   communal:
-    path: "s3://nimbusdb/db/empty"
-    endpoint: "http://minio"
+    path: "s3://revivedb-failures/empty"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
   initPolicy: Revive
   local:
     dataPath: "/data"
     depotPath: "/depot"
+    requestSize: 10Mi
   dbName: vertdb
   subclusters:
     - name: main
