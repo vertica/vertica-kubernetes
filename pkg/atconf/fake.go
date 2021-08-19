@@ -30,3 +30,8 @@ type FakeWriter struct {
 func (f *FakeWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
 	return "admintools.conf.tmp", nil
 }
+
+// RemoveHosts is called to remove hosts from admintools.conf
+func (f *FakeWriter) RemoveHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
+	return "admintools.conf.tmp", nil
+}

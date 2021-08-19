@@ -34,6 +34,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	ClusterSection          = "Cluster"
+	NodesSection            = "Nodes"
+	ConfigurationSection    = "Configuration"
+	ClusterHostOption       = "hosts"
+	ConfigurationIPv6Option = "ipv6"
+)
+
 // FileWriter is a writer for admintools.conf in an actual cluster
 type FileWriter struct {
 	Log            logr.Logger
@@ -54,7 +62,7 @@ func MakeFileWriter(log logr.Logger,
 }
 
 // AddHosts will had ips to an admintools.conf.  New admintools.conf, stored in
-// a temporarily, is returned by name.  It is the callers responsibility to
+// a temporary file, is returned by name.  It is the callers responsibility to
 // clean it up.
 func (f *FileWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
 	if err := f.createAdmintoolsConfBase(ctx, sourcePod); err != nil {
@@ -67,6 +75,22 @@ func (f *FileWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedNam
 		return "", err
 	}
 	if err := f.addHostsToAdmintoolsConf(ips); err != nil {
+		return "", err
+	}
+	return f.ATConfTempFile, nil
+}
+
+// RemoveHosts will remove IPs from admintools.conf.  New admintools.conf,
+// stored in a temporary file, is returned by name to the caller.  The caller is
+// responsible for removing this file.
+func (f *FileWriter) RemoveHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
+	if err := f.createAdmintoolsConfBase(ctx, sourcePod); err != nil {
+		return "", err
+	}
+	if err := f.loadATConf(); err != nil {
+		return "", err
+	}
+	if err := f.removeHostsFromAdmintoolsConf(ips); err != nil {
 		return "", err
 	}
 	return f.ATConfTempFile, nil
@@ -127,7 +151,7 @@ func (f *FileWriter) setIPv6Flag(installIPs []string) error {
 	} else {
 		flagVal = "False"
 	}
-	return f.Cfg.Set("Configuration", "ipv6", flagVal)
+	return f.Cfg.Set(ConfigurationSection, ConfigurationIPv6Option, flagVal)
 }
 
 // addHostsToAdmintoolsConf will add the newly installed hosts to the
@@ -140,21 +164,39 @@ func (f *FileWriter) addHostsToAdmintoolsConf(installIPs []string) error {
 	return f.Cfg.SaveWithDelimiter(f.ATConfTempFile, "=")
 }
 
+// removeHostsFromAdmintoolsConf will remove the IPs from the admintools.conf.
+// Changes are made to the parsed f.Cfg struct.
+func (f *FileWriter) removeHostsFromAdmintoolsConf(ips []string) error {
+	if err := f.removeOldHosts(ips); err != nil {
+		return err
+	}
+	return f.Cfg.SaveWithDelimiter(f.ATConfTempFile, "=")
+}
+
 // addNewHosts adds the pods as new hosts to the admintools.conf file.  It works
 // on admintools.conf using the in-memory ConfigParser representation.
 func (f *FileWriter) addNewHosts(installIPs []string) error {
 	oldHosts := f.getHosts()
-	if err := f.updateClusterHosts(oldHosts, installIPs); err != nil {
+	if err := f.addToClusterHosts(oldHosts, installIPs); err != nil {
 		return err
 	}
 	return f.addNodes(oldHosts, installIPs)
 }
 
-// updateClusterHosts will add the given set of installIPs as new hosts to the
+// removeOldHosts will remove the given IPs from the admintools.conf.  Changes
+// are made in-place in ConfigParser.
+func (f *FileWriter) removeOldHosts(ips []string) error {
+	if err := f.removeFromClusterHosts(ips); err != nil {
+		return err
+	}
+	return f.removeNodes(ips)
+}
+
+// addToClusterHosts will add the given set of installIPs as new hosts to the
 // Cluster section.  The updates are done in-place in the ConfigParser.
-func (f *FileWriter) updateClusterHosts(oldHosts map[string]bool, installIPs []string) error {
+func (f *FileWriter) addToClusterHosts(oldHosts map[string]bool, installIPs []string) error {
 	var ips strings.Builder
-	oldHostLine, err := f.Cfg.Get("Cluster", "hosts")
+	oldHostLine, err := f.Cfg.Get(ClusterSection, ClusterHostOption)
 	// Ignore error in case the hosts option doesn't exist
 	if err == nil {
 		ips.WriteString(oldHostLine)
@@ -169,11 +211,31 @@ func (f *FileWriter) updateClusterHosts(oldHosts map[string]bool, installIPs []s
 		}
 		ips.WriteString(ip)
 	}
-	err = f.Cfg.Set("Cluster", "hosts", ips.String())
+	err = f.Cfg.Set(ClusterSection, ClusterHostOption, ips.String())
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// removeFromClusteHosts will remove a set of IPs from the Cluster.hosts section
+// of the config.  Changes are made in-place in the ConfigParser.
+func (f *FileWriter) removeFromClusterHosts(ips []string) error {
+	// SPILLY - use const
+	oldHostLine, err := f.Cfg.Get(ClusterSection, ClusterHostOption)
+	if err != nil {
+		return err
+	}
+	hosts := strings.Split(oldHostLine, ",")
+	for _, removeIP := range ips {
+		for i := len(hosts) - 1; i >= 0; i-- {
+			if hosts[i] == removeIP {
+				hosts = append(hosts[0:i], hosts[i+1:]...)
+				break
+			}
+		}
+	}
+	return f.Cfg.Set(ClusterSection, ClusterHostOption, strings.Join(hosts, ","))
 }
 
 // addNodes will add the given set of installIPs as new nodes in the Nodes
@@ -188,7 +250,7 @@ func (f *FileWriter) addNodes(oldHosts map[string]bool, installIPs []string) err
 		nodeName := fmt.Sprintf("node%04d", nextNodeNumber)
 		nextNodeNumber++
 		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, f.Vdb.Spec.Local.DataPath, f.Vdb.Spec.Local.DataPath)
-		err := f.Cfg.Set("Nodes", nodeName, nodeInfo)
+		err := f.Cfg.Set(NodesSection, nodeName, nodeInfo)
 		if err != nil {
 			return err
 		}
@@ -196,9 +258,28 @@ func (f *FileWriter) addNodes(oldHosts map[string]bool, installIPs []string) err
 	return nil
 }
 
+// removeNodes will remove the nodes section for the given set of IPs
+func (f *FileWriter) removeNodes(ips []string) error {
+	for _, ip := range ips {
+		nodes, err := f.Cfg.Items(NodesSection)
+		if err != nil {
+			return err
+		}
+		for option, details := range nodes {
+			if strings.Contains(details, fmt.Sprintf("%s,", ip)) {
+				err = f.Cfg.RemoveOption(NodesSection, option)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // getHosts will build a map of all hosts that currently exist in the config
 func (f *FileWriter) getHosts() map[string]bool {
-	existingHosts, err := f.Cfg.Get("Cluster", "hosts")
+	existingHosts, err := f.Cfg.Get(ClusterSection, ClusterHostOption)
 	// Ignore error in case the hosts option doesn't exist
 	if err != nil {
 		return map[string]bool{}
@@ -215,7 +296,7 @@ func (f *FileWriter) getHosts() map[string]bool {
 func (f *FileWriter) getNextNodeNumber() int {
 	const NodePrefix = "node"
 	var nextNodeNumber = 1
-	items, err := f.Cfg.Items("Nodes")
+	items, err := f.Cfg.Items(NodesSection)
 	if err == nil {
 		for k := range items {
 			if strings.HasPrefix(k, NodePrefix) {

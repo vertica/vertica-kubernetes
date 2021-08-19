@@ -29,4 +29,11 @@ type Writer interface {
 	// temporary file that we return by name.  The caller is responsible for
 	// removing this temp file.
 	AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error)
+
+	// RemoveHosts will remove IPs from the admintools.conf.  Caller provides
+	// the pod that has the admintools.conf that we will build upon.  The
+	// sourcePod cannot be blank.  The contents of the new admintools.conf is
+	// stored in a temporary file that we return by name.  The caller is
+	// responsible for removing this temp file.
+	RemoveHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error)
 }
