@@ -221,7 +221,6 @@ func (f *FileWriter) addToClusterHosts(oldHosts map[string]bool, installIPs []st
 // removeFromClusteHosts will remove a set of IPs from the Cluster.hosts section
 // of the config.  Changes are made in-place in the ConfigParser.
 func (f *FileWriter) removeFromClusterHosts(ips []string) error {
-	// SPILLY - use const
 	oldHostLine, err := f.Cfg.Get(ClusterSection, ClusterHostOption)
 	if err != nil {
 		return err

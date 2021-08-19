@@ -56,8 +56,8 @@ type PodFact struct {
 	// process of starting or restarting.
 	isPodRunning bool
 
-	// Have we run update_vertica for this pod? None means we are unable to
-	// determine whether it is run.
+	// Have we run install for this pod? None means we are unable to determine
+	// whether it is run.
 	isInstalled tristate.TriState
 
 	// Does admintools.conf exist but is for an old vdb?
@@ -510,4 +510,14 @@ func genPodNames(pods []*PodFact) string {
 		podNames = append(podNames, pod.name.Name)
 	}
 	return strings.Join(podNames, ", ")
+}
+
+// anyPodsNotRunning returns true if any pod isn't running.
+func (p *PodFacts) anyPodsNotRunning() bool {
+	for _, v := range p.Detail {
+		if !v.isPodRunning {
+			return true
+		}
+	}
+	return false
 }

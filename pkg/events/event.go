@@ -16,10 +16,6 @@
 package events
 
 const (
-	UninstallPods                   = "Uninstalling"
-	UninstallSucceeded              = "UninstallSucceeded"
-	UninstallFailed                 = "UninstallFailed"
-	UninstallHostsMissing           = "UninstallHostsMissing"
 	AddNodeStart                    = "AddNodeStart"
 	AddNodeSucceeded                = "AddNodeSucceeded"
 	AddNodeLicenseFail              = "AddNodeLicenseFail"

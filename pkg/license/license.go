@@ -48,7 +48,7 @@ func GetPath(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB) (stri
 	}
 
 	// This function only returns a single license -- to be used with
-	// update_vertica.  In case the secret has multiple licenses, we will pick
+	// admintools -t create_db.  In case the secret has multiple licenses, we will pick
 	// the one that comes first alphabetically.  The rest of the licenses will
 	// be mounted in the container that the customer can then install.
 	licenseNames := make([]string, 0, len(secret.Data))

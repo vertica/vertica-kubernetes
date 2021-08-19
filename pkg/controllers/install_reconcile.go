@@ -70,7 +70,7 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, error) {
 	// We can only proceed with install if all of the pods are running.  This
 	// ensures we can properly sync admintools.conf.
-	if d.anyPodsNotRunning() {
+	if d.PFacts.anyPodsNotRunning() {
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -104,7 +104,7 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	}
 	installPod := types.NamespacedName{}
 	if len(installedPods) != 0 {
-		installPod, err = d.findPodToInstallFrom()
+		installPod, err = findATBasePod(d.Vdb, d.PFacts)
 		if err != nil {
 			return err
 		}
@@ -117,7 +117,7 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	defer os.Remove(atConfTempFile)
 
 	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
-	if err := d.distributeAdmintoolsConf(ctx, atConfTempFile); err != nil {
+	if err := distributeAdmintoolsConf(ctx, d.PFacts, d.PRunner, atConfTempFile); err != nil {
 		return err
 	}
 	installedPods = append(installedPods, pods...)
@@ -189,20 +189,6 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 	return podList, nil
 }
 
-// distributeAdmintoolsConf will copy the d.ATConfTempFile to all of the pods
-func (d *InstallReconciler) distributeAdmintoolsConf(ctx context.Context, atConfTempFile string) error {
-	for _, p := range d.PFacts.Detail {
-		if !p.isPodRunning {
-			continue
-		}
-		_, _, err := d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, atConfTempFile, paths.AdminToolsConf)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // createInstallIndicators will create the install indicator file for all pods passed in
 func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []*PodFact) error {
 	for _, v := range pods {
@@ -256,31 +242,6 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 		paths.AdminToolsConf,
 		fmt.Sprintf("%s.uid.%s", paths.AdminToolsConf, string(d.Vdb.UID)),
 	}
-}
-
-// findPodToInstallFrom will look at the facts and figure out the pod to run the installer from
-func (d *InstallReconciler) findPodToInstallFrom() (types.NamespacedName, error) {
-	// We always use pod -0 from the first subcluster as the base for the
-	// admintools.conf.  We assume that all pods are running by the time we get
-	// here.
-	for i := range d.Vdb.Spec.Subclusters {
-		sc := &d.Vdb.Spec.Subclusters[i]
-		pn := names.GenPodName(d.Vdb, sc, 0)
-		if d.PFacts.Detail[pn].isInstalled.IsTrue() {
-			return pn, nil
-		}
-	}
-	return types.NamespacedName{}, fmt.Errorf("couldn't find a suitable pod to install from")
-}
-
-// anyPodsNotRunning checks if any pods were found not to be running
-func (d *InstallReconciler) anyPodsNotRunning() bool {
-	for _, v := range d.PFacts.Detail {
-		if !v.isPodRunning {
-			return true
-		}
-	}
-	return false
 }
 
 // acceptEulaInPod will run a script that will accept the eula in the given pod

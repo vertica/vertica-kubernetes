@@ -72,7 +72,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // remove old config
-				{}, // Debug info for admintools.conf after update_vertica
+				{}, // Debug info for admintools.conf after admintools.conf update
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 		}
@@ -85,7 +85,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 			cmds.CmdHistory{Pod: names.GenPodName(vdb, sc, 1), Command: drecon.genCmdCreateInstallIndicator("node0003")}))
 	})
 
-	It("should call update_vertica if a pod has not run the installer yet", func() {
+	It("should try install if a pod has not run the installer yet", func() {
 		vdb := vapi.MakeVDB()
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
@@ -109,12 +109,12 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf after update_vertica
+				{}, // Debug info for admintools.conf after updating admintools.conf
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf after update_vertica
+				{}, // Debug info for admintools.conf after updating admintools.conf
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}
@@ -146,7 +146,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		Expect(len(fpr.Histories)).Should(Equal(0))
 	})
 
-	It("should call update_vertica from the one runable pod", func() {
+	It("try install when not all pods are running", func() {
 		vdb := vapi.MakeVDB()
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
@@ -157,30 +157,12 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		const PodIndex = 1
 		setPodStatus(ctx, 1 /* funcOffset */, names.GenPodName(vdb, sc, 1), ScIndex, PodIndex, AllPodsRunning)
 
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
-			names.GenPodName(vdb, sc, PodIndex): []cmds.CmdResult{{
-				Stderr: "cat: " + paths.GenInstallerIndicatorFileName(vdb) + ": No such file or directory",
-				Err:    errors.New("command terminated with exit code 1")}},
-		}}
+		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(k8sClient, fpr)
-		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		// Reset the pod runner output to dump the compat21 node number
-		fpr.Results = cmds.CmdResults{
-			names.GenPodName(vdb, sc, PodIndex): []cmds.CmdResult{
-				{}, // Check for stale admintools.conf
-				{}, // Dump admintools.conf
-				{}, // run update_vertica
-				{}, // Dump admintools.conf
-				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
-		}
 		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeTrue())
-		Expect(len(fpr.Histories)).Should(BeNumerically(">=", 3))
-		Expect(fpr.Histories[0].Pod).Should(Equal(names.GenPodName(vdb, sc, PodIndex)))
-		Expect(fpr.Histories[1].Pod).Should(Equal(names.GenPodName(vdb, sc, PodIndex)))
-		Expect(fpr.Histories[2].Pod).Should(Equal(names.GenPodName(vdb, sc, PodIndex)))
 	})
 })

@@ -18,18 +18,14 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
-	"time"
+	"os"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,23 +33,24 @@ import (
 // UninstallReconciler will handle reconcile looking specifically for scale down
 // events.
 type UninstallReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	ExecPod types.NamespacedName // Pod to execute uninstall from.
+	VRec     *VerticaDBReconciler
+	Log      logr.Logger
+	Vdb      *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner  cmds.PodRunner
+	PFacts   *PodFacts
+	ATWriter atconf.Writer
 }
 
 // MakeUninstallReconciler will build and return the UninstallReconciler object.
 func MakeUninstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &UninstallReconciler{
-		VRec:    vdbrecon,
-		Log:     log,
-		Vdb:     vdb,
-		PRunner: prunner,
-		PFacts:  pfacts,
+		VRec:     vdbrecon,
+		Log:      log,
+		Vdb:      vdb,
+		PRunner:  prunner,
+		PFacts:   pfacts,
+		ATWriter: atconf.MakeFileWriter(log, vdb, prunner),
 	}
 }
 
@@ -77,6 +74,16 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 // everything in Vdb. We will know if we are scaling down by comparing the
 // expected subcluster size with the current.
 func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// We can only proceed with install if all of the pods are running.  This
+	// ensures we can properly sync admintools.conf.
+	if s.PFacts.anyPodsNotRunning() {
+		return ctrl.Result{Requeue: true}, nil
+	}
+
 	// We need to use the finder so that we include subclusters that don't exist
 	// in the vdb.  We need to call uninstall for each pod that is part of a
 	// deleted subcluster.
@@ -106,18 +113,27 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
 	if len(podsToUninstall) > 0 {
-		cmd := genCmdUninstall(podsToUninstall)
-		execPod := s.findPodToUninstallFrom()
-		if execPod == nil {
-			// Requeue since we couldn't find a running pod
-			return ctrl.Result{Requeue: true}, nil
+		basePod, err := findATBasePod(s.Vdb, s.PFacts)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
-		if res, err := s.execATCmd(ctx, *execPod, podsToUninstall, cmd); err != nil || res.Requeue {
-			return res, err
+		ipsToUninstall := []string{}
+		for _, p := range podsToUninstall {
+			ipsToUninstall = append(ipsToUninstall, p.podIP)
 		}
+		atConfTempFile, err := s.ATWriter.AddHosts(ctx, basePod, ipsToUninstall)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		defer os.Remove(atConfTempFile)
+
+		if err := distributeAdmintoolsConf(ctx, s.PFacts, s.PRunner, atConfTempFile); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		// Remove the installer indicator file so that we do an install if we then
 		// opt to scale out again.
-		cmd = s.genCmdRemoveInstallIndicator()
+		cmd := s.genCmdRemoveInstallIndicator()
 		for _, pod := range podsToUninstall {
 			if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to call remove installer indicator file: %w", err)
@@ -130,34 +146,6 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 	}
 
 	return ctrl.Result{Requeue: requeueNeeded}, nil
-}
-
-// execATCmd will execute the admintools command and handle event logging
-func (s *UninstallReconciler) execATCmd(ctx context.Context, atPod types.NamespacedName, pods []*PodFact,
-	cmd []string) (ctrl.Result, error) {
-	s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.UninstallPods,
-		"Calling update_vertica to remove hosts for the following pods: %s", genPodNames(pods))
-	start := time.Now()
-	stdout, _, err := s.PRunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...)
-	if err != nil {
-		r := regexp.MustCompile(`Unable to remove host\(s\) \[(.*)\]: not part of the cluster`)
-		m := r.FindStringSubmatch(stdout)
-		if m != nil {
-			s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.UninstallHostsMissing,
-				"Failed while calling update_vertica because hosts were missing: %s", m[1])
-			if err2 := s.repairMissingHosts(ctx, m[1]); err2 != nil {
-				return ctrl.Result{}, err2
-			}
-			// Requeue to try the uninstall again
-			return ctrl.Result{Requeue: true}, nil
-		}
-		s.VRec.EVRec.Event(s.Vdb, corev1.EventTypeWarning, events.UninstallFailed,
-			"Failed while calling update_vertica")
-		return ctrl.Result{}, err
-	}
-	s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.UninstallSucceeded,
-		"Successfully called update_vertica to remove hosts and it took %s", time.Since(start))
-	return ctrl.Result{}, nil
 }
 
 // findPodsSuitableForScaleDown will return a list of host names that can be uninstalled
@@ -185,64 +173,7 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 	return pods, requeueNeeded
 }
 
-// genCmdUninstall generates the command to use to uninstall a single host
-func genCmdUninstall(uninstallPods []*PodFact) []string {
-	hostNames := []string{}
-	for _, p := range uninstallPods {
-		hostNames = append(hostNames, p.dnsName)
-		// we created hosts with either ipv4 or ipv6
-		// if any pod with ipv6, we will remove them with the ipv6 flag
-	}
-
-	updateVerticaCmd := []string{
-		"sudo", "/opt/vertica/sbin/update_vertica",
-		"--remove-hosts", strings.Join(hostNames, ","),
-		"--no-package-checks",
-	}
-	if podsAllHaveIPv6(uninstallPods) {
-		return append(updateVerticaCmd, "--ipv6")
-	}
-	return updateVerticaCmd
-}
-
 // genCmdRemoveInstallIndicator will generate the command to get rid of the installer indicator file
 func (s *UninstallReconciler) genCmdRemoveInstallIndicator() []string {
 	return []string{"rm", paths.GenInstallerIndicatorFileName(s.Vdb)}
-}
-
-// findPodToUninstallFrom will find a suitable pod to run the install from.
-// If no pod is found nil is returned.
-func (s *UninstallReconciler) findPodToUninstallFrom() *types.NamespacedName {
-	if s.ExecPod == (types.NamespacedName{}) {
-		for uninstallPod, pod := range s.PFacts.Detail {
-			if pod.isPodRunning {
-				s.ExecPod = uninstallPod
-				break
-			}
-		}
-	}
-	if s.ExecPod == (types.NamespacedName{}) {
-		return nil
-	}
-	return &s.ExecPod
-}
-
-// repairMissingHosts if we come across hosts that have already been removed, we
-// are going to remove the install indicator file for each.  This way on the
-// next iteration, it will not consider removing them.
-func (s *UninstallReconciler) repairMissingHosts(ctx context.Context, missingHosts string) error {
-	// The existing hosts comes in the form: '10.244.1.120'.  We need to find
-	// the pod that corresponds to this IP and remove the install indicator file.
-	cmd := s.genCmdRemoveInstallIndicator()
-	for _, quotedHost := range strings.Split(missingHosts, " ") {
-		host := strings.Trim(quotedHost, "'") // Remove ' that surrounds it
-		for _, pod := range s.PFacts.Detail {
-			if pod.podIP == host {
-				if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
 }
