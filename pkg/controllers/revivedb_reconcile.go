@@ -74,7 +74,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart,
 		"Calling 'admintools -t revive_db'")
 	start := time.Now()
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, ServerContainer, cmd...)
+	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
 		case isClusterLeaseNotExpired(stdout):

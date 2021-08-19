@@ -22,6 +22,9 @@ import (
 )
 
 const (
+	// An file to denote the /config dir has been setup.  Note, we don't call
+	// update_vertica anymore, but it is kept in the name for backwards
+	// compatibility.
 	InstallerIndicatorFile = "/opt/vertica/config/update_vertica.called.for.uid."
 	LocalDataPath          = "/home/dbadmin/local-data"
 	CELicensePath          = "/home/dbadmin/licensing/ce/vertica_community_edition.license.key"

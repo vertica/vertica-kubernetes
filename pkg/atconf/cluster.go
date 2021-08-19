@@ -28,6 +28,7 @@ import (
 	"github.com/lithammer/dedent"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -51,7 +52,8 @@ func MakeClusterWriter(log logr.Logger,
 }
 
 // AddHosts will had ips to an admintools.conf.  New admintools.conf, stored in
-// a temporarily, is returned by name.
+// a temporarily, is returned by name.  It is the callers responsibility to
+// clean it up.
 func (c *ClusterWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
 	if err := c.createAdmintoolsConfBase(ctx, sourcePod); err != nil {
 		return "", err
@@ -61,8 +63,6 @@ func (c *ClusterWriter) AddHosts(ctx context.Context, sourcePod types.Namespaced
 	}
 	return c.ATConfTempFile, nil
 }
-
-// SPILLY - need to handle the case where the pod is already part of the list.  We should treat it as a no-op
 
 // createAdmintoolsConfBase will generate within the operator the
 // admintools.conf that we will add our newly installed pods too.  This handles
@@ -84,8 +84,7 @@ func (c *ClusterWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod 
 			return err
 		}
 	} else {
-		// SPILLY - have a shared const for ServerContainer
-		stdout, _, err := c.PRunner.ExecInPod(ctx, sourcePod, "server", "cat", paths.AdminToolsConf)
+		stdout, _, err := c.PRunner.ExecInPod(ctx, sourcePod, names.ServerContainer, "cat", paths.AdminToolsConf)
 		if err != nil {
 			return nil
 		}
@@ -122,14 +121,27 @@ func (c *ClusterWriter) addHostsToAdmintoolsConf(installIPs []string) error {
 // addNewHosts adds the pods as new hosts to the admintools.conf file.  It works
 // on admintools.conf using the in-memory ConfigParser representation.
 func (c *ClusterWriter) addNewHosts(cp *configparser.ConfigParser, installIPs []string) error {
-	// SPILLY - this function is long.
+	oldHosts := c.getHosts(cp)
+	if err := c.updateClusterHosts(cp, oldHosts, installIPs); err != nil {
+		return err
+	}
+	return c.addNodes(cp, oldHosts, installIPs)
+}
+
+// updateClusterHosts will add the given set of installIPs as new hosts to the
+// Cluster section.  The updates are done in-place in the ConfigParser.
+func (c *ClusterWriter) updateClusterHosts(cp *configparser.ConfigParser, oldHosts map[string]bool, installIPs []string) error {
 	var ips strings.Builder
-	existingHosts, err := cp.Get("Cluster", "hosts")
+	oldHostLine, err := cp.Get("Cluster", "hosts")
 	// Ignore error in case the hosts option doesn't exist
 	if err == nil {
-		ips.WriteString(existingHosts)
+		ips.WriteString(oldHostLine)
 	}
 	for _, ip := range installIPs {
+		// If host already exists, we treat as a no-op and skip the host
+		if _, ok := oldHosts[ip]; ok {
+			continue
+		}
 		if ips.Len() != 0 {
 			ips.WriteString(",")
 		}
@@ -139,7 +151,46 @@ func (c *ClusterWriter) addNewHosts(cp *configparser.ConfigParser, installIPs []
 	if err != nil {
 		return err
 	}
+	return nil
+}
 
+// addNodes will add the given set of installIPs as new nodes in the Nodes
+// section.  The updates are done in-place in the ConfigParser.
+func (c *ClusterWriter) addNodes(cp *configparser.ConfigParser, oldHosts map[string]bool, installIPs []string) error {
+	nextNodeNumber := c.getNextNodeNumber(cp)
+	for _, ip := range installIPs {
+		// If host already exists, we treat as a no-op and skip the host
+		if _, ok := oldHosts[ip]; ok {
+			continue
+		}
+		nodeName := fmt.Sprintf("node%04d", nextNodeNumber)
+		nextNodeNumber++
+		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, c.Vdb.Spec.Local.DataPath, c.Vdb.Spec.Local.DataPath)
+		err := cp.Set("Nodes", nodeName, nodeInfo)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// getHosts will build a map of all hosts that currently exist in the config
+func (c *ClusterWriter) getHosts(cp *configparser.ConfigParser) map[string]bool {
+	existingHosts, err := cp.Get("Cluster", "hosts")
+	// Ignore error in case the hosts option doesn't exist
+	if err != nil {
+		return map[string]bool{}
+	}
+	lk := map[string]bool{}
+	for _, host := range strings.Split(existingHosts, ",") {
+		lk[host] = true
+	}
+	return lk
+}
+
+// getNextNodeNumber returns the number to use for the next vertica node.  It
+// determines this by parsing the current config.
+func (c *ClusterWriter) getNextNodeNumber(cp *configparser.ConfigParser) int {
 	const NodePrefix = "node"
 	var nextNodeNumber = 1
 	items, err := cp.Items("Nodes")
@@ -156,18 +207,7 @@ func (c *ClusterWriter) addNewHosts(cp *configparser.ConfigParser, installIPs []
 			}
 		}
 	}
-
-	for _, ip := range installIPs {
-		nodeName := fmt.Sprintf("node%04d", nextNodeNumber)
-		nextNodeNumber++
-		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, c.Vdb.Spec.Local.DataPath, c.Vdb.Spec.Local.DataPath)
-		err = cp.Set("Nodes", nodeName, nodeInfo)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return nextNodeNumber
 }
 
 // writeDefaultAdmintoolsConf will write out the default admintools.conf for when nothing exists.

@@ -82,7 +82,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart,
 		"Calling 'admintools -t create_db'")
 	start := time.Now()
-	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, ServerContainer, cmd...)
+	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
 		case isEndpointBadError(stdout):
@@ -129,7 +129,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"
 	}
-	_, _, err := c.PRunner.ExecInPod(ctx, atPod, ServerContainer,
+	_, _, err := c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< '"+sql+"'",
 	)
 	return err

@@ -26,6 +26,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
 	corev1 "k8s.io/api/core/v1"
@@ -251,7 +252,7 @@ func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context) (map[str
 	cmd := []string{
 		"-t", "list_allnodes",
 	}
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, ServerContainer, cmd...)
+	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +298,7 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartStarted,
 		"Calling 'admintools -t restart_node' to restart the following pods: %s", strings.Join(podNames, ", "))
 	start := time.Now()
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, ServerContainer, cmd...)
+	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
 	if err != nil {
 		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.NodeRestartFailed,
 			"Failed while calling 'admintools -t restart_node'")
@@ -333,7 +334,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	}
 
 	cmd := genMapFileUploadCmd(mapFileContents)
-	if _, _, err := r.PRunner.ExecInPod(ctx, r.ATPod, ServerContainer, cmd...); err != nil {
+	if _, _, err := r.PRunner.ExecInPod(ctx, r.ATPod, names.ServerContainer, cmd...); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -341,7 +342,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	debugDumpAdmintoolsConf(ctx, r.PRunner, r.ATPod)
 
 	cmd = genReIPCommand()
-	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, ServerContainer, cmd...); err != nil {
+	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -368,7 +369,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context) (ctrl.Result, er
 	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Calling 'admintools -t start_db' to restart the cluster")
 	start := time.Now()
-	_, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, ServerContainer, cmd...)
+	_, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
 	if err != nil {
 		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ClusterRestartFailed,
 			"Failed while calling 'admintools -t start_db'")
@@ -406,7 +407,7 @@ func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFac
 			"bash", "-c", "for pid in $(pgrep ^vertica$); do kill -n SIGKILL $pid; done",
 		}
 		// Avoid all errors since the process may not even be running
-		if _, _, err := r.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
+		if _, _, err := r.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 			return err
 		}
 	}
@@ -451,7 +452,7 @@ func parseNodesFromAdmintoolConf(nodeText string) verticaIPLookup {
 // compat21 node names.
 func (r *RestartReconciler) fetchOldIPsFromNode(ctx context.Context, atPod types.NamespacedName) (verticaIPLookup, error) {
 	cmd := r.genGrepNodeCmd()
-	stdout, _, err := r.PRunner.ExecInPod(ctx, atPod, ServerContainer, cmd...)
+	stdout, _, err := r.PRunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		return verticaIPLookup{}, err
 	}

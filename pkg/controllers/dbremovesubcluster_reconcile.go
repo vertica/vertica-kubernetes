@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -93,7 +94,7 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 		"--noprompts",
 	}
 
-	stdout, _, err := d.PRunner.ExecAdmintools(ctx, d.ATPod.name, ServerContainer, cmd...)
+	stdout, _, err := d.PRunner.ExecAdmintools(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	if err != nil {
 		if strings.Contains(stdout, "No subcluster found") {
 			// Nothing to do if the subcluster is already gone.
@@ -143,7 +144,7 @@ func (d *DBRemoveSubclusterReconciler) getDefaultSubcluster(ctx context.Context)
 	cmd := []string{
 		"-tAc", "select subcluster_name from subclusters where is_default is true",
 	}
-	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, ServerContainer, cmd...)
+	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	if err != nil {
 		return "", err
 	}
@@ -160,6 +161,6 @@ func (d *DBRemoveSubclusterReconciler) changeDefaultSubcluster(ctx context.Conte
 	cmd := []string{
 		"-c", fmt.Sprintf("alter subcluster %s set default", scName),
 	}
-	_, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, ServerContainer, cmd...)
+	_, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	return err
 }

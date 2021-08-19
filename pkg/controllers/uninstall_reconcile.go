@@ -119,7 +119,7 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 		// opt to scale out again.
 		cmd = s.genCmdRemoveInstallIndicator()
 		for _, pod := range podsToUninstall {
-			if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
+			if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to call remove installer indicator file: %w", err)
 			}
 		}
@@ -138,7 +138,7 @@ func (s *UninstallReconciler) execATCmd(ctx context.Context, atPod types.Namespa
 	s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.UninstallPods,
 		"Calling update_vertica to remove hosts for the following pods: %s", genPodNames(pods))
 	start := time.Now()
-	stdout, _, err := s.PRunner.ExecInPod(ctx, atPod, ServerContainer, cmd...)
+	stdout, _, err := s.PRunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		r := regexp.MustCompile(`Unable to remove host\(s\) \[(.*)\]: not part of the cluster`)
 		m := r.FindStringSubmatch(stdout)
@@ -238,7 +238,7 @@ func (s *UninstallReconciler) repairMissingHosts(ctx context.Context, missingHos
 		host := strings.Trim(quotedHost, "'") // Remove ' that surrounds it
 		for _, pod := range s.PFacts.Detail {
 			if pod.podIP == host {
-				if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
+				if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 					return err
 				}
 			}

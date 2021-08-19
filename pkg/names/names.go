@@ -22,6 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	ServerContainer      = "server"
+	ServerContainerIndex = 0
+)
+
 // GenExtSvcName returns the name of the external service object.
 func GenExtSvcName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
 	return types.NamespacedName{
