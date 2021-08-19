@@ -266,13 +266,12 @@ func (d *InstallReconciler) acceptEulaInPod(ctx context.Context, pf *PodFact) er
 	}
 	tmp.Close()
 
-	const inContPyFn = "/opt/vertica/config/accept_eula.py"
-	_, _, err = d.PRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), inContPyFn)
+	_, _, err = d.PRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = d.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "/opt/vertica/oss/python3/bin/python3", inContPyFn)
+	_, _, err = d.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "/opt/vertica/oss/python3/bin/python3", paths.EulaAcceptanceScript)
 	if err != nil {
 		return err
 	}

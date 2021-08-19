@@ -165,4 +165,23 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeTrue())
 	})
+
+	It("install should accept eula", func() {
+		vdb := vapi.MakeVDB()
+		const ScIndex = 0
+		sc := &vdb.Spec.Subclusters[ScIndex]
+		sc.Size = 2
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
+		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, pfact)
+		drecon := actor.(*InstallReconciler)
+		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		cmds := fpr.FindCommands(paths.EulaAcceptanceScript)
+		Expect(len(cmds)).Should(Equal(4)) // 2 for each pod; 1 to copy and 1 to execute the script
+	})
 })

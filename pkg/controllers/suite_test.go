@@ -258,6 +258,18 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 	return &pfacts
 }
 
+func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
+	pfacts := MakePodFacts(k8sClient, fpr)
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
+	for _, pfact := range pfacts.Detail {
+		pfact.isInstalled = tristate.False
+		pfact.eulaAccepted = tristate.False
+		pfact.configShareExists = false
+		pfact.upNode = false
+	}
+	return &pfacts
+}
+
 func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	fpr *cmds.FakePodRunner, podsDownByIndex []int32) *PodFacts {
 	pfacts := MakePodFacts(k8sClient, fpr)
