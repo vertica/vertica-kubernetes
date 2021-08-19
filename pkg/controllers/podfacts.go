@@ -81,13 +81,13 @@ type PodFact struct {
 	// True if the end user license agreement has been accepted
 	eulaAccepted tristate.TriState
 
-	// True if the container has the sudo executable
-	hasSudo bool
+	// True if /opt/vertica/config/logrotate exists
+	configLogrotateExists bool
 
 	// True if /opt/vertica/config/logrotate is writable by dbadmin
-	logrotateIsWritable bool
+	configLogrotateWritable bool
 
-	// True if /opt/vertica/config/share is writable by dbadmin
+	// True if /opt/vertica/config/share exists
 	configShareExists bool
 }
 
@@ -188,7 +188,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkIsDBCreated,
 		p.checkIfNodeIsUp,
 		p.checkEulaAcceptance,
-		p.checkIfSudoExists,
+		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
 		p.checkThatConfigShareExists,
 	}
@@ -248,11 +248,11 @@ func (p *PodFacts) checkEulaAcceptance(ctx context.Context, vdb *vapi.VerticaDB,
 	return nil
 }
 
-// checkIfSudoExists will check if sudo exists in the pod
-func (p *PodFacts) checkIfSudoExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+// checkLogrotateExists will verify that that /opt/vertica/config/logrotate exists
+func (p *PodFacts) checkLogrotateExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "which", "sudo"); err == nil {
-			pf.hasSudo = true
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", "/opt/vertica/config/logrotate"); err == nil {
+			pf.configLogrotateExists = true
 		}
 	}
 	return nil
@@ -262,7 +262,7 @@ func (p *PodFacts) checkIfSudoExists(ctx context.Context, vdb *vapi.VerticaDB, p
 func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.isPodRunning {
 		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-w", "/opt/vertica/config/logrotate"); err == nil {
-			pf.logrotateIsWritable = true
+			pf.configLogrotateWritable = true
 		}
 	}
 	return nil

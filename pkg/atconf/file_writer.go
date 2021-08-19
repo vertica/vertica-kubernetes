@@ -29,22 +29,24 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// ClusterWriter is a writer for admintools.conf in an actual cluster
-type ClusterWriter struct {
+// FileWriter is a writer for admintools.conf in an actual cluster
+type FileWriter struct {
 	Log            logr.Logger
 	PRunner        cmds.PodRunner
 	Vdb            *vapi.VerticaDB
 	ATConfTempFile string
+	Cfg            *configparser.ConfigParser
 }
 
-// MakeClusterWriter will build and return the ClusterWriter struct
-func MakeClusterWriter(log logr.Logger,
+// MakeFileWriter will build and return the ClusterWriter struct
+func MakeFileWriter(log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner) Writer {
-	return &ClusterWriter{
+	return &FileWriter{
 		Log:     log,
 		Vdb:     vdb,
 		PRunner: prunner,
@@ -54,37 +56,43 @@ func MakeClusterWriter(log logr.Logger,
 // AddHosts will had ips to an admintools.conf.  New admintools.conf, stored in
 // a temporarily, is returned by name.  It is the callers responsibility to
 // clean it up.
-func (c *ClusterWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
-	if err := c.createAdmintoolsConfBase(ctx, sourcePod); err != nil {
+func (f *FileWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
+	if err := f.createAdmintoolsConfBase(ctx, sourcePod); err != nil {
 		return "", err
 	}
-	if err := c.addHostsToAdmintoolsConf(ips); err != nil {
+	if err := f.loadATConf(); err != nil {
 		return "", err
 	}
-	return c.ATConfTempFile, nil
+	if err := f.setIPv6Flag(ips); err != nil {
+		return "", err
+	}
+	if err := f.addHostsToAdmintoolsConf(ips); err != nil {
+		return "", err
+	}
+	return f.ATConfTempFile, nil
 }
 
 // createAdmintoolsConfBase will generate within the operator the
 // admintools.conf that we will add our newly installed pods too.  This handles
 // creating a file from scratch or copying one from the install pod.
-func (c *ClusterWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod types.NamespacedName) error {
+func (f *FileWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod types.NamespacedName) error {
 	tmp, err := ioutil.TempFile("", "admintools.conf.")
 	if err != nil {
 		return err
 	}
 	defer tmp.Close()
-	c.ATConfTempFile = tmp.Name()
+	f.ATConfTempFile = tmp.Name()
 
 	// If no name given for the source pod then we create a default one from
 	// scratch.  Otherwise we read the current admintools.conf from the install
 	// pod into the temp file.
 	if sourcePod == (types.NamespacedName{}) {
-		err = c.writeDefaultAdmintoolsConf(tmp)
+		err = f.writeDefaultAdmintoolsConf(tmp)
 		if err != nil {
 			return err
 		}
 	} else {
-		stdout, _, err := c.PRunner.ExecInPod(ctx, sourcePod, names.ServerContainer, "cat", paths.AdminToolsConf)
+		stdout, _, err := f.PRunner.ExecInPod(ctx, sourcePod, names.ServerContainer, "cat", paths.AdminToolsConf)
 		if err != nil {
 			return nil
 		}
@@ -98,41 +106,55 @@ func (c *ClusterWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod 
 	return nil
 }
 
-// addHostsToAdmintoolsConf will add the newly installed hosts to the
-// admintools.conf that we are building on the operator.  This depends on
-// d.ATConfTempFile being set and the file populated.
-func (c *ClusterWriter) addHostsToAdmintoolsConf(installIPs []string) error {
-	cp, err := configparser.NewConfigParserFromFile(c.ATConfTempFile)
-	if err != nil {
-		return err
-	}
-
-	err = c.addNewHosts(cp, installIPs)
-	if err != nil {
-		return err
-	}
-	err = cp.SaveWithDelimiter(c.ATConfTempFile, "=")
+// loadATConf will load the admintools.conf file into memory in Cfg
+func (f *FileWriter) loadATConf() error {
+	var err error
+	f.Cfg, err = configparser.NewConfigParserFromFile(f.ATConfTempFile)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// addNewHosts adds the pods as new hosts to the admintools.conf file.  It works
-// on admintools.conf using the in-memory ConfigParser representation.
-func (c *ClusterWriter) addNewHosts(cp *configparser.ConfigParser, installIPs []string) error {
-	oldHosts := c.getHosts(cp)
-	if err := c.updateClusterHosts(cp, oldHosts, installIPs); err != nil {
+// setIPv6Flag will set the ipv6 flag in the config
+func (f *FileWriter) setIPv6Flag(installIPs []string) error {
+	if len(installIPs) == 0 {
+		return nil
+	}
+	var flagVal string
+	if net.IsIPv6(installIPs[0]) {
+		flagVal = "True"
+	} else {
+		flagVal = "False"
+	}
+	return f.Cfg.Set("Configuration", "ipv6", flagVal)
+}
+
+// addHostsToAdmintoolsConf will add the newly installed hosts to the
+// admintools.conf that we are building on the operator.  This depends on
+// d.ATConfTempFile being set and the file populated.
+func (f *FileWriter) addHostsToAdmintoolsConf(installIPs []string) error {
+	if err := f.addNewHosts(installIPs); err != nil {
 		return err
 	}
-	return c.addNodes(cp, oldHosts, installIPs)
+	return f.Cfg.SaveWithDelimiter(f.ATConfTempFile, "=")
+}
+
+// addNewHosts adds the pods as new hosts to the admintools.conf file.  It works
+// on admintools.conf using the in-memory ConfigParser representation.
+func (f *FileWriter) addNewHosts(installIPs []string) error {
+	oldHosts := f.getHosts()
+	if err := f.updateClusterHosts(oldHosts, installIPs); err != nil {
+		return err
+	}
+	return f.addNodes(oldHosts, installIPs)
 }
 
 // updateClusterHosts will add the given set of installIPs as new hosts to the
 // Cluster section.  The updates are done in-place in the ConfigParser.
-func (c *ClusterWriter) updateClusterHosts(cp *configparser.ConfigParser, oldHosts map[string]bool, installIPs []string) error {
+func (f *FileWriter) updateClusterHosts(oldHosts map[string]bool, installIPs []string) error {
 	var ips strings.Builder
-	oldHostLine, err := cp.Get("Cluster", "hosts")
+	oldHostLine, err := f.Cfg.Get("Cluster", "hosts")
 	// Ignore error in case the hosts option doesn't exist
 	if err == nil {
 		ips.WriteString(oldHostLine)
@@ -147,7 +169,7 @@ func (c *ClusterWriter) updateClusterHosts(cp *configparser.ConfigParser, oldHos
 		}
 		ips.WriteString(ip)
 	}
-	err = cp.Set("Cluster", "hosts", ips.String())
+	err = f.Cfg.Set("Cluster", "hosts", ips.String())
 	if err != nil {
 		return err
 	}
@@ -156,8 +178,8 @@ func (c *ClusterWriter) updateClusterHosts(cp *configparser.ConfigParser, oldHos
 
 // addNodes will add the given set of installIPs as new nodes in the Nodes
 // section.  The updates are done in-place in the ConfigParser.
-func (c *ClusterWriter) addNodes(cp *configparser.ConfigParser, oldHosts map[string]bool, installIPs []string) error {
-	nextNodeNumber := c.getNextNodeNumber(cp)
+func (f *FileWriter) addNodes(oldHosts map[string]bool, installIPs []string) error {
+	nextNodeNumber := f.getNextNodeNumber()
 	for _, ip := range installIPs {
 		// If host already exists, we treat as a no-op and skip the host
 		if _, ok := oldHosts[ip]; ok {
@@ -165,8 +187,8 @@ func (c *ClusterWriter) addNodes(cp *configparser.ConfigParser, oldHosts map[str
 		}
 		nodeName := fmt.Sprintf("node%04d", nextNodeNumber)
 		nextNodeNumber++
-		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, c.Vdb.Spec.Local.DataPath, c.Vdb.Spec.Local.DataPath)
-		err := cp.Set("Nodes", nodeName, nodeInfo)
+		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, f.Vdb.Spec.Local.DataPath, f.Vdb.Spec.Local.DataPath)
+		err := f.Cfg.Set("Nodes", nodeName, nodeInfo)
 		if err != nil {
 			return err
 		}
@@ -175,8 +197,8 @@ func (c *ClusterWriter) addNodes(cp *configparser.ConfigParser, oldHosts map[str
 }
 
 // getHosts will build a map of all hosts that currently exist in the config
-func (c *ClusterWriter) getHosts(cp *configparser.ConfigParser) map[string]bool {
-	existingHosts, err := cp.Get("Cluster", "hosts")
+func (f *FileWriter) getHosts() map[string]bool {
+	existingHosts, err := f.Cfg.Get("Cluster", "hosts")
 	// Ignore error in case the hosts option doesn't exist
 	if err != nil {
 		return map[string]bool{}
@@ -190,10 +212,10 @@ func (c *ClusterWriter) getHosts(cp *configparser.ConfigParser) map[string]bool 
 
 // getNextNodeNumber returns the number to use for the next vertica node.  It
 // determines this by parsing the current config.
-func (c *ClusterWriter) getNextNodeNumber(cp *configparser.ConfigParser) int {
+func (f *FileWriter) getNextNodeNumber() int {
 	const NodePrefix = "node"
 	var nextNodeNumber = 1
-	items, err := cp.Items("Nodes")
+	items, err := f.Cfg.Items("Nodes")
 	if err == nil {
 		for k := range items {
 			if strings.HasPrefix(k, NodePrefix) {
@@ -212,7 +234,7 @@ func (c *ClusterWriter) getNextNodeNumber(cp *configparser.ConfigParser) int {
 
 // writeDefaultAdmintoolsConf will write out the default admintools.conf for when nothing exists.
 // nolint:lll
-func (c *ClusterWriter) writeDefaultAdmintoolsConf(file *os.File) error {
+func (f *FileWriter) writeDefaultAdmintoolsConf(file *os.File) error {
 	var DefaultAdmintoolsConf = `
 	    [Configuration]
 		format = 3

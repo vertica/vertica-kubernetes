@@ -13,8 +13,8 @@
 
 apiVersion: v1
 kind: Event
-reason: Installing
-message: "Calling update_vertica to add the following pods as new hosts: v-kill-controller-sc1-1"
+reason: AddNodeStart
+message: "Calling 'admintools -t db_add_node' for pod 'v-kill-controller-sc1-1'"
 source:
   component: verticadb-operator
 involvedObject:

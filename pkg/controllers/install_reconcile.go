@@ -52,7 +52,7 @@ func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		Vdb:      vdb,
 		PRunner:  prunner,
 		PFacts:   pfacts,
-		ATWriter: atconf.MakeClusterWriter(log, vdb, prunner),
+		ATWriter: atconf.MakeFileWriter(log, vdb, prunner),
 	}
 }
 
@@ -149,9 +149,11 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 		if !p.isPodRunning {
 			continue
 		}
-		if !p.logrotateIsWritable {
+		if p.configLogrotateExists && !p.configLogrotateWritable {
 			// We enforce this in the docker entrypoint of the container too.  But
-			// we have this here for backwards compatibility for images 11.0 or older.
+			// we have this here for backwards compatibility for the 11.0 image.
+			// The 10.1.1 image doesn't even have logrotate, which is why we
+			// first check if the directory exists.
 			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer,
 				"sudo", "chown", "-R", "dbadmin:verticadba", "/opt/vertica/config/logrotate")
 			if err != nil {
@@ -239,8 +241,6 @@ func (d *InstallReconciler) fetchCompat21NodeNum(ctx context.Context, pf *PodFac
 	}
 	return "", fmt.Errorf("could not find compat21 node in output")
 }
-
-// SPILLY - test with ipv6
 
 // genCmdCreateInstallIndicator generates the command to create the install indicator file
 func (d *InstallReconciler) genCmdCreateInstallIndicator(compat21Node string) []string {

@@ -16,10 +16,6 @@
 package events
 
 const (
-	InstallingPods                  = "Installing"
-	InstallSucceeded                = "InstallSucceeded"
-	InstallFailed                   = "InstallFailed"
-	InstallHostExists               = "InstallHostExists"
 	UninstallPods                   = "Uninstalling"
 	UninstallSucceeded              = "UninstallSucceeded"
 	UninstallFailed                 = "UninstallFailed"

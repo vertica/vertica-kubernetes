@@ -29,13 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("cluster", func() {
+var _ = Describe("file_writer", func() {
 	var logger logr.Logger
 	vdb := vapi.MakeVDB()
 	prunner := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 
 	It("should create admintools.conf with a single host", func() {
-		w := MakeClusterWriter(logger, vdb, prunner)
+		w := MakeFileWriter(logger, vdb, prunner)
 		cnts, err := genAtConf(w, types.NamespacedName{}, []string{"10.1.1.1"})
 		Expect(err).Should(Succeed())
 		Expect(cnts).Should(ContainSubstring("hosts = 10.1.1.1"))
@@ -43,7 +43,7 @@ var _ = Describe("cluster", func() {
 	})
 
 	It("should append hosts to an existing admintools.conf file", func() {
-		w := MakeClusterWriter(logger, vdb, prunner)
+		w := MakeFileWriter(logger, vdb, prunner)
 		cnts, err := genAtConf(w, types.NamespacedName{}, []string{"10.1.1.1"})
 		Expect(err).Should(Succeed())
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
@@ -58,7 +58,7 @@ var _ = Describe("cluster", func() {
 	})
 
 	It("should treat dup IPs as a no-op", func() {
-		w := MakeClusterWriter(logger, vdb, prunner)
+		w := MakeFileWriter(logger, vdb, prunner)
 		cnts, err := genAtConf(w, types.NamespacedName{}, []string{"10.1.1.1", "10.1.1.2"})
 		Expect(err).Should(Succeed())
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
@@ -71,6 +71,17 @@ var _ = Describe("cluster", func() {
 		Expect(cnts).Should(ContainSubstring("node0001 = 10.1.1.1,"))
 		Expect(cnts).Should(ContainSubstring("node0002 = 10.1.1.2,"))
 		Expect(cnts).Should(ContainSubstring("node0003 = 10.1.1.3,"))
+	})
+
+	It("should set ipv6 flag appropriately", func() {
+		w := MakeFileWriter(logger, vdb, prunner)
+		cnts, err := genAtConf(w, types.NamespacedName{}, []string{"10.1.1.1"})
+		Expect(err).Should(Succeed())
+		Expect(cnts).Should(ContainSubstring("ipv6 = False"))
+
+		cnts, err = genAtConf(w, types.NamespacedName{}, []string{"2001:0db8:85a3:0000:0000:8a2e:0370:7334"})
+		Expect(err).Should(Succeed())
+		Expect(cnts).Should(ContainSubstring("ipv6 = True"))
 	})
 })
 
