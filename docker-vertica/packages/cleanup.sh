@@ -55,7 +55,7 @@ strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
     /tmp/package-checksum-patcher.py /opt/vertica/packages/*
 
 # (optional) minimal images remove packages that aren't auto installed
-if [ "$MINIMAL" = "YES" ]
+if [ "$MINIMAL" = "YES" ] || [ "$MINIMAL" = "yes" ]
 then 
   cd /opt/vertica/packages
   for i in $(find . -name package.conf -exec grep Autoinstall=False {} + | cut -d"/" -f2)
