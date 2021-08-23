@@ -16,3 +16,7 @@ kind: TestStep
 delete:
   - apiVersion: vertica.com/v1beta1
     kind: VerticaDB
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+commands:
+  - command: bash -c "kustomize build delete-s3-bucket/overlay | kubectl -n $NAMESPACE apply -f - "

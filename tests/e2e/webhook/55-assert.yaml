@@ -18,4 +18,4 @@ metadata:
   name: v-webhook
 spec:
   communal:
-    endpoint: "http://minio"
+    endpoint: "http://minio.kuttl-e2e-communal"

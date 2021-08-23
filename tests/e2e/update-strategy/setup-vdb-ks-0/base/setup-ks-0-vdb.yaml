@@ -18,10 +18,12 @@ metadata:
 spec:
   image: replace-with-kustomize
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    path: "s3://update-strategy/ks-0"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
     includeUIDInPath: true
+  local:
+    requestSize: 100Mi
   subclusters:
     - name: sc1
       size: 1

@@ -21,9 +21,11 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    path: "s3://k-safety-1-scaling"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
+  local:
+    requestSize: 100Mi
   subclusters:
     - name: main
       size: 3

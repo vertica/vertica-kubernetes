@@ -18,4 +18,4 @@ metadata:
   name: v-webhook
 spec:
   communal:
-    path: "s3://nimbusdb/db"
+    path: "s3://webhook"
