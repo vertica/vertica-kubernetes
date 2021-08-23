@@ -59,7 +59,8 @@ commands:
   - command: kubectl create namespace kuttl-e2e-communal
   - command: kubectl krew update
   - command: kubectl krew install minio
-  - command: kubectl minio init
+  # If these images ever change, they must be updated in tests/external-images.txt
+  - command: kubectl minio init --console-image minio/console:v0.6.3 --image minio/operator:v4.0.2
   - command: kubectl apply -f tests/manifests/minio/01-creds.yaml -n kuttl-e2e-communal
   - command: kubectl apply -f tests/manifests/minio/02-tenant.yaml -n kuttl-e2e-communal
   - command: scripts/wait-for-minio.sh -n kuttl-e2e-communal
