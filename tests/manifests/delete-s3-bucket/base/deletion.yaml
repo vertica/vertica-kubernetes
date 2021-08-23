@@ -11,20 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: minio.min.io/v2
-kind: Tenant
-metadata:
-  name: minio
-status:
-  currentState: Initialized
-  availableReplicas: 1
-  pools:
-    - ssName: minio-ss-0
-      state: PoolInitialized
----
+# Pod to create a bucket in minio
 apiVersion: v1
 kind: Pod
 metadata:
-  name: minio-ss-0-0
-status:
-  phase: Running
+  name: delete-s3-bucket
+  labels:
+    stern: include
+spec:
+  containers:
+  - name: aws
+    image: amazon/aws-cli
+    command:
+        ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://$S3_BUCKET"]
+    env:
+      - name: S3_BUCKET
+        value: $(S3_BUCKET)
+      - name: AWS_ACCESS_KEY_ID
+        value: minio
+      - name: AWS_SECRET_ACCESS_KEY
+        value: minio123
+      - name: AWS_EC2_METADATA_DISABLED
+        value: 'true'
+      - name: S3_EP
+        value: http://minio.kuttl-e2e-communal
+  restartPolicy: Never

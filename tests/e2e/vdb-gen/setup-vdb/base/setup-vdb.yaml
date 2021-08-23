@@ -19,9 +19,11 @@ spec:
   image: replace-with-kustomize
   superuserPasswordSecret: su-passwd
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    path: "s3://vdb-gen"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
+  local:
+    requestSize: 100Mi
   dbName: vertdb
   shardCount: 6
   kSafety: "0"

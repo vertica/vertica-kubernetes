@@ -22,8 +22,8 @@ spec:
       image: kustomize-vlogger-image
   ignoreClusterLease: true
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
+    path: "s3://revivedb-multi-sc"
+    endpoint: "http://minio.kuttl-e2e-communal"
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
   initPolicy: Revive
@@ -37,6 +37,7 @@ spec:
   local:
     dataPath: /data
     depotPath: /depot
+    requestSize: 100Mi
   dbName: vertdb
   subclusters:
     - name: main

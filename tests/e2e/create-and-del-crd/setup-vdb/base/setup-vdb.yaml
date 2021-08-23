@@ -20,6 +20,8 @@ spec:
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "https://minio"
-    credentialSecret: s3-auth
+    credentialSecret: s
+  local:
+    requestSize: 100Mi
   subclusters:
     - name: defaultsubcluster
