@@ -99,7 +99,6 @@ By default, we create containers that are stored in the local docker daemon. The
 
 - **OPERATOR_IMG**: Operator image name.
 - **VERTICA_IMG**: Vertica image name.
-- **WEBHOOK_IMG**: Webhook image name.
 - **VLOGGER_IMG**: Vertica logger sidecar image name.
 
 If necessary, these variables can include the url of the registry. For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`.
