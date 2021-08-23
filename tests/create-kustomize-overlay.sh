@@ -75,7 +75,7 @@ function create_kustomization {
     BASE_DIR=$1
     echo "" > kustomization.yaml
     kustomize edit add base $BASE_DIR
-    kustomize edit set image replace-with-kustomize=$VERTICA_IMAGE_NAME
+    kustomize edit set image kustomize-vertica-image=$VERTICA_IMAGE_NAME
     kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMAGE_NAME
 
     # If license was specified we create a patch file to set that.

@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-crash-before-createdb
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   communal:
     path: "s3://crash-before-createdb"
     endpoint: "http://minio.kuttl-e2e-communal"

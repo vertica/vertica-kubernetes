@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-revive-failures-communal-path-empty
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   communal:
     path: "s3://revivedb-failures/empty"
     endpoint: "http://minio.kuttl-e2e-communal"

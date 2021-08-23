@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: verticadb-sample
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "https://minio"

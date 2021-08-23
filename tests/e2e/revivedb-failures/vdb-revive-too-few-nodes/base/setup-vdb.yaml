@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-revive-failures-too-few-nodes
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   ignoreClusterLease: true
   communal:
     path: "s3://revivedb-failures"

@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-create-1-node
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   communal:
     path: "s3://revivedb-1-node"
