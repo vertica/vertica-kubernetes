@@ -80,7 +80,8 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 
 	// We can only proceed with install if all of the pods are running.  This
 	// ensures we can properly sync admintools.conf.
-	if s.PFacts.anyPodsNotRunning() {
+	if ok, podNotRunning := s.PFacts.anyPodsNotRunning(); ok {
+		s.Log.Info("At least one pod isn't running.  Aborting the uninstall.", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
 

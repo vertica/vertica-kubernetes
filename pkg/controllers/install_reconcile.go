@@ -70,7 +70,8 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, error) {
 	// We can only proceed with install if all of the pods are running.  This
 	// ensures we can properly sync admintools.conf.
-	if d.PFacts.anyPodsNotRunning() {
+	if ok, podNotRunning := d.PFacts.anyPodsNotRunning(); ok {
+		d.Log.Info("At least one pod isn't running.  Aborting the install.", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
 

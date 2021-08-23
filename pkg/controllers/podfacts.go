@@ -512,12 +512,14 @@ func genPodNames(pods []*PodFact) string {
 	return strings.Join(podNames, ", ")
 }
 
-// anyPodsNotRunning returns true if any pod isn't running.
-func (p *PodFacts) anyPodsNotRunning() bool {
+// anyPodsNotRunning returns true if any pod exists but isn't running.  It will
+// return the name of the first pod that isn't running.  This skips pods that
+// haven't yet been created by Kubernetes -- only pods that exist will be checked.
+func (p *PodFacts) anyPodsNotRunning() (bool, types.NamespacedName) {
 	for _, v := range p.Detail {
-		if !v.isPodRunning {
-			return true
+		if v.exists && !v.isPodRunning {
+			return true, v.name
 		}
 	}
-	return false
+	return false, types.NamespacedName{}
 }
