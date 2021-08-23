@@ -251,7 +251,7 @@ func (p *PodFacts) checkEulaAcceptance(ctx context.Context, vdb *vapi.VerticaDB,
 // checkLogrotateExists will verify that that /opt/vertica/config/logrotate exists
 func (p *PodFacts) checkLogrotateExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", "/opt/vertica/config/logrotate"); err == nil {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", paths.ConfigLogrotatePath); err == nil {
 			pf.configLogrotateExists = true
 		}
 	}
@@ -261,7 +261,7 @@ func (p *PodFacts) checkLogrotateExists(ctx context.Context, vdb *vapi.VerticaDB
 // checkIsLogrotateWritable will verify that dbadmin has write access to /opt/vertica/config/logrotate
 func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-w", "/opt/vertica/config/logrotate"); err == nil {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-w", paths.ConfigLogrotatePath); err == nil {
 			pf.configLogrotateWritable = true
 		}
 	}
@@ -271,7 +271,7 @@ func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, vdb *vapi.Verti
 // checkThatConfigShareExists will verify that /opt/vertica/config/share exists
 func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", "/opt/vertica/config/share"); err == nil {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", paths.ConfigSharePath); err == nil {
 			pf.configShareExists = true
 		}
 	}

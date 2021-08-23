@@ -42,7 +42,7 @@ const (
 	ConfigurationIPv6Option = "ipv6"
 )
 
-// FileWriter is a writer for admintools.conf in an actual cluster
+// FileWriter is a writer for admintools.conf
 type FileWriter struct {
 	Log            logr.Logger
 	PRunner        cmds.PodRunner
@@ -51,9 +51,8 @@ type FileWriter struct {
 	Cfg            *configparser.ConfigParser
 }
 
-// MakeFileWriter will build and return the ClusterWriter struct
-func MakeFileWriter(log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner) Writer {
+// MakeFileWriter will build and return the FileWriter struct
+func MakeFileWriter(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner) Writer {
 	return &FileWriter{
 		Log:     log,
 		Vdb:     vdb,
@@ -74,10 +73,10 @@ func (f *FileWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedNam
 	if err := f.setIPv6Flag(ips); err != nil {
 		return "", err
 	}
-	if err := f.addHostsToAdmintoolsConf(ips); err != nil {
+	if err := f.addNewHosts(ips); err != nil {
 		return "", err
 	}
-	return f.ATConfTempFile, nil
+	return f.saveATConf()
 }
 
 // RemoveHosts will remove IPs from admintools.conf.  New admintools.conf,
@@ -90,15 +89,15 @@ func (f *FileWriter) RemoveHosts(ctx context.Context, sourcePod types.Namespaced
 	if err := f.loadATConf(); err != nil {
 		return "", err
 	}
-	if err := f.removeHostsFromAdmintoolsConf(ips); err != nil {
+	if err := f.removeOldHosts(ips); err != nil {
 		return "", err
 	}
-	return f.ATConfTempFile, nil
+	return f.saveATConf()
 }
 
 // createAdmintoolsConfBase will generate within the operator the
 // admintools.conf that we will add our newly installed pods too.  This handles
-// creating a file from scratch or copying one from the install pod.
+// creating a file from scratch or copying one from a source pod.
 func (f *FileWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod types.NamespacedName) error {
 	tmp, err := ioutil.TempFile("", "admintools.conf.")
 	if err != nil {
@@ -108,7 +107,7 @@ func (f *FileWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod typ
 	f.ATConfTempFile = tmp.Name()
 
 	// If no name given for the source pod then we create a default one from
-	// scratch.  Otherwise we read the current admintools.conf from the install
+	// scratch.  Otherwise we read the current admintools.conf from the source
 	// pod into the temp file.
 	if sourcePod == (types.NamespacedName{}) {
 		err = f.writeDefaultAdmintoolsConf(tmp)
@@ -125,7 +124,6 @@ func (f *FileWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod typ
 			return nil
 		}
 	}
-	tmp.Close()
 
 	return nil
 }
@@ -134,10 +132,15 @@ func (f *FileWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod typ
 func (f *FileWriter) loadATConf() error {
 	var err error
 	f.Cfg, err = configparser.NewConfigParserFromFile(f.ATConfTempFile)
-	if err != nil {
-		return err
+	return err
+}
+
+// saveATConf will save the in-memory AT conf to a file and return the file name
+func (f *FileWriter) saveATConf() (string, error) {
+	if err := f.Cfg.SaveWithDelimiter(f.ATConfTempFile, "="); err != nil {
+		return "", err
 	}
-	return nil
+	return f.ATConfTempFile, nil
 }
 
 // setIPv6Flag will set the ipv6 flag in the config
@@ -152,25 +155,6 @@ func (f *FileWriter) setIPv6Flag(installIPs []string) error {
 		flagVal = "False"
 	}
 	return f.Cfg.Set(ConfigurationSection, ConfigurationIPv6Option, flagVal)
-}
-
-// addHostsToAdmintoolsConf will add the newly installed hosts to the
-// admintools.conf that we are building on the operator.  This depends on
-// d.ATConfTempFile being set and the file populated.
-func (f *FileWriter) addHostsToAdmintoolsConf(installIPs []string) error {
-	if err := f.addNewHosts(installIPs); err != nil {
-		return err
-	}
-	return f.Cfg.SaveWithDelimiter(f.ATConfTempFile, "=")
-}
-
-// removeHostsFromAdmintoolsConf will remove the IPs from the admintools.conf.
-// Changes are made to the parsed f.Cfg struct.
-func (f *FileWriter) removeHostsFromAdmintoolsConf(ips []string) error {
-	if err := f.removeOldHosts(ips); err != nil {
-		return err
-	}
-	return f.Cfg.SaveWithDelimiter(f.ATConfTempFile, "=")
 }
 
 // addNewHosts adds the pods as new hosts to the admintools.conf file.  It works

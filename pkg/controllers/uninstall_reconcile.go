@@ -122,7 +122,7 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 		for _, p := range podsToUninstall {
 			ipsToUninstall = append(ipsToUninstall, p.podIP)
 		}
-		atConfTempFile, err := s.ATWriter.AddHosts(ctx, basePod, ipsToUninstall)
+		atConfTempFile, err := s.ATWriter.RemoveHosts(ctx, basePod, ipsToUninstall)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

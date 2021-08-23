@@ -25,13 +25,14 @@ import (
 type FakeWriter struct {
 }
 
-// AddHosts will had ips to an admintools.conf.  New admintools.conf, stored in
-// a temporarily, is returned by name.
+// AddHosts is called to add IPs to an admintools.conf.  New admintools.conf, stored in
+// a temporarily, is returned by name.  Since this is fake, we just return a
+// name of a dummy file.  Actual file doesn't exist.
 func (f *FakeWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
 	return "admintools.conf.tmp", nil
 }
 
-// RemoveHosts is called to remove hosts from admintools.conf
+// RemoveHosts is called to remove hosts from admintools.conf.
 func (f *FakeWriter) RemoveHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
 	// no-op, do the same thing as AddHosts
 	return f.AddHosts(ctx, sourcePod, ips)

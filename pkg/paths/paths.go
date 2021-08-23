@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	// An file to denote the /config dir has been setup.  Note, we don't call
+	// A file to denote the /config dir has been setup.  Note, we don't call
 	// update_vertica anymore, but it is kept in the name for backwards
 	// compatibility.
 	InstallerIndicatorFile = "/opt/vertica/config/update_vertica.called.for.uid."
@@ -30,6 +30,8 @@ const (
 	CELicensePath          = "/home/dbadmin/licensing/ce/vertica_community_edition.license.key"
 	MountedLicensePath     = "/home/dbadmin/licensing/mnt"
 	ConfigPath             = "/opt/vertica/config"
+	ConfigSharePath        = "/opt/vertica/config/share"
+	ConfigLogrotatePath    = "/opt/vertica/config/logrotate"
 	LogPath                = "/opt/vertica/log"
 	PodInfoPath            = "/etc/podinfo"
 	AdminToolsConf         = "/opt/vertica/config/admintools.conf"

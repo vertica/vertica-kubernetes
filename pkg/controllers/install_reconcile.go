@@ -156,7 +156,7 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 			// The 10.1.1 image doesn't even have logrotate, which is why we
 			// first check if the directory exists.
 			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer,
-				"sudo", "chown", "-R", "dbadmin:verticadba", "/opt/vertica/config/logrotate")
+				"sudo", "chown", "-R", "dbadmin:verticadba", paths.ConfigLogrotatePath)
 			if err != nil {
 				return err
 			}
@@ -164,7 +164,7 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 
 		if !p.configShareExists {
 			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer,
-				"mkdir", "/opt/vertica/config/share")
+				"mkdir", paths.ConfigSharePath)
 			if err != nil {
 				return err
 			}
