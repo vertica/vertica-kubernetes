@@ -14,8 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  # Give the uninstall some time to progress but not complete
-  - command: sleep 3
   # Kill the controller pod while it is in the middle of the uninstall
   - command: kubectl delete pod --selector app.kubernetes.io/name=verticadb-operator
     namespaced: true
