@@ -89,7 +89,7 @@ func (c *ClusterPodRunner) CopyToPod(ctx context.Context, podName types.Namespac
 		execErr bytes.Buffer
 	)
 
-	// Copying a file simplies cat's the contents from stdin
+	// Copying a file is simply a cat of the contents from stdin
 	command := []string{"sh", "-c", fmt.Sprintf("cat > %s", destFile)}
 
 	inFile, err := os.Open(sourceFile)
