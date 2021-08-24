@@ -60,9 +60,13 @@ func MakeFileWriter(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner
 	}
 }
 
-// AddHosts will had ips to an admintools.conf.  New admintools.conf, stored in
-// a temporary file, is returned by name.  It is the callers responsibility to
-// clean it up.
+// AddHosts will add IPs to the admintools.conf.  It will add the IPs to the
+// Cluster.hosts section and add a new entry (using the compat21 format) to
+// Nodes for each IP.  If a given IP is already part of admintools.conf, then
+// it will be treated as a no-op.  If the sourcePod is blank, then we will
+// create a new admintools.conf from scratch.  New admintools.conf, stored
+// in a temporary file, is returned by name.  It is the callers
+// responsibility to clean it up.
 func (f *FileWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
 	if err := f.createAdmintoolsConfBase(ctx, sourcePod); err != nil {
 		return "", err
@@ -79,7 +83,10 @@ func (f *FileWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedNam
 	return f.saveATConf()
 }
 
-// RemoveHosts will remove IPs from admintools.conf.  New admintools.conf,
+// RemoveHosts will remove IPs from admintools.conf.  It will remove the IPs from the
+// Cluster.hosts section and any compat21 node entries.  It is expected that the
+// regular database nodes will have already been removed via 'admintools -t
+// db_remove_nodes'.  The sourcePod cannot be blank.  New admintools.conf,
 // stored in a temporary file, is returned by name to the caller.  The caller is
 // responsible for removing this file.
 func (f *FileWriter) RemoveHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {

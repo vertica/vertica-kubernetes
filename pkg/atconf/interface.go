@@ -22,18 +22,20 @@ import (
 )
 
 type Writer interface {
-	// AddHosts will add a list of IPs to the admintools.conf.  Caller provides
-	// the pod that has the admintools.conf that we will build upon.  If the
-	// sourcePod is blank, then we will create a new admintools.conf from
-	// scratch.  The contents of the new admintools.conf is stored in a
-	// temporary file that we return by name.  The caller is responsible for
-	// removing this temp file.
+	// AddHosts will add IPs to the admintools.conf.  It will add the IPs to the
+	// Cluster.hosts section and add a new entry (using the compat21 format) to
+	// Nodes for each IP.  If a given IP is already part of admintools.conf, then
+	// it will be treated as a no-op.  If the sourcePod is blank, then we will
+	// create a new admintools.conf from scratch.  New admintools.conf, stored
+	// in a temporary file, is returned by name.  It is the callers
+	// responsibility to clean it up.
 	AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error)
 
-	// RemoveHosts will remove IPs from the admintools.conf.  Caller provides
-	// the pod that has the admintools.conf that we will build upon.  The
-	// sourcePod cannot be blank.  The contents of the new admintools.conf is
-	// stored in a temporary file that we return by name.  The caller is
-	// responsible for removing this temp file.
+	// RemoveHosts will remove IPs from admintools.conf.  It will remove the IPs from the
+	// Cluster.hosts section and any compat21 node entries.  It is expected that the
+	// regular database nodes will have already been removed via 'admintools -t
+	// db_remove_nodes'.  The sourcePod cannot be blank.  New admintools.conf,
+	// stored in a temporary file, is returned by name to the caller.  The caller is
+	// responsible for removing this file.
 	RemoveHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error)
 }
