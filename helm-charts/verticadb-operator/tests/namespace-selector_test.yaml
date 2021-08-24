@@ -1,0 +1,35 @@
+suite: test namespace selector in the webhook configuration
+templates:
+  - operator.yaml
+release:
+  namespace: my-namespace
+tests:
+  - it: mutating webhook configuration has a namespace selector
+    documentIndex: 10
+    asserts:
+      - isKind:
+          of: MutatingWebhookConfiguration
+      - isNotNull:
+          path: webhooks[0].namespaceSelector
+      - contains:
+          path: webhooks[0].namespaceSelector.matchExpressions
+          content:
+            key: kubernetes.io/metadata.name
+            operator: In
+            values:
+            - my-namespace
+  - it: validate webhook configuration has a namespace selector
+    documentIndex: 11
+    asserts:
+      - isKind:
+          of: ValidatingWebhookConfiguration
+      - isNotNull:
+          path: webhooks[0].namespaceSelector
+      - contains:
+          path: webhooks[0].namespaceSelector.matchExpressions
+          content:
+            key: kubernetes.io/metadata.name
+            operator: In
+            values:
+            - my-namespace
+            

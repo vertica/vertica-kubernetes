@@ -117,8 +117,8 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: controller-gen ## Generate WebhookConfiguration, Role and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: controller-gen ## Generate Role and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role paths="./..." output:crd:artifacts:config=config/crd/bases
 	sed -i '/WATCH_NAMESPACE/d' config/rbac/role.yaml ## delete any line with the dummy namespace WATCH_NAMESPACE
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -247,7 +247,10 @@ helm-create-resources: manifests kustomize ## Generate all the verticadb operato
 	cd config/overlays/only-crd && echo "" > kustomization.yaml
 	cd config/overlays/only-crd && $(KUSTOMIZE) edit add base ../../crd
 
-	$(KUSTOMIZE) build config/overlays/all-but-crd/ | sed 's/verticadb-operator-system/{{ .Release.Namespace }}/g' > $(OPERATOR_CHART)/templates/operator.yaml
+	$(KUSTOMIZE) build config/overlays/all-but-crd/ | \
+	  sed 's/verticadb-operator-system/{{ .Release.Namespace }}/g' | \
+	  sed 's/verticadb-operator-.*-webhook-configuration/{{ .Release.Namespace }}-&/' \
+	  > $(OPERATOR_CHART)/templates/operator.yaml
 	mkdir -p $(OPERATOR_CHART)/crds
 	$(KUSTOMIZE) build config/overlays/only-crd/ > $(OPERATOR_CHART)/crds/verticadbs.vertica.com-crd.yaml
 
