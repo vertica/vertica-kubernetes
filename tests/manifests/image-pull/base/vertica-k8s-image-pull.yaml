@@ -22,7 +22,7 @@ metadata:
 spec:
   containers:
     - name: vsql
-      image: replace-with-kustomize
+      image: kustomize-vertica-image
       command:
         - sleep
         - infinity
