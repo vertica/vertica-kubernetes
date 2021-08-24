@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-k-safety-0-scaling
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   sidecars:
     - name: vlogger
       image: kustomize-vlogger-image

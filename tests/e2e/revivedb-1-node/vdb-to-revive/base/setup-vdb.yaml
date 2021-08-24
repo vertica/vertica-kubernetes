@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-revive-1-node
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   ignoreClusterLease: true
   communal:
