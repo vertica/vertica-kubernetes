@@ -27,11 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const (
-	LicensingMountName    = "licensing"
-	PodInfoMountName      = "podinfo"
-	SuperuserPasswordPath = "superuser-passwd"
-)
+const SuperuserPasswordPath = "superuser-passwd"
 
 // buildExtSvc creates desired spec for the external service.
 func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.Service {
@@ -78,17 +74,17 @@ func buildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 // buildVolumeMounts returns the volume mounts to include in the sts pod spec
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
-		{Name: LocalDataPVC, MountPath: paths.LocalDataPath},
-		{Name: LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "config"), MountPath: paths.ConfigPath},
-		{Name: LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "log"), MountPath: paths.LogPath},
-		{Name: LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "data"), MountPath: vdb.Spec.Local.DataPath},
-		{Name: LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "depot"), MountPath: vdb.Spec.Local.DepotPath},
-		{Name: PodInfoMountName, MountPath: paths.PodInfoPath},
+		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
+		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "config"), MountPath: paths.ConfigPath},
+		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "log"), MountPath: paths.LogPath},
+		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "data"), MountPath: vdb.Spec.Local.DataPath},
+		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "depot"), MountPath: vdb.Spec.Local.DepotPath},
+		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
 
 	if vdb.Spec.LicenseSecret != "" {
 		volMnts = append(volMnts, corev1.VolumeMount{
-			Name:      LicensingMountName,
+			Name:      vapi.LicensingMountName,
 			MountPath: paths.MountedLicensePath,
 		})
 	}
@@ -110,7 +106,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 // buildLicenseVolume returns a volume that contains any licenses
 func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	return corev1.Volume{
-		Name: LicensingMountName,
+		Name: vapi.LicensingMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: vdb.Spec.LicenseSecret,
@@ -182,7 +178,7 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 
 	return corev1.Volume{
-		Name: PodInfoMountName,
+		Name: vapi.PodInfoMountName,
 		VolumeSource: corev1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
 				Sources: projSources,
@@ -284,7 +280,7 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: LocalDataPVC,
+						Name: vapi.LocalDataPVC,
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -317,10 +313,10 @@ func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	// controller. Again, this is for testing purposes only as the statefulset
 	// controller handles adding of the PVC to the volume list.
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-		Name: LocalDataPVC,
+		Name: vapi.LocalDataPVC,
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: LocalDataPVC + "-" + vdb.ObjectMeta.Name + "-" + sc.Name + fmt.Sprintf("%d", podIndex),
+				ClaimName: vapi.LocalDataPVC + "-" + vdb.ObjectMeta.Name + "-" + sc.Name + fmt.Sprintf("%d", podIndex),
 			},
 		},
 	})

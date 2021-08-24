@@ -178,7 +178,10 @@ type VerticaDBSpec struct {
 	Sidecars []corev1.Container `json:"sidecars,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// Custom volumes that can be added to sidecars.
+	// Custom volumes that are added to sidecars.  Each sidecar must include
+	// the volume in the volumeMounts for it to appear in the container.  It
+	// accepts any valid volume type.  A unique name must be given for each
+	// volume and it cannot conflict with any of the internally generated volumes.
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
 }
 

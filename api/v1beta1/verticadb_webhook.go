@@ -41,6 +41,7 @@ const (
 	portUpperBound     = 32767
 	LocalDataPVC       = "local-data"
 	PodInfoMountName   = "podinfo"
+	LicensingMountName = "licensing"
 )
 
 // log is for logging in this package.
@@ -434,10 +435,10 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Volumes {
 		vol := v.Spec.Volumes[i]
-		if vol.Name == LocalDataPVC || vol.Name == PodInfoMountName {
+		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) {
 			err := field.Invalid(field.NewPath("spec").Child("volumes").Index(i).Child("name"),
 				v.Spec.Volumes[i].Name,
-				"is not a valid volume name")
+				"conflicts with the name of one of the internally generated volumes")
 			allErrs = append(allErrs, err)
 		}
 	}

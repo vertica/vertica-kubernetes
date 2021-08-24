@@ -136,6 +136,9 @@ var _ = Describe("verticadb_webhook", func() {
 			{
 				Name: LocalDataPVC,
 			},
+			{
+				Name: LicensingMountName,
+			},
 		}
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Volumes = []v1.Volume{
@@ -145,14 +148,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{
 				Name: "validname",
 			},
-		}
-		validateSpecValuesHaveErr(vdb, true)
-		vdb.Spec.Volumes = []v1.Volume{
 			{
-				Name: LocalDataPVC,
-			},
-			{
-				Name: "validname",
+				Name: LicensingMountName,
 			},
 		}
 		validateSpecValuesHaveErr(vdb, true)
@@ -162,6 +159,21 @@ var _ = Describe("verticadb_webhook", func() {
 			},
 			{
 				Name: "validname2",
+			},
+			{
+				Name: LicensingMountName,
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Volumes = []v1.Volume{
+			{
+				Name: "validname1",
+			},
+			{
+				Name: "validname2",
+			},
+			{
+				Name: "validname3",
 			},
 		}
 		validateSpecValuesHaveErr(vdb, false)
