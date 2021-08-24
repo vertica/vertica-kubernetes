@@ -40,12 +40,12 @@ commands:
 
   # We do a pre-pull of the vertica-k8s image version latest and 10.1.1-0
   # that we will use for the test upgrade-vertica.
-  - command: bash -c "sed 's+replace-with-kustomize+verticadocker/vertica-k8s:10.1.1-0+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
+  - command: bash -c "sed 's+kustomize-vertica-image+verticadocker/vertica-k8s:10.1.1-0+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
     namespaced: true
-  - command: bash -c "sed 's+replace-with-kustomize+verticadocker/vertica-k8s:latest+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
+  - command: bash -c "sed 's+kustomize-vertica-image+verticadocker/vertica-k8s:latest+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
