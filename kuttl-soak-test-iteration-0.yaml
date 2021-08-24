@@ -34,7 +34,8 @@ commands:
   # Create minio tenant and the vdb
   - command: kubectl krew update
   - command: kubectl krew install minio
-  - command: kubectl minio init
+  # If these images ever change, they must be updated in tests/external-images.txt
+  - command: kubectl minio init --console-image minio/console:v0.6.3 --image minio/operator:v4.0.2
   - command: bash -c "bin/kustomize build tests/manifests/soak-setup/overlay | kubectl -n soak apply -f -"
 
   # Wait for the creation of the database

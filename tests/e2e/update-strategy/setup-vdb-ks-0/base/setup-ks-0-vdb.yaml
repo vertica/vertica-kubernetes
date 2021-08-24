@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-ks-0-update-strategy
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   communal:
     path: "s3://update-strategy/ks-0"
     endpoint: "http://minio.kuttl-e2e-communal"
