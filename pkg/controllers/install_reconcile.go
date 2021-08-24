@@ -118,7 +118,7 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	defer os.Remove(atConfTempFile)
 
 	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
-	if err := distributeAdmintoolsConf(ctx, d.PFacts, d.PRunner, atConfTempFile); err != nil {
+	if err := distributeAdmintoolsConf(ctx, d.Vdb, d.VRec, d.PFacts, d.PRunner, atConfTempFile); err != nil {
 		return err
 	}
 	installedPods = append(installedPods, pods...)

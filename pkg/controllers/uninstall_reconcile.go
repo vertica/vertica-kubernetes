@@ -128,7 +128,7 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 		}
 		defer os.Remove(atConfTempFile)
 
-		if err := distributeAdmintoolsConf(ctx, s.PFacts, s.PRunner, atConfTempFile); err != nil {
+		if err := distributeAdmintoolsConf(ctx, s.Vdb, s.VRec, s.PFacts, s.PRunner, atConfTempFile); err != nil {
 			return ctrl.Result{}, err
 		}
 

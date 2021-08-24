@@ -49,4 +49,5 @@ const (
 	SubclusterRemoved               = "SubclusterRemoved"
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
+	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
 )
