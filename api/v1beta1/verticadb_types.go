@@ -176,6 +176,10 @@ type VerticaDBSpec struct {
 	// operator adds the same volume mounts that are in the vertica server
 	// container to each sidecar container.
 	Sidecars []corev1.Container `json:"sidecars,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Custom volumes that can be added to sidecars.
+	Volumes []corev1.Volume `json:"volumes,omitempty"`
 }
 
 type CommunalInitPolicy string

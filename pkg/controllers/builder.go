@@ -103,6 +103,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
+	vols = append(vols, vdb.Spec.Volumes...)
 	return vols
 }
 
