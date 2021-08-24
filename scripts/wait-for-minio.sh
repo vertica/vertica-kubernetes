@@ -15,6 +15,8 @@
 
 # Wait for the minio tenant to be fully setup
 
+set -o errexit
+
 TIMEOUT=180  # Default, can be overridden
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 

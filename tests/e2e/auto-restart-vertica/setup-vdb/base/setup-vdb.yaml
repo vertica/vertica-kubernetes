@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-auto-restart-vertica
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   sidecars:
     - name: vlogger
       image: kustomize-vlogger-image

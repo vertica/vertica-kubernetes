@@ -43,7 +43,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: test
-      image: replace-with-kustomize
+      image: kustomize-vertica-image
       command: ["/home/dbadmin/test.sh"]
       volumeMounts:
         - name: test-script

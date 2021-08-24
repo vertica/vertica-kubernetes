@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-revive-failures-local-path-mismatch
 spec:
-  image: replace-with-kustomize
+  image: kustomize-vertica-image
   ignoreClusterLease: true
   communal:
     path: "s3://revivedb-failures"
