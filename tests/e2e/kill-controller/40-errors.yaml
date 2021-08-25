@@ -12,11 +12,6 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Event
-reason: Uninstalling
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-kill-controller
+kind: Pod
+metadata:
+   name: v-kill-controller-sc1-1

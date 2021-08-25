@@ -180,7 +180,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUp(ctx, pf)).Should(Succeed())
+		Expect(pfs.checkIfNodeIsUp(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeFalse())
 	})
 
@@ -196,7 +196,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUp(ctx, pf)).Should(Succeed())
+		Expect(pfs.checkIfNodeIsUp(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
 
@@ -212,7 +212,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUp(ctx, pf)).ShouldNot(Succeed())
+		Expect(pfs.checkIfNodeIsUp(ctx, vdb, pf)).ShouldNot(Succeed())
 	})
 
 	It("should parse out the compat21 node name from install indicator file", func() {

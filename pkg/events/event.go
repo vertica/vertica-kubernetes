@@ -16,14 +16,6 @@
 package events
 
 const (
-	InstallingPods                  = "Installing"
-	InstallSucceeded                = "InstallSucceeded"
-	InstallFailed                   = "InstallFailed"
-	InstallHostExists               = "InstallHostExists"
-	UninstallPods                   = "Uninstalling"
-	UninstallSucceeded              = "UninstallSucceeded"
-	UninstallFailed                 = "UninstallFailed"
-	UninstallHostsMissing           = "UninstallHostsMissing"
 	AddNodeStart                    = "AddNodeStart"
 	AddNodeSucceeded                = "AddNodeSucceeded"
 	AddNodeLicenseFail              = "AddNodeLicenseFail"
@@ -57,4 +49,5 @@ const (
 	SubclusterRemoved               = "SubclusterRemoved"
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
+	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
 )

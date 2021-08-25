@@ -114,7 +114,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Handles calls to admintools -t db_remove_node
 		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handle calls to update_vertica --remove-hosts
+		// Handle calls to remove hosts from admintools.conf
 		MakeUninstallReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
 		// Creates or updates any k8s objects the CRD creates. This includes any
@@ -122,7 +122,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		MakeObjReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
 		// Set version info in the annotations and check that it is the minimum
 		MakeVersionReconciler(r, log, vdb, prunner, &pfacts),
-		// Handle calls to update_vertica --add-hosts
+		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
 		// Handle calls to admintools -t create_db
