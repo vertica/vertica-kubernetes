@@ -21,8 +21,8 @@ commands:
   # Create the kustomize overlay files to set the image to use.
   - command: tests/create-kustomize-overlay.sh $VERTICA_IMG $VLOGGER_IMG
 
-  # Create the helm chart
-  - command: make helm-create-resources vdb-gen
+  # make dependencies
+  - command: make helm-create-resources vdb-gen install-cert-manager
 
   # We do a pre-pull of the vertica-k8s image to avoid timeouts
   # during the test run.
