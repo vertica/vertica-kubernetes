@@ -39,6 +39,9 @@ const (
 	KSafety1MinHosts   = 3
 	portLowerBound     = 30000
 	portUpperBound     = 32767
+	LocalDataPVC       = "local-data"
+	PodInfoMountName   = "podinfo"
+	LicensingMountName = "licensing"
 )
 
 // log is for logging in this package.
@@ -208,6 +211,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isNodePortProperlySpecified(allErrs)
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
+	allErrs = v.hasValidVolumeName(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -423,6 +427,19 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 					fmt.Sprintf("duplicates the name of subcluster[%d]", i))
 				allErrs = append(allErrs, err)
 			}
+		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList {
+	for i := range v.Spec.Volumes {
+		vol := v.Spec.Volumes[i]
+		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) {
+			err := field.Invalid(field.NewPath("spec").Child("volumes").Index(i).Child("name"),
+				v.Spec.Volumes[i].Name,
+				"conflicts with the name of one of the internally generated volumes")
+			allErrs = append(allErrs, err)
 		}
 	}
 	return allErrs

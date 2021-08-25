@@ -127,6 +127,58 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 	})
 
+	It("should not have volume names conflicting with existing mount points", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Volumes = []v1.Volume{
+			{
+				Name: PodInfoMountName,
+			},
+			{
+				Name: LocalDataPVC,
+			},
+			{
+				Name: LicensingMountName,
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Volumes = []v1.Volume{
+			{
+				Name: PodInfoMountName,
+			},
+			{
+				Name: "validname",
+			},
+			{
+				Name: LicensingMountName,
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Volumes = []v1.Volume{
+			{
+				Name: "validname1",
+			},
+			{
+				Name: "validname2",
+			},
+			{
+				Name: LicensingMountName,
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Volumes = []v1.Volume{
+			{
+				Name: "validname1",
+			},
+			{
+				Name: "validname2",
+			},
+			{
+				Name: "validname3",
+			},
+		}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 	// validate immutable fields
 	It("should succeed without changing immutable fields", func() {
 		vdb := createVDBHelper()
