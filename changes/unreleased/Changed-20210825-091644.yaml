@@ -1,0 +1,6 @@
+kind: Changed
+body: Start the admission controller webhook as part of the operator pod.  This removes
+  the helm chart and container for the webhook.  To order to use the webhook with the namespace
+  scoped operator, the NamespaceDefaultLabelName feature gate must be enabled (on
+  by default in 1.21+) or the namespace must have the label 'kubernetes.io/metadata.name=<nsName>'
+  set.
