@@ -56,8 +56,8 @@ type PodFact struct {
 	// process of starting or restarting.
 	isPodRunning bool
 
-	// Have we run update_vertica for this pod? None means we are unable to
-	// determine whether it is run.
+	// Have we run install for this pod? None means we are unable to determine
+	// whether it is run.
 	isInstalled tristate.TriState
 
 	// Does admintools.conf exist but is for an old vdb?
@@ -78,8 +78,17 @@ type PodFact struct {
 	// if installation has occurred.
 	compat21NodeName string
 
-	// Is the agent running in this pod?
-	agentRunning bool
+	// True if the end user license agreement has been accepted
+	eulaAccepted tristate.TriState
+
+	// True if /opt/vertica/config/logrotate exists
+	configLogrotateExists bool
+
+	// True if /opt/vertica/config/logrotate is writable by dbadmin
+	configLogrotateWritable bool
+
+	// True if /opt/vertica/config/share exists
+	configShareExists bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -174,23 +183,18 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
 
-	// set pf.isInstalled and pf.hasStaleAdmintoolsConf
-	if err := p.checkIsInstalled(ctx, vdb, &pf); err != nil {
-		return err
+	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
+		p.checkIsInstalled,
+		p.checkIsDBCreated,
+		p.checkIfNodeIsUp,
+		p.checkEulaAcceptance,
+		p.checkLogrotateExists,
+		p.checkIsLogrotateWritable,
+		p.checkThatConfigShareExists,
 	}
 
-	// set pf.dbExists
-	if err := p.checkIsDBCreated(ctx, vdb, &pf); err != nil {
-		return err
-	}
-
-	// set pf.upNode and pf.agentRunning, but we can skip if the db doesn't
-	// exist
-	if !pf.dbExists.IsFalse() {
-		if err := p.checkIfNodeIsUp(ctx, &pf); err != nil {
-			return err
-		}
-		if err := p.checkIfAgentRunning(ctx, &pf); err != nil {
+	for _, fn := range fns {
+		if err := fn(ctx, vdb, &pf); err != nil {
 			return err
 		}
 	}
@@ -203,7 +207,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.isPodRunning {
 		fn := paths.GenInstallerIndicatorFileName(vdb)
-		if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "cat", fn); err != nil {
+		if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", fn); err != nil {
 			if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
 				return err
 			}
@@ -211,7 +215,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 
 			// Check if there is a stale admintools.conf
 			cmd := []string{"ls", paths.AdminToolsConf}
-			if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, cmd...); err != nil {
+			if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 				if !strings.Contains(stderr, "No such file or directory") {
 					return err
 				}
@@ -229,6 +233,51 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 	return nil
 }
 
+// checkEulaAcceptance will check if the end user license agreement has been accepted
+func (p *PodFacts) checkEulaAcceptance(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", paths.EulaAcceptanceFile); err != nil {
+			if !strings.Contains(stderr, fmt.Sprintf("cat: %s: No such file or directory", paths.EulaAcceptanceFile)) {
+				return err
+			}
+			pf.eulaAccepted = tristate.False
+		} else {
+			pf.eulaAccepted = tristate.True
+		}
+	}
+	return nil
+}
+
+// checkLogrotateExists will verify that that /opt/vertica/config/logrotate exists
+func (p *PodFacts) checkLogrotateExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", paths.ConfigLogrotatePath); err == nil {
+			pf.configLogrotateExists = true
+		}
+	}
+	return nil
+}
+
+// checkIsLogrotateWritable will verify that dbadmin has write access to /opt/vertica/config/logrotate
+func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-w", paths.ConfigLogrotatePath); err == nil {
+			pf.configLogrotateWritable = true
+		}
+	}
+	return nil
+}
+
+// checkThatConfigShareExists will verify that /opt/vertica/config/share exists
+func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	if pf.isPodRunning {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", paths.ConfigSharePath); err == nil {
+			pf.configShareExists = true
+		}
+	}
+	return nil
+}
+
 // checkIsDBCreated will check for evidence of a database at the local node.
 // If a db is found, we will set the vertica node name.
 func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
@@ -242,7 +291,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 		"-c",
 		fmt.Sprintf("ls -d %s/v_%s_node????_data", paths.GetDBDataPath(vdb), vdb.Spec.DBName),
 	}
-	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, cmd...); err != nil {
+	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		if !strings.Contains(stderr, "No such file or directory") {
 			return err
 		}
@@ -256,8 +305,8 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 }
 
 // checkIfNodeIsUp will determine whether Vertica process is running in the pod.
-func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
-	if !pf.isPodRunning {
+func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	if pf.dbExists.IsFalse() || !pf.isPodRunning {
 		pf.upNode = false
 		return nil
 	}
@@ -266,7 +315,7 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 		"-c",
 		"select 1",
 	}
-	if _, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, ServerContainer, cmd...); err != nil {
+	if _, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		if !strings.Contains(stderr, "vsql: could not connect to server:") {
 			return err
 		}
@@ -275,19 +324,6 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 		pf.upNode = true
 	}
 
-	return nil
-}
-
-// checkIfAgentRunning will check if the Vertica agent is running and set state in pf.agentRunning
-func (p *PodFacts) checkIfAgentRunning(ctx context.Context, pf *PodFact) error {
-	pf.agentRunning = false
-	if !pf.isPodRunning {
-		return nil
-	}
-
-	if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, ServerContainer, "/opt/vertica/sbin/vertica_agent", "status"); err == nil {
-		pf.agentRunning = true
-	}
 	return nil
 }
 
@@ -474,4 +510,16 @@ func genPodNames(pods []*PodFact) string {
 		podNames = append(podNames, pod.name.Name)
 	}
 	return strings.Join(podNames, ", ")
+}
+
+// anyPodsNotRunning returns true if any pod exists but isn't running.  It will
+// return the name of the first pod that isn't running.  This skips pods that
+// haven't yet been created by Kubernetes -- only pods that exist will be checked.
+func (p *PodFacts) anyPodsNotRunning() (bool, types.NamespacedName) {
+	for _, v := range p.Detail {
+		if v.exists && !v.isPodRunning {
+			return true, v.name
+		}
+	}
+	return false, types.NamespacedName{}
 }

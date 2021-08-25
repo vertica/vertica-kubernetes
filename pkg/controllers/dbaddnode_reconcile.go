@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"yunion.io/x/pkg/tristate"
@@ -126,7 +127,7 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pod, atPod *
 		"Calling 'admintools -t db_add_node' for pod '%s'", pod.name.Name)
 	start := time.Now()
 	cmd := d.genAddNodeCommand(pod)
-	stdout, _, err := d.PRunner.ExecAdmintools(ctx, atPod.name, ServerContainer, cmd...)
+	stdout, _, err := d.PRunner.ExecAdmintools(ctx, atPod.name, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
 		case isLicenseLimitError(stdout):
@@ -156,7 +157,7 @@ func (d *DBAddNodeReconciler) rebalanceShards(ctx context.Context, atPod *PodFac
 	cmd := []string{
 		"-tAc", selectCmd,
 	}
-	_, _, err := d.PRunner.ExecVSQL(ctx, podName, ServerContainer, cmd...)
+	_, _, err := d.PRunner.ExecVSQL(ctx, podName, names.ServerContainer, cmd...)
 	if err != nil {
 		return err
 	}

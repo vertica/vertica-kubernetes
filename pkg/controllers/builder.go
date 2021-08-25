@@ -128,28 +128,28 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 						Path: "memory-limit",
 						ResourceFieldRef: &corev1.ResourceFieldSelector{
 							Resource:      "limits.memory",
-							ContainerName: ServerContainer,
+							ContainerName: names.ServerContainer,
 						},
 					},
 					{
 						Path: "memory-request",
 						ResourceFieldRef: &corev1.ResourceFieldSelector{
 							Resource:      "requests.memory",
-							ContainerName: ServerContainer,
+							ContainerName: names.ServerContainer,
 						},
 					},
 					{
 						Path: "cpu-limit",
 						ResourceFieldRef: &corev1.ResourceFieldSelector{
 							Resource:      "limits.cpu",
-							ContainerName: ServerContainer,
+							ContainerName: names.ServerContainer,
 						},
 					},
 					{
 						Path: "cpu-request",
 						ResourceFieldRef: &corev1.ResourceFieldSelector{
 							Resource:      "requests.cpu",
-							ContainerName: ServerContainer,
+							ContainerName: names.ServerContainer,
 						},
 					},
 					{
@@ -209,7 +209,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	return corev1.Container{
 		Image:           vdb.Spec.Image,
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
-		Name:            ServerContainer,
+		Name:            names.ServerContainer,
 		Resources:       sc.Resources,
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: 5433, Name: "vertica"},

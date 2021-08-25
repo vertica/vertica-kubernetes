@@ -13,23 +13,12 @@
  limitations under the License.
 */
 
-package controllers
+package net
 
 import "strings"
 
-// isIPv6 decides whether an IP string is ipv6
-func isIPv6(address string) bool {
+// IsIPv6 decides whether an IP string is ipv6
+func IsIPv6(address string) bool {
 	const minNumberColonInIPv6 = 2
 	return strings.Count(address, ":") >= minNumberColonInIPv6
-}
-
-// podsAllHaveIPv6 decides whether all pods in the cluster contain IPv6 addresses
-func podsAllHaveIPv6(pods []*PodFact) bool {
-	ipv6Count := 0
-	for _, pod := range pods {
-		if isIPv6(pod.podIP) {
-			ipv6Count++
-		}
-	}
-	return ipv6Count > 0 && ipv6Count == len(pods)
 }

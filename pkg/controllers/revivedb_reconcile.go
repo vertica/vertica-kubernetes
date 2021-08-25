@@ -74,7 +74,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart,
 		"Calling 'admintools -t revive_db'")
 	start := time.Now()
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, ServerContainer, cmd...)
+	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
 		case isClusterLeaseNotExpired(stdout):
@@ -227,7 +227,7 @@ func (r *ReviveDBReconciler) getPodList() ([]*PodFact, bool) {
 }
 
 // genCmd will return the command to run in the pod to create the database
-func (r *ReviveDBReconciler) genCmd(hostList []string) []string {
+func (r *ReviveDBReconciler) genCmd(ctx context.Context, hostList []string) ([]string, error) {
 	cmd := []string{
 		"-t", "revive_db",
 		"--hosts=" + strings.Join(hostList, ","),
@@ -238,5 +238,5 @@ func (r *ReviveDBReconciler) genCmd(hostList []string) []string {
 	if r.Vdb.Spec.IgnoreClusterLease {
 		cmd = append(cmd, "--ignore-cluster-lease")
 	}
-	return cmd
+	return cmd, nil
 }

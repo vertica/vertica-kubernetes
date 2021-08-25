@@ -17,16 +17,14 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -49,21 +47,16 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		uninstallPod := buildPod(vdb, sc, 1)
-
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
 		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
 		recon := actor.(*UninstallReconciler)
+		recon.ATWriter = &atconf.FakeWriter{}
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		fpr.Histories = make([]cmds.CmdHistory, 0) // reset the calls so the first one is update_vertica
 		_, err := recon.uninstallPodsInSubcluster(ctx, sc, 1, 1)
 		Expect(err).Should(Succeed())
-		Expect(fpr.Histories[0].Command).Should(ContainElements(
-			"/opt/vertica/sbin/update_vertica",
-			"--remove-hosts",
-			uninstallPod.Spec.Hostname+"."+uninstallPod.Spec.Subdomain,
-		))
+		rmIndCmd := fpr.FindCommands(fmt.Sprintf("rm %s", paths.InstallerIndicatorFile))
+		Expect(len(rmIndCmd)).Should(Equal(1))
 	})
 
 	It("should skip uninstall and requeue because there aren't any pods running", func() {
@@ -93,52 +86,15 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		defer deletePods(ctx, vdbCopy)
 		sc.Size = 1 // mimic a pending db_remove_node
 
-		uninstallPods := []types.NamespacedName{names.GenPodName(vdb, sc, 1), names.GenPodName(vdb, sc, 2)}
-
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		r := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := actor.(*UninstallReconciler)
+		r.ATWriter = &atconf.FakeWriter{}
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())
-		updateVerticaCall := fpr.FindCommands("/opt/vertica/sbin/update_vertica")
-		Expect(len(updateVerticaCall)).Should(Equal(1))
-		Expect(updateVerticaCall[0].Command).Should(ContainElements(
-			"/opt/vertica/sbin/update_vertica",
-			"--remove-hosts",
-			pfacts.Detail[uninstallPods[0]].dnsName+","+pfacts.Detail[uninstallPods[1]].dnsName,
-		))
+		rmIndCmd := fpr.FindCommands(fmt.Sprintf("rm %s", paths.InstallerIndicatorFile))
+		Expect(len(rmIndCmd)).Should(Equal(2))
 	})
-
-	It("should remove indicator file and requeue if any host isn't part of the cluster", func() {
-		vdb := vapi.MakeVDB()
-		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 2
-		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdbCopy)
-		sc.Size = 1 // mimic a pending db_remove_node
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-
-		// Setup a fake pod runner so that the uninstall fails.
-		execPod := names.GenPodName(vdb, sc, 0)
-		fpr = &cmds.FakePodRunner{Results: cmds.CmdResults{
-			execPod: []cmds.CmdResult{
-				{Stdout: fmt.Sprintf(`Error: Unable to remove host(s) ['%s']: not part of the cluster 
-Hint: Valid hosts are: 10.244.1.163\nInstallation FAILED with errors.`, pfacts.Detail[names.GenPodName(vdb, sc, 1)].podIP),
-					Err: errors.New("command terminated with exit code 1")},
-			}}}
-		act := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
-		r := act.(*UninstallReconciler)
-		r.ExecPod = execPod
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
-		Expect(res.Requeue).Should(BeTrue())
-		rmInstallInd := fpr.FindCommands(fmt.Sprintf("rm %s", paths.InstallerIndicatorFile))
-		Expect(len(rmInstallInd)).Should(Equal(1))
-	})
-
 })

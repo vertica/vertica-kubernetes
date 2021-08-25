@@ -4,8 +4,10 @@ go 1.15
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
+	github.com/bigkevmcd/go-configparser v0.0.0-20210106142102-909504547ead
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
+	github.com/lithammer/dedent v1.1.0
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/vertica/vertica-sql-go v1.1.1

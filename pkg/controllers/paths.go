@@ -22,6 +22,7 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -35,7 +36,7 @@ func cleanupLocalFiles(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.Po
 	for _, path := range locPaths {
 		cmd := []string{"rm", "-r", path}
 
-		if _, stderr, err := prunner.ExecInPod(ctx, podName, ServerContainer, cmd...); err != nil {
+		if _, stderr, err := prunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
 			// We ignore not found errors since the path is already gone
 			if !strings.Contains(stderr, "No such file or directory") {
 				return err
@@ -55,7 +56,7 @@ func debugDumpAdmintoolsConf(ctx context.Context, prunner cmds.PodRunner, atPod 
 		fmt.Sprintf(`ls -l %s && grep '^node\|^v_\|^host' %s`, paths.AdminToolsConf, paths.AdminToolsConf),
 	}
 	// Since this is for debugging purposes all errors are ignored
-	prunner.ExecInPod(ctx, atPod, ServerContainer, cmd...) // nolint:errcheck
+	prunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...) // nolint:errcheck
 }
 
 // debugDumpAdmintoolsConfForPods will dump debug information for admintools.conf for a list of pods
@@ -74,7 +75,7 @@ func changeDepotPermissions(ctx context.Context, vdb *vapi.VerticaDB, prunner cm
 		"sudo", "chown", "dbadmin:verticadba", "-R", fmt.Sprintf("%s/%s", paths.LocalDataPath, paths.GetPVSubPath(vdb, "depot")),
 	}
 	for _, pod := range podList {
-		if _, _, err := prunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
+		if _, _, err := prunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 			return err
 		}
 	}
