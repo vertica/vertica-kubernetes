@@ -23,8 +23,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -72,18 +72,20 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // remove old config
-				{}, // Debug info for admintools.conf after update_vertica
+				{}, // Debug info for admintools.conf after admintools.conf update
+				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 		}
 		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
+		drecon.ATWriter = &atconf.FakeWriter{}
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, 1)].isInstalled.IsFalse()).Should(BeTrue())
 		Expect(fpr.Histories[len(fpr.Histories)-1]).Should(Equal(
 			cmds.CmdHistory{Pod: names.GenPodName(vdb, sc, 1), Command: drecon.genCmdCreateInstallIndicator("node0003")}))
 	})
 
-	It("should call update_vertica if a pod has not run the installer yet", func() {
+	It("should try install if a pod has not run the installer yet", func() {
 		vdb := vapi.MakeVDB()
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
@@ -107,23 +109,21 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf after update_vertica
+				{}, // Debug info for admintools.conf after updating admintools.conf
+				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf after update_vertica
+				{}, // Debug info for admintools.conf after updating admintools.conf
+				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}
 		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
+		drecon.ATWriter = &atconf.FakeWriter{}
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		cmdHist := fpr.FindCommands("/opt/vertica/sbin/update_vertica")
-		Expect(len(cmdHist)).Should(Equal(1))
-		updateVerticaCall := cmdHist[0]
-		hlSvcName := names.GenHlSvcName(vdb).Name
-		expHostListRegex := fmt.Sprintf("[a-z0-9-]+..%s,[a-z0-9-]+..%s", hlSvcName, hlSvcName)
-		Expect(updateVerticaCall.Command).Should(ContainElement(MatchRegexp(expHostListRegex)))
-		Expect(updateVerticaCall.Pod).Should(Equal(names.GenPodName(vdb, sc, 0)))
+		cmdHist := fpr.FindCommands(fmt.Sprintf("cat > %s", paths.AdminToolsConf))
+		Expect(len(cmdHist)).Should(Equal(3))
 		// We should see two instances of creating the install indicator -- one at each host that we install at
 		cmdHist = fpr.FindCommands(drecon.genCmdCreateInstallIndicator("node0003")...)
 		Expect(len(cmdHist)).Should(Equal(2))
@@ -139,13 +139,14 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		pfact := MakePodFacts(k8sClient, fpr)
 		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
+		drecon.ATWriter = &atconf.FakeWriter{}
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeTrue())
 		Expect(len(fpr.Histories)).Should(Equal(0))
 	})
 
-	It("should call update_vertica from the one runable pod", func() {
+	It("try install when not all pods are running", func() {
 		vdb := vapi.MakeVDB()
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
@@ -156,99 +157,31 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		const PodIndex = 1
 		setPodStatus(ctx, 1 /* funcOffset */, names.GenPodName(vdb, sc, 1), ScIndex, PodIndex, AllPodsRunning)
 
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
-			names.GenPodName(vdb, sc, PodIndex): []cmds.CmdResult{{
-				Stderr: "cat: " + paths.GenInstallerIndicatorFileName(vdb) + ": No such file or directory",
-				Err:    errors.New("command terminated with exit code 1")}},
-		}}
+		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(k8sClient, fpr)
-		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		// Reset the pod runner output to dump the compat21 node number
-		fpr.Results = cmds.CmdResults{
-			names.GenPodName(vdb, sc, PodIndex): []cmds.CmdResult{
-				{}, // Check for stale admintools.conf
-				{}, // Dump admintools.conf
-				{}, // run update_vertica
-				{}, // Dump admintools.conf
-				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
-		}
 		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeTrue())
-		Expect(len(fpr.Histories)).Should(BeNumerically(">=", 3))
-		Expect(fpr.Histories[0].Pod).Should(Equal(names.GenPodName(vdb, sc, PodIndex)))
-		Expect(fpr.Histories[1].Pod).Should(Equal(names.GenPodName(vdb, sc, PodIndex)))
-		Expect(fpr.Histories[2].Pod).Should(Equal(names.GenPodName(vdb, sc, PodIndex)))
 	})
 
-	It("Should all have ipv6 addresses if pods created with ipv6", func() {
-		podList, verticaUpdateCmd := createInstallPodsHelper(ctx, true)
-		Expect(verticaUpdateCmd).Should(ContainElement("--ipv6"))
-		Expect(podsAllHaveIPv6(podList)).Should(BeTrue())
-	})
-
-	It("Should not have ipv6 addresses if pods created with ipv4", func() {
-		podList, verticaUpdateCmd := createInstallPodsHelper(ctx, false)
-		Expect(verticaUpdateCmd).ShouldNot(ContainElement("--ipv6"))
-		Expect(podsAllHaveIPv6(podList)).Should(BeFalse())
-	})
-
-	It("should try to uninstall if install fails because hosts already exists", func() {
+	It("install should accept eula", func() {
 		vdb := vapi.MakeVDB()
-		const PodIndex = 0
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
-		sc.Size = 1
+		sc.Size = 2
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfact := createPodFactsWithNoInstall(ctx, vdb, fpr, 1)
-
-		pn := names.GenPodName(vdb, sc, PodIndex)
-		updateFailure := fmt.Sprintf(`Unable to add host(s) ['%s']: already part of the cluster 
-Hint: Existing hosts are: 10.244.2.64, 10.244.1.120, 10.244.3.246\n`, pfact.Detail[pn].podIP)
-		fpr.Results = cmds.CmdResults{
-			pn: []cmds.CmdResult{
-				{Stdout: updateFailure, Err: errors.New("update_vertica fails")},        // run update_vertica
-				{Stdout: fmt.Sprintf("node0001 = %s,/d,/d\n", pfact.Detail[pn].podIP)}}, // Get of compat21 node name
-		}
-		r := MakeInstallReconciler(vrec, logger, vdb, fpr, pfact)
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
+		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, pfact)
+		drecon := actor.(*InstallReconciler)
+		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
-		Expect(res.Requeue).Should(BeTrue())
-		// The failure should cause us to try and remove the host
-		cmds := fpr.FindCommands("update_vertica --remove-hosts")
-		Expect(len(cmds)).Should(Equal(1))
+		Expect(res).Should(Equal(ctrl.Result{}))
+		cmds := fpr.FindCommands(paths.EulaAcceptanceScript)
+		Expect(len(cmds)).Should(Equal(4)) // 2 for each pod; 1 to copy and 1 to execute the script
 	})
 })
-
-func createInstallPodsHelper(ctx context.Context, ipv6 bool) (podList []*PodFact, verticaUpdateCmd []string) {
-	const clusterSize = 3
-	vdb := vapi.MakeVDB()
-	vdb.Spec.Subclusters[0].Size = clusterSize
-	vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{Name: "secondary", Size: 2})
-	if ipv6 {
-		createIPv6Pods(ctx, vdb, AllPodsRunning)
-	} else {
-		createPods(ctx, vdb, AllPodsRunning)
-	}
-	defer deletePods(ctx, vdb)
-
-	podList = make([]*PodFact, 0, clusterSize)
-	fpr := &cmds.FakePodRunner{}
-	pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-	for _, v := range pfacts.Detail {
-		podList = append(podList, v)
-	}
-
-	pfact := MakePodFacts(k8sClient, fpr)
-	actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
-	drecon := actor.(*InstallReconciler)
-	licensePath, _ := license.GetPath(ctx, k8sClient, drecon.Vdb)
-	verticaUpdateCmd = drecon.genCmdInstall(podList, licensePath)
-
-	return podList, verticaUpdateCmd
-}

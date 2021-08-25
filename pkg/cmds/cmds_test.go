@@ -42,7 +42,7 @@ var _ = Describe("k8s/cmds", func() {
 		fpr := &FakePodRunner{SUPassword: "vertica"}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
 		_, _, _ = fpr.ExecVSQL(ctx, podName, "server", cmd...)
-		lastCall := fpr.FindCommands("vsql", "-w", fpr.SUPassword, "-tAc", "select 1")
+		lastCall := fpr.FindCommands("vsql", "--password", fpr.SUPassword, "-tAc", "select 1")
 		Expect(len(lastCall)).Should(Equal(1))
 	})
 

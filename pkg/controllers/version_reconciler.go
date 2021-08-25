@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -93,7 +94,7 @@ func (v *VersionReconciler) reconcileVersion(ctx context.Context, pod *PodFact) 
 
 // buildVersionAnnotations will build a map of annotations based on the --version output
 func (v *VersionReconciler) buildVersionAnnotations(ctx context.Context, pod *PodFact) (map[string]string, error) {
-	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, ServerContainer, "/opt/vertica/bin/vertica", "--version")
+	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, "/opt/vertica/bin/vertica", "--version")
 	if err != nil {
 		return nil, err
 	}

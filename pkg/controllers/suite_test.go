@@ -105,7 +105,7 @@ const (
 	AllPodsNotRunning PodRunningState = false
 )
 
-func createPodHelper(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRunningState, ipv6 bool) {
+func createPods(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
 		sts := buildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
@@ -113,21 +113,13 @@ func createPodHelper(ctx context.Context, vdb *vapi.VerticaDB, podRunningState P
 		for j := int32(0); j < sc.Size; j++ {
 			pod := buildPod(vdb, sc, j)
 			ExpectWithOffset(1, k8sClient.Create(ctx, pod)).Should(Succeed())
-			setPodStatusHelper(ctx, 2 /* funcOffset */, names.GenPodName(vdb, sc, j), int32(i), j, podRunningState, ipv6)
+			setPodStatusHelper(ctx, 2 /* funcOffset */, names.GenPodName(vdb, sc, j), int32(i), j, podRunningState, false)
 		}
 		// Update the status in the sts to reflect the number of pods we created
 		sts.Status.Replicas = sc.Size
 		sts.Status.ReadyReplicas = sc.Size
 		ExpectWithOffset(1, k8sClient.Status().Update(ctx, sts))
 	}
-}
-
-func createPods(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
-	createPodHelper(ctx, vdb, podRunningState, false)
-}
-
-func createIPv6Pods(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
-	createPodHelper(ctx, vdb, podRunningState, true)
 }
 
 func fakeIPv6ForPod(scIndex, podIndex int32) string {
@@ -266,20 +258,14 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 	return &pfacts
 }
 
-func createPodFactsWithNoInstall(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner, numPodsToChange int) *PodFacts {
+func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
 	pfacts := MakePodFacts(k8sClient, fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
-	// Change a number of pods to indicate install is not done.  Due to the map that
-	// stores the pod facts, the specific pods we change are non-deterministic.
-	podsChanged := 0
 	for _, pfact := range pfacts.Detail {
-		if podsChanged == numPodsToChange {
-			break
-		}
-		pfact.dbExists = tristate.False
-		pfact.upNode = false
 		pfact.isInstalled = tristate.False
-		podsChanged++
+		pfact.eulaAccepted = tristate.False
+		pfact.configShareExists = false
+		pfact.upNode = false
 	}
 	return &pfacts
 }

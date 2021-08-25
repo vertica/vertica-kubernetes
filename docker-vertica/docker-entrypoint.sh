@@ -10,18 +10,19 @@ start_cron(){
 # because we have a Persistent Volume that backs /opt/vertica/config, so
 # it starts up empty and must be populated
 copy_config_files() {
-    # We must use sudo in case the PV was created with permissions less than 0777.
-    sudo cp -r /home/dbadmin/logrotate/* /opt/vertica/config/
+    cp -r /home/dbadmin/logrotate/* /opt/vertica/config/
+    chown -R dbadmin:verticadba /opt/vertica/config/logrotate
     rm -rf /home/dbadmin/logrotate
 
-    sudo mkdir -p /opt/vertica/config/licensing
-    sudo cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing
-    sudo chown -R dbadmin:verticadba /opt/vertica/config/licensing
-    sudo chmod -R 0755 /opt/vertica/config/licensing
+    mkdir -p /opt/vertica/config/licensing
+    cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing
+    chown -R dbadmin:verticadba /opt/vertica/config/licensing
+    chmod -R 0755 /opt/vertica/config/licensing
 }
 
 start_cron
 copy_config_files
 
 echo "Vertica container is now running"
+
 sudo /usr/sbin/sshd -D

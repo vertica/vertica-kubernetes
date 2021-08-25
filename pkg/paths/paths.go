@@ -22,15 +22,22 @@ import (
 )
 
 const (
+	// A file to denote the /config dir has been setup.  Note, we don't call
+	// update_vertica anymore, but it is kept in the name for backwards
+	// compatibility.
 	InstallerIndicatorFile = "/opt/vertica/config/update_vertica.called.for.uid."
 	LocalDataPath          = "/home/dbadmin/local-data"
 	CELicensePath          = "/home/dbadmin/licensing/ce/vertica_community_edition.license.key"
 	MountedLicensePath     = "/home/dbadmin/licensing/mnt"
 	ConfigPath             = "/opt/vertica/config"
+	ConfigSharePath        = "/opt/vertica/config/share"
+	ConfigLogrotatePath    = "/opt/vertica/config/logrotate"
 	LogPath                = "/opt/vertica/log"
 	PodInfoPath            = "/etc/podinfo"
 	AdminToolsConf         = "/opt/vertica/config/admintools.conf"
 	AuthParmsFile          = "/home/dbadmin/auth_parms.conf"
+	EulaAcceptanceFile     = "/opt/vertica/config/d5415f948449e9d4c421b568f2411140.dat"
+	EulaAcceptanceScript   = "/opt/vertica/config/accept_eula.py"
 )
 
 // GenInstallerIndicatorFileName returns the name of the installer indicator file.
