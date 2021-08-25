@@ -27,6 +27,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
@@ -81,7 +82,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart,
 		"Calling 'admintools -t create_db'")
 	start := time.Now()
-	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, ServerContainer, cmd...)
+	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
 		case isEndpointBadError(stdout):
@@ -128,7 +129,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"
 	}
-	_, _, err := c.PRunner.ExecInPod(ctx, atPod, ServerContainer,
+	_, _, err := c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< '"+sql+"'",
 	)
 	return err
@@ -182,7 +183,12 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 }
 
 // genCmd will return the command to run in the pod to create the database
-func (c *CreateDBReconciler) genCmd(hostList []string) []string {
+func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]string, error) {
+	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
+	if err != nil {
+		return []string{}, err
+	}
+
 	return []string{
 		"-t", "create_db",
 		"--skip-fs-checks",
@@ -195,5 +201,6 @@ func (c *CreateDBReconciler) genCmd(hostList []string) []string {
 		"--database", c.Vdb.Spec.DBName,
 		"--force-cleanup-on-failure",
 		"--noprompt",
-	}
+		"--license", licPath,
+	}, nil
 }

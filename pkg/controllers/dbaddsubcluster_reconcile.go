@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -89,7 +90,7 @@ func (d *DBAddSubclusterReconciler) fetchSubclusters(ctx context.Context) (Subcl
 	cmd := []string{
 		"-tAc", "select distinct(subcluster_name) from subclusters",
 	}
-	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, ServerContainer, cmd...)
+	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	if err != nil {
 		return nil, ctrl.Result{}, err
 	}
@@ -137,7 +138,7 @@ func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *va
 		}
 	}
 
-	_, _, err := d.PRunner.ExecAdmintools(ctx, d.ATPod.name, ServerContainer, cmd...)
+	_, _, err := d.PRunner.ExecAdmintools(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterAdded,
 		"Added new subcluster '%s'", sc.Name)
 	return err

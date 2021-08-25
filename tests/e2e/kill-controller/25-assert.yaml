@@ -12,12 +12,6 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Event
-reason: Installing
-message: "Calling update_vertica to add the following pods as new hosts: v-kill-controller-sc1-1"
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-kill-controller
+kind: Pod
+metadata:
+   name: v-kill-controller-sc1-1

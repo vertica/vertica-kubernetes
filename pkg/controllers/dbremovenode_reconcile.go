@@ -130,7 +130,7 @@ func (d *DBRemoveNodeReconciler) execATCmd(ctx context.Context, atPod types.Name
 	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesStart,
 		"Calling 'admintools -t db_remove_node' for pods '%s'", podNames)
 	start := time.Now()
-	if _, _, err := d.PRunner.ExecAdmintools(ctx, atPod, ServerContainer, cmd...); err != nil {
+	if _, _, err := d.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...); err != nil {
 		d.VRec.EVRec.Event(d.Vdb, corev1.EventTypeWarning, events.RemoveNodesFailed,
 			"Failed when calling 'admintools -t db_remove_node'")
 		return err
