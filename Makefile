@@ -267,8 +267,9 @@ GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
 get-go-junit-report: ## Download go-junit-report locally if necessary.
 	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
 
+KUBERNETES_SPLIT_YAML = $(shell pwd)/bin/kubernetes-split-yaml
 kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
-	$(call go-get-tool,kubernetes-split-yaml,github.com/mogensen/kubernetes-split-yaml)
+	$(call go-get-tool,$(KUBERNETES_SPLIT_YAML),github.com/mogensen/kubernetes-split-yaml@v0.3.0)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
