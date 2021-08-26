@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	LocalDataPVC = "local-data"
+	ServerContainer      = "server"
+	ServerContainerIndex = 0
 )
 
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is

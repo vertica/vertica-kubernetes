@@ -11,26 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: verticadb-sample
-spec:
-  image: kustomize-vertica-image
-  communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "https://minio"
-    credentialSecret: s
-  local:
-    requestSize: 100Mi
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-      volumeMounts:
-        - name: my-extra-vol1
-          mountPath: /mymountpath 
-  volumes:
-    - name: my-extra-vol1
-      emptyDir: {}
-  subclusters:
-    - name: defaultsubcluster
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sh -c "kubectl exec verticadb-sample-defaultsubcluster-0 -c vlogger -n $NAMESPACE -- touch mymountpath/emptyfile"
