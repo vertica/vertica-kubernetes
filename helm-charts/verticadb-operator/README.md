@@ -1,4 +1,4 @@
-This helm chart will install the operator and an adminssion controller webhook.  The following table describes the configuration parameters for this chart.  Refer to the helm documentation on how to set these parameters.
+This helm chart will install the operator and an admission controller webhook.  The following table describes the configuration parameters for this chart.  Refer to the helm documentation on how to set these parameters.
 
 | Parameter Name | Description | Default Value |
 |----------------|-------------|---------------|
