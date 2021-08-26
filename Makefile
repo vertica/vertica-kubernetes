@@ -89,6 +89,7 @@ TMPDIR?=$(PWD)
 HELM_UNITTEST_PLUGIN_INSTALLED=$(shell helm plugin list | grep -c '^unittest')
 KUTTL_PLUGIN_INSTALLED=$(shell kubectl krew list | grep -c '^kuttl')
 INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
+OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -142,8 +143,8 @@ else
 endif
 
 .PHONY: lint
-lint: helm-create-resources ## Lint the helm charts and the Go operator
-	helm lint helm-charts/verticadb-operator
+lint: create-helm-charts  ## Lint the helm charts and the Go operator
+	helm lint $(OPERATOR_CHART)
 ifneq (${GOLANGCI_LINT_VER}, $(shell ./bin/golangci-lint version --format short 2>&1))
 	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
 	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
@@ -233,26 +234,8 @@ install-cert-manager: ## Install the cert-manager
 uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml 
 
-OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
-helm-create-resources: manifests kustomize ## Generate all the verticadb operator helm chart template files and crd
-	mkdir -p config/overlays/all-but-crd
-	cd config/overlays/all-but-crd && echo "" > kustomization.yaml
-	cd config/overlays/all-but-crd && $(KUSTOMIZE) edit add base ../../default
-	cd config/overlays/all-but-crd && $(KUSTOMIZE) edit set image controller='{{ .Values.image.name }}'
-	cd config/overlays/all-but-crd && echo "patchesStrategicMerge:"  >> kustomization.yaml
-	cd config/overlays/all-but-crd && echo "  - delete-crd.yaml"  >> kustomization.yaml
-	echo -e '$$patch: delete\napiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: verticadbs.vertica.com' > config/overlays/all-but-crd/delete-crd.yaml
-
-	mkdir -p config/overlays/only-crd
-	cd config/overlays/only-crd && echo "" > kustomization.yaml
-	cd config/overlays/only-crd && $(KUSTOMIZE) edit add base ../../crd
-
-	$(KUSTOMIZE) build config/overlays/all-but-crd/ | \
-	  sed 's/verticadb-operator-system/{{ .Release.Namespace }}/g' | \
-	  sed 's/verticadb-operator-.*-webhook-configuration/{{ .Release.Namespace }}-&/' \
-	  > $(OPERATOR_CHART)/templates/operator.yaml
-	mkdir -p $(OPERATOR_CHART)/crds
-	$(KUSTOMIZE) build config/overlays/only-crd/ > $(OPERATOR_CHART)/crds/verticadbs.vertica.com-crd.yaml
+create-helm-charts: manifests kustomize kubernetes-split-yaml ## Generate the helm charts
+	scripts/create-helm-charts.sh
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
@@ -283,6 +266,9 @@ kustomize: ## Download kustomize locally if necessary.
 GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
 get-go-junit-report: ## Download go-junit-report locally if necessary.
 	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
+
+kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
+	$(call go-get-tool,kubernetes-split-yaml,github.com/mogensen/kubernetes-split-yaml)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))

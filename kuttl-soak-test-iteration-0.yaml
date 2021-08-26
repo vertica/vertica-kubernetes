@@ -20,7 +20,7 @@ timeout: 900
 namespace: soak
 commands:
   # Create the helm charts
-  - command: make helm-create-resources kuttl-step-gen kustomize
+  - command: make create-helm-charts kuttl-step-gen kustomize
 
   # Deploy the operator
   - command: make undeploy-webhook
