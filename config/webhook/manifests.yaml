@@ -1,4 +1,5 @@
-
+# Originally generated via:
+# bin/controller-gen crd:trivialVersions=true,preserveUnknownFields=false webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -16,6 +17,11 @@ webhooks:
       path: /mutate-vertica-com-v1beta1-verticadb
   failurePolicy: Fail
   name: mverticadb.kb.io
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: "In"
+        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com
@@ -45,6 +51,11 @@ webhooks:
       path: /validate-vertica-com-v1beta1-verticadb
   failurePolicy: Fail
   name: vverticadb.kb.io
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: "In"
+        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com
