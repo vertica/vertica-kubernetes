@@ -21,11 +21,8 @@ commands:
   # Create the kustomize overlay files to set the image to use.
   - command: tests/create-kustomize-overlay.sh $VERTICA_IMG $VLOGGER_IMG
 
-  # Create the helm chart
-  - command: make helm-create-resources vdb-gen
-  - command: make undeploy-webhook
-    ignoreFailure: true
-  - command: make deploy-webhook
+  # make dependencies
+  - command: make helm-create-resources vdb-gen install-cert-manager
 
   # We do a pre-pull of the vertica-k8s image to avoid timeouts
   # during the test run.
@@ -35,7 +32,7 @@ commands:
   - command: bash -c "kustomize build tests/manifests/image-pull/overlay | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
-  - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
+  - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
 
   # We do a pre-pull of the vertica-k8s image version latest and 10.1.1-0
@@ -43,12 +40,12 @@ commands:
   - command: bash -c "sed 's+kustomize-vertica-image+vertica/vertica-k8s:11.0.0-0-minimal+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
-  - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
+  - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
   - command: bash -c "sed 's+kustomize-vertica-image+vertica/vertica-k8s:latest+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
-  - command: kubectl delete pod vertica-k8s-image-pull --grace-period=1
+  - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
 
   # Setup a minio tenant for use with all testcases.  Each testcase is still

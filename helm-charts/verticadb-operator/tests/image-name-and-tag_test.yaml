@@ -3,7 +3,7 @@ templates:
   - operator.yaml
 tests:
   - it: allows the operator image and tag to be specified
-    documentIndex: 6
+    documentIndex: 7
     set:
       image:
         name: verticadb-operator:kind

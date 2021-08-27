@@ -23,4 +23,4 @@ gcr.io/distroless/static:nonroot
 alpine:3.13
 
 # Images needed for testing
-kindest/node:v1.19.3
+kindest/node:v1.21.1

@@ -28,3 +28,4 @@ spec:
         - infinity
       imagePullPolicy: IfNotPresent
   restartPolicy: Never
+  terminationGracePeriodSeconds: 0

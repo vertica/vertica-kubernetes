@@ -67,9 +67,6 @@ endif
 # Image URL to use for building/pushing of the operator
 OPERATOR_IMG ?= verticadb-operator:$(TAG)
 export OPERATOR_IMG
-# Image URL to use for building/pushing of the webhook
-WEBHOOK_IMG ?= verticadb-webhook:$(TAG)
-export WEBHOOK_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= vertica-k8s:$(TAG)
 export VERTICA_IMG
@@ -82,7 +79,6 @@ MINIMAL_VERTICA_IMG ?=
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
-WEBHOOK_RELEASE_NAME?=vdb-webhook
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -121,8 +117,8 @@ help: ## Display this help.
 
 ##@ Development
 
-manifests: controller-gen ## Generate WebhookConfiguration, Role and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests: controller-gen ## Generate Role and CustomResourceDefinition objects.
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role paths="./..." output:crd:artifacts:config=config/crd/bases
 	sed -i '/WATCH_NAMESPACE/d' config/rbac/role.yaml ## delete any line with the dummy namespace WATCH_NAMESPACE
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -188,9 +184,6 @@ run: manifests generate fmt vet ## Run a controller from your host.
 docker-build-operator: test ## Build operator docker image with the manager.
 	docker build -t ${OPERATOR_IMG} -f docker-operator/Dockerfile .
 
-docker-build-webhook: test ## Build webhook docker image.
-	docker build -t ${WEBHOOK_IMG} -f docker-webhook/Dockerfile .
-
 docker-build-vlogger:  ## Build vertica logger docker image
 	docker build -t ${VLOGGER_IMG} -f docker-vlogger/Dockerfile .
 
@@ -199,13 +192,6 @@ ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${OPERATOR_IMG}
 else
 	scripts/push-to-kind.sh -i ${OPERATOR_IMG}
-endif
-
-docker-push-webhook: ## Push webhook docker image.
-ifeq ($(shell $(KIND_CHECK)), 0)
-	docker push ${WEBHOOK_IMG}
-else
-	scripts/push-to-kind.sh -i ${WEBHOOK_IMG}
 endif
 
 docker-push-vlogger:  ## Push vertica logger docker image
@@ -228,9 +214,9 @@ else
 	scripts/push-to-kind.sh -i ${VERTICA_IMG}
 endif
 
-docker-build: docker-build-vertica docker-build-operator docker-build-webhook docker-build-vlogger ## Build all docker images
+docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images
 
-docker-push: docker-push-vertica docker-push-operator docker-push-webhook docker-push-vlogger ## Push all docker images
+docker-push: docker-push-vertica docker-push-operator docker-push-vlogger ## Push all docker images
 
 kuttl-step-gen: ## Builds the kuttl-step-gen tool
 	go build -o bin/$@ ./cmd/$@
@@ -248,7 +234,6 @@ uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml 
 
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
-WEBHOOK_CHART = $(shell pwd)/helm-charts/verticadb-webhook
 helm-create-resources: manifests kustomize ## Generate all the verticadb operator helm chart template files and crd
 	mkdir -p config/overlays/all-but-crd
 	cd config/overlays/all-but-crd && echo "" > kustomization.yaml
@@ -262,18 +247,12 @@ helm-create-resources: manifests kustomize ## Generate all the verticadb operato
 	cd config/overlays/only-crd && echo "" > kustomization.yaml
 	cd config/overlays/only-crd && $(KUSTOMIZE) edit add base ../../crd
 
-	mkdir -p config/overlays/only-webhook
-	cd config/overlays/only-webhook && echo "" > kustomization.yaml
-	cd config/overlays/only-webhook && $(KUSTOMIZE) edit add base ../../webhook-manager
-	cd config/overlays/only-webhook && $(KUSTOMIZE) edit set image controller='{{ .Values.image.name }}'
-
-	$(KUSTOMIZE) build config/overlays/all-but-crd/ | sed 's/verticadb-operator-system/{{ .Release.Namespace }}/g' > $(OPERATOR_CHART)/templates/operator.yaml
+	$(KUSTOMIZE) build config/overlays/all-but-crd/ | \
+	  sed 's/verticadb-operator-system/{{ .Release.Namespace }}/g' | \
+	  sed 's/verticadb-operator-.*-webhook-configuration/{{ .Release.Namespace }}-&/' \
+	  > $(OPERATOR_CHART)/templates/operator.yaml
 	mkdir -p $(OPERATOR_CHART)/crds
 	$(KUSTOMIZE) build config/overlays/only-crd/ > $(OPERATOR_CHART)/crds/verticadbs.vertica.com-crd.yaml
-
-	mkdir -p $(WEBHOOK_CHART)/templates
-	$(KUSTOMIZE) build config/overlays/only-webhook/ | sed 's/verticadb-operator/verticadb-webhook/g' | sed 's/\/manager/\/webhook/g' > $(WEBHOOK_CHART)/templates/webhook-manager.yaml
-	cp -r $(OPERATOR_CHART)/crds $(WEBHOOK_CHART)
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
@@ -283,21 +262,14 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 
 deploy-operator: manifests kustomize ## Using helm, deploy the controller to the K8s cluster specified in ~/.kube/config.
-	helm install -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG}
-
-deploy-webhook: manifests kustomize install-cert-manager ## Using helm, deploy the webhook to the K8s cluster specified in ~/.kube/config.
-	helm install --wait -n vertica $(WEBHOOK_RELEASE_NAME) $(WEBHOOK_CHART) --set image.name=${WEBHOOK_IMG} --create-namespace
+	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG}
 
 undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
 
-undeploy-webhook: ## Using helm, undeploy webhook from the K8s cluster specified in ~/.kube/config.
-	helm uninstall -n vertica $(WEBHOOK_RELEASE_NAME)
-	$(MAKE) uninstall-cert-manager
+deploy: deploy-operator
 
-deploy: deploy-operator deploy-webhook
-
-undeploy: undeploy-operator undeploy-webhook
+undeploy: undeploy-operator
 
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
