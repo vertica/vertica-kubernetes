@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.initPolicy="Revive"' | kubectl -n $NAMESPACE replace -f -
+  - script: kubectl -n $NAMESPACE get verticadb v-custom-cert-webhook -o json | jq '.spec.initPolicy="Revive"' | kubectl -n $NAMESPACE replace -f -
     ignoreFailure: true
