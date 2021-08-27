@@ -35,7 +35,7 @@ sed -i 's/verticadb-operator-.*-webhook-configuration/{{ .Release.Namespace }}-&
 # 2. Template the image name
 sed -i "s/image: controller/image: '{{ .Values.image.name }}'/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 # 3. Template the tls secret name
-sed -i 's/secretName: webhook-server-cert/secretName: {{ default "webhook-server.cert" .Values.webhook.tlsSecret }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i 's/secretName: webhook-server-cert/secretName: {{ default "webhook-server-cert" .Values.webhook.tlsSecret }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 for fn in verticadb-operator-selfsigned-issuer-issuer.yaml verticadb-operator-serving-cert-certificate.yaml
 do
   sed -i '1s/^/{{- if not .Values.webhook.tlsSecret }}\n/' $TEMPLATE_DIR/$fn

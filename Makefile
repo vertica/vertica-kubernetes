@@ -79,6 +79,10 @@ MINIMAL_VERTICA_IMG ?=
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
+# Can be used to specify additional overrides when doing the helm install.
+# For example to specify a custom webhook tls cert when deploying use this command:
+#   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
+HELM_OVERRIDES?=
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -245,7 +249,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 
 deploy-operator: manifests kustomize ## Using helm, deploy the controller to the K8s cluster specified in ~/.kube/config.
-	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG}
+	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
 
 undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
