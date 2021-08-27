@@ -380,14 +380,17 @@ type VerticaDBConditionType string
 const (
 	// AutoRestartVertica indicates whether the operator should restart the vertica process
 	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
-	// DBInitialized indicateds the database has been created or revived
+	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
+	// UpgradeInProgress indicates if the vertica server is in the process of being upgraded
+	UpgradeInProgress VerticaDBConditionType = "UpgradeInProgess"
 )
 
 // Fixed index entries for each condition.
 const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
+	UpgradeInProgressIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
@@ -395,6 +398,7 @@ const (
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
 	AutoRestartVertica: AutoRestartVerticaIndex,
 	DBInitialized:      DBInitializedIndex,
+	UpgradeInProgress:  UpgradeInProgressIndex,
 }
 
 // VerticaDBCondition defines condition for VerticaDB
