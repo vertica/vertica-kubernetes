@@ -137,16 +137,8 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 
 // getAdditionalAuthParms returns additional auth parms that we need to set for create_db
 func (c *CreateDBReconciler) getAdditionalAuthParms() string {
-	// We temporarily lower the connect time and retry count for AWS. This is
-	// done so that we fail fast if the S3 endpoint isn't setup. These are
-	// cleared at the end of the create_db.
-	const TempAWSConnectTime = "20"
-	const TempMaxRetryCount = "3"
-
-	return fmt.Sprintf("%s = %s\n%s = %s\n",
-		"AWSConnectTimeout", TempAWSConnectTime,
-		"AWSMaxRetryCount", TempMaxRetryCount,
-	)
+	// No-op for create_db.
+	return ""
 }
 
 // getPodList gets a list of all of the pods we are going to use with create db.
