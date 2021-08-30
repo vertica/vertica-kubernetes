@@ -50,4 +50,10 @@ const (
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
+	UpgradeStart                    = "UpgradeStart"
+	UpgradeSucceeded                = "UpgradeSucceeded"
+	ClusterShutdownStarted          = "ClusterShutdownStarted"
+	ClusterShutdownFailed           = "ClusterShutdownFailed"
+	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
+	RecreatedStatefulSets           = "RecreatedStatefulSets"
 )

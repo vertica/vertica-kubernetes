@@ -81,7 +81,8 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 		return err
 	}
 
-	return o.reconcileSts(ctx, sc)
+	_, err := o.reconcileSts(ctx, sc)
+	return err
 }
 
 // checkForDeletedSubcluster will remove any objects that were created for
@@ -185,8 +186,9 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 	return o.Client.Create(ctx, svc)
 }
 
-// reconcileSts reconciles the statefulset for a particular subcluster.
-func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) error {
+// reconcileSts reconciles the statefulset for a particular subcluster.  Returns
+// true if any create/update was done.
+func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (bool, error) {
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
 	expSts := buildStsSpec(nm, o.Vdb, sc)
@@ -195,11 +197,11 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) e
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas)
 		err = ctrl.SetControllerReference(o.Vdb, expSts, o.Scheme)
 		if err != nil {
-			return err
+			return false, err
 		}
 		// Invalidate the pod facts cache since we are creating a new sts
 		o.PFacts.Invalidate()
-		return o.Client.Create(ctx, expSts)
+		return true, o.Client.Create(ctx, expSts)
 	}
 
 	// Update the sts by patching in fields that changed according to expSts
@@ -208,7 +210,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) e
 		expSts.Spec.DeepCopyInto(&curSts.Spec)
 		// Invalidate the pod facts cache since we are about to change the sts
 		o.PFacts.Invalidate()
-		return o.Client.Patch(ctx, curSts, patch)
+		return true, o.Client.Patch(ctx, curSts, patch)
 	}
-	return nil
+	return false, nil
 }

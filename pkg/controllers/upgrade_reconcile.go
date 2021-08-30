@@ -18,23 +18,27 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // UpgradeReconciler will update the status field of the vdb.
 type UpgradeReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	VRec              *VerticaDBReconciler
+	Log               logr.Logger
+	Vdb               *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner           cmds.PodRunner
+	PFacts            *PodFacts
+	ContinuingUpgrade bool // true if UpdateInProgress was already set upon entry
 }
 
 // MakeUpgradeReconciler will build an UpgradeReconciler object
@@ -49,16 +53,14 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	if ok, err := u.upgradeIsNotNeeded(ctx); ok || err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := u.updateCondition(ctx, corev1.ConditionTrue); err != nil {
+	if ok, err := u.isUpgradeNeeded(ctx); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Functions to perform upgrade processing.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
+		// Initiate an upgrade by setting condition and event recording
+		u.startUpgrade,
 		// Do a clean shutdown of the cluster
 		u.stopCluster,
 		// Delete the sts objects.  We don't rely on k8s rolling upgrade.
@@ -68,6 +70,8 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		u.recreateStatefulSets,
 		// Start up vertica in each pod.
 		u.restartCluster,
+		// Cleanup up the condition and event recording for a completed upgrade
+		u.finishUpgrade,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); res.Requeue || err != nil {
@@ -75,23 +79,46 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		}
 	}
 
-	if err := u.updateCondition(ctx, corev1.ConditionFalse); err != nil {
+	return ctrl.Result{}, nil
+}
+
+// startUpgrade handles condition status and event recording for start of upgrade
+func (u *UpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	if err := u.toggleUpgradeInProgress(ctx, corev1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// We only log an event message the first time we begin an upgrade.
+	if !u.ContinuingUpgrade {
+		u.VRec.EVRec.Eventf(u.Vdb, corev1.EventTypeNormal, events.UpgradeStart,
+			"Vertica server upgrade has start.  Upgrading with container image '%s'", u.Vdb.Spec.Image)
+	}
+	return ctrl.Result{}, nil
+}
+
+// finishUpgrade handles condition status and event recording for the end of an upgrade
+func (u *UpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
+	if err := u.toggleUpgradeInProgress(ctx, corev1.ConditionFalse); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	u.VRec.EVRec.Eventf(u.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
+		"Vertica server upgrade has completed successfully.")
 
 	return ctrl.Result{}, nil
 }
 
-// upgradeIsNotNeeded returns true if an upgrade isn't needed.
-func (u *UpgradeReconciler) upgradeIsNotNeeded(ctx context.Context) (bool, error) {
+// isUpgradeNeeded returns true if we are in the middle of an upgrade or we need to start one
+func (u *UpgradeReconciler) isUpgradeNeeded(ctx context.Context) (bool, error) {
 	// We first check if the status condition indicates the upgrade is in progress
 	inx, ok := vapi.VerticaDBConditionIndexMap[vapi.UpgradeInProgress]
 	if !ok {
 		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", vapi.UpgradeInProgress)
 	}
-
 	if inx < len(u.Vdb.Status.Conditions) && u.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
-		return false, nil
+		// Set a flag to indicate that we are continuing an upgrade.  This silences the UpgradeStarted event.
+		u.ContinuingUpgrade = true
+		return true, nil
 	}
 
 	// Next check if an upgrade is needed based on the image being different
@@ -104,51 +131,79 @@ func (u *UpgradeReconciler) upgradeIsNotNeeded(ctx context.Context) (bool, error
 	for i := range stss.Items {
 		sts := stss.Items[i]
 		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
-			return false, nil
+			return true, nil
 		}
 	}
 
-	return true, nil
+	return false, nil
 }
 
-// updateCondition is a helper for updating the UpgradeInProgress condition
-func (u *UpgradeReconciler) updateCondition(ctx context.Context, newVal corev1.ConditionStatus) error {
+// toggleUpgradeInProgress is a helper for updating the UpgradeInProgress condition
+func (u *UpgradeReconciler) toggleUpgradeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
 	return status.UpdateCondition(ctx, u.VRec.Client, u.Vdb,
 		vapi.VerticaDBCondition{Type: vapi.UpgradeInProgress, Status: newVal},
 	)
 }
 
-// SPILLY - add events
 // SPILLY - update language about the purpose of autoRestartVertica
 
 // stopCluster will shutdown the entire cluster using 'admintools -t stop_db'
 func (u *UpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error) {
-	// SPILLY - you need to check if the database exists.  We skip the stop if the database doesn't exist.
-	// SPILLY - we will want to shut down only if (a) a pod is running and (b) it's not running the proper image.
 	pf, found := u.PFacts.findRunningPod()
 	if !found {
 		// No running pod.  This isn't an error, it just means no vertica is
 		// running so nothing to shut down.
 		return ctrl.Result{}, nil
 	}
+	if u.PFacts.getUpNodeCount() == 0 {
+		// No pods have vertica so we can avoid stop_db call
+		return ctrl.Result{}, nil
+	}
+
+	// Check the image of each of the up nodes.  We avoid doing a shutdown if
+	// all of the up nodes are already on the new image.
+	if ok, err := u.anyPodsRunningWithOldImage(ctx); !ok || err != nil {
+		return ctrl.Result{}, err
+	}
+
+	start := time.Now()
+	u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
+		"Calling 'admintools -t stop_db'")
+
 	_, _, err := u.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer,
 		"/opt/vertica/bin/admintools", "-t", "stop_db", "-F", "-d", u.Vdb.Spec.DBName)
-	return ctrl.Result{}, err
+	if err != nil {
+		u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
+			"Failed to shutdown the cluster")
+		return ctrl.Result{}, err
+	}
+
+	u.VRec.EVRec.Eventf(u.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
+		"Successfully called 'admintools -t stop_db' and it took %s", time.Since(start))
+	return ctrl.Result{}, nil
 }
 
 // deleteStatefulSets will delete the statefulsets and all of their pods.  The
-// purpose is so that all pods get recreated with the new image.
+// purpose is so that all pods get recreated with the new image.  K8s has the
+// ability to support rolling upgrade.  However, the vertica server doesn't
+// support this.  In fact, all hosts in a cluster must be on the same engine
+// level.  So an upgrade incurs some downtime as we need to take the entire
+// cluster down.   That is what this function is doing, it is delete the
+// statefulset so they can be regenerated with the new image.
 func (u *UpgradeReconciler) deleteStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	// SPILLY - comments
 	finder := MakeSubclusterFinder(u.VRec.Client, u.Vdb)
 	stss, err := finder.FindStatefulSets(ctx, FindInVdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	for i := range stss.Items {
-		err = u.VRec.Client.Delete(ctx, &stss.Items[i])
-		if err != nil {
-			return ctrl.Result{}, err
+		sts := stss.Items[i]
+		// Skip the statefulset if it already has the proper image.
+		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
+			err = u.VRec.Client.Delete(ctx, &stss.Items[i])
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 	return ctrl.Result{}, nil
@@ -157,8 +212,27 @@ func (u *UpgradeReconciler) deleteStatefulSets(ctx context.Context) (ctrl.Result
 // recreateStatefulSets will regenerate the statefulset and pods.  The new
 // regenerated sts will have the new image.
 func (u *UpgradeReconciler) recreateStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	objr := MakeObjReconciler(u.VRec.Client, u.VRec.Scheme, u.Log, u.Vdb, u.PFacts)
-	return objr.Reconcile(ctx, &ctrl.Request{})
+	actor := MakeObjReconciler(u.VRec.Client, u.VRec.Scheme, u.Log, u.Vdb, u.PFacts)
+	objr := actor.(*ObjReconciler)
+
+	anyUpdate := false // used to track wether any any sts was updated
+
+	// We are only going to call a subset of the ObjReconciler functionality.
+	// We don't want to reconcile other changes like svc objects.  We just want
+	// to recreate any statefulset objects.
+	for i := range u.Vdb.Spec.Subclusters {
+		thisUpdate, err := objr.reconcileSts(ctx, &u.Vdb.Spec.Subclusters[i])
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		anyUpdate = anyUpdate || thisUpdate
+	}
+
+	if anyUpdate {
+		u.VRec.EVRec.Eventf(u.Vdb, corev1.EventTypeNormal, events.RecreatedStatefulSets,
+			"Statefulset's have been recreated with new image '%s'", u.Vdb.Spec.Image)
+	}
+	return ctrl.Result{}, nil
 }
 
 // restartCluster will start up vertica.  This is called after the statefulset's have
@@ -168,4 +242,24 @@ func (u *UpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Result, er
 	// restart reconciler here so that we restart while the status condition is set.
 	resr := MakeRestartReconciler(u.VRec, u.Log, u.Vdb, u.PRunner, u.PFacts)
 	return resr.Reconcile(ctx, &ctrl.Request{})
+}
+
+// anyPodsRunningWithOldImage will check if any upNode pods are running with the old image.
+func (u *UpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Context) (bool, error) {
+	for pn, pf := range u.PFacts.Detail {
+		if !pf.upNode {
+			continue
+		}
+
+		pod := &corev1.Pod{}
+		err := u.VRec.Client.Get(ctx, pn, pod)
+		if err != nil && !errors.IsNotFound(err) {
+			return false, fmt.Errorf("error getting pod info for '%s'", pn)
+		}
+
+		if pod.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
+			return true, nil
+		}
+	}
+	return false, nil
 }
