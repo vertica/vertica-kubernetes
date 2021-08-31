@@ -21,7 +21,7 @@ Developing with this repo requires a working Kubernetes cluster. Additionally, t
 - **docker-vertica/**: has the necessary files to build a Vertica server container. The build process requires that you provide a Vertica version 10.1.1 or higher RPM package. The RPM is not included in this repo.
 - **docker-operator/**: has the necessary files to build the container that holds the operator
 - **docker-vlogger/**: has the necessary files to build the container that runs the vlogger sidecar. This sidecar will tail the vertica.log to stdout. This is used only for development purposes to aid in testing out the sidecar property in the custom resource (CR).
-- **scripts/**: contains scripts for the repository. Some scripts run Makefile targes, while others, such as *upgrade-vertica.sh*, automate manual tasks.
+- **scripts/**: contains scripts for the repository. Some scripts run Makefile targets, while others are used during e2e testing.
 - **api/**: defines the spec of the custom resource definition (CRD)
 - **pkg/**: includes all of the packages that for the operator
 - **cmd/**: contains source code for each of the executables
