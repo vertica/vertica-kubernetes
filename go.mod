@@ -8,6 +8,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
 	github.com/lithammer/dedent v1.1.0
+	github.com/mogensen/kubernetes-split-yaml v0.3.0 // indirect
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/vertica/vertica-sql-go v1.1.1

@@ -1,9 +1,8 @@
 suite: test image:tag creation
 templates:
-  - operator.yaml
+  - verticadb-operator-controller-manager-deployment.yaml
 tests:
   - it: allows the operator image and tag to be specified
-    documentIndex: 7
     set:
       image:
         name: verticadb-operator:kind

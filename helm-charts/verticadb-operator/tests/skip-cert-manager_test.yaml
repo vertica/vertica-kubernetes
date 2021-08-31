@@ -1,0 +1,13 @@
+suite: skip-cert-manager-CRs
+templates:
+  - verticadb-operator-selfsigned-issuer-issuer.yaml
+  - verticadb-operator-serving-cert-certificate.yaml
+tests:
+  - it: cert-manager kind should not exist
+    set:
+      webhook:
+        tlsSecret: tls-cert
+    asserts:
+      - hasDocuments:
+          count: 0
+
