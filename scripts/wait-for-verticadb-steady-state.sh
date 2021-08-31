@@ -52,8 +52,11 @@ then
     NS_OPT="-n $NAMESPACE "
 fi
 
-LOG_CMD="kubectl ${NS_OPT}logs -l app.kubernetes.io/name=verticadb-operator -c manager"
-timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | tail -1 | grep --quiet '\"result\": {\"Requeue\":false,\"RequeueAfter\":0}, \"err\": null'; do sleep 1; done"
+LOG_CMD="kubectl ${NS_OPT}logs -l app.kubernetes.io/name=verticadb-operator -c manager --tail -1"
+WEBHOOK_FILTER="--invert-match -e 'controller-runtime.webhook.webhooks' -e 'verticadb-resource'"
+timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | \
+    grep $WEBHOOK_FILTER | \
+    tail -1 | grep --quiet '\"result\": {\"Requeue\":false,\"RequeueAfter\":0}, \"err\": null'; do sleep 1; done"
 
 if [[ "$?" -eq 0 ]]
 then
@@ -66,5 +69,5 @@ NC='\033[0m'  # No color
 printf "\n${RED}Timed out waiting for steady state to be achieved.\n"
 printf "\n${GREEN}Command:"
 printf "\n\t$LOG_CMD\n\n${NC}"
-$LOG_CMD | tail
+printf "$($LOG_CMD | grep $WEBHOOK_FILTER | tail)\n"
 exit 1

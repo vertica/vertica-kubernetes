@@ -15,8 +15,8 @@
 
 set -o errexit
 
-DEF_VERTICA_IMAGE_NAME="verticadocker/vertica-k8s:latest"
-DEF_VLOGGER_IMAGE_NAME="verticadocker/vertica-logger:latest"
+DEF_VERTICA_IMAGE_NAME="vertica/vertica-k8s:latest"
+DEF_VLOGGER_IMAGE_NAME="vertica/vertica-logger:latest"
 LICENSE=
 
 function usage {

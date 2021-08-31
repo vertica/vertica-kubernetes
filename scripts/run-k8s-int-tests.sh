@@ -72,7 +72,6 @@ RPM_FILE=vertica-x86_64.RHEL6.latest.rpm
 export INT_TEST_OUTPUT_DIR
 export VERTICA_IMG=vertica-k8s:$TAG
 export OPERATOR_IMG=verticadb-operator:$TAG
-export WEBHOOK_IMG=verticadb-webhook:$TAG
 export VLOGGER_IMG=vertica-logger:$TAG
 
 # cleanup the deployed k8s cluster

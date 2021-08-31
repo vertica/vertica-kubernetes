@@ -16,6 +16,9 @@ kind: StatefulSet
 ---
 apiVersion: v1
 kind: Service
+metadata:
+    labels:
+        app.kubernetes.io/managed-by: verticadb-operator
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB

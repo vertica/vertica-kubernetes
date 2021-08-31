@@ -5,8 +5,8 @@
 # nodes.
 #    scripts/push-to-kind.sh -f tests/external-images.txt
 #
-verticadocker/vertica-k8s:latest
-verticadocker/vertica-k8s:10.1.1-0
+vertica/vertica-k8s:latest
+vertica/vertica-k8s:11.0.0-0-minimal
 minio/minio:RELEASE.2021-02-24T18-44-45Z
 amazon/aws-cli:2.2.24
 quay.io/helmpack/chart-testing:v3.3.1
@@ -23,4 +23,4 @@ gcr.io/distroless/static:nonroot
 alpine:3.13
 
 # Images needed for testing
-kindest/node:v1.19.3
+kindest/node:v1.21.1
