@@ -38,7 +38,6 @@ type DatabaseInitializer interface {
 	genCmd(ctx context.Context, hostList []string) ([]string, error)
 	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, atPod types.NamespacedName) error
-	getAdditionalAuthParms() string
 }
 
 type GenericDatabaseInitializer struct {
@@ -183,9 +182,16 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 			"awsauth = "+auth+"\n"+
 			"awsendpoint = "+g.getS3Endpoint()+"\n"+
 			"awsenablehttps = "+g.getEnableHTTPS()+"\n"+
-			g.initializer.getAdditionalAuthParms()+
 			"'",
 	)
+
+	// We log an event for this error because it could be caused by bad values
+	// in the creds.  If the value we get out of the secret has undisplayable
+	// characters then we won't even be able to copy the file.
+	if err != nil {
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3AuthParmsCopyFailed,
+			"Failed to copy s3 auth parms to the pod '%s'", atPod)
+	}
 	return ctrl.Result{}, err
 }
 
