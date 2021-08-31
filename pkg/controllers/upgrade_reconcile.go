@@ -145,8 +145,6 @@ func (u *UpgradeReconciler) toggleUpgradeInProgress(ctx context.Context, newVal 
 	)
 }
 
-// SPILLY - update language about the purpose of autoRestartVertica
-
 // stopCluster will shutdown the entire cluster using 'admintools -t stop_db'
 func (u *UpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error) {
 	pf, found := u.PFacts.findRunningPod()

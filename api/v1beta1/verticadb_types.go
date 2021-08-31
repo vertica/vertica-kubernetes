@@ -66,8 +66,8 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// State to indicate whether the operator will restart Vertica if the
 	// process is not running. Under normal cicumstances this is set to true.
-	// The purpose of this is to allow a maintenance window, such as an
-	// upgrade, without the operator interfering.
+	// The purpose of this is to allow a maintenance window, such as a
+	// manual upgrade, without the operator interfering.
 	AutoRestartVertica bool `json:"autoRestartVertica"`
 
 	// +kubebuilder:default:="vertdb"
