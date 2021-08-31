@@ -11,12 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Event
-reason: S3EndpointIssue
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-createdb-failures
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: cert-manager.io/v1
+    kind: Certificate
+  - apiVersion: cert-manager.io/v1
+    kind: Issuer

@@ -173,12 +173,14 @@ This method runs the operator synchronously in your shell. It is the fastest way
 Enter the following command:
 
 ```
-$ make install run
+$ make install run ENABLE_WEBHOOKS=false
 ```
 
 Press **Ctrl+C** to stop the operator.
 
 **NOTE:** When you run the operator locally, you can run only ad-hoc tests, not integration and e2e tests
+
+This disables the webhook from runing too, as running the webhook requires TLS certs to be available.
 
 ### Option 2: Kubernetes Deployment
 
@@ -201,10 +203,10 @@ $ make undeploy
 
 This is the most convenient way to run the operator. Before you create a release with the Helm chart, you must generate the manifests that Helm uses to install the operator.
 
-1. Run the `helm-create-resources` make target to generate the manifests:
+1. Run the `create-helm-charts` make target to generate the helm charts:
 
    ```
-   $ make helm-create-resources
+   $ make create-helm-charts
    ```
 
 2. Install the verticadb-operator in a specific namespace with the `helm install` command:
@@ -234,7 +236,7 @@ Ensure that your Kubernetes cluster has a default storageClass. Most of the e2e 
    ```
 2. Verify that your operator Dockerfile is up-to-date before starting the tests.
    ```
-   $ make helm-create-resources
+   $ make create-helm-charts
    ```
 3. Start the test with the following make target:
    ```

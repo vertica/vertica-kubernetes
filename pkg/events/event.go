@@ -50,4 +50,5 @@ const (
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
+	S3AuthParmsCopyFailed           = "S3AuthParmsCopyFailed"
 )

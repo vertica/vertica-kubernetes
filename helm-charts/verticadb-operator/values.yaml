@@ -19,3 +19,20 @@
 
 image:
   name: vertica/verticadb-operator:1.0.0
+
+webhook:
+  # The webhook requires a TLS certficate to work.  By default we rely on
+  # cert-manager to be installed as we use it generate the cert.  cert-manager
+  # can be installed with this command:
+  # kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.3.1/cert-manager.yaml
+  #
+  # If you don't want to use cert-manager, you need to specify your own cert,
+  # which you can do with the next two parameters.
+  #
+  # tlsSecret is a name of a secret in the same namespace the chart is being
+  # installed in.  The secret must have the keys: tls.key, ca.crt, and tls.crt.
+  tlsSecret: ""
+  # caBundle is a PEM encoded CA bundle that will be used to validate the
+  # webhook's server certificate.  If unspecified, system trust roots on the
+  # apiserver are used.
+  caBundle: ""

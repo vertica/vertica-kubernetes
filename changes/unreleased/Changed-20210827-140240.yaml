@@ -1,0 +1,4 @@
+kind: Changed
+body: Relax the dependency that the webhook requires cert-manager.  The default
+  behaviour is to continue to depend on cert-manager.  But we now allow custom
+  certs to be added through new helm chart parameters.
