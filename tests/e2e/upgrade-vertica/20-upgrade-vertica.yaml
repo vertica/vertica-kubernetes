@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "cd ../../../scripts && ./upgrade-vertica.sh -y  -n $NAMESPACE v-upgrade-vertica verticadocker/vertica-k8s:latest "
+  - command: sh -c "cd ../../../scripts && ./upgrade-vertica.sh -y  -n $NAMESPACE v-upgrade-vertica vertica/vertica-k8s:latest "
