@@ -180,7 +180,7 @@ Press **Ctrl+C** to stop the operator.
 
 **NOTE:** When you run the operator locally, you can run only ad-hoc tests, not integration and e2e tests
 
-This disabled the webhook from runing too, as running the webhook requires that TLS certs are available.
+This disables the webhook from runing too, as running the webhook requires TLS certs to be available.
 
 ### Option 2: Kubernetes Deployment
 
