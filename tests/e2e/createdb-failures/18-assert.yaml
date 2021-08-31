@@ -13,7 +13,7 @@
 
 apiVersion: v1
 kind: Event
-reason: S3EndpointIssue
+reason: S3AuthParmsCopyFailed
 source:
   component: verticadb-operator
 involvedObject:

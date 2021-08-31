@@ -119,13 +119,10 @@ func isCommunalPathNotEmpty(op string) bool {
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
 func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName) error {
-	// We include SQL to reset the AWS connection parms we temporarily set in the
-	// auth file (see constructAuthParms).  We also rename the default
-	// subcluster to match the name of the first subcluster in the spec -- any
-	// remaining subclusters will be added by DBAddSubclusterReconciler.
-	sql := "alter database default clear AWSConnectTimeout;\n" +
-		"alter database default clear AWSMaxRetryCount;\n" +
-		"alter subcluster default_subcluster rename to " + c.Vdb.Spec.Subclusters[0].Name + ";\n"
+	// We include SQL to rename the default subcluster to match the name of the
+	// first subcluster in the spec -- any remaining subclusters will be added
+	// by DBAddSubclusterReconciler.
+	sql := "alter subcluster default_subcluster rename to " + c.Vdb.Spec.Subclusters[0].Name + ";\n"
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"
 	}
@@ -133,20 +130,6 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< '"+sql+"'",
 	)
 	return err
-}
-
-// getAdditionalAuthParms returns additional auth parms that we need to set for create_db
-func (c *CreateDBReconciler) getAdditionalAuthParms() string {
-	// We temporarily lower the connect time and retry count for AWS. This is
-	// done so that we fail fast if the S3 endpoint isn't setup. These are
-	// cleared at the end of the create_db.
-	const TempAWSConnectTime = "20"
-	const TempMaxRetryCount = "3"
-
-	return fmt.Sprintf("%s = %s\n%s = %s\n",
-		"AWSConnectTimeout", TempAWSConnectTime,
-		"AWSMaxRetryCount", TempMaxRetryCount,
-	)
 }
 
 // getPodList gets a list of all of the pods we are going to use with create db.

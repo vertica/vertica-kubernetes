@@ -23,7 +23,7 @@ function usage() {
     echo "usage: $(basename $0) [-t <testcase>]"
     echo
     echo "Options:"
-    echo "  -c <testcase>   Run only the following testcase.  By default it"
+    echo "  -t <testcase>   Run only the following testcase.  By default it"
     echo "                  runs all of the testcases."
     exit 1
 }

@@ -1,0 +1,3 @@
+kind: Fixed
+body: 'Communal storage on AWS s3.  The timeouts the operator had set were too low
+  preventing a create DB from succeeding. '
