@@ -284,6 +284,10 @@ GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
 get-go-junit-report: ## Download go-junit-report locally if necessary.
 	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
 
+KIND = $(shell pwd)/bin/kind
+kind: ## Download kind locally if necessary
+	$(call go-get-tool,$(KIND),sigs.k8s.io/kind@v0.11.1)
+
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-get-tool
