@@ -1,0 +1,18 @@
+suite: skip-cert-manager-CRs
+templates:
+  - verticadb-operator-mutating-webhook-configuration-mutatingwebhookconfiguration.yaml
+  - verticadb-operator-validating-webhook-configuration-validatingwebhookconfiguration.yaml
+tests:
+  - it: should leave caBundle empty if not specified
+    asserts:
+      - isEmpty:
+          path: webhooks[0].clientConfig.caBundle
+  - it: should set caBundle if specified
+    set:
+      webhook:
+        caBundle: "PEM-encoded-string"
+    asserts:
+      - equal:
+          path: webhooks[0].clientConfig.caBundle
+          value: "PEM-encoded-string"
+

@@ -79,6 +79,10 @@ MINIMAL_VERTICA_IMG ?=
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
+# Can be used to specify additional overrides when doing the helm install.
+# For example to specify a custom webhook tls cert when deploying use this command:
+#   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
+HELM_OVERRIDES?=
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -89,6 +93,7 @@ TMPDIR?=$(PWD)
 HELM_UNITTEST_PLUGIN_INSTALLED=$(shell helm plugin list | grep -c '^unittest')
 KUTTL_PLUGIN_INSTALLED=$(shell kubectl krew list | grep -c '^kuttl')
 INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
+OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -142,8 +147,8 @@ else
 endif
 
 .PHONY: lint
-lint: helm-create-resources ## Lint the helm charts and the Go operator
-	helm lint helm-charts/verticadb-operator
+lint: create-helm-charts  ## Lint the helm charts and the Go operator
+	helm lint $(OPERATOR_CHART)
 ifneq (${GOLANGCI_LINT_VER}, $(shell ./bin/golangci-lint version --format short 2>&1))
 	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
 	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
@@ -233,26 +238,8 @@ install-cert-manager: ## Install the cert-manager
 uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml 
 
-OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
-helm-create-resources: manifests kustomize ## Generate all the verticadb operator helm chart template files and crd
-	mkdir -p config/overlays/all-but-crd
-	cd config/overlays/all-but-crd && echo "" > kustomization.yaml
-	cd config/overlays/all-but-crd && $(KUSTOMIZE) edit add base ../../default
-	cd config/overlays/all-but-crd && $(KUSTOMIZE) edit set image controller='{{ .Values.image.name }}'
-	cd config/overlays/all-but-crd && echo "patchesStrategicMerge:"  >> kustomization.yaml
-	cd config/overlays/all-but-crd && echo "  - delete-crd.yaml"  >> kustomization.yaml
-	echo -e '$$patch: delete\napiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata:\n  name: verticadbs.vertica.com' > config/overlays/all-but-crd/delete-crd.yaml
-
-	mkdir -p config/overlays/only-crd
-	cd config/overlays/only-crd && echo "" > kustomization.yaml
-	cd config/overlays/only-crd && $(KUSTOMIZE) edit add base ../../crd
-
-	$(KUSTOMIZE) build config/overlays/all-but-crd/ | \
-	  sed 's/verticadb-operator-system/{{ .Release.Namespace }}/g' | \
-	  sed 's/verticadb-operator-.*-webhook-configuration/{{ .Release.Namespace }}-&/' \
-	  > $(OPERATOR_CHART)/templates/operator.yaml
-	mkdir -p $(OPERATOR_CHART)/crds
-	$(KUSTOMIZE) build config/overlays/only-crd/ > $(OPERATOR_CHART)/crds/verticadbs.vertica.com-crd.yaml
+create-helm-charts: manifests kustomize kubernetes-split-yaml ## Generate the helm charts
+	scripts/create-helm-charts.sh
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
@@ -262,7 +249,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 
 deploy-operator: manifests kustomize ## Using helm, deploy the controller to the K8s cluster specified in ~/.kube/config.
-	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG}
+	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
 
 undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
@@ -283,6 +270,10 @@ kustomize: ## Download kustomize locally if necessary.
 GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
 get-go-junit-report: ## Download go-junit-report locally if necessary.
 	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
+
+KUBERNETES_SPLIT_YAML = $(shell pwd)/bin/kubernetes-split-yaml
+kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
+	$(call go-get-tool,$(KUBERNETES_SPLIT_YAML),github.com/mogensen/kubernetes-split-yaml@v0.3.0)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
