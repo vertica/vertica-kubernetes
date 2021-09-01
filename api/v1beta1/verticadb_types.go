@@ -383,7 +383,7 @@ const (
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
 	// UpgradeInProgress indicates if the vertica server is in the process of being upgraded
-	UpgradeInProgress VerticaDBConditionType = "UpgradeInProgess"
+	UpgradeInProgress VerticaDBConditionType = "UpgradeInProgress"
 )
 
 // Fixed index entries for each condition.
@@ -453,7 +453,6 @@ type VerticaDBPodStatus struct {
 //+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
 //+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
 //+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
-//+kubebuilder:printcolumn:name="AutoRestartVertica",type="string",JSONPath=".status.conditions[0].status"
 
 // VerticaDB is the Schema for the verticadbs API
 type VerticaDB struct {

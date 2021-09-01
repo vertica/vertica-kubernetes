@@ -11,10 +11,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-upgrade-vertica-sc1-0
+spec:
+  containers:
+    - image: vertica/vertica-k8s:latest
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-upgrade-vertica-sc1
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
-spec:
-  autoRestartVertica: false
-  
+status:
+  subclusters:
+    - installCount: 2
+      addedToDBCount: 0
+      upNodeCount: 0
+  conditions:
+      - type: AutoRestartVertica
+        status: "True"
+      - type: DBInitialized
+        status: "True"
+      - type: UpgradeInProgress
+        status: "False"

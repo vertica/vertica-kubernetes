@@ -14,9 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 delete:
-  - apiVersion: apps/v1
-    kind: StatefulSet
-    metadata:
-      name: v-upgrade-vertica-defsc
-commands:
-  - command:  sh -c "kubectl wait --for=condition=AutoRestartVertica=True vdb/v-upgrade-vertica --timeout=180s -n $NAMESPACE"
+  - apiVersion: vertica.com/v1beta1
+    kind: VerticaDB

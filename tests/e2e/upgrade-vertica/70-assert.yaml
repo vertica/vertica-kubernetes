@@ -11,24 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica-defsc-0
+  name: v-upgrade-vertica
 status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-1
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-2
-status:
-  phase: Running
-
+  subclusters:
+    - installCount: 2
+      addedToDBCount: 0
+      upNodeCount: 0
+  conditions:
+      - type: AutoRestartVertica
+        status: "True"
+      - type: DBInitialized
+        status: "True"
+      - type: UpgradeInProgress
+        status: "True"

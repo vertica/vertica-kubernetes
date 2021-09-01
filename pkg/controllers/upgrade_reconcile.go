@@ -57,6 +57,8 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	// SPILLY - should we call status reconciler after a few so that we get up to date status?
+
 	// Functions to perform upgrade processing.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
@@ -91,7 +93,7 @@ func (u *UpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, erro
 	// We only log an event message the first time we begin an upgrade.
 	if !u.ContinuingUpgrade {
 		u.VRec.EVRec.Eventf(u.Vdb, corev1.EventTypeNormal, events.UpgradeStart,
-			"Vertica server upgrade has start.  Upgrading with container image '%s'", u.Vdb.Spec.Image)
+			"Vertica server upgrade has started.  Upgrading to image '%s'", u.Vdb.Spec.Image)
 	}
 	return ctrl.Result{}, nil
 }
@@ -103,7 +105,7 @@ func (u *UpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, err
 	}
 
 	u.VRec.EVRec.Eventf(u.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
-		"Vertica server upgrade has completed successfully.")
+		"Vertica server upgrade has completed successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -212,23 +214,20 @@ func (u *UpgradeReconciler) deleteStatefulSets(ctx context.Context) (ctrl.Result
 func (u *UpgradeReconciler) recreateStatefulSets(ctx context.Context) (ctrl.Result, error) {
 	actor := MakeObjReconciler(u.VRec.Client, u.VRec.Scheme, u.Log, u.Vdb, u.PFacts)
 	objr := actor.(*ObjReconciler)
-
-	anyUpdate := false // used to track wether any any sts was updated
+	objr.PatchImageAllowed = true
 
 	// We are only going to call a subset of the ObjReconciler functionality.
 	// We don't want to reconcile other changes like svc objects.  We just want
 	// to recreate any statefulset objects.
 	for i := range u.Vdb.Spec.Subclusters {
-		thisUpdate, err := objr.reconcileSts(ctx, &u.Vdb.Spec.Subclusters[i])
+		updated, err := objr.reconcileSts(ctx, &u.Vdb.Spec.Subclusters[i])
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		anyUpdate = anyUpdate || thisUpdate
-	}
-
-	if anyUpdate {
-		u.VRec.EVRec.Eventf(u.Vdb, corev1.EventTypeNormal, events.RecreatedStatefulSets,
-			"Statefulset's have been recreated with new image '%s'", u.Vdb.Spec.Image)
+		// Invalidate the pfacts since objects were recreated
+		if updated {
+			u.PFacts.Invalidate()
+		}
 	}
 	return ctrl.Result{}, nil
 }
@@ -238,7 +237,13 @@ func (u *UpgradeReconciler) recreateStatefulSets(ctx context.Context) (ctrl.Resu
 func (u *UpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Result, error) {
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
-	resr := MakeRestartReconciler(u.VRec, u.Log, u.Vdb, u.PRunner, u.PFacts)
+	actor := MakeRestartReconciler(u.VRec, u.Log, u.Vdb, u.PRunner, u.PFacts)
+	resr := actor.(*RestartReconciler)
+	// Since we just regenerated the sts, chances are that the initial attempt to
+	// restart will not find any pods running.  We want to override the default
+	// behavior and requeue the iteration if that is the case so that restart
+	// for upgrade is controller entirely within this reconciler.
+	resr.RequeueIfRunningAndInstalledIsZero = true
 	return resr.Reconcile(ctx, &ctrl.Request{})
 }
 

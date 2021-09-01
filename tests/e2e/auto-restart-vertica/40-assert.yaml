@@ -21,3 +21,5 @@ status:
       status: "False"
     - type: DBInitialized
       status: "True"
+    - type: UpgradeInProgress
+      status: "False"

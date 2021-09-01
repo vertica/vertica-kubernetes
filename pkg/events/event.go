@@ -55,5 +55,4 @@ const (
 	ClusterShutdownStarted          = "ClusterShutdownStarted"
 	ClusterShutdownFailed           = "ClusterShutdownFailed"
 	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
-	RecreatedStatefulSets           = "RecreatedStatefulSets"
 )

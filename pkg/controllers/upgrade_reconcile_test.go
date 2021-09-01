@@ -82,7 +82,7 @@ var _ = Describe("upgrade_reconcile", func() {
 		Expect(len(h)).Should(Equal(1))
 	})
 
-	It("should avoid stop_db if pods aren't running", func() {
+	It("should requeue upgrade if pods aren't running", func() {
 		vdb := vapi.MakeVDB()
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -91,10 +91,8 @@ var _ = Describe("upgrade_reconcile", func() {
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
 
-		r, fpr, _ := createUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		h := fpr.FindCommands("admintools -t stop_db")
-		Expect(len(h)).Should(Equal(0))
+		r, _, _ := createUpgradeReconciler(vdb)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
 	It("should avoid stop_db if vertica isn't running", func() {

@@ -18,13 +18,26 @@ metadata:
 status:
   replicas: 3
 ---
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-upgrade-vertica
-status:
-  subclusters:
-    ## When you update the crd with a wrong image, 
-    ## the last pod will try to update the image and fail with an ImagePullErr status, 
-    ## so the installCount will go down from 3 to 2.
-    - installCount: 2
+  name: v-upgrade-vertica-defsc-0
+spec:
+  containers:
+    - image: wrong-image
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-upgrade-vertica-defsc-1
+spec:
+  containers:
+    - image: wrong-image
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-upgrade-vertica-defsc-2
+spec:
+  containers:
+    - image: wrong-image

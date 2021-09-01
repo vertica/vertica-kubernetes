@@ -40,10 +40,11 @@ const (
 // used for a single reconcile iteration.
 type ObjReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Log    logr.Logger
-	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts *PodFacts
+	Scheme            *runtime.Scheme
+	Log               logr.Logger
+	Vdb               *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts            *PodFacts
+	PatchImageAllowed bool // a patch can only change the image when this is set to true
 }
 
 // MakeObjReconciler will build an ObjReconciler object
@@ -194,7 +195,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	expSts := buildStsSpec(nm, o.Vdb, sc)
 	err := o.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
-		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas)
+		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		err = ctrl.SetControllerReference(o.Vdb, expSts, o.Scheme)
 		if err != nil {
 			return false, err
@@ -204,8 +205,16 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return true, o.Client.Create(ctx, expSts)
 	}
 
+	// To distinguish when this is called as part of the upgrade reconciler, we
+	// will only change the image for a patch when instructed to do so.
+	if !o.PatchImageAllowed {
+		i := names.ServerContainerIndex
+		expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
+	}
+
 	// Update the sts by patching in fields that changed according to expSts
 	if !reflect.DeepEqual(expSts.Spec, curSts.Spec) {
+		o.Log.Info("Patching statefulset", "Name", nm, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		patch := client.MergeFrom(curSts.DeepCopy())
 		expSts.Spec.DeepCopyInto(&curSts.Spec)
 		// Invalidate the pod facts cache since we are about to change the sts
