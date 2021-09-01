@@ -271,6 +271,10 @@ GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
 get-go-junit-report: ## Download go-junit-report locally if necessary.
 	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
 
+KIND = $(shell pwd)/bin/kind
+kind: ## Download kind locally if necessary
+	$(call go-get-tool,$(KIND),sigs.k8s.io/kind@v0.11.1)
+
 KUBERNETES_SPLIT_YAML = $(shell pwd)/bin/kubernetes-split-yaml
 kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
 	$(call go-get-tool,$(KUBERNETES_SPLIT_YAML),github.com/mogensen/kubernetes-split-yaml@v0.3.0)

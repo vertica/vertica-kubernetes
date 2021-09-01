@@ -27,6 +27,9 @@ KUBEVER=1.21.1
 IP_FAMILY=ipv4
 LISTEN_ALL_INTERFACES=N
 VSQL_PORT=5433
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+REPO_DIR=$(dirname $SCRIPT_DIR)
+KIND=$REPO_DIR/bin/kind
 
 while getopts "ut:k:i:ap:" opt
 do
@@ -62,19 +65,10 @@ fi
 ACTION=${@:$OPTIND:1}
 CLUSTER_NAME=${@:$OPTIND+1:1}
 
-if [[ -z $GOPATH ]]
-then
-    GOPATH=$HOME
-fi
-PATH=$GOPATH/go/bin:$PATH
-# Get kind if not present
-if ! which kind > /dev/null 2>&1
-then
-    PWD=$(pwd)
-    cd $HOME
-    GO111MODULE="on" go get sigs.k8s.io/kind@v0.10.0
-    cd $PWD
-fi
+# Download kind into repo's bin dir if not present
+cd $REPO_DIR
+make kind
+${KIND} version
 
 
 if [[ "$ACTION" == "init" ]]
@@ -111,7 +105,7 @@ EOF
     fi
     cat $tmpfile
 
-    kind create cluster --name ${CLUSTER_NAME} --image kindest/node:v${KUBEVER} --config $tmpfile --wait 5m
+    ${KIND} create cluster --name ${CLUSTER_NAME} --image kindest/node:v${KUBEVER} --config $tmpfile --wait 5m
 
     if [[ -n $UPLOAD_IMAGES ]]
     then
@@ -119,7 +113,7 @@ EOF
     fi
 elif [[ "$ACTION" == "term" ]]
 then
-    kind delete cluster --name ${CLUSTER_NAME}
+    ${KIND} delete cluster --name ${CLUSTER_NAME}
 else
     echo "$ACTION is not a valid action"
     exit 1
