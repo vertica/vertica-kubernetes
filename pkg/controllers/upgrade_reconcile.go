@@ -57,8 +57,6 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// SPILLY - could we make it quicker for restart.  We wait until
-	// list_allnodes says everything is down, but we know it is down.
 	// SPILLY - the helm -wait option will just wait for ready state.  Rather
 	// than UpgradeInProgess condition, could we implement a Ready condition?
 	// SPILLY - try going from an new release back to an old release.  The
@@ -248,9 +246,8 @@ func (u *UpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Result, er
 	u.Log.Info("Starting restart phase of upgrade for this reconcile iteration")
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
-	actor := MakeRestartReconciler(u.VRec, u.Log, u.Vdb, u.PRunner, u.PFacts)
-	resr := actor.(*RestartReconciler)
-	return resr.Reconcile(ctx, &ctrl.Request{})
+	r := MakeRestartReconciler(u.VRec, u.Log, u.Vdb, u.PRunner, u.PFacts)
+	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
 // anyPodsRunningWithOldImage will check if any upNode pods are running with the old image.

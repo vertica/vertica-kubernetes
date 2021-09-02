@@ -102,13 +102,22 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		// None of the running pods have Vertica installed.  Since there may be
 		// a pod that isn't running that may need Vertica restarted we are going
 		// to requeue.
-		// SPILLY - unsure about this change
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if ok := r.setATPod(); !ok {
 		r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// re_ip/start_db require all pods to be running that have run the
+	// installation.  This check is done when we generate the map file
+	// (genMapFile).
+	//
+	// We do the re-ip before checking if nodes are done as it greatly speeds
+	// that part up if we use the new IPs.
+	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); err != nil || res.Requeue {
+		return res, err
 	}
 
 	dbDoesNotExist := !r.PFacts.doesDBExist().IsTrue()
@@ -125,13 +134,6 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	downPods := r.PFacts.findRestartablePods()
 	if err := r.killOldProcesses(ctx, downPods); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// re_ip/start_db require all pods to be running that have run the
-	// installation.  This check is done when we generate the map file
-	// (genMapFile).
-	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); err != nil || res.Requeue {
-		return res, err
 	}
 
 	// If no db, there is nothing to restart so we can exit.
