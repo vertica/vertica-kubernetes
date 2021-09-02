@@ -57,8 +57,6 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// SPILLY - the helm -wait option will just wait for ready state.  Rather
-	// than UpgradeInProgess condition, could we implement a Ready condition?
 	// SPILLY - try going from an new release back to an old release.  The
 	// engine should fail to start
 
