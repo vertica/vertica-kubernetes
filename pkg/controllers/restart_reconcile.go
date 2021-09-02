@@ -353,6 +353,9 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 
 	cmd = genReIPCommand()
 	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...); err != nil {
+		// Log an event as failure to re_ip means we won't be able to bring up the database.
+		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReipFailed,
+			"Attempt to run 'admintools -t re_ip' failed")
 		return ctrl.Result{}, err
 	}
 

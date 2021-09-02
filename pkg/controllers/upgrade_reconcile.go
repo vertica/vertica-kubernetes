@@ -57,9 +57,6 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// SPILLY - try going from an new release back to an old release.  The
-	// engine should fail to start
-
 	// Functions to perform upgrade processing.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
