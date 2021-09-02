@@ -48,13 +48,12 @@ type verticaIPLookup map[string]string
 
 // RestartReconciler will ensure each pod has a running vertica process
 type RestartReconciler struct {
-	VRec                               *VerticaDBReconciler
-	Log                                logr.Logger
-	Vdb                                *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner                            cmds.PodRunner
-	PFacts                             *PodFacts
-	ATPod                              types.NamespacedName // The pod that we run admintools from
-	RequeueIfRunningAndInstalledIsZero bool                 // Controls reconcile behavior when nothing is running
+	VRec    *VerticaDBReconciler
+	Log     logr.Logger
+	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner cmds.PodRunner
+	PFacts  *PodFacts
+	ATPod   types.NamespacedName // The pod that we run admintools from
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
@@ -95,8 +94,16 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 
 // reconcileCluster will handle restart when the entire cluster is down
 func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, error) {
+	if r.PFacts.areAllPodsRunningAndZeroInstalled() {
+		// Restart has nothing to do if nothing is installed
+		return ctrl.Result{}, nil
+	}
 	if r.PFacts.countRunningAndInstalled() == 0 {
-		return ctrl.Result{Requeue: r.RequeueIfRunningAndInstalledIsZero}, nil
+		// None of the running pods have Vertica installed.  Since there may be
+		// a pod that isn't running that may need Vertica restarted we are going
+		// to requeue.
+		// SPILLY - unsure about this change
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if ok := r.setATPod(); !ok {

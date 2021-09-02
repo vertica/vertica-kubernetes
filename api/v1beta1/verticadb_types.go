@@ -401,6 +401,14 @@ var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
 	UpgradeInProgress:  UpgradeInProgressIndex,
 }
 
+// VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
+// maps an index to the condition name.
+var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
+	AutoRestartVerticaIndex: AutoRestartVertica,
+	DBInitializedIndex:      DBInitialized,
+	UpgradeInProgressIndex:  UpgradeInProgress,
+}
+
 // VerticaDBCondition defines condition for VerticaDB
 type VerticaDBCondition struct {
 	// Type is the type of the condition

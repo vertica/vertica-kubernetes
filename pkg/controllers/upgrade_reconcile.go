@@ -57,7 +57,12 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// SPILLY - should we call status reconciler after a few so that we get up to date status?
+	// SPILLY - could we make it quicker for restart.  We wait until
+	// list_allnodes says everything is down, but we know it is down.
+	// SPILLY - the helm -wait option will just wait for ready state.  Rather
+	// than UpgradeInProgess condition, could we implement a Ready condition?
+	// SPILLY - try going from an new release back to an old release.  The
+	// engine should fail to start
 
 	// Functions to perform upgrade processing.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
@@ -86,6 +91,7 @@ func (u *UpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 
 // startUpgrade handles condition status and event recording for start of upgrade
 func (u *UpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	u.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", u.ContinuingUpgrade)
 	if err := u.toggleUpgradeInProgress(ctx, corev1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -151,11 +157,13 @@ func (u *UpgradeReconciler) toggleUpgradeInProgress(ctx context.Context, newVal 
 func (u *UpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error) {
 	pf, found := u.PFacts.findRunningPod()
 	if !found {
+		u.Log.Info("No pods running so skipping vertica shutdown")
 		// No running pod.  This isn't an error, it just means no vertica is
 		// running so nothing to shut down.
 		return ctrl.Result{}, nil
 	}
 	if u.PFacts.getUpNodeCount() == 0 {
+		u.Log.Info("No vertica process running so nothing to shutdown")
 		// No pods have vertica so we can avoid stop_db call
 		return ctrl.Result{}, nil
 	}
@@ -163,6 +171,7 @@ func (u *UpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error
 	// Check the image of each of the up nodes.  We avoid doing a shutdown if
 	// all of the up nodes are already on the new image.
 	if ok, err := u.anyPodsRunningWithOldImage(ctx); !ok || err != nil {
+		u.Log.Info("No vertica process running with the old image version")
 		return ctrl.Result{}, err
 	}
 
@@ -200,6 +209,7 @@ func (u *UpgradeReconciler) deleteStatefulSets(ctx context.Context) (ctrl.Result
 		sts := stss.Items[i]
 		// Skip the statefulset if it already has the proper image.
 		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
+			u.Log.Info("Deleting old statefulset", "name", sts.ObjectMeta.Name)
 			err = u.VRec.Client.Delete(ctx, &stss.Items[i])
 			if err != nil {
 				return ctrl.Result{}, err
@@ -235,15 +245,11 @@ func (u *UpgradeReconciler) recreateStatefulSets(ctx context.Context) (ctrl.Resu
 // restartCluster will start up vertica.  This is called after the statefulset's have
 // been recreated.  Once the cluster is back up, then the upgrade is considered complete.
 func (u *UpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Result, error) {
+	u.Log.Info("Starting restart phase of upgrade for this reconcile iteration")
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
 	actor := MakeRestartReconciler(u.VRec, u.Log, u.Vdb, u.PRunner, u.PFacts)
 	resr := actor.(*RestartReconciler)
-	// Since we just regenerated the sts, chances are that the initial attempt to
-	// restart will not find any pods running.  We want to override the default
-	// behavior and requeue the iteration if that is the case so that restart
-	// for upgrade is controller entirely within this reconciler.
-	resr.RequeueIfRunningAndInstalledIsZero = true
 	return resr.Reconcile(ctx, &ctrl.Request{})
 }
 

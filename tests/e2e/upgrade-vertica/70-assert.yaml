@@ -24,6 +24,6 @@ status:
       - type: AutoRestartVertica
         status: "True"
       - type: DBInitialized
-        status: "True"
+        status: "False"
       - type: UpgradeInProgress
         status: "True"

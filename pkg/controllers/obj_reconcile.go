@@ -212,14 +212,22 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
 	}
 
-	// Update the sts by patching in fields that changed according to expSts
-	if !reflect.DeepEqual(expSts.Spec, curSts.Spec) {
-		o.Log.Info("Patching statefulset", "Name", nm, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
-		patch := client.MergeFrom(curSts.DeepCopy())
-		expSts.Spec.DeepCopyInto(&curSts.Spec)
+	// Update the sts by patching in fields that changed according to expSts.
+	// Due to the omission of default fields in expSts, curSts != expSts.  We
+	// always send a patch request, then compare what came back against origSts
+	// to see if any change was done.
+	patch := client.MergeFrom(curSts.DeepCopy())
+	origSts := &appsv1.StatefulSet{}
+	curSts.DeepCopyInto(origSts)
+	expSts.Spec.DeepCopyInto(&curSts.Spec)
+	if err := o.Client.Patch(ctx, curSts, patch); err != nil {
+		return false, err
+	}
+	if !reflect.DeepEqual(curSts.Spec, origSts.Spec) {
+		o.Log.Info("Patching statefulset", "Name", expSts.Name, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		// Invalidate the pod facts cache since we are about to change the sts
 		o.PFacts.Invalidate()
-		return true, o.Client.Patch(ctx, curSts, patch)
+		return true, nil
 	}
 	return false, nil
 }
