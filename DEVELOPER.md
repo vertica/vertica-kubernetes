@@ -35,7 +35,7 @@ Developing with this repo requires a working Kubernetes cluster. Additionally, t
 # Kind Setup
 [Kind](https://kind.sigs.k8s.io/) is a way to set up a multi-node Kubernetes cluster using Docker. It mimics a multi-node setup by starting a separate container for each node.  The machine requirements for running Kind are minimal - it is possible to set this up on your own laptop. This is the intended deployment to run the tests in an automated fashion.
 
-We have a wrapper that you can use to set up Kind and create a cluster that is suitable for testing Vertica. The following command creates a cluster named `cluster1` that has one master node and one worker node. It completes after a few minutes:  
+We have a wrapper that you can use to set up Kind and create a cluster that is suitable for testing Vertica. The following command creates a cluster named `cluster1` with one node.  It completes after a few minutes:  
 
 ```
 $ scripts/kind.sh init cluster1
@@ -161,10 +161,9 @@ $ make run-unit-tests
 
 ## 5. Running the Operator
 
-There are three ways to run the operator:
+There are two ways to run the operator:
 1. Locally in your shell.
 2. Packaged in a container and deployed it in Kubernetes as a deployment object
-3. With the [verticadb-operator Helm chart](https://vertica.github.io/charts/).
 
 ### Option 1: Locally
 
@@ -173,55 +172,32 @@ This method runs the operator synchronously in your shell. It is the fastest way
 Enter the following command:
 
 ```
-$ make install run ENABLE_WEBHOOKS=false
+make install run ENABLE_WEBHOOKS=false
 ```
 
 Press **Ctrl+C** to stop the operator.
 
 **NOTE:** When you run the operator locally, you can run only ad-hoc tests, not integration and e2e tests
 
-This disables the webhook from runing too, as running the webhook requires TLS certs to be available.
+This disables the webhook from running too, as running the webhook requires TLS certs to be available.
 
 ### Option 2: Kubernetes Deployment
 
-You can have the operator watch the entire cluster or a specific namespace.
+When run in this mode, the operator will watch only a single namespace.  It will automatically use the current namespace as defined in the current config context. 
 
-To watch a specific namespaces, set the **WATCH_NAMESPACE** environment variable. The operator is deployed in that specific namespace and is triggered only if the Vertica database is deployed in that namespace. If you specify a namespace that does not exist, you get an error and the operator deployment is interrupted.
+The operator pod contains a webhook, which needs TLS certificates setup.  The default behaviour is to use TLS certificates created from cert-manager.  You can install cert-manager if not already on your system with this make command.
 
-The following commands specify a namespace and deploy the operator:
-```
-$ WATCH_NAMESPACE=your_namespace
-$ make docker-build deploy
-```
+Under the covers this uses a helm chart for the actual install, so the helm charts need to be generated.
 
-This runs the operator as a deployment within Kubernetes. To tear down the deployment, run the `undeploy` make target:
-```
-$ make undeploy
-```
-
-### Option 3: Helm Chart release
-
-This is the most convenient way to run the operator. Before you create a release with the Helm chart, you must generate the manifests that Helm uses to install the operator.
-
-1. Run the `create-helm-charts` make target to generate the helm charts:
-
-   ```
-   $ make create-helm-charts
-   ```
-
-2. Install the verticadb-operator in a specific namespace with the `helm install` command:
-   ```
-   $ helm install -n random release_name helm-charts/verticadb-operator
-   ```
-   The previous command does the following:
-   - Creates a release named `release_name`
-   - Runs the operator in a namespace called **random**
-   - Uses the default `image:tag` defined in **.Values.image.name**. Use `--set image.name=<img:tag>` to specify the image name and tag.
-
-To tear down the release with your operator, run `helm uninstall` with the :
+You can ensure cert-manager is installed, helm charts are created and deploy the operator with the following command:
 
 ```
-$ helm uninstall release_name -n random
+make install-cert-manager create-helm-charts deploy
+```
+
+To remove the deployment, run the `undeploy` make target:
+```
+make undeploy
 ```
 
 ## 6. Running Integration and e2e Tests
