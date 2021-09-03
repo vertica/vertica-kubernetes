@@ -164,7 +164,9 @@ func (u *UpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error
 	// Check the image of each of the up nodes.  We avoid doing a shutdown if
 	// all of the up nodes are already on the new image.
 	if ok, err := u.anyPodsRunningWithOldImage(ctx); !ok || err != nil {
-		u.Log.Info("No vertica process running with the old image version")
+		if !ok {
+			u.Log.Info("No vertica process running with the old image version")
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -256,6 +258,9 @@ func (u *UpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Context) (boo
 		err := u.VRec.Client.Get(ctx, pn, pod)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, fmt.Errorf("error getting pod info for '%s'", pn)
+		}
+		if errors.IsNotFound(err) {
+			continue
 		}
 
 		if pod.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
