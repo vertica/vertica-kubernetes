@@ -51,7 +51,9 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="vertica/vertica-k8s:11.0.0-0-minimal"
-	// The docker image name that contains Vertica.
+	// The docker image name that contains Vertica.  Whenever this changes, the
+	// operator treats this as an upgrade and will stop the entire cluster and
+	// restart it with the new image.
 	Image string `json:"image,omitempty"`
 
 	// Custom labels that will be added to all of the objects that the operator
