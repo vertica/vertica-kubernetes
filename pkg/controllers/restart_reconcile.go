@@ -96,12 +96,14 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, error) {
 	if r.PFacts.areAllPodsRunningAndZeroInstalled() {
 		// Restart has nothing to do if nothing is installed
+		r.Log.Info("All pods are running and none of them have an installation.  Nothing to restart.")
 		return ctrl.Result{}, nil
 	}
 	if r.PFacts.countRunningAndInstalled() == 0 {
 		// None of the running pods have Vertica installed.  Since there may be
 		// a pod that isn't running that may need Vertica restarted we are going
-		// to requeue.
+		// to requeue to wait for that pod to start.
+		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
