@@ -28,23 +28,23 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("upgrade_reconcile", func() {
+var _ = Describe("imagechange_reconcile", func() {
 	ctx := context.Background()
 
-	It("should not need an upgrade if images match in sts and vdb", func() {
+	It("should not need an image change if images match in sts and vdb", func() {
 		vdb := vapi.MakeVDB()
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		actor := MakeUpgradeReconciler(vrec, logger, vdb, fpr, &pfacts)
-		r := actor.(*UpgradeReconciler)
-		Expect(r.isUpgradeNeeded(ctx)).Should(Equal(false))
+		actor := MakeImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := actor.(*ImageChangeReconciler)
+		Expect(r.isImageChangeNeeded(ctx)).Should(Equal(false))
 		Expect(actor.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should upgrade if image don't match between sts and vdb", func() {
+	It("should change image if image don't match between sts and vdb", func() {
 		vdb := vapi.MakeVDB()
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -57,41 +57,41 @@ var _ = Describe("upgrade_reconcile", func() {
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image).ShouldNot(Equal(NewImage))
 
-		updateVdbToCauseUpgrade(ctx, vdb, NewImage)
+		updateVdbToCauseImageChange(ctx, vdb, NewImage)
 
-		r, _, _ := createUpgradeReconciler(vdb)
-		Expect(r.isUpgradeNeeded(ctx)).Should(Equal(true))
+		r, _, _ := createImageChangeReconciler(vdb)
+		Expect(r.isImageChangeNeeded(ctx)).Should(Equal(true))
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image).Should(Equal(NewImage))
 	})
 
-	It("should stop cluster during an upgrade", func() {
+	It("should stop cluster during an image change", func() {
 		vdb := vapi.MakeVDB()
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		updateVdbToCauseUpgrade(ctx, vdb, "container1:newimage")
+		updateVdbToCauseImageChange(ctx, vdb, "container1:newimage")
 
-		r, fpr, _ := createUpgradeReconciler(vdb)
+		r, fpr, _ := createImageChangeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(1))
 	})
 
-	It("should requeue upgrade if pods aren't running", func() {
+	It("should requeue image change if pods aren't running", func() {
 		vdb := vapi.MakeVDB()
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsNotRunning)
 		defer deletePods(ctx, vdb)
 
-		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
+		updateVdbToCauseImageChange(ctx, vdb, "container2:newimage")
 
-		r, _, _ := createUpgradeReconciler(vdb)
+		r, _, _ := createImageChangeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
@@ -103,8 +103,8 @@ var _ = Describe("upgrade_reconcile", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
-		r, fpr, pfacts := createUpgradeReconciler(vdb)
+		updateVdbToCauseImageChange(ctx, vdb, "container2:newimage")
+		r, fpr, pfacts := createImageChangeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].upNode = false
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -112,7 +112,7 @@ var _ = Describe("upgrade_reconcile", func() {
 		Expect(len(h)).Should(Equal(0))
 	})
 
-	It("should set continuingUpgrade if calling reconciler again after failure", func() {
+	It("should set continuingImageChange if calling reconciler again after failure", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 1
@@ -121,8 +121,8 @@ var _ = Describe("upgrade_reconcile", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		updateVdbToCauseUpgrade(ctx, vdb, "container3:newimage")
-		r, fpr, pfacts := createUpgradeReconciler(vdb)
+		updateVdbToCauseImageChange(ctx, vdb, "container3:newimage")
+		r, fpr, pfacts := createImageChangeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
 		// Fail stop_db so that the reconciler fails
@@ -131,27 +131,27 @@ var _ = Describe("upgrade_reconcile", func() {
 
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).ShouldNot(Succeed())
-		Expect(r.ContinuingUpgrade).Should(Equal(false))
+		Expect(r.ContinuingImageChange).Should(Equal(false))
 
 		// Read the latest vdb to get status conditions, etc.
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), vdb)).Should(Succeed())
 
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(r.ContinuingUpgrade).Should(Equal(true))
+		Expect(r.ContinuingImageChange).Should(Equal(true))
 	})
 })
 
-// updateVdbToCauseUpgrade is a helper to force the upgrade reconciler to do work
-func updateVdbToCauseUpgrade(ctx context.Context, vdb *vapi.VerticaDB, newImage string) {
+// updateVdbToCauseImageChange is a helper to force the image change reconciler to do work
+func updateVdbToCauseImageChange(ctx context.Context, vdb *vapi.VerticaDB, newImage string) {
 	ExpectWithOffset(1, k8sClient.Get(ctx, vapi.MakeVDBName(), vdb)).Should(Succeed())
 	vdb.Spec.Image = newImage
 	ExpectWithOffset(1, k8sClient.Update(ctx, vdb)).Should(Succeed())
 }
 
-// createUpgradeReconciler is a helper to run the UpgradeReconciler.
-func createUpgradeReconciler(vdb *vapi.VerticaDB) (*UpgradeReconciler, *cmds.FakePodRunner, *PodFacts) {
+// createImageChangeReconciler is a helper to run the ImageChangeReconciler.
+func createImageChangeReconciler(vdb *vapi.VerticaDB) (*ImageChangeReconciler, *cmds.FakePodRunner, *PodFacts) {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := MakePodFacts(k8sClient, fpr)
-	actor := MakeUpgradeReconciler(vrec, logger, vdb, fpr, &pfacts)
-	return actor.(*UpgradeReconciler), fpr, &pfacts
+	actor := MakeImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
+	return actor.(*ImageChangeReconciler), fpr, &pfacts
 }

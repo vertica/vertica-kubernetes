@@ -384,31 +384,31 @@ const (
 	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
-	// UpgradeInProgress indicates if the vertica server is in the process of being upgraded
-	UpgradeInProgress VerticaDBConditionType = "UpgradeInProgress"
+	// ImageChangeInProgress indicates if the vertica server is in the process of having its image change
+	ImageChangeInProgress VerticaDBConditionType = "ImageChangeInProgress"
 )
 
 // Fixed index entries for each condition.
 const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
-	UpgradeInProgressIndex
+	ImageChangeInProgressIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
 // index in the condition array
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica: AutoRestartVerticaIndex,
-	DBInitialized:      DBInitializedIndex,
-	UpgradeInProgress:  UpgradeInProgressIndex,
+	AutoRestartVertica:    AutoRestartVerticaIndex,
+	DBInitialized:         DBInitializedIndex,
+	ImageChangeInProgress: ImageChangeInProgressIndex,
 }
 
 // VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
 // maps an index to the condition name.
 var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
-	AutoRestartVerticaIndex: AutoRestartVertica,
-	DBInitializedIndex:      DBInitialized,
-	UpgradeInProgressIndex:  UpgradeInProgress,
+	AutoRestartVerticaIndex:    AutoRestartVertica,
+	DBInitializedIndex:         DBInitialized,
+	ImageChangeInProgressIndex: ImageChangeInProgress,
 }
 
 // VerticaDBCondition defines condition for VerticaDB

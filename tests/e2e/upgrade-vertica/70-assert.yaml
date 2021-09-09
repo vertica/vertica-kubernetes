@@ -25,5 +25,5 @@ status:
         status: "True"
       - type: DBInitialized
         status: "False"
-      - type: UpgradeInProgress
+      - type: ImageChangeInProgress
         status: "True"

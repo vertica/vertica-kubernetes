@@ -14,7 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl wait --for=condition=UpgradeInProgress=True vdb/v-upgrade-vertica --timeout=600s
+  - command: kubectl wait --for=condition=ImageChangeInProgress=True vdb/v-upgrade-vertica --timeout=600s
     namespaced: true
-  - command: kubectl wait --for=condition=UpgradeInProgress=False vdb/v-upgrade-vertica --timeout=600s
+  - command: kubectl wait --for=condition=ImageChangeInProgress=False vdb/v-upgrade-vertica --timeout=600s
     namespaced: true
