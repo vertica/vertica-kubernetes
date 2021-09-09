@@ -11,16 +11,25 @@ start_cron(){
 # it starts up empty and must be populated
 copy_config_files() {
     cp -r /home/dbadmin/logrotate/* /opt/vertica/config/
-    chown -R dbadmin:verticadba /opt/vertica/config/logrotate
     rm -rf /home/dbadmin/logrotate
 
     mkdir -p /opt/vertica/config/licensing
     cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing
-    chown -R dbadmin:verticadba /opt/vertica/config/licensing
     chmod -R 0755 /opt/vertica/config/licensing
 }
 
+# Ensure all PV paths are owned by dbadmin.  This is done for some PVs that
+# start with restrictive ownership.
+ensure_path_is_owned_by_dbadmin() {
+    # -z is to needed in case input arg is empty
+    [ -z "$1" ] || [ "$(stat -c "%U" "$1")" == "dbadmin" ] || sudo chown -R dbadmin:verticadba "$1"
+}
+
 start_cron
+ensure_path_is_owned_by_dbadmin /opt/vertica/config
+ensure_path_is_owned_by_dbadmin /opt/vertica/log
+ensure_path_is_owned_by_dbadmin $DATA_PATH
+ensure_path_is_owned_by_dbadmin $DEPOT_PATH
 copy_config_files
 
 echo "Vertica container is now running"
