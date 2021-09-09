@@ -100,7 +100,7 @@ func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	for _, s := range vdb.Spec.CertSecrets {
 		mnts = append(mnts, corev1.VolumeMount{
 			Name:      s.Name,
-			MountPath: fmt.Sprintf("/%s/%s", paths.CertsRoot, s.Name),
+			MountPath: fmt.Sprintf("%s/%s", paths.CertsRoot, s.Name),
 		})
 	}
 	return mnts
