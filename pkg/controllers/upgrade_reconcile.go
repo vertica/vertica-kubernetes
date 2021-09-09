@@ -161,8 +161,10 @@ func (u *UpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error
 		return ctrl.Result{}, nil
 	}
 
-	// Check the image of each of the up nodes.  We avoid doing a shutdown if
-	// all of the up nodes are already on the new image.
+	// Check the running pods.  It is possible that we may have already
+	// restarted the cluster with the new image, in which case we don't want to
+	// stop the cluster.  As soon as we find a pod that has the old image and is
+	// running vertica, then we know we can proceed with the shutdown.
 	if ok, err := u.anyPodsRunningWithOldImage(ctx); !ok || err != nil {
 		if !ok {
 			u.Log.Info("No vertica process running with the old image version")
