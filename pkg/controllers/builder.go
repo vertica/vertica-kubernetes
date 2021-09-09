@@ -251,8 +251,10 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		},
 		Env: []corev1.EnvVar{
 			{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-			}},
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
+			},
+			{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
+			{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
 		},
 		VolumeMounts: buildVolumeMounts(vdb),
 	}
