@@ -15,4 +15,4 @@ bases:
   - ../../../../kustomize-base
 
 resources:
-  - setup-ks-0-vdb.yaml
+  - setup-vdb.yaml

@@ -11,9 +11,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
-  name: v-mount-certs-sc1-0
-status:
-  phase: Running
+  name: integration-test-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - pods
+      - pods/exec
+      - pods/log
+      - configmaps
+      - secrets
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: integration-test-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: integration-test-role
+subjects:
+  - kind: ServiceAccount
+    name: default

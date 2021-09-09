@@ -11,9 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: v-mount-certs-sc1-0
+  name: v-mount-certs
 status:
-  phase: Running
+  subclusters:
+    - installCount: 1
+      addedToDBCount: 1
+      upNodeCount: 1

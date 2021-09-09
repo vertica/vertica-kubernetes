@@ -15,11 +15,10 @@
 # does this by invoking the REST API and doing basic sanity on what it
 # received.
 
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verify-cert-contents-1
+  name: script-verify-cert-contents-2
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -35,19 +34,19 @@ data:
         kubectl exec $POD_NAME -i -- cat /certs/$SECRET_AND_KEY | grep --quiet "$EXPECTED_OP"
     }
 
-    verify_secret my-cert-1/file1 secret
-    verify_secret my-cert-1/anotherFile 'ca pem'
-    verify_secret my-cert-2/tls.crt cucumber
+    verify_secret my-cert-2/tls.crt pickles
     verify_secret my-cert-2/tls.ca salad
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-verify-cert-contents-1
+  name: test-verify-cert-contents-2
   labels:
     stern: include
 spec:
-  restartPolicy: Never
+  # There is a delay between updating of the secret and the mounted file in the
+  # container.  We will restart this pod until it succeeds.
+  restartPolicy: Always
   containers:
     - name: test
       image: bitnami/kubectl:1.20.4
@@ -61,4 +60,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-verify-cert-contents-1
+        name: script-verify-cert-contents-2

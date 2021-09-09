@@ -11,9 +11,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-mount-certs-sc1-0
-status:
-  phase: Running
+  name: v-mount-certs-sc1
+spec:
+  template:
+    spec:
+      containers:
+      - name: server
+        volumeMounts:
+        - name: local-data
+        - name: local-data
+        - name: local-data
+        - name: local-data
+        - name: local-data
+        - name: podinfo
+        - mountPath: /certs/my-cert-1
+          name: my-cert-1
+        - mountPath: /certs/my-cert-2
+          name: my-cert-2
+        - mountPath: /certs/my-cert-3
+          name: my-cert-3

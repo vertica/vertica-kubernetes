@@ -15,11 +15,10 @@
 # does this by invoking the REST API and doing basic sanity on what it
 # received.
 
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verify-cert-contents-1
+  name: script-verify-cert-contents-3
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -35,15 +34,13 @@ data:
         kubectl exec $POD_NAME -i -- cat /certs/$SECRET_AND_KEY | grep --quiet "$EXPECTED_OP"
     }
 
-    verify_secret my-cert-1/file1 secret
-    verify_secret my-cert-1/anotherFile 'ca pem'
-    verify_secret my-cert-2/tls.crt cucumber
-    verify_secret my-cert-2/tls.ca salad
+    verify_secret my-cert-3/province pei
+    verify_secret my-cert-3/city Stratford
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-verify-cert-contents-1
+  name: test-verify-cert-contents-3
   labels:
     stern: include
 spec:
@@ -61,4 +58,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-verify-cert-contents-1
+        name: script-verify-cert-contents-3

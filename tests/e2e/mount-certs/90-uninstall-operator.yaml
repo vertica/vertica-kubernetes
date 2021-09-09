@@ -11,9 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-mount-certs-sc1-0
-status:
-  phase: Running
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sh -c "cd ../../.. && make undeploy-operator NAMESPACE=$NAMESPACE"
