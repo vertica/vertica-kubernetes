@@ -171,12 +171,16 @@ ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 endif
 
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin vdb-gen ## Run the integration tests
+run-int-tests: install-kuttl-plugin vdb-gen setup-minio ## Run the integration tests
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM)
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
 	scripts/soak-runner.sh $(SOAK_CFG)
+
+.PHONY: setup-minio
+setup-minio:  ## Setup minio for use with the e2e tests
+	scripts/setup-minio.sh
 
 ##@ Build
 
