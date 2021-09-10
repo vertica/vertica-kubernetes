@@ -22,7 +22,7 @@ spec:
       image: kustomize-vlogger-image
   communal:
     path: "s3://revivedb-multi-sc"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
   initPolicy: Create

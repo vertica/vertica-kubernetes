@@ -14,6 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.communal.endpoint="http://new-path"' | kubectl -n $NAMESPACE replace -f -
-    ignoreFailure: true
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE"
+  - command: '../../../scripts/expect-patch-failure.sh -n $NAMESPACE v-webhook ''{"spec": {"communal": {"endpoint": "http://new-path"}}'' ''communal path cannot change after CR creation'''

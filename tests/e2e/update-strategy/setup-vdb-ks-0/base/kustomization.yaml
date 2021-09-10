@@ -15,4 +15,15 @@ bases:
   - ../../../../kustomize-base
 
 resources:
-  - setup-ks-0-vdb.yaml
+  - setup-vdb.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.endpoint1
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.communal.endpoint

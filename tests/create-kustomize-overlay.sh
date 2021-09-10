@@ -18,9 +18,10 @@ set -o errexit
 DEF_VERTICA_IMAGE_NAME="vertica/vertica-k8s:latest"
 DEF_VLOGGER_IMAGE_NAME="vertica/vertica-logger:latest"
 LICENSE=
+ENDPOINTS=http://minio.kuttl-e2e-communal,http://minio.kuttl-e2e-communal
 
 function usage {
-    echo "usage: $0 [-vh] [-l <licenseName>] [<imageName> [<vloggerImageName>]] "
+    echo "usage: $0 [-vh] [-l <licenseName>] [-e <endpoints>] [<imageName> [<vloggerImageName>]] "
     echo
     echo "  <imageName>         Image name to use in the VerticaDB CR."
     echo "                      If omitted, it defaults to $DEF_VERTICA_IMAGE_NAME "
@@ -30,12 +31,15 @@ function usage {
     echo "Options:"
     echo "  -v                 Verbose output"
     echo "  -l <licenseName>   Include the given license in each VerticaDB file"
+    echo "  -e <endpoints>     List of communal endpoints to use.  It is a comma separated list.  "
+    echo "                     Order matters, so first endpoint will be used for any testcase that"
+    echo "                     wants to use data.endpoint1"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "hvl:" opt; do
+while getopts "hvl:e:" opt; do
     case ${opt} in
         h)
             usage
@@ -46,6 +50,9 @@ while getopts "hvl:" opt; do
             ;;
         l)
             LICENSE=$OPTARG
+            ;;
+        e)
+            ENDPOINTS=$OPTARG
             ;;
         \?)
             echo "Unknown option: -${opt}"
@@ -70,6 +77,7 @@ echo "Using vertica logger image name: $VLOGGER_IMAGE_NAME"
 if [ -n "$LICENSE" ]; then
     echo "Using license name: $LICENSE"
 fi
+echo "Using endpoints: $ENDPOINTS"
 
 function create_kustomization {
     BASE_DIR=$1
@@ -166,10 +174,34 @@ EOF
     popd > /dev/null
 }
 
-# Descend into each test and create the overlay kustomization.
-# The overlay is created in a directory like: overlay/<tc-name>
+function create_communal_cfg {
+    pushd kustomize-base > /dev/null
+    cat <<EOF > communal-cfg.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: e2e
+data:
+EOF
+    IFS=',' read -ra EPS <<< "$ENDPOINTS"
+    count=1
+    for i in "${EPS[@]}"
+    do
+        echo "  endpoint${count}: $i" >> communal-cfg.yaml
+        (( count++ ))
+    done
+
+    popd > /dev/null
+}
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $SCRIPT_DIR
+
+# Create the configMap that is used to control the communal endpoint for each test.
+create_communal_cfg
+
+# Descend into each test and create the overlay kustomization.
+# The overlay is created in a directory like: overlay/<tc-name>
 for tdir in e2e/*/*/base e2e-disabled/*/*/base
 do
     create_pod_kustomization $(dirname $tdir)

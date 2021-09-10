@@ -19,7 +19,7 @@ spec:
   image: kustomize-vertica-image
   communal:
     path: "s3://update-strategy/ks-0"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
     includeUIDInPath: true
   local:

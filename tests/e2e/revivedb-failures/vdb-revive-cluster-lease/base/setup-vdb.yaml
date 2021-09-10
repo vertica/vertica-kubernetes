@@ -20,7 +20,7 @@ spec:
   ignoreClusterLease: false
   communal:
     path: "s3://revivedb-failures"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
   initPolicy: Revive

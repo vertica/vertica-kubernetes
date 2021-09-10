@@ -19,7 +19,7 @@ spec:
   image: kustomize-vertica-image
   communal:
     path: "s3://kill-controller"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret:  minio-creds-secret
   local:
     requestSize: 100Mi

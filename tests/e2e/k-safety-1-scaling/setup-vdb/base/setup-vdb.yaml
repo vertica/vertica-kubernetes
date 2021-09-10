@@ -22,7 +22,7 @@ spec:
       image: kustomize-vlogger-image
   communal:
     path: "s3://k-safety-1-scaling"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
   local:
     requestSize: 100Mi

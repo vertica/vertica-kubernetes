@@ -20,7 +20,7 @@ spec:
   superuserPasswordSecret: su-passwd
   communal:
     path: "s3://revivedb-1-node"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
   local:

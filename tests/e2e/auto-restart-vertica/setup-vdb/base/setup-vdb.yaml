@@ -22,7 +22,7 @@ spec:
       image: kustomize-vlogger-image
   communal:
     path: "s3://auto-restart-vertica"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret:  minio-creds-secret
   local:
     requestSize: 100Mi
