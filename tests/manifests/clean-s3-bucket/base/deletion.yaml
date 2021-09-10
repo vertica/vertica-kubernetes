@@ -15,7 +15,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: delete-s3-bucket
+  name: clean-s3-bucket
   labels:
     stern: include
 spec:
