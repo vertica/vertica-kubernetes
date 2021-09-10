@@ -51,4 +51,10 @@ const (
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
 	S3AuthParmsCopyFailed           = "S3AuthParmsCopyFailed"
+	ImageChangeStart                = "ImageChangeStart"
+	ImageChangeSucceeded            = "ImageChangeSucceeded"
+	ClusterShutdownStarted          = "ClusterShutdownStarted"
+	ClusterShutdownFailed           = "ClusterShutdownFailed"
+	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
+	ReipFailed                      = "ReipFailed"
 )

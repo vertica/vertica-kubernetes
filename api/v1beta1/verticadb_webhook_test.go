@@ -216,11 +216,6 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.ShardCount = 10
 		validateImmutableFields(vdbUpdate)
 	})
-	It("should not change image after creation if autoRestartVertica is enabled", func() {
-		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.Image = "vertica-k8s:v11"
-		validateImmutableFields(vdbUpdate)
-	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.AutoRestartVertica = false

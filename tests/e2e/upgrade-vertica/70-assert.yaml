@@ -11,12 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-delete:
-  - apiVersion: apps/v1
-    kind: StatefulSet
-    metadata:
-      name: v-upgrade-vertica-defsc
-commands:
-  - command:  sh -c "kubectl wait --for=condition=AutoRestartVertica=True vdb/v-upgrade-vertica --timeout=180s -n $NAMESPACE"
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-upgrade-vertica
+status:
+  subclusters:
+    - installCount: 2
+      addedToDBCount: 0
+      upNodeCount: 0
