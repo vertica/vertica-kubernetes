@@ -149,15 +149,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			"shardCount cannot change after creation.")
 		allErrs = append(allErrs, err)
 	}
-	// image will only be allowed to change if autoRestartVertica is disabled
-	if v.Spec.Image != oldObj.Spec.Image {
-		if v.Spec.AutoRestartVertica {
-			err := field.Invalid(field.NewPath("spec").Child("image"),
-				v.Spec.Image,
-				"image will only be allowed to change if autoRestartVertica is disabled.")
-			allErrs = append(allErrs, err)
-		}
-	}
 	// communal.path cannot change after creation
 	if v.Spec.Communal.Path != oldObj.Spec.Communal.Path {
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("path"),

@@ -51,7 +51,9 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="vertica/vertica-k8s:11.0.0-0-minimal"
-	// The docker image name that contains Vertica.
+	// The docker image name that contains Vertica.  Whenever this changes, the
+	// operator treats this as an upgrade and will stop the entire cluster and
+	// restart it with the new image.
 	Image string `json:"image,omitempty"`
 
 	// Custom labels that will be added to all of the objects that the operator
@@ -66,8 +68,8 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// State to indicate whether the operator will restart Vertica if the
 	// process is not running. Under normal cicumstances this is set to true.
-	// The purpose of this is to allow a maintenance window, such as an
-	// upgrade, without the operator interfering.
+	// The purpose of this is to allow a maintenance window, such as a
+	// manual upgrade, without the operator interfering.
 	AutoRestartVertica bool `json:"autoRestartVertica"`
 
 	// +kubebuilder:default:="vertdb"
@@ -388,21 +390,33 @@ type VerticaDBConditionType string
 const (
 	// AutoRestartVertica indicates whether the operator should restart the vertica process
 	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
-	// DBInitialized indicateds the database has been created or revived
+	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
+	// ImageChangeInProgress indicates if the vertica server is in the process of having its image change
+	ImageChangeInProgress VerticaDBConditionType = "ImageChangeInProgress"
 )
 
 // Fixed index entries for each condition.
 const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
+	ImageChangeInProgressIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
 // index in the condition array
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica: AutoRestartVerticaIndex,
-	DBInitialized:      DBInitializedIndex,
+	AutoRestartVertica:    AutoRestartVerticaIndex,
+	DBInitialized:         DBInitializedIndex,
+	ImageChangeInProgress: ImageChangeInProgressIndex,
+}
+
+// VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
+// maps an index to the condition name.
+var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
+	AutoRestartVerticaIndex:    AutoRestartVertica,
+	DBInitializedIndex:         DBInitialized,
+	ImageChangeInProgressIndex: ImageChangeInProgress,
 }
 
 // VerticaDBCondition defines condition for VerticaDB
@@ -457,7 +471,6 @@ type VerticaDBPodStatus struct {
 //+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
 //+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
 //+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
-//+kubebuilder:printcolumn:name="AutoRestartVertica",type="string",JSONPath=".status.conditions[0].status"
 
 // VerticaDB is the Schema for the verticadbs API
 type VerticaDB struct {

@@ -11,12 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This step and beyond will emulate the situation when,
-# pods are running but there is no vertica nodes UP.
+# Creating a vdb with non-existent s3 credentials.  Purpose is to do an upgrade
+# before a database exists.
+
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
 spec:
-  autoRestartVertica: false
-  
+  image: vertica/vertica-k8s:11.0.0-0-minimal
+  imagePullPolicy: IfNotPresent
+  communal:
+    path: "s3://upgrade-vertica"
+    endpoint: "http://minio.kuttl-e2e-communal"
+    credentialSecret:  non-existent-minio-creds-secret
+  local:
+    requestSize: 100Mi
+  dbName: verticadb
+  shardCount: 11
+  kSafety: "0"
+  subclusters:
+    - name: sc1
+      size: 2
+  # Set requeueTime since we are intentionally failing.  This prevents the
+  # exponential backoff kicking in, which can cause the test to timeout.
+  requeueTime: 5

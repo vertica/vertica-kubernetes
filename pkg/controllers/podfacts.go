@@ -480,7 +480,18 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 	return pods
 }
 
-// countReipablePods returns number of pods that are running and have an install
+// areAllPodsRunningAndZeroInstalled returns true if all of the pods are running
+// and none of the pods have an installation.
+func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
+	for _, v := range p.Detail {
+		if (v.exists && !v.isPodRunning) || v.isInstalled.IsTrue() {
+			return false
+		}
+	}
+	return true
+}
+
+// countRunningAndInstalled returns number of pods that are running and have an install
 func (p *PodFacts) countRunningAndInstalled() int {
 	count := 0
 	for _, v := range p.Detail {

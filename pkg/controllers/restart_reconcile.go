@@ -94,13 +94,32 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 
 // reconcileCluster will handle restart when the entire cluster is down
 func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, error) {
-	if r.PFacts.countRunningAndInstalled() == 0 {
+	if r.PFacts.areAllPodsRunningAndZeroInstalled() {
+		// Restart has nothing to do if nothing is installed
+		r.Log.Info("All pods are running and none of them have an installation.  Nothing to restart.")
 		return ctrl.Result{}, nil
+	}
+	if r.PFacts.countRunningAndInstalled() == 0 {
+		// None of the running pods have Vertica installed.  Since there may be
+		// a pod that isn't running that may need Vertica restarted we are going
+		// to requeue to wait for that pod to start.
+		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if ok := r.setATPod(); !ok {
 		r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// re_ip/start_db require all pods to be running that have run the
+	// installation.  This check is done when we generate the map file
+	// (genMapFile).
+	//
+	// We do the re-ip before checking if nodes are done as it greatly speeds
+	// that part up if we use the new IPs.
+	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); err != nil || res.Requeue {
+		return res, err
 	}
 
 	dbDoesNotExist := !r.PFacts.doesDBExist().IsTrue()
@@ -117,13 +136,6 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	downPods := r.PFacts.findRestartablePods()
 	if err := r.killOldProcesses(ctx, downPods); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// re_ip/start_db require all pods to be running that have run the
-	// installation.  This check is done when we generate the map file
-	// (genMapFile).
-	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); err != nil || res.Requeue {
-		return res, err
 	}
 
 	// If no db, there is nothing to restart so we can exit.
@@ -343,6 +355,9 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 
 	cmd = genReIPCommand()
 	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...); err != nil {
+		// Log an event as failure to re_ip means we won't be able to bring up the database.
+		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReipFailed,
+			"Attempt to run 'admintools -t re_ip' failed")
 		return ctrl.Result{}, err
 	}
 

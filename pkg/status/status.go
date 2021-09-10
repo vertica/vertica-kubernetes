@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,6 +70,8 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaD
 		// Ensure the array is big enough
 		for i := len(vdb.Status.Conditions); i <= inx; i++ {
 			vdb.Status.Conditions = append(vdb.Status.Conditions, vapi.VerticaDBCondition{
+				Type:               vapi.VerticaDBConditionNameMap[i],
+				Status:             corev1.ConditionFalse,
 				LastTransitionTime: metav1.Unix(0, 0),
 			})
 		}

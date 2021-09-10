@@ -11,30 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-upgrade-vertica
-status:
-  upNodeCount: 0
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-0
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-1
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-2
-status:
-  phase: Running
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl wait --for=condition=ImageChangeInProgress=True vdb/v-upgrade-vertica --timeout=600s
+    namespaced: true
+  - command: kubectl wait --for=condition=ImageChangeInProgress=False vdb/v-upgrade-vertica --timeout=600s
+    namespaced: true
