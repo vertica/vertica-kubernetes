@@ -183,6 +183,14 @@ type VerticaDBSpec struct {
 	// accepts any valid volume type.  A unique name must be given for each
 	// volume and it cannot conflict with any of the internally generated volumes.
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Secrets that will be mounted in the vertica container.  The purpose of
+	// this is to allow custom certs to be available.  The full path is:
+	//   /certs/<secretName>/<key_i>
+	// Where <secretName> is the name provided in the secret and <key_i> is one
+	// of the keys in the secret.
+	CertSecrets []corev1.LocalObjectReference `json:"certSecrets,omitempty"`
 }
 
 type CommunalInitPolicy string

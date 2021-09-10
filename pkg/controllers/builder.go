@@ -89,7 +89,21 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
+	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
+
 	return volMnts
+}
+
+// buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
+func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	mnts := []corev1.VolumeMount{}
+	for _, s := range vdb.Spec.CertSecrets {
+		mnts = append(mnts, corev1.VolumeMount{
+			Name:      s.Name,
+			MountPath: fmt.Sprintf("%s/%s", paths.CertsRoot, s.Name),
+		})
+	}
+	return mnts
 }
 
 // buildVolumes builds up a list of volumes to include in the sts
@@ -99,6 +113,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
+	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
 	return vols
 }
@@ -185,6 +200,20 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 			},
 		},
 	}
+}
+
+// buildCertSecretVolumes returns a list of volumes, one for each secret in certSecrets.
+func buildCertSecretVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
+	vols := []corev1.Volume{}
+	for _, s := range vdb.Spec.CertSecrets {
+		vols = append(vols, corev1.Volume{
+			Name: s.Name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{SecretName: s.Name},
+			},
+		})
+	}
+	return vols
 }
 
 // buildPodSpec creates a PodSpec for the statefulset

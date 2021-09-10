@@ -42,7 +42,7 @@ testbin/*
 # Omit some fully generated files
 config/crd/bases/vertica.com_verticadbs.yaml
 config/rbac/role.yaml
-api/v1alpha1/zz_generated.deepcopy.go
+api/v1beta1/zz_generated.deepcopy.go
 
 # Omit generated files for helm verticadb-operator
 helm-charts/verticadb-operator/templates/*.yaml
