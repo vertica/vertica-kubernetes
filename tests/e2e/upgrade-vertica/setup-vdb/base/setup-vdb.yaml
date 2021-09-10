@@ -11,9 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Creating a vdb with non-existent s3 credentials.  Purpose is to do an upgrade
-# before a database exists.
-
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
@@ -23,16 +20,15 @@ spec:
   imagePullPolicy: IfNotPresent
   communal:
     path: "s3://upgrade-vertica"
-    endpoint: "http://non-existent-ep"
-    credentialSecret:  non-existent-minio-creds-secret
+    endpoint: kustomize-s3-endpoint
+    credentialSecret:  minio-creds-secret
   local:
     requestSize: 100Mi
-  dbName: verticadb
-  shardCount: 11
-  kSafety: "0"
+  dbName: vd
+  shardCount: 17
   subclusters:
-    - name: sc1
-      size: 2
-  # Set requeueTime since we are intentionally failing.  This prevents the
-  # exponential backoff kicking in, which can cause the test to timeout.
+    - name: defsc
+      size: 3
+  # Set requeueTime to prevent the exponential backoff kicking in, which can
+  # cause the test to timeout.
   requeueTime: 5
