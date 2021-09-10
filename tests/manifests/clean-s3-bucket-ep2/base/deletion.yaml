@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Pod to create a bucket in minio
+# Pod to clean up the contents of an s3 bucket
 apiVersion: v1
 kind: Pod
 metadata:
@@ -34,5 +34,5 @@ spec:
       - name: AWS_EC2_METADATA_DISABLED
         value: 'true'
       - name: S3_EP
-        value: http://minio.kuttl-e2e-communal
+        value: kustomize-s3-endpoint
   restartPolicy: Never

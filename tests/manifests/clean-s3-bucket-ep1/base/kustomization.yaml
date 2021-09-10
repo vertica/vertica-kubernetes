@@ -11,7 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "kustomize build create-s3-bucket-ep1/overlay | kubectl -n $NAMESPACE apply -f - "
+bases:
+  - ../../../kustomize-base
+
+resources:
+  - deletion.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.endpoint1
+    targets:
+      - select:
+          kind: Pod
+          name: clean-s3-bucket
+        fieldPaths:
+          - spec.containers.[name=aws].env.[name=S3_EP].value

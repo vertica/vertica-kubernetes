@@ -16,3 +16,15 @@ bases:
 
 resources:
   - deletion.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.endpoint2
+    targets:
+      - select:
+          kind: Pod
+          name: clean-s3-bucket
+        fieldPaths:
+          - spec.containers.[name=aws].env.[name=S3_EP].value

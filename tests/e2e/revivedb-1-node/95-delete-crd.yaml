@@ -19,4 +19,4 @@ delete:
   - apiVersion: v1
     kind: PersistentVolumeClaim
 commands:
-  - command: bash -c "kustomize build clean-s3-bucket/overlay | kubectl -n $NAMESPACE apply -f - "
+  - command: bash -c "kustomize build clean-s3-bucket-ep1/overlay | kubectl -n $NAMESPACE apply -f - "

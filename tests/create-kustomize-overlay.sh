@@ -122,14 +122,15 @@ function create_s3_bucket_kustomization {
       return 0
     fi
 
-    TC_OVERLAY=$1/create-s3-bucket/overlay
+    EP=$2
+    TC_OVERLAY=$1/create-s3-bucket-$EP/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/create-s3-bucket/base
+- ../../../../manifests/create-s3-bucket-$EP/base
 patches:
 - target:
     version: v1
@@ -151,14 +152,15 @@ function clean_s3_bucket_kustomization {
       return 0
     fi
 
-    TC_OVERLAY=$1/clean-s3-bucket/overlay
+    EP=$2
+    TC_OVERLAY=$1/clean-s3-bucket-$EP/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/clean-s3-bucket/base
+- ../../../../manifests/clean-s3-bucket-$EP/base
 patches:
 - target:
     version: v1
@@ -212,6 +214,8 @@ do
 done
 for tdir in e2e/* e2e-disabled/*
 do
-    create_s3_bucket_kustomization $tdir
-    clean_s3_bucket_kustomization $tdir
+    create_s3_bucket_kustomization $tdir ep1
+    create_s3_bucket_kustomization $tdir ep2
+    clean_s3_bucket_kustomization $tdir ep1
+    clean_s3_bucket_kustomization $tdir ep2
 done
