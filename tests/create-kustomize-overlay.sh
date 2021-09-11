@@ -19,9 +19,11 @@ DEF_VERTICA_IMAGE_NAME="vertica/vertica-k8s:latest"
 DEF_VLOGGER_IMAGE_NAME="vertica/vertica-logger:latest"
 LICENSE=
 ENDPOINTS=http://minio.kuttl-e2e-communal,http://minio.kuttl-e2e-communal
+ACCESSKEY=minio
+SECRETKEY=minio123
 
 function usage {
-    echo "usage: $0 [-vh] [-l <licenseName>] [-e <endpoints>] [<imageName> [<vloggerImageName>]] "
+    echo "usage: $0 [-vh] [-l <licenseName>] [-e <endpoints>] [-a <accesskey>] [-s <secretkey>] [<imageName> [<vloggerImageName>]] "
     echo
     echo "  <imageName>         Image name to use in the VerticaDB CR."
     echo "                      If omitted, it defaults to $DEF_VERTICA_IMAGE_NAME "
@@ -34,12 +36,14 @@ function usage {
     echo "  -e <endpoints>     List of communal endpoints to use.  It is a comma separated list.  "
     echo "                     Order matters, so first endpoint will be used for any testcase that"
     echo "                     wants to use data.endpoint1"
+    echo "  -a <accesskey>     What access key to use to authenticate with the endpoint"
+    echo "  -s <secretkey>     What secret key to use to authenticate with the endpoint"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "hvl:e:" opt; do
+while getopts "hvl:e:a:s:" opt; do
     case ${opt} in
         h)
             usage
@@ -53,6 +57,12 @@ while getopts "hvl:e:" opt; do
             ;;
         e)
             ENDPOINTS=$OPTARG
+            ;;
+        a)
+            ACCESSKEY=$OPTARG
+            ;;
+        s)
+            SECRETKEY=$OPTARG
             ;;
         \?)
             echo "Unknown option: -${opt}"
@@ -200,6 +210,11 @@ EOF
     do
         echo "  endpoint${i}: ${EPS[0]}" >> communal-cfg.yaml
     done
+
+    echo "  accesskeyEnc: $(echo -n $ACCESSKEY | base64)" >> communal-cfg.yaml
+    echo "  secretkeyEnc: $(echo -n $SECRETKEY | base64)" >> communal-cfg.yaml
+    echo "  accesskeyUnenc: $ACCESSKEY" >> communal-cfg.yaml
+    echo "  secretkeyUnenc: $SECRETKEY" >> communal-cfg.yaml
 
     popd > /dev/null
 }
