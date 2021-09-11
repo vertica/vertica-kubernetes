@@ -193,6 +193,14 @@ EOF
         (( count++ ))
     done
 
+    # If less then MAX_EP specified, use the first endpoint for the
+    # remaining ones.
+    MAX_EP=2
+    for i in $(seq $count $MAX_EP)
+    do
+        echo "  endpoint${i}: ${EPS[0]}" >> communal-cfg.yaml
+    done
+
     popd > /dev/null
 }
 
