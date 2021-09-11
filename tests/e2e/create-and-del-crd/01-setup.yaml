@@ -11,16 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Secret
-metadata:
-  name: s3-auth
-data:
-  # base64 encoding of minio
-  accesskey: bWluaW8K
-  # base64 encoding of minio123
-  secretkey: bWluaW8xMjMK
----
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
