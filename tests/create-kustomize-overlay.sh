@@ -15,35 +15,23 @@
 
 set -o errexit
 
-DEF_VERTICA_IMAGE_NAME="vertica/vertica-k8s:latest"
-DEF_VLOGGER_IMAGE_NAME="vertica/vertica-logger:latest"
-LICENSE=
-ENDPOINTS=http://minio.kuttl-e2e-communal,http://minio.kuttl-e2e-communal
-ACCESSKEY=minio
-SECRETKEY=minio123
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+REPO_DIR=$(dirname $SCRIPT_DIR)
 
 function usage {
-    echo "usage: $0 [-vh] [-l <licenseName>] [-e <endpoints>] [-a <accesskey>] [-s <secretkey>] [<imageName> [<vloggerImageName>]] "
+    echo "usage: $0 [-hv] [<configFile>]"
     echo
-    echo "  <imageName>         Image name to use in the VerticaDB CR."
-    echo "                      If omitted, it defaults to $DEF_VERTICA_IMAGE_NAME "
-    echo "  <vloggerImageName>  Image name to use for the vertica logger sidecar in"
-    echo "                      the VerticaDB CR.  If omitted, it defaults to $DEF_VLOGGER_IMAGE_NAME "
+    echo "  <configFile>        Path location to a config file.  You can use kustomize-defaults.cfg"
+    echo "                      as a base for the config file."
     echo
     echo "Options:"
     echo "  -v                 Verbose output"
-    echo "  -l <licenseName>   Include the given license in each VerticaDB file"
-    echo "  -e <endpoints>     List of communal endpoints to use.  It is a comma separated list.  "
-    echo "                     Order matters, so first endpoint will be used for any testcase that"
-    echo "                     wants to use data.endpoint1"
-    echo "  -a <accesskey>     What access key to use to authenticate with the endpoint"
-    echo "  -s <secretkey>     What secret key to use to authenticate with the endpoint"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "hvl:e:a:s:" opt; do
+while getopts "hv" opt; do
     case ${opt} in
         h)
             usage
@@ -52,18 +40,6 @@ while getopts "hvl:e:a:s:" opt; do
             set -o xtrace
             VERBOSE=1
             ;;
-        l)
-            LICENSE=$OPTARG
-            ;;
-        e)
-            ENDPOINTS=$OPTARG
-            ;;
-        a)
-            ACCESSKEY=$OPTARG
-            ;;
-        s)
-            SECRETKEY=$OPTARG
-            ;;
         \?)
             echo "Unknown option: -${opt}"
             usage
@@ -71,39 +47,46 @@ while getopts "hvl:e:a:s:" opt; do
     esac
 done
 
-VERTICA_IMAGE_NAME=${@:$OPTIND:1}
-if [ -z "${VERTICA_IMAGE_NAME}" ]; then
-    VERTICA_IMAGE_NAME=$DEF_VERTICA_IMAGE_NAME
-    VLOGGER_IMAGE_NAME=$DEF_VLOGGER_IMAGE_NAME
-else
-    VLOGGER_IMAGE_NAME=${@:$OPTIND+1:2}
-fi
-if [ -z "${VLOGGER_IMAGE_NAME}" ]; then
-    VLOGGER_IMAGE_NAME=$DEF_VLOGGER_IMAGE_NAME
+USER_CONFIG_FILE=${@:$OPTIND:1}
+
+# Read in the defaults
+source $REPO_DIR/tests/kustomize-defaults.cfg
+
+# Override any of the defaults from the users config file if provided.
+if [ -n "$USER_CONFIG_FILE" ]
+then
+  source $USER_CONFIG_FILE
 fi
 
-echo "Using vertica server image name: $VERTICA_IMAGE_NAME"
-echo "Using vertica logger image name: $VLOGGER_IMAGE_NAME"
-if [ -n "$LICENSE" ]; then
-    echo "Using license name: $LICENSE"
+if [ -z "${VERTICA_IMG}" ]; then
+    VERTICA_IMG=$DEF_VERTICA_IMG
 fi
-echo "Using endpoints: $ENDPOINTS"
+if [ -z "${VLOGGER_IMG}" ]; then
+    VLOGGER_IMG=$DEF_VLOGGER_IMG
+fi
+
+echo "Using vertica server image name: $VERTICA_IMG"
+echo "Using vertica logger image name: $VLOGGER_IMG"
+if [ -n "$LICENSE_SECRET" ]; then
+    echo "Using license name: $LICENSE_SECRET"
+fi
+echo "Using endpoints: $ENDPOINT_1, $ENDPOINT_2"
 
 function create_kustomization {
     BASE_DIR=$1
     echo "" > kustomization.yaml
     kustomize edit add base $BASE_DIR
-    kustomize edit set image kustomize-vertica-image=$VERTICA_IMAGE_NAME
-    kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMAGE_NAME
+    kustomize edit set image kustomize-vertica-image=$VERTICA_IMG
+    kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMG
 
     # If license was specified we create a patch file to set that.
-    if [[ -n "$LICENSE" ]]
+    if [[ -n "$LICENSE_SECRET" ]]
     then
         LICENSE_PATCH_FILE="license-patch.yaml"
         cat <<EOF > $LICENSE_PATCH_FILE
         - op: add
           path: /spec/licenseSecret
-          value: $LICENSE
+          value: $LICENSE_SECRET
 EOF
         kustomize edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
     fi
@@ -194,32 +177,22 @@ kind: ConfigMap
 metadata:
   name: e2e
 data:
+  endpoint1: $ENDPOINT_1
+  accesskeyEnc1: $(echo -n $ACCESSKEY_1 | base64)
+  secretkeyEnc1: $(echo -n $SECRETKEY_1 | base64)
+  accesskeyUnenc1: $ACCESSKEY_1
+  secretkeyUnenc1: $SECRETKEY_1
+
+  endpoint2: $ENDPOINT_2
+  accesskeyEnc2: $(echo -n $ACCESSKEY_2 | base64)
+  secretkeyEnc2: $(echo -n $SECRETKEY_2 | base64)
+  accesskeyUnenc2: $ACCESSKEY_2
+  secretkeyUnenc2: $SECRETKEY_2
 EOF
-    IFS=',' read -ra EPS <<< "$ENDPOINTS"
-    count=1
-    for i in "${EPS[@]}"
-    do
-        echo "  endpoint${count}: $i" >> communal-cfg.yaml
-        (( count++ ))
-    done
-
-    # If less then MAX_EP specified, use the first endpoint for the
-    # remaining ones.
-    MAX_EP=2
-    for i in $(seq $count $MAX_EP)
-    do
-        echo "  endpoint${i}: ${EPS[0]}" >> communal-cfg.yaml
-    done
-
-    echo "  accesskeyEnc: $(echo -n $ACCESSKEY | base64)" >> communal-cfg.yaml
-    echo "  secretkeyEnc: $(echo -n $SECRETKEY | base64)" >> communal-cfg.yaml
-    echo "  accesskeyUnenc: $ACCESSKEY" >> communal-cfg.yaml
-    echo "  secretkeyUnenc: $SECRETKEY" >> communal-cfg.yaml
 
     popd > /dev/null
 }
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $SCRIPT_DIR
 
 # Create the configMap that is used to control the communal endpoint for each test.

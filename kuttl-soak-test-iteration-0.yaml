@@ -28,8 +28,11 @@ commands:
   - command: make deploy-webhook
   - command: sh -c "make deploy-operator NAMESPACE=soak"
 
-  # Create the kustomize overlay files to set the image to use.
-  - command: tests/create-kustomize-overlay.sh $LICENSE_OPT $VERTICA_IMG
+  # Create the kustomize overlay files to set the image,
+  # endpoints, etc to use.
+  # Set KUSTOMIZE_CFG to point to a config file if you want to
+  # use custom values.
+  - command: tests/create-kustomize-overlay.sh $KUSTOMIZE_CFG
 
   # Create minio tenant and the vdb
   - command: kubectl krew update

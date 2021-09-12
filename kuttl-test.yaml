@@ -19,11 +19,9 @@ parallel: 2
 timeout: 600
 commands:
   # Create the kustomize overlay files to override the image, endpoint, etc.
-  # The following environment variables can be used to control kustomize:
-  # COMMUNAL_ENDPOINTS - set the endpoints to use, separated by comma
-  # VERTICA_IMG - what vertica image to use
-  # VLOGGER_IMG - what vertica logger to use
-  - script: 'tests/create-kustomize-overlay.sh -e ${COMMUNAL_ENDPOINTS:-http://minio.kuttl-e2e-communal,http://minio.kuttl-e2e-communal} $VERTICA_IMG $VLOGGER_IMG'
+  # Set KUSTOMIZE_CFG to point to a config file if you want to
+  # use custom values.
+  - command: tests/create-kustomize-overlay.sh $KUSTOMIZE_CFG
 
   # make dependencies
   - command: make create-helm-charts vdb-gen install-cert-manager
