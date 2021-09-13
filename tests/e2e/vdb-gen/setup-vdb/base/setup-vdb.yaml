@@ -20,7 +20,7 @@ spec:
   superuserPasswordSecret: su-passwd
   communal:
     path: "s3://vdb-gen"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
   local:
     requestSize: 100Mi

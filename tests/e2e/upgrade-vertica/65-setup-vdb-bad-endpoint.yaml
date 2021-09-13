@@ -23,7 +23,7 @@ spec:
   imagePullPolicy: IfNotPresent
   communal:
     path: "s3://upgrade-vertica"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: "http://non-existent-ep"
     credentialSecret:  non-existent-minio-creds-secret
   local:
     requestSize: 100Mi

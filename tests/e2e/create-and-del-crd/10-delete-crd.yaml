@@ -18,5 +18,3 @@ delete:
     kind: VerticaDB
   - apiVersion: v1
     kind: PersistentVolumeClaim
-commands:
-  - command: bash -c "kustomize build delete-s3-bucket/overlay | kubectl -n $NAMESPACE apply -f - "

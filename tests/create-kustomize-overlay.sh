@@ -15,27 +15,27 @@
 
 set -o errexit
 
-DEF_VERTICA_IMAGE_NAME="vertica/vertica-k8s:latest"
-DEF_VLOGGER_IMAGE_NAME="vertica/vertica-logger:latest"
-LICENSE=
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+REPO_DIR=$(dirname $SCRIPT_DIR)
 
 function usage {
-    echo "usage: $0 [-vh] [-l <licenseName>] [<imageName> [<vloggerImageName>]] "
+    echo "usage: $0 [-hv] [<configFile>]"
     echo
-    echo "  <imageName>         Image name to use in the VerticaDB CR."
-    echo "                      If omitted, it defaults to $DEF_VERTICA_IMAGE_NAME "
-    echo "  <vloggerImageName>  Image name to use for the vertica logger sidecar in"
-    echo "                      the VerticaDB CR.  If omitted, it defaults to $DEF_VLOGGER_IMAGE_NAME "
+    echo "Use config files to control the endpoints and credentials used.  This script always"
+    echo "overrides the defaults with the config file set in the KUSTOMIZE_CFG environment"
+    echo "variable.  You can also specify a config file as an option, this will override"
+    echo "anything in KUSTOMIZE_CFG."
+    echo
+    echo "You can use kustomize-defaults.cfg as a base for the config file."
     echo
     echo "Options:"
     echo "  -v                 Verbose output"
-    echo "  -l <licenseName>   Include the given license in each VerticaDB file"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "hvl:" opt; do
+while getopts "hv" opt; do
     case ${opt} in
         h)
             usage
@@ -44,9 +44,6 @@ while getopts "hvl:" opt; do
             set -o xtrace
             VERBOSE=1
             ;;
-        l)
-            LICENSE=$OPTARG
-            ;;
         \?)
             echo "Unknown option: -${opt}"
             usage
@@ -54,38 +51,52 @@ while getopts "hvl:" opt; do
     esac
 done
 
-VERTICA_IMAGE_NAME=${@:$OPTIND:1}
-if [ -z "${VERTICA_IMAGE_NAME}" ]; then
-    VERTICA_IMAGE_NAME=$DEF_VERTICA_IMAGE_NAME
-    VLOGGER_IMAGE_NAME=$DEF_VLOGGER_IMAGE_NAME
-else
-    VLOGGER_IMAGE_NAME=${@:$OPTIND+1:2}
-fi
-if [ -z "${VLOGGER_IMAGE_NAME}" ]; then
-    VLOGGER_IMAGE_NAME=$DEF_VLOGGER_IMAGE_NAME
+USER_CONFIG_FILE=${@:$OPTIND:1}
+
+# Read in the defaults
+source $REPO_DIR/tests/kustomize-defaults.cfg
+
+# Override any of the defaults if the KUSTOMIZE_CFG points to a file.
+if [ -n "$KUSTOMIZE_CFG" ]
+then
+  source $KUSTOMIZE_CFG
 fi
 
-echo "Using vertica server image name: $VERTICA_IMAGE_NAME"
-echo "Using vertica logger image name: $VLOGGER_IMAGE_NAME"
-if [ -n "$LICENSE" ]; then
-    echo "Using license name: $LICENSE"
+# Override any of the defaults from the users config file if provided.
+if [ -n "$USER_CONFIG_FILE" ]
+then
+  source $USER_CONFIG_FILE
 fi
+
+if [ -z "${VERTICA_IMG}" ]; then
+    VERTICA_IMG=$DEF_VERTICA_IMG
+fi
+if [ -z "${VLOGGER_IMG}" ]; then
+    VLOGGER_IMG=$DEF_VLOGGER_IMG
+fi
+
+echo "Using vertica server image name: $VERTICA_IMG"
+echo "Using vertica logger image name: $VLOGGER_IMG"
+if [ -n "$LICENSE_SECRET" ]; then
+    echo "Using license name: $LICENSE_SECRET"
+fi
+echo "Using endpoints: $ENDPOINT_1, $ENDPOINT_2"
 
 function create_kustomization {
     BASE_DIR=$1
     echo "" > kustomization.yaml
     kustomize edit add base $BASE_DIR
-    kustomize edit set image kustomize-vertica-image=$VERTICA_IMAGE_NAME
-    kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMAGE_NAME
+    kustomize edit set image kustomize-vertica-image=$VERTICA_IMG
+    kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMG
 
     # If license was specified we create a patch file to set that.
-    if [[ -n "$LICENSE" ]]
+    if [[ -n "$LICENSE_SECRET" ]]
     then
         LICENSE_PATCH_FILE="license-patch.yaml"
         cat <<EOF > $LICENSE_PATCH_FILE
         - op: add
           path: /spec/licenseSecret
-          value: $LICENSE
+          value: $LICENSE_SECRET
 EOF
         kustomize edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
     fi
@@ -114,14 +125,15 @@ function create_s3_bucket_kustomization {
       return 0
     fi
 
-    TC_OVERLAY=$1/create-s3-bucket/overlay
+    EP=$2
+    TC_OVERLAY=$1/create-s3-bucket-$EP/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/create-s3-bucket/base
+- ../../../../manifests/create-s3-bucket-$EP/base
 patches:
 - target:
     version: v1
@@ -137,25 +149,26 @@ EOF
     popd > /dev/null
 }
 
-function delete_s3_bucket_kustomization {
+function clean_s3_bucket_kustomization {
     if [ ! -d $1 ]
     then
       return 0
     fi
 
-    TC_OVERLAY=$1/delete-s3-bucket/overlay
+    EP=$2
+    TC_OVERLAY=$1/clean-s3-bucket-$EP/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/delete-s3-bucket/base
+- ../../../../manifests/clean-s3-bucket-$EP/base
 patches:
 - target:
     version: v1
     kind: Pod
-    name: delete-s3-bucket
+    name: clean-s3-bucket
   patch: |-
     - op: replace
       path: "/spec/containers/0/env/0"
@@ -166,10 +179,37 @@ EOF
     popd > /dev/null
 }
 
+function create_communal_cfg {
+    pushd kustomize-base > /dev/null
+    cat <<EOF > communal-cfg.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: e2e
+data:
+  endpoint1: $ENDPOINT_1
+  accesskeyEnc1: $(echo -n $ACCESSKEY_1 | base64)
+  secretkeyEnc1: $(echo -n $SECRETKEY_1 | base64)
+  accesskeyUnenc1: $ACCESSKEY_1
+  secretkeyUnenc1: $SECRETKEY_1
+
+  endpoint2: $ENDPOINT_2
+  accesskeyEnc2: $(echo -n $ACCESSKEY_2 | base64)
+  secretkeyEnc2: $(echo -n $SECRETKEY_2 | base64)
+  accesskeyUnenc2: $ACCESSKEY_2
+  secretkeyUnenc2: $SECRETKEY_2
+EOF
+
+    popd > /dev/null
+}
+
+cd $SCRIPT_DIR
+
+# Create the configMap that is used to control the communal endpoint and creds.
+create_communal_cfg
+
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-cd $SCRIPT_DIR
 for tdir in e2e/*/*/base e2e-disabled/*/*/base
 do
     create_pod_kustomization $(dirname $tdir)
@@ -180,6 +220,8 @@ do
 done
 for tdir in e2e/* e2e-disabled/*
 do
-    create_s3_bucket_kustomization $tdir
-    delete_s3_bucket_kustomization $tdir
+    create_s3_bucket_kustomization $tdir ep1
+    create_s3_bucket_kustomization $tdir ep2
+    clean_s3_bucket_kustomization $tdir ep1
+    clean_s3_bucket_kustomization $tdir ep2
 done

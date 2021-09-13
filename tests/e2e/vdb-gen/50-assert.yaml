@@ -18,7 +18,6 @@ metadata:
 spec:
   communal:
     path: "s3://vdb-gen/"
-    endpoint: "http://minio.kuttl-e2e-communal"
   dbName: vertdb
   shardCount: 6
   superuserPasswordSecret: v-vdb-gen-revive-su-passwd

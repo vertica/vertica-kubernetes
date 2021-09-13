@@ -208,24 +208,53 @@ Ensure that your Kubernetes cluster has a default storageClass. Most of the e2e 
 
 1. Push the operator and webhook with the following command:
    ```
-   $ make docker-build-operator docker-push-operator
+   make docker-build-operator docker-push-operator
    ```
 2. Verify that your operator Dockerfile is up-to-date before starting the tests.
    ```
-   $ make create-helm-charts
+   make create-helm-charts
    ```
 3. Start the test with the following make target:
    ```
-   $ make run-int-tests
+   make run-int-tests
    ```
+
+### Running Individual Tests
 
 You can also call `kubectl kuttl` from the command line if you want more control, such as running a single test or preventing cleanup when the test ends. For example, you can run a single e2e test and persist namespace with this command:
 
 ```
-$ kubectl kuttl test --test <name-of-your-test> --skip-delete
+kubectl kuttl test --test <name-of-your-test> --skip-delete
 ```
 
-For a complete list of flags that you can use, see the [kuttl docs](https://kuttl.dev/docs/cli.html#flags).
+For a complete list of flags that you can use with kuttl, see the [kuttl docs](https://kuttl.dev/docs/cli.html#flags).
+
+The communal endpoint must be setup prior to calling the tests in this manner.  You can set that up with a call to `make setup-minio`.
+
+### Customizing Communal Endpoints
+
+The default endpoints for e2e tests are minio, which are created through the `make setup-minio` target.  The endpoints are set for the test when `tests/create-kustomize-overlay.sh`.  That script can take a config file that you can use to override the endpoints and credentials.
+
+Here are the steps on how to override them:
+
+1. Make a copy of tests/kustomize-defaults.cfg
+   ```
+   cp tests/kustomize-defaults.cfg my-defaults.cfg
+   ```
+
+2. Edit my-defaults.cfg by setting the communal access point you want to use and the credentials to access the endpoint.
+
+3. Set the KUSTOMIZE_CFG environment vairable to point to my-defaults.cfg
+   ```
+   export KUSTOMIZE_CFG=my-defaults.cfg
+   ```
+
+4. Setup the commmunal endpoint.
+
+5. Run the integration tests.
+   ```
+   make run-int-tests
+   ```
 
 ## 7. Running Soak Tests
 
