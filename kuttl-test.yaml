@@ -19,9 +19,7 @@ parallel: 2
 timeout: 600
 commands:
   # Create the kustomize overlay files to override the image, endpoint, etc.
-  # Set KUSTOMIZE_CFG to point to a config file if you want to
-  # use custom values.
-  - command: tests/create-kustomize-overlay.sh $KUSTOMIZE_CFG
+  - command: tests/create-kustomize-overlay.sh
 
   # make dependencies
   - command: make create-helm-charts vdb-gen install-cert-manager

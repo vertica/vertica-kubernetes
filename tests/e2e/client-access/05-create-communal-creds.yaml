@@ -11,14 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Secret to be used as MinIO Root Credentials
-apiVersion: v1
-kind: Secret
-metadata:
-  name: minio-creds-secret
-type: Opaque
-data:
-  # Access Key for MinIO Tenant, base64 encoded (echo -n 'minio' | base64)
-  accesskey: bWluaW8=
-  # Secret Key for MinIO Tenant, base64 encoded (echo -n 'minio123' | base64)
-  secretkey: bWluaW8xMjM=
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kustomize build ../../manifests/s3-creds-ep2/base | kubectl apply -f - --namespace $NAMESPACE

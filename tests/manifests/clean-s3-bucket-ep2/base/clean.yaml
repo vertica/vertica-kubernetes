@@ -28,9 +28,9 @@ spec:
       - name: S3_BUCKET
         value: $(S3_BUCKET)
       - name: AWS_ACCESS_KEY_ID
-        value: minio
+        value: kustomize-s3-accesskey
       - name: AWS_SECRET_ACCESS_KEY
-        value: minio123
+        value: kustomize-s3-secretkey
       - name: AWS_EC2_METADATA_DISABLED
         value: 'true'
       - name: S3_EP

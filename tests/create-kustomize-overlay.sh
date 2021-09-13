@@ -21,8 +21,12 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 function usage {
     echo "usage: $0 [-hv] [<configFile>]"
     echo
-    echo "  <configFile>        Path location to a config file.  You can use kustomize-defaults.cfg"
-    echo "                      as a base for the config file."
+    echo "Use config files to control the endpoints and credentials used.  This script always"
+    echo "overrides the defaults with the config file set in the KUSTOMIZE_CFG environment"
+    echo "variable.  You can also specify a config file as an option, this will override"
+    echo "anything in KUSTOMIZE_CFG."
+    echo
+    echo "You can use kustomize-defaults.cfg as a base for the config file."
     echo
     echo "Options:"
     echo "  -v                 Verbose output"
@@ -51,6 +55,12 @@ USER_CONFIG_FILE=${@:$OPTIND:1}
 
 # Read in the defaults
 source $REPO_DIR/tests/kustomize-defaults.cfg
+
+# Override any of the defaults if the KUSTOMIZE_CFG points to a file.
+if [ -n "$KUSTOMIZE_CFG" ]
+then
+  source $KUSTOMIZE_CFG
+fi
 
 # Override any of the defaults from the users config file if provided.
 if [ -n "$USER_CONFIG_FILE" ]
@@ -195,7 +205,7 @@ EOF
 
 cd $SCRIPT_DIR
 
-# Create the configMap that is used to control the communal endpoint for each test.
+# Create the configMap that is used to control the communal endpoint and creds.
 create_communal_cfg
 
 # Descend into each test and create the overlay kustomization.

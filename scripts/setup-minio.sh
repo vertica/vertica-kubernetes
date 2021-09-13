@@ -44,7 +44,7 @@ done
 set -o errexit
 set +o xtrace
 
-kubectl apply -f $REPO_DIR/tests/manifests/minio/01-creds.yaml -n $MINIO_NS
+kustomize build $REPO_DIR/tests/manifests/s3-creds-ep1/base | kubectl apply -f - -n $MINIO_NS
 kubectl apply -f $REPO_DIR/tests/manifests/minio/02-tenant.yaml -n $MINIO_NS
 
 $SCRIPT_DIR/wait-for-minio.sh -n $MINIO_NS

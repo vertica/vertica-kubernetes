@@ -11,7 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kustomize build ../../manifests/s3-creds-ep2/base | kubectl apply -f - --namespace $NAMESPACE
+bases:
+  - ../../../kustomize-base
+
+resources:
+  - creds.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.accesskeyEnc2
+    targets:
+      - select:
+          kind: Secret
+        fieldPaths:
+          - data.accesskey
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.secretkeyEnc2
+    targets:
+      - select:
+          kind: Secret
+        fieldPaths:
+          - data.secretkey

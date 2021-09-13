@@ -11,7 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kustomize build ../../manifests/s3-creds-ep2/base | kubectl apply -f - --namespace $NAMESPACE
+# Secret to be used as s3 communal access credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-creds-secret
+type: Opaque
+data:
+  accesskey: kustomize-accesskey
+  secretkey: kustomize-secretkey
