@@ -252,6 +252,12 @@ type CommunalStorage struct {
 	// communal S3 endpoint. The secret must have the following keys set:
 	// accessey and secretkey.
 	CredentialSecret string `json:"credentialSecret"`
+
+	// +kubebuilder:validation:Optional
+	// The path to a CA cert file for use when connecting to an https:// s3
+	// endpoint.  The path is relative to inside the Vertica container.
+	// Typically this would refer to a cert that was included in certSecrets.
+	CaFile string `json:"caFile"`
 }
 
 type LocalStorage struct {
