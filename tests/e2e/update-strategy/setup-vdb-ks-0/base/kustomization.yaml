@@ -15,7 +15,7 @@ bases:
   - ../../../../kustomize-base
 
 resources:
-  - setup-vdb.yaml
+  - setup-ks-0-vdb.yaml
 
 replacements:
   - source:
