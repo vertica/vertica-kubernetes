@@ -27,9 +27,9 @@ kubectl delete namespace $MINIO_NS || :
 kubectl create namespace kuttl-e2e-communal
 
 kubectl krew update
-kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/95d35f73fd3c57465c837bed2cf9ad2d933328b2/plugins/minio.yaml
+kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/9ee1af89f729b999bcd37f90484c4d74c70a1df2/plugins/minio.yaml
 # If these images ever change, they must be updated in tests/external-images.txt
-kubectl minio init --console-image minio/console:v0.6.3 --image minio/operator:v4.0.2
+kubectl minio init --console-image minio/console:v0.9.8 --image minio/operator:v4.2.7
 
 # The above command will create the CRD.  But there is a timing hole where the
 # CRD is not yet registered with k8s, causing the tenant creation below to
