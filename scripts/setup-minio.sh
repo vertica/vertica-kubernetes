@@ -24,7 +24,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 
 kubectl delete namespace $MINIO_NS || :
-kubectl create namespace kuttl-e2e-communal
+kubectl create namespace $MINIO_NS
 
 kubectl krew update
 kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/9ee1af89f729b999bcd37f90484c4d74c70a1df2/plugins/minio.yaml
@@ -44,7 +44,7 @@ done
 set -o errexit
 set +o xtrace
 
+# SPILLY - rename s3-creds-ep1 to s3-creds?
 kustomize build $REPO_DIR/tests/manifests/s3-creds-ep1/base | kubectl apply -f - -n $MINIO_NS
 kubectl apply -f $REPO_DIR/tests/manifests/minio/02-tenant.yaml -n $MINIO_NS
-
-$SCRIPT_DIR/wait-for-minio.sh -n $MINIO_NS
+kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/minio/assert.yaml
