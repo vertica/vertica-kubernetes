@@ -179,8 +179,7 @@ run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
 	scripts/soak-runner.sh $(SOAK_CFG)
 
 .PHONY: setup-minio
-setup-minio:  ## Setup minio for use with the e2e tests
-	tests/create-kustomize-overlay.sh
+setup-minio:  install-cert-manager ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
 
 ##@ Build

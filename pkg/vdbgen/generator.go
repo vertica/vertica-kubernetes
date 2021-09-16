@@ -31,6 +31,8 @@ type KObjs struct {
 	LicenseSecret           corev1.Secret
 	SuperuserPasswordSecret corev1.Secret
 	HasPassword             bool
+	HasCAFile               bool
+	CAFile                  corev1.Secret
 }
 
 type VDBCreator interface {
@@ -66,6 +68,15 @@ func writeManifest(wr io.Writer, objs *KObjs) (err error) {
 
 	if objs.HasLicense {
 		y, err = yaml.Marshal(objs.LicenseSecret)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(wr, "---\n")
+		fmt.Fprint(wr, string(y))
+	}
+
+	if objs.HasCAFile {
+		y, err = yaml.Marshal(objs.CAFile)
 		if err != nil {
 			return err
 		}

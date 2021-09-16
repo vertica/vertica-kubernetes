@@ -21,6 +21,7 @@ spec:
     path: "s3://non-existent"
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
+    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   dbName: vertdb
@@ -28,3 +29,5 @@ spec:
     - name: sc1
       size: 1
   kSafety: "0"
+  certSecrets:
+    - name: communal-ep-cert

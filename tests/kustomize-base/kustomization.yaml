@@ -13,6 +13,7 @@
 
 resources:
   - communal-cfg.yaml
+  - communal-ep-cert.json
 
 configurations:
   - crd-config.yaml

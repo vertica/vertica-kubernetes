@@ -27,4 +27,5 @@ type Options struct {
 	IgnoreClusterLease bool
 	Image              string
 	LicenseFile        string
+	CAFile             string
 }

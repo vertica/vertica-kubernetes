@@ -15,36 +15,36 @@ bases:
   - ../../../kustomize-base
 
 resources:
-  - clean.yaml
+  - creation.yaml
 
 replacements:
   - source:
       kind: ConfigMap
       name: e2e
-      fieldPath: data.endpoint2
+      fieldPath: data.endpoint
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: create-s3-bucket
         fieldPaths:
           - spec.containers.[name=aws].env.[name=S3_EP].value
   - source:
       kind: ConfigMap
       name: e2e
-      fieldPath: data.accesskeyUnenc2
+      fieldPath: data.accesskeyUnenc
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: create-s3-bucket
         fieldPaths:
           - spec.containers.[name=aws].env.[name=AWS_ACCESS_KEY_ID].value
   - source:
       kind: ConfigMap
       name: e2e
-      fieldPath: data.secretkeyUnenc2
+      fieldPath: data.secretkeyUnenc
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: create-s3-bucket
         fieldPaths:
           - spec.containers.[name=aws].env.[name=AWS_SECRET_ACCESS_KEY].value

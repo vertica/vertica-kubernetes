@@ -25,6 +25,7 @@ spec:
         - mountPath: /depot
         - mountPath: /etc/podinfo
         - mountPath: /home/dbadmin/licensing/mnt
+        - mountPath: /certs/communal-ep-cert
         - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
 status:
   containerStatuses:
@@ -44,6 +45,7 @@ spec:
         - mountPath: /depot
         - mountPath: /etc/podinfo
         - mountPath: /home/dbadmin/licensing/mnt
+        - mountPath: /certs/communal-ep-cert
         - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
 status:
   containerStatuses:
@@ -63,6 +65,7 @@ spec:
         - mountPath: /depot
         - mountPath: /etc/podinfo
         - mountPath: /home/dbadmin/licensing/mnt
+        - mountPath: /certs/communal-ep-cert
         - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
 status:
   containerStatuses:

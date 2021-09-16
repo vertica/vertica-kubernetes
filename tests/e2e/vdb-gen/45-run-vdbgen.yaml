@@ -14,18 +14,13 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  # Copy the CE license out of a running container.  We do this to test out
-  # creation of the license manifest in vdb-gen.
-  - command: kubectl -n $NAMESPACE cp v-vdb-gen-sc1-0:/home/dbadmin/licensing/ce/vertica_community_edition.license.key /tmp/$NAMESPACE.lic
-  - command: kubectl -n $NAMESPACE cp /tmp/$NAMESPACE.lic vdb-gen-runner:/tmp/$NAMESPACE.lic
   # Copy vdb-gen into the container.  We run it in the container so that it has
   # access to k8s network.  Running it outside k8s, it would only have access to
   # what is exposed.
-  - command: kubectl -n $NAMESPACE cp ../../../bin/vdb-gen vdb-gen-runner:/tmp/vdb-gen
-  - command: kubectl -n $NAMESPACE exec vdb-gen-runner -- chmod +x /tmp/vdb-gen
-  - command: sh -c "kubectl -n $NAMESPACE exec vdb-gen-runner -- /tmp/vdb-gen -license /tmp/$NAMESPACE.lic -image $VERTICA_IMG -name v-vdb-gen-revive -password superuser -ignore-cluster-lease v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb > /tmp/$NAMESPACE-vdb-gen.yaml"
+  - command: kubectl -n $NAMESPACE cp ../../../bin/vdb-gen v-vdb-gen-sc1-0:/tmp/vdb-gen
+  - command: kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- chmod +x /tmp/vdb-gen
+  - command: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- /tmp/vdb-gen -license /home/dbadmin/licensing/ce/vertica_community_edition.license.key -image $VERTICA_IMG -name v-vdb-gen-revive -password superuser -ignore-cluster-lease -cafile /certs/communal-ep-cert/ca.crt v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb > /tmp/$NAMESPACE-vdb-gen.yaml"
   - command: cat /tmp/$NAMESPACE-vdb-gen.yaml
   # Apply the generated CR
-  - command: kubectl -n $NAMESPACE delete vdb v-vdb-gen
   - command: kubectl -n $NAMESPACE apply -f /tmp/$NAMESPACE-vdb-gen.yaml
   - command: rm /tmp/$NAMESPACE-vdb-gen.yaml

@@ -57,6 +57,9 @@ func main() {
 	flag.StringVar(&opts.LicenseFile, "license", "",
 		"A path to a license that you want to use with the VerticaDB manifest.  This license is included in a secret that gets "+
 			"printed out with the other manifests.  If omitted, no license is set in the VerticaDB.")
+	flag.StringVar(&opts.CAFile, "cafile", "",
+		"A path to AWS CA bundle used to authenticate S3 communal access.  This is only needed it a CA file is used to connect "+
+			"to the communal endpoint.")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {

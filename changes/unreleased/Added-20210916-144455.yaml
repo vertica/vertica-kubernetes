@@ -1,0 +1,3 @@
+kind: Added
+body: Added the ability to specify a CA file to authenticate communal storage.  This
+  allows an https endpoint to be used that isn't AWS.

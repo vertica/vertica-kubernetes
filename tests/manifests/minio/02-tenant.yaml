@@ -37,3 +37,6 @@ spec:
               storage: 250Mi
   mountPath: /export
   requestAutoCert: false
+  externalCertSecret:
+    - name: communal-ep-cert
+      type: kubernetes.io/tls

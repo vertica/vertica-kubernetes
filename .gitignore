@@ -14,6 +14,7 @@ local-soak.cfg
 overlay/
 create-s3-bucket-overlay/
 communal-cfg.yaml
+communal-ep-cert.json
 
 # Binaries for programs and plugins
 *.exe
