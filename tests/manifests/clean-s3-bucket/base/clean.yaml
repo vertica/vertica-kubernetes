@@ -11,15 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Start a pod that will eventually run vdb-gen
-
+# Pod to clean up the contents of an s3 bucket
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vdb-gen-runner
+  name: clean-s3-bucket
+  labels:
+    stern: include
 spec:
-  restartPolicy: Never
   containers:
-    - name: sleep
-      image: quay.io/helmpack/chart-testing:v3.3.1
-      command: ["sleep", "infinity"]
+  - name: aws
+    image: amazon/aws-cli
+    command:
+        ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://$S3_BUCKET --no-verify-ssl"]
+    env:
+      - name: S3_BUCKET
+        value: $(S3_BUCKET)
+      - name: AWS_ACCESS_KEY_ID
+        value: kustomize-s3-accesskey
+      - name: AWS_SECRET_ACCESS_KEY
+        value: kustomize-s3-secretkey
+      - name: AWS_EC2_METADATA_DISABLED
+        value: 'true'
+      - name: S3_EP
+        value: kustomize-s3-endpoint
+  restartPolicy: Never

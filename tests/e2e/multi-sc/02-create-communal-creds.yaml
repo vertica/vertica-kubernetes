@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kustomize build ../../manifests/s3-creds-ep2/base | kubectl apply -f - --namespace $NAMESPACE
+  - script: kustomize build ../../manifests/s3-creds/base | kubectl apply -f - --namespace $NAMESPACE

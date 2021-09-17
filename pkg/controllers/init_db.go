@@ -182,6 +182,7 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 			"awsauth = "+auth+"\n"+
 			"awsendpoint = "+g.getS3Endpoint()+"\n"+
 			"awsenablehttps = "+g.getEnableHTTPS()+"\n"+
+			g.getCAFile()+"\n"+
 			"'",
 	)
 
@@ -253,4 +254,12 @@ func (g *GenericDatabaseInitializer) getEnableHTTPS() string {
 		return "1"
 	}
 	return "0"
+}
+
+// getCAFile will return an entry for awscafile if one needs to be included
+func (g *GenericDatabaseInitializer) getCAFile() string {
+	if g.Vdb.Spec.Communal.CaFile == "" {
+		return ""
+	}
+	return fmt.Sprintf("awscafile = %s", g.Vdb.Spec.Communal.CaFile)
 }

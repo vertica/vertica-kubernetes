@@ -233,7 +233,7 @@ The communal endpoint must be setup prior to calling the tests in this manner.  
 
 ### Customizing Communal Endpoints
 
-The default endpoints for e2e tests are minio, which are created through the `make setup-minio` target.  The endpoints are set for the test when `tests/create-kustomize-overlay.sh`.  That script can take a config file that you can use to override the endpoints and credentials.
+The default endpoint for e2e tests is minio with TLS, which is created through the `make setup-minio` target.  The endpoint are set for the test when calling `tests/create-kustomize-overlay.sh`.  That script can take a config file that you can use to override the endpoint and credentials.
 
 Here are the steps on how to override them:
 

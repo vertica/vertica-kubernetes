@@ -24,6 +24,7 @@ spec:
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
+    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   initPolicy: Revive
@@ -32,3 +33,5 @@ spec:
     - name: sc1
       size: 1
   kSafety: "0"
+  certSecrets:
+    - name: communal-ep-cert

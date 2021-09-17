@@ -21,6 +21,7 @@ spec:
     path: "s3://kill-controller"
     endpoint: kustomize-s3-endpoint
     credentialSecret:  minio-creds-secret
+    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   dbName: db
@@ -29,3 +30,5 @@ spec:
   subclusters:
     - name: sc1
       size: 1
+  certSecrets:
+    - name: communal-ep-cert

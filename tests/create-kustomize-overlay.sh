@@ -80,7 +80,7 @@ echo "Using vertica logger image name: $VLOGGER_IMG"
 if [ -n "$LICENSE_SECRET" ]; then
     echo "Using license name: $LICENSE_SECRET"
 fi
-echo "Using endpoints: $ENDPOINT_1, $ENDPOINT_2"
+echo "Using endpoint: $ENDPOINT"
 
 function create_kustomization {
     BASE_DIR=$1
@@ -125,15 +125,14 @@ function create_s3_bucket_kustomization {
       return 0
     fi
 
-    EP=$2
-    TC_OVERLAY=$1/create-s3-bucket-$EP/overlay
+    TC_OVERLAY=$1/create-s3-bucket/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/create-s3-bucket-$EP/base
+- ../../../../manifests/create-s3-bucket/base
 patches:
 - target:
     version: v1
@@ -155,15 +154,14 @@ function clean_s3_bucket_kustomization {
       return 0
     fi
 
-    EP=$2
-    TC_OVERLAY=$1/clean-s3-bucket-$EP/overlay
+    TC_OVERLAY=$1/clean-s3-bucket/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/clean-s3-bucket-$EP/base
+- ../../../../manifests/clean-s3-bucket/base
 patches:
 - target:
     version: v1
@@ -187,19 +185,22 @@ kind: ConfigMap
 metadata:
   name: e2e
 data:
-  endpoint1: $ENDPOINT_1
-  accesskeyEnc1: $(echo -n $ACCESSKEY_1 | base64)
-  secretkeyEnc1: $(echo -n $SECRETKEY_1 | base64)
-  accesskeyUnenc1: $ACCESSKEY_1
-  secretkeyUnenc1: $SECRETKEY_1
-
-  endpoint2: $ENDPOINT_2
-  accesskeyEnc2: $(echo -n $ACCESSKEY_2 | base64)
-  secretkeyEnc2: $(echo -n $SECRETKEY_2 | base64)
-  accesskeyUnenc2: $ACCESSKEY_2
-  secretkeyUnenc2: $SECRETKEY_2
+  endpoint: $ENDPOINT
+  accesskeyEnc: $(echo -n $ACCESSKEY | base64)
+  secretkeyEnc: $(echo -n $SECRETKEY | base64)
+  accesskeyUnenc: $ACCESSKEY
+  secretkeyUnenc: $SECRETKEY
 EOF
 
+    popd > /dev/null
+}
+
+function copy_communal_ep_cert {
+    pushd kustomize-base > /dev/null
+    # Copy the secret over stripping out all of the metadata.
+    kubectl get secrets -o json -n $COMMUNAL_EP_CERT_NAMESPACE $COMMUNAL_EP_CERT_SECRET \
+    | jq 'del(.metadata)' \
+    | jq '.metadata += {name: "communal-ep-cert"}' > communal-ep-cert.json
     popd > /dev/null
 }
 
@@ -207,6 +208,8 @@ cd $SCRIPT_DIR
 
 # Create the configMap that is used to control the communal endpoint and creds.
 create_communal_cfg
+# Copy over the cert that was used to set up the communal endpoint
+copy_communal_ep_cert
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
@@ -220,8 +223,6 @@ do
 done
 for tdir in e2e/* e2e-disabled/*
 do
-    create_s3_bucket_kustomization $tdir ep1
-    create_s3_bucket_kustomization $tdir ep2
-    clean_s3_bucket_kustomization $tdir ep1
-    clean_s3_bucket_kustomization $tdir ep2
+    create_s3_bucket_kustomization $tdir
+    clean_s3_bucket_kustomization $tdir
 done

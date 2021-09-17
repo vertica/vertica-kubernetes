@@ -22,6 +22,7 @@ spec:
     path: "s3://vdb-gen"
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
+    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   dbName: vertdb
@@ -30,3 +31,5 @@ spec:
   subclusters:
     - name: sc1
       size: 1
+  certSecrets:
+    - name: communal-ep-cert

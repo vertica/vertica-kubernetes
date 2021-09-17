@@ -21,7 +21,7 @@ replacements:
   - source:
       kind: ConfigMap
       name: e2e
-      fieldPath: data.endpoint2
+      fieldPath: data.endpoint
     targets:
       - select:
           kind: VerticaDB

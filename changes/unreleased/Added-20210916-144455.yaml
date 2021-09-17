@@ -1,0 +1,3 @@
+kind: Added
+body: Added the ability to specify a custom CA file to authenticate s3 communal
+  storage over https.  Previously https was only allowed for AWS.

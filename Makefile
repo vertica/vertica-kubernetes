@@ -179,8 +179,7 @@ run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
 	scripts/soak-runner.sh $(SOAK_CFG)
 
 .PHONY: setup-minio
-setup-minio:  ## Setup minio for use with the e2e tests
-	tests/create-kustomize-overlay.sh
+setup-minio:  install-cert-manager ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
 
 ##@ Build
@@ -235,7 +234,7 @@ vdb-gen: ## Builds the vdb-gen tool
 	go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment
-CERT_MANAGER_VER=1.3.1
+CERT_MANAGER_VER=1.5.3
 install-cert-manager: ## Install the cert-manager
 	kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml
 	scripts/wait-for-cert-manager-ready.sh -t 180

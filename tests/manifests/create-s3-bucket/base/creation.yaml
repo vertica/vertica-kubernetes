@@ -11,19 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Pod to clean up the contents of an s3 bucket
+# Pod to create a bucket in minio
 apiVersion: v1
 kind: Pod
 metadata:
-  name: clean-s3-bucket
+  name: create-s3-bucket
   labels:
     stern: include
 spec:
   containers:
   - name: aws
-    image: amazon/aws-cli
+    image: amazon/aws-cli:2.2.24
     command:
-        ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://$S3_BUCKET"]
+        ["bash", "-c", "aws s3api head-bucket --endpoint $S3_EP --bucket $S3_BUCKET --no-verify-ssl || aws s3 mb --endpoint $S3_EP s3://$S3_BUCKET --no-verify-ssl"]
     env:
       - name: S3_BUCKET
         value: $(S3_BUCKET)

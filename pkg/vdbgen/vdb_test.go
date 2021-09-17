@@ -93,23 +93,25 @@ var _ = Describe("vdb", func() {
 
 		dbGen := DBGenerator{Conn: db}
 
-		mock.ExpectQuery(Queries[CommunalEndpointKey]).
+		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
 				AddRow("AWSEndpoint", "minio:30312").
 				AddRow("AWSEnableHttps", "0").
 				AddRow("other", "value").
 				AddRow("AWSAuth", "minio:minio123"))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
 		Expect(dbGen.setCommunalEndpoint(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("http://minio:30312"))
 		Expect(dbGen.Objs.CredSecret.Data[controllers.S3AccessKeyName]).Should(Equal([]byte("minio")))
 		Expect(dbGen.Objs.CredSecret.Data[controllers.S3SecretKeyName]).Should(Equal([]byte("minio123")))
 
-		mock.ExpectQuery(Queries[CommunalEndpointKey]).
+		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
 				AddRow("AWSEndpoint", "192.168.0.1").
 				AddRow("AWSEnableHttps", "1").
 				AddRow("other", "value").
 				AddRow("AWSAuth", "auth:secret"))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
 		Expect(dbGen.setCommunalEndpoint(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("https://192.168.0.1"))
 
@@ -229,5 +231,28 @@ var _ = Describe("vdb", func() {
 		Expect(len(dbGen.Objs.LicenseSecret.Data)).ShouldNot(Equal(0))
 		Expect(len(dbGen.Objs.Vdb.Spec.LicenseSecret)).ShouldNot(Equal(0))
 		Expect(dbGen.Objs.Vdb.Spec.LicenseSecret).Should(Equal(dbGen.Objs.LicenseSecret.ObjectMeta.Name))
+	})
+
+	It("should fail if CA file isn't present but one is in the db cfg", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("AWSEndpoint", "minio:30312").
+				AddRow("AWSEnableHttps", "1").
+				AddRow("AWSCAFile", "/certs/ca.crt").
+				AddRow("AWSAuth", "minio:minio123"))
+
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCAFile(ctx)).ShouldNot(Succeed())
+
+		// Now correct the error by providing a ca file in the opts.
+		dbGen.Opts.CAFile = "ca.crt"
+		Expect(dbGen.setCAFile(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.HasCAFile).Should(BeTrue())
+		Expect(len(dbGen.Objs.Vdb.Spec.CertSecrets)).Should(Equal(1))
 	})
 })
