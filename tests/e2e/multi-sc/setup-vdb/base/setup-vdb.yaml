@@ -22,6 +22,7 @@ spec:
     path: "s3://multi-sc"
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
+    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   subclusters:
@@ -32,3 +33,5 @@ spec:
       size: 1
       isPrimary: false
   kSafety: "0"
+  certSecrets:
+    - name: communal-ep-cert

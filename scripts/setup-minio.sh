@@ -24,12 +24,21 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 
 kubectl delete namespace $MINIO_NS || :
-kubectl create namespace kuttl-e2e-communal
+kubectl create namespace $MINIO_NS
+
+# Create the cert that will be used for https access.  This will create a secret
+# with the tls keys.
+kubectl apply -f $REPO_DIR/tests/manifests/minio/01-cert.yaml -n $MINIO_NS
+kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/minio/01-assert.yaml
+
+# Make the tls keys be available through kustomize by copying it into the
+# communal-cfg.yaml
+$REPO_DIR/tests/create-kustomize-overlay.sh
 
 kubectl krew update
-kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/95d35f73fd3c57465c837bed2cf9ad2d933328b2/plugins/minio.yaml
+kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/9ee1af89f729b999bcd37f90484c4d74c70a1df2/plugins/minio.yaml
 # If these images ever change, they must be updated in tests/external-images.txt
-kubectl minio init --console-image minio/console:v0.6.3 --image minio/operator:v4.0.2
+kubectl minio init --console-image minio/console:v0.9.8 --image minio/operator:v4.2.7
 
 # The above command will create the CRD.  But there is a timing hole where the
 # CRD is not yet registered with k8s, causing the tenant creation below to
@@ -44,7 +53,6 @@ done
 set -o errexit
 set +o xtrace
 
-kustomize build $REPO_DIR/tests/manifests/s3-creds-ep1/base | kubectl apply -f - -n $MINIO_NS
+kustomize build $REPO_DIR/tests/manifests/s3-creds/base | kubectl apply -f - -n $MINIO_NS
 kubectl apply -f $REPO_DIR/tests/manifests/minio/02-tenant.yaml -n $MINIO_NS
-
-$SCRIPT_DIR/wait-for-minio.sh -n $MINIO_NS
+kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/minio/02-assert.yaml

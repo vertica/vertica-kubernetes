@@ -31,5 +31,6 @@ spec:
           name: my-cert-1
         - mountPath: /certs/my-cert-2
           name: my-cert-2
+        - name: communal-ep-cert
         - mountPath: /certs/my-cert-3
           name: my-cert-3

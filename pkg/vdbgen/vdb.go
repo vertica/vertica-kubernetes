@@ -26,10 +26,12 @@ import (
 
 	// Blank import of vertica since we use it indirectly through the sql interface
 	_ "github.com/vertica/vertica-sql-go"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 )
 
 type DBGenerator struct {
@@ -37,25 +39,27 @@ type DBGenerator struct {
 	Opts        *Options
 	Objs        KObjs
 	LicenseData []byte
+	DBCfg       map[string]string // Contents extracted from 'SHOW DATABASE DEFAULT ALL'
+	CAFileData  []byte
 }
 
 type QueryType string
 
 const (
-	ShardCountKey       QueryType = "shardCount"
-	CommunalEndpointKey QueryType = "communalEP"
-	StorageLocationKey  QueryType = "storageLocation"
-	SubclusterQueryKey  QueryType = "subcluster"
+	ShardCountKey      QueryType = "shardCount"
+	DBCfgKey           QueryType = "dbCfg"
+	StorageLocationKey QueryType = "storageLocation"
+	SubclusterQueryKey QueryType = "subcluster"
 
 	SecretAPIVersion = "v1"
 	SecretKindName   = "Secret"
 )
 
 var Queries = map[QueryType]string{
-	ShardCountKey:       "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
-	CommunalEndpointKey: "SHOW DATABASE DEFAULT ALL",
-	StorageLocationKey:  "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
-	SubclusterQueryKey:  "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
+	ShardCountKey:      "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
+	DBCfgKey:           "SHOW DATABASE DEFAULT ALL",
+	StorageLocationKey: "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
+	SubclusterQueryKey: "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
 }
 
 // Create will generate a VerticaDB based the specifics gathered from a live database
@@ -67,12 +71,15 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.readLicense,
 		d.connect,
 		d.setShardCount,
+		d.fetchDatabaseConfig,
 		d.setCommunalEndpoint,
 		d.setLocalPaths,
 		d.setSubclusterDetail,
 		d.setCommunalPath,
 		d.setLicense,
 		d.setPasswordSecret,
+		d.readCAFile,
+		d.setCAFile,
 	}
 
 	for _, collector := range collectors {
@@ -148,21 +155,17 @@ func (d *DBGenerator) setShardCount(ctx context.Context) error {
 	return nil
 }
 
-// setCommunalEndpoint will fetch the communal endpoint and set it in v.vdb
-func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
-	q := Queries[CommunalEndpointKey]
+// fetchDatabaseConfig populate the DbCfg with output of the call to
+// 'SHOW DATABASE DEFAULT ALL'
+func (d *DBGenerator) fetchDatabaseConfig(ctx context.Context) error {
+	q := Queries[DBCfgKey]
 	rows, err := d.Conn.QueryContext(ctx, q)
 	if err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
 	defer rows.Close()
 
-	const HTTPSKey = "AWSEnableHttps"
-	const EndpointKey = "AWSEndpoint"
-	const AWSAuth = "AWSAuth"
-	var protocol, endpoint string
-	var auth []string
-
+	d.DBCfg = map[string]string{}
 	for rows.Next() {
 		if rows.Err() != nil {
 			return fmt.Errorf("failed running '%s': %w", q, rows.Err())
@@ -172,32 +175,43 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 		if err := rows.Scan(&key, &value); err != nil {
 			return fmt.Errorf("failed running '%s': %w", q, err)
 		}
+		d.DBCfg[key] = value
+	}
+	return nil
+}
 
-		switch key {
-		case HTTPSKey:
-			if value == "0" {
-				protocol = "http"
-			} else {
-				protocol = "https"
-			}
-		case EndpointKey:
-			endpoint = value
+// setCommunalEndpoint will fetch the communal endpoint and set it in v.vdb
+func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
+	const HTTPSKey = "AWSEnableHttps"
+	const EndpointKey = "AWSEndpoint"
+	const AWSAuth = "AWSAuth"
+	var protocol, endpoint string
+	var auth []string
 
-		case AWSAuth:
-			authRE := regexp.MustCompile(`:`)
-			const NumAuthComponents = 2
-			auth = authRE.Split(value, NumAuthComponents)
-		}
+	// The db cfg is already loaded in fetchDatabaseConfig
+	value, ok := d.DBCfg[HTTPSKey]
+	if !ok {
+		return fmt.Errorf("missing '%s' in query '%s'", HTTPSKey, Queries[DBCfgKey])
 	}
-	if protocol == "" {
-		return fmt.Errorf("missing '%s' in query '%s'", HTTPSKey, q)
+	if value == "0" {
+		protocol = "http"
+	} else {
+		protocol = "https"
 	}
-	if endpoint == "" {
-		return fmt.Errorf("missing '%s' in query '%s'", EndpointKey, q)
+
+	value, ok = d.DBCfg[EndpointKey]
+	if !ok {
+		return fmt.Errorf("missing '%s' in query '%s'", EndpointKey, Queries[DBCfgKey])
 	}
-	if len(auth) == 0 {
-		return fmt.Errorf("missing '%s' in query '%s'", AWSAuth, q)
+	endpoint = value
+
+	value, ok = d.DBCfg[AWSAuth]
+	if !ok {
+		return fmt.Errorf("missing '%s' in query '%s'", AWSAuth, Queries[DBCfgKey])
 	}
+	authRE := regexp.MustCompile(`:`)
+	const NumAuthComponents = 2
+	auth = authRE.Split(value, NumAuthComponents)
 
 	d.Objs.Vdb.Spec.Communal.Endpoint = fmt.Sprintf("%s://%s", protocol, endpoint)
 	d.Objs.CredSecret.Data = map[string][]byte{
@@ -406,6 +420,45 @@ func (d *DBGenerator) setPasswordSecret(ctx context.Context) error {
 	d.Objs.SuperuserPasswordSecret.ObjectMeta.Name = fmt.Sprintf("%s-su-passwd", d.Opts.VdbName)
 	d.Objs.Vdb.Spec.SuperuserPasswordSecret = d.Objs.SuperuserPasswordSecret.ObjectMeta.Name
 	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{controllers.SuperuserPasswordKey: []byte(d.Opts.Password)}
+
+	return nil
+}
+
+// readCAFile will read the CA file provided on the command line
+func (d *DBGenerator) readCAFile(ctx context.Context) error {
+	if d.Opts.CAFile == "" {
+		return nil
+	}
+
+	var err error
+	d.CAFileData, err = ioutil.ReadFile(d.Opts.CAFile)
+	return err
+}
+
+// setCAFile will capture information about the AWSCAFile and put it into a secret
+func (d *DBGenerator) setCAFile(ctx context.Context) error {
+	const AWSCAFileKey = "AWSCAFile"
+	const CACertKey = "ca.crt"
+
+	// The db cfg is already loaded in fetchDatabaseConfig
+	_, ok := d.DBCfg[AWSCAFileKey]
+	if !ok {
+		// Not an error, this just means there is no CA file set
+		return nil
+	}
+
+	if d.Opts.CAFile == "" {
+		return fmt.Errorf("communal endpoint authenticates with a CA file but -cafile not provided")
+	}
+
+	d.Objs.HasCAFile = true
+	d.Objs.CAFile.TypeMeta.APIVersion = SecretAPIVersion
+	d.Objs.CAFile.TypeMeta.Kind = SecretKindName
+	d.Objs.CAFile.ObjectMeta.Name = fmt.Sprintf("%s-ca-cert", d.Opts.VdbName)
+	d.Objs.CAFile.Data = map[string][]byte{CACertKey: d.CAFileData}
+	d.Objs.Vdb.Spec.CertSecrets = append(d.Objs.Vdb.Spec.CertSecrets,
+		corev1.LocalObjectReference{Name: d.Objs.CAFile.ObjectMeta.Name})
+	d.Objs.Vdb.Spec.Communal.CaFile = fmt.Sprintf("%s/%s/%s", paths.CertsRoot, d.Objs.CAFile.ObjectMeta.Name, CACertKey)
 
 	return nil
 }

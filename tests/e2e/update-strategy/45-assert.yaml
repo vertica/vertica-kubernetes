@@ -27,3 +27,4 @@ spec:
             - mountPath: /depot
             - mountPath: /etc/podinfo
             - mountPath: /home/dbadmin/licensing/mnt
+            - mountPath: /certs/communal-ep-cert

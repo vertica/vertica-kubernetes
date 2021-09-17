@@ -11,28 +11,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-bases:
-  - ../../../kustomize-base
+# This is applied through envsubst so that the $NAMESPACE gets filled in
 
-resources:
-  - creds.yaml
-
-replacements:
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.accesskeyEnc1
-    targets:
-      - select:
-          kind: Secret
-        fieldPaths:
-          - data.accesskey
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.secretkeyEnc1
-    targets:
-      - select:
-          kind: Secret
-        fieldPaths:
-          - data.secretkey
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: serving-cert
+spec:
+  commonName: k8s.vertica.com
+  dnsNames:
+    - minio
+    - minio.kuttl-e2e-communal
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: communal-ep-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
