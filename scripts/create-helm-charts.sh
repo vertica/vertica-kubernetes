@@ -46,3 +46,5 @@ for fn in $(ls $TEMPLATE_DIR/*webhookconfiguration.yaml)
 do
   sed -i 's/clientConfig:/clientConfig:\n    caBundle: {{ .Values.webhook.caBundle }}/' $fn
 done
+# 5. Template the resource limits and requests
+sed -i 's/resources: template-placeholder/resources:\n          {{- toYaml .Values.resources | nindent 10 }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
