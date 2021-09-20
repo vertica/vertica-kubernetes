@@ -326,6 +326,9 @@ func (v *VerticaDB) hasPrimarySubcluster(allErrs field.ErrorList) field.ErrorLis
 }
 
 func (v *VerticaDB) validateKsafety(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
 	sizeSum := v.getClusterSize()
 	switch v.Spec.KSafety {
 	case KSafety0:

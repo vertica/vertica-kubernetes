@@ -143,6 +143,7 @@ type VerticaDBSpec struct {
 	// of 20 minutes.
 	RestartTimeout int `json:"restartTimeout,omitempty"`
 
+	// +kubebuilder:validation:Optional
 	// Contains details about the communal storage.
 	Communal CommunalStorage `json:"communal"`
 

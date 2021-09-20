@@ -166,6 +166,14 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 		}
 	}
 
+	// The rest of the steps depend on knowing the compat21 node name for the
+	// pod.  If ScheduleOnly, we cannot reliable know that since the operator
+	// didn't originate the install.  So we will skip the rest if running in
+	// that mode.
+	if r.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		return ctrl.Result{}, nil
+	}
+
 	// Find any pods that need to have their IP updated.  These are nodes that
 	// have been installed but not yet added to a database.
 	reIPPods := r.PFacts.findReIPPods(true)
