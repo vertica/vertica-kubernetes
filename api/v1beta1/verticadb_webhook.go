@@ -221,17 +221,23 @@ func (v *VerticaDB) hasAtLeastOneSC(allErrs field.ErrorList) field.ErrorList {
 }
 
 func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList {
-	// initPolicy should either be Create or Revive.
-	if v.Spec.InitPolicy != CommunalInitPolicyCreate && v.Spec.InitPolicy != CommunalInitPolicyRevive {
+	switch v.Spec.InitPolicy {
+	case CommunalInitPolicyCreate:
+	case CommunalInitPolicyRevive:
+	case CommunalInitPolicyScheduleOnly:
+	default:
 		err := field.Invalid(field.NewPath("spec").Child("initPolicy"),
 			v.Spec.InitPolicy,
-			"initPolicy should either be Create or Revive.")
+			"initPolicy should either be Create, Revive or ScheduleOnly.")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }
 
 func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
 	// communal.Path must be an S3 bucket, prefaced with s3://
 	if !strings.HasPrefix(v.Spec.Communal.Path, "s3://") {
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
@@ -243,6 +249,9 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 }
 
 func (v *VerticaDB) validateS3Bucket(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
 	// communal.Path must be an S3 bucket, prefaced with s3://
 	if !strings.HasPrefix(v.Spec.Communal.Path, "s3://") {
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
@@ -254,6 +263,9 @@ func (v *VerticaDB) validateS3Bucket(allErrs field.ErrorList) field.ErrorList {
 }
 
 func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
 	// communal.endpoint must be prefaced with http:// or https:// to know what protocol to connect with.
 	if !(strings.HasPrefix(v.Spec.Communal.Endpoint, "http://") ||
 		strings.HasPrefix(v.Spec.Communal.Endpoint, "https://")) {
@@ -266,6 +278,9 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 }
 
 func (v *VerticaDB) credentialSecretExists(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
 	// communal.credentialSecret must exist
 	if v.Spec.Communal.CredentialSecret == "" {
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("credentialSecret"),

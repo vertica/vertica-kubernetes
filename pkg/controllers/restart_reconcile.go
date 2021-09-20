@@ -84,9 +84,10 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	}
 
 	// We have two paths.  If the entire cluster is down we have separate
-	// admintools commands to run.
-
-	if r.PFacts.getUpNodeCount() == 0 {
+	// admintools commands to run.  Cluster operations only apply if the entire
+	// vertica cluster is managed by k8s.  We skip that if initPolicy is
+	// ScheduleOnly.
+	if r.PFacts.getUpNodeCount() == 0 && r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
 		return r.reconcileCluster(ctx)
 	}
 	return r.reconcileNodes(ctx)
