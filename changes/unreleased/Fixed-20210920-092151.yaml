@@ -1,0 +1,3 @@
+kind: Fixed
+body: Increased the memory limit for the operator pod and made it configurable as
+  a helm parameter.

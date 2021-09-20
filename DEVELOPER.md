@@ -326,7 +326,7 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
 1. Use `kubectl edit` to open the running deployment for editing:
 
    ```
-   $ kubectl edit deployment operator-controller-manager
+   $ kubectl edit deployment verticadb-operator-controller-manager
    ```
 
 2. Locate where the arguments are passed to the manager, and add `--enable-profiler`:
@@ -347,7 +347,7 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
 3. Port forward 6060 to access the webUI for the profiler. The name of the pod differs for each deployment, so be sure to find the one specific to your cluster:
 
    ```
-   $ kubectl port-forward --address 10.20.30.40 pod/operator-controller-manager-5dd5b54df4-2krcr 6060:6060
+   $ kubectl port-forward pod/verticadb-operator-controller-manager-5dd5b54df4-2krcr 6060:6060
    ```
 
 4. Use a web browser or the standalone tool to connect to `http://localhost:6060/debug/pprof`.
