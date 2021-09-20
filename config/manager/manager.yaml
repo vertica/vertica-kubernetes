@@ -39,13 +39,7 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        resources:
-          limits:
-            cpu: 100m
-            memory: 250Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
+        resources:  template-placeholder
         env:
           - name: WATCH_NAMESPACE
             valueFrom:
