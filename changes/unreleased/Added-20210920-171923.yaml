@@ -1,0 +1,4 @@
+kind: Added
+body: New initPolicy called ScheduleOnly.  Aside from Vertica node restart, all other
+  automation by the operator is skipped.  You can use this if you have an existing
+  on-prem Vertica cluster that and you want to scale out to Kubernetes.
