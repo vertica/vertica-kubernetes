@@ -247,6 +247,10 @@ type CommunalStorage struct {
 	// and cannot change after creation.
 	Endpoint string `json:"endpoint"`
 
+	// +kubebuilder:validation:Optional
+	// The s3 region.
+	Region string `json:"region"`
+
 	// +kubebuilder:validation:required
 	// The name of a secret that contains the credentials to connect to the
 	// communal S3 endpoint. The secret must have the following keys set:

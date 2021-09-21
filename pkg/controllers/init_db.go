@@ -183,6 +183,7 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 			"awsendpoint = "+g.getS3Endpoint()+"\n"+
 			"awsenablehttps = "+g.getEnableHTTPS()+"\n"+
 			g.getCAFile()+"\n"+
+			g.getS3Region()+"\n"+
 			"'",
 	)
 
@@ -246,6 +247,14 @@ func (g *GenericDatabaseInitializer) getS3Endpoint() string {
 		}
 	}
 	return g.Vdb.Spec.Communal.Endpoint
+}
+
+// getS3Region  will return an entry for awsregion if one needs to be included
+func (g *GenericDatabaseInitializer) getS3Region() string {
+	if g.Vdb.Spec.Communal.Region == "" {
+		return ""
+	}
+	return fmt.Sprintf("awsregion = %s", g.Vdb.Spec.Communal.Region)
 }
 
 // getEnableHTTPS will return "1" if connecting to https otherwise return "0"

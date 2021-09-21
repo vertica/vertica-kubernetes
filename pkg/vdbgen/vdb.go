@@ -73,6 +73,7 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.setShardCount,
 		d.fetchDatabaseConfig,
 		d.setCommunalEndpoint,
+		d.setCommunalRegion,
 		d.setLocalPaths,
 		d.setSubclusterDetail,
 		d.setCommunalPath,
@@ -218,6 +219,21 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 		controllers.S3AccessKeyName: []byte(auth[0]),
 		controllers.S3SecretKeyName: []byte(auth[1]),
 	}
+
+	return nil
+}
+
+// setCommunalRegion will fetch the communal region and set it in v.vdb
+func (d *DBGenerator) setCommunalRegion(ctx context.Context) error {
+	const AWSRegion = "AWSRegion"
+
+	// The db cfg is already loaded in fetchDatabaseConfig
+	value, ok := d.DBCfg[AWSRegion]
+	if !ok {
+		return fmt.Errorf("missing '%s' in query '%s'", AWSRegion, Queries[DBCfgKey])
+	}
+
+	d.Objs.Vdb.Spec.Communal.Region = value
 
 	return nil
 }
