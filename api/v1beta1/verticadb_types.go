@@ -205,12 +205,11 @@ const (
 	// The database in the communal path will be initialized in the VerticaDB
 	// through a revive_db.  The communal path must have a preexisting database.
 	CommunalInitPolicyRevive = "Revive"
-	// Only schedule pods to run with the vertica container.  The boostrap of
+	// Only schedule pods to run with the vertica container.  The bootstrap of
 	// the database, either create_db or revive_db, is not handled.  Use this
 	// policy when you have a vertica cluster running outside of Kubernetes and
-	// you want to provision new nodes to run inside Kubernetes, such as a
-	// secondary cluster.  Most of the automation is disabled when running in
-	// this mode.
+	// you want to provision new nodes to run inside Kubernetes.  Most of the
+	// automation is disabled when running in this mode.
 	CommunalInitPolicyScheduleOnly = "ScheduleOnly"
 )
 
