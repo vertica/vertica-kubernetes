@@ -185,6 +185,7 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 	const HTTPSKey = "AWSEnableHttps"
 	const EndpointKey = "AWSEndpoint"
 	const AWSAuth = "AWSAuth"
+	const RegionKey = "AWSRegion"
 	var protocol, endpoint string
 	var auth []string
 
@@ -212,6 +213,12 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 	authRE := regexp.MustCompile(`:`)
 	const NumAuthComponents = 2
 	auth = authRE.Split(value, NumAuthComponents)
+
+	// The region may not be present if the default was never overridden.
+	value, ok = d.DBCfg[RegionKey]
+	if ok {
+		d.Objs.Vdb.Spec.Communal.Region = value
+	}
 
 	d.Objs.Vdb.Spec.Communal.Endpoint = fmt.Sprintf("%s://%s", protocol, endpoint)
 	d.Objs.CredSecret.Data = map[string][]byte{

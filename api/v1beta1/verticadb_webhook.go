@@ -68,6 +68,9 @@ func (v *VerticaDB) Default() {
 	if strings.HasSuffix(v.Spec.Image, ":latest") {
 		v.Spec.ImagePullPolicy = v1.PullAlways
 	}
+	if v.Spec.Communal.Region == "" {
+		v.Spec.Communal.Region = DefaultS3Region
+	}
 }
 
 //+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions={v1,v1beta1}

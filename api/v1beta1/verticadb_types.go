@@ -257,7 +257,13 @@ type CommunalStorage struct {
 	// The path to a CA cert file for use when connecting to an https:// s3
 	// endpoint.  The path is relative to inside the Vertica container.
 	// Typically this would refer to a cert that was included in certSecrets.
-	CaFile string `json:"caFile"`
+	CaFile string `json:"caFile,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// The region containing the S3 bucket.  If you do not set the correct
+	// region, you might experience a delay before the bootstrap fails because
+	// Vertica retries several times before giving up.
+	Region string `json:"region,omitempty"`
 }
 
 type LocalStorage struct {
@@ -505,6 +511,8 @@ const (
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
 	BuildRefAnnotation  = "vertica.com/buildRef"
+
+	DefaultS3Region = "us-east-1"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName

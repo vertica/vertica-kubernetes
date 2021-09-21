@@ -100,6 +100,11 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 				"The communal path '%s' is not empty", paths.GetCommunalPath(c.Vdb))
 			return ctrl.Result{Requeue: true}, nil
 
+		case isWrongRegion(stdout):
+			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3WrongRegion,
+				"You are trying to access your S3 bucket using the wrong region")
+			return ctrl.Result{Requeue: true}, nil
+
 		default:
 			c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeWarning, events.CreateDBFailed,
 				"Failed to create the database")
@@ -114,6 +119,23 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 func isCommunalPathNotEmpty(op string) bool {
 	re := regexp.MustCompile(`Communal location \[.+\] is not empty`)
 	return re.FindAllString(op, -1) != nil
+}
+
+// isWrongRegion will check the error to see if we are accessing the wrong S3 region
+func isWrongRegion(op string) bool {
+	// We have seen two varieties of errors
+	errTexts := []string{
+		"You are trying to access your S3 bucket using the wrong region",
+		"the region '.+' is wrong; expecting '.+'",
+	}
+
+	for i := range errTexts {
+		re := regexp.MustCompile(errTexts[i])
+		if re.FindAllString(op, -1) != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // preCmdSetup will generate the file we include with the create_db.
