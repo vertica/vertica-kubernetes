@@ -29,7 +29,7 @@ commands:
   - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
     ignoreFailure: true
-  - command: bash -c "kustomize build tests/manifests/image-pull/overlay | kubectl -n $NAMESPACE apply -f - "
+  - command: bash -c "kustomize build tests/manifests/image-pull/base | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull
@@ -37,12 +37,12 @@ commands:
 
   # We do a pre-pull of the vertica-k8s image version latest and 10.1.1-0
   # that we will use for the test upgrade-vertica.
-  - command: bash -c "sed 's+kustomize-vertica-image+vertica/vertica-k8s:11.0.0-0-minimal+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
+  - command: bash -c "kustomize build tests/manifests/image-pull/upgrade-vertica-1 | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
-  - command: bash -c "sed 's+kustomize-vertica-image+vertica/vertica-k8s:latest+g' tests/manifests/image-pull/base/vertica-k8s-image-pull.yaml | kubectl -n $NAMESPACE apply -f - "
+  - command: bash -c "kustomize build tests/manifests/image-pull/upgrade-vertica-2 | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull

@@ -48,3 +48,13 @@ replacements:
           name: clean-s3-bucket
         fieldPaths:
           - spec.containers.[name=aws].env.[name=AWS_SECRET_ACCESS_KEY].value
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.s3Bucket
+    targets:
+      - select:
+          kind: Pod
+          name: clean-s3-bucket
+        fieldPaths:
+          - spec.containers.[name=aws].env.[name=S3_BUCKET].value

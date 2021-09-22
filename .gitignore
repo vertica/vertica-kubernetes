@@ -9,6 +9,7 @@ kuttl-test.xml
 kubeconfig
 run.out
 local-soak.cfg
+local-kustomize.cfg
 
 # Generated files from create-kustomize-overlay.sh
 overlay/

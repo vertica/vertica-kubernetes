@@ -81,11 +81,13 @@ if [ -n "$LICENSE_SECRET" ]; then
     echo "Using license name: $LICENSE_SECRET"
 fi
 echo "Using endpoint: $ENDPOINT"
+echo "S3 bucket name: $S3_BUCKET"
 
-function create_kustomization {
+function create_vdb_kustomization {
     BASE_DIR=$1
     echo "" > kustomization.yaml
     kustomize edit add base $BASE_DIR
+    kustomize edit add base $(realpath --relative-to="." $REPO_DIR/tests/kustomize-base)
     kustomize edit set image kustomize-vertica-image=$VERTICA_IMG
     kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMG
 
@@ -100,9 +102,35 @@ function create_kustomization {
 EOF
         kustomize edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
     fi
+
+    # Include a replacement to pick up any communal config items.
+    cat <<EOF >> kustomization.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.endpoint
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.communal.endpoint
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.region
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.communal.region
+        options:
+          create: true
+EOF
 }
 
-function create_pod_kustomization {
+function create_vdb_pod_kustomization {
     # Skip directory if it doesn't have any kustomization config
     if [ ! -d $1/base ]
     then
@@ -115,10 +143,11 @@ function create_pod_kustomization {
     if [[ -n "$VERBOSE" ]]; then
         echo "Creating overlay in $TC_OVERLAY"
     fi
-    create_kustomization ../base
+    create_vdb_kustomization ../base
     popd > /dev/null
 }
 
+# SPILLY - remove this
 function create_s3_bucket_kustomization {
     if [ ! -d $1 ]
     then
@@ -169,9 +198,9 @@ patches:
     name: clean-s3-bucket
   patch: |-
     - op: replace
-      path: "/spec/containers/0/env/0"
+      path: "/spec/containers/0/env/1"
       value:
-        name: S3_BUCKET
+        name: TESTCASE_NAME
         value: $(basename $1)
 EOF
     popd > /dev/null
@@ -179,6 +208,7 @@ EOF
 
 function create_communal_cfg {
     pushd kustomize-base > /dev/null
+    # SPILLY - consider a rename of communal-cfg.yaml
     cat <<EOF > communal-cfg.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -190,6 +220,10 @@ data:
   secretkeyEnc: $(echo -n $SECRETKEY | base64)
   accesskeyUnenc: $ACCESSKEY
   secretkeyUnenc: $SECRETKEY
+  region: $REGION
+  s3Bucket: $S3_BUCKET
+  verticaImage: ${VERTICA_IMG:-$DEF_VERTICA_IMG}
+  vloggerImage: ${VLOGGER_IMG:-$DEF_VLOGGER_IMG}
 EOF
 
     popd > /dev/null
@@ -215,14 +249,9 @@ copy_communal_ep_cert
 # The overlay is created in a directory like: overlay/<tc-name>
 for tdir in e2e/*/*/base e2e-disabled/*/*/base
 do
-    create_pod_kustomization $(dirname $tdir)
-done
-for tdir in manifests/*
-do
-    create_pod_kustomization $tdir
+    create_vdb_pod_kustomization $(dirname $tdir)
 done
 for tdir in e2e/* e2e-disabled/*
 do
-    create_s3_bucket_kustomization $tdir
     clean_s3_bucket_kustomization $tdir
 done

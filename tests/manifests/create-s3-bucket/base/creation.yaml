@@ -23,10 +23,10 @@ spec:
   - name: aws
     image: amazon/aws-cli:2.2.24
     command:
-        ["bash", "-c", "aws s3api head-bucket --endpoint $S3_EP --bucket $S3_BUCKET --no-verify-ssl || aws s3 mb --endpoint $S3_EP s3://$S3_BUCKET --no-verify-ssl"]
+        ["bash", "-c", "aws s3api head-bucket --endpoint $S3_EP --bucket $S3_BUCKET --no-verify-ssl || aws s3 mb --endpoint $S3_EP $S3_BUCKET --no-verify-ssl"]
     env:
       - name: S3_BUCKET
-        value: $(S3_BUCKET)
+        value: kustomize-s3-bucket
       - name: AWS_ACCESS_KEY_ID
         value: kustomize-s3-accesskey
       - name: AWS_SECRET_ACCESS_KEY

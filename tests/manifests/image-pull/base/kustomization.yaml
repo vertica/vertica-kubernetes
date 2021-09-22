@@ -11,5 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+bases:
+  - ../../../kustomize-base
+
 resources:
   - vertica-k8s-image-pull.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.verticaImage
+    targets:
+      - select:
+          kind: Pod
+          name: vertica-k8s-image-pull
+        fieldPaths:
+          - spec.containers.[name=vsql].image

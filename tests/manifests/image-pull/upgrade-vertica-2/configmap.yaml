@@ -11,23 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: v-client-access
-spec:
-  image: kustomize-vertica-image
-  communal:
-    path: "s3://$(S3_BUCKET)/client-access"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
-  local:
-    requestSize: 100Mi
-  dbName: vertdb
-  subclusters:
-    - name: sc1
-      size: 2
-  kSafety: "0"
-  certSecrets:
-    - name: communal-ep-cert
+  name: upgrade-vertica-2
+data:
+  image: vertica/vertica-k8s:latest
