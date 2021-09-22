@@ -35,6 +35,7 @@ const (
 	S3CredsWrongKey                 = "S3CredsWrongKey"
 	S3EndpointIssue                 = "S3EndpointIssue"
 	S3BucketDoesNotExist            = "S3BucketDoesNotExist"
+	S3WrongRegion                   = "S3WrongRegion"
 	CommunalPathIsNotEmpty          = "CommunalPathIsNotEmpty"
 	RemoveNodesStart                = "RemoveNodesStart"
 	RemoveNodesSucceeded            = "RemoveNodesSucceeded"

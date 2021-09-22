@@ -182,6 +182,7 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 			"awsauth = "+auth+"\n"+
 			"awsendpoint = "+g.getS3Endpoint()+"\n"+
 			"awsenablehttps = "+g.getEnableHTTPS()+"\n"+
+			g.getRegion()+"\n"+
 			g.getCAFile()+"\n"+
 			"'",
 	)
@@ -262,4 +263,15 @@ func (g *GenericDatabaseInitializer) getCAFile() string {
 		return ""
 	}
 	return fmt.Sprintf("awscafile = %s", g.Vdb.Spec.Communal.CaFile)
+}
+
+// getRegion will return an entry for awsregion
+func (g *GenericDatabaseInitializer) getRegion() string {
+	const FieldName = "awsregion"
+	// We have a webhook to set the default value, but for legacy purposes we
+	// always check for the empty string.
+	if g.Vdb.Spec.Communal.Region == "" {
+		return fmt.Sprintf("%s = %s", FieldName, vapi.DefaultS3Region)
+	}
+	return fmt.Sprintf("%s = %s", FieldName, g.Vdb.Spec.Communal.Region)
 }

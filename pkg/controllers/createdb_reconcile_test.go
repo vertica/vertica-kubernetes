@@ -121,6 +121,8 @@ var _ = Describe("createdb_reconciler", func() {
 			"Unable to connect to endpoint",
 			"The specified bucket does not exist.",
 			"Communal location [s3://blah] is not empty",
+			"You are trying to access your S3 bucket using the wrong region. If you are using S3",
+			"The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'eu-central-1'.",
 		}
 
 		for i := range errStrings {
