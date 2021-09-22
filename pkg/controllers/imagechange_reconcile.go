@@ -50,6 +50,11 @@ func MakeImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
 func (u *ImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	// no-op for ScheduleOnly init policy
+	if u.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		return ctrl.Result{}, nil
+	}
+
 	if err := u.PFacts.Collect(ctx, u.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

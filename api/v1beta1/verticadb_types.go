@@ -143,6 +143,7 @@ type VerticaDBSpec struct {
 	// of 20 minutes.
 	RestartTimeout int `json:"restartTimeout,omitempty"`
 
+	// +kubebuilder:validation:Optional
 	// Contains details about the communal storage.
 	Communal CommunalStorage `json:"communal"`
 
@@ -204,6 +205,12 @@ const (
 	// The database in the communal path will be initialized in the VerticaDB
 	// through a revive_db.  The communal path must have a preexisting database.
 	CommunalInitPolicyRevive = "Revive"
+	// Only schedule pods to run with the vertica container.  The bootstrap of
+	// the database, either create_db or revive_db, is not handled.  Use this
+	// policy when you have a vertica cluster running outside of Kubernetes and
+	// you want to provision new nodes to run inside Kubernetes.  Most of the
+	// automation is disabled when running in this mode.
+	CommunalInitPolicyScheduleOnly = "ScheduleOnly"
 )
 
 type KSafetyType string
@@ -227,11 +234,12 @@ type SubclusterPodCount struct {
 
 // Holds details about the communal storage
 type CommunalStorage struct {
-	// +kubebuilder:validation:required
+	// +kubebuilder:validation:Optional
 	// The path to the communal storage. This must be the s3 bucket. You specify
 	// this using the s3:// bucket notation. For example:
 	// s3://bucket-name/key-name. The bucket must be created prior to creating
-	// the VerticaDB.  This field is required and cannot change after creation.
+	// the VerticaDB.  When initPolicy is Create or Revive, this field is
+	// required and cannot change after creation.
 	Path string `json:"path"`
 
 	// +kubebuilder:validation:Optional
@@ -241,16 +249,17 @@ type CommunalStorage struct {
 	// forces each database path to be unique.
 	IncludeUIDInPath bool `json:"includeUIDInPath,omitempty"`
 
-	// +kubebuilder:validation:required
+	// +kubebuilder:validation:Optional
 	// The URL to the s3 endpoint. The endpoint must be prefaced with http:// or
-	// https:// to know what protocol to connect with. This field is required
-	// and cannot change after creation.
+	// https:// to know what protocol to connect with. When initPolicy is Create
+	// or Revive, this field is required and cannot change after creation.
 	Endpoint string `json:"endpoint"`
 
-	// +kubebuilder:validation:required
+	// +kubebuilder:validation:Optional
 	// The name of a secret that contains the credentials to connect to the
 	// communal S3 endpoint. The secret must have the following keys set:
-	// accessey and secretkey.
+	// accessey and secretkey.  When initPolicy is Create or Revive, this field
+	// is required.
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional

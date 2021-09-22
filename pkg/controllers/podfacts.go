@@ -75,7 +75,7 @@ type PodFact struct {
 	vnodeName string
 
 	// The compat21 node name that Vertica assignes to the pod. This is only set
-	// if installation has occurred.
+	// if installation has occurred and the initPolicy is not ScheduleOnly.
 	compat21NodeName string
 
 	// True if the end user license agreement has been accepted
@@ -205,30 +205,48 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 
 // checkIsInstalled will check a single pod to see if the installation has happened.
 func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if pf.isPodRunning {
-		fn := paths.GenInstallerIndicatorFileName(vdb)
-		if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", fn); err != nil {
-			if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
-				return err
-			}
-			pf.isInstalled = tristate.False
+	if !pf.isPodRunning {
+		pf.isInstalled = tristate.None
+		return nil
+	}
 
-			// Check if there is a stale admintools.conf
-			cmd := []string{"ls", paths.AdminToolsConf}
-			if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-				if !strings.Contains(stderr, "No such file or directory") {
-					return err
-				}
-				pf.hasStaleAdmintoolsConf = false
-			} else {
-				pf.hasStaleAdmintoolsConf = true
-			}
+	// If initPolicy is ScheduleOnly, there is no install indicator since the
+	// operator didn't initiate it.  We are going to do based on the existence
+	// of admintools.conf.
+	if vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-f", paths.AdminToolsConf); err != nil {
+			pf.isInstalled = tristate.False
 		} else {
 			pf.isInstalled = tristate.True
-			pf.compat21NodeName = strings.TrimSuffix(stdout, "\n")
+		}
+
+		// We can't reliably set compat21NodeName because the operator didn't
+		// originate the install.  We will intentionally leave that blank.
+		pf.compat21NodeName = ""
+
+		return nil
+	}
+
+	fn := paths.GenInstallerIndicatorFileName(vdb)
+	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", fn); err != nil {
+		if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
+			return err
+		}
+		pf.isInstalled = tristate.False
+
+		// Check if there is a stale admintools.conf
+		cmd := []string{"ls", paths.AdminToolsConf}
+		if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
+			if !strings.Contains(stderr, "No such file or directory") {
+				return err
+			}
+			pf.hasStaleAdmintoolsConf = false
+		} else {
+			pf.hasStaleAdmintoolsConf = true
 		}
 	} else {
-		pf.isInstalled = tristate.None
+		pf.isInstalled = tristate.True
+		pf.compat21NodeName = strings.TrimSuffix(stdout, "\n")
 	}
 	return nil
 }
