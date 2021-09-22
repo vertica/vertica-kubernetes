@@ -502,7 +502,7 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 // and none of the pods have an installation.
 func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
 	for _, v := range p.Detail {
-		if (v.exists && !v.isPodRunning) || v.isInstalled.IsTrue() {
+		if !v.exists || !v.isPodRunning || v.isInstalled.IsTrue() {
 			return false
 		}
 	}
