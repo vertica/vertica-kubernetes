@@ -72,6 +72,11 @@ func (d *DBRemoveNodeReconciler) CollectPFacts(ctx context.Context) error {
 // everything in Vdb. We will know if we are scaling down by comparing the
 // expected subcluster size with the current.
 func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	// no-op for ScheduleOnly init policy
+	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		return ctrl.Result{}, nil
+	}
+
 	// Use the finder so that we check only the subclusters that are in the vdb.
 	// Any nodes that are in subclusters that we are removing are handled by the
 	// DBRemoveSubcusterReconciler.
