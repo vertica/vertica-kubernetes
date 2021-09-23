@@ -2,3 +2,5 @@ kind: Changed
 body: Calls to update_vertica are removed.  The operator will modify
   admintools.conf for install/uninstall now.  This speeds up the time
   it takes to scale out.
+custom:
+  Issue: 39

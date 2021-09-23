@@ -2,3 +2,5 @@ kind: Changed
 body: The operator automatically follows the upgrade procedure when the '.spec.image'
   is changed.  This removes the upgrade-vertica.sh script that previously handled
   this outside of the operator.
+custom:
+  Issue: 51

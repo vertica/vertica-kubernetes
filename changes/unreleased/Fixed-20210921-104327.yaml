@@ -1,2 +1,4 @@
 kind: Fixed
 body: Allow the AWS region to be specified in the CR.
+custom:
+  Issue: 61
