@@ -24,7 +24,6 @@ spec:
     path: "s3://kill-during-add-node"
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   subclusters:

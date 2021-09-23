@@ -22,7 +22,6 @@ spec:
     endpoint: kustomize-s3-endpoint
     credentialSecret: custom-creds
     includeUIDInPath: false
-    caFile: /certs/communal-ep-cert/ca.crt
   initPolicy: Revive
   local:
     dataPath: "/data"

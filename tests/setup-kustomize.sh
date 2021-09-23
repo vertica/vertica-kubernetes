@@ -75,6 +75,11 @@ if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$DEF_VLOGGER_IMG
 fi
 
+# Name of the secret that contains the cert to use for communal access
+# authentication.  This is the name of the namespace copy, so it is hard coded
+# in this script.
+COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
+
 echo "Using vertica server image name: $VERTICA_IMG"
 echo "Using vertica logger image name: $VLOGGER_IMG"
 if [ -n "$LICENSE_SECRET" ]; then
@@ -162,6 +167,32 @@ replacements:
           - spec.communal.path
 EOF
 
+    if [ -n "$COMMUNAL_EP_CERT_SECRET" ]
+    then
+        cat <<EOF >> kustomization.yaml
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.caFile
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.communal.caFile
+        options:
+          create: true
+EOF
+
+        COMMUNAL_EP_CERT_SECRET_PATCH="communal-ep-cert-secret-patch.yaml"
+        cat <<EOF > $COMMUNAL_EP_CERT_SECRET_PATCH
+        - op: add
+          path: /spec/certSecrets/-
+          value: 
+            name: $COMMUNAL_EP_CERT_SECRET_NS_COPY
+EOF
+        kustomize edit add patch --path $COMMUNAL_EP_CERT_SECRET_PATCH --kind VerticaDB
+    fi
+
     # If license was specified we create a patch file to set that.
     if [[ -n "$LICENSE_SECRET" ]]
     then
@@ -241,15 +272,32 @@ data:
   vloggerImage: ${VLOGGER_IMG:-$DEF_VLOGGER_IMG}
 EOF
 
+    # If a cert was specified for communal endpoint access, include a datapoint
+    # for the container relative location of the cert.
+    if [ -n "$COMMUNAL_EP_CERT_SECRET" ]
+    then
+        cat <<EOF >> e2e.yaml
+  caFile: /certs/$COMMUNAL_EP_CERT_SECRET_NS_COPY/ca.crt
+  caFileSecretName: $COMMUNAL_EP_CERT_SECRET_NS_COPY
+EOF
+    fi
+
     popd > /dev/null
 }
 
 function copy_communal_ep_cert {
     pushd kustomize-base > /dev/null
-    # Copy the secret over stripping out all of the metadata.
-    kubectl get secrets -o json -n $COMMUNAL_EP_CERT_NAMESPACE $COMMUNAL_EP_CERT_SECRET \
-    | jq 'del(.metadata)' \
-    | jq '.metadata += {name: "communal-ep-cert"}' > communal-ep-cert.json
+    if [ -z "$COMMUNAL_EP_CERT_SECRET" ]
+    then
+        # Communal endpoint cert isn't set.  We will just create an empty file
+        # so that kustomize doesn't complain about a missing resource.
+        echo "" > communal-ep-cert.json
+    else
+        # Copy the secret over stripping out all of the metadata.
+        kubectl get secrets -o json -n $COMMUNAL_EP_CERT_NAMESPACE $COMMUNAL_EP_CERT_SECRET \
+        | jq 'del(.metadata)' \
+        | jq ".metadata += {name: \"$COMMUNAL_EP_CERT_SECRET_NS_COPY\"}" > communal-ep-cert.json
+    fi
     popd > /dev/null
 }
 

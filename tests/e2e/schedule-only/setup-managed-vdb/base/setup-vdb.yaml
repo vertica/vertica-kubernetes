@@ -24,7 +24,6 @@ spec:
     path: "s3://schedule-only"
     endpoint: kustomize-s3-endpoint
     credentialSecret:  minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
     includeUIDInPath: true
   local:
     requestSize: 100Mi

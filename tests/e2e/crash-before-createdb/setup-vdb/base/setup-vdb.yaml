@@ -21,7 +21,6 @@ spec:
     path: "s3://crash-before-createdb"
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   dbName: vd

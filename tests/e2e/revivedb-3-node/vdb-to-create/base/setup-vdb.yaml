@@ -22,7 +22,6 @@ spec:
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
     includeUIDInPath: false
-    caFile: /certs/communal-ep-cert/ca.crt
   initPolicy: Create
   local:
     dataPath: /my-data
