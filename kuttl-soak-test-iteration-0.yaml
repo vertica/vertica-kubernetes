@@ -30,7 +30,7 @@ commands:
 
   # Create the kustomize overlay files to set the image,
   # endpoints, etc to use.
-  - command: tests/create-kustomize-overlay.sh
+  - command: tests/setup-kustomize.sh
 
   # Create minio tenant and the vdb
   - command: kubectl krew update

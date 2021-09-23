@@ -12,7 +12,7 @@
 # limitations under the License.
 
 resources:
-  - communal-cfg.yaml
+  - e2e.yaml
   - communal-ep-cert.json
 
 configurations:

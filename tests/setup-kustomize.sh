@@ -85,27 +85,24 @@ echo "S3 bucket name: $S3_BUCKET"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
-    echo "" > kustomization.yaml
-    kustomize edit add base $BASE_DIR
-    kustomize edit add base $(realpath --relative-to="." $REPO_DIR/tests/kustomize-base)
-    kustomize edit set image kustomize-vertica-image=$VERTICA_IMG
-    kustomize edit set image kustomize-vlogger-image=$VLOGGER_IMG
+    TESTCASE_NAME=$2
 
-    # If license was specified we create a patch file to set that.
-    if [[ -n "$LICENSE_SECRET" ]]
-    then
-        LICENSE_PATCH_FILE="license-patch.yaml"
-        cat <<EOF > $LICENSE_PATCH_FILE
-        - op: add
-          path: /spec/licenseSecret
-          value: $LICENSE_SECRET
+    cat <<EOF > testcase.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testcase
+data:
+  communalPath: s3://$S3_BUCKET/$TESTCASE_NAME
 EOF
-        kustomize edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
-    fi
 
-    # Include a replacement to pick up any communal config items.
-    cat <<EOF >> kustomization.yaml
-
+    cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - $BASE_DIR
+  - $(realpath --relative-to="." $REPO_DIR/tests/kustomize-base)
+  - testcase.yaml
 replacements:
   - source:
       kind: ConfigMap
@@ -127,7 +124,56 @@ replacements:
           - spec.communal.region
         options:
           create: true
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.verticaImage
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.image
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.verticaImage
+    targets:
+      - select:
+          kind: Pod
+        fieldPaths:
+          - spec.containers.0.image
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.vloggerImage
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.sidecars.[name=vlogger].image
+  - source:
+      kind: ConfigMap
+      name: testcase
+      fieldPath: data.communalPath
+    targets:
+      - select:
+          kind: VerticaDB
+        fieldPaths:
+          - spec.communal.path
 EOF
+
+    # If license was specified we create a patch file to set that.
+    if [[ -n "$LICENSE_SECRET" ]]
+    then
+        LICENSE_PATCH_FILE="license-patch.yaml"
+        cat <<EOF > $LICENSE_PATCH_FILE
+        - op: add
+          path: /spec/licenseSecret
+          value: $LICENSE_SECRET
+EOF
+        kustomize edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
+    fi
+
 }
 
 function create_vdb_pod_kustomization {
@@ -143,37 +189,7 @@ function create_vdb_pod_kustomization {
     if [[ -n "$VERBOSE" ]]; then
         echo "Creating overlay in $TC_OVERLAY"
     fi
-    create_vdb_kustomization ../base
-    popd > /dev/null
-}
-
-# SPILLY - remove this
-function create_s3_bucket_kustomization {
-    if [ ! -d $1 ]
-    then
-      return 0
-    fi
-
-    TC_OVERLAY=$1/create-s3-bucket/overlay
-    mkdir -p $TC_OVERLAY
-    pushd $TC_OVERLAY > /dev/null
-    cat <<EOF > kustomization.yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-- ../../../../manifests/create-s3-bucket/base
-patches:
-- target:
-    version: v1
-    kind: Pod
-    name: create-s3-bucket
-  patch: |-
-    - op: replace
-      path: "/spec/containers/0/env/0"
-      value:
-        name: S3_BUCKET
-        value: $(basename $1)
-EOF
+    create_vdb_kustomization ../base $2
     popd > /dev/null
 }
 
@@ -208,8 +224,7 @@ EOF
 
 function create_communal_cfg {
     pushd kustomize-base > /dev/null
-    # SPILLY - consider a rename of communal-cfg.yaml
-    cat <<EOF > communal-cfg.yaml
+    cat <<EOF > e2e.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -247,9 +262,9 @@ copy_communal_ep_cert
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e/*/*/base e2e-disabled/*/*/base
+for tdir in e2e/*/*/base
 do
-    create_vdb_pod_kustomization $(dirname $tdir)
+    create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
 for tdir in e2e/* e2e-disabled/*
 do

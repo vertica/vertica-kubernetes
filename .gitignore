@@ -14,7 +14,7 @@ local-kustomize.cfg
 # Generated files from create-kustomize-overlay.sh
 overlay/
 create-s3-bucket-overlay/
-communal-cfg.yaml
+e2e.yaml
 communal-ep-cert.json
 
 # Binaries for programs and plugins

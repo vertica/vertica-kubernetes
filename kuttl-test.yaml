@@ -19,7 +19,7 @@ parallel: 2
 timeout: 600
 commands:
   # Create the kustomize overlay files to override the image, endpoint, etc.
-  - command: tests/create-kustomize-overlay.sh
+  - command: tests/setup-kustomize.sh
 
   # make dependencies
   - command: make create-helm-charts vdb-gen install-cert-manager

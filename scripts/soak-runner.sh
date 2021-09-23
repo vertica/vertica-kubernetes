@@ -56,7 +56,7 @@ then
     source $CONFIG
 fi
 
-# Read in the kustomize defaults for create-kustomize-overlay.sh
+# Read in the kustomize defaults for setup-kustomize.sh
 source tests/kustomize-defaults.cfg
 if [ -n "$KUSTOMIZE_CFG" ]
 then
