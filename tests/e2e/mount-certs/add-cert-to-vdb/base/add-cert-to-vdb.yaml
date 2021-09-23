@@ -11,8 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# SPILLY - lots of extra things were generated in the kustomize build.  We need to rethink this.
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: "F=$(mktemp /tmp/add-to-cert-patch.XXXXXX) && kustomize build add-cert-to-vdb/overlay | tee $F && kubectl patch vdb v-mount-certs --type=merge -n $NAMESPACE --patch-file $F && rm $F"
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-mount-certs
+spec:
+  certSecrets:
+    - name: my-cert-1
+    - name: my-cert-2
+    - name: my-cert-3
