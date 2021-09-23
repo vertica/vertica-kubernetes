@@ -1,2 +1,4 @@
 kind: Added
 body: Added the ability to specify custom volumes for use within sidecars.
+custom:
+  Issue: 42

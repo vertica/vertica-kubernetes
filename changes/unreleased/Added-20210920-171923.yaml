@@ -3,3 +3,5 @@ body: New initPolicy called ScheduleOnly.  The bootstrap of the database, either
   create_db or revive_db, is not handled.  Use this policy when you have a vertica
   cluster running outside of Kubernetes and you want to provision new nodes to run
   inside Kubernetes.  Most of the automation is disabled when running in this mode.
+custom:
+  Issue: 59
