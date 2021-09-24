@@ -81,9 +81,13 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 	}
 
 	fns := []func(context.Context) error{
-		d.addHostsToATConf,
 		d.acceptEulaIfMissing,
 		d.checkConfigDir,
+		// This has to be after accepting the EULA.  re_ip will not succeed if
+		// the EULA is not accepted and a re_ip can happen before coming to this
+		// reconcile function.  So if the pod is rescheduled after adding
+		// hosts to the config, we have to know that a re_ip will succeed.
+		d.addHostsToATConf,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
