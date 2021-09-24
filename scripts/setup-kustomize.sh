@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Populate the kustomize and its overlay to run e2e tests.
+
 set -o errexit
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -307,7 +309,7 @@ function copy_communal_ep_cert {
     popd > /dev/null
 }
 
-cd $SCRIPT_DIR
+cd $REPO_DIR/tests
 
 # Create the configMap that is used to control the communal endpoint and creds.
 create_communal_cfg
