@@ -11,27 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-vdb-gen-revive
-spec:
-  initPolicy: Revive
-  dbName: vertdb
-  shardCount: 6
-  superuserPasswordSecret: v-vdb-gen-revive-su-passwd
-  local:
-    dataPath: /data
-    depotPath: /depot
-  subclusters:
-    - name: sc1
-      isPrimary: true
-      size: 2
-    - name: sc2
-      isPrimary: true
-      size: 1
-status:
-  installCount: 3
-  subclusterCount: 2
-  upNodeCount: 3
-  addedToDBCount: 3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build clean-s3-bucket/overlay | kubectl -n $NAMESPACE apply -f - "
