@@ -17,6 +17,7 @@ set -o errexit
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
+KUSTOMIZE=$REPO_DIR/bin/kustomize
 
 function usage {
     echo "usage: $0 [-hv] [<configFile>]"
@@ -79,6 +80,7 @@ fi
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
+S3_PATH_PREFIX=s3://${S3_BUCKET}${PATH_PREFIX}/
 
 echo "Using vertica server image name: $VERTICA_IMG"
 echo "Using vertica logger image name: $VLOGGER_IMG"
@@ -87,6 +89,7 @@ if [ -n "$LICENSE_SECRET" ]; then
 fi
 echo "Using endpoint: $ENDPOINT"
 echo "S3 bucket name: $S3_BUCKET"
+echo "S3 Path Prefix: $S3_PATH_PREFIX"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -98,7 +101,7 @@ kind: ConfigMap
 metadata:
   name: testcase
 data:
-  communalPath: s3://$S3_BUCKET/$TESTCASE_NAME
+  communalPath: ${S3_PATH_PREFIX}${TESTCASE_NAME}
 EOF
 
     cat <<EOF > kustomization.yaml
@@ -190,7 +193,7 @@ EOF
           value: 
             name: $COMMUNAL_EP_CERT_SECRET_NS_COPY
 EOF
-        kustomize edit add patch --path $COMMUNAL_EP_CERT_SECRET_PATCH --kind VerticaDB
+        $KUSTOMIZE edit add patch --path $COMMUNAL_EP_CERT_SECRET_PATCH --kind VerticaDB
     fi
 
     # If license was specified we create a patch file to set that.
@@ -202,7 +205,7 @@ EOF
           path: /spec/licenseSecret
           value: $LICENSE_SECRET
 EOF
-        kustomize edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
+        $KUSTOMIZE edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
     fi
 
 }

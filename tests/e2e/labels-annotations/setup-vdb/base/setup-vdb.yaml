@@ -32,5 +32,4 @@ spec:
   subclusters:
     - name: cluster1
       size: 5
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

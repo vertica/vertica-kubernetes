@@ -21,7 +21,7 @@ metadata:
 spec:
   containers:
   - name: aws
-    image: amazon/aws-cli
+    image: amazon/aws-cli:2.2.24
     command:
         ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://$S3_BUCKET/$TESTCASE_NAME --no-verify-ssl"]
     env:

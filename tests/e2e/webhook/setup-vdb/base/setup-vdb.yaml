@@ -24,6 +24,7 @@ spec:
     path: "s3://webhook"
     endpoint: kustomize-s3-endpoint
     credentialSecret: minio-creds-secret
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   dbName: vertdb
@@ -31,5 +32,4 @@ spec:
     - name: sc1
       size: 1
   kSafety: "0"
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

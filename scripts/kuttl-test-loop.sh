@@ -47,7 +47,7 @@ done
 function start_iteration {
     printf "\n${GREEN}Iteration $(($count))${NC}\n"
     printf "\t${ORANGE}$(date +%r): Deleting old kuttl namespaces${NC}\n"
-    for ns in $(kubens | grep kuttl)
+    for ns in $(kubens | grep kuttl-test)
     do
         kubectl delete ns $ns 2>&1 > /dev/null
     done

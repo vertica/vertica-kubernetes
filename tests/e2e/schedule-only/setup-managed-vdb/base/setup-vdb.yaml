@@ -32,6 +32,5 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []
   requeueTime: 4

@@ -32,5 +32,4 @@ spec:
       size: 1
       isPrimary: false
   kSafety: "0"
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

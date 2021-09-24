@@ -29,5 +29,4 @@ spec:
       size: 3
   kSafety: "1"
   requeueTime: 4
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

@@ -23,6 +23,5 @@ spec:
   subclusters:
     - name: k8s
       size: 1
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []
   requeueTime: 4

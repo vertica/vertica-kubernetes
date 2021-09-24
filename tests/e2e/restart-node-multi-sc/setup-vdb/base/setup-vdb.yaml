@@ -34,5 +34,4 @@ spec:
       size: 1
     - name: sc3
       size: 2
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

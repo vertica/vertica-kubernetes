@@ -30,5 +30,4 @@ spec:
     - name: main
       size: 3
   kSafety: "1"
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

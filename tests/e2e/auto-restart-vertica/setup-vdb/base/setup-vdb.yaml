@@ -33,5 +33,4 @@ spec:
   subclusters:
     - name: defsc
       size: 2
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []
