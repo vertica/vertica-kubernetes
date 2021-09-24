@@ -271,6 +271,7 @@ data:
   secretkeyUnenc: $SECRETKEY
   region: $REGION
   s3Bucket: $S3_BUCKET
+  pathPrefix: $PATH_PREFIX
   verticaImage: ${VERTICA_IMG:-$DEF_VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG:-$DEF_VLOGGER_IMG}
 EOF

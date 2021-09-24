@@ -58,3 +58,13 @@ replacements:
           name: clean-s3-bucket
         fieldPaths:
           - spec.containers.[name=aws].env.[name=S3_BUCKET].value
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.pathPrefix
+    targets:
+      - select:
+          kind: Pod
+          name: clean-s3-bucket
+        fieldPaths:
+          - spec.containers.[name=aws].env.[name=PATH_PREFIX].value

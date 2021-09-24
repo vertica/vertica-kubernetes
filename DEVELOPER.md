@@ -242,7 +242,7 @@ Here are the steps on how to override them:
    cp tests/kustomize-defaults.cfg my-defaults.cfg
    ```
 
-2. Edit my-defaults.cfg by setting the communal access point you want to use and the credentials to access the endpoint.
+2. Edit my-defaults.cfg by setting your own access point, bucket, region and credentials that you want to use.
 
 3. Set the KUSTOMIZE_CFG environment vairable to point to my-defaults.cfg
    ```
