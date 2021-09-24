@@ -4,3 +4,5 @@ body: Start the admission controller webhook as part of the operator pod.  This 
   scoped operator, the NamespaceDefaultLabelName feature gate must be enabled (on
   by default in 1.21+) or the namespace must have the label 'kubernetes.io/metadata.name=<nsName>'
   set.
+custom:
+  Issue: 43
