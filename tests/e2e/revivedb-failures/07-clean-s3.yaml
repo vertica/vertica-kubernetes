@@ -11,30 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: minio.min.io/v2
-kind: Tenant
-metadata:
-  name: minio
-status:
-  currentState: Initialized
-  availableReplicas: 1
-  pools:
-    - ssName: minio-ss-0
-      state: PoolInitialized
----
-apiVersion: v1
-kind: Event
-reason: S3BucketDoesNotExist
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-createdb-failures
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: minio-ss-0-0
-status:
-  phase: Running
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build clean-s3-bucket/overlay | kubectl -n $NAMESPACE apply -f - "

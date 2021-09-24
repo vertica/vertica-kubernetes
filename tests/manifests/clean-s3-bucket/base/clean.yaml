@@ -23,7 +23,7 @@ spec:
   - name: aws
     image: amazon/aws-cli:2.2.24
     command:
-        ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://${S3_BUCKET}${PATH_PREFIX}/${TESTCASE_NAME} --no-verify-ssl"]
+        ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://${S3_BUCKET}${PATH_PREFIX}${TESTCASE_NAME} --no-verify-ssl"]
     env:
       - name: S3_BUCKET
         value: kustomize-s3-bucket

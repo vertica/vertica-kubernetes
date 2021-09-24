@@ -11,28 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: minio.min.io/v2
-kind: Tenant
-metadata:
-  name: minio
-  labels:
-    stern: include
-spec:
-  image: minio/minio:RELEASE.2021-09-03T03-56-13Z
-  imagePullPolicy: IfNotPresent
-  credsSecret:
-    name: s3-creds-secret
-  pools:
-    - servers: 1
-      volumesPerServer: 4
-      volumeClaimTemplate:
-        metadata:
-          name: data
-        spec:
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 250Mi
-  mountPath: /export
-  requestAutoCert: false
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build clean-s3-bucket/overlay | kubectl -n $NAMESPACE apply -f - "

@@ -80,7 +80,7 @@ fi
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
-S3_PATH_PREFIX=s3://${S3_BUCKET}${PATH_PREFIX}/
+S3_PATH_PREFIX=s3://${S3_BUCKET}${PATH_PREFIX}
 
 echo "Using vertica server image name: $VERTICA_IMG"
 echo "Using vertica logger image name: $VLOGGER_IMG"
@@ -141,6 +141,8 @@ replacements:
           kind: VerticaDB
         fieldPaths:
           - spec.image
+        reject:
+        - name: v-upgrade-vertica
   - source:
       kind: ConfigMap
       name: e2e
