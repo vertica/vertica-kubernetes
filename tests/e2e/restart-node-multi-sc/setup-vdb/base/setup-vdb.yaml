@@ -23,7 +23,7 @@ spec:
   communal:
     path: "s3://restart-node-multi-sc"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: true
   dbName: vertdb
   shardCount: 16

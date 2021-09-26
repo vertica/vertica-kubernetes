@@ -20,7 +20,7 @@ spec:
   communal:
     path: "s3://non-existent"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
   local:
     requestSize: 100Mi
   dbName: vertdb

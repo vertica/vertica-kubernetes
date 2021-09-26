@@ -24,7 +24,7 @@ spec:
   communal:
     path: "s3://revivedb-multi-sc"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: false
   initPolicy: Revive
   reviveOrder:

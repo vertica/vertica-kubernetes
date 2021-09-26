@@ -18,4 +18,4 @@ metadata:
   name: v-webhook
 spec:
   communal:
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds

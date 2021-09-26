@@ -21,7 +21,7 @@ spec:
   communal:
     path: "s3://restart"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
   local:
     requestSize: 100Mi
   dbName: spilchendb2

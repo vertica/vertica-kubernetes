@@ -20,7 +20,7 @@ spec:
   communal:
     path: "s3://mount-certs"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: true
   local:
     requestSize: 100Mi

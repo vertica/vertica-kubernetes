@@ -21,7 +21,7 @@ spec:
   communal:
     path: "s3://revivedb-failures"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: false
   initPolicy: Revive
   local:

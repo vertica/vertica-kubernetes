@@ -20,7 +20,7 @@ spec:
   communal:
     path: "s3://revivedb-3-node"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: false
   initPolicy: Create
   local:
