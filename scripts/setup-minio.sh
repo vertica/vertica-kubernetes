@@ -56,3 +56,7 @@ set +o xtrace
 $KUSTOMIZE build $REPO_DIR/tests/manifests/s3-creds/base | kubectl apply -f - -n $MINIO_NS
 kubectl apply -f $REPO_DIR/tests/manifests/minio/02-tenant.yaml -n $MINIO_NS
 kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/minio/02-assert.yaml
+
+# Create the s3 bucket
+kustomize build $REPO_DIR/tests/manifests/create-s3-bucket/base | kubectl -n $MINIO_NS apply -f -
+kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/create-s3-bucket/assert.yaml
