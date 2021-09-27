@@ -254,6 +254,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 deploy-operator: manifests kustomize ## Using helm, deploy the controller to the K8s cluster specified in ~/.kube/config.
 	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
+	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 
 undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
