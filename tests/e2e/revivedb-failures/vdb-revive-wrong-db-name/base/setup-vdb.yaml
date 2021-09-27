@@ -21,9 +21,8 @@ spec:
   communal:
     path: "s3://revivedb-failures"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: false
-    caFile: /certs/communal-ep-cert/ca.crt
   initPolicy: Revive
   local:
     dataPath: "/data"
@@ -35,5 +34,4 @@ spec:
       size: 2
   kSafety: "0"
   requeueTime: 4
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

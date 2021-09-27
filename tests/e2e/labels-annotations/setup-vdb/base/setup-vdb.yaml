@@ -20,8 +20,7 @@ spec:
   communal:
     path: "s3://nimbusdb/db"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
+    credentialSecret: s3-creds
   local:
     requestSize: 100Mi
   labels:
@@ -33,5 +32,4 @@ spec:
   subclusters:
     - name: cluster1
       size: 5
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

@@ -16,11 +16,20 @@ kind: VerticaDB
 metadata:
   name: v-vdb-gen-revive
 spec:
-  communal:
-    path: "s3://vdb-gen/"
+  initPolicy: Revive
   dbName: vertdb
   shardCount: 6
   superuserPasswordSecret: v-vdb-gen-revive-su-passwd
+  local:
+    dataPath: /data
+    depotPath: /depot
+  subclusters:
+    - name: sc1
+      isPrimary: true
+      size: 2
+    - name: sc2
+      isPrimary: true
+      size: 1
 status:
   installCount: 3
   subclusterCount: 2

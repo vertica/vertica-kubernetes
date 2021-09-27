@@ -23,9 +23,8 @@ spec:
   communal:
     path: "s3://revivedb-multi-sc"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: false
-    caFile: /certs/communal-ep-cert/ca.crt
   initPolicy: Create
   local:
     dataPath: /data
@@ -40,5 +39,4 @@ spec:
       isPrimary: false
       size: 1
   kSafety: "0"
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

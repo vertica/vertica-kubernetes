@@ -23,8 +23,7 @@ spec:
   communal:
     path: "s3://kill-during-add-node"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
+    credentialSecret: s3-creds
   local:
     requestSize: 100Mi
   subclusters:
@@ -32,5 +31,4 @@ spec:
       size: 1
       isPrimary: true
   kSafety: "0"
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

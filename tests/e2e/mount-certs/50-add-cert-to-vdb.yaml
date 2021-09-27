@@ -11,13 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-mount-certs
-spec:
-  certSecrets:
-    - name: my-cert-1
-    - name: my-cert-2
-    - name: communal-ep-cert
-    - name: my-cert-3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # The kubernetes-split-yaml call is necessary because `kustomize build` spits
+  # out a bunch of different manifests.  We only need the VerticaDB because 
+  # `kubectl patch` will complain if the patch file has multiple manifests.
+  - script: "D=$(mktemp -d) && kustomize build add-cert-to-vdb/overlay | ../../../bin/kubernetes-split-yaml --outdir $D --kind_re VerticaDB - && kubectl patch vdb v-mount-certs --type=merge -n $NAMESPACE --patch-file $D/v-mount-certs-verticadb.yaml && rm -rf $D"

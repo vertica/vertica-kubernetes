@@ -22,7 +22,6 @@ spec:
     endpoint: kustomize-s3-endpoint
     credentialSecret: custom-creds
     includeUIDInPath: false
-    caFile: /certs/communal-ep-cert/ca.crt
   initPolicy: Revive
   local:
     dataPath: "/data"
@@ -34,5 +33,4 @@ spec:
       size: 2
   kSafety: "0"
   requeueTime: 4
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

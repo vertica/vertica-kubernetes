@@ -18,10 +18,9 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://client-access"
+    path: "s3://$(S3_BUCKET)/client-access"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
+    credentialSecret: s3-creds
   local:
     requestSize: 100Mi
   dbName: vertdb
@@ -29,5 +28,4 @@ spec:
     - name: sc1
       size: 2
   kSafety: "0"
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

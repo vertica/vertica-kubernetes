@@ -19,7 +19,9 @@ commands:
   # what is exposed.
   - command: kubectl -n $NAMESPACE cp ../../../bin/vdb-gen v-vdb-gen-sc1-0:/tmp/vdb-gen
   - command: kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- chmod +x /tmp/vdb-gen
-  - command: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- /tmp/vdb-gen -license /home/dbadmin/licensing/ce/vertica_community_edition.license.key -image $VERTICA_IMG -name v-vdb-gen-revive -password superuser -ignore-cluster-lease -cafile /certs/communal-ep-cert/ca.crt v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb > /tmp/$NAMESPACE-vdb-gen.yaml"
+  - command: kubectl -n $NAMESPACE cp run-vdb-gen.sh v-vdb-gen-sc1-0:/tmp/run-vdb-gen.sh
+  - command: kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- chmod +x /tmp/run-vdb-gen.sh
+  - script: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- sh -c \"/tmp/run-vdb-gen.sh $NAMESPACE $VERTICA_IMG $(kubectl get cm e2e -n $NAMESPACE -o jsonpath='{.data.caFileSecretName}')\" > /tmp/$NAMESPACE-vdb-gen.yaml"
   - command: cat /tmp/$NAMESPACE-vdb-gen.yaml
   # Apply the generated CR
   - command: kubectl -n $NAMESPACE apply -f /tmp/$NAMESPACE-vdb-gen.yaml

@@ -23,8 +23,7 @@ spec:
   communal:
     path: "s3://restart-node-multi-sc"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
+    credentialSecret: s3-creds
     includeUIDInPath: true
   dbName: vertdb
   shardCount: 16
@@ -35,5 +34,4 @@ spec:
       size: 1
     - name: sc3
       size: 2
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

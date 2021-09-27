@@ -23,13 +23,11 @@ spec:
   communal:
     path: "s3://k-safety-1-scaling"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
+    credentialSecret: s3-creds
   local:
     requestSize: 100Mi
   subclusters:
     - name: main
       size: 3
   kSafety: "1"
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

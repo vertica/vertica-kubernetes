@@ -19,7 +19,7 @@ parallel: 2
 timeout: 600
 commands:
   # Create the kustomize overlay files to override the image, endpoint, etc.
-  - command: tests/create-kustomize-overlay.sh
+  - command: scripts/setup-kustomize.sh
 
   # make dependencies
   - command: make create-helm-charts vdb-gen install-cert-manager
@@ -29,7 +29,7 @@ commands:
   - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
     ignoreFailure: true
-  - command: bash -c "kustomize build tests/manifests/image-pull/overlay | kubectl -n $NAMESPACE apply -f - "
+  - command: bash -c "kustomize build tests/manifests/image-pull/base | kubectl -n $NAMESPACE apply -f - "
   - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull

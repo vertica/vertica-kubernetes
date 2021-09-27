@@ -24,7 +24,7 @@ spec:
   communal:
     path: "s3://upgrade-vertica"
     endpoint: "http://non-existent-ep"
-    credentialSecret:  non-existent-minio-creds-secret
+    credentialSecret:  non-existent-s3-creds
   local:
     requestSize: 100Mi
   dbName: verticadb

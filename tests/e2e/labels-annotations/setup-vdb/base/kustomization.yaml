@@ -11,19 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-bases:
-  - ../../../../kustomize-base
-
 resources:
   - setup-vdb.yaml
-
-replacements:
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.endpoint
-    targets:
-      - select:
-          kind: VerticaDB
-        fieldPaths:
-          - spec.communal.endpoint

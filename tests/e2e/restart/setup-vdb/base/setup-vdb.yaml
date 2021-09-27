@@ -21,8 +21,7 @@ spec:
   communal:
     path: "s3://restart"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
+    credentialSecret: s3-creds
   local:
     requestSize: 100Mi
   dbName: spilchendb2
@@ -32,5 +31,4 @@ spec:
   subclusters:
     - name: defsc
       size: 3
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

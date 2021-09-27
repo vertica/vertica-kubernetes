@@ -23,8 +23,7 @@ spec:
   communal:
     path: "s3://auto-restart-vertica"
     endpoint: kustomize-s3-endpoint
-    credentialSecret:  minio-creds-secret
-    caFile: /certs/communal-ep-cert/ca.crt
+    credentialSecret:  s3-creds
     includeUIDInPath: true
   local:
     requestSize: 100Mi
@@ -34,5 +33,4 @@ spec:
   subclusters:
     - name: defsc
       size: 2
-  certSecrets:
-    - name: communal-ep-cert
+  certSecrets: []

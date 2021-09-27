@@ -20,9 +20,8 @@ spec:
   communal:
     path: "s3://mount-certs"
     endpoint: kustomize-s3-endpoint
-    credentialSecret: minio-creds-secret
+    credentialSecret: s3-creds
     includeUIDInPath: true
-    caFile: /certs/communal-ep-cert/ca.crt
   local:
     requestSize: 100Mi
   subclusters:
@@ -32,4 +31,3 @@ spec:
   certSecrets:
     - name: my-cert-1
     - name: my-cert-2
-    - name: communal-ep-cert
