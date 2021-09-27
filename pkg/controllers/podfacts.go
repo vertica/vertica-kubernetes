@@ -509,15 +509,33 @@ func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
 	return true
 }
 
-// countRunningAndInstalled returns number of pods that are running and have an install
-func (p *PodFacts) countRunningAndInstalled() int {
+// countPods is a generic function to do a count across the pod facts
+func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
 	count := 0
 	for _, v := range p.Detail {
-		if v.isPodRunning && v.isInstalled.IsTrue() {
-			count++
-		}
+		count += countFunc(v)
 	}
 	return count
+}
+
+// countRunningAndInstalled returns number of pods that are running and have an install
+func (p *PodFacts) countRunningAndInstalled() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.isPodRunning && v.isInstalled.IsTrue() {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countNotRunning returns number of pods that aren't running yet
+func (p *PodFacts) countNotRunning() int {
+	return p.countPods(func(v *PodFact) int {
+		if !v.isPodRunning {
+			return 1
+		}
+		return 0
+	})
 }
 
 // getUpNodeCount returns the number of up nodes.
