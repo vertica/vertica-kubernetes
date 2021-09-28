@@ -39,6 +39,7 @@ webhook:
 
 # The resource requirements for the operator pod.  See this for more info:
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+# These defaults must be kept in sync with config/manifests/kustomization.yaml
 resources:
   limits:
     cpu: 100m

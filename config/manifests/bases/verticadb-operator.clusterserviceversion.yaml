@@ -1,0 +1,46 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: verticadb-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: VerticaDB is the Schema for the verticadbs API
+      displayName: Vertica DB
+      kind: VerticaDB
+      name: verticadbs.vertica.com
+      version: v1beta1
+  description: Manages a Vertica Eon Mode database.
+  displayName: VerticaDB Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - database
+  links:
+  - name: Verticadb Operator
+    url: https://verticadb-operator.domain
+  maturity: alpha
+  minKubeVersion: 1.21.1
+  provider:
+    name: vertica.com
+    url: www.vertica.com
+  version: 0.0.0
