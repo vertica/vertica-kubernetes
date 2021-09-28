@@ -4,6 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Seamless Upgrades
+    categories: Database
   name: verticadb-operator.v0.0.0
   namespace: placeholder
 spec:
@@ -35,6 +36,7 @@ spec:
     type: AllNamespaces
   keywords:
   - database
+  - vertica
   links:
   - name: Verticadb Operator
     url: https://verticadb-operator.domain

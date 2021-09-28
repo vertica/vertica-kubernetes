@@ -15,7 +15,7 @@ Developing with this repo requires a working Kubernetes cluster. Additionally, t
 - [stern](https://github.com/stern/stern) (version 1.15.0)
 - [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
 - [changie](https://github.com/miniscruff/changie) (version 0.5.0)
-- [operator-sdk](https://github.com/operator-framework/operator-sdk/releases/tag/v1.12.0) (version 1.12.0)
+- [operator-sdk](https://github.com/operator-framework/operator-sdk/releases/download/v1.10.1/operator-sdk_linux_amd64) (version 1.10.1)
 - [opm](https://github.com/operator-framework/operator-registry/releases/tag/v1.18.1) (version 1.18.1)
 
 # Repo Structure
