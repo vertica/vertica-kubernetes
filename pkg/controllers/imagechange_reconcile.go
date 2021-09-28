@@ -217,6 +217,7 @@ func (u *ImageChangeReconciler) deleteStatefulSets(ctx context.Context) (ctrl.Re
 			if err != nil {
 				return ctrl.Result{}, err
 			}
+			u.PFacts.Invalidate()
 		}
 	}
 	return ctrl.Result{}, nil

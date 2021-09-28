@@ -56,6 +56,11 @@ type PodFact struct {
 	// process of starting or restarting.
 	isPodRunning bool
 
+	// true means the statefulset exists and its size includes this pod.  The
+	// cases where this would be false are (a) statefulset doesn't yet exist or
+	// (b) statefulset exists but it isn't sized to include this pod yet.
+	managedByParent bool
+
 	// Have we run install for this pod? None means we are unable to determine
 	// whether it is run.
 	isInstalled tristate.TriState
@@ -143,20 +148,20 @@ func (p *PodFacts) Invalidate() {
 // collectSubcluster will collect facts about each pod in a specific subcluster
 func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster) error {
 	sts := &appsv1.StatefulSet{}
+	maxStsSize := sc.Size
 	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil {
 		// If the statefulset doesn't exist, none of the pods within it exist.  So fine to skip.
-		if errors.IsNotFound(err) {
-			return nil
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 		}
-		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
-	}
-	maxStsSize := sc.Size
-	if *sts.Spec.Replicas > maxStsSize {
-		maxStsSize = *sts.Spec.Replicas
+	} else {
+		if *sts.Spec.Replicas > maxStsSize {
+			maxStsSize = *sts.Spec.Replicas
+		}
 	}
 
 	for i := int32(0); i < maxStsSize; i++ {
-		if err := p.collectPodByStsIndex(ctx, vdb, sc, i); err != nil {
+		if err := p.collectPodByStsIndex(ctx, vdb, sc, sts, i); err != nil {
 			return err
 		}
 	}
@@ -164,7 +169,8 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 }
 
 // collectPodByStsIndex will collect facts about a single pod in a subcluster
-func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) error {
+func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	sts *appsv1.StatefulSet, podIndex int32) error {
 	pf := PodFact{
 		name:       names.GenPodName(vdb, sc, podIndex),
 		subcluster: sc.Name,
@@ -179,6 +185,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		return err
 	}
 	pf.exists = true // Success from the Get() implies pod exists in API server
+	pf.managedByParent = podIndex < *sts.Spec.Replicas
 	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
@@ -502,22 +509,42 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 // and none of the pods have an installation.
 func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
 	for _, v := range p.Detail {
-		if (v.exists && !v.isPodRunning) || v.isInstalled.IsTrue() {
+		if ((!v.exists || !v.isPodRunning) && v.managedByParent) || v.isInstalled.IsTrue() {
 			return false
 		}
 	}
 	return true
 }
 
-// countRunningAndInstalled returns number of pods that are running and have an install
-func (p *PodFacts) countRunningAndInstalled() int {
+// countPods is a generic function to do a count across the pod facts
+func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
 	count := 0
 	for _, v := range p.Detail {
-		if v.isPodRunning && v.isInstalled.IsTrue() {
-			count++
-		}
+		count += countFunc(v)
 	}
 	return count
+}
+
+// countRunningAndInstalled returns number of pods that are running and have an install
+func (p *PodFacts) countRunningAndInstalled() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.isPodRunning && v.isInstalled.IsTrue() {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countNotRunning returns number of pods that aren't running yet
+func (p *PodFacts) countNotRunning() int {
+	return p.countPods(func(v *PodFact) int {
+		// We don't count non-running pods that aren't yet managed by the parent
+		// sts.  The sts needs to be created or sized first.
+		if !v.isPodRunning && v.managedByParent {
+			return 1
+		}
+		return 0
+	})
 }
 
 // getUpNodeCount returns the number of up nodes.
