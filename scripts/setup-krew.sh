@@ -13,17 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-GET_STS="kubectl get sts --selector=app.kubernetes.io/name=vertica"
-if [ $(${GET_STS} | wc -l 2> /dev/null) -ge 2 ]
-then
-  while :
-  do
-      READY_REPLICAS=$(${GET_STS} -o 'jsonpath={.items[0].status.readyReplicas}')
-      TOTAL_REPLICAS=$(${GET_STS} -o 'jsonpath={.items[0].status.replicas}')
-      if [ -n "$READY_REPLICAS" ] && [ $READY_REPLICAS -eq $TOTAL_REPLICAS ]
-      then
-          ${GET_STS}
-          exit 0
-      fi
-  done
-fi
+# A script that download krew locally and set it up
+
+set -o xtrace
+set -o errexit
+set -o pipefail
+
+KREW_URL=https://github.com/kubernetes-sigs/krew/releases/download/v0.4.1/krew.tar.gz
+
+cd "$(mktemp -d)"
+OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+curl -fsSLO $KREW_URL &&
+tar zxvf krew.tar.gz &&
+KREW=./krew-"${OS}_${ARCH}" &&
+"$KREW" install krew

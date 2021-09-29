@@ -16,5 +16,4 @@ kind: TestStep
 delete:
   - apiVersion: v1
     kind: Pod
-    metadata:
-      name: clean-s3-bucket
+    name: clean-s3-bucket

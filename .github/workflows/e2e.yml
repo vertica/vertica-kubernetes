@@ -50,19 +50,7 @@ jobs:
         curl $VERTICA_CE_URL -o vertica-x86_64.RHEL6.latest.rpm
       
     - name: Run e2e tests
-      env:
-          KREW_URL: "https://github.com/kubernetes-sigs/krew/releases/latest/download/krew.tar.gz"
       run: |
-        (
-        set -x; cd "$(mktemp -d)" &&
-        OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
-        ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
-        curl -fsSLO $KREW_URL &&
-        tar zxvf krew.tar.gz &&
-        KREW=./krew-"${OS}_${ARCH}" &&
-        "$KREW" install krew
-        )
-        export PATH=$PATH:$HOME/.krew/bin
         E2E_PARALLELISM=${{ github.event.inputs.parallel }}
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         scripts/run-k8s-int-tests.sh

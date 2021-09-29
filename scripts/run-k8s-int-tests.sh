@@ -73,6 +73,7 @@ export INT_TEST_OUTPUT_DIR
 export VERTICA_IMG=vertica-k8s:$TAG
 export OPERATOR_IMG=verticadb-operator:$TAG
 export VLOGGER_IMG=vertica-logger:$TAG
+export PATH=$PATH:$HOME/.krew/bin
 
 # cleanup the deployed k8s cluster
 function cleanup {

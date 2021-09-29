@@ -165,7 +165,7 @@ endif
 run-unit-tests: test ## Run unit tests
 
 .PHONY: install-kuttl-plugin
-install-kuttl-plugin:
+install-kuttl-plugin: krew
 ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 	kubectl krew install kuttl
 endif
@@ -254,6 +254,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 deploy-operator: manifests kustomize ## Using helm, deploy the controller to the K8s cluster specified in ~/.kube/config.
 	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
+	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 
 undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
@@ -296,6 +297,11 @@ GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+krew: $(HOME)/.krew/bin/kubectl-krew ## Download krew plugin locally if necessary
+
+$(HOME)/.krew/bin/kubectl-krew:
+	scripts/setup-krew.sh
 
 .PHONY: bundle 
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.

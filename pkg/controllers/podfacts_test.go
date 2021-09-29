@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"yunion.io/x/pkg/tristate"
 )
@@ -37,7 +38,7 @@ var _ = Describe("podfacts", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
 		pfacts := &PodFacts{Client: k8sClient, PRunner: fpr, Detail: make(PodFactDetail)}
-		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, 0)).Should(Succeed())
+		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, &appsv1.StatefulSet{}, 0)).Should(Succeed())
 		podName := names.GenPodName(vdb, sc, 0)
 		f, ok := (pfacts.Detail[podName])
 		Expect(ok).Should(BeTrue())
@@ -61,14 +62,16 @@ var _ = Describe("podfacts", func() {
 			},
 		}}
 		pfacts := &PodFacts{Client: k8sClient, PRunner: fpr, Detail: make(PodFactDetail)}
-		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, 0)).Should(Succeed())
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts)).Should(Succeed())
+		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, sts, 0)).Should(Succeed())
 		pod0 := names.GenPodName(vdb, sc, 0)
 		f, ok := (pfacts.Detail[pod0])
 		Expect(ok).Should(BeTrue())
 		Expect(f.isPodRunning).Should(BeTrue())
 		Expect(f.isInstalled.IsFalse()).Should(BeTrue())
 		Expect(f.hasStaleAdmintoolsConf).Should(BeTrue())
-		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, 1)).Should(Succeed())
+		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, sts, 1)).Should(Succeed())
 		pod1 := names.GenPodName(vdb, sc, 1)
 		f, ok = (pfacts.Detail[pod1])
 		Expect(ok).Should(BeTrue())

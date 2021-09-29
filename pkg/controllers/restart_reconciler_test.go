@@ -499,4 +499,26 @@ var _ = Describe("restart_reconciler", func() {
 		reip := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "re_ip")
 		Expect(len(reip)).Should(Equal(1))
 	})
+
+	It("should requeue if one pod is not running", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyScheduleOnly
+		sc := &vdb.Spec.Subclusters[0]
+		const ScSize = 2
+		sc.Size = ScSize
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsNotRunning)
+		defer deletePods(ctx, vdb)
+
+		// Pod -0 is running and pod -1 is not running.
+		setPodStatusHelper(ctx, 1, names.GenPodName(vdb, sc, 0), 0, 0, AllPodsRunning, false)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		const DownPodIndex = 1
+		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{DownPodIndex})
+
+		r := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+	})
 })
