@@ -107,6 +107,7 @@ function build_and_push {
 # Run integration tests and store the pod status in a file
 function run_integration_tests {
   echo "Saving the test status log in $INT_TEST_OUTPUT_DIR/integration_run.log "
+  make setup-olm   # SPILLY rethink this spot
   make run-int-tests | tee "$INT_TEST_OUTPUT_DIR"/integration_run.log
 }
 

@@ -60,3 +60,4 @@ echo "Namespace: $NAMESPACE"
 kubectl delete clusterserviceversion --selector operators.coreos.com/verticadb-operator.$NAMESPACE="" || :
 kubectl delete -n $NAMESPACE operatorgroup e2e-operatorgroup || :
 kubectl delete -n $NAMESPACE subscription e2e-verticadb-subscription || :
+kubectl delete -n $NAMESPACE serviceaccount verticadb-operator-controller-manager || :

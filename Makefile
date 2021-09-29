@@ -102,6 +102,10 @@ HELM_OVERRIDES?=
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
 export E2E_PARALLELISM
+# Specify how to deploy the operator.  Allowable values are 'helm' or 'olm'.
+# When deploying with olm, it is expected that `make setup-olm` has been run
+# already.
+DEPLOY_WITH?=helm
 
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
@@ -302,11 +306,24 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 
 deploy-operator: manifests kustomize ## Using helm, deploy the controller to the K8s cluster specified in ~/.kube/config.
+ifeq ($(DEPLOY_WITH), helm)
 	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
+else ifeq ($(DEPLOY_WITH), olm)
+	scripts/deploy-olm.sh -n $(NAMESPACE)
+else
+	$(error Unknown deployment method: $(DEPLOY_WITH))
+endif
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 
+
 undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
+ifeq ($(DEPLOY_WITH), helm)
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
+else ifeq ($(DEPLOY_WITH), olm)
+	scripts/undeploy-olm.sh -n $(NAMESPACE)
+else
+	$(error Unknown deployment method: $(DEPLOY_WITH))
+endif
 
 deploy: deploy-operator
 
