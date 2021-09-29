@@ -24,3 +24,4 @@ alpine:3.13
 
 # Images needed for testing
 kindest/node:v1.21.1
+registry:2
