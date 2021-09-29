@@ -165,7 +165,7 @@ endif
 run-unit-tests: test ## Run unit tests
 
 .PHONY: install-kuttl-plugin
-install-kuttl-plugin:
+install-kuttl-plugin: krew
 ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 	kubectl krew install kuttl
 endif
@@ -297,6 +297,11 @@ GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
+
+krew: $(HOME)/.krew/bin/kubectl-krew ## Download krew plugin locally if necessary
+
+$(HOME)/.krew/bin/kubectl-krew:
+	scripts/setup-krew.sh
 
 .PHONY: bundle ## Generate bundle manifests and metadata, then validate generated files.
 bundle: manifests kustomize
