@@ -105,7 +105,7 @@ export E2E_PARALLELISM
 # Specify how to deploy the operator.  Allowable values are 'helm' or 'olm'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
 # already.
-DEPLOY_WITH?=helm
+DEPLOY_WITH?=olm
 
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
