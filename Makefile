@@ -25,10 +25,7 @@ ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
-
-# BUNDLE_IMG defines the image:tag used for the bundle. 
-# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= controller-bundle:$(VERSION)
+BUNDLE_DOCKERFILE=docker-bundle/Dockerfile
 
 # Set the namespace
 GET_NAMESPACE_SH=kubectl config view --minify --output 'jsonpath={..namespace}'
@@ -73,6 +70,24 @@ export VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= vertica-logger:$(TAG)
 export VLOGGER_IMG
+# Image URL to use for the bundle.  We special case kind because to use it with
+# kind it must be pushed to a local registry.
+ifeq ($(shell $(KIND_CHECK)), 1)
+BUNDLE_IMG ?= localhost:5000/verticadb-operator-bundle:$(TAG)
+else
+# BUNDLE_IMG defines the image:tag used for the bundle. 
+# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
+BUNDLE_IMG ?= verticadb-operator-bundle:$(VERSION)
+endif
+export BUNDLE_IMG
+# Image URL for the OLM catalog.  This is for testing purposes only.
+ifeq ($(shell $(KIND_CHECK)), 1)
+OLM_CATALOG_IMG ?= localhost:5000/olm-catalog:$(TAG)
+else
+OLM_CATALOG_IMG ?= olm-catalog:$(TAG)
+endif
+export OLM_CATALOG_IMG
+
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
 # Produce CRDs that work back to Kubernetes 2.11 (no version conversion)
@@ -182,6 +197,10 @@ run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
 setup-minio:  install-cert-manager ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
 
+.PHONY: setup-olm
+setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-build-olm-catalog docker-push-olm-catalog
+	scripts/setup-olm.sh
+
 ##@ Build
 
 build: generate fmt vet ## Build manager binary.
@@ -223,9 +242,39 @@ else
 	scripts/push-to-kind.sh -i ${VERTICA_IMG}
 endif
 
-docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images
+.PHONY: bundle 
+bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	mv bundle.Dockerfile $(BUNDLE_DOCKERFILE)
+	operator-sdk bundle validate ./bundle
 
-docker-push: docker-push-vertica docker-push-operator docker-push-vlogger ## Push all docker images
+.PHONY: docker-build-bundle
+docker-build-bundle: ## Build the bundle image
+	docker build -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
+
+.PHONY: docker-push-bundle
+docker-push-bundle: ## Push the bundle image
+	docker push $(BUNDLE_IMG)
+
+OLM_CATALOG_BASE?=quay.io/operatorhubio/catalog:latest
+docker-build-olm-catalog: opm ## Build an OLM catalog that includes our bundle (testing purposes only)
+	$(OPM) index add --bundles $(BUNDLE_IMG) --from-index $(OLM_CATALOG_BASE) --tag $(OLM_CATALOG_IMG) --build-tool docker --skip-tls
+
+docker-push-olm-catalog:
+	docker push $(OLM_CATALOG_IMG)
+
+docker-build: docker-build-vertica docker-build-operator docker-build-vlogger docker-build-bundle ## Build all docker images except OLM catalog
+
+docker-push: docker-push-vertica docker-push-operator docker-push-vlogger docker-push-bundle ## Push all docker images except OLM catalog
+
+echo-images:  ## Print the names of all of the images used
+	@echo "OPERATOR_IMG=$(OPERATOR_IMG)"
+	@echo "VERTICA_IMG=$(VERTICA_IMG)"
+	@echo "VLOGGER_IMG=$(VLOGGER_IMG)"
+	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
+	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 
 kuttl-step-gen: ## Builds the kuttl-step-gen tool
 	go build -o bin/$@ ./cmd/$@
@@ -262,7 +311,6 @@ undeploy-operator: ## Using helm, undeploy controller from the K8s cluster speci
 deploy: deploy-operator
 
 undeploy: undeploy-operator
-
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
@@ -303,13 +351,15 @@ krew: $(HOME)/.krew/bin/kubectl-krew ## Download krew plugin locally if necessar
 $(HOME)/.krew/bin/kubectl-krew:
 	scripts/setup-krew.sh
 
-.PHONY: bundle 
-bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
+OPM = $(shell pwd)/bin/opm
+OPM_VERSION = 1.18.1
+opm: $(OPM)  ## Download opm locally if necessary
+$(OPM):
+	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v1.18.1/linux-amd64-opm" --output $(OPM)
+	chmod +x $(OPM)
 
-.PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
+operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
+$(OPERATOR_SDK):
+	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.10.1/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
+	chmod +x $(OPERATOR_SDK)

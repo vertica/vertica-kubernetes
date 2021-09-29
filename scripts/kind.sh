@@ -163,7 +163,10 @@ function term_kind {
 
     if [[ -n $TERM_REGISTRY ]]
     then
-        docker rm --force ${REG_NAME}
+        running="$(docker inspect -f '{{.State.Running}}' "${REG_NAME}" 2>/dev/null || true)"
+        if [ "${running}" == 'true' ]; then
+            docker rm --force ${REG_NAME}
+        fi
     fi
 }
 

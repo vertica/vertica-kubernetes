@@ -92,14 +92,16 @@ We currently use the following containers:
 - **docker-vertica/Dockerfile**: The long-running container that runs the vertica daemon.
 - **docker-operator/Dockerfile**: The container that runs the operator and webhook
 - **docker-vlogger/Dockerfile**: The container that runs the vertica logger. It will tail the output of vertica.log to stdout. This is used for testing purposes. Some e2e tests use this as a sidecar to the Vertica server container.
+- **docker-bundle/Dockerfile**: The container that contains the 'bundle' for the operator.  This is used by OLM.  The contents of the docker-bundle/ directory are generated with `make docker-build-bundle`.
 
 To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
 
-By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the   following environment variables prior to running the make target.  
+By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the following environment variables prior to running the make target.  
 
 - **OPERATOR_IMG**: Operator image name.
 - **VERTICA_IMG**: Vertica image name.
 - **VLOGGER_IMG**: Vertica logger sidecar image name.
+- **BUNDLE_IMG**: OLM bundle image name.
 
 If necessary, these variables can include the url of the registry. For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`.
 
