@@ -56,7 +56,9 @@ LOG_CMD="kubectl ${NS_OPT}logs -l app.kubernetes.io/name=verticadb-operator -c m
 WEBHOOK_FILTER="--invert-match -e 'controller-runtime.webhook.webhooks' -e 'verticadb-resource'"
 timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | \
     grep $WEBHOOK_FILTER | \
-    tail -1 | grep --quiet '\"result\": {\"Requeue\":false,\"RequeueAfter\":0}, \"err\": null'; do sleep 1; done"
+    tail -1 | grep --quiet '\"result\": {\"Requeue\":false,\"RequeueAfter\":0}, \"err\": null'; do sleep 1; done" &
+pid=$!
+wait $pid
 
 if [[ "$?" -eq 0 ]]
 then

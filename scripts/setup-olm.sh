@@ -81,7 +81,9 @@ timeout $TIMEOUT bash -c -- "\
     while ! kubectl get catalogsource -n $OLM_NS $CATALOG_SOURCE_NAME -o jsonpath='{.status.connectionState.lastObservedState}' |  grep -cq 'READY'; \
     do \
         sleep 0.1; \
-    done"
+    done" &
+pid=$!
+wait $pid
 trap - 0 2 3 15 1> /dev/null
 set -o xtrace
 
@@ -93,6 +95,8 @@ timeout $TIMEOUT bash -c -- "\
     while ! kubectl get packagemanifests -n $OLM_NS verticadb-operator 2> /dev/null; \
     do \
         sleep 0.1; \
-    done"
+    done" &
+pid=$!
+wait $pid
 trap - 0 2 3 15 1> /dev/null
 set -o xtrace

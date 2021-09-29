@@ -95,4 +95,6 @@ timeout $TIMEOUT bash -c -- "\
     while ! kubectl create $NAMESPACE_OPT -f $MANIFEST 2> /dev/null; \
     do \
       sleep 0.1; \
-    done"
+    done" &
+pid=$!
+wait $pid
