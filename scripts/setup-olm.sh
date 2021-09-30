@@ -17,18 +17,19 @@
 
 set -o errexit
 set -o pipefail
-set -o xtrace
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 OPERATOR_SDK=${REPO_DIR}/bin/operator-sdk
-CATALOG_SOURCE_NAME=e2e-test-catalog
 OLM_NS=olm
 TIMEOUT=120
 OPERATOR_NAME=verticadb-operator
 
 function usage {
-    echo "usage: $0 [-t <seconds>]"
+    echo "usage: $0 [-t <seconds>] <catalog_source_name>"
+    echo
+    echo "<catalog_source_name> is the name of the OLM catalog to "
+    echo "create -- the name of the CatalogSource object."
     echo
     echo "Options:"
     echo "  -t <seconds>  Length of the timeout."
@@ -51,6 +52,15 @@ while getopts "ht:" opt; do
             ;;
     esac
 done
+
+if [ $(( $# - $OPTIND )) -lt 0 ]
+then
+    usage
+fi
+
+CATALOG_SOURCE_NAME=${@:$OPTIND:1}
+
+set -o xtrace
 
 cd $REPO_DIR
 

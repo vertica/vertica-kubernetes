@@ -106,6 +106,8 @@ export E2E_PARALLELISM
 # When deploying with olm, it is expected that `make setup-olm` has been run
 # already.
 DEPLOY_WITH?=olm
+# Name of the test OLM catalog that we will create and deploy with in e2e tests
+OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
@@ -203,7 +205,7 @@ setup-minio:  install-cert-manager ## Setup minio for use with the e2e tests
 
 .PHONY: setup-olm
 setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-build-olm-catalog docker-push-olm-catalog
-	scripts/setup-olm.sh
+	scripts/setup-olm.sh $(OLM_TEST_CATALOG_SOURCE)
 
 ##@ Build
 
@@ -247,7 +249,7 @@ else
 endif
 
 .PHONY: bundle 
-bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
+bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
@@ -309,7 +311,7 @@ deploy-operator: manifests kustomize ## Using helm, deploy the controller to the
 ifeq ($(DEPLOY_WITH), helm)
 	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
 else ifeq ($(DEPLOY_WITH), olm)
-	scripts/deploy-olm.sh -n $(NAMESPACE)
+	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
 else
 	$(error Unknown deployment method: $(DEPLOY_WITH))
 endif
@@ -320,7 +322,7 @@ undeploy-operator: ## Using helm, undeploy controller from the K8s cluster speci
 ifeq ($(DEPLOY_WITH), helm)
 	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
 else ifeq ($(DEPLOY_WITH), olm)
-	scripts/undeploy-olm.sh -n $(NAMESPACE)
+	scripts/undeploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
 else
 	$(error Unknown deployment method: $(DEPLOY_WITH))
 endif

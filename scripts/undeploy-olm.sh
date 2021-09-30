@@ -17,17 +17,14 @@
 
 set -o errexit
 set -o pipefail
-set -o xtrace
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=30
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
-CATALOG_SOURCE_NAME=e2e-test-catalog
-# SPILLY - make catalog source name a parm?  Get it from Makefile?
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>]"
+    echo "usage: $(basename $0) [-n <namespace>] <catalog_source_name>"
     echo
     echo "Options:"
     echo "  -n <namespace>  Check the webhook in this namespace."
@@ -50,12 +47,21 @@ do
     esac
 done
 
+if [ $(( $# - $OPTIND )) -lt 0 ]
+then
+    usage
+fi
+
+CATALOG_SOURCE_NAME=${@:$OPTIND:1}
+
 if [ -z "$NAMESPACE" ]
 then
   NAMESPACE=default
 fi
 
 echo "Namespace: $NAMESPACE"
+
+set -o xtrace
 
 kubectl delete -n $NAMESPACE clusterserviceversion --selector operators.coreos.com/verticadb-operator.$NAMESPACE="" || :
 kubectl delete -n $NAMESPACE operatorgroup e2e-operatorgroup || :
