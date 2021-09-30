@@ -102,10 +102,10 @@ HELM_OVERRIDES?=
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
 export E2E_PARALLELISM
-# Specify how to deploy the operator.  Allowable values are 'helm' or 'olm'.
+# Specify how to deploy the operator.  Allowable values are 'helm', 'olm' or 'random'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
-# already.
-DEPLOY_WITH?=olm
+# already.  When deploying with random, it will randomly pick between olm and helm.
+DEPLOY_WITH?=random
 # Name of the test OLM catalog that we will create and deploy with in e2e tests
 OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 
@@ -310,12 +310,19 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
 	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
+	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
+	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
+else ifeq ($(DEPLOY_WITH), random)
+ifeq ($(shell (( $$RANDOM % 2 )); echo $$?),0)
+	DEPLOY_WITH=helm $(MAKE) deploy-operator
+else
+	DEPLOY_WITH=olm $(MAKE) deploy-operator
+endif
 else
 	$(error Unknown deployment method: $(DEPLOY_WITH))
 endif
-	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 
 
 undeploy-operator: ## Undeploy operator that was previously deployed
