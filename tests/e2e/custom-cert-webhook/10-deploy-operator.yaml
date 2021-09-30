@@ -18,9 +18,5 @@ commands:
       cd ../../.. && TF=$(mktemp /tmp/cabundle.pem.XXXXXX) \
        && echo $TF \
        && kubectl get secrets -n $NAMESPACE custom-cert -o json | jq -r '.data."ca.crt"' | tee $TF \
-       && make deploy-operator NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert --set webhook.caBundle=$(cat $TF)" \
+       && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert --set webhook.caBundle=$(cat $TF)" \
        && rm $TF
-  # There is a known issue where the webhook isn't fully setup even though its pods are ready
-  # (see https://github.com/vertica/vertica-kubernetes/issues/30).  We add a sleep here to
-  # make it less likely that creation of the vdb will fail.
-  - command: sleep 15

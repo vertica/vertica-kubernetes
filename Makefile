@@ -307,7 +307,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 
-deploy-operator: manifests kustomize ## Using helm, deploy the controller to the K8s cluster specified in ~/.kube/config.
+deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
 	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} $(HELM_OVERRIDES)
 else ifeq ($(DEPLOY_WITH), olm)
@@ -318,14 +318,8 @@ endif
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 
 
-undeploy-operator: ## Using helm, undeploy controller from the K8s cluster specified in ~/.kube/config.
-ifeq ($(DEPLOY_WITH), helm)
-	helm uninstall -n $(NAMESPACE) $(HELM_RELEASE_NAME)
-else ifeq ($(DEPLOY_WITH), olm)
-	scripts/undeploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
-else
-	$(error Unknown deployment method: $(DEPLOY_WITH))
-endif
+undeploy-operator: ## Undeploy operator that was previously deployed
+	scripts/undeploy.sh -n $(NAMESPACE)
 
 deploy: deploy-operator
 
