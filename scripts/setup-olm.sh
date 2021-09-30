@@ -26,25 +26,29 @@ TIMEOUT=120
 OPERATOR_NAME=verticadb-operator
 
 function usage {
-    echo "usage: $0 [-t <seconds>] <catalog_source_name>"
+    echo "usage: $0 [-f] [-t <seconds>] <catalog_source_name>"
     echo
     echo "<catalog_source_name> is the name of the OLM catalog to "
     echo "create -- the name of the CatalogSource object."
     echo
     echo "Options:"
     echo "  -t <seconds>  Length of the timeout."
+    echo "  -f            Force the removal of olm before beginning"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "ht:" opt; do
+while getopts "ht:f" opt; do
     case ${opt} in
         h)
             usage
             ;;
         t)
             TIMEOUT=$OPTARG
+            ;;
+        f)
+            FORCE_OLM_REMOVAL=1
             ;;
         \?)
             echo "Unknown option: -${opt}"
@@ -64,12 +68,20 @@ set -o xtrace
 
 cd $REPO_DIR
 
-# Setup olm
-$OPERATOR_SDK olm uninstall || true
-$OPERATOR_SDK olm install --version 0.18.3
+# Teardown olm if '-f' option was set
+if [ -n "$FORCE_OLM_REMOVAL" ]
+then
+    $OPERATOR_SDK olm uninstall || true
+fi
 
-# Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
-kubectl delete catalogsource operatorhubio-catalog -n olm || true
+# Setup olm if not already present
+if ! kubectl get -n olm deployment olm-operator
+then
+    $OPERATOR_SDK olm install --version 0.18.3
+
+    # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
+    kubectl delete catalogsource operatorhubio-catalog -n olm || true
+fi
 
 # Create a catalog source using the catalog we build with 'docker-build-olm-catalog'
 cat <<EOF | kubectl apply -f -
