@@ -64,7 +64,7 @@ set -o xtrace
 
 if kubectl get -n $NAMESPACE clusterserviceversion | grep -cqe "^verticadb-operator" 2> /dev/null
 then
-    $SCRIPT_DIR/undeploy-olm.sh
+    $SCRIPT_DIR/undeploy-olm.sh -n $NAMESPACE
 elif helm list -n $NAMESPACE| grep -cqe "^$HELM_RELEASE_NAME"
 then
 	helm uninstall -n $NAMESPACE $HELM_RELEASE_NAME
