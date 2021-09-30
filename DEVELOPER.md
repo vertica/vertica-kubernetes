@@ -193,7 +193,7 @@ The operator pod contains a webhook, which needs TLS certificates setup.  The de
 
 The default deployment model will randomly pick between helm or OLM.  You can control what deployment method to use by specifing `DEPLOY_WITH=helm` or `DEPLOY_WITH=olm`.
 
-You can ensure cert-manager is installed, OLM is configured, helm charts are created and deploy the operator with the following command:
+When deploying with helm, you must also have cert-manager installed.  When installing with olm, you need to have olm setup.  There ase make targets to set both of those up.  You can ensure cert-manager is installed, OLM is configured, helm charts are created and deploy the operator with the following command:
 
 ```
 make install-cert-manager setup-olm create-helm-charts deploy
