@@ -19,17 +19,20 @@
 
 set -o errexit
 set -o pipefail
+set -o xtrace
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=120
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
+CATALOG_SOURCE_NAME=$(grep OLM_TEST_CATALOG_SOURCE= $REPO_DIR/Makefile | cut -d'=' -f2)
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-t <seconds>] <catalog_source_name>"
+    echo "usage: $(basename $0) [-n <namespace>] [-t <seconds>] [<catalog_source_name>]"
     echo
     echo "<catalog_source_name> is the name of the OLM catalog to use.  This was "
-    echo "previously created in setup-olm.sh"
+    echo "previously created in setup-olm.sh.  If omitted this defaults to: "
+    echo $CATALOG_SOURCE_NAME
     echo
     echo "Options:"
     echo "  -n <namespace>  Check the webhook in this namespace."
@@ -56,12 +59,10 @@ do
     esac
 done
 
-if [ $(( $# - $OPTIND )) -lt 0 ]
+if [ $(( $# - $OPTIND )) -ge 0 ]
 then
-    usage
+  CATALOG_SOURCE_NAME=${@:$OPTIND:1}
 fi
-
-CATALOG_SOURCE_NAME=${@:$OPTIND:1}
 
 if [ -z "$NAMESPACE" ]
 then
@@ -69,6 +70,7 @@ then
 fi
 
 echo "Namespace: $NAMESPACE"
+echo "Catalog source name: $CATALOG_SOURCE_NAME"
 
 set -o xtrace
 

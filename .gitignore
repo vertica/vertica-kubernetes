@@ -56,5 +56,6 @@ helm-charts/verticadb-webhook/crds/*
 # Omit overlays files
 config/overlays/
 
+# bundle files are all auto generated, so omit them
 docker-bundle/Dockerfile
 bundle/

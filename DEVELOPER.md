@@ -189,14 +189,14 @@ This disables the webhook from running too, as running the webhook requires TLS 
 
 When run in this mode, the operator will watch only a single namespace.  It will automatically use the current namespace as defined in the current config context. 
 
-The operator pod contains a webhook, which needs TLS certificates setup.  The default behaviour is to use TLS certificates created from cert-manager.  You can install cert-manager if not already on your system with this make command.
+The operator pod contains a webhook, which needs TLS certificates setup.  The default behaviour is to use TLS certificates created from cert-manager.  You can install cert-manager if not already on your system with the `install-cert-manager` make target.
 
-Under the covers this uses a helm chart for the actual install, so the helm charts need to be generated.
+The default deployment model will randomly pick between helm or OLM.  You can control what deployment method to use by specifing `DEPLOY_WITH=helm` or `DEPLOY_WITH=olm`.
 
-You can ensure cert-manager is installed, helm charts are created and deploy the operator with the following command:
+You can ensure cert-manager is installed, OLM is configured, helm charts are created and deploy the operator with the following command:
 
 ```
-make install-cert-manager create-helm-charts deploy
+make install-cert-manager setup-olm create-helm-charts deploy
 ```
 
 To remove the deployment, run the `undeploy` make target:

@@ -24,12 +24,14 @@ OPERATOR_SDK=${REPO_DIR}/bin/operator-sdk
 OLM_NS=olm
 TIMEOUT=120
 OPERATOR_NAME=verticadb-operator
+CATALOG_SOURCE_NAME=$(grep OLM_TEST_CATALOG_SOURCE= $REPO_DIR/Makefile | cut -d'=' -f2)
 
 function usage {
-    echo "usage: $0 [-f] [-t <seconds>] <catalog_source_name>"
+    echo "usage: $0 [-f] [-t <seconds>] [<catalog_source_name>]"
     echo
     echo "<catalog_source_name> is the name of the OLM catalog to "
-    echo "create -- the name of the CatalogSource object."
+    echo "create -- the name of the CatalogSource object.  If omitted"
+    echo "this defaults to: $CATALOG_SOURCE_NAME"
     echo
     echo "Options:"
     echo "  -t <seconds>  Length of the timeout."
@@ -57,12 +59,12 @@ while getopts "ht:f" opt; do
     esac
 done
 
-if [ $(( $# - $OPTIND )) -lt 0 ]
+if [ $(( $# - $OPTIND )) -ge 0 ]
 then
-    usage
+    CATALOG_SOURCE_NAME=${@:$OPTIND:1}
 fi
 
-CATALOG_SOURCE_NAME=${@:$OPTIND:1}
+echo "Catalog source name: $CATALOG_SOURCE_NAME"
 
 set -o xtrace
 
@@ -77,6 +79,7 @@ fi
 # Setup olm if not already present
 if ! kubectl get -n olm deployment olm-operator
 then
+    # When changing the olm version, update the digest in tests/external-images.txt
     $OPERATOR_SDK olm install --version 0.18.3
 
     # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
