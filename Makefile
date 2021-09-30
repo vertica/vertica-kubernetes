@@ -250,9 +250,7 @@ endif
 
 .PHONY: bundle 
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
-	$(OPERATOR_SDK) generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	scripts/gen-csv.sh $(VERSION) $(BUNDLE_METADATA_OPTS)
 	mv bundle.Dockerfile $(BUNDLE_DOCKERFILE)
 	$(OPERATOR_SDK) bundle validate ./bundle
 

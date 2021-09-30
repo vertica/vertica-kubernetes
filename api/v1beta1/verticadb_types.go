@@ -493,7 +493,7 @@ type VerticaDBPodStatus struct {
 //+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
 //+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
 
-// VerticaDB is the Schema for the verticadbs API
+// VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.
 type VerticaDB struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
