@@ -255,7 +255,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	operator-sdk bundle validate ./bundle
 
 .PHONY: docker-build-bundle
-docker-build-bundle: ## Build the bundle image
+docker-build-bundle: bundle ## Build the bundle image
 	docker build -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
 
 .PHONY: docker-push-bundle
