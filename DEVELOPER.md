@@ -15,6 +15,8 @@ Developing with this repo requires a working Kubernetes cluster. Additionally, t
 - [stern](https://github.com/stern/stern) (version 1.15.0)
 - [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
 - [changie](https://github.com/miniscruff/changie) (version 0.5.0)
+- [operator-sdk](https://github.com/operator-framework/operator-sdk/releases/download/v1.10.1/operator-sdk_linux_amd64) (version 1.10.1)
+- [opm](https://github.com/operator-framework/operator-registry/releases/tag/v1.18.1) (version 1.18.1)
 
 # Repo Structure
 
@@ -90,14 +92,16 @@ We currently use the following containers:
 - **docker-vertica/Dockerfile**: The long-running container that runs the vertica daemon.
 - **docker-operator/Dockerfile**: The container that runs the operator and webhook
 - **docker-vlogger/Dockerfile**: The container that runs the vertica logger. It will tail the output of vertica.log to stdout. This is used for testing purposes. Some e2e tests use this as a sidecar to the Vertica server container.
+- **docker-bundle/Dockerfile**: The container that contains the 'bundle' for the operator.  This is used by OLM.  The contents of the docker-bundle/ directory are generated with `make docker-build-bundle`.
 
 To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
 
-By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the   following environment variables prior to running the make target.  
+By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the following environment variables prior to running the make target.  
 
 - **OPERATOR_IMG**: Operator image name.
 - **VERTICA_IMG**: Vertica image name.
 - **VLOGGER_IMG**: Vertica logger sidecar image name.
+- **BUNDLE_IMG**: OLM bundle image name.
 
 If necessary, these variables can include the url of the registry. For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`.
 
@@ -185,14 +189,14 @@ This disables the webhook from running too, as running the webhook requires TLS 
 
 When run in this mode, the operator will watch only a single namespace.  It will automatically use the current namespace as defined in the current config context. 
 
-The operator pod contains a webhook, which needs TLS certificates setup.  The default behaviour is to use TLS certificates created from cert-manager.  You can install cert-manager if not already on your system with this make command.
+The operator pod contains a webhook, which needs TLS certificates setup.  The default behaviour is to use TLS certificates created from cert-manager.  You can install cert-manager if not already on your system with the `install-cert-manager` make target.
 
-Under the covers this uses a helm chart for the actual install, so the helm charts need to be generated.
+The default deployment model will randomly pick between helm or OLM.  You can control what deployment method to use by specifing `DEPLOY_WITH=helm` or `DEPLOY_WITH=olm`.
 
-You can ensure cert-manager is installed, helm charts are created and deploy the operator with the following command:
+When deploying with helm, you must also have cert-manager installed.  When installing with olm, you need to have olm setup.  There ase make targets to set both of those up.  You can ensure cert-manager is installed, OLM is configured, helm charts are created and deploy the operator with the following command:
 
 ```
-make install-cert-manager create-helm-charts deploy
+make install-cert-manager setup-olm create-helm-charts deploy
 ```
 
 To remove the deployment, run the `undeploy` make target:

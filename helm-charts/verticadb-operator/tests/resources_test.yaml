@@ -1,0 +1,26 @@
+suite: test that resources can be specified for the operator 
+templates:
+  - verticadb-operator-controller-manager-deployment.yaml
+tests:
+  - it: we can override the resources for the pod
+    set:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 600Mi
+        limits:
+          cpu: 700m
+          memory: 800Mi
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.cpu
+          value: 500m
+      - equal:
+          path: spec.template.spec.containers[0].resources.requests.memory
+          value: 600Mi
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: 700m
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 800Mi
