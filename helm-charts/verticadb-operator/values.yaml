@@ -18,7 +18,7 @@
 
 
 image:
-  name: vertica/verticadb-operator:1.0.0
+  name: vertica/verticadb-operator:1.1.0
 
 webhook:
   # The webhook requires a TLS certficate to work.  By default we rely on

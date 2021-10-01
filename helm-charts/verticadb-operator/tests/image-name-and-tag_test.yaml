@@ -5,10 +5,10 @@ tests:
   - it: allows the operator image and tag to be specified
     set:
       image:
-        name: verticadb-operator:kind
+        name: something:tag
     asserts:
       - isNotNull:
           path: spec.template.spec.containers[0].image
       - equal:
           path: spec.template.spec.containers[0].image
-          value: verticadb-operator:kind
+          value: something:tag
