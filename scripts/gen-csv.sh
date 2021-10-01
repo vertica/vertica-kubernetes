@@ -59,11 +59,16 @@ set -o xtrace
 
 cd $REPO_DIR
 $OPERATOR_SDK generate kustomize manifests -q
-cd config/manager
+mkdir -p config/overlays/csv
+cd config/overlays/csv
+cat <<- EOF > kustomization.yaml
+bases:
+- ../../manifests
+EOF
 $KUSTOMIZE edit set image controller=$OPERATOR_IMG
 cd $REPO_DIR
-$KUSTOMIZE build config/manifests | $OPERATOR_SDK generate bundle -q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS
+$KUSTOMIZE build config/overlays/csv | $OPERATOR_SDK generate bundle -q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS
 
 # Fill in the placeholders
 sed -i "s/CREATED_AT_PLACEHOLDER/$(date +"%FT%H:%M:%SZ")/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
-sed -i "s/OPERATOR_IMG_PLACEHOLDER/$(make echo-images | grep OPERATOR_IMG | cut -d'=' -f2)/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
+sed -i "s+OPERATOR_IMG_PLACEHOLDER+$(make echo-images | grep OPERATOR_IMG | cut -d'=' -f2)+g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
