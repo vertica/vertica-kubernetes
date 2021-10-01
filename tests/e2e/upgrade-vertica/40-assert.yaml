@@ -11,12 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-upgrade-vertica-defsc-0
+spec:
+  containers:
+    - image: vertica/vertica-k8s:latest
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-upgrade-vertica-defsc
 status:
-  replicas: 2
+  replicas: 1
+  readyReplicas: 1
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
@@ -24,4 +33,6 @@ metadata:
   name: v-upgrade-vertica
 status:
   subclusters:
-    - installCount: 2
+    - installCount: 1
+      addedToDBCount: 1
+      upNodeCount: 1
