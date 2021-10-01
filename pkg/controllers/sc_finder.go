@@ -42,6 +42,10 @@ const (
 	// Find subclusters that don't appear in the vdb.  This can be for
 	// subclusters that are being deleted.
 	FindNotInVdb
+	// Find subclusters that currently exist.  This includes subclusters that
+	// are already present in the vdb as well as ones that are scheduled for
+	// deletion.  This option is mutually exclusive with the other options.
+	FindExisting
 	// Find all subclusters, both in the vdb and not in the vdb.
 	FindAll = FindInVdb | FindNotInVdb
 )
@@ -65,13 +69,23 @@ func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags
 	return sts, nil
 }
 
-// FindServices returns service objects that were in use for subclusters but are no longer part of vdb
+// FindServices returns service objects that are in use for subclusters
 func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*corev1.ServiceList, error) {
 	svcs := &corev1.ServiceList{}
 	if err := m.buildObjList(ctx, svcs, flags); err != nil {
 		return nil, err
 	}
 	return svcs, nil
+}
+
+// FindPods returns pod objects that are are used to run Vertica.  It limits the
+// pods that were created by the given VerticaDB object.
+func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*corev1.PodList, error) {
+	pods := &corev1.PodList{}
+	if err := m.buildObjList(ctx, pods, flags); err != nil {
+		return nil, err
+	}
+	return pods, nil
 }
 
 // FindSubclusters will return a list of subclusters.
@@ -86,7 +100,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		}
 	}
 
-	if flags&FindNotInVdb != 0 {
+	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
 		missingSts, err := m.FindStatefulSets(ctx, FindNotInVdb)
 		if err != nil {
 			return nil, err
@@ -145,6 +159,10 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		if !ok {
 			return nil
 		}
+		if flags&FindExisting != 0 {
+			rawObjs = append(rawObjs, obj)
+			return nil
+		}
 		isScFromVdb := m.hasSubclusterLabelFromVdb(l)
 		if flags&FindInVdb != 0 && isScFromVdb {
 			rawObjs = append(rawObjs, obj)
@@ -168,6 +186,8 @@ func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 		return sts.Labels, true
 	} else if svc, ok := obj.(*corev1.Service); ok {
 		return svc.Labels, true
+	} else if pod, ok := obj.(*corev1.Pod); ok {
+		return pod.Labels, true
 	}
 	return nil, false
 }

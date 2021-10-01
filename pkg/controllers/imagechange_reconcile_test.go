@@ -61,7 +61,7 @@ var _ = Describe("imagechange_reconcile", func() {
 
 		r, _, _ := createImageChangeReconciler(vdb)
 		Expect(r.isImageChangeNeeded(ctx)).Should(Equal(true))
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image).Should(Equal(NewImage))
@@ -77,12 +77,31 @@ var _ = Describe("imagechange_reconcile", func() {
 		updateVdbToCauseImageChange(ctx, vdb, "container1:newimage")
 
 		r, fpr, _ := createImageChangeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(1))
 	})
 
 	It("should requeue image change if pods aren't running", func() {
+		vdb := vapi.MakeVDB()
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		updateVdbToCauseImageChange(ctx, vdb, "container2:newimage")
+
+		r, _, _ := createImageChangeReconciler(vdb)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		// Delete the sts in preparation of recrating everything with the new
+		// image.  Pods will come up not running to force a requeue by the
+		// restart reconiler.
+		deletePods(ctx, vdb)
+		createPods(ctx, vdb, AllPodsNotRunning)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+	})
+
+	It("should delete pods during an image change", func() {
 		vdb := vapi.MakeVDB()
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -93,6 +112,11 @@ var _ = Describe("imagechange_reconcile", func() {
 
 		r, _, _ := createImageChangeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
+		pods, err := finder.FindPods(ctx, FindExisting)
+		Expect(err).Should(Succeed())
+		Expect(len(pods.Items)).Should(Equal(0))
 	})
 
 	It("should avoid stop_db if vertica isn't running", func() {
@@ -107,7 +131,7 @@ var _ = Describe("imagechange_reconcile", func() {
 		r, fpr, pfacts := createImageChangeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].upNode = false
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(0))
 	})
@@ -136,7 +160,7 @@ var _ = Describe("imagechange_reconcile", func() {
 		// Read the latest vdb to get status conditions, etc.
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), vdb)).Should(Succeed())
 
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		Expect(r.ContinuingImageChange).Should(Equal(true))
 	})
 })
