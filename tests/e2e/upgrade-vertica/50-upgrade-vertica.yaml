@@ -17,6 +17,3 @@ metadata:
   name: v-upgrade-vertica
 spec:
   image: vertica/vertica-k8s:11.0.0-0-minimal
-  subcluster:
-  - name: defsc
-    size: 3

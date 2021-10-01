@@ -95,7 +95,7 @@ var _ = Describe("imagechange_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		// Delete the sts in preparation of recrating everything with the new
 		// image.  Pods will come up not running to force a requeue by the
-		// restart reconiler.
+		// restart reconciler.
 		deletePods(ctx, vdb)
 		createPods(ctx, vdb, AllPodsNotRunning)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))

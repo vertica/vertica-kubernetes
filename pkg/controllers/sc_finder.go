@@ -79,7 +79,7 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 }
 
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
-// pods that were created by the given VerticaDB object.
+// pods that were created by the VerticaDB object.
 func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 	if err := m.buildObjList(ctx, pods, flags); err != nil {
