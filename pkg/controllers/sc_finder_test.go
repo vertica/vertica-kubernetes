@@ -95,6 +95,48 @@ var _ = Describe("sc_finder", func() {
 		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
 	})
 
+	It("should only find statefulsets that exist in k8s", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"first", "second"}
+		scSizes := []int32{2, 3}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: scSizes[0]},
+			{Name: scNames[1], Size: scSizes[1]},
+		}
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		// When use the finder, pass in a Vdb that is entirely different then
+		// the one we used above.  It will be ignored anyway when using
+		// FindExisting.
+		finder := MakeSubclusterFinder(k8sClient, vapi.MakeVDB())
+		sts, err := finder.FindStatefulSets(ctx, FindExisting)
+		Expect(err).Should(Succeed())
+		Expect(len(sts.Items)).Should(Equal(2))
+		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
+		Expect(sts.Items[1].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[1]).Name))
+	})
+
+	It("should find all pods that exist in k8s for the VerticaDB", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"a", "b"}
+		scSizes := []int32{2, 3}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: scSizes[0]},
+			{Name: scNames[1], Size: scSizes[1]},
+		}
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		// When use the finder, pass in a Vdb that is entirely different then
+		// the one we used above.  It will be ignored anyway when using
+		// FindExisting.
+		finder := MakeSubclusterFinder(k8sClient, vapi.MakeVDB())
+		pods, err := finder.FindPods(ctx, FindExisting)
+		Expect(err).Should(Succeed())
+		Expect(len(pods.Items)).Should(Equal(int(scSizes[0] + scSizes[1])))
+	})
+
 	It("should find service objects that exist in the vdb", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]

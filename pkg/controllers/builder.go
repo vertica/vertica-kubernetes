@@ -335,8 +335,10 @@ func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	nm := names.GenPodName(vdb, sc, podIndex)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nm.Name,
-			Namespace: nm.Namespace,
+			Name:        nm.Name,
+			Namespace:   nm.Namespace,
+			Labels:      makeLabelsForObject(vdb, sc),
+			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc),
 	}

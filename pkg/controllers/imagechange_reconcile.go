@@ -39,12 +39,15 @@ type ImageChangeReconciler struct {
 	PRunner               cmds.PodRunner
 	PFacts                *PodFacts
 	ContinuingImageChange bool // true if UpdateInProgress was already set upon entry
+	Finder                SubclusterFinder
 }
 
 // MakeImageChangeReconciler will build an ImageChangeReconciler object
 func MakeImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
-	return &ImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	return &ImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
+		Finder: MakeSubclusterFinder(vdbrecon.Client, vdb),
+	}
 }
 
 // Reconcile will handle the process of the vertica image changing.  For
@@ -69,11 +72,12 @@ func (u *ImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.Request
 		u.startImageChange,
 		// Do a clean shutdown of the cluster
 		u.stopCluster,
-		// Delete the sts objects.  We don't rely on k8s rolling upgrade.
-		// Everything must be destroyed then regenerated.
-		u.deleteStatefulSets,
-		// Create the sts object with the new image name.
-		u.recreateStatefulSets,
+		// Set the new image in the statefulset objects.
+		u.updateImageInStatefulSets,
+		// Delete pods that have the old image.
+		u.deletePods,
+		// Check for the pods to be created by the sts controller with the new image
+		u.checkForNewPods,
 		// Start up vertica in each pod.
 		u.restartCluster,
 		// Cleanup up the condition and event recording for a completed image change
@@ -130,8 +134,7 @@ func (u *ImageChangeReconciler) isImageChangeNeeded(ctx context.Context) (bool, 
 
 	// Next check if an image change is needed based on the image being different
 	// between the Vdb and any of the statefulset's.
-	finder := MakeSubclusterFinder(u.VRec.Client, u.Vdb)
-	stss, err := finder.FindStatefulSets(ctx, FindInVdb)
+	stss, err := u.Finder.FindStatefulSets(ctx, FindInVdb)
 	if err != nil {
 		return false, err
 	}
@@ -195,25 +198,26 @@ func (u *ImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Result, e
 	return ctrl.Result{}, nil
 }
 
-// deleteStatefulSets will delete the statefulsets and all of their pods.  The
-// purpose is so that all pods get recreated with the new image.  K8s has the
-// ability to support rolling upgrade.  However, the vertica server doesn't
-// support this.  In fact, all hosts in a cluster must be on the same engine
-// level.  So an upgrade incurs some downtime as we need to take the entire
-// cluster down.   That is what this function is doing, it is delete the
-// statefulset so they can be regenerated with the new image.
-func (u *ImageChangeReconciler) deleteStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	finder := MakeSubclusterFinder(u.VRec.Client, u.Vdb)
-	stss, err := finder.FindStatefulSets(ctx, FindInVdb)
+// updateImageInStatefulSets will update the statefulsets to have the new image.
+// This depends on the statefulsets having the UpdateStrategy of OnDelete.
+// Since there will be processing after to delete the pods so that they come up
+// with the new image.
+func (u *ImageChangeReconciler) updateImageInStatefulSets(ctx context.Context) (ctrl.Result, error) {
+	// We use FindExisting for the finder because we only want to work with sts
+	// that already exist.  This is necessary incase the image change was paired
+	// with a scaling operation.  The pod change due to the scaling operation
+	// doesn't take affect until after the image change.
+	stss, err := u.Finder.FindStatefulSets(ctx, FindExisting)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	for i := range stss.Items {
-		sts := stss.Items[i]
+		sts := &stss.Items[i]
 		// Skip the statefulset if it already has the proper image.
 		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
-			u.Log.Info("Deleting old statefulset", "name", sts.ObjectMeta.Name)
-			err = u.VRec.Client.Delete(ctx, &stss.Items[i])
+			u.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
+			sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = u.Vdb.Spec.Image
+			err = u.VRec.Client.Update(ctx, sts)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -223,25 +227,55 @@ func (u *ImageChangeReconciler) deleteStatefulSets(ctx context.Context) (ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-// recreateStatefulSets will regenerate the statefulset and pods.  The new
-// regenerated sts will have the new image.
-func (u *ImageChangeReconciler) recreateStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	actor := MakeObjReconciler(u.VRec.Client, u.VRec.Scheme, u.Log, u.Vdb, u.PFacts)
-	objr := actor.(*ObjReconciler)
-	objr.PatchImageAllowed = true
-
-	// We are only going to call a subset of the ObjReconciler functionality.
-	// We don't want to reconcile other changes like svc objects.  We just want
-	// to recreate any statefulset objects.
-	for i := range u.Vdb.Spec.Subclusters {
-		updated, err := objr.reconcileSts(ctx, &u.Vdb.Spec.Subclusters[i])
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		// Invalidate the pfacts since objects were recreated
-		if updated {
+// deletePods will delete pods that are running the old image.  The assumption
+// is that the sts has already had its image updated and the UpdateStrategy for
+// the sts is OnDelete.  Deleting the pods ensures they get rescheduled with the
+// new image.
+func (u *ImageChangeReconciler) deletePods(ctx context.Context) (ctrl.Result, error) {
+	// We use FindExisting for the finder because we only want to work with pods
+	// that already exist.  This is necessary in case the image change was paired
+	// with a scaling operation.  The pod change due to the scaling operation
+	// doesn't take affect until after the image change.
+	pods, err := u.Finder.FindPods(ctx, FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		// Skip the pod if it already has the proper image.
+		if pod.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
+			u.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
+			err = u.VRec.Client.Delete(ctx, pod)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 			u.PFacts.Invalidate()
 		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// checkForNewPods will check to ensure at least one pod exists with the new image.
+// This is necessary before proceeding to the restart phase.  We need at least
+// one pod to exist with the new image.  Failure to do this will cause the
+// restart process to exit successfully with no restart done.  A restart can
+// only occur if there is at least one pod that exists.
+func (u *ImageChangeReconciler) checkForNewPods(ctx context.Context) (ctrl.Result, error) {
+	foundPodWithNewImage := false
+	pods, err := u.Finder.FindPods(ctx, FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.Spec.Containers[names.ServerContainerIndex].Image == u.Vdb.Spec.Image {
+			foundPodWithNewImage = true
+			break
+		}
+	}
+	if !foundPodWithNewImage {
+		u.Log.Info("Requeue to wait until at least one pod exists with the new image")
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }
