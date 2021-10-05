@@ -82,7 +82,7 @@ fi
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
-S3_PATH_PREFIX=s3://${S3_BUCKET}${PATH_PREFIX}
+S3_PATH_PREFIX=${PATH_PROTOCOL}${S3_BUCKET}${PATH_PREFIX}
 
 echo "Using vertica server image name: $VERTICA_IMG"
 echo "Using vertica logger image name: $VLOGGER_IMG"
@@ -237,6 +237,7 @@ function clean_s3_bucket_kustomization {
       return 0
     fi
 
+    # SPILLY - rename clean-s3-bucket to clean-communal
     TC_OVERLAY=$1/clean-s3-bucket/overlay
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
@@ -252,11 +253,30 @@ patches:
     name: clean-s3-bucket
   patch: |-
     - op: replace
-      path: "/spec/containers/0/env/1"
+      path: /spec/containers/0/env/1
       value:
         name: TESTCASE_NAME
         value: $(basename $1)
 EOF
+
+    if [ "$PATH_PROTOCOL" == "s3://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: "aws s3 rm --recursive --endpoint $S3_EP s3://${S3_BUCKET}${PATH_PREFIX}${TESTCASE+NAME} --no-verify-ssl"
+EOF
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: "kubectl exec -t $(kubectl get pods -l app=hdfs-client -n kuttl-e2e-hdfs -o jsonpath={.items[0].metadata.name}) -- hadoop fs -rm -r -f $DB_PATH"
+EOF
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
     popd > /dev/null
 }
 
