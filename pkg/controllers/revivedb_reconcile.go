@@ -226,7 +226,6 @@ func (r *ReviveDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"-t", "revive_db",
 		"--hosts=" + strings.Join(hostList, ","),
 		"--communal-storage-location=" + paths.GetCommunalPath(r.Vdb),
-		"--communal-storage-params=" + paths.AuthParmsFile,
 		"--database", r.Vdb.Spec.DBName,
 	}
 	if r.Vdb.Spec.IgnoreClusterLease {

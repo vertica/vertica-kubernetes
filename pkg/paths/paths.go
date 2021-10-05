@@ -29,6 +29,7 @@ const (
 	LocalDataPath          = "/home/dbadmin/local-data"
 	CELicensePath          = "/home/dbadmin/licensing/ce/vertica_community_edition.license.key"
 	MountedLicensePath     = "/home/dbadmin/licensing/mnt"
+	HDFSConfPath           = "/etc/hadoop"
 	ConfigPath             = "/opt/vertica/config"
 	ConfigSharePath        = "/opt/vertica/config/share"
 	ConfigLogrotatePath    = "/opt/vertica/config/logrotate"

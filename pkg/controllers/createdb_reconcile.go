@@ -199,7 +199,6 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"--skip-fs-checks",
 		"--hosts=" + strings.Join(hostList, ","),
 		"--communal-storage-location=" + paths.GetCommunalPath(c.Vdb),
-		"--communal-storage-params=" + paths.AuthParmsFile,
 		"--sql=" + PostDBCreateSQLFile,
 		fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),
 		"--depot-path=" + c.Vdb.Spec.Local.DepotPath,

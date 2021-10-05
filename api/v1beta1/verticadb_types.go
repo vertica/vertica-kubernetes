@@ -273,6 +273,12 @@ type CommunalStorage struct {
 	// region, you might experience a delay before the bootstrap fails because
 	// Vertica retries several times before giving up.
 	Region string `json:"region,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// A config map that contains the contents of the /etc/hadoop config files.
+	// This gets mounted in the container and is used to configure connections
+	// to an HDFS communal path
+	HDFSConfig string `json:"hdfsConfig,omitempty"`
 }
 
 type LocalStorage struct {

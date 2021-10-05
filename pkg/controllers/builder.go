@@ -89,6 +89,13 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
+	if vdb.Spec.Communal.HDFSConfig != "" {
+		volMnts = append(volMnts, corev1.VolumeMount{
+			Name:      vapi.HDFSConfigMountName,
+			MountPath: paths.HDFSConfPath,
+		})
+	}
+
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 
 	return volMnts
@@ -112,6 +119,9 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	vols = append(vols, buildPodInfoVolume(vdb))
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
+	}
+	if vdb.Spec.Communal.HDFSConfig != "" {
+		vols = append(vols, buildHDFSConfigVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -214,6 +224,17 @@ func buildCertSecretVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		})
 	}
 	return vols
+}
+
+func buildHDFSConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.HDFSConfigMountName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HDFSConfig},
+			},
+		},
+	}
 }
 
 // buildPodSpec creates a PodSpec for the statefulset

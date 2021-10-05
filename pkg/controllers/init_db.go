@@ -111,6 +111,9 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if g.NeedsAuthParms() {
+		cmd = append(cmd, "--communal-storage-params="+paths.AuthParmsFile)
+	}
 	if res, err := g.initializer.execCmd(ctx, atPod, cmd); err != nil || res.Requeue {
 		return res, err
 	}
@@ -169,8 +172,17 @@ func (g *GenericDatabaseInitializer) cleanupLocalFilesInPods(ctx context.Context
 	return nil
 }
 
+// NeedsAuthParms will return true if the auth parms file is required to initialize the database
+func (g *GenericDatabaseInitializer) NeedsAuthParms() bool {
+	return g.Vdb.IsS3()
+}
+
 // ConstructAuthParms builds the s3 authentication parms and ensure it exists in the pod
 func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atPod types.NamespacedName) (ctrl.Result, error) {
+	if !g.NeedsAuthParms() {
+		return ctrl.Result{}, nil
+	}
+
 	// Extract the auth from the credential secret.
 	auth, res, err := g.getS3Auth(ctx)
 	if err != nil || res.Requeue {

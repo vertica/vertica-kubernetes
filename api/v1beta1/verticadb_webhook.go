@@ -32,17 +32,22 @@ import (
 )
 
 const (
-	invalidDBNameChars = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
-	dbNameLengthLimit  = 30
-	KSafety0MinHosts   = 1
-	KSafety0MaxHosts   = 3
-	KSafety1MinHosts   = 3
-	portLowerBound     = 30000
-	portUpperBound     = 32767
-	LocalDataPVC       = "local-data"
-	PodInfoMountName   = "podinfo"
-	LicensingMountName = "licensing"
+	invalidDBNameChars  = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
+	dbNameLengthLimit   = 30
+	KSafety0MinHosts    = 1
+	KSafety0MaxHosts    = 3
+	KSafety1MinHosts    = 3
+	portLowerBound      = 30000
+	portUpperBound      = 32767
+	LocalDataPVC        = "local-data"
+	PodInfoMountName    = "podinfo"
+	LicensingMountName  = "licensing"
+	HDFSConfigMountName = "hdfs-conf"
+	S3Prefix            = "s3://"
 )
+
+// hdfsPrefixes are prefixes for an HDFS path.
+var hdfsPrefixes = []string{"webhdfs://"}
 
 // log is for logging in this package.
 var verticadblog = logf.Log.WithName("verticadb-resource")
@@ -51,6 +56,20 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(v).
 		Complete()
+}
+
+// IsHDFS returns true if the communal path is stored in an HDFS path
+func (v *VerticaDB) IsHDFS() bool {
+	for _, p := range hdfsPrefixes {
+		if strings.HasPrefix(v.Spec.Communal.Path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *VerticaDB) IsS3() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, S3Prefix)
 }
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -197,7 +216,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
-	allErrs = v.validateS3Bucket(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidDomainName(allErrs)
 	allErrs = v.credentialSecretExists(allErrs)
@@ -241,32 +259,25 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
-	// communal.Path must be an S3 bucket, prefaced with s3://
-	if !strings.HasPrefix(v.Spec.Communal.Path, "s3://") {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
-			v.Spec.Communal.Path,
-			"communal.Path must be an S3 bucket, prefaced with s3://")
-		allErrs = append(allErrs, err)
+	allPrefs := []string{S3Prefix}
+	allPrefs = append(allPrefs, hdfsPrefixes...)
+	for _, pref := range allPrefs {
+		if strings.HasPrefix(v.Spec.Communal.Path, pref) {
+			return allErrs
+		}
 	}
-	return allErrs
-}
-
-func (v *VerticaDB) validateS3Bucket(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
-		return allErrs
-	}
-	// communal.Path must be an S3 bucket, prefaced with s3://
-	if !strings.HasPrefix(v.Spec.Communal.Path, "s3://") {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
-			v.Spec.Communal.Path,
-			"communal.Path must be an S3 bucket, prefaced with s3://")
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
+	err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
+		v.Spec.Communal.Path,
+		"communal.Path is not prefixed with an accepted type")
+	return append(allErrs, err)
 }
 
 func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
+	// Endpoint is ignored if communal path is HDFS
+	if v.IsHDFS() {
 		return allErrs
 	}
 	// communal.endpoint must be prefaced with http:// or https:// to know what protocol to connect with.
@@ -282,6 +293,10 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 
 func (v *VerticaDB) credentialSecretExists(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
+	// Credential secrets are not needed if communal path is HDFS
+	if v.IsHDFS() {
 		return allErrs
 	}
 	// communal.credentialSecret must exist
@@ -447,7 +462,7 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Volumes {
 		vol := v.Spec.Volumes[i]
-		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) {
+		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) || (vol.Name == HDFSConfigMountName) {
 			err := field.Invalid(field.NewPath("spec").Child("volumes").Index(i).Child("name"),
 				v.Spec.Volumes[i].Name,
 				"conflicts with the name of one of the internally generated volumes")
