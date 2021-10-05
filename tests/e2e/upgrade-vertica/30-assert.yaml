@@ -27,20 +27,12 @@ spec:
   containers:
     - image: vertica/vertica-k8s:latest
 ---
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-2
-spec:
-  containers:
-    - image: vertica/vertica-k8s:latest
----
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-upgrade-vertica-defsc
 status:
-  readyReplicas: 3
+  readyReplicas: 2
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
@@ -48,6 +40,6 @@ metadata:
   name: v-upgrade-vertica
 status:
   subclusters:
-    - installCount: 3
-      addedToDBCount: 3
-      upNodeCount: 3
+    - installCount: 2
+      addedToDBCount: 2
+      upNodeCount: 2

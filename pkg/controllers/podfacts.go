@@ -185,7 +185,9 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		return err
 	}
 	pf.exists = true // Success from the Get() implies pod exists in API server
-	pf.managedByParent = podIndex < *sts.Spec.Replicas
+	if sts.Spec.Replicas != nil {
+		pf.managedByParent = podIndex < *sts.Spec.Replicas
+	}
 	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
