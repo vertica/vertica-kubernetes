@@ -19,10 +19,6 @@ set -e
 
 UPLOAD_IMAGES=
 TAG=latest
-if [[ -n $KUBECONFIG ]]
-then
-    KUBECONFIG=$HOME/.kube/config
-fi
 KUBEVER=1.21.1
 IP_FAMILY=ipv4
 LISTEN_ALL_INTERFACES=N
