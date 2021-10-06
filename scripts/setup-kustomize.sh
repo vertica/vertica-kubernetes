@@ -98,43 +98,46 @@ function create_vdb_kustomization {
     BASE_DIR=$1
     TESTCASE_NAME=$2
 
-    cat <<EOF > testcase.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: testcase
-data:
-  communalPath: ${COMMUNAL_PATH_PREFIX}${TESTCASE_NAME}
-EOF
-
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - $BASE_DIR
   - $(realpath --relative-to="." $REPO_DIR/tests/kustomize-base)
-  - testcase.yaml
+
+patches:
+- target:
+    version: v1beta1
+    kind: VerticaDB
+  patch: |-
+    - op: replace
+      path: /spec/communal/path
+      value: ${COMMUNAL_PATH_PREFIX}${TESTCASE_NAME}
+EOF
+
+    if [ "$PATH_PROTOCOL" == "s3://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/communal/endpoint
+      value: $ENDPOINT
+    - op: replace
+      path: /spec/communal/credentialSecret
+      value: s3-creds
+    - op: replace
+      path: /spec/communal/region
+      value: $REGION
+EOF
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    then
+        true   # Nothing to be done for HDFS
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
+
+      cat <<EOF >> kustomization.yaml
 replacements:
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.endpoint
-    targets:
-      - select:
-          kind: VerticaDB
-        fieldPaths:
-          - spec.communal.endpoint
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.region
-    targets:
-      - select:
-          kind: VerticaDB
-        fieldPaths:
-          - spec.communal.region
-        options:
-          create: true
   - source:
       kind: ConfigMap
       name: e2e
@@ -164,15 +167,6 @@ replacements:
           kind: VerticaDB
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
-  - source:
-      kind: ConfigMap
-      name: testcase
-      fieldPath: data.communalPath
-    targets:
-      - select:
-          kind: VerticaDB
-        fieldPaths:
-          - spec.communal.path
 EOF
 
     if [ -n "$COMMUNAL_EP_CERT_SECRET" ]

@@ -19,9 +19,7 @@ spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   communal:
-    path: "s3://vdb-gen"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: s3-creds
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   dbName: vertdb

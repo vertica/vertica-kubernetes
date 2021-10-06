@@ -22,9 +22,6 @@ spec:
       image: kustomize-vlogger-image
   ignoreClusterLease: true
   communal:
-    path: "s3://revivedb-multi-sc"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: s3-creds
     includeUIDInPath: false
   initPolicy: Revive
   reviveOrder:

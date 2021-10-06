@@ -20,9 +20,6 @@ spec:
   superuserPasswordSecret: su-passwd
   ignoreClusterLease: true
   communal:
-    path: "s3://revivedb-1-node"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: s3-creds
     includeUIDInPath: false
   local:
     requestSize: 100Mi

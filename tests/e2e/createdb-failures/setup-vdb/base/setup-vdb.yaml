@@ -18,9 +18,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "http://minio"
-    credentialSecret: s3-creds-secret
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   dbName: db

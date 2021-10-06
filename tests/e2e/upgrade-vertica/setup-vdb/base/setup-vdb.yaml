@@ -19,9 +19,6 @@ spec:
   image: vertica/vertica-k8s:11.0.0-0-minimal
   imagePullPolicy: IfNotPresent
   communal:
-    path: "s3://upgrade-vertica"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret:  s3-creds
     includeUIDInPath: true
   local:
     requestSize: 100Mi

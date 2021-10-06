@@ -21,9 +21,7 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://kill-during-add-node"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: s3-creds
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   subclusters:

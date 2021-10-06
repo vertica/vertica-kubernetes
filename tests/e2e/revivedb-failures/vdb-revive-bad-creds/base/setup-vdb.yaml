@@ -18,9 +18,6 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://revivedb-failures"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: custom-creds
     includeUIDInPath: false
   initPolicy: Revive
   local:

@@ -21,9 +21,6 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://restart-node-multi-sc"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: s3-creds
     includeUIDInPath: true
   dbName: vertdb
   shardCount: 16
