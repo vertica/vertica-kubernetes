@@ -25,7 +25,7 @@ replacements:
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: clean-communal
         fieldPaths:
           - spec.containers.[name=aws].env.[name=S3_EP].value
   - source:
@@ -35,7 +35,7 @@ replacements:
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: clean-communal
         fieldPaths:
           - spec.containers.[name=aws].env.[name=AWS_ACCESS_KEY_ID].value
   - source:
@@ -45,7 +45,7 @@ replacements:
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: clean-communal
         fieldPaths:
           - spec.containers.[name=aws].env.[name=AWS_SECRET_ACCESS_KEY].value
   - source:
@@ -55,7 +55,7 @@ replacements:
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: clean-communal
         fieldPaths:
           - spec.containers.[name=aws].env.[name=S3_BUCKET].value
   - source:
@@ -65,6 +65,6 @@ replacements:
     targets:
       - select:
           kind: Pod
-          name: clean-s3-bucket
+          name: clean-communal
         fieldPaths:
           - spec.containers.[name=aws].env.[name=PATH_PREFIX].value

@@ -16,4 +16,4 @@ kind: TestStep
 delete:
   - apiVersion: v1
     kind: Pod
-    name: clean-s3-bucket
+    name: clean-communal

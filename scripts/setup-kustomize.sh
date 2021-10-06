@@ -83,7 +83,7 @@ fi
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
-S3_PATH_PREFIX=${PATH_PROTOCOL}${S3_BUCKET}${PATH_PREFIX}
+COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
 
 echo "Using vertica server image name: $VERTICA_IMG"
 echo "Using vertica logger image name: $VLOGGER_IMG"
@@ -91,8 +91,8 @@ if [ -n "$LICENSE_SECRET" ]; then
     echo "Using license name: $LICENSE_SECRET"
 fi
 echo "Using endpoint: $ENDPOINT"
-echo "S3 bucket name: $S3_BUCKET"
-echo "S3 Path Prefix: $S3_PATH_PREFIX"
+echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
+echo "Communal Path Prefix: $COMMUNAL_PATH_PREFIX"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -104,7 +104,7 @@ kind: ConfigMap
 metadata:
   name: testcase
 data:
-  communalPath: ${S3_PATH_PREFIX}${TESTCASE_NAME}
+  communalPath: ${COMMUNAL_PATH_PREFIX}${TESTCASE_NAME}
 EOF
 
     cat <<EOF > kustomization.yaml
@@ -232,14 +232,13 @@ function create_vdb_pod_kustomization {
     popd > /dev/null
 }
 
-function clean_s3_bucket_kustomization {
+function clean_communal_kustomization {
     if [ ! -d $1 ]
     then
       return 0
     fi
 
-    # SPILLY - rename clean-s3-bucket to clean-communal
-    TC_OVERLAY=$1/clean-s3-bucket/overlay
+    TC_OVERLAY=$1/clean-communal/overlay
     TESTCASE_NAME=$(basename $1)
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
@@ -247,12 +246,12 @@ function clean_s3_bucket_kustomization {
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/clean-s3-bucket/base
+- ../../../../manifests/clean-communal/base
 patches:
 - target:
     version: v1
     kind: Pod
-    name: clean-s3-bucket
+    name: clean-communal
   patch: |-
 EOF
 
@@ -261,7 +260,7 @@ EOF
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: "aws s3 rm --recursive --endpoint $ENDPOINT s3://${S3_BUCKET}${PATH_PREFIX}${TESTCASE_NAME} --no-verify-ssl"
+      value: "aws s3 rm --recursive --endpoint $ENDPOINT s3://${BUCKET_OR_CLUSTER}${PATH_PREFIX}${TESTCASE_NAME} --no-verify-ssl"
     - op: replace
       path: /spec/containers/0/image
       value: amazon/aws-cli:2.2.24
@@ -312,7 +311,7 @@ data:
   accesskeyUnenc: $ACCESSKEY
   secretkeyUnenc: $SECRETKEY
   region: $REGION
-  s3Bucket: $S3_BUCKET
+  s3Bucket: $BUCKET_OR_CLUSTER
   pathPrefix: $PATH_PREFIX
   verticaImage: ${VERTICA_IMG:-$DEF_VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG:-$DEF_VLOGGER_IMG}
@@ -362,5 +361,5 @@ do
 done
 for tdir in e2e/* e2e-disabled/*
 do
-    clean_s3_bucket_kustomization $tdir
+    clean_communal_kustomization $tdir
 done
