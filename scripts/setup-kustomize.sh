@@ -20,6 +20,7 @@ set -o errexit
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 KUSTOMIZE=$REPO_DIR/bin/kustomize
+HDFS_NS=kuttl-e2e-hdfs
 
 function usage {
     echo "usage: $0 [-hv] [<configFile>]"
@@ -239,6 +240,7 @@ function clean_s3_bucket_kustomization {
 
     # SPILLY - rename clean-s3-bucket to clean-communal
     TC_OVERLAY=$1/clean-s3-bucket/overlay
+    TESTCASE_NAME=$(basename $1)
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
@@ -252,11 +254,6 @@ patches:
     kind: Pod
     name: clean-s3-bucket
   patch: |-
-    - op: replace
-      path: /spec/containers/0/env/1
-      value:
-        name: TESTCASE_NAME
-        value: $(basename $1)
 EOF
 
     if [ "$PATH_PROTOCOL" == "s3://" ]
@@ -264,14 +261,35 @@ EOF
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: "aws s3 rm --recursive --endpoint $S3_EP s3://${S3_BUCKET}${PATH_PREFIX}${TESTCASE+NAME} --no-verify-ssl"
+      value: "aws s3 rm --recursive --endpoint $ENDPOINT s3://${S3_BUCKET}${PATH_PREFIX}${TESTCASE_NAME} --no-verify-ssl"
+    - op: replace
+      path: /spec/containers/0/image
+      value: amazon/aws-cli:2.2.24
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AWS_ACCESS_KEY_ID
+        value: $ACCESSKEY
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AWS_SECRET_ACCESS_KEY
+        value: $SECRETKEY
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AWS_EC2_METADATA_DISABLED
+        value: 'true'
 EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: "kubectl exec -t $(kubectl get pods -l app=hdfs-client -n kuttl-e2e-hdfs -o jsonpath={.items[0].metadata.name}) -- hadoop fs -rm -r -f $DB_PATH"
+      value: "kubectl exec -n $HDFS_NS -t $(kubectl get pods -l app=hdfs-client -n $HDFS_NS -o jsonpath={.items[0].metadata.name}) -- hadoop fs -rm -r -f ${PATH_PREFIX}${TESTCASE_NAME}"
+    - op: replace
+      path: /spec/containers/0/image
+      value: bitnami/kubectl:1.20.4
 EOF
     else
       echo "*** Unknown protocol: $PATH_PROTOCOL"

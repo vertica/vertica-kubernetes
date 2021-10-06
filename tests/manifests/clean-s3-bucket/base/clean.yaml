@@ -20,23 +20,10 @@ metadata:
     stern: include
 spec:
   containers:
-  - name: aws
-    image: amazon/aws-cli:2.2.24
+  - name: clean
     command:
         ["bash", "-c", "aws s3 rm --recursive --endpoint $S3_EP s3://${S3_BUCKET}${PATH_PREFIX}${TESTCASE_NAME} --no-verify-ssl"]
     env:
-      - name: S3_BUCKET
-        value: kustomize-s3-bucket
-      - name: TESTCASE_NAME
-        value: $(TESTCASE_NAME)
-      - name: PATH_PREFIX
-        value: kustomize-path-prefix
-      - name: AWS_ACCESS_KEY_ID
-        value: kustomize-s3-accesskey
-      - name: AWS_SECRET_ACCESS_KEY
-        value: kustomize-s3-secretkey
-      - name: AWS_EC2_METADATA_DISABLED
-        value: 'true'
-      - name: S3_EP
-        value: kustomize-s3-endpoint
+      - name: NAME
+        value: clean-communal
   restartPolicy: Never
