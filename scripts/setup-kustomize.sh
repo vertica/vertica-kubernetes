@@ -299,14 +299,6 @@ kind: ConfigMap
 metadata:
   name: e2e
 data:
-  endpoint: $ENDPOINT
-  accesskeyEnc: $(echo -n $ACCESSKEY | base64)
-  secretkeyEnc: $(echo -n $SECRETKEY | base64)
-  accesskeyUnenc: $ACCESSKEY
-  secretkeyUnenc: $SECRETKEY
-  region: $REGION
-  s3Bucket: $BUCKET_OR_CLUSTER
-  pathPrefix: $PATH_PREFIX
   verticaImage: ${VERTICA_IMG:-$DEF_VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG:-$DEF_VLOGGER_IMG}
 EOF
