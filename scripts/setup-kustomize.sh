@@ -85,14 +85,15 @@ fi
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
 COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
 
-echo "Using vertica server image name: $VERTICA_IMG"
-echo "Using vertica logger image name: $VLOGGER_IMG"
+echo "Vertica server image name: $VERTICA_IMG"
+echo "Vertica logger image name: $VLOGGER_IMG"
 if [ -n "$LICENSE_SECRET" ]; then
-    echo "Using license name: $LICENSE_SECRET"
+    echo "License name: $LICENSE_SECRET"
 fi
-echo "Using endpoint: $ENDPOINT"
+echo "Endpoint: $ENDPOINT"
+echo "Protocol: $PATH_PROTOCOL"
 echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
-echo "Communal Path Prefix: $COMMUNAL_PATH_PREFIX"
+echo "Communal Path Prefix: $PATH_PREFIX"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -332,12 +333,104 @@ function copy_communal_ep_cert {
     popd > /dev/null
 }
 
+function create_communal_creds {
+    # SPILLY - rename s3-creds to communal-creds
+    pushd manifests/s3-creds > /dev/null
+
+    mkdir -p overlay
+    pushd overlay > /dev/null
+
+    if [ "$PATH_PROTOCOL" == "s3://" ]
+    then
+      cat <<EOF > creds.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: s3-creds
+type: Opaque
+data:
+  accesskey: $(echo -n "$ACCESSKEY" | base64)
+  secretkey: $(echo -n "$SECRETKEY" | base64)
+EOF
+
+      cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base
+- creds.yaml
+EOF
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    then
+      cat <<EOF > kustomization.yaml
+# Intentionally blank -- no communal creds to setup for HDFS.
+EOF
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
+    
+    popd > /dev/null
+    popd > /dev/null
+}
+
+function setup_creds_for_create_s3_bucket {
+    pushd manifests/create-s3-bucket > /dev/null
+
+    mkdir -p overlay
+    pushd overlay > /dev/null
+
+    if [ "$PATH_PROTOCOL" == "s3://" ]
+    then
+      cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base
+
+patches:
+- target:
+    version: v1
+    kind: Pod
+    name: create-s3-bucket
+  patch: |-
+    - op: replace
+      path: /spec/containers/0/env/0/value
+      value: $BUCKET_OR_CLUSTER
+    - op: replace
+      path: /spec/containers/0/env/1/value
+      value: $ACCESSKEY
+    - op: replace
+      path: /spec/containers/0/env/2/value
+      value: $SECRETKEY
+    - op: replace
+      path: /spec/containers/0/env/4/value
+      value: $ENDPOINT
+EOF
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    then
+      cat <<EOF > kustomization.yaml
+# Intentionally blank -- no s3 bucket to create for HDFS.
+EOF
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
+    
+    popd > /dev/null
+    popd > /dev/null
+}
+
 cd $REPO_DIR/tests
 
 # Create the configMap that is used to control the communal endpoint and creds.
 create_communal_cfg
 # Copy over the cert that was used to set up the communal endpoint
 copy_communal_ep_cert
+# Setup the communal credentials according to the protocol used
+create_communal_creds
+# Setup an overlay for create-s3-bucket so it has access to the credentials
+setup_creds_for_create_s3_bucket
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>

@@ -11,34 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: integration-test-role
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - services
-      - pods
-      - pods/exec
-      - pods/log
-      - configmaps
-      - secrets
-    verbs:
-      - get
-      - list
-      - create
-      - delete
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: integration-test-rb
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: integration-test-role
-subjects:
-  - kind: ServiceAccount
-    name: default
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
+  - command: sh -c "if kubectl get namespace kuttl-e2e-hdfs; then envsubst < ../../manifests/rbac/base/hdfs-rb.yaml | kubectl create -f -; fi"

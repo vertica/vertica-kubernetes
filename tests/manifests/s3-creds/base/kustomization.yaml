@@ -13,26 +13,3 @@
 
 bases:
   - ../../../kustomize-base
-
-resources:
-  - creds.yaml
-
-replacements:
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.accesskeyEnc
-    targets:
-      - select:
-          kind: Secret
-        fieldPaths:
-          - data.accesskey
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.secretkeyEnc
-    targets:
-      - select:
-          kind: Secret
-        fieldPaths:
-          - data.secretkey
