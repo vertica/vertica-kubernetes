@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE DEPLOY_WITH=olm"
+  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE"
