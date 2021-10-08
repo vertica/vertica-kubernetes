@@ -160,6 +160,7 @@ func getSupportingPasswdSlice() []string {
 	return []string{
 		"db_add_node", "db_add_subcluster", "db_remove_node",
 		"db_remove_subcluster", "create_db", "restart_node", "start_db",
+		"stop_db",
 	}
 }
 

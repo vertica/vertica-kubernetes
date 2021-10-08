@@ -11,28 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Secret
 metadata:
-  name: v-upgrade-vertica
-spec:
-  image: vertica/vertica-k8s:11.0.0-0-minimal
-  imagePullPolicy: IfNotPresent
-  superuserPasswordSecret: su-passwd
-  communal:
-    path: "s3://upgrade-vertica"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret:  s3-creds
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vd
-  shardCount: 17
-  kSafety: "0"
-  subclusters:
-    - name: defsc
-      size: 2
-  # Set requeueTime to prevent the exponential backoff kicking in, which can
-  # cause the test to timeout.
-  requeueTime: 5
-  certSecrets: []
+  name: su-passwd
+type: Opaque
+data:
+  password: c3VwZXJ1c2Vy
