@@ -83,6 +83,9 @@ fi
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
+# Similar hard coded name for namespace specific hadoopConfig
+HADOOP_CONF_CM_NS_COPY="hadoop-conf"
+# The full prefix for the communal path
 COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
 
 echo "Vertica server image name: $VERTICA_IMG"
@@ -131,7 +134,14 @@ EOF
 EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
-        true   # Nothing to be done for HDFS
+        if [ -n "$HADOOP_CONF_CM" ]
+        then
+            cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/communal/hadoopConfig
+      value: $HADOOP_CONF_CM_NS_COPY
+EOF
+        fi
     else
       echo "*** Unknown protocol: $PATH_PROTOCOL"
       exit 1
@@ -333,6 +343,22 @@ function copy_communal_ep_cert {
     popd > /dev/null
 }
 
+function copy_hadoop_conf {
+    pushd kustomize-base > /dev/null
+    if [ -z "$HADOOP_CONF_CM" ]
+    then
+        # No hadoop conf configMap is present.  We will just create an empty
+        # file so that kustomize doesn't complain about a missing resource.
+        echo "" > hadoop-conf.json
+    else
+        # Copy the secret over stripping out all of the metadata.
+        kubectl get configmap -o json -n $HADOOP_CONF_NAMESPACE $HADOOP_CONF_CM \
+        | jq 'del(.metadata)' \
+        | jq ".metadata += {name: \"$HADOOP_CONF_CM_NS_COPY\"}" > hadoop-conf.json
+    fi
+    popd > /dev/null
+}
+
 function create_communal_creds {
     # SPILLY - rename s3-creds to communal-creds
     pushd manifests/s3-creds > /dev/null
@@ -428,6 +454,8 @@ cd $REPO_DIR/tests
 create_communal_cfg
 # Copy over the cert that was used to set up the communal endpoint
 copy_communal_ep_cert
+# Copy over the hadoop conf configMap.  This may be set for HDFS communal paths.
+copy_hadoop_conf
 # Setup the communal credentials according to the protocol used
 create_communal_creds
 # Setup an overlay for create-s3-bucket so it has access to the credentials

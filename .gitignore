@@ -16,6 +16,7 @@ overlay/
 create-s3-bucket-overlay/
 e2e.yaml
 communal-ep-cert.json
+hadoop-conf.json
 
 # Binaries for programs and plugins
 *.exe

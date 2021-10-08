@@ -68,4 +68,4 @@ then
     helm repo update
 fi
 
-helm install --wait -n $HDFS_NS $HDFS_RELEASE $CHART --timeout ${TIMEOUT}s
+helm install --wait -n $HDFS_NS $HDFS_RELEASE $CHART --timeout ${TIMEOUT}s -f ~/tmp/extra-conf.yaml

@@ -89,7 +89,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
-	if vdb.Spec.Communal.HDFSConfig != "" {
+	if vdb.Spec.Communal.HadoopConfig != "" {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name:      vapi.HDFSConfigMountName,
 			MountPath: paths.HDFSConfPath,
@@ -120,7 +120,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
-	if vdb.Spec.Communal.HDFSConfig != "" {
+	if vdb.Spec.Communal.HadoopConfig != "" {
 		vols = append(vols, buildHDFSConfigVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
@@ -231,7 +231,7 @@ func buildHDFSConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.HDFSConfigMountName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HDFSConfig},
+				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HadoopConfig},
 			},
 		},
 	}
