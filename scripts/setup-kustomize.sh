@@ -363,7 +363,8 @@ EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
       cat <<EOF > kustomization.yaml
-# Intentionally blank -- no communal creds to setup for HDFS.
+resources:
+- ../base
 EOF
     else
       echo "*** Unknown protocol: $PATH_PROTOCOL"

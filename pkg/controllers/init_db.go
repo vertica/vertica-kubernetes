@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/lithammer/dedent"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -111,9 +112,6 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if g.NeedsAuthParms() {
-		cmd = append(cmd, "--communal-storage-params="+paths.AuthParmsFile)
-	}
 	if res, err := g.initializer.execCmd(ctx, atPod, cmd); err != nil || res.Requeue {
 		return res, err
 	}
@@ -172,40 +170,26 @@ func (g *GenericDatabaseInitializer) cleanupLocalFilesInPods(ctx context.Context
 	return nil
 }
 
-// NeedsAuthParms will return true if the auth parms file is required to initialize the database
-func (g *GenericDatabaseInitializer) NeedsAuthParms() bool {
-	return g.Vdb.IsS3()
-}
-
 // ConstructAuthParms builds the s3 authentication parms and ensure it exists in the pod
 func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atPod types.NamespacedName) (ctrl.Result, error) {
-	if !g.NeedsAuthParms() {
-		return ctrl.Result{}, nil
+	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
+
+	if g.Vdb.IsS3() {
+		contentGen = g.getS3AuthParmsContent
+	} else if g.Vdb.IsHDFS() {
+		contentGen = g.getHDFSAuthParmsContent
+	} else {
+		err := fmt.Errorf("unknown communal storage type: '%s'", g.Vdb.Spec.Communal.Path)
+		g.Log.Error(err, "unable to create auth parms for communal type")
+		return ctrl.Result{}, err
 	}
 
-	// Extract the auth from the credential secret.
-	auth, res, err := g.getS3Auth(ctx)
-	if err != nil || res.Requeue {
+	content, res, err := contentGen(ctx)
+	if res.Requeue || err != nil {
 		return res, err
 	}
 
-	_, _, err = g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
-		"bash", "-c", "cat > "+paths.AuthParmsFile+"<<< '"+
-			"awsauth = "+auth+"\n"+
-			"awsendpoint = "+g.getS3Endpoint()+"\n"+
-			"awsenablehttps = "+g.getEnableHTTPS()+"\n"+
-			g.getRegion()+"\n"+
-			g.getCAFile()+"\n"+
-			"'",
-	)
-
-	// We log an event for this error because it could be caused by bad values
-	// in the creds.  If the value we get out of the secret has undisplayable
-	// characters then we won't even be able to copy the file.
-	if err != nil {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3AuthParmsCopyFailed,
-			"Failed to copy s3 auth parms to the pod '%s'", atPod)
-	}
+	err = g.copyAuthFile(ctx, atPod, content)
 	return ctrl.Result{}, err
 }
 
@@ -214,6 +198,54 @@ func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, atPod
 	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
 		"rm", paths.AuthParmsFile,
 	)
+	return err
+}
+
+// getS3AuthParmsContent construct a string for the auth parms when using S3
+// communal storage.
+func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	// Extract the auth from the credential secret.
+	auth, res, err := g.getS3Auth(ctx)
+	if err != nil || res.Requeue {
+		return "", res, err
+	}
+
+	content := fmt.Sprintf(`
+			awsauth = %s
+			awsendpoint = %s
+			awsenablehttps = %s
+			%s
+			%s
+		`, auth, g.getS3Endpoint(), g.getEnableHTTPS(), g.getRegion(), g.getCAFile(),
+	)
+	return dedent.Dedent(content), ctrl.Result{}, nil
+}
+
+// getHDFSAuthParmsContent construct a string for the auth parms when using
+// HDFS communal storage.
+func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	if g.Vdb.Spec.Communal.HadoopConfig != "" {
+		content := fmt.Sprintf(`
+			HadoopConfDir = %s
+		`, paths.HDFSConfPath)
+		return dedent.Dedent(content), ctrl.Result{}, nil
+	}
+
+	return "", ctrl.Result{}, nil
+}
+
+// copyAuthFile will copy the auth file into the container
+func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod types.NamespacedName, content string) error {
+	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+		"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, content))
+
+	// We log an event for this error because it could be caused by bad values
+	// in the creds.  If the value we get out of the secret has undisplayable
+	// characters then we won't even be able to copy the file.
+	if err != nil {
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
+			"Failed to copy auth parms to the pod '%s'", atPod)
+	}
 	return err
 }
 

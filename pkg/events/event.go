@@ -51,7 +51,7 @@ const (
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
-	S3AuthParmsCopyFailed           = "S3AuthParmsCopyFailed"
+	AuthParmsCopyFailed             = "AuthParmsCopyFailed"
 	ImageChangeStart                = "ImageChangeStart"
 	ImageChangeSucceeded            = "ImageChangeSucceeded"
 	ClusterShutdownStarted          = "ClusterShutdownStarted"

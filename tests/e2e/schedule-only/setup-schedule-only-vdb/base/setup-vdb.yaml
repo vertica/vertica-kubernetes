@@ -17,6 +17,7 @@ metadata:
   name: v-schedule-only
 spec:
   initPolicy: ScheduleOnly
+  communal: {}
   image: kustomize-vertica-image
   local:
     requestSize: 100Mi

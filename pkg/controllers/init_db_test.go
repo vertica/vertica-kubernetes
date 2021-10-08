@@ -24,6 +24,8 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var _ = Describe("s3_auth", func() {
@@ -91,5 +93,48 @@ var _ = Describe("s3_auth", func() {
 		}
 		ok := g.checkPodList(podList)
 		Expect(ok).Should(BeFalse())
+	})
+
+	It("should setup auth file with hdfs config dir if hdfs communal path is used", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster1"
+		vdb.Spec.Communal.HadoopConfig = "hadoop-conf"
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:    vrec,
+			Log:     logger,
+			Vdb:     vdb,
+			PRunner: fpr,
+		}
+
+		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		Expect(g.ConstructAuthParms(ctx, atPod)).Should(Equal(ctrl.Result{}))
+		Expect(len(fpr.FindCommands("HadoopConf"))).Should(Equal(1))
+	})
+
+	It("should create an empty auth file if hdfs is used and no hdfs config dir was specified", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster2"
+		vdb.Spec.Communal.HadoopConfig = ""
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:    vrec,
+			Log:     logger,
+			Vdb:     vdb,
+			PRunner: fpr,
+		}
+
+		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		Expect(g.ConstructAuthParms(ctx, atPod)).Should(Equal(ctrl.Result{}))
+		cmds := fpr.FindCommands("cat")
+		Expect(len(cmds)).Should(Equal(1))
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(fmt.Sprintf("%s<<< ''", paths.AuthParmsFile)))
 	})
 })
