@@ -185,8 +185,8 @@ func (u *ImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Result, e
 	u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
 		"Calling 'admintools -t stop_db'")
 
-	_, _, err := u.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer,
-		"/opt/vertica/bin/admintools", "-t", "stop_db", "-F", "-d", u.Vdb.Spec.DBName)
+	_, _, err := u.PRunner.ExecAdmintools(ctx, pf.name, names.ServerContainer,
+		"-t", "stop_db", "-F", "-d", u.Vdb.Spec.DBName)
 	if err != nil {
 		u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
 			"Failed to shutdown the cluster")
