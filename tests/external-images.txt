@@ -25,6 +25,9 @@ alpine:3.13
 # Images needed for testing
 kindest/node:v1.21.1
 registry:2
+uhopper/hadoop-datanode:2.7.2
+uhopper/hadoop-namenode:2.7.2
+busybox:1.27.1
 
 # Images needed for olm
 # - this digest applies to olm version 0.18.3

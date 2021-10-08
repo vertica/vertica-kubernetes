@@ -17,7 +17,6 @@
 
 set -o errexit
 set -o pipefail
-set -o xtrace
 
 HDFS_NS=kuttl-e2e-hdfs
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -59,6 +58,7 @@ while getopts "ht:uc:" opt; do
     esac
 done
 
+set -o xtrace
 kubectl delete namespace $HDFS_NS || :
 kubectl create namespace $HDFS_NS
 
