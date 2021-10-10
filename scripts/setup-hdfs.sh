@@ -24,6 +24,7 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=360
 HDFS_RELEASE=hdfs
 CHART=vertica-charts/hdfs-ci
+DEFCHART=$CHART
 
 function usage {
     echo "usage: $0 [-u] [-t <seconds>] [-c <chart>]"
@@ -31,22 +32,18 @@ function usage {
     echo "Options:"
     echo "  -t <seconds>  Length of the timeout."
     echo "  -c <chart>    Override the name of the chart to use."
-    echo "  -u            Update helm chart repository"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "ht:uc:" opt; do
+while getopts "ht:c:" opt; do
     case ${opt} in
         h)
             usage
             ;;
         t)
             TIMEOUT=$OPTARG
-            ;;
-        u)
-            UPDATE_HELM_CHART_REPO=0
             ;;
         c)
             CHART=$OPTARG
@@ -62,10 +59,10 @@ set -o xtrace
 kubectl delete namespace $HDFS_NS || :
 kubectl create namespace $HDFS_NS
 
-if [[ -n "$UPDATE_HELM_CHART_REPO" ]]
+if [[ "$CHART" == "$DEFCHART" ]]
 then
     helm repo add vertica-charts https://vertica.github.io/charts
     helm repo update
 fi
 
-helm install --wait -n $HDFS_NS $HDFS_RELEASE $CHART --timeout ${TIMEOUT}s -f ~/tmp/extra-conf.yaml
+helm install --wait -n $HDFS_NS $HDFS_RELEASE $CHART --timeout ${TIMEOUT}s

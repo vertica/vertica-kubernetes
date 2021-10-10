@@ -16,6 +16,7 @@
 # Populate the kustomize and its overlay to run e2e tests.
 
 set -o errexit
+set -o pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
