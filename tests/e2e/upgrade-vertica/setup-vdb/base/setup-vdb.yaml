@@ -18,6 +18,7 @@ metadata:
 spec:
   image: vertica/vertica-k8s:11.0.0-0-minimal
   imagePullPolicy: IfNotPresent
+  superuserPasswordSecret: su-passwd
   communal:
     includeUIDInPath: true
   local:

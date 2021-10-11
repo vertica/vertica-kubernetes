@@ -192,7 +192,10 @@ ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 endif
 
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin vdb-gen setup-minio setup-olm ## Run the integration tests
+run-int-tests: install-kuttl-plugin vdb-gen setup-minio ## Run the integration tests
+ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
+	$(MAKE) setup-olm
+endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM)
 
 .PHONY: run-soak-tests

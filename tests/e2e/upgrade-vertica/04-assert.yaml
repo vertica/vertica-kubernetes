@@ -11,7 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: su-passwd
+type: Opaque
+data:
+  password: c3VwZXJ1c2Vy
