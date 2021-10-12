@@ -32,18 +32,18 @@ import (
 )
 
 const (
-	invalidDBNameChars  = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
-	dbNameLengthLimit   = 30
-	KSafety0MinHosts    = 1
-	KSafety0MaxHosts    = 3
-	KSafety1MinHosts    = 3
-	portLowerBound      = 30000
-	portUpperBound      = 32767
-	LocalDataPVC        = "local-data"
-	PodInfoMountName    = "podinfo"
-	LicensingMountName  = "licensing"
-	HDFSConfigMountName = "hdfs-conf"
-	S3Prefix            = "s3://"
+	invalidDBNameChars    = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
+	dbNameLengthLimit     = 30
+	KSafety0MinHosts      = 1
+	KSafety0MaxHosts      = 3
+	KSafety1MinHosts      = 3
+	portLowerBound        = 30000
+	portUpperBound        = 32767
+	LocalDataPVC          = "local-data"
+	PodInfoMountName      = "podinfo"
+	LicensingMountName    = "licensing"
+	HadoopConfigMountName = "hadoop-conf"
+	S3Prefix              = "s3://"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -462,7 +462,7 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Volumes {
 		vol := v.Spec.Volumes[i]
-		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) || (vol.Name == HDFSConfigMountName) {
+		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) || (vol.Name == HadoopConfigMountName) {
 			err := field.Invalid(field.NewPath("spec").Child("volumes").Index(i).Child("name"),
 				v.Spec.Volumes[i].Name,
 				"conflicts with the name of one of the internally generated volumes")

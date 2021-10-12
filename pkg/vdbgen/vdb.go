@@ -188,8 +188,6 @@ func (d *DBGenerator) fetchDatabaseConfig(ctx context.Context) error {
 	return nil
 }
 
-// SPILLY - default hadoop conf dir is /etc/hadoop
-
 // setCommunalEndpoint will fetch the communal endpoint and set it in v.vdb
 func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 	const HTTPSKey = "AWSEnableHttps"

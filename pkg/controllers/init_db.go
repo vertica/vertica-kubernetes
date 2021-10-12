@@ -227,7 +227,7 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 	if g.Vdb.Spec.Communal.HadoopConfig != "" {
 		content := fmt.Sprintf(`
 			HadoopConfDir = %s
-		`, paths.HDFSConfPath)
+		`, paths.HadoopConfPath)
 		return dedent.Dedent(content), ctrl.Result{}, nil
 	}
 
