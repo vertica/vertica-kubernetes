@@ -291,10 +291,29 @@ EOF
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: "kubectl exec -n $HDFS_NS -t $(kubectl get pods -l app=hdfs-client -n $HDFS_NS -o jsonpath={.items[0].metadata.name}) -- hadoop fs -rm -r -f ${PATH_PREFIX}${TESTCASE_NAME}"
+      value: "hadoop fs -rm -r -skipTrash ${PATH_PREFIX}${TESTCASE_NAME}"
     - op: replace
       path: /spec/containers/0/image
-      value: bitnami/kubectl:1.20.4
+      value: uhopper/hadoop:2.7.2
+    - op: add
+      path: /spec/containers/0/env
+      value:
+        - name: HADOOP_CONF_DIR
+          value: /etc/hadoop/conf
+        - name: HADOOP_USER_NAME
+          value: hdfs
+    - op: add
+      path: /spec/containers/0/volumeMounts
+      value:
+        - name: hdfs-config
+          mountPath: /etc/hadoop/conf
+          readOnly: true
+    - op: add
+      path: /spec/volumes
+      value:
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
 EOF
     else
       echo "*** Unknown protocol: $PATH_PROTOCOL"
