@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Creates a secret from the CE license that is in the container.
+# Verify that the license exists in the container
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep

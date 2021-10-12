@@ -15,4 +15,3 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
-  - command: sh -c "if kubectl get namespace kuttl-e2e-hdfs; then envsubst < ../../manifests/rbac/base/hdfs-rb.yaml | kubectl create -f -; fi"
