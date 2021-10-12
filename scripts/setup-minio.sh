@@ -53,6 +53,12 @@ done
 set -o errexit
 set +o xtrace
 
+if ! $KUSTOMIZE build $REPO_DIR/tests/manifests/s3-creds/overlay | grep -q 'name: s3-creds'
+then
+    echo "*** Credential secret 's3-creds' not found.  Are we setup for minio?"
+    exit 1
+fi
+
 $KUSTOMIZE build $REPO_DIR/tests/manifests/s3-creds/overlay | kubectl apply -f - -n $MINIO_NS
 kubectl apply -f $REPO_DIR/tests/manifests/minio/02-tenant.yaml -n $MINIO_NS
 kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/minio/02-assert.yaml

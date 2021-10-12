@@ -11,20 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-ks-0-update-strategy-sc1
-spec:
-  template:
-    spec:
-      containers:
-        - volumeMounts:
-            - mountPath: /home/dbadmin/local-data
-            - mountPath: /opt/vertica/config
-            - mountPath: /opt/vertica/log
-            - mountPath: /data
-            - mountPath: /depot
-            - mountPath: /etc/podinfo
-            - mountPath: /home/dbadmin/licensing/mnt
-            - mountPath: /certs/communal-ep-cert
+# Creates a secret from the CE license that is in the container.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl exec -t -n $NAMESPACE v-ks-0-update-strategy-sc1-0 -- test -f /home/dbadmin/licensing/mnt/lic

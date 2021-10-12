@@ -291,7 +291,7 @@ EOF
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: "hadoop fs -rm -r -skipTrash ${PATH_PREFIX}${TESTCASE_NAME}"
+      value: "hadoop fs -rm -r -f -skipTrash ${PATH_PREFIX}${TESTCASE_NAME}"
     - op: replace
       path: /spec/containers/0/image
       value: uhopper/hadoop:2.7.2
