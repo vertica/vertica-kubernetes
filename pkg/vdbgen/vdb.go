@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"regexp"
 
@@ -35,12 +36,13 @@ import (
 )
 
 type DBGenerator struct {
-	Conn        *sql.DB
-	Opts        *Options
-	Objs        KObjs
-	LicenseData []byte
-	DBCfg       map[string]string // Contents extracted from 'SHOW DATABASE DEFAULT ALL'
-	CAFileData  []byte
+	Conn           *sql.DB
+	Opts           *Options
+	Objs           KObjs
+	LicenseData    []byte
+	DBCfg          map[string]string // Contents extracted from 'SHOW DATABASE DEFAULT ALL'
+	CAFileData     []byte
+	HadoopConfData map[string]string
 }
 
 type QueryType string
@@ -53,6 +55,9 @@ const (
 
 	SecretAPIVersion = "v1"
 	SecretKindName   = "Secret"
+
+	ConfigAPIVersion = "v1"
+	ConfigKindName   = "ConfigMap"
 )
 
 var Queries = map[QueryType]string{
@@ -80,6 +85,8 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.setPasswordSecret,
 		d.readCAFile,
 		d.setCAFile,
+		d.readHadoopConfig,
+		d.setHadoopConfig,
 	}
 
 	for _, collector := range collectors {
@@ -180,6 +187,8 @@ func (d *DBGenerator) fetchDatabaseConfig(ctx context.Context) error {
 	return nil
 }
 
+// SPILLY - default hadoop conf dir is /etc/hadoop
+
 // setCommunalEndpoint will fetch the communal endpoint and set it in v.vdb
 func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 	const HTTPSKey = "AWSEnableHttps"
@@ -192,7 +201,8 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 	// The db cfg is already loaded in fetchDatabaseConfig
 	value, ok := d.DBCfg[HTTPSKey]
 	if !ok {
-		return fmt.Errorf("missing '%s' in query '%s'", HTTPSKey, Queries[DBCfgKey])
+		// Missing entry just means we didn't setup for an S3 endpoint.  Could be HDFS.
+		return nil
 	}
 	if value == "0" {
 		protocol = "http"
@@ -466,6 +476,53 @@ func (d *DBGenerator) setCAFile(ctx context.Context) error {
 	d.Objs.Vdb.Spec.CertSecrets = append(d.Objs.Vdb.Spec.CertSecrets,
 		corev1.LocalObjectReference{Name: d.Objs.CAFile.ObjectMeta.Name})
 	d.Objs.Vdb.Spec.Communal.CaFile = fmt.Sprintf("%s/%s/%s", paths.CertsRoot, d.Objs.CAFile.ObjectMeta.Name, CACertKey)
+
+	return nil
+}
+
+// readHadoopConfig will read the contents of the hadoop directory
+func (d *DBGenerator) readHadoopConfig(ctx context.Context) error {
+	if d.Opts.HadoopConfigDir == "" {
+		return nil
+	}
+
+	dir, err := os.Open(d.Opts.HadoopConfigDir)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	fileNames, err := dir.Readdirnames(0)
+	if err != nil {
+		return err
+	}
+	for _, fn := range fileNames {
+		cnt, err := ioutil.ReadFile(fn)
+		if err != nil {
+			return err
+		}
+		d.HadoopConfData[fn] = string(cnt)
+	}
+
+	return nil
+}
+
+// setHadoopConfig will set the Hadoop config in the Vdb
+func (d *DBGenerator) setHadoopConfig(ctx context.Context) error {
+	const HadoopConfigKey = "HadoopConfDir"
+
+	_, ok := d.DBCfg[HadoopConfigKey]
+	if !ok {
+		// Not an error, this just means there is no hadoop conf set
+		return nil
+	}
+
+	d.Objs.HasHadoopConfig = true
+	d.Objs.HadoopConfig.TypeMeta.APIVersion = ConfigAPIVersion
+	d.Objs.HadoopConfig.TypeMeta.Kind = ConfigKindName
+	d.Objs.HadoopConfig.ObjectMeta.Name = fmt.Sprintf("%s-hadoop-conf", d.Opts.VdbName)
+	d.Objs.HadoopConfig.Data = d.HadoopConfData
+	d.Objs.Vdb.Spec.Communal.HadoopConfig = d.Objs.HadoopConfig.ObjectMeta.Name
 
 	return nil
 }

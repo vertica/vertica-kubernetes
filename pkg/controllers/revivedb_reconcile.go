@@ -130,7 +130,7 @@ func isClusterLeaseNotExpired(op string) bool {
 }
 
 func isDatabaseNotFound(op string) bool {
-	rs := `Could not copy file.+: No such file or directory`
+	rs := `(?s)Could not copy file.+: (No such file or directory|.*FileNotFoundException)`
 	re := regexp.MustCompile(rs)
 	return re.FindAllString(op, -1) != nil
 }

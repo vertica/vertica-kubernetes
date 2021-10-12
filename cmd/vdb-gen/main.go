@@ -60,6 +60,8 @@ func main() {
 	flag.StringVar(&opts.CAFile, "cafile", "",
 		"A path to AWS CA bundle used to authenticate S3 communal access.  This is only needed it a CA file is used to connect "+
 			"to the communal endpoint.")
+	flag.StringVar(&opts.HadoopConfigDir, "hadoopConfig", "",
+		"A path to a directory that contains the Hadoop config.  All of the files within the directory will be included in a configMap.")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {

@@ -275,7 +275,7 @@ type CommunalStorage struct {
 	Region string `json:"region,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// A config map that contains the contents of the /etc/hadoop/conf directory.
+	// A config map that contains the contents of the /etc/hadoop directory.
 	// This gets mounted in the container and is used to configure connections
 	// to an HDFS communal path
 	HadoopConfig string `json:"hadoopConfig,omitempty"`
