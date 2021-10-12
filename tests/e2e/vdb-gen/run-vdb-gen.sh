@@ -27,6 +27,12 @@ then
     CA_CERT_OPT="-cafile /certs/$COMMUNAL_EP_CERT_SECRET/ca.crt"
 fi
 
+HADOOP_CONF=/etc/hadoop/conf
+if [ -d "$HADOOP_CONF" ]
+then
+    HADOOP_CONF_OPT="-hadoopConfig $HADOOP_CONF"
+fi
+
 /tmp/vdb-gen \
     -license /home/dbadmin/licensing/ce/vertica_community_edition.license.key \
     -image $VERTICA_IMG \
@@ -34,4 +40,5 @@ fi
     -password superuser \
     -ignore-cluster-lease \
     $CA_CERT_OPT \
+    $HADOOP_CONF_OPT \
     v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb

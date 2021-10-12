@@ -24,6 +24,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strings"
 
 	// Blank import of vertica since we use it indirectly through the sql interface
 	_ "github.com/vertica/vertica-sql-go"
@@ -486,6 +487,8 @@ func (d *DBGenerator) readHadoopConfig(ctx context.Context) error {
 		return nil
 	}
 
+	d.HadoopConfData = map[string]string{}
+
 	dir, err := os.Open(d.Opts.HadoopConfigDir)
 	if err != nil {
 		return err
@@ -497,7 +500,10 @@ func (d *DBGenerator) readHadoopConfig(ctx context.Context) error {
 		return err
 	}
 	for _, fn := range fileNames {
-		cnt, err := ioutil.ReadFile(fn)
+		if !strings.HasSuffix(fn, ".xml") {
+			continue
+		}
+		cnt, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", d.Opts.HadoopConfigDir, fn))
 		if err != nil {
 			return err
 		}
