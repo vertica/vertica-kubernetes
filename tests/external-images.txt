@@ -22,12 +22,9 @@ golang:1.15
 gcr.io/distroless/static:nonroot
 alpine:3.13
 
-# Images needed for testing
+# Images needed for testing in CI
 kindest/node:v1.21.1
 registry:2
-uhopper/hadoop-datanode:2.7.2
-uhopper/hadoop-namenode:2.7.2
-busybox:1.27.1
 
 # Images needed for olm
 quay.io/operator-framework/olm:v0.18.3
