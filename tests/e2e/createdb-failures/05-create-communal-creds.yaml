@@ -11,12 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Event
-reason: S3AuthParmsCopyFailed
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-createdb-failures
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kustomize build ../../manifests/s3-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
