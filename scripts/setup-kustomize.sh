@@ -380,8 +380,7 @@ function copy_hadoop_conf {
 }
 
 function create_communal_creds {
-    # SPILLY - rename s3-creds to communal-creds
-    pushd manifests/s3-creds > /dev/null
+    pushd manifests/communal-creds > /dev/null
 
     mkdir -p overlay
     pushd overlay > /dev/null
