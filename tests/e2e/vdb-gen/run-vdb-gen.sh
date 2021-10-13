@@ -27,7 +27,7 @@ then
     CA_CERT_OPT="-cafile /certs/$COMMUNAL_EP_CERT_SECRET/ca.crt"
 fi
 
-HADOOP_CONF=/etc/hadoop/conf
+HADOOP_CONF=/etc/hadoop
 if [ -d "$HADOOP_CONF" ]
 then
     HADOOP_CONF_OPT="-hadoopConfig $HADOOP_CONF"
