@@ -105,7 +105,7 @@ export E2E_PARALLELISM
 # Specify how to deploy the operator.  Allowable values are 'helm', 'olm' or 'random'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
 # already.  When deploying with random, it will randomly pick between olm and helm.
-DEPLOY_WITH?=random
+DEPLOY_WITH?=helm
 # Name of the test OLM catalog that we will create and deploy with in e2e tests
 OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 

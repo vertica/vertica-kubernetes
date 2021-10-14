@@ -28,7 +28,7 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 KIND=$REPO_DIR/bin/kind
 REG_NAME='kind-registry'
 REG_PORT='5000'
-TERM_REGISTRY=
+TERM_REGISTRY=1
 
 while getopts "ut:k:i:ap:x" opt
 do
@@ -39,7 +39,7 @@ do
         p) PORT=$OPTARG;;
         i) IP_FAMILY=$OPTARG;;
         a) LISTEN_ALL_INTERFACES="Y";;
-        x) TERM_REGISTRY=1;;
+        x) TERM_REGISTRY=;;
     esac
 done
 
@@ -57,7 +57,7 @@ then
     echo "         the range of 30000-32767.  This option is used if you want"
     echo "         to use NodePort.  The given port is the port number you use"
     echo "         in the vdb manifest."
-    echo "  -x     When terminating kind, kill the registry also."
+    echo "  -x     When terminating kind, skip killing of the registry."
     echo
     echo "Positional Arguments:"
     echo " <name>  Name to give the cluster"
