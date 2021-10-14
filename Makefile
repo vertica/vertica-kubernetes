@@ -70,10 +70,12 @@ export VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= vertica-logger:$(TAG)
 export VLOGGER_IMG
+# The port number for the local registry
+REG_PORT ?= 5000
 # Image URL to use for the bundle.  We special case kind because to use it with
 # kind it must be pushed to a local registry.
 ifeq ($(shell $(KIND_CHECK)), 1)
-BUNDLE_IMG ?= localhost:5000/verticadb-operator-bundle:$(TAG)
+BUNDLE_IMG ?= localhost:$(REG_PORT)/verticadb-operator-bundle:$(TAG)
 else
 # BUNDLE_IMG defines the image:tag used for the bundle. 
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -82,7 +84,7 @@ endif
 export BUNDLE_IMG
 # Image URL for the OLM catalog.  This is for testing purposes only.
 ifeq ($(shell $(KIND_CHECK)), 1)
-OLM_CATALOG_IMG ?= localhost:5000/olm-catalog:$(TAG)
+OLM_CATALOG_IMG ?= localhost:$(REG_PORT)/olm-catalog:$(TAG)
 else
 OLM_CATALOG_IMG ?= olm-catalog:$(TAG)
 endif
