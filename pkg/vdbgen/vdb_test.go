@@ -102,8 +102,8 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
 		Expect(dbGen.setCommunalEndpoint(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("http://minio:30312"))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.S3AccessKeyName]).Should(Equal([]byte("minio")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.S3SecretKeyName]).Should(Equal([]byte("minio123")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalAccessKeyName]).Should(Equal([]byte("minio")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalSecretKeyName]).Should(Equal([]byte("minio123")))
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).

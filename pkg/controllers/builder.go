@@ -248,6 +248,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
+		HostNetwork:                   true,
 	}
 }
 
@@ -388,8 +389,8 @@ func buildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *
 			Namespace: nm.Namespace,
 		},
 		Data: map[string][]byte{
-			S3AccessKeyName: []byte(accessKey),
-			S3SecretKeyName: []byte(secretKey),
+			CommunalAccessKeyName: []byte(accessKey),
+			CommunalSecretKeyName: []byte(secretKey),
 		},
 	}
 	return secret

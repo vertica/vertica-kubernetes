@@ -231,8 +231,8 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 
 	d.Objs.Vdb.Spec.Communal.Endpoint = fmt.Sprintf("%s://%s", protocol, endpoint)
 	d.Objs.CredSecret.Data = map[string][]byte{
-		controllers.S3AccessKeyName: []byte(auth[0]),
-		controllers.S3SecretKeyName: []byte(auth[1]),
+		controllers.CommunalAccessKeyName: []byte(auth[0]),
+		controllers.CommunalSecretKeyName: []byte(auth[1]),
 	}
 
 	return nil

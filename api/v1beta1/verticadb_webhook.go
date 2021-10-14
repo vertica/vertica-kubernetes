@@ -44,6 +44,7 @@ const (
 	LicensingMountName    = "licensing"
 	HadoopConfigMountName = "hadoop-conf"
 	S3Prefix              = "s3://"
+	GCloudPrefix          = "gs://"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -68,11 +69,15 @@ func (v *VerticaDB) IsHDFS() bool {
 	return false
 }
 
+// IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
 func (v *VerticaDB) IsS3() bool {
 	return strings.HasPrefix(v.Spec.Communal.Path, S3Prefix)
 }
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// ISGCloud returns true if VerticaDB has a communal path in Google Cloud Storage
+func (v *VerticaDB) IsGCloud() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix)
+}
 
 //+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
 
@@ -87,8 +92,15 @@ func (v *VerticaDB) Default() {
 	if strings.HasSuffix(v.Spec.Image, ":latest") {
 		v.Spec.ImagePullPolicy = v1.PullAlways
 	}
-	if v.Spec.Communal.Region == "" {
+	if v.Spec.Communal.Region == "" && v.IsS3() {
 		v.Spec.Communal.Region = DefaultS3Region
+	}
+	if v.Spec.Communal.Region == "" && v.IsGCloud() {
+		v.Spec.Communal.Region = DefaultGCloudRegion
+	}
+	// Default the endpoint for google cloud if not specified
+	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
+		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
 }
 
@@ -259,7 +271,7 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
-	allPrefs := []string{S3Prefix}
+	allPrefs := []string{S3Prefix, GCloudPrefix}
 	allPrefs = append(allPrefs, hdfsPrefixes...)
 	for _, pref := range allPrefs {
 		if strings.HasPrefix(v.Spec.Communal.Path, pref) {

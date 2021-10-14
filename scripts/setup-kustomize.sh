@@ -315,6 +315,9 @@ EOF
           configMap:
             name: hadoop-conf
 EOF
+    elif [ "$PATH_PROTOCOL" == "gs://" ]
+    then
+      true  # Nothing for now SPILLY
     else
       echo "*** Unknown protocol: $PATH_PROTOCOL"
       exit 1

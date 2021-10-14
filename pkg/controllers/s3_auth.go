@@ -19,9 +19,9 @@ import "strings"
 
 const (
 	// The name of the key in the communal credential secret that holds the access key
-	S3AccessKeyName = "accesskey"
+	CommunalAccessKeyName = "accesskey"
 	// The name of the key in the communal credential secret that holds the secret key
-	S3SecretKeyName = "secretkey"
+	CommunalSecretKeyName = "secretkey"
 )
 
 // isEndpointBadError returns true if the given message text has the message aboud a bad endpoint

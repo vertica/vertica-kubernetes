@@ -43,7 +43,7 @@ var _ = Describe("s3_auth", func() {
 			Vdb:     vdb,
 			PRunner: fpr,
 		}
-		Expect(g.getS3Auth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
+		Expect(g.getCommunalAuth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
 	})
 
 	It("should return s3 endpoint stripped of https/http", func() {
@@ -58,12 +58,12 @@ var _ = Describe("s3_auth", func() {
 			PRunner: fpr,
 		}
 
-		Expect(g.getS3Endpoint()).Should(Equal("192.168.0.1"))
+		Expect(g.getCommunalEndpoint()).Should(Equal("192.168.0.1"))
 		Expect(g.getEnableHTTPS()).Should(Equal("1"))
 
 		vdb.Spec.Communal.Endpoint = "http://fqdn.example.com:8080"
 
-		Expect(g.getS3Endpoint()).Should(Equal("fqdn.example.com:8080"))
+		Expect(g.getCommunalEndpoint()).Should(Equal("fqdn.example.com:8080"))
 		Expect(g.getEnableHTTPS()).Should(Equal("0"))
 	})
 
@@ -136,5 +136,25 @@ var _ = Describe("s3_auth", func() {
 		Expect(len(cmds)).Should(Equal(1))
 		Expect(len(cmds[0].Command)).Should(Equal(3))
 		Expect(cmds[0].Command[2]).Should(ContainSubstring(fmt.Sprintf("%s<<< ''", paths.AuthParmsFile)))
+	})
+
+	It("should create a auth file with google parms when using GCloud", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
+		createCommunalCredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:    vrec,
+			Log:     logger,
+			Vdb:     vdb,
+			PRunner: fpr,
+		}
+
+		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		Expect(g.ConstructAuthParms(ctx, atPod)).Should(Equal(ctrl.Result{}))
+		cmds := fpr.FindCommands("GCSAuth")
+		Expect(len(cmds)).Should(Equal(1))
 	})
 })

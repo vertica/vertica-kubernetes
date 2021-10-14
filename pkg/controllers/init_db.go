@@ -34,6 +34,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	AWSRegionParm    = "awsregion"
+	GCloudRegionParm = "GCSRegion"
+)
+
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
 	genCmd(ctx context.Context, hostList []string) ([]string, error)
@@ -170,7 +175,7 @@ func (g *GenericDatabaseInitializer) cleanupLocalFilesInPods(ctx context.Context
 	return nil
 }
 
-// ConstructAuthParms builds the s3 authentication parms and ensure it exists in the pod
+// ConstructAuthParms builds the authentication parms and ensure it exists in the pod
 func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atPod types.NamespacedName) (ctrl.Result, error) {
 	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
 
@@ -178,6 +183,8 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 		contentGen = g.getS3AuthParmsContent
 	} else if g.Vdb.IsHDFS() {
 		contentGen = g.getHDFSAuthParmsContent
+	} else if g.Vdb.IsGCloud() {
+		contentGen = g.getGCloudAuthParmsContent
 	} else {
 		err := fmt.Errorf("unknown communal storage type: '%s'", g.Vdb.Spec.Communal.Path)
 		g.Log.Error(err, "unable to create auth parms for communal type")
@@ -205,7 +212,7 @@ func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, atPod
 // communal storage.
 func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
 	// Extract the auth from the credential secret.
-	auth, res, err := g.getS3Auth(ctx)
+	auth, res, err := g.getCommunalAuth(ctx)
 	if err != nil || res.Requeue {
 		return "", res, err
 	}
@@ -216,7 +223,7 @@ func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) 
 			awsenablehttps = %s
 			%s
 			%s
-		`, auth, g.getS3Endpoint(), g.getEnableHTTPS(), g.getRegion(), g.getCAFile(),
+		`, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(AWSRegionParm), g.getCAFile(),
 	)
 	return dedent.Dedent(content), ctrl.Result{}, nil
 }
@@ -234,6 +241,24 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 	return "", ctrl.Result{}, nil
 }
 
+// getGCloudAuthParmsContent will get the content for the auth parms when we are
+// connecting to google cloud storage.
+func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	// Extract the auth from the credential secret.
+	auth, res, err := g.getCommunalAuth(ctx)
+	if err != nil || res.Requeue {
+		return "", res, err
+	}
+
+	content := fmt.Sprintf(`
+		GCSAuth = %s
+		GCSEndpoint = %s
+		GCSEnableHttps = %s
+		%s
+	`, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(GCloudRegionParm))
+	return dedent.Dedent(content), ctrl.Result{}, nil
+}
+
 // copyAuthFile will copy the auth file into the container
 func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod types.NamespacedName, content string) error {
 	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
@@ -249,9 +274,9 @@ func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod typ
 	return err
 }
 
-// getS3Auth will return the access key and secret key.
+// getCommunalAuth will return the access key and secret key.
 // Value is returned in the format: <accessKey>:<secretKey>
-func (g *GenericDatabaseInitializer) getS3Auth(ctx context.Context) (string, ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (string, ctrl.Result, error) {
 	secret := &corev1.Secret{}
 	if err := g.VRec.Client.Get(ctx, names.GenCommunalCredSecretName(g.Vdb), secret); err != nil {
 		if errors.IsNotFound(err) {
@@ -262,17 +287,17 @@ func (g *GenericDatabaseInitializer) getS3Auth(ctx context.Context) (string, ctr
 		return "", ctrl.Result{}, fmt.Errorf("could not read the communal credential secret %s: %w", g.Vdb.Spec.Communal.CredentialSecret, err)
 	}
 
-	accessKey, ok := secret.Data[S3AccessKeyName]
+	accessKey, ok := secret.Data[CommunalAccessKeyName]
 	if !ok {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, S3AccessKeyName)
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalAccessKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
-	secretKey, ok := secret.Data[S3SecretKeyName]
+	secretKey, ok := secret.Data[CommunalSecretKeyName]
 	if !ok {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, S3SecretKeyName)
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalSecretKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
@@ -281,9 +306,9 @@ func (g *GenericDatabaseInitializer) getS3Auth(ctx context.Context) (string, ctr
 	return auth, ctrl.Result{}, nil
 }
 
-// getS3Endpoint get the s3 endpoint for inclusion in the auth files.
+// getCommunalEndpoint get the communal endpoint for inclusion in the auth files.
 // Takes the endpoint from vdb and strips off the protocol.
-func (g *GenericDatabaseInitializer) getS3Endpoint() string {
+func (g *GenericDatabaseInitializer) getCommunalEndpoint() string {
 	prefix := []string{"https://", "http://"}
 	for _, pref := range prefix {
 		if i := strings.Index(g.Vdb.Spec.Communal.Endpoint, pref); i == 0 {
@@ -309,13 +334,12 @@ func (g *GenericDatabaseInitializer) getCAFile() string {
 	return fmt.Sprintf("awscafile = %s", g.Vdb.Spec.Communal.CaFile)
 }
 
-// getRegion will return an entry for awsregion
-func (g *GenericDatabaseInitializer) getRegion() string {
-	const FieldName = "awsregion"
+// getRegion will return an entry for region, specific to the cloud provider
+func (g *GenericDatabaseInitializer) getRegion(parmName string) string {
 	// We have a webhook to set the default value, but for legacy purposes we
 	// always check for the empty string.
 	if g.Vdb.Spec.Communal.Region == "" {
-		return fmt.Sprintf("%s = %s", FieldName, vapi.DefaultS3Region)
+		return fmt.Sprintf("%s = %s", parmName, vapi.DefaultS3Region)
 	}
-	return fmt.Sprintf("%s = %s", FieldName, g.Vdb.Spec.Communal.Region)
+	return fmt.Sprintf("%s = %s", parmName, g.Vdb.Spec.Communal.Region)
 }
