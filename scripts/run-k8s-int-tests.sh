@@ -74,6 +74,7 @@ export VERTICA_IMG=vertica-k8s:$TAG
 export OPERATOR_IMG=verticadb-operator:$TAG
 export VLOGGER_IMG=vertica-logger:$TAG
 export PATH=$PATH:$HOME/.krew/bin
+export DEPLOY_WITH=random  # Randomly pick between helm and OLM
 
 # cleanup the deployed k8s cluster
 function cleanup {
