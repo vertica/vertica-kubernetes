@@ -291,7 +291,7 @@ EOF
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: "printf \"$ACCESSKEY\n$SECRETKEY\n\" | gsutil config -a && gsutil -m rm -r ${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}${TESTCASE_NAME}"
+      value: "printf \"$ACCESSKEY\n$SECRETKEY\n\" | gsutil config -a && (gsutil -m rm -r ${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}${TESTCASE_NAME} || true)"
     - op: replace
       path: /spec/containers/0/image
       value: google/cloud-sdk:360.0.0-alpine
