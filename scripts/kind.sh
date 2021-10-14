@@ -28,9 +28,9 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 KIND=$REPO_DIR/bin/kind
 REG_NAME='kind-registry'
 REG_PORT='5000'
-TERM_REGISTRY=
+TERM_REGISTRY=1
 
-while getopts "ut:k:i:ap:x" opt
+while getopts "ut:k:i:ap:xr:" opt
 do
     case $opt in
         u) UPLOAD_IMAGES=1;;
@@ -39,13 +39,14 @@ do
         p) PORT=$OPTARG;;
         i) IP_FAMILY=$OPTARG;;
         a) LISTEN_ALL_INTERFACES="Y";;
-        x) TERM_REGISTRY=1;;
+        r) REG_PORT=$OPTARG;;
+        x) TERM_REGISTRY=;;
     esac
 done
 
 if [ $(( $# - $OPTIND )) -lt 1 ]
 then
-    echo "usage: kind.sh [-uax] [-t <tag>] [-k <ver>] [-p <port>] [-i <ip-family>] (init|term) <name>"
+    echo "usage: kind.sh [-uax] [-t <tag>] [-k <ver>] [-p <port>] [-i <ip-family>] [-r <port>] (init|term) <name>"
     echo
     echo "Options:"
     echo "  -u     Upload the images to kind after creating the cluster."
@@ -57,7 +58,8 @@ then
     echo "         the range of 30000-32767.  This option is used if you want"
     echo "         to use NodePort.  The given port is the port number you use"
     echo "         in the vdb manifest."
-    echo "  -x     When terminating kind, kill the registry also."
+    echo "  -r     Use port number for the registry.  Defaults to: $REG_PORT"
+    echo "  -x     When terminating kind, skip killing of the registry."
     echo
     echo "Positional Arguments:"
     echo " <name>  Name to give the cluster"
