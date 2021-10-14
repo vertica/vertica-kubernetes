@@ -53,9 +53,10 @@ done
 set -o errexit
 set +o xtrace
 
-if ! $KUSTOMIZE build $REPO_DIR/tests/manifests/communal-creds/overlay | grep -q 'name: s3-creds'
+EXP_CREDS_NAME=communal-creds
+if ! $KUSTOMIZE build $REPO_DIR/tests/manifests/communal-creds/overlay | grep -q "name: $EXP_CREDS_NAME"
 then
-    echo "*** Credential secret 's3-creds' not found.  Are you setup for minio?"
+    echo "*** Credential secret '$EXP_CREDS_NAME' not found.  Are you setup for minio?"
     exit 1
 fi
 

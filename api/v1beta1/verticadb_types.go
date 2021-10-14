@@ -261,7 +261,9 @@ type CommunalStorage struct {
 	// The name of a secret that contains the credentials to connect to the
 	// communal endpoint (applies to s3:// or gs:// only). The secret must have
 	// the following keys set: accessey and secretkey.  When initPolicy is
-	// Create or Revive, this field is required.
+	// Create or Revive, this field is required.  When using Google Cloud
+	// Storage, the IDs set in the secret are taken from the hash-based message
+	// authentication code (HMAC) keys.
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional

@@ -120,7 +120,7 @@ patches:
       value: ${COMMUNAL_PATH_PREFIX}${TESTCASE_NAME}
 EOF
 
-    if [ "$PATH_PROTOCOL" == "s3://" ]
+    if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
     then
       cat <<EOF >> kustomization.yaml
     - op: replace
@@ -128,7 +128,7 @@ EOF
       value: $ENDPOINT
     - op: replace
       path: /spec/communal/credentialSecret
-      value: s3-creds
+      value: communal-creds
     - op: replace
       path: /spec/communal/region
       value: $REGION
@@ -286,6 +286,16 @@ EOF
         name: AWS_EC2_METADATA_DISABLED
         value: 'true'
 EOF
+    elif [ "$PATH_PROTOCOL" == "gs://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: "printf \"$ACCESSKEY\n$SECRETKEY\n\" | gsutil config -a && gsutil -m rm -r ${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}${TESTCASE_NAME}"
+    - op: replace
+      path: /spec/containers/0/image
+      value: google/cloud-sdk:360.0.0-alpine
+EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
       cat <<EOF >> kustomization.yaml
@@ -315,9 +325,6 @@ EOF
           configMap:
             name: hadoop-conf
 EOF
-    elif [ "$PATH_PROTOCOL" == "gs://" ]
-    then
-      true  # Nothing for now SPILLY
     else
       echo "*** Unknown protocol: $PATH_PROTOCOL"
       exit 1
@@ -388,13 +395,13 @@ function create_communal_creds {
     mkdir -p overlay
     pushd overlay > /dev/null
 
-    if [ "$PATH_PROTOCOL" == "s3://" ]
+    if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
     then
       cat <<EOF > creds.yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: s3-creds
+  name: communal-creds
 type: Opaque
 data:
   accesskey: $(echo -n "$ACCESSKEY" | base64)
@@ -456,10 +463,10 @@ patches:
       path: /spec/containers/0/env/4/value
       value: $ENDPOINT
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
     then
       cat <<EOF > kustomization.yaml
-# Intentionally blank -- no s3 bucket to create for HDFS.
+# Intentionally blank -- either no permissions to create a bucket or one doesn't exist for protocol.
 EOF
     else
       echo "*** Unknown protocol: $PATH_PROTOCOL"

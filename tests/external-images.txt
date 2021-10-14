@@ -28,3 +28,6 @@ registry:2
 
 # Images needed for olm
 quay.io/operator-framework/olm:v0.18.3
+
+# Images needed if testing gcloud
+# google/cloud-sdk:360.0.0-alpine
