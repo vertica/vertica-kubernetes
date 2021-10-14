@@ -78,7 +78,8 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.connect,
 		d.setShardCount,
 		d.fetchDatabaseConfig,
-		d.setCommunalEndpoint,
+		d.setCommunalEndpointAWS,
+		d.setCommunalEndpointGCloud,
 		d.setLocalPaths,
 		d.setSubclusterDetail,
 		d.setCommunalPath,
@@ -188,19 +189,34 @@ func (d *DBGenerator) fetchDatabaseConfig(ctx context.Context) error {
 	return nil
 }
 
-// setCommunalEndpoint will fetch the communal endpoint and set it in v.vdb
-func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
+// setCommunalEndpointAWS will fetch the communal endpoint for AWS and set it in v.vdb
+func (d *DBGenerator) setCommunalEndpointAWS(ctx context.Context) error {
 	const HTTPSKey = "AWSEnableHttps"
 	const EndpointKey = "AWSEndpoint"
 	const AWSAuth = "AWSAuth"
 	const RegionKey = "AWSRegion"
+	return d.setCommunalEndpointGeneric(ctx, HTTPSKey, EndpointKey, AWSAuth, RegionKey)
+}
+
+// setCommunalEndpointGCloud will fetch the communal endpoint for Google Cloud and set it in v.vdb
+func (d *DBGenerator) setCommunalEndpointGCloud(ctx context.Context) error {
+	const HTTPSKey = "GCSEnableHttps"
+	const EndpointKey = "GCSEndpoint"
+	const AWSAuth = "GCSAuth"
+	const RegionKey = "GCSRegion"
+	return d.setCommunalEndpointGeneric(ctx, HTTPSKey, EndpointKey, AWSAuth, RegionKey)
+}
+
+// setCommunalEndpointGeneric gathers information about the endpoint for a
+// generic service.  All of the key names are passed in by the caller.
+func (d *DBGenerator) setCommunalEndpointGeneric(ctx context.Context, httpsKey, endpointKey, authKey, regionKey string) error {
 	var protocol, endpoint string
 	var auth []string
 
 	// The db cfg is already loaded in fetchDatabaseConfig
-	value, ok := d.DBCfg[HTTPSKey]
+	value, ok := d.DBCfg[httpsKey]
 	if !ok {
-		// Missing entry just means we didn't setup for an S3 endpoint.  Could be HDFS.
+		// Missing entry just means we didn't setup for this endpoint.
 		return nil
 	}
 	if value == "0" {
@@ -209,22 +225,22 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 		protocol = "https"
 	}
 
-	value, ok = d.DBCfg[EndpointKey]
+	value, ok = d.DBCfg[endpointKey]
 	if !ok {
-		return fmt.Errorf("missing '%s' in query '%s'", EndpointKey, Queries[DBCfgKey])
+		return fmt.Errorf("missing '%s' in query '%s'", endpointKey, Queries[DBCfgKey])
 	}
 	endpoint = value
 
-	value, ok = d.DBCfg[AWSAuth]
+	value, ok = d.DBCfg[authKey]
 	if !ok {
-		return fmt.Errorf("missing '%s' in query '%s'", AWSAuth, Queries[DBCfgKey])
+		return fmt.Errorf("missing '%s' in query '%s'", authKey, Queries[DBCfgKey])
 	}
 	authRE := regexp.MustCompile(`:`)
 	const NumAuthComponents = 2
 	auth = authRE.Split(value, NumAuthComponents)
 
 	// The region may not be present if the default was never overridden.
-	value, ok = d.DBCfg[RegionKey]
+	value, ok = d.DBCfg[regionKey]
 	if ok {
 		d.Objs.Vdb.Spec.Communal.Region = value
 	}
