@@ -5,54 +5,58 @@ To deploy the operator and a Kubernetes cluster in a local test environment that
 # Prerequisites
 
 - Resources to deploy Kubernetes objects
-- Kubernetes (version 1.19.3+)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.19.3+)  
+- Kubernetes (version 1.21.1+)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.21.1+)  
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0+)
 
 # Installing the CRD
 
 Install the `CustomResourceDefinition` with a YAML manifest:
 
-```
-$ kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.0.0/verticadbs.vertica.com-crd.yaml
+```shell
+kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.0.0/verticadbs.vertica.com-crd.yaml
 ```
 
-Both the webhook and operator Helm chart install the CRD if it is not currently installed.
+The operator Helm chart will install the CRD if it is not currently installed.
+
+# TLS Requirements
+
+The operator includes an [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/), a REST endpoint within Kubernetes that uses a webhook to verify that proposed changes to the custom resource are allowed. Kubernetes requires that all webhooks accept TLS certificates. Choose one of the following options to manage TLS certificates for your custom resource:
+
+- [cert-manager](https://cert-manager.io/docs/)
+- Custom certificates
+
+## cert-manager
+
+cert-manager has built-in support in Kubernetes, and generates and manages your certificates. Install the cert-manager with `kubectl apply`.
+
+```shell
+kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+```
+
+Installation might take a few minutes. For steps on how to verify that the install is complete, see the [cert-manager documentation](https://cert-manager.io/docs/installation/verify/).
+
+## Custom Certificates
+
+Use custom certificates for more control over your data encryption if your custom resource requires multiple certificates for different client or storage connections. 
+
+For detailed configuration instructions, see [Installing the Helm Charts](http://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/InstallHelmCharts.htm) in the Vertica documentation. For details about the available configuration options, see the [helm parameters](https://github.com/vertica/vertica-kubernetes/blob/main/helm-charts/verticadb-operator/README.md).
+
 
 # Installing the Operator
 
-Install the operator with a Helm chart to manage a Vertica database. Run the following commands to download and install the chart:
+Vertica bundles the operator and admission controller in a Helm chart. Run the following commands to download and install the chart:
 
-```
-$ helm repo add vertica-charts https://vertica.github.io/charts
-$ helm repo update
-$ helm install vdb-op vertica-charts/verticadb-operator
+```shell
+helm repo add vertica-charts https://vertica.github.io/charts
+helm repo update
+helm install vdb-op vertica-charts/verticadb-operator
 ```
 
 You can install only one instance of the chart in a namespace. The operator monitors CRs that were defined in its namespace only.
 
+The feature gate NamespaceDefaultLabelName is required for the webhook to work. It is enabled by default on Kubernetes 1.21.0. This feature will add a label 'kubernetes.io/metadata.name=nsName' to each namespace, which is needed in order to use the namespaceSelector in the webhook config.  If you are on an older version of Kubernetes, you must manually add the label in order for the webhook to work.
 
-# Installing the Webhook
-
-A separate install is required to install a webhook for an admission controller. An [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/) is a REST endpoint that you set up within Kubernetes that verifies proposed changes to the custom resource are allowed. Running with the admission controller is optional, but it is highly encouraged to prevent simple errors from being made when modifying the custom resource.
-
-Because Kubernetes requires that the webhook accept TLS certificates, a certificate must be set up prior to installing the webhook. Vertica recommends [cert-manager](https://cert-manager.io/docs/) to manage certificates for your Kubernetes resources. Install the cert-manager with `kubectl apply`.
-
-```
-$ kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.3.1/cert-manager.yaml
-```
-
-It can take a few minutes for cert-manager install to complete. For steps on how to verify that the install is complete, see the [cert-manager documentation](https://cert-manager.io/docs/installation/verify/).
-
-After cert-manager completes, install the webhook:
-
-```
-$ helm repo add vertica-charts https://vertica.github.io/charts
-$ helm repo update
-$ helm install -n vertica --create-namespace vdb-webhook vertica-charts/verticadb-webhook
-```
-
-The webhook is cluster-scoped. It is installed into only one namespace (vertica) and is used by operators installed in any namespaces.
 
 # Deploying Vertica
 
@@ -60,7 +64,7 @@ After the operator is installed and running, create a Vertica deployment by gene
 
 Launching a new Vertica deployment with the operator is simple. Below is the minimal required CR configuration:
 
-```
+```shell
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
@@ -83,7 +87,7 @@ In the previous example configuration:
 
 After this manifest is applied, the operator creates the necessary objects in Kubernetes, sets up the config directory in each pod, and creates an Eon Mode database in the communal path.
 
-There are many parameters available to fine-tune the deployment. For a complete list, see [Parameters](#Parameters).
+There are many parameters available to fine-tune the deployment. For a complete list, see [Parameters](#Parameters). For a detailed custom resource example, see [Creating a Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CreatingCustomResource.htm).
 
 # Vertica License
 
@@ -91,13 +95,13 @@ By default, we use the [Community Edition (CE)](https://www.vertica.com/download
 
 To use your own license, add it to a secret in the same namespace as the operator. The following command copies the license into a secret named `license`:
 
-```
-$ kubectl create secret generic license --from-file=license.key=/path/to/license.key
+```shell
+kubectl create secret generic license --from-file=license.key=/path/to/license.key
 ```
 
 Next, specify the name of the secret in the CR by populating the `licenseSecret` field:
 
-```
+```shell
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
@@ -115,8 +119,8 @@ spec:
 
 The license is installed automatically if it is set when the CR was initially created. If it is added at a later time, then you must install the license manually with admintools.  When a license secret is specified, the contents of the secret are mounted as files in `/home/dbadmin/licensing/mnt`. For example, the secret created in the previous commands has the following directory in each pod created by the CR:
 
-```
-$ [dbadmin@demo-sc1-0 ~]$ ls /home/dbadmin/licensing/mnt
+```shell
+[dbadmin@demo-sc1-0 ~]$ ls /home/dbadmin/licensing/mnt
 license.key
 ```
 
@@ -131,7 +135,7 @@ Each subcluster is enumerated in the CR in a list format, and each has a `size` 
 
 Below is a sample CRD that defines three subclusters named 'main', 'analytics', and 'ml':
 
-```
+```shell
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
@@ -165,7 +169,7 @@ Each subcluster has a service object for client connections. The service load ba
 
 For example, suppose we have the following CR:
 
-```
+```shell
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
@@ -190,7 +194,7 @@ spec:
 
 This CR uses the following Kubernetes objects:
 
-```
+```shell
 NAME                                            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)             AGE
 service/verticadb-sample-analytics              ClusterIP   10.96.21.26     <none>        5433/TCP,5444/TCP   21m
 service/verticadb-sample                        ClusterIP   None            <none>        22/TCP              21m
@@ -214,7 +218,7 @@ All of the service objects listed above are of type `ClusterIP`. This is the def
 The operator can migrate an existing database into Kubernetes. The operator revives an existing database into a set of Kubernetes objects that mimics the setup of the database. We provide `vdb-gen`, a standalone program that you can run against a live database to create the CR.
   
 1. The following command runs `vdb-gen` and generates a CR based on the existing database. The output is written to stdout and redirected to a YAML-formatted file:
-   ```
+   ```shell
    $ vdb-gen --password secret --name mydb 10.44.10.1 vertdb > vdb.yaml
    ```
    The previous command uses the following flags and values:
@@ -226,13 +230,13 @@ The operator can migrate an existing database into Kubernetes. The operator revi
 
 2. Use `admintools -t stop_db` to stop the database that currently exists.
 3. Apply the manifest that was generated by the CR generator:
-   ```
+   ```shell
    $ kubectl apply -f vdb.yaml
    verticadb.vertica.com/mydb created
    ```
 
 4. Wait for the operator to construct the StatefulSet, install Vertica in each pod, and run revive. Each of these steps generate events in kubectl. You can use the describe command to see the events for the verticadb:
-   ```
+   ```shell
    $ kubectl describe vdb mydb
    ```
 
@@ -246,41 +250,45 @@ However, Vertica does not support a cluster running mixed releases. The document
 2.	Update the RPM at each host.
 3.	Start the cluster.
 
-Vertica on Kubernetes uses the workflow described in the preceding steps. Because the operator's main purpose is to ensure that Vertica is always running, there is a special `autoRestartVertica` parameter in the CR that forces the operator to skip its monitoring of the Vertica process. This allows cluster-wide operations like stopping the cluster without operator interference.
+Vertica on Kubernetes uses the workflow described in the preceding steps. This is triggered whenever the `.spec.image` changes in the CR.  When the operator detects this, it will enter the upgrade mode, logging events of its progress for monitoring purposes.
 
-The following steps are included automated in the `scripts/upgrade-vertica.sh` script. To manually upgrade Vertica:
+A status condition (UpgradeInProgress) is provided so that you can programatically detect when the upgrade has finished.  
 
-1. Set `autoRestartVertica` to false in the CRD. This tells the operator to avoid checking if the Vertica process is running:
-   ```
-   $ kubectl patch verticadb vert-cluster --type=merge --patch '{"spec": {"autoRestartVertica": false}}'
-   ```
-2. Wait for the operator to acknowledge this state change:
-   ```
-   $ kubectl wait --for=condition=AutoRestartVertica=False vdb/vert-cluster –-timeout=180s
-   ```
+Here is an example to illustrate how to do an upgrade.
 
-3. To prevent mixed Vertica versions, stop the entire cluster:
-   ```
-   $ kubectl exec vert-cluster-sc1-0 -- admintools -t stop_db -F -d vertdb
-   ```
-4. Update the container tag in the CR:
-   ```
+1. Update the `.spec.image` in the CR.  This can be driven by a helm upgrade if you have the CR in a chart, or a simple patch of the CR.  
+   ```shell
    $ kubectl patch verticadb vert-cluster --type=merge --patch '{"spec": {"image": "vertica/vertica-k8s:11.1.1-0"}}'
    ```
-5. Delete the pods so that they can pickup the new image. The simplest way to delete the pods is to delete the StatefulSets so the operator regenerates them:
+   
+2. Wait for the operator to acknowledge this change and enter the upgrade mode.
+   ```shell
+   $ kubectl wait --for=condition=UpgradeInProgress=True vdb/vert-cluster –-timeout=180s
    ```
-   $ kubectl delete statefulset -l app.kubernetes.io/instance=vert-cluster -–cascade=forground
-   ```
-6. Enable `autoRestartVertica` to give control back to the operator to restart the Vertica process:
-   ```
-   $ kubectl patch verticadb vert-cluster --type=merge --patch '{"spec": {"autoRestartVertica": true}}'
-   ```
-7. Wait for the operator to bring everything back up:
-   ```
-   $ kubectl wait --for=condition=Ready=True pod -l app.kubernetes.io/instance=vert-cluster –-timeout=600s
-   ```
+   
+3.  Wait for the operator to leave the upgrade mode. 
+    ```shell
+    $ kubectl wait --for=condition=UpgradeInProgress=False vdb/vert-cluster –-timeout=800s
+    ```
+   
+You can monitor what part of the upgrade the operator is in by looking at the events it generates.
 
-To minimize the number of errors, we validate that the image can only change when `autoRestartVertica` is false.
+```shell
+$ kubectl describe vdb vert-cluster
+ 
+...<snip>...
+Events:
+  Type    Reason                   Age    From                Message
+  ----    ------                   ----   ----                -------
+  Normal  UpgradeStart             5m10s  verticadb-operator  Vertica server upgrade has been initiated to 'vertica-k8s:11.0.1-0'
+  Normal  ClusterShutdownStarted   5m12s  verticadb-operator  Calling 'admintools -t stop_db'
+  Normal  ClusterShutdownSucceeded 4m08s  verticadb-operator  Successfully called 'admintools -t stop_db' and it took 56.22132s
+  Normal  ClusterRestartStarted    4m25s  verticadb-operator  Calling 'admintools -t start_db' to restart the cluster
+  Normal  ClusterRestartSucceeded  25s    verticadb-operator  Successfully called 'admintools -t start_db' and it took 240s
+  Normal  UpgradeSucceeded         5s     verticadb-operator  Vertica server upgraded has completed successfully.
+```
+
+Vertica recommends that [upgrade paths](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/InstallationGuide/Upgrade/UpgradePaths.htm?zoom_highlight=upgrade%20path) be incremental – meaning you upgrade to each intermediate major and minor release.  The operator assumes the images chosen are following this path and doesn't try to validate it.
 
 # Persistence
 
@@ -306,14 +314,17 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 | Parameter Name | Description | Default Value |
 |-------------|-------------|---------------|
 | annotations | Custom annotations added to all of the objects that the operator creates. | 
-| autoRestartVertica | State to indicate whether the operator will restart vertica if the process is not running.  Under normal circumstances this is set to true.  The purpose of this is to allow maintenance window, such as an upgrade, without the operator interfering. | true
+| autoRestartVertica | State to indicate whether the operator will restart vertica if the process is not running.  Under normal circumstances this is set to true.  The purpose of this is to allow maintenance window, such as a manual upgrade, without the operator interfering. | true
+| certSecrets | A list of Secrets for custom TLS certificates and PEM-encoded self-signed certificate authority (CA) bundles for S3-compatible authentication.<br>Each certificate is mounted in the container at /certs/cert-name/key. For example, a PEM-encoded CA bundle named root_cert.pem and concealed in a Secret named aws-cert is mounted in /certs/aws-cert/root_cert.pem.<br> If you update the certificate after you add it to a custom resource, the operator updates the value automatically. If you add or delete a certificate, the operator reschedules the pod with the new configuration. |  
+| communal.caFile | The path to a CA cert file for use when connecting to an https:// s3 endpoint.  The path is relative to inside the Vertica container.  Typically this would refer to a cert that was included in `certSecrets`. | |
 | communal.credentialSecret | The name of a secret that contains the credentials to connect to the communal S3 endpoint. The secret must have the following keys set: <br>- *accesskey*: The access key to use for any S3 request.<br>- *secretkey*: The secret that goes along with the access key.<br><br>For example, you can create your secret with the following command:<br><pre>kubectl create secret generic s3-creds <br>--from-literal=accesskey=accesskey --from-literal=secretkey=secretkey</pre><br>Then you set the the secret name in the CR.<br><pre>communal:<br>  credentialSecret: s3-creds<br></pre> |  |
 | communal.endpoint | The URL to the s3 endpoint. The endpoint must begin with either `http://` or `https://`.. This field is required and cannot change after creation. |  |
 | communal.includeUIDInPath | When set to true, the operator includes the VerticaDB's UID in the path. This option exists if you reuse the communal path in the same endpoint as it forces each database path to be unique. | false |
 | communal.path | The path to the communal storage. This must be a s3 bucket. You specify this using the s3:// bucket notation. For example: `s3://bucket-name/key-name`. You must create this bucket before creating the VerticaDB. This field is required and cannot change after creation.  If `initPolicy` is *Create*, then this path must be empty.  If the `initPolicy` is *Revive*, then this path must be non-empty. |  |
+| communal.region | The geographic region containing the S3 bucket.  If you do not set the correct region, you might experience a delay before the bootstrap fails because Vertica retries several times before giving up. | us-east-1 |
 | dbName | The name to use for the database.  When `initPolicy` is `Revive`, this must match the name of the database that used when it was originally created. | vertdb
 | ignoreClusterLease | Ignore the cluster lease when doing a revive or start_db. Use this with caution, as ignoring the cluster lease when another system is using the same communal storage will cause corruption. | false
-| image | The name of the container that runs the server.  If hosting the containers in a private container repository, this name must include the path to that repository.  Vertica doesn't allow communications between nodes running different versions, so this is allowed to change only if `autoRestartVertica` is disabled.| vertica/vertica-k8s:11.0.0-0-minimal |
+| image | The name of the container that runs the server.  If hosting the containers in a private container repository, this name must include the path to that repository.  Whenever this changes, the operator treats this as an upgrade and will stop the entire cluster and restart it with the new image. | vertica/vertica-k8s:11.0.0-0-minimal |
 | imagePullPolicy | Determines how often Kubernetes pulls the specified image. For details, see [Updating Images](https://kubernetes.io/docs/concepts/containers/images/#updating-images) in the Kubernetes documentation. | If the image tag ends with `latest`, we use `Always`.  Otherwise we use `IfNotPresent`.
 | imagePullSecrets | A list of secrets consisting of credentials for authentication to a private container repository. For details, see [Specifying imagePullSecrets](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod) in the Kubernetes documentation. |  |
 | initPolicy | Specifies how to initialize the database in Kubernetes. Available options are: *Create* or *Revive*.  *Create* forces the creation of a new database. *Revive* initializes the database with the use of the revive command. | Create |
@@ -327,7 +338,7 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 | reviveOrder | This specifies the order of nodes when doing a revive. Each entry contains an index to a subcluster, which is an index in `subclusters[i]`, and a pod count of the number of pods include from the subcluster.<br><br>For example, suppose the database you want to revive has the following setup:<br>- v_db_node0001: subcluster A<br>- v_db_node0002: subcluster A<br>- v_db_node0003: subcluster B<br>- v_db_node0004: subcluster A<br>- v_db_node0005: subcluster B<br>- v_db_node0006: subcluster B<br><br>And the `subclusters[]` list is defined as {'A', 'B'}.  The revive order would be:<br>- {subclusterIndex:0, podCount:2}  # 2 pods from subcluster A<br>- {subclusterIndex:1, podCount:1}  # 1 pod from subcluster B<br>- {subclusterIndex:0, podCount:1}  # 1 pod from subcluster A<br>- {subclusterIndex:1, podCount:2}  # 2 pods from subcluster B<br><br>If InitPolicy is not Revive, this field can be ignored.|
 | restartTimeout | This specifies the timeout, in seconds, to use when calling admintools to restart pods.  If not specified, it defaults 0, which means we will use the admintools default of 20 minutes. | 0 |
 | shardCount | The number of shards to create in the database.  This cannot be updated once the CR is created. | 12
-| sidecars[] | Optional. List of containers to include as sidecars for the vertica server. Each entry is a fully-formed container spec, similar to the container that you would add to a Pod spec. The operator automatically adds to each container the same volume mounts that are in the vertica server container.<br><br>The following example adds a sidecar name vlogger.<br><pre>sidecars:<br>  - name: vlogger<br>    image: image:tag</pre>| empty |
+| sidecars[] | One or more optional utility containers that complete tasks for the Vertica server container. Each sidecar entry is a fully-formed container spec, similar to the container that you add to a Pod spec.<br>The following example adds a sidecar named vlogger to the custom resource:<br><pre>sidecars:<br>  - name: vlogger<br>    image: image:tag<br>    volumeMounts:<br>      - name: my-custom-vol<br>        mountPath: /path/to/custom-volume</pre><br>`volumeMounts.name` is the name of a custom volume. This value must match `volumes.name` to mount the custom volume in the sidecar container filesystem. See `volumes` for additional details.| empty |
 | subclusters[i].affinity | Allows you to constrain the pod only to certain pods. It is more expressive than just using node selectors. If not set, then no [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) setting will be used with the pods.<br><br> The following example uses affinity to ensure a node does not serve two Vertica pods:<br><pre>subclusters:<br>  - name: sc1<br>    affinity:<br>      podAntiAffinity:<br>        requiredDuringSchedulingIgnoredDuringExecution:<br>        - labelSelector:<br>            matchExpressions:<br>            - key: app.kubernetes.io/name<br>            operator: In<br>            values:<br>            - vertica<br>          topologyKey: "kubernetes.io/hostname"<br>|  |
 | subclusters[i].externalIPs | Enables the service object to attach to a specified [external IP](https://kubernetes.io/docs/concepts/services-networking/service/#external-ips).  If not set, the external IP is empty in the service object. |  |
 | subclusters[i].isPrimary | Indicates whether the subcluster is a primary or a secondary. Each database must have at least one primary subcluster. | true |
@@ -340,6 +351,7 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 | subclusters[i].size | The number of pods in the subcluster. This determines the number of Vertica nodes in the subcluster. Changing this number either deletes or schedules new pods. <br><br>The minimum size of any subcluster is 1. If `kSafety` is 1, the actual minimum may be higher, as you need at least 3 nodes from primary subclusters to satisfy k-safety.<br><br>**NOTE**: You must have a valid license to pick a value that causes the size of all subclusters combined to be bigger than 3. The default license that comes in the Vertica container is for the Cmmunity Edition (CE), which only allows up to 3 nodes. The license can be set with the `licenseSecret` parameter.| 3 |
 | subclusters[i].tolerations | Any [tolerations and taints](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) used to influence where a pod is scheduled. |  |
 | superuserPasswordSecret | The Secret that contains the database superuser password. The secret must be in the same namespace as the CR. If this is not set, then we assume no such password is set for the database.  If this is set, it is up the user to create this secret before deployment. The secret must have a key named `password`.<br><br> The following command creates the password: <br> ```kubectl create secret generic su-passwd --from-literal=password=sup3rs3cr3t```<br><br> The corresponding change in the CR is:<br> <pre>db:<br>  superuserSecretPassword: su-passwd<br> </pre>|  |
+| volumes | List of custom volumes that persist sidecar container data. Each volume element requires a name value and a volume type. `volumes` accepts any Kubernetes volume type.<br>To mount a volume in a sidecar filesystem, `volumes.name` must match the `sidecars[i].volumeMounts.name` value for the associated sidecar element. | |
 
 # Additional Details
 
@@ -351,6 +363,3 @@ For details about setting up an environment to develop and run tests, see the [d
 # Licensing
 
 vertica-kubernetes is open source code and is under the [Apache 2.0 license](https://github.com/vertica/vertica-kubernetes/blob/main/LICENSE), but it requires that you install the Vertica server RPM. If you do not have a Vertica server RPM, you can use the free [Vertica Community Edition (CE) server RPM](https://www.vertica.com/download/vertica/community-edition/community-edition-10-1-0/). The Vertica Community Edition server RPM is not an open source project, but it is free with certain limits on capacity. For more information about these limitations, see the [Vertica Community Edition End User License Agreement](https://www.vertica.com/end-user-license-agreement-ce-version/).
-
-
-

@@ -25,6 +25,7 @@ https://www.vertica.com/
 
 This image is used to deploy the VerticaDB operator. The operator manages a Vertica [Eon Mode](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes, and automates the following administrative tasks:
 - Installing Vertica
+- Upgrading Vertica
 - Creating and reviving a Vertica database
 - Restarting and rescheduling DOWN pods to maintain quorum
 - Subcluster scaling
