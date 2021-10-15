@@ -195,7 +195,7 @@ func (d *DBGenerator) setCommunalEndpointAWS(ctx context.Context) error {
 	const EndpointKey = "AWSEndpoint"
 	const AWSAuth = "AWSAuth"
 	const RegionKey = "AWSRegion"
-	return d.setCommunalEndpointGeneric(ctx, HTTPSKey, EndpointKey, AWSAuth, RegionKey)
+	return d.setCommunalEndpointGeneric(HTTPSKey, EndpointKey, AWSAuth, RegionKey)
 }
 
 // setCommunalEndpointGCloud will fetch the communal endpoint for Google Cloud and set it in v.vdb
@@ -204,12 +204,12 @@ func (d *DBGenerator) setCommunalEndpointGCloud(ctx context.Context) error {
 	const EndpointKey = "GCSEndpoint"
 	const AWSAuth = "GCSAuth"
 	const RegionKey = "GCSRegion"
-	return d.setCommunalEndpointGeneric(ctx, HTTPSKey, EndpointKey, AWSAuth, RegionKey)
+	return d.setCommunalEndpointGeneric(HTTPSKey, EndpointKey, AWSAuth, RegionKey)
 }
 
 // setCommunalEndpointGeneric gathers information about the endpoint for a
 // generic service.  All of the key names are passed in by the caller.
-func (d *DBGenerator) setCommunalEndpointGeneric(ctx context.Context, httpsKey, endpointKey, authKey, regionKey string) error {
+func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey, regionKey string) error {
 	var protocol, endpoint string
 	var auth []string
 

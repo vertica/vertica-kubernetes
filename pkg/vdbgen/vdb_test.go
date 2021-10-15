@@ -100,7 +100,7 @@ var _ = Describe("vdb", func() {
 				AddRow("other", "value").
 				AddRow("AWSAuth", "minio:minio123"))
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
-		Expect(dbGen.setCommunalEndpoint(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAWS(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("http://minio:30312"))
 		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalAccessKeyName]).Should(Equal([]byte("minio")))
 		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalSecretKeyName]).Should(Equal([]byte("minio123")))
@@ -112,8 +112,19 @@ var _ = Describe("vdb", func() {
 				AddRow("other", "value").
 				AddRow("AWSAuth", "auth:secret"))
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
-		Expect(dbGen.setCommunalEndpoint(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAWS(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("https://192.168.0.1"))
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("GCSEndpoint", "google.apis.com").
+				AddRow("GCSEnableHttps", "1").
+				AddRow("GCSAuth", "auth:secret").
+				AddRow("GCSRegion", "US-WEST2"))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointGCloud(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("https://google.apis.com"))
+		Expect(dbGen.Objs.Vdb.Spec.Communal.Region).Should(Equal("US-WEST2"))
 
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
