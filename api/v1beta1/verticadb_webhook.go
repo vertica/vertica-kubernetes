@@ -108,9 +108,9 @@ func (v *VerticaDB) Default() {
 	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
-
-	// SPILLY - any default for the azure storage endpoint?  It depends on the account used so we need to peek into that.
 }
+
+// SPILLY - try out azurite as a potential communal endpoint
 
 //+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
 
@@ -286,7 +286,7 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 			return allErrs
 		}
 	}
-	err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
+	err := field.Invalid(field.NewPath("spec").Child("communal").Child("path"),
 		v.Spec.Communal.Path,
 		"communal.Path is not prefixed with an accepted type")
 	return append(allErrs, err)
@@ -296,8 +296,8 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
-	// Endpoint is ignored if communal path is HDFS
-	if v.IsHDFS() {
+	// Endpoint is ignored if communal path is HDFS or Azure
+	if v.IsHDFS() || v.IsAzure() {
 		return allErrs
 	}
 	// communal.endpoint must be prefaced with http:// or https:// to know what protocol to connect with.

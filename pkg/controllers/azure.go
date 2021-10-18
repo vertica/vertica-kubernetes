@@ -15,15 +15,7 @@
 
 package controllers
 
-import "strings"
-
 const (
-	// The name of the key in the communal credential secret that holds the access key
-	CommunalAccessKeyName = "accesskey"
-	// The name of the key in the communal credential secret that holds the secret key
-	CommunalSecretKeyName = "secretkey"
-
-	// SPILLY - move these to azure.go
 	// Key names in the communal credentials for Azure blob storage endpoints.
 	AzureAccountName           = "accountName"
 	AzureBlobEndpoint          = "blobEndpoint"
@@ -31,12 +23,13 @@ const (
 	AzureSharedAccessSignature = "sharedAccessSignature"
 )
 
-// isEndpointBadError returns true if the given message text has the message aboud a bad endpoint
-func isEndpointBadError(op string) bool {
-	return strings.Contains(op, "Unable to connect to endpoint")
-}
+// AzureCredential stores the credentials to connect to azb://
+type AzureCredential struct {
+	// At least one of the next two need to be set
+	accountName  string
+	blobEndpoint string // host name with optional port (host:port)
 
-// isBucketNotExistError returns true if the given message text has the message about a bad bucket
-func isBucketNotExistError(op string) bool {
-	return strings.Contains(op, "The specified bucket does not exist")
+	// Only one of the two will be set
+	accountKey            string // Access key for the account or endpoint
+	sharedAccessSignature string // Access token for finer-grained access control
 }

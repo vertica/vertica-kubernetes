@@ -55,16 +55,6 @@ type GenericDatabaseInitializer struct {
 	PFacts      *PodFacts
 }
 
-type AzureCredential struct {
-	// At least one of the next two need to be set
-	accountName  string
-	blobEndpoint string // host name with optional port (host:port)
-
-	// Only one of the two will be set
-	accountKey            string // Access key for the account or endpoint
-	sharedAccessSignature string // Access token for finer-grained access control
-}
-
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
 func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.Result, error) {
 	if err := g.PFacts.Collect(ctx, g.Vdb); err != nil {
@@ -326,7 +316,6 @@ func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (strin
 		return "", res, err
 	}
 
-	// SPILLY - set the minimum version we support in the operator to 11.0
 	accessKey, ok := secret.Data[CommunalAccessKeyName]
 	if !ok {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,

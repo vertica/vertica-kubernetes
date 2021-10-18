@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("s3_auth", func() {
+var _ = Describe("s3", func() {
 	ctx := context.Background()
 
 	It("should be able to read the auth from secret", func() {

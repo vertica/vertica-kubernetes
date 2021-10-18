@@ -87,7 +87,12 @@ COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
 # Similar hard coded name for namespace specific hadoopConfig
 HADOOP_CONF_CM_NS_COPY="hadoop-conf"
 # The full prefix for the communal path
-COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
+if [ "$PATH_PROTOCOL" == "azb://" ]
+then
+  COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}/${CONTAINERNAME}${PATH_PREFIX}
+else
+  COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
+fi
 
 echo "Vertica server image name: $VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
@@ -132,6 +137,13 @@ EOF
     - op: replace
       path: /spec/communal/region
       value: $REGION
+EOF
+    elif [ "$PATH_PROTOCOL" == "azb://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/communal/credentialSecret
+      value: communal-creds
 EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
@@ -296,6 +308,38 @@ EOF
       path: /spec/containers/0/image
       value: google/cloud-sdk:360.0.0-alpine
 EOF
+    elif [ "$PATH_PROTOCOL" == "azb://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: az storage remove --account-name $BUCKET_OR_CLUSTER --container-name $CONTAINERNAME --name ${PATH_PREFIX:1}${TESTCASE_NAME} --recursive
+    - op: replace
+      path: /spec/containers/0/image
+      value: mcr.microsoft.com/azure-cli
+EOF
+      if [ -n "$ACCOUNTKEY" ]
+      then
+        cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AZURE_STORAGE_KEY
+        value: $ACCOUNTKEY
+EOF
+      elif [ -n "$SHAREDACCESSSIGNATURE" ]
+      then
+        cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AZURE_STORAGE_SAS_TOKEN
+        value: "$SHAREDACCESSSIGNATURE"
+EOF
+      else
+        echo "1 *** No credentials setup for azb://"
+        exit 1
+      fi
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
       cat <<EOF >> kustomization.yaml
@@ -395,9 +439,11 @@ function create_communal_creds {
     mkdir -p overlay
     pushd overlay > /dev/null
 
-    if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
+    if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ]
     then
-      cat <<EOF > creds.yaml
+      if [ "$PATH_PROTOCOL" != "azb://" ]
+      then
+        cat <<EOF > creds.yaml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -407,6 +453,31 @@ data:
   accesskey: $(echo -n "$ACCESSKEY" | base64)
   secretkey: $(echo -n "$SECRETKEY" | base64)
 EOF
+      else
+        cat <<EOF > creds.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: communal-creds
+type: Opaque
+data:
+  accountName: $(echo -n "$BUCKET_OR_CLUSTER" | base64)
+EOF
+        if [ -n "$ACCOUNTKEY" ]
+        then
+          cat <<EOF >> creds.yaml
+  accountKey: $(echo -n "$ACCOUNTKEY" | base64 --wrap 0)
+EOF
+        elif [ -n "$SHAREDACCESSSIGNATURE" ]
+        then
+          cat <<EOF >> creds.yaml
+  sharedAccessSignature: $(echo -n "$SHAREDACCESSSIGNATURE" | base64 --wrap 0)
+EOF
+        else
+          echo "*** No credentials setup for azb://"
+          exit 1
+        fi
+      fi
 
       cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -463,7 +534,7 @@ patches:
       path: /spec/containers/0/env/4/value
       value: $ENDPOINT
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ]
     then
       cat <<EOF > kustomization.yaml
 # Intentionally blank -- either no permissions to create a bucket or one doesn't exist for protocol.
