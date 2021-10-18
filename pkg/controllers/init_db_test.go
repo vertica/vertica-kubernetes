@@ -33,7 +33,7 @@ var _ = Describe("s3_auth", func() {
 
 	It("should be able to read the auth from secret", func() {
 		vdb := vapi.MakeVDB()
-		createCommunalCredSecret(ctx, vdb)
+		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
@@ -102,17 +102,7 @@ var _ = Describe("s3_auth", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		fpr := &cmds.FakePodRunner{}
-		g := GenericDatabaseInitializer{
-			VRec:    vrec,
-			Log:     logger,
-			Vdb:     vdb,
-			PRunner: fpr,
-		}
-
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		Expect(g.ConstructAuthParms(ctx, atPod)).Should(Equal(ctrl.Result{}))
-		Expect(len(fpr.FindCommands("HadoopConf"))).Should(Equal(1))
+		_ = contructAuthParmsHelper(ctx, vdb, "HadoopConf")
 	})
 
 	It("should create an empty auth file if hdfs is used and no hdfs config dir was specified", func() {
@@ -122,18 +112,7 @@ var _ = Describe("s3_auth", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		fpr := &cmds.FakePodRunner{}
-		g := GenericDatabaseInitializer{
-			VRec:    vrec,
-			Log:     logger,
-			Vdb:     vdb,
-			PRunner: fpr,
-		}
-
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		Expect(g.ConstructAuthParms(ctx, atPod)).Should(Equal(ctrl.Result{}))
-		cmds := fpr.FindCommands("cat")
-		Expect(len(cmds)).Should(Equal(1))
+		cmds := contructAuthParmsHelper(ctx, vdb, "cat")
 		Expect(len(cmds[0].Command)).Should(Equal(3))
 		Expect(cmds[0].Command[2]).Should(ContainSubstring(fmt.Sprintf("%s<<< ''", paths.AuthParmsFile)))
 	})
@@ -141,20 +120,51 @@ var _ = Describe("s3_auth", func() {
 	It("should create a auth file with google parms when using GCloud", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
-		createCommunalCredSecret(ctx, vdb)
+		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		fpr := &cmds.FakePodRunner{}
-		g := GenericDatabaseInitializer{
-			VRec:    vrec,
-			Log:     logger,
-			Vdb:     vdb,
-			PRunner: fpr,
-		}
+		_ = contructAuthParmsHelper(ctx, vdb, "GCSAuth")
+	})
 
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		Expect(g.ConstructAuthParms(ctx, atPod)).Should(Equal(ctrl.Result{}))
-		cmds := fpr.FindCommands("GCSAuth")
-		Expect(len(cmds)).Should(Equal(1))
+	It("should create an auth file with azure parms when using azb:// scheme and accountKey", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "azb://account/container/path1"
+		createAzureAccountKeyCredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureAccountKey))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(AzureSharedAccessSignature))
+	})
+
+	It("should create an auth file with azure parms when using azb:// scheme and shared access signature", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "azb://account/container/path2"
+		createAzureSASCredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(AzureAccountKey))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureSharedAccessSignature))
 	})
 })
+
+func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {
+	fpr := &cmds.FakePodRunner{}
+	g := GenericDatabaseInitializer{
+		VRec:    vrec,
+		Log:     logger,
+		Vdb:     vdb,
+		PRunner: fpr,
+	}
+
+	atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+	res, err := g.ConstructAuthParms(ctx, atPod)
+	ExpectWithOffset(1, err).Should(Succeed())
+	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+	c := fpr.FindCommands(mustHaveCmd)
+	ExpectWithOffset(1, len(c)).Should(Equal(1))
+	return c
+}

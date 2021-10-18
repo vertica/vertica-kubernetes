@@ -379,8 +379,8 @@ func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	return pod
 }
 
-// buildCommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
-func buildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
+// buildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
+func buildS3CommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
 	nm := names.GenCommunalCredSecretName(vdb)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -390,6 +390,40 @@ func buildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *
 		Data: map[string][]byte{
 			CommunalAccessKeyName: []byte(accessKey),
 			CommunalSecretKeyName: []byte(secretKey),
+		},
+	}
+	return secret
+}
+
+// buildAzureAccountKeyCommunalCredSecret builds a secret that is setup for
+// Azure using an account key.
+func buildAzureAccountKeyCommunalCredSecret(vdb *vapi.VerticaDB, accountName, accountKey string) *corev1.Secret {
+	nm := names.GenCommunalCredSecretName(vdb)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		Data: map[string][]byte{
+			AzureAccountName: []byte(accountName),
+			AzureAccountKey:  []byte(accountKey),
+		},
+	}
+	return secret
+}
+
+// buildAzureSASCommunalCredSecret builds a secret that is setup for Azure using
+// shared access signature.
+func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas string) *corev1.Secret {
+	nm := names.GenCommunalCredSecretName(vdb)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		Data: map[string][]byte{
+			AzureBlobEndpoint:          []byte(blobEndpoint),
+			AzureSharedAccessSignature: []byte(sas),
 		},
 	}
 	return secret

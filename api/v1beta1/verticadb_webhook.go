@@ -45,6 +45,7 @@ const (
 	HadoopConfigMountName = "hadoop-conf"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
+	AzurePrefix           = "azb://"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -79,6 +80,11 @@ func (v *VerticaDB) IsGCloud() bool {
 	return strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix)
 }
 
+// IsAzure returns true if VerticaDB has a communal path in Azure Blob Storage
+func (v *VerticaDB) IsAzure() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix)
+}
+
 //+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Defaulter = &VerticaDB{}
@@ -102,6 +108,8 @@ func (v *VerticaDB) Default() {
 	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
+
+	// SPILLY - any default for the azure storage endpoint?  It depends on the account used so we need to peek into that.
 }
 
 //+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
@@ -271,7 +279,7 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
-	allPrefs := []string{S3Prefix, GCloudPrefix}
+	allPrefs := []string{S3Prefix, GCloudPrefix, AzurePrefix}
 	allPrefs = append(allPrefs, hdfsPrefixes...)
 	for _, pref := range allPrefs {
 		if strings.HasPrefix(v.Spec.Communal.Path, pref) {

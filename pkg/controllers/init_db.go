@@ -55,6 +55,16 @@ type GenericDatabaseInitializer struct {
 	PFacts      *PodFacts
 }
 
+type AzureCredential struct {
+	// At least one of the next two need to be set
+	accountName  string
+	blobEndpoint string // host name with optional port (host:port)
+
+	// Only one of the two will be set
+	accountKey            string // Access key for the account or endpoint
+	sharedAccessSignature string // Access token for finer-grained access control
+}
+
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
 func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.Result, error) {
 	if err := g.PFacts.Collect(ctx, g.Vdb); err != nil {
@@ -185,6 +195,8 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 		contentGen = g.getHDFSAuthParmsContent
 	} else if g.Vdb.IsGCloud() {
 		contentGen = g.getGCloudAuthParmsContent
+	} else if g.Vdb.IsAzure() {
+		contentGen = g.getAzureAuthParmsContent
 	} else {
 		err := fmt.Errorf("unknown communal storage type: '%s'", g.Vdb.Spec.Communal.Path)
 		g.Log.Error(err, "unable to create auth parms for communal type")
@@ -259,6 +271,38 @@ func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Conte
 	return dedent.Dedent(content), ctrl.Result{}, nil
 }
 
+// getAzureAuthParmsContent will get the content for an EON database created in
+// Azure Blob Storage
+func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	azureCreds, res, err := g.getAzureAuth(ctx)
+	if err != nil || res.Requeue {
+		return "", res, err
+	}
+
+	var azureCredsJSON strings.Builder
+	elemPrefix := ""
+	azureCredsJSON.WriteString("[{")
+	// SPILLY - what if the credentials is not even set.  Looks like this is allowed in the webhook
+	if azureCreds.accountName != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureCreds.accountName))
+		elemPrefix = ","
+	}
+	if azureCreds.blobEndpoint != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureCreds.blobEndpoint))
+		elemPrefix = ","
+	}
+	if azureCreds.accountKey != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"accountKey": "%s"`, elemPrefix, azureCreds.accountKey))
+		elemPrefix = ","
+	}
+	if azureCreds.sharedAccessSignature != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"sharedAccessSignature": "%s"`, elemPrefix, azureCreds.sharedAccessSignature))
+	}
+	azureCredsJSON.WriteString("}]")
+
+	return fmt.Sprintf("AzureStorageCredentials = %s", azureCredsJSON.String()), ctrl.Result{}, nil
+}
+
 // copyAuthFile will copy the auth file into the container
 func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod types.NamespacedName, content string) error {
 	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
@@ -277,26 +321,22 @@ func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod typ
 // getCommunalAuth will return the access key and secret key.
 // Value is returned in the format: <accessKey>:<secretKey>
 func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (string, ctrl.Result, error) {
-	secret := &corev1.Secret{}
-	if err := g.VRec.Client.Get(ctx, names.GenCommunalCredSecretName(g.Vdb), secret); err != nil {
-		if errors.IsNotFound(err) {
-			g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsNotFound,
-				"Could not find the communal credential secret '%s'", g.Vdb.Spec.Communal.CredentialSecret)
-			return "", ctrl.Result{Requeue: true}, nil
-		}
-		return "", ctrl.Result{}, fmt.Errorf("could not read the communal credential secret %s: %w", g.Vdb.Spec.Communal.CredentialSecret, err)
+	secret, res, err := g.getCommunalCredsSecret(ctx)
+	if res.Requeue || err != nil {
+		return "", res, err
 	}
 
+	// SPILLY - set the minimum version we support in the operator to 11.0
 	accessKey, ok := secret.Data[CommunalAccessKeyName]
 	if !ok {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsWrongKey,
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalAccessKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
 	secretKey, ok := secret.Data[CommunalSecretKeyName]
 	if !ok {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsWrongKey,
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalSecretKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
@@ -304,6 +344,57 @@ func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (strin
 	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(string(accessKey), "\n"),
 		strings.TrimSuffix(string(secretKey), "\n"))
 	return auth, ctrl.Result{}, nil
+}
+
+// getAzureAuth gets the azure credentials from the communal auth secret
+func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCredential, ctrl.Result, error) {
+	secret, res, err := g.getCommunalCredsSecret(ctx)
+	if res.Requeue || err != nil {
+		return AzureCredential{}, res, err
+	}
+
+	accountName, hasAccountName := secret.Data[AzureAccountName]
+	blobEndpoint, hasBlobEndpoint := secret.Data[AzureBlobEndpoint]
+
+	if (!hasAccountName && !hasBlobEndpoint) || (hasAccountName && hasBlobEndpoint) {
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
+			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountName, AzureBlobEndpoint)
+		return AzureCredential{}, ctrl.Result{Requeue: true}, nil
+	}
+
+	accountKey, hasAccountKey := secret.Data[AzureAccountKey]
+	sas, hasSAS := secret.Data[AzureSharedAccessSignature]
+
+	if (!hasAccountKey && !hasSAS) || (hasAccountKey && hasSAS) {
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
+			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountKey, AzureSharedAccessSignature)
+		return AzureCredential{}, ctrl.Result{Requeue: true}, nil
+	}
+
+	return AzureCredential{
+		accountName:           string(accountName),
+		blobEndpoint:          string(blobEndpoint),
+		accountKey:            string(accountKey),
+		sharedAccessSignature: string(sas),
+	}, ctrl.Result{}, nil
+}
+
+// getCommunalCredsSecret returns the contents of the communal credentials
+// secret.  It handles if the secret is not found and will log an event.
+func (g *GenericDatabaseInitializer) getCommunalCredsSecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
+	secret := &corev1.Secret{}
+	if err := g.VRec.Client.Get(ctx, names.GenCommunalCredSecretName(g.Vdb), secret); err != nil {
+		if errors.IsNotFound(err) {
+			g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsNotFound,
+				"Could not find the communal credential secret '%s'", g.Vdb.Spec.Communal.CredentialSecret)
+			return &corev1.Secret{}, ctrl.Result{Requeue: true}, nil
+		}
+		return &corev1.Secret{}, ctrl.Result{},
+			fmt.Errorf("could not read the communal credential secret %s: %w", g.Vdb.Spec.Communal.CredentialSecret, err)
+	}
+	return secret, ctrl.Result{}, nil
 }
 
 // getCommunalEndpoint get the communal endpoint for inclusion in the auth files.

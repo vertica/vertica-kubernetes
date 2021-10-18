@@ -22,6 +22,13 @@ const (
 	CommunalAccessKeyName = "accesskey"
 	// The name of the key in the communal credential secret that holds the secret key
 	CommunalSecretKeyName = "secretkey"
+
+	// SPILLY - move these to azure.go
+	// Key names in the communal credentials for Azure blob storage endpoints.
+	AzureAccountName           = "accountName"
+	AzureBlobEndpoint          = "blobEndpoint"
+	AzureAccountKey            = "accountKey"
+	AzureSharedAccessSignature = "sharedAccessSignature"
 )
 
 // isEndpointBadError returns true if the given message text has the message aboud a bad endpoint

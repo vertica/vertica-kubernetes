@@ -67,7 +67,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		createCommunalCredSecret(ctx, vdb)
+		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
