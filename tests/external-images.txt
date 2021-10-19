@@ -31,3 +31,6 @@ quay.io/operator-framework/olm:v0.18.3
 
 # Images needed if testing gcloud
 # google/cloud-sdk:360.0.0-alpine
+
+# Images needed if testing azure
+# mcr.microsoft.com/azure-cli:2.29.0

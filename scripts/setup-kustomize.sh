@@ -316,7 +316,7 @@ EOF
       value: az storage remove --account-name $BUCKET_OR_CLUSTER --container-name $CONTAINERNAME --name ${PATH_PREFIX:1}${TESTCASE_NAME} --recursive
     - op: replace
       path: /spec/containers/0/image
-      value: mcr.microsoft.com/azure-cli
+      value: mcr.microsoft.com/azure-cli:2.29.0
 EOF
       if [ -n "$ACCOUNTKEY" ]
       then
