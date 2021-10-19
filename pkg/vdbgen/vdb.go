@@ -18,6 +18,7 @@ package vdbgen
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -77,12 +78,13 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.readLicense,
 		d.connect,
 		d.setShardCount,
+		d.setCommunalPath,
 		d.fetchDatabaseConfig,
 		d.setCommunalEndpointAWS,
 		d.setCommunalEndpointGCloud,
+		d.setCommunalEndpointAzure,
 		d.setLocalPaths,
 		d.setSubclusterDetail,
-		d.setCommunalPath,
 		d.setLicense,
 		d.setPasswordSecret,
 		d.readCAFile,
@@ -191,6 +193,10 @@ func (d *DBGenerator) fetchDatabaseConfig(ctx context.Context) error {
 
 // setCommunalEndpointAWS will fetch the communal endpoint for AWS and set it in v.vdb
 func (d *DBGenerator) setCommunalEndpointAWS(ctx context.Context) error {
+	if !d.Objs.Vdb.IsS3() {
+		return nil
+	}
+
 	const HTTPSKey = "AWSEnableHttps"
 	const EndpointKey = "AWSEndpoint"
 	const AWSAuth = "AWSAuth"
@@ -200,11 +206,77 @@ func (d *DBGenerator) setCommunalEndpointAWS(ctx context.Context) error {
 
 // setCommunalEndpointGCloud will fetch the communal endpoint for Google Cloud and set it in v.vdb
 func (d *DBGenerator) setCommunalEndpointGCloud(ctx context.Context) error {
+	if !d.Objs.Vdb.IsGCloud() {
+		return nil
+	}
+
 	const HTTPSKey = "GCSEnableHttps"
 	const EndpointKey = "GCSEndpoint"
 	const AWSAuth = "GCSAuth"
 	const RegionKey = "GCSRegion"
 	return d.setCommunalEndpointGeneric(HTTPSKey, EndpointKey, AWSAuth, RegionKey)
+}
+
+// setCommunalEndpointAzure will look for Azure config and setup the communal
+// secret if found.
+func (d *DBGenerator) setCommunalEndpointAzure(ctx context.Context) error {
+	if !d.Objs.Vdb.IsAzure() {
+		return nil
+	}
+
+	const AzureCredentialKey = "AzureStorageCredentials"
+
+	credsStr, ok := d.DBCfg[AzureCredentialKey]
+	if !ok {
+		// Missing entry just means we didn't setup for this endpoint.
+		return nil
+	}
+
+	// The azure credentials are stored in JSON format.  We should be able to
+	// take the string value stored in the database defaults and unmarhsal it
+	// into JSON.  If this fails, we will fail with an error.
+	creds := []controllers.AzureCredential{}
+	if err := json.Unmarshal([]byte(credsStr), &creds); err != nil {
+		return fmt.Errorf("unmarshal azure creds: %w", err)
+	}
+
+	if len(creds) == 0 {
+		// No azure storage credentials setup.  Skip Azure endpoint setup.
+		return nil
+	}
+
+	// If there is more than one credential stored, then we require the
+	if len(creds) > 1 && d.Opts.AzureAccountName == "" {
+		return fmt.Errorf("%d azure credentials exist -- must specify the azure account name to use",
+			len(creds))
+	}
+
+	// We default to the first (and only) credential if no account name was specified.
+	if d.Opts.AzureAccountName == "" {
+		d.Opts.AzureAccountName = creds[0].AccountName
+	}
+
+	cred, ok := d.getAzureCredential(creds)
+	if !ok {
+		return fmt.Errorf("could not find a azure credential with matching account name '%s'",
+			d.Opts.AzureAccountName)
+	}
+
+	d.Objs.CredSecret.Data = map[string][]byte{}
+	if cred.AccountKey != "" {
+		d.Objs.CredSecret.Data[controllers.AzureAccountKey] = []byte(cred.AccountKey)
+	}
+	if cred.AccountName != "" {
+		d.Objs.CredSecret.Data[controllers.AzureAccountName] = []byte(cred.AccountName)
+	}
+	if cred.BlobEndpoint != "" {
+		d.Objs.CredSecret.Data[controllers.AzureBlobEndpoint] = []byte(cred.BlobEndpoint)
+	}
+	if cred.SharedAccessSignature != "" {
+		d.Objs.CredSecret.Data[controllers.AzureSharedAccessSignature] = []byte(cred.SharedAccessSignature)
+	}
+
+	return nil
 }
 
 // setCommunalEndpointGeneric gathers information about the endpoint for a
@@ -545,4 +617,14 @@ func (d *DBGenerator) setHadoopConfig(ctx context.Context) error {
 	d.Objs.Vdb.Spec.Communal.HadoopConfig = d.Objs.HadoopConfig.ObjectMeta.Name
 
 	return nil
+}
+
+// getAzureCredential will find the credential that matches the d.Opts.AzureAccountName
+func (d *DBGenerator) getAzureCredential(creds []controllers.AzureCredential) (controllers.AzureCredential, bool) {
+	for i := range creds {
+		if creds[i].AccountName == d.Opts.AzureAccountName {
+			return creds[i], true
+		}
+	}
+	return controllers.AzureCredential{}, false
 }

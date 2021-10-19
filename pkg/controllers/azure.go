@@ -24,12 +24,14 @@ const (
 )
 
 // AzureCredential stores the credentials to connect to azb://
+// This structure must be kept in sync with the Vertica server format.  You
+// cannot add fields here unless there is a corresponding change in the engine.
 type AzureCredential struct {
 	// At least one of the next two need to be set
-	accountName  string
-	blobEndpoint string // host name with optional port (host:port)
+	AccountName  string `json:"accountName,omitempty"`
+	BlobEndpoint string `json:"blobEndpoint,omitempty"` // host name with optional port (host:port)
 
 	// Only one of the two will be set
-	accountKey            string // Access key for the account or endpoint
-	sharedAccessSignature string // Access token for finer-grained access control
+	AccountKey            string `json:"accountKey,omitempty"`            // Access key for the account or endpoint
+	SharedAccessSignature string `json:"sharedAccessSignature,omitempty"` // Access token for finer-grained access control
 }

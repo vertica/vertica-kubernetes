@@ -273,20 +273,20 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	elemPrefix := ""
 	azureCredsJSON.WriteString("[{")
 	// SPILLY - what if the credentials is not even set.  Looks like this is allowed in the webhook
-	if azureCreds.accountName != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureCreds.accountName))
+	if azureCreds.AccountName != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureCreds.AccountName))
 		elemPrefix = ","
 	}
-	if azureCreds.blobEndpoint != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureCreds.blobEndpoint))
+	if azureCreds.BlobEndpoint != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureCreds.BlobEndpoint))
 		elemPrefix = ","
 	}
-	if azureCreds.accountKey != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`%s"accountKey": "%s"`, elemPrefix, azureCreds.accountKey))
+	if azureCreds.AccountKey != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"accountKey": "%s"`, elemPrefix, azureCreds.AccountKey))
 		elemPrefix = ","
 	}
-	if azureCreds.sharedAccessSignature != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`%s"sharedAccessSignature": "%s"`, elemPrefix, azureCreds.sharedAccessSignature))
+	if azureCreds.SharedAccessSignature != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"sharedAccessSignature": "%s"`, elemPrefix, azureCreds.SharedAccessSignature))
 	}
 	azureCredsJSON.WriteString("}]")
 
@@ -363,10 +363,10 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCre
 	}
 
 	return AzureCredential{
-		accountName:           string(accountName),
-		blobEndpoint:          string(blobEndpoint),
-		accountKey:            string(accountKey),
-		sharedAccessSignature: string(sas),
+		AccountName:           string(accountName),
+		BlobEndpoint:          string(blobEndpoint),
+		AccountKey:            string(accountKey),
+		SharedAccessSignature: string(sas),
 	}, ctrl.Result{}, nil
 }
 

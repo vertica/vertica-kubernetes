@@ -62,6 +62,9 @@ func main() {
 			"to the communal endpoint.")
 	flag.StringVar(&opts.HadoopConfigDir, "hadoopConfig", "",
 		"A path to a directory that contains the Hadoop config.  All of the files within the directory will be included in a configMap.")
+	flag.StringVar(&opts.AzureAccountName, "accountName", "",
+		"The Azure accountName to use for communal access credentials.  This is required if more than one credential is present.  "+
+			"If only one exists, it will default to using that.")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {

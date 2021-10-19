@@ -29,4 +29,5 @@ type Options struct {
 	LicenseFile        string
 	CAFile             string
 	HadoopConfigDir    string
+	AzureAccountName   string
 }
