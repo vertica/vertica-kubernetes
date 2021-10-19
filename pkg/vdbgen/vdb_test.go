@@ -145,7 +145,7 @@ var _ = Describe("vdb", func() {
 		defer deleteMock()
 
 		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
-		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://"
+		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://p1"
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
@@ -164,7 +164,7 @@ var _ = Describe("vdb", func() {
 		defer deleteMock()
 
 		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
-		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://"
+		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://p2"
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
