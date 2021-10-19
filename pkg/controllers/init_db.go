@@ -272,7 +272,6 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	var azureCredsJSON strings.Builder
 	elemPrefix := ""
 	azureCredsJSON.WriteString("[{")
-	// SPILLY - what if the credentials is not even set.  Looks like this is allowed in the webhook
 	if azureCreds.AccountName != "" {
 		azureCredsJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureCreds.AccountName))
 		elemPrefix = ","
