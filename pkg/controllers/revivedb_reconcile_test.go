@@ -96,6 +96,7 @@ var _ = Describe("revivedb_reconcile", func() {
 				"File not found",
 			"Could not copy file [webhdfs://vertdb/cluster_config.json] to [/tmp/desc.json]: Seen WebHDFS exception: " +
 				"\nURL: [http://vertdb/cluster_config.json]\nHTTP response code: 404\nException type: FileNotFoundException",
+			"Could not copy file [azb://cluster_config.json] to [/tmp/desc.json]: : The specified blob does not exist",
 			"\n10.244.1.34 Permission Denied \n\n",
 			"Database could not be revived.\nError: Node count mismatch",
 			"Error: Primary node count mismatch:",
