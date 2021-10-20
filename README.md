@@ -252,40 +252,37 @@ However, Vertica does not support a cluster running mixed releases. The document
 
 Vertica on Kubernetes uses the workflow described in the preceding steps. This is triggered whenever the `.spec.image` changes in the CR.  When the operator detects this, it will enter the upgrade mode, logging events of its progress for monitoring purposes.
 
-A status condition (UpgradeInProgress) is provided so that you can programatically detect when the upgrade has finished.  
+Upgrade the Vertica server version and use the kubectl command line tool to monitor the progress. The operator indicates when an upgrade is in progress or complete with the UpgradeInProgress status condition.
 
-Here is an example to illustrate how to do an upgrade.
-
-1. Update the `.spec.image` in the CR.  This can be driven by a helm upgrade if you have the CR in a chart, or a simple patch of the CR.  
+1. Update the `.spec.image` in the CR.  This can be driven by a helm upgrade if you have the CR in a chart, or a simple patch of the CR:
    ```shell
    $ kubectl patch verticadb vert-cluster --type=merge --patch '{"spec": {"image": "vertica/vertica-k8s:11.1.1-0"}}'
    ```
    
-2. Wait for the operator to acknowledge this change and enter the upgrade mode.
+2. Wait for the operator to acknowledge this change and enter the upgrade mode:
    ```shell
    $ kubectl wait --for=condition=UpgradeInProgress=True vdb/vert-cluster –-timeout=180s
    ```
    
-3.  Wait for the operator to leave the upgrade mode. 
+3.  Wait for the operator to leave the upgrade mode:
     ```shell
-    $ kubectl wait --for=condition=UpgradeInProgress=False vdb/vert-cluster –-timeout=800s
+    $ kubectl wait --for=condition=UpgradeInProgress=True vdb/cluster-name –-timeout=180s
     ```
    
 You can monitor what part of the upgrade the operator is in by looking at the events it generates.
 
 ```shell
-$ kubectl describe vdb vert-cluster
- 
+$ kubectl describe vdb cluster-name
 ...<snip>...
 Events:
   Type    Reason                   Age    From                Message
   ----    ------                   ----   ----                -------
-  Normal  UpgradeStart             5m10s  verticadb-operator  Vertica server upgrade has been initiated to 'vertica-k8s:11.0.1-0'
+  Normal  ImageChangeStart         5m10s  verticadb-operator  Vertica server image change has been initiated to 'vertica-k8s:11.0.1-0'
   Normal  ClusterShutdownStarted   5m12s  verticadb-operator  Calling 'admintools -t stop_db'
   Normal  ClusterShutdownSucceeded 4m08s  verticadb-operator  Successfully called 'admintools -t stop_db' and it took 56.22132s
   Normal  ClusterRestartStarted    4m25s  verticadb-operator  Calling 'admintools -t start_db' to restart the cluster
   Normal  ClusterRestartSucceeded  25s    verticadb-operator  Successfully called 'admintools -t start_db' and it took 240s
-  Normal  UpgradeSucceeded         5s     verticadb-operator  Vertica server upgraded has completed successfully.
+  Normal  ImageChangeSucceeded     5s     verticadb-operator  Vertica server image change has completed successfully.
 ```
 
 Vertica recommends that [upgrade paths](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/InstallationGuide/Upgrade/UpgradePaths.htm?zoom_highlight=upgrade%20path) be incremental – meaning you upgrade to each intermediate major and minor release.  The operator assumes the images chosen are following this path and doesn't try to validate it.
@@ -314,14 +311,14 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 | Parameter Name | Description | Default Value |
 |-------------|-------------|---------------|
 | annotations | Custom annotations added to all of the objects that the operator creates. | 
-| autoRestartVertica | State to indicate whether the operator will restart vertica if the process is not running.  Under normal circumstances this is set to true.  The purpose of this is to allow maintenance window, such as a manual upgrade, without the operator interfering. | true
+| autoRestartVertica | State to indicate whether the operator will restart vertica if the process is not running.<br>Under normal circumstances this is set to true. Set this parameter to false when performing manual maintenance that requires a DOWN database. This prevents the operator from interfering with the database state. | true
 | certSecrets | A list of Secrets for custom TLS certificates and PEM-encoded self-signed certificate authority (CA) bundles for S3-compatible authentication.<br>Each certificate is mounted in the container at /certs/cert-name/key. For example, a PEM-encoded CA bundle named root_cert.pem and concealed in a Secret named aws-cert is mounted in /certs/aws-cert/root_cert.pem.<br> If you update the certificate after you add it to a custom resource, the operator updates the value automatically. If you add or delete a certificate, the operator reschedules the pod with the new configuration. |  
-| communal.caFile | The path to a CA cert file for use when connecting to an https:// s3 endpoint.  The path is relative to inside the Vertica container.  Typically this would refer to a cert that was included in `certSecrets`. | |
+| communal.caFile | The mount path in the container filesystem to a CA certificate file that validates HTTPS connections to an S3-compatible endpoint. Typically, the certificate is stored in a Secret and included in `certSecrets`. | |
 | communal.credentialSecret | The name of a secret that contains the credentials to connect to the communal S3 endpoint. The secret must have the following keys set: <br>- *accesskey*: The access key to use for any S3 request.<br>- *secretkey*: The secret that goes along with the access key.<br><br>For example, you can create your secret with the following command:<br><pre>kubectl create secret generic s3-creds <br>--from-literal=accesskey=accesskey --from-literal=secretkey=secretkey</pre><br>Then you set the the secret name in the CR.<br><pre>communal:<br>  credentialSecret: s3-creds<br></pre> |  |
-| communal.endpoint | The URL to the s3 endpoint. The endpoint must begin with either `http://` or `https://`.. This field is required and cannot change after creation. |  |
+| communal.endpoint | The URL to the S3 endpoint. The endpoint must begin with either `http://` or `https://`.. This field is required and cannot change after creation. |  |
 | communal.includeUIDInPath | When set to true, the operator includes the VerticaDB's UID in the path. This option exists if you reuse the communal path in the same endpoint as it forces each database path to be unique. | false |
-| communal.path | The path to the communal storage. This must be a s3 bucket. You specify this using the s3:// bucket notation. For example: `s3://bucket-name/key-name`. You must create this bucket before creating the VerticaDB. This field is required and cannot change after creation.  If `initPolicy` is *Create*, then this path must be empty.  If the `initPolicy` is *Revive*, then this path must be non-empty. |  |
-| communal.region | The geographic region containing the S3 bucket.  If you do not set the correct region, you might experience a delay before the bootstrap fails because Vertica retries several times before giving up. | us-east-1 |
+| communal.path | The path to the communal storage. This must be a s3 bucket. You specify this using the `s3://` bucket notation. For example: `s3://bucket-name/key-name`. You must create this bucket before creating the VerticaDB. This field is required and cannot change after creation.  If `initPolicy` is *Create*, then this path must be empty.  If the `initPolicy` is *Revive*, then this path must be non-empty. |  |
+| communal.region | The geographic region where the S3 bucket is located.  If you do not set the correct region, you might experience a delay before the bootstrap fails because Vertica retries several times before giving up. | us-east-1 |
 | dbName | The name to use for the database.  When `initPolicy` is `Revive`, this must match the name of the database that used when it was originally created. | vertdb
 | ignoreClusterLease | Ignore the cluster lease when doing a revive or start_db. Use this with caution, as ignoring the cluster lease when another system is using the same communal storage will cause corruption. | false
 | image | The name of the container that runs the server.  If hosting the containers in a private container repository, this name must include the path to that repository.  Whenever this changes, the operator treats this as an upgrade and will stop the entire cluster and restart it with the new image. | vertica/vertica-k8s:11.0.0-0-minimal |
@@ -338,7 +335,7 @@ The following table describes each configurable parameter in the VerticaDB CRD a
 | reviveOrder | This specifies the order of nodes when doing a revive. Each entry contains an index to a subcluster, which is an index in `subclusters[i]`, and a pod count of the number of pods include from the subcluster.<br><br>For example, suppose the database you want to revive has the following setup:<br>- v_db_node0001: subcluster A<br>- v_db_node0002: subcluster A<br>- v_db_node0003: subcluster B<br>- v_db_node0004: subcluster A<br>- v_db_node0005: subcluster B<br>- v_db_node0006: subcluster B<br><br>And the `subclusters[]` list is defined as {'A', 'B'}.  The revive order would be:<br>- {subclusterIndex:0, podCount:2}  # 2 pods from subcluster A<br>- {subclusterIndex:1, podCount:1}  # 1 pod from subcluster B<br>- {subclusterIndex:0, podCount:1}  # 1 pod from subcluster A<br>- {subclusterIndex:1, podCount:2}  # 2 pods from subcluster B<br><br>If InitPolicy is not Revive, this field can be ignored.|
 | restartTimeout | This specifies the timeout, in seconds, to use when calling admintools to restart pods.  If not specified, it defaults 0, which means we will use the admintools default of 20 minutes. | 0 |
 | shardCount | The number of shards to create in the database.  This cannot be updated once the CR is created. | 12
-| sidecars[] | One or more optional utility containers that complete tasks for the Vertica server container. Each sidecar entry is a fully-formed container spec, similar to the container that you add to a Pod spec.<br>The following example adds a sidecar named vlogger to the custom resource:<br><pre>sidecars:<br>  - name: vlogger<br>    image: image:tag<br>    volumeMounts:<br>      - name: my-custom-vol<br>        mountPath: /path/to/custom-volume</pre><br>`volumeMounts.name` is the name of a custom volume. This value must match `volumes.name` to mount the custom volume in the sidecar container filesystem. See `volumes` for additional details.| empty |
+| sidecars[] | One or more optional utility containers that complete tasks for the Vertica server container. Each sidecar entry is a fully-formed container spec, similar to the container that you add to a Pod spec.<br>The following example adds a sidecar named vlogger to the custom resource:<br><pre>sidecars:<br>  - name: vlogger<br>    image: image:tag<br>    volumeMounts:<br>      - name: my-custom-vol<br>        mountPath: /path/to/custom-volume</pre><br>`volumeMounts.name` is the name of a custom volume. This value must match `volumes.name` to mount the custom volume in the sidecar container filesystem. See the `volumes` parameter description for additional details.| empty |
 | subclusters[i].affinity | Allows you to constrain the pod only to certain pods. It is more expressive than just using node selectors. If not set, then no [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) setting will be used with the pods.<br><br> The following example uses affinity to ensure a node does not serve two Vertica pods:<br><pre>subclusters:<br>  - name: sc1<br>    affinity:<br>      podAntiAffinity:<br>        requiredDuringSchedulingIgnoredDuringExecution:<br>        - labelSelector:<br>            matchExpressions:<br>            - key: app.kubernetes.io/name<br>            operator: In<br>            values:<br>            - vertica<br>          topologyKey: "kubernetes.io/hostname"<br>|  |
 | subclusters[i].externalIPs | Enables the service object to attach to a specified [external IP](https://kubernetes.io/docs/concepts/services-networking/service/#external-ips).  If not set, the external IP is empty in the service object. |  |
 | subclusters[i].isPrimary | Indicates whether the subcluster is a primary or a secondary. Each database must have at least one primary subcluster. | true |

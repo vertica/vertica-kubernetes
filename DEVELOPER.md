@@ -325,7 +325,7 @@ You might need to inspect the contents of the vertica.log to diagnose a problem 
 
   The `sidecars[i].image` is a container that you build yourself. Vertica provides an example container in `docker-vlogger`. You can persist sidecar data by adding a custom volume with `volumes`. For implementation details, see [Creating a Custom Resource](http://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CreatingCustomResource.htm).
   
-  After the sidecar container is running, inspect the logs by using this sidecar:
+  After the sidecar container is running, inspect the logs with the following command:
 
   ```shell
   $ kubectl logs vertica-sc1-0 -c vlogger
