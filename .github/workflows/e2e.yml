@@ -12,47 +12,43 @@ on:
 
 jobs:
 
-  e2e:
+  e2e-s3:
 
     runs-on: ubuntu-latest
     steps:
 
     - uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.16.2
-
-
-    - name: Install kubectl
-      run: |
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-        kubectl version --client
-    
-    - name: Install kubectx   
-      env:
-          KUBECTX_URL: https://github.com/ahmetb/kubectx/releases/download/v0.9.3/kubectx
-      run: |
-        curl -fsSLO $KUBECTX_URL
-        chmod +x kubectx
-        sudo install -o root -g root -m 0755 kubectx /usr/local/bin/kubectx
-        
-    - name: Install stern and Download vertica RPM package
-      env:
-          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-11.0.0-0.x86_64.RHEL6.rpm"
-          STERN_URL: "https://github.com/stern/stern/releases/download/v1.19.0/stern_1.19.0_linux_amd64.tar.gz"
-      run: |
-        curl -fsSLO $STERN_URL 
-        tar zxvf stern_1.19.0_linux_amd64.tar.gz
-        sudo cp stern_1.19.0_linux_amd64/stern /usr/local/bin/
-        curl $VERTICA_CE_URL -o vertica-x86_64.RHEL6.latest.rpm
+    - name: Set up e2e environment
+      uses: ./.github/actions/setup-e2e
       
     - name: Run e2e tests
       run: |
         E2E_PARALLELISM=${{ github.event.inputs.parallel }}
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
+        scripts/run-k8s-int-tests.sh
+
+    - uses: actions/upload-artifact@v2
+      if: always()
+      with:
+        name: e2e-logs
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/*.log
+
+  e2e-hdfs:
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Set up e2e environment
+      uses: ./.github/actions/setup-e2e
+      
+    - name: Run e2e tests
+      run: |
+        E2E_PARALLELISM=${{ github.event.inputs.parallel }}
+        [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
+        export KUSTOMIZE_CFG=tests/kustomize-defaults-hdfs-ci.cfg
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2
