@@ -6,6 +6,14 @@
 VERSION ?= 1.1.0
 
 SHELL:=$(shell which bash)
+REPO_DIR:=$(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+
+# Current location of the kustomize config.  This dictates, amoung other things
+# what communal endpoint to use for the e2e tests.  It reads in the contents
+# and sets the environment variables that are present.
+include tests/kustomize-defaults.cfg
+KUSTOMIZE_CFG?=$(REPO_DIR)/tests/kustomize-defaults.cfg
+include $(KUSTOMIZE_CFG)
 
 # CHANNELS define the bundle channels used in the bundle. 
 CHANNELS=stable
@@ -141,7 +149,7 @@ all: build
 # http://linuxcommand.org/lc3_adv_awk.php
 
 help: ## Display this help.
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(firstword $(MAKEFILE_LIST))
 
 ##@ Development
 
@@ -194,7 +202,7 @@ ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 endif
 
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin vdb-gen setup-minio ## Run the integration tests
+run-int-tests: install-kuttl-plugin vdb-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
@@ -204,9 +212,23 @@ endif
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
 	scripts/soak-runner.sh $(SOAK_CFG)
 
+setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
+ifeq ($(PATH_PROTOCOL), s3://)
+	$(MAKE) setup-minio
+else ifeq ($(PATH_PROTOCOL), webhdfs://)
+	$(MAKE) setup-hadoop
+else
+	$(error cannot setup communal endpoint for this protocol: $(PATH_PROTOCOL))
+	exit 1
+endif
+
 .PHONY: setup-minio
 setup-minio:  install-cert-manager ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
+
+.PHONY: setup-hadoop
+setup-hadoop: ## Setup hadoop cluster for use with the e2e tests
+	scripts/setup-hadoop.sh
 
 .PHONY: setup-olm
 setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-build-olm-catalog docker-push-olm-catalog
@@ -356,7 +378,7 @@ kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
 	$(call go-get-tool,$(KUBERNETES_SPLIT_YAML),github.com/mogensen/kubernetes-split-yaml@v0.3.0)
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+PROJECT_DIR := $(abspath $(REPO_DIR))
 define go-get-tool
 @[ -f $(1) ] || { \
 set -e ;\
