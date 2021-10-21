@@ -32,7 +32,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       if: always()
       with:
-        name: e2e-logs
+        name: logs-e2e-s3
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
 
   e2e-hdfs:
@@ -56,6 +56,6 @@ jobs:
     - uses: actions/upload-artifact@v2
       if: always()
       with:
-        name: e2e-logs
+        name: logs-e2e-hdfs
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
         
