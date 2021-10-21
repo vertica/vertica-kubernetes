@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -264,7 +265,7 @@ func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Conte
 // getAzureAuthParmsContent will get the content for an EON database created in
 // Azure Blob Storage
 func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
-	azureCreds, res, err := g.getAzureAuth(ctx)
+	azureCreds, azureConfig, res, err := g.getAzureAuth(ctx)
 	if err != nil || res.Requeue {
 		return "", res, err
 	}
@@ -289,7 +290,29 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	}
 	azureCredsJSON.WriteString("}]")
 
-	return fmt.Sprintf("AzureStorageCredentials = %s", azureCredsJSON.String()), ctrl.Result{}, nil
+	var azureConfigJSON strings.Builder
+	elemPrefix = ""
+	azureConfigJSON.WriteString("[{")
+	if azureConfig.AccountName != "" {
+		azureConfigJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureConfig.AccountName))
+		elemPrefix = ","
+	}
+	if azureConfig.BlobEndpoint != "" {
+		azureConfigJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureConfig.BlobEndpoint))
+		elemPrefix = ","
+	}
+	if azureConfig.Protocol != "" {
+		azureConfigJSON.WriteString(fmt.Sprintf(`%s"protocol": "%s"`, elemPrefix, azureConfig.Protocol))
+		elemPrefix = ","
+	}
+	azureConfigJSON.WriteString(fmt.Sprintf(`%s"isMultiAccountEndpoint": %t`, elemPrefix, azureConfig.IsMultiAccountEndpoint))
+	azureConfigJSON.WriteString("}]")
+
+	content := fmt.Sprintf(`
+	  AzureStorageCredentials = %s
+	  AzureStorageEndpointConfig = %s
+	`, azureCredsJSON.String(), azureConfigJSON.String())
+	return dedent.Dedent(content), ctrl.Result{}, nil
 }
 
 // copyAuthFile will copy the auth file into the container
@@ -335,20 +358,27 @@ func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (strin
 }
 
 // getAzureAuth gets the azure credentials from the communal auth secret
-func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCredential, ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCredential, AzureEndpointConfig, ctrl.Result, error) {
 	secret, res, err := g.getCommunalCredsSecret(ctx)
 	if res.Requeue || err != nil {
-		return AzureCredential{}, res, err
+		return AzureCredential{}, AzureEndpointConfig{}, res, err
 	}
 
 	accountName, hasAccountName := secret.Data[AzureAccountName]
-	blobEndpoint, hasBlobEndpoint := secret.Data[AzureBlobEndpoint]
+	blobEndpointRaw, hasBlobEndpoint := secret.Data[AzureBlobEndpoint]
 
-	if (!hasAccountName && !hasBlobEndpoint) || (hasAccountName && hasBlobEndpoint) {
+	if !hasAccountName && !hasBlobEndpoint {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
 			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountName, AzureBlobEndpoint)
-		return AzureCredential{}, ctrl.Result{Requeue: true}, nil
+		return AzureCredential{}, AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
+	}
+
+	// The blob endpoint may have a protocol scheme as a prefix.  Strip that off
+	// so its just the host and port.
+	var blobEndpoint string
+	if hasBlobEndpoint {
+		blobEndpoint = getEndpointHostPort(string(blobEndpointRaw))
 	}
 
 	accountKey, hasAccountKey := secret.Data[AzureAccountKey]
@@ -358,15 +388,22 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCre
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
 			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountKey, AzureSharedAccessSignature)
-		return AzureCredential{}, ctrl.Result{Requeue: true}, nil
+		return AzureCredential{}, AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
 	}
 
 	return AzureCredential{
-		AccountName:           string(accountName),
-		BlobEndpoint:          string(blobEndpoint),
-		AccountKey:            string(accountKey),
-		SharedAccessSignature: string(sas),
-	}, ctrl.Result{}, nil
+			AccountName:           string(accountName),
+			BlobEndpoint:          blobEndpoint,
+			AccountKey:            string(accountKey),
+			SharedAccessSignature: string(sas),
+		},
+		AzureEndpointConfig{
+			AccountName:            string(accountName),
+			BlobEndpoint:           blobEndpoint,
+			Protocol:               getEndpointProtocol(string(blobEndpointRaw)),
+			IsMultiAccountEndpoint: false,
+		},
+		ctrl.Result{}, nil
 }
 
 // getCommunalCredsSecret returns the contents of the communal credentials
@@ -421,4 +458,27 @@ func (g *GenericDatabaseInitializer) getRegion(parmName string) string {
 		return fmt.Sprintf("%s = %s", parmName, vapi.DefaultS3Region)
 	}
 	return fmt.Sprintf("%s = %s", parmName, g.Vdb.Spec.Communal.Region)
+}
+
+// getEndpointProtocol returns the protocol (HTTPS or HTTP) for the given endpoint
+func getEndpointProtocol(blobEndpoint string) string {
+	if blobEndpoint == "" {
+		return AzureDefaultProtocol
+	}
+	re := regexp.MustCompile(`([a-z]+)://`)
+	m := re.FindAllStringSubmatch(blobEndpoint, 1)
+	if len(m) == 0 || len(m[0]) < 2 {
+		return AzureDefaultProtocol
+	}
+	return strings.ToUpper(m[0][1])
+}
+
+// getEndpointHostPort returns just the host and port portion of a endpoint
+func getEndpointHostPort(blobEndpoint string) string {
+	re := regexp.MustCompile(`([a-z]+)://(.*)`)
+	m := re.FindAllStringSubmatch(blobEndpoint, 1)
+	if len(m) == 0 || len(m[0]) < 3 {
+		return blobEndpoint
+	}
+	return m[0][2]
 }

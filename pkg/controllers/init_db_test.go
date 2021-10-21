@@ -149,6 +149,23 @@ var _ = Describe("s3", func() {
 		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(AzureAccountKey))
 		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureSharedAccessSignature))
 	})
+
+	It("should return correct protocol when calling getEndpointProtocol", func() {
+		Expect(getEndpointProtocol("")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("192.168.0.1")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("accountname.mcr.net")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("https://accountname.mcr.net")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("http://accountname.mcr.net:300")).Should(Equal("HTTP"))
+		Expect(getEndpointProtocol("http://192.168.0.1")).Should(Equal("HTTP"))
+	})
+
+	It("should return host/port without protocol when calling getEndpointHostPort", func() {
+		Expect(getEndpointHostPort("192.168.0.1")).Should(Equal("192.168.0.1"))
+		Expect(getEndpointHostPort("hostname:10000")).Should(Equal("hostname:10000"))
+		Expect(getEndpointHostPort("http://hostname")).Should(Equal("hostname"))
+		Expect(getEndpointHostPort("https://tlsHost:3000")).Should(Equal("tlsHost:3000"))
+		Expect(getEndpointHostPort("account@myhost")).Should(Equal("account@myhost"))
+	})
 })
 
 func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {

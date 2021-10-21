@@ -19,6 +19,7 @@ set -o errexit
 set -o pipefail
 set -o xtrace
 
+# SPILLY - rename this to kuttl-e2e-s3
 MINIO_NS=kuttl-e2e-communal
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)

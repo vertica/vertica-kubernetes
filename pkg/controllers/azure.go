@@ -21,6 +21,7 @@ const (
 	AzureBlobEndpoint          = "blobEndpoint"
 	AzureAccountKey            = "accountKey"
 	AzureSharedAccessSignature = "sharedAccessSignature"
+	AzureDefaultProtocol       = "HTTPS"
 )
 
 // AzureCredential stores the credentials to connect to azb://
@@ -34,4 +35,13 @@ type AzureCredential struct {
 	// Only one of the two will be set
 	AccountKey            string `json:"accountKey,omitempty"`            // Access key for the account or endpoint
 	SharedAccessSignature string `json:"sharedAccessSignature,omitempty"` // Access token for finer-grained access control
+}
+
+// AzureEndpointConfig contains config elements for a single azure endpoint.
+// This structure must be kept insync with the Vertica server format.
+type AzureEndpointConfig struct {
+	AccountName            string `json:"accountName,omitempty"`
+	BlobEndpoint           string `json:"blobEndpoint,omitempty"`
+	Protocol               string `json:"protocol,omitempty"`
+	IsMultiAccountEndpoint bool   `json:"isMultiAccountEndpoint,omitempty"`
 }
