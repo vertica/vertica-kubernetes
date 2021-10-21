@@ -25,6 +25,8 @@ alpine:3.13
 # Images needed for testing in CI
 kindest/node:v1.21.1
 registry:2
+uhopper/hadoop-datanode:2.8.1
+uhopper/hadoop-namenode:2.8.1
 
 # Images needed for olm
 quay.io/operator-framework/olm:v0.18.3
