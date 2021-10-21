@@ -33,4 +33,4 @@ runs:
         curl -fsSLO $STERN_URL 
         tar zxvf stern_1.19.0_linux_amd64.tar.gz
         sudo cp stern_1.19.0_linux_amd64/stern /usr/local/bin/
-        curl $VERTICA_CE_URL -o vertica-x86_64.RHEL6.latest.rpm
+        curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-x86_64.RHEL6.latest.rpm

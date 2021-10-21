@@ -26,13 +26,14 @@ jobs:
       run: |
         E2E_PARALLELISM=${{ github.event.inputs.parallel }}
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
+        export MINIMAL_VERTICA_IMG=YES
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2
       if: always()
       with:
         name: e2e-logs
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/*.log
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
 
   e2e-hdfs:
 
@@ -49,11 +50,12 @@ jobs:
         E2E_PARALLELISM=${{ github.event.inputs.parallel }}
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         export KUSTOMIZE_CFG=tests/kustomize-defaults-hdfs-ci.cfg
+        export MINIMAL_VERTICA_IMG=YES
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2
       if: always()
       with:
         name: e2e-logs
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/*.log
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
         
