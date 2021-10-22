@@ -189,6 +189,29 @@ var _ = Describe("vdb", func() {
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
 
+	It("should use azure endpoint config to find proper endpoint", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://p3"
+		dbGen.Opts.AzureAccountName = "myacc"
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("AzureStorageCredentials",
+					`[{"accountName": "myacc","blobEndpoint": "azurite:10000","accountKey": "key"}]`).
+				AddRow("AzureStorageEndpointConfig",
+					`[{"accountName": "myacc","blobEndpoint": "azurite:10000","protocol": "http"}]`))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAzure(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountName]).Should(Equal([]byte("myacc")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureBlobEndpoint]).Should(Equal([]byte("http://azurite:10000")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountKey]).Should(Equal([]byte("key")))
+
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
 	It("should extract common prefix for local and depot path", func() {
 		createMock()
 		defer deleteMock()
