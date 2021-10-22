@@ -54,7 +54,7 @@ kubectl delete namespace $NS || :
 kubectl create namespace $NS 
 
 # Start the azurite service
-kubectl apply -n $NS -f $REPO_DIR/tests/manifests/azurite/base/azurite-pod.yaml
+kubectl apply -n $NS -f $REPO_DIR/tests/manifests/azurite/base/azurite-server.yaml
 kubectl wait -n $NS --for=condition=Ready=True pod azurite --timeout ${TIMEOUT}s
 
 # Create the azure blob container that we will use throughout the e2e tests
