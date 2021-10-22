@@ -21,7 +21,7 @@ spec:
   commonName: k8s.vertica.com
   dnsNames:
     - minio
-    - minio.kuttl-e2e-communal
+    - minio.kuttl-e2e-s3
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer

@@ -19,7 +19,7 @@ spec:
   image: kustomize-vertica-image
   communal:
     path: "s3://nimbusdb/db"
-    endpoint: "http://minio.kuttl-e2e-communal"
+    endpoint: "http://minio.kuttl-e2e-s3"
     credentialSecret: s3-auth
   subclusters:
     - name: sc0

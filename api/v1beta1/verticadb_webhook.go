@@ -110,8 +110,6 @@ func (v *VerticaDB) Default() {
 	}
 }
 
-// SPILLY - try out azurite as a potential communal endpoint
-
 //+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
 
 var _ webhook.Validator = &VerticaDB{}
