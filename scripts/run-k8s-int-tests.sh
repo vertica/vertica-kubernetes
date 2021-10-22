@@ -22,21 +22,23 @@ TAG=kind
 BUILD_IMAGES=1
 INT_TEST_OUTPUT_DIR=${REPO_DIR}/int-tests-output
 CLUSTER_NAME=vertica
+EXTRA_EXTERNAL_IMAGE_FILE=
 
 # The make targets and  the invoked shell scripts are directly run from the root directory.
 function usage {
-    echo "$0 -l <log_dir>  -n <cluster_name> -t <tag_name> [-hs]"
+    echo "$0 -l <log_dir>  -n <cluster_name> -t <tag_name> -e <ext-image-file> [-hs]"
     echo
     echo "Options:"
     echo "  -l <log_dir>        Log directory.   default: $INT_TEST_OUTPUT_DIR"
     echo "  -n <cluster_name>   Name of the kind cluster. default: $CLUSTER_NAME"
     echo "  -t <tag_name>       Tag. default: $TAG"
+    echo "  -e <ext-image-file> File with list of additional images to pull prior to running e2e tests"
     echo "  -s                  Skip the building of the container images"
     exit
 }
 
 OPTIND=1
-while getopts l:n:t:hs opt; do
+while getopts l:n:t:hse: opt; do
     case ${opt} in
         l)
             INT_TEST_OUTPUT_DIR=${OPTARG}
@@ -49,6 +51,14 @@ while getopts l:n:t:hs opt; do
             ;;
         s)
             BUILD_IMAGES=
+            ;;
+        e)
+            EXTRA_EXTERNAL_IMAGE_FILE=${OPTARG}
+            if [ ! -f "$EXTRA_EXTERNAL_IMAGE_FILE" ]
+            then
+                echo "*** File '$EXTRA_EXTERNAL_IMAGE_FILE' does not exist"
+                exit 1
+            fi
             ;;
         h)
             usage
@@ -108,6 +118,10 @@ function push {
     make  docker-push
     echo "Pushing the external images to the kind cluster"
     scripts/push-to-kind.sh -f tests/external-images.txt
+    if [ -n "$EXTRA_EXTERNAL_IMAGE_FILE" ]
+    then
+        scripts/push-to-kind.sh -f $EXTRA_EXTERNAL_IMAGE_FILE
+    fi
 }
 
 # Run integration tests and store the pod status in a file

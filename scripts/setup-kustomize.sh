@@ -89,11 +89,11 @@ HADOOP_CONF_CM_NS_COPY="hadoop-conf"
 # The full prefix for the communal path
 if [ "$PATH_PROTOCOL" == "azb://" ]
 then
-  if [ -n "$BLOBENDPOINTHOST" ]
+  if [ -n "$BLOB_ENDPOINT_HOST" ]
   then
-    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}@${BLOBENDPOINTHOST}/${BUCKET_OR_CLUSTER}/${CONTAINERNAME}${PATH_PREFIX}
+    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}@${BLOB_ENDPOINT_HOST}/${BUCKET_OR_CLUSTER}/${CONTAINER_NAME}${PATH_PREFIX}
   else
-    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}/${CONTAINERNAME}${PATH_PREFIX}
+    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}/${CONTAINER_NAME}${PATH_PREFIX}
   fi
 else
   COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
@@ -316,33 +316,33 @@ EOF
     # Azure when not using blob endpoint.  This assumes we are using the real
     # Azure service in the cloud.  'az storage delete-batch' is much too slow.
     # 'az storage remove' is quicker.
-    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -z "$BLOBENDPOINTHOST" ]
+    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -z "$BLOB_ENDPOINT_HOST" ]
     then
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: az storage remove --account-name $BUCKET_OR_CLUSTER --container-name $CONTAINERNAME --name ${PATH_PREFIX:1}${TESTCASE_NAME} --recursive
+      value: az storage remove --account-name $BUCKET_OR_CLUSTER --container-name $CONTAINER_NAME --name ${PATH_PREFIX:1}${TESTCASE_NAME} --recursive
     - op: replace
       path: /spec/containers/0/image
       value: mcr.microsoft.com/azure-cli:2.29.0
 EOF
-      if [ -n "$ACCOUNTKEY" ]
+      if [ -n "$ACCOUNT_KEY" ]
       then
         cat <<EOF >> kustomization.yaml
     - op: add
       path: /spec/containers/0/env/-
       value:
         name: AZURE_STORAGE_KEY
-        value: $ACCOUNTKEY
+        value: $ACCOUNT_KEY
 EOF
-      elif [ -n "$SHAREDACCESSSIGNATURE" ]
+      elif [ -n "$SHARED_ACCESS_SIGNATURE" ]
       then
         cat <<EOF >> kustomization.yaml
     - op: add
       path: /spec/containers/0/env/-
       value:
         name: AZURE_STORAGE_SAS_TOKEN
-        value: "$SHAREDACCESSSIGNATURE"
+        value: "$SHARED_ACCESS_SIGNATURE"
 EOF
       else
         echo "1 *** No credentials setup for azb://"
@@ -351,9 +351,9 @@ EOF
     # Azure when using a blob endpoint.  This assumes we are using Azurite.
     # 'az storage remove' doesn't work (see https://github.com/Azure/azure-cli/issues/19311),
     # so we rely on 'az storage blob delete-batch'.
-    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -n "$BLOBENDPOINTHOST" ]
+    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -n "$BLOB_ENDPOINT_HOST" ]
     then
-      if [ -z "$ACCOUNTKEY" ]
+      if [ -z "$ACCOUNT_KEY" ]
       then
         echo "*** When using blob endpoint, expecting an account key"
         exit 1
@@ -362,7 +362,7 @@ EOF
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/containers/0/command/2
-      value: az storage blob delete-batch --account-name $BUCKET_OR_CLUSTER --source $CONTAINERNAME --pattern "${PATH_PREFIX:1}${TESTCASE_NAME}/*"
+      value: az storage blob delete-batch --account-name $BUCKET_OR_CLUSTER --source $CONTAINER_NAME --pattern "${PATH_PREFIX:1}${TESTCASE_NAME}/*"
     - op: replace
       path: /spec/containers/0/image
       value: mcr.microsoft.com/azure-cli:2.29.0
@@ -370,7 +370,7 @@ EOF
       path: /spec/containers/0/env/-
       value:
         name: AZURE_STORAGE_CONNECTION_STRING
-        value: "DefaultEndpointsProtocol=$BLOBENDPOINTPROTOCOL;AccountName=$BUCKET_OR_CLUSTER;AccountKey=$ACCOUNTKEY;BlobEndpoint=$BLOBENDPOINTPROTOCOL://$BLOBENDPOINTHOST/$BUCKET_OR_CLUSTER;"
+        value: "DefaultEndpointsProtocol=$BLOB_ENDPOINT_PROTOCOL;AccountName=$BUCKET_OR_CLUSTER;AccountKey=$ACCOUNT_KEY;BlobEndpoint=$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST/$BUCKET_OR_CLUSTER;"
 EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
@@ -495,10 +495,10 @@ type: Opaque
 data:
   accountName: $(echo -n "$BUCKET_OR_CLUSTER" | base64)
 EOF
-        if [ -n "$BLOBENDPOINTHOST" ]
+        if [ -n "$BLOB_ENDPOINT_HOST" ]
         then
           cat <<EOF >> creds.yaml
-  blobEndpoint: $(echo -n "$BLOBENDPOINTPROTOCOL://$BLOBENDPOINTHOST" | base64 --wrap 0)
+  blobEndpoint: $(echo -n "$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST" | base64 --wrap 0)
 EOF
 
           # When using Azurite you can only connect using a single word hostname
@@ -523,15 +523,15 @@ EOF
           fi
         fi
 
-        if [ -n "$ACCOUNTKEY" ]
+        if [ -n "$ACCOUNT_KEY" ]
         then
           cat <<EOF >> creds.yaml
-  accountKey: $(echo -n "$ACCOUNTKEY" | base64 --wrap 0)
+  accountKey: $(echo -n "$ACCOUNT_KEY" | base64 --wrap 0)
 EOF
-        elif [ -n "$SHAREDACCESSSIGNATURE" ]
+        elif [ -n "$SHARED_ACCESS_SIGNATURE" ]
         then
           cat <<EOF >> creds.yaml
-  sharedAccessSignature: $(echo -n "$SHAREDACCESSSIGNATURE" | base64 --wrap 0)
+  sharedAccessSignature: $(echo -n "$SHARED_ACCESS_SIGNATURE" | base64 --wrap 0)
 EOF
         else
           echo "*** No credentials setup for azb://"
