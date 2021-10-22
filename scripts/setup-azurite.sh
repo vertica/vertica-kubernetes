@@ -22,7 +22,7 @@ NS=kuttl-e2e-azb
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=360
-KUSTOMIZE=$REPO_DIR/bin/kustomize
+MANIFEST_PATH=$REPO_DIR/tests/manifests/azurite/base
 
 function usage {
     echo "usage: $0 [-u] [-t <seconds>]"
@@ -54,34 +54,9 @@ kubectl delete namespace $NS || :
 kubectl create namespace $NS 
 
 # Start the azurite service
-kubectl apply -n $NS -f $REPO_DIR/tests/manifests/azurite/base/azurite-server.yaml
-kubectl wait -n $NS --for=condition=Ready=True pod azurite --timeout ${TIMEOUT}s
+kubectl apply -n $NS -f $MANIFEST_PATH/azurite-server.yaml
+kubectl wait -n $NS --for=condition=Ready=True pod azurite-0 --timeout ${TIMEOUT}s
 
 # Create the azure blob container that we will use throughout the e2e tests
-AZURITE_POD_IP=$(kubectl get pods -n $NS azurite -o jsonpath={.status.podIP})
-AZURE_ACCOUNT_NAME=devstoreaccount1
-AZURE_ACCOUNT_KEY=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-
-pushd $REPO_DIR/tests/manifests/azurite > /dev/null
-mkdir -p overlay
-cat <<EOF > overlay/kustomization.yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-resources:
-- ../base
-
-patches:
-- target:
-    version: v1
-    kind: Pod
-    name: create-container
-  patch: |-
-    - op: replace
-      path: /spec/containers/0/env/0/value
-      value: "DefaultEndpointsProtocol=http;AccountName=$AZURE_ACCOUNT_NAME;AccountKey=$AZURE_ACCOUNT_KEY;BlobEndpoint=http://$AZURITE_POD_IP:10000/$AZURE_ACCOUNT_NAME;QueueEndpoint=http://$AZURITE_POD_IP:10001/$AZURE_ACCOUNT_NAME;"
-EOF
-
-$KUSTOMIZE build overlay | kubectl apply -n $NS -f -
-kubectl kuttl assert -n $NS base/assert.yaml --timeout ${TIMEOUT}
-
-popd > /dev/null
+kubectl apply -n $NS -f $MANIFEST_PATH/create-container.yaml
+kubectl kuttl assert -n $NS $MANIFEST_PATH/assert.yaml --timeout ${TIMEOUT}

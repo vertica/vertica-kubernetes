@@ -217,18 +217,24 @@ ifeq ($(PATH_PROTOCOL), s3://)
 	$(MAKE) setup-minio
 else ifeq ($(PATH_PROTOCOL), webhdfs://)
 	$(MAKE) setup-hadoop
+else ifeq ($(PATH_PROTOCOL), azb://)
+	$(MAKE) setup-azurite
 else
 	$(error cannot setup communal endpoint for this protocol: $(PATH_PROTOCOL))
 	exit 1
 endif
 
 .PHONY: setup-minio
-setup-minio:  install-cert-manager ## Setup minio for use with the e2e tests
+setup-minio: install-cert-manager ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
 
 .PHONY: setup-hadoop
 setup-hadoop: ## Setup hadoop cluster for use with the e2e tests
 	scripts/setup-hadoop.sh
+
+.PHONY: setup-azurite
+setup-azurite: ## Setup azurite for use with the e2e tests
+	scripts/setup-azurite.sh
 
 .PHONY: setup-olm
 setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-build-olm-catalog docker-push-olm-catalog

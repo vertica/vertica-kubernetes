@@ -89,7 +89,12 @@ HADOOP_CONF_CM_NS_COPY="hadoop-conf"
 # The full prefix for the communal path
 if [ "$PATH_PROTOCOL" == "azb://" ]
 then
-  COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}/${CONTAINERNAME}${PATH_PREFIX}
+  if [ -n "$BLOBENDPOINTHOST" ]
+  then
+    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}@${BLOBENDPOINTHOST}/${BUCKET_OR_CLUSTER}/${CONTAINERNAME}${PATH_PREFIX}
+  else
+    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}/${CONTAINERNAME}${PATH_PREFIX}
+  fi
 else
   COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
 fi
@@ -308,7 +313,10 @@ EOF
       path: /spec/containers/0/image
       value: google/cloud-sdk:360.0.0-alpine
 EOF
-    elif [ "$PATH_PROTOCOL" == "azb://" ]
+    # Azure when not using blob endpoint.  This assumes we are using the real
+    # Azure service in the cloud.  'az storage delete-batch' is much too slow.
+    # 'az storage remove' is quicker.
+    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -z "$BLOBENDPOINTHOST" ]
     then
       cat <<EOF >> kustomization.yaml
     - op: replace
@@ -340,6 +348,30 @@ EOF
         echo "1 *** No credentials setup for azb://"
         exit 1
       fi
+    # Azure when using a blob endpoint.  This assumes we are using Azurite.
+    # 'az storage remove' doesn't work (see https://github.com/Azure/azure-cli/issues/19311),
+    # so we rely on 'az storage blob delete-batch'.
+    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -n "$BLOBENDPOINTHOST" ]
+    then
+      if [ -z "$ACCOUNTKEY" ]
+      then
+        echo "*** When using blob endpoint, expecting an account key"
+        exit 1
+      fi
+
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: az storage blob delete-batch --account-name $BUCKET_OR_CLUSTER --source $CONTAINERNAME --pattern "${PATH_PREFIX:1}${TESTCASE_NAME}/*"
+    - op: replace
+      path: /spec/containers/0/image
+      value: mcr.microsoft.com/azure-cli:2.29.0
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AZURE_STORAGE_CONNECTION_STRING
+        value: "DefaultEndpointsProtocol=$BLOBENDPOINTPROTOCOL;AccountName=$BUCKET_OR_CLUSTER;AccountKey=$ACCOUNTKEY;BlobEndpoint=$BLOBENDPOINTPROTOCOL://$BLOBENDPOINTHOST/$BUCKET_OR_CLUSTER;"
+EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
       cat <<EOF >> kustomization.yaml
@@ -463,6 +495,34 @@ type: Opaque
 data:
   accountName: $(echo -n "$BUCKET_OR_CLUSTER" | base64)
 EOF
+        if [ -n "$BLOBENDPOINTHOST" ]
+        then
+          cat <<EOF >> creds.yaml
+  blobEndpoint: $(echo -n "$BLOBENDPOINTPROTOCOL://$BLOBENDPOINTHOST" | base64 --wrap 0)
+EOF
+
+          # When using Azurite you can only connect using a single word hostname
+          # or IP.  We include a service object so that it is created in the
+          # same namespace that we are deploying VerticaDB.  It will create a
+          # single word hostname (azure) that maps to the service in the
+          # kuttl-e2e-azb namespace.  For example we can access Azurite with
+          # this: http://azurite:10000
+          AZURITE_NS=kuttl-e2e-azb
+          if kubectl get -n $AZURITE_NS svc azurite > /dev/null
+          then
+            AZURITE_SVC=ext-svc.yaml
+            cat <<EOF > $AZURITE_SVC
+kind: Service
+apiVersion: v1
+metadata:
+  name: azurite
+spec:
+  type: ExternalName
+  externalName: azurite.$AZURITE_NS.svc.cluster.local
+EOF
+          fi
+        fi
+
         if [ -n "$ACCOUNTKEY" ]
         then
           cat <<EOF >> creds.yaml
@@ -486,6 +546,13 @@ resources:
 - ../base
 - creds.yaml
 EOF
+      # Include the ExternalName service object if one was created.
+      if [ -n "$AZURITE_SVC" ]
+      then
+        cat <<EOF >> kustomization.yaml
+- $AZURITE_SVC
+EOF
+      fi
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
     then
       cat <<EOF > kustomization.yaml
