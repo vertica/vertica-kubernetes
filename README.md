@@ -14,7 +14,7 @@ To deploy the operator and a Kubernetes cluster in a local test environment that
 Install the `CustomResourceDefinition` with a YAML manifest:
 
 ```shell
-kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.0.0/verticadbs.vertica.com-crd.yaml
+kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.1.0/verticadbs.vertica.com-crd.yaml
 ```
 
 The operator Helm chart will install the CRD if it is not currently installed.
