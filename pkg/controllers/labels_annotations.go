@@ -23,7 +23,7 @@ const (
 	// The name of the operator
 	OperatorName = "verticadb-operator"
 	// The version number of the operator
-	OperatorVersion = "0.1.0"
+	OperatorVersion = "1.1.0"
 )
 
 // makeSubclusterLabels returns the labels added for the subcluster
