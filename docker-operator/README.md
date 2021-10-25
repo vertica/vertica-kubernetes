@@ -4,7 +4,8 @@
 * Docker Community: [Docker Forums](https://forums.docker.com/), [Stack Overflow](https://stackoverflow.com/questions/tagged/docker)
 
 # Supported Tags
-* [1.0.0, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-operator/Dockerfile)
+* [1.1.0, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.1.0/docker-operator/Dockerfile)
+* [1.0.0](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-operator/Dockerfile)
 
 # Quick Reference
 
