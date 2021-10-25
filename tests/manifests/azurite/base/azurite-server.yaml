@@ -43,12 +43,26 @@ spec:
     spec:
       containers:
       - name: main
-        image: mcr.microsoft.com/azure-storage/azurite:latest
+        image: mcr.microsoft.com/azure-storage/azurite:3.9.0
         imagePullPolicy: IfNotPresent
         command:
         - azurite-blob
         - --blobHost
         - 0.0.0.0
+        - --location
+        - /workspace
+        - --debug
+        - /log/debug.log
+        volumeMounts:
+        - mountPath: /workspace
+          name: workspace
+        - mountPath: /log
+          name: log
+      volumes:
+      - name: workspace
+        emptyDir: {}
+      - name: log
+        emptyDir: {}
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
 
