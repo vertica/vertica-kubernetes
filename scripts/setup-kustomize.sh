@@ -630,11 +630,11 @@ setup_creds_for_create_s3_bucket
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e/*/*/base
+for tdir in e2e/*/*/base e2e-extra/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e/* e2e-disabled/*
+for tdir in e2e/* e2e-extra/* e2e-disabled/*
 do
     clean_communal_kustomization $tdir
 done
