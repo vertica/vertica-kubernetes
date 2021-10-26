@@ -49,7 +49,7 @@ const (
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
-var hdfsPrefixes = []string{"webhdfs://"}
+var hdfsPrefixes = []string{"webhdfs://", "swebhdfs://"}
 
 // log is for logging in this package.
 var verticadblog = logf.Log.WithName("verticadb-resource")
