@@ -259,11 +259,22 @@ type CommunalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// The name of a secret that contains the credentials to connect to the
-	// communal endpoint (applies to s3:// or gs:// only). The secret must have
-	// the following keys set: accessey and secretkey.  When initPolicy is
-	// Create or Revive, this field is required.  When using Google Cloud
-	// Storage, the IDs set in the secret are taken from the hash-based message
-	// authentication code (HMAC) keys.
+	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
+	// need to be set, depending on the endpoint type:
+	// - s3:// or gs:// - It must have the following keys set: accessey and secretkey.
+	//     When using Google Cloud Storage, the IDs set in the secret are taken
+	//     from the hash-based message authentication code (HMAC) keys.
+	// - azb:// - It must have the following keys set:
+	//     accountName - Name of the Azure account
+	//     blobEndpoint - (Optional) Set this to the location of the endpoint.
+	//       If using an emulator like Azurite, it can be set to something like
+	//       'http://<IP-addr>:<port>'
+	//     accountKey - If accessing with an account key set it here
+	//     sharedAccessSignature - If accessing with a shared access signature,
+	//     	  set it here
+	//
+	// When initPolicy is Create or Revive, and not using HDFS this field is
+	// required.
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional
