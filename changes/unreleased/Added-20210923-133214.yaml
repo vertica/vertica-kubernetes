@@ -1,5 +1,0 @@
-kind: Added
-body: Added the ability to mount additional certs in the Vertica container.  These
-  certs can be specified through the new '.spec.certSecrets' parameter.
-custom:
-  Issue: 54

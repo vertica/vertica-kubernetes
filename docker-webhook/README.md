@@ -1,4 +1,4 @@
-_This container is deprecated.  The webhook is now include in the VerticaDB operator image._
+_This container is deprecated.  The webhook is now includes in the VerticaDB operator image._
 
 # About
 
