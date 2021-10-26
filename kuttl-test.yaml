@@ -13,8 +13,10 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
+# These are overridden when running kuttl from the Makefile
 testDirs:
   - tests/e2e
+  - tests/e2e-extra
 parallel: 2
 timeout: 600
 commands:

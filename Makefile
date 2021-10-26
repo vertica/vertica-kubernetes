@@ -112,6 +112,14 @@ HELM_OVERRIDES?=
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
 export E2E_PARALLELISM
+# Set the e2e test directories.  For azb:// we avoid tests/e2e-extra because
+# when running the Azure emulator, Azurite, revive_db fails.
+ifeq ($(PATH_PROTOCOL), azb://)
+E2E_TEST_DIRS?=tests/e2e
+else
+E2E_TEST_DIRS?=tests/e2e tests/e2e-extra
+endif
+
 # Specify how to deploy the operator.  Allowable values are 'helm', 'olm' or 'random'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
 # already.  When deploying with random, it will randomly pick between olm and helm.
@@ -206,7 +214,7 @@ run-int-tests: install-kuttl-plugin vdb-gen setup-e2e-communal ## Run the integr
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM)
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_TEST_DIRS)
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
