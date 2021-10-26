@@ -16,4 +16,4 @@ kind: ConfigMap
 metadata:
   name: upgrade-vertica-2
 data:
-  image: vertica/vertica-k8s:latest
+  image: vertica/vertica-k8s:11.0.0-0
