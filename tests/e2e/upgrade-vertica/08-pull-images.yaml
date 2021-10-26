@@ -19,8 +19,3 @@ commands:
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
-  - command: bash -c "kustomize build ../../manifests/image-pull/upgrade-vertica-2 | kubectl -n $NAMESPACE apply -f -"
-  - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
-    namespaced: true
-  - command: kubectl delete pod vertica-k8s-image-pull
-    namespaced: true
