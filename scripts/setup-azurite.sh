@@ -55,6 +55,8 @@ kubectl create namespace $NS
 
 # Start the azurite service
 kubectl apply -n $NS -f $MANIFEST_PATH/azurite-server.yaml
+# Wait for the pod to exist before putting a wait condition on it
+while ! kubectl get pod -n $NS azurite-0; do sleep 0.1; done
 kubectl wait -n $NS --for=condition=Ready=True pod azurite-0 --timeout ${TIMEOUT}s
 
 # Create the azure blob container that we will use throughout the e2e tests
