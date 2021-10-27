@@ -11,20 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-bases:
-  - ../base
+# Start another upgrade but with a bogus image that doesn't exist.  The purpose
+# of this is abort an upgrade that is improgress and get it back to a good
+# state.
 
-resources:
-  - configmap.yaml
-
-replacements:
-  - source:
-      kind: ConfigMap
-      name: upgrade-vertica-2
-      fieldPath: data.image
-    targets:
-      - select:
-          kind: Pod
-          name: vertica-k8s-image-pull
-        fieldPaths:
-          - spec.containers.[name=vsql].image
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-upgrade-vertica
+spec:
+  image: wrong-image

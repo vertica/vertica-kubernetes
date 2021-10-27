@@ -17,19 +17,9 @@ metadata:
   name: v-upgrade-vertica-sc1-0
 spec:
   containers:
-    - image: vertica/vertica-k8s:11.0.0-0-minimal
+    - image: wrong-image
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-upgrade-vertica-sc1
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-upgrade-vertica
-status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 0
-      upNodeCount: 0
