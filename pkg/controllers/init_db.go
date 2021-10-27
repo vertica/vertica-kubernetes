@@ -234,14 +234,12 @@ func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) 
 // getHDFSAuthParmsContent construct a string for the auth parms when using
 // HDFS communal storage.
 func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
-	if g.Vdb.Spec.Communal.HadoopConfig != "" {
-		content := fmt.Sprintf(`
-			HadoopConfDir = %s
-		`, paths.HadoopConfPath)
-		return dedent.Dedent(content), ctrl.Result{}, nil
-	}
-
-	return "", ctrl.Result{}, nil
+	content := fmt.Sprintf(`
+			%s
+			%s
+		`, g.getHadoopConfDir(), g.getCAFile(),
+	)
+	return strings.TrimSpace(dedent.Dedent(content)), ctrl.Result{}, nil
 }
 
 // getGCloudAuthParmsContent will get the content for the auth parms when we are
@@ -258,7 +256,8 @@ func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Conte
 		GCSEndpoint = %s
 		GCSEnableHttps = %s
 		%s
-	`, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(GCloudRegionParm))
+		%s
+	`, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(GCloudRegionParm), g.getCAFile())
 	return dedent.Dedent(content), ctrl.Result{}, nil
 }
 
@@ -311,7 +310,8 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	content := fmt.Sprintf(`
 	  AzureStorageCredentials = %s
 	  AzureStorageEndpointConfig = %s
-	`, azureCredsJSON.String(), azureConfigJSON.String())
+	  %s
+	`, azureCredsJSON.String(), azureConfigJSON.String(), g.getCAFile())
 	return dedent.Dedent(content), ctrl.Result{}, nil
 }
 
@@ -447,7 +447,7 @@ func (g *GenericDatabaseInitializer) getCAFile() string {
 	if g.Vdb.Spec.Communal.CaFile == "" {
 		return ""
 	}
-	return fmt.Sprintf("awscafile = %s", g.Vdb.Spec.Communal.CaFile)
+	return fmt.Sprintf("SystemCABundlePath = %s", g.Vdb.Spec.Communal.CaFile)
 }
 
 // getRegion will return an entry for region, specific to the cloud provider
@@ -481,4 +481,13 @@ func getEndpointHostPort(blobEndpoint string) string {
 		return blobEndpoint
 	}
 	return m[0][2]
+}
+
+// getHadoopConfDir gets the string to include in the auth parms for
+// HadoopConfDir.  If that isn't present, an empty string is returned.
+func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
+	if g.Vdb.Spec.Communal.HadoopConfig != "" {
+		return fmt.Sprintf(`HadoopConfDir = %s`, paths.HadoopConfPath)
+	}
+	return ""
 }

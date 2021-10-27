@@ -278,9 +278,10 @@ type CommunalStorage struct {
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional
-	// The path to a CA cert file for use when connecting to an https:// s3
-	// endpoint.  The path is relative to inside the Vertica container.
-	// Typically this would refer to a cert that was included in certSecrets.
+	// The absolute path to a certificate bundle of trusted CAs. This CA bundle
+	// is used when establishing TLS connections to external services such as
+	// AWS, Azure or swebhdf:// scheme.  Typically this would refer to a path to
+	// one of the certSecrets.
 	CaFile string `json:"caFile,omitempty"`
 
 	// +kubebuilder:validation:Optional
