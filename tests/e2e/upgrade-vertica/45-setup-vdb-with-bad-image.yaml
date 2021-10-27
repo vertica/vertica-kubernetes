@@ -11,35 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-0
-spec:
-  containers:
-    - image: vertica/vertica-k8s:latest
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-1
-spec:
-  containers:
-    - image: vertica/vertica-k8s:latest
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-upgrade-vertica-defsc
-status:
-  readyReplicas: 2
----
+# Start another upgrade but with a bogus image that doesn't exist.  The purpose
+# of this is abort an upgrade that is improgress and get it back to a good
+# state.
+
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
-status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 2
-      upNodeCount: 2
+spec:
+  image: wrong-image

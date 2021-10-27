@@ -11,9 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: ConfigMap
+# Start another upgrade but with a bogus image that doesn't exist.  The purpose
+# of this is abort an upgrade that is improgress and get it back to a good
+# state.
+
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: upgrade-vertica-2
-data:
-  image: vertica/vertica-k8s:latest
+  name: v-upgrade-vertica
+spec:
+  image: wrong-image

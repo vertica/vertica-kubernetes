@@ -19,7 +19,7 @@ kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
 spec:
-  image: vertica/vertica-k8s:11.0.0-0-minimal
+  image: wrong-image
   imagePullPolicy: IfNotPresent
   communal:
     path: "s3://upgrade-vertica"
