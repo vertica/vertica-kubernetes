@@ -1,0 +1,5 @@
+# List of additional images that are needed to run azb endpoint in CI.
+# These are pushed to kind in run-k8s-int-tests.sh.
+#
+mcr.microsoft.com/azure-cli:2.29.0
+mcr.microsoft.com/azure-storage/azurite:3.14.2

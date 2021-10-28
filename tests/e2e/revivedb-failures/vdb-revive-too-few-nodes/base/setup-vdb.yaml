@@ -19,9 +19,6 @@ spec:
   image: kustomize-vertica-image
   ignoreClusterLease: true
   communal:
-    path: "s3://revivedb-failures"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: s3-creds
     includeUIDInPath: false
   initPolicy: Revive
   local:

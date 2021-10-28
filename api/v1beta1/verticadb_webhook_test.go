@@ -277,6 +277,14 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeClusterIP
 		validateSpecValuesHaveErr(vdb, true)
 	})
+
+	It("should default endpoint for google cloud", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.Path = "gs://some-bucket/db"
+		vdb.Spec.Communal.Endpoint = ""
+		vdb.Default()
+		Expect(vdb.Spec.Communal.Endpoint).Should(Equal(DefaultGCloudEndpoint))
+	})
 })
 
 func createVDBHelper() *VerticaDB {

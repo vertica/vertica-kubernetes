@@ -87,11 +87,12 @@ var _ = Describe("vdb", func() {
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
 
-	It("should get communal endpoint from show database", func() {
+	It("should get communal endpoint for s3 from show database", func() {
 		createMock()
 		defer deleteMock()
 
 		dbGen := DBGenerator{Conn: db}
+		dbGen.Objs.Vdb.Spec.Communal.Path = "s3://"
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
@@ -100,10 +101,10 @@ var _ = Describe("vdb", func() {
 				AddRow("other", "value").
 				AddRow("AWSAuth", "minio:minio123"))
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
-		Expect(dbGen.setCommunalEndpoint(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAWS(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("http://minio:30312"))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.S3AccessKeyName]).Should(Equal([]byte("minio")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.S3SecretKeyName]).Should(Equal([]byte("minio123")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalAccessKeyName]).Should(Equal([]byte("minio")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalSecretKeyName]).Should(Equal([]byte("minio123")))
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
@@ -112,8 +113,101 @@ var _ = Describe("vdb", func() {
 				AddRow("other", "value").
 				AddRow("AWSAuth", "auth:secret"))
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
-		Expect(dbGen.setCommunalEndpoint(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAWS(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("https://192.168.0.1"))
+
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
+	It("should get communal endpoint for GCS from show database", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db}
+		dbGen.Objs.Vdb.Spec.Communal.Path = "gs://"
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("GCSEndpoint", "google.apis.com").
+				AddRow("GCSEnableHttps", "1").
+				AddRow("GCSAuth", "auth:secret").
+				AddRow("GCSRegion", "US-WEST2"))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointGCloud(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("https://google.apis.com"))
+		Expect(dbGen.Objs.Vdb.Spec.Communal.Region).Should(Equal("US-WEST2"))
+
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
+	It("should read azure json string from database defaults", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://p1"
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("AzureStorageCredentials",
+					`[{"accountName": "devopsvertica","accountKey": "secretKey"}]`))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAzure(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountName]).Should(Equal([]byte("devopsvertica")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountKey]).Should(Equal([]byte("secretKey")))
+
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
+	It("should read correct azure credentials when more than one is present", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://p2"
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("AzureStorageCredentials",
+					`[{"accountName": "ingestOnly", "accountKey": "secretKey"},`+
+						`{"accountName": "devopsvertica","blobEndpoint": "custom.endpoint","sharedAccessSignature": "secretSig"}]`))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		// Fail because more than one credential is present and nothing in the options
+		Expect(dbGen.setCommunalEndpointAzure(ctx)).ShouldNot(Succeed())
+
+		// Fail if the account name isn't present
+		dbGen.Opts.AzureAccountName = "NotThere"
+		Expect(dbGen.setCommunalEndpointAzure(ctx)).ShouldNot(Succeed())
+
+		dbGen.Opts.AzureAccountName = "devopsvertica"
+		Expect(dbGen.setCommunalEndpointAzure(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountName]).Should(Equal([]byte("devopsvertica")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureBlobEndpoint]).Should(Equal([]byte("custom.endpoint")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountKey]).Should(Equal([]byte("")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureSharedAccessSignature]).Should(Equal([]byte("secretSig")))
+
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
+	It("should use azure endpoint config to find proper endpoint", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.Objs.Vdb.Spec.Communal.Path = "azb://p3"
+		dbGen.Opts.AzureAccountName = "myacc"
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("AzureStorageCredentials",
+					`[{"accountName": "myacc","blobEndpoint": "azurite:10000","accountKey": "key"}]`).
+				AddRow("AzureStorageEndpointConfig",
+					`[{"accountName": "myacc","blobEndpoint": "azurite:10000","protocol": "http"}]`))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAzure(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountName]).Should(Equal([]byte("myacc")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureBlobEndpoint]).Should(Equal([]byte("http://azurite:10000")))
+		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountKey]).Should(Equal([]byte("key")))
 
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})

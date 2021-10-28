@@ -1,0 +1,37 @@
+name: e2e (hdfs) tests
+
+on: 
+  push:
+     branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      parallel:
+        description: 'Maximum number of tests to run at once'
+        required: false
+
+jobs:
+
+  e2e-hdfs:
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Set up e2e environment
+      uses: ./.github/actions/setup-e2e
+      
+    - name: Run e2e tests
+      run: |
+        E2E_PARALLELISM=${{ github.event.inputs.parallel }}
+        [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
+        export KUSTOMIZE_CFG=tests/kustomize-defaults-hdfs-ci.cfg
+        export MINIMAL_VERTICA_IMG=YES
+        scripts/run-k8s-int-tests.sh -e tests/external-images-hdfs-ci.txt
+
+    - uses: actions/upload-artifact@v2
+      if: always()
+      with:
+        name: logs-e2e-hdfs
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*

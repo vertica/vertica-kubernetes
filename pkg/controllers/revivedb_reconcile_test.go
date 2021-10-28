@@ -67,7 +67,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		createCommunalCredSecret(ctx, vdb)
+		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
@@ -92,6 +92,11 @@ var _ = Describe("revivedb_reconcile", func() {
 				"might still be in use.\n\nthe cluster lease will expire:\n\t2021-05-13 14:35:00.280925",
 			"Could not copy file [s3://nimbusdb/db/empty/metadata/newdb/cluster_config.json] to [/tmp/desc.json]: " +
 				"No such file or directory [s3://nimbusdb/db/empty/metadata/newdb/cluster_config.json]",
+			"Could not copy file [gs://vertica-fleeting/mspilchen/revivedb-failures/metadata/vertdb/cluster_conf] to [/tmp/desc.json]: " +
+				"File not found",
+			"Could not copy file [webhdfs://vertdb/cluster_config.json] to [/tmp/desc.json]: Seen WebHDFS exception: " +
+				"\nURL: [http://vertdb/cluster_config.json]\nHTTP response code: 404\nException type: FileNotFoundException",
+			"Could not copy file [azb://cluster_config.json] to [/tmp/desc.json]: : The specified blob does not exist",
 			"\n10.244.1.34 Permission Denied \n\n",
 			"Database could not be revived.\nError: Node count mismatch",
 			"Error: Primary node count mismatch:",

@@ -32,17 +32,24 @@ import (
 )
 
 const (
-	invalidDBNameChars = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
-	dbNameLengthLimit  = 30
-	KSafety0MinHosts   = 1
-	KSafety0MaxHosts   = 3
-	KSafety1MinHosts   = 3
-	portLowerBound     = 30000
-	portUpperBound     = 32767
-	LocalDataPVC       = "local-data"
-	PodInfoMountName   = "podinfo"
-	LicensingMountName = "licensing"
+	invalidDBNameChars    = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
+	dbNameLengthLimit     = 30
+	KSafety0MinHosts      = 1
+	KSafety0MaxHosts      = 3
+	KSafety1MinHosts      = 3
+	portLowerBound        = 30000
+	portUpperBound        = 32767
+	LocalDataPVC          = "local-data"
+	PodInfoMountName      = "podinfo"
+	LicensingMountName    = "licensing"
+	HadoopConfigMountName = "hadoop-conf"
+	S3Prefix              = "s3://"
+	GCloudPrefix          = "gs://"
+	AzurePrefix           = "azb://"
 )
+
+// hdfsPrefixes are prefixes for an HDFS path.
+var hdfsPrefixes = []string{"webhdfs://"}
 
 // log is for logging in this package.
 var verticadblog = logf.Log.WithName("verticadb-resource")
@@ -53,7 +60,30 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// IsHDFS returns true if the communal path is stored in an HDFS path
+func (v *VerticaDB) IsHDFS() bool {
+	for _, p := range hdfsPrefixes {
+		if strings.HasPrefix(v.Spec.Communal.Path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
+func (v *VerticaDB) IsS3() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, S3Prefix)
+}
+
+// ISGCloud returns true if VerticaDB has a communal path in Google Cloud Storage
+func (v *VerticaDB) IsGCloud() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix)
+}
+
+// IsAzure returns true if VerticaDB has a communal path in Azure Blob Storage
+func (v *VerticaDB) IsAzure() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix)
+}
 
 //+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
 
@@ -68,8 +98,15 @@ func (v *VerticaDB) Default() {
 	if strings.HasSuffix(v.Spec.Image, ":latest") {
 		v.Spec.ImagePullPolicy = v1.PullAlways
 	}
-	if v.Spec.Communal.Region == "" {
+	if v.Spec.Communal.Region == "" && v.IsS3() {
 		v.Spec.Communal.Region = DefaultS3Region
+	}
+	if v.Spec.Communal.Region == "" && v.IsGCloud() {
+		v.Spec.Communal.Region = DefaultGCloudRegion
+	}
+	// Default the endpoint for google cloud if not specified
+	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
+		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
 }
 
@@ -197,7 +234,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
-	allErrs = v.validateS3Bucket(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidDomainName(allErrs)
 	allErrs = v.credentialSecretExists(allErrs)
@@ -241,32 +277,25 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
-	// communal.Path must be an S3 bucket, prefaced with s3://
-	if !strings.HasPrefix(v.Spec.Communal.Path, "s3://") {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
-			v.Spec.Communal.Path,
-			"communal.Path must be an S3 bucket, prefaced with s3://")
-		allErrs = append(allErrs, err)
+	allPrefs := []string{S3Prefix, GCloudPrefix, AzurePrefix}
+	allPrefs = append(allPrefs, hdfsPrefixes...)
+	for _, pref := range allPrefs {
+		if strings.HasPrefix(v.Spec.Communal.Path, pref) {
+			return allErrs
+		}
 	}
-	return allErrs
-}
-
-func (v *VerticaDB) validateS3Bucket(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
-		return allErrs
-	}
-	// communal.Path must be an S3 bucket, prefaced with s3://
-	if !strings.HasPrefix(v.Spec.Communal.Path, "s3://") {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
-			v.Spec.Communal.Path,
-			"communal.Path must be an S3 bucket, prefaced with s3://")
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
+	err := field.Invalid(field.NewPath("spec").Child("communal").Child("path"),
+		v.Spec.Communal.Path,
+		"communal.Path is not prefixed with an accepted type")
+	return append(allErrs, err)
 }
 
 func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
+	// Endpoint is ignored if communal path is HDFS or Azure
+	if v.IsHDFS() || v.IsAzure() {
 		return allErrs
 	}
 	// communal.endpoint must be prefaced with http:// or https:// to know what protocol to connect with.
@@ -282,6 +311,10 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 
 func (v *VerticaDB) credentialSecretExists(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
+		return allErrs
+	}
+	// Credential secrets are not needed if communal path is HDFS
+	if v.IsHDFS() {
 		return allErrs
 	}
 	// communal.credentialSecret must exist
@@ -447,7 +480,7 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Volumes {
 		vol := v.Spec.Volumes[i]
-		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) {
+		if (vol.Name == LocalDataPVC) || (vol.Name == PodInfoMountName) || (vol.Name == LicensingMountName) || (vol.Name == HadoopConfigMountName) {
 			err := field.Invalid(field.NewPath("spec").Child("volumes").Index(i).Child("name"),
 				v.Spec.Volumes[i].Name,
 				"conflicts with the name of one of the internally generated volumes")

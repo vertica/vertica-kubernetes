@@ -69,7 +69,7 @@ spec:
             [
               "bash",
               "-c",
-              "aws s3 rb --endpoint http://minio.kuttl-e2e-communal s3://nimbusdb --force || :; aws s3 mb --endpoint http://minio.kuttl-e2e-communal s3://nimbusdb/db",
+              "aws s3 rb --endpoint http://minio.kuttl-e2e-s3 s3://nimbusdb --force || :; aws s3 mb --endpoint http://minio.kuttl-e2e-s3 s3://nimbusdb/db",
             ]
           env:
             - name: AWS_ACCESS_KEY_ID

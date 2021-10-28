@@ -36,7 +36,7 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 3
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		createCommunalCredSecret(ctx, vdb)
+		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
@@ -54,7 +54,7 @@ var _ = Describe("createdb_reconciler", func() {
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		createCommunalCredSecret(ctx, vdb)
+		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}

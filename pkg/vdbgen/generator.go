@@ -33,6 +33,8 @@ type KObjs struct {
 	HasPassword             bool
 	HasCAFile               bool
 	CAFile                  corev1.Secret
+	HasHadoopConfig         bool
+	HadoopConfig            corev1.ConfigMap
 }
 
 type VDBCreator interface {
@@ -77,6 +79,15 @@ func writeManifest(wr io.Writer, objs *KObjs) (err error) {
 
 	if objs.HasCAFile {
 		y, err = yaml.Marshal(objs.CAFile)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(wr, "---\n")
+		fmt.Fprint(wr, string(y))
+	}
+
+	if objs.HasHadoopConfig {
+		y, err = yaml.Marshal(objs.HadoopConfig)
 		if err != nil {
 			return err
 		}

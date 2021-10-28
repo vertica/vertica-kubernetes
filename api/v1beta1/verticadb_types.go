@@ -235,11 +235,12 @@ type SubclusterPodCount struct {
 // Holds details about the communal storage
 type CommunalStorage struct {
 	// +kubebuilder:validation:Optional
-	// The path to the communal storage. This must be the s3 bucket. You specify
-	// this using the s3:// bucket notation. For example:
-	// s3://bucket-name/key-name. The bucket must be created prior to creating
-	// the VerticaDB.  When initPolicy is Create or Revive, this field is
-	// required and cannot change after creation.
+	// The path to the communal storage. We support S3, Google Cloud Storage,
+	// and HDFS paths.  The protocol in the path (e.g. s3:// or webhdfs://)
+	// dictates the type of storage.  The path, whether it be a S3 bucket or
+	// HDFS path, must exist prior to creating the VerticaDB.  When initPolicy
+	// is Create, this field is required and the path must be empty.  When
+	// initPolicy is Revive, this field is required and must be non-empty.
 	Path string `json:"path"`
 
 	// +kubebuilder:validation:Optional
@@ -250,16 +251,30 @@ type CommunalStorage struct {
 	IncludeUIDInPath bool `json:"includeUIDInPath,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// The URL to the s3 endpoint. The endpoint must be prefaced with http:// or
-	// https:// to know what protocol to connect with. When initPolicy is Create
-	// or Revive, this field is required and cannot change after creation.
+	// The URL to the communal endpoint. The endpoint must be prefaced with http:// or
+	// https:// to know what protocol to connect with. If using S3 or Google
+	// Cloud Storage as communal storage and initPolicy is Create or Revive,
+	// this field is required and cannot change after creation.
 	Endpoint string `json:"endpoint"`
 
 	// +kubebuilder:validation:Optional
 	// The name of a secret that contains the credentials to connect to the
-	// communal S3 endpoint. The secret must have the following keys set:
-	// accessey and secretkey.  When initPolicy is Create or Revive, this field
-	// is required.
+	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
+	// need to be set, depending on the endpoint type:
+	// - s3:// or gs:// - It must have the following keys set: accessey and secretkey.
+	//     When using Google Cloud Storage, the IDs set in the secret are taken
+	//     from the hash-based message authentication code (HMAC) keys.
+	// - azb:// - It must have the following keys set:
+	//     accountName - Name of the Azure account
+	//     blobEndpoint - (Optional) Set this to the location of the endpoint.
+	//       If using an emulator like Azurite, it can be set to something like
+	//       'http://<IP-addr>:<port>'
+	//     accountKey - If accessing with an account key set it here
+	//     sharedAccessSignature - If accessing with a shared access signature,
+	//     	  set it here
+	//
+	// When initPolicy is Create or Revive, and not using HDFS this field is
+	// required.
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional
@@ -269,10 +284,16 @@ type CommunalStorage struct {
 	CaFile string `json:"caFile,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// The region containing the S3 bucket.  If you do not set the correct
+	// The region containing the bucket.  If you do not set the correct
 	// region, you might experience a delay before the bootstrap fails because
 	// Vertica retries several times before giving up.
 	Region string `json:"region,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// A config map that contains the contents of the /etc/hadoop directory.
+	// This gets mounted in the container and is used to configure connections
+	// to an HDFS communal path
+	HadoopConfig string `json:"hadoopConfig,omitempty"`
 }
 
 type LocalStorage struct {
@@ -521,7 +542,9 @@ const (
 	BuildDateAnnotation = "vertica.com/buildDate"
 	BuildRefAnnotation  = "vertica.com/buildRef"
 
-	DefaultS3Region = "us-east-1"
+	DefaultS3Region       = "us-east-1"
+	DefaultGCloudRegion   = "US-EAST1"
+	DefaultGCloudEndpoint = "https://storage.googleapis.com"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName

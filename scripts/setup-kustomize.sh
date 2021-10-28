@@ -16,10 +16,12 @@
 # Populate the kustomize and its overlay to run e2e tests.
 
 set -o errexit
+set -o pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 KUSTOMIZE=$REPO_DIR/bin/kustomize
+HDFS_NS=kuttl-e2e-hdfs
 
 function usage {
     echo "usage: $0 [-hv] [<configFile>]"
@@ -82,29 +84,34 @@ fi
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
-S3_PATH_PREFIX=s3://${S3_BUCKET}${PATH_PREFIX}
-
-echo "Using vertica server image name: $VERTICA_IMG"
-echo "Using vertica logger image name: $VLOGGER_IMG"
-if [ -n "$LICENSE_SECRET" ]; then
-    echo "Using license name: $LICENSE_SECRET"
+# Similar hard coded name for namespace specific hadoopConfig
+HADOOP_CONF_CM_NS_COPY="hadoop-conf"
+# The full prefix for the communal path
+if [ "$PATH_PROTOCOL" == "azb://" ]
+then
+  if [ -n "$BLOB_ENDPOINT_HOST" ]
+  then
+    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}@${BLOB_ENDPOINT_HOST}/${BUCKET_OR_CLUSTER}/${CONTAINER_NAME}${PATH_PREFIX}
+  else
+    COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}/${CONTAINER_NAME}${PATH_PREFIX}
+  fi
+else
+  COMMUNAL_PATH_PREFIX=${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}
 fi
-echo "Using endpoint: $ENDPOINT"
-echo "S3 bucket name: $S3_BUCKET"
-echo "S3 Path Prefix: $S3_PATH_PREFIX"
+
+echo "Vertica server image name: $VERTICA_IMG"
+echo "Vertica logger image name: $VLOGGER_IMG"
+if [ -n "$LICENSE_SECRET" ]; then
+    echo "License name: $LICENSE_SECRET"
+fi
+echo "Endpoint: $ENDPOINT"
+echo "Protocol: $PATH_PROTOCOL"
+echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
+echo "Communal Path Prefix: $PATH_PREFIX"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
     TESTCASE_NAME=$2
-
-    cat <<EOF > testcase.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: testcase
-data:
-  communalPath: ${S3_PATH_PREFIX}${TESTCASE_NAME}
-EOF
 
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -112,28 +119,54 @@ kind: Kustomization
 resources:
   - $BASE_DIR
   - $(realpath --relative-to="." $REPO_DIR/tests/kustomize-base)
-  - testcase.yaml
+
+patches:
+- target:
+    version: v1beta1
+    kind: VerticaDB
+  patch: |-
+    - op: replace
+      path: /spec/communal/path
+      value: ${COMMUNAL_PATH_PREFIX}${TESTCASE_NAME}
+EOF
+
+    if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/communal/endpoint
+      value: $ENDPOINT
+    - op: replace
+      path: /spec/communal/credentialSecret
+      value: communal-creds
+    - op: replace
+      path: /spec/communal/region
+      value: $REGION
+EOF
+    elif [ "$PATH_PROTOCOL" == "azb://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/communal/credentialSecret
+      value: communal-creds
+EOF
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    then
+        if [ -n "$HADOOP_CONF_CM" ]
+        then
+            cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/communal/hadoopConfig
+      value: $HADOOP_CONF_CM_NS_COPY
+EOF
+        fi
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
+
+      cat <<EOF >> kustomization.yaml
 replacements:
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.endpoint
-    targets:
-      - select:
-          kind: VerticaDB
-        fieldPaths:
-          - spec.communal.endpoint
-  - source:
-      kind: ConfigMap
-      name: e2e
-      fieldPath: data.region
-    targets:
-      - select:
-          kind: VerticaDB
-        fieldPaths:
-          - spec.communal.region
-        options:
-          create: true
   - source:
       kind: ConfigMap
       name: e2e
@@ -163,15 +196,6 @@ replacements:
           kind: VerticaDB
         fieldPaths:
           - spec.sidecars.[name=vlogger].image
-  - source:
-      kind: ConfigMap
-      name: testcase
-      fieldPath: data.communalPath
-    targets:
-      - select:
-          kind: VerticaDB
-        fieldPaths:
-          - spec.communal.path
 EOF
 
     if [ -n "$COMMUNAL_EP_CERT_SECRET" ]
@@ -231,32 +255,156 @@ function create_vdb_pod_kustomization {
     popd > /dev/null
 }
 
-function clean_s3_bucket_kustomization {
+function clean_communal_kustomization {
     if [ ! -d $1 ]
     then
       return 0
     fi
 
-    TC_OVERLAY=$1/clean-s3-bucket/overlay
+    TC_OVERLAY=$1/clean-communal/overlay
+    TESTCASE_NAME=$(basename $1)
     mkdir -p $TC_OVERLAY
     pushd $TC_OVERLAY > /dev/null
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- ../../../../manifests/clean-s3-bucket/base
+- ../../../../manifests/clean-communal/base
 patches:
 - target:
     version: v1
     kind: Pod
-    name: clean-s3-bucket
+    name: clean-communal
   patch: |-
-    - op: replace
-      path: "/spec/containers/0/env/1"
-      value:
-        name: TESTCASE_NAME
-        value: $(basename $1)
 EOF
+
+    if [ "$PATH_PROTOCOL" == "s3://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: "aws s3 rm --recursive --endpoint $ENDPOINT s3://${BUCKET_OR_CLUSTER}${PATH_PREFIX}${TESTCASE_NAME} --no-verify-ssl"
+    - op: replace
+      path: /spec/containers/0/image
+      value: amazon/aws-cli:2.2.24
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AWS_ACCESS_KEY_ID
+        value: $ACCESSKEY
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AWS_SECRET_ACCESS_KEY
+        value: $SECRETKEY
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AWS_EC2_METADATA_DISABLED
+        value: 'true'
+EOF
+    elif [ "$PATH_PROTOCOL" == "gs://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: "printf \"$ACCESSKEY\n$SECRETKEY\n\" | gsutil config -a && (gsutil -m rm -r ${PATH_PROTOCOL}${BUCKET_OR_CLUSTER}${PATH_PREFIX}${TESTCASE_NAME} || true)"
+    - op: replace
+      path: /spec/containers/0/image
+      value: google/cloud-sdk:360.0.0-alpine
+EOF
+    # Azure when not using blob endpoint.  This assumes we are using the real
+    # Azure service in the cloud.  'az storage delete-batch' is much too slow.
+    # 'az storage remove' is quicker.
+    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -z "$BLOB_ENDPOINT_HOST" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: az storage remove --account-name $BUCKET_OR_CLUSTER --container-name $CONTAINER_NAME --name ${PATH_PREFIX:1}${TESTCASE_NAME} --recursive
+    - op: replace
+      path: /spec/containers/0/image
+      value: mcr.microsoft.com/azure-cli:2.29.0
+EOF
+      if [ -n "$ACCOUNT_KEY" ]
+      then
+        cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AZURE_STORAGE_KEY
+        value: $ACCOUNT_KEY
+EOF
+      elif [ -n "$SHARED_ACCESS_SIGNATURE" ]
+      then
+        cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AZURE_STORAGE_SAS_TOKEN
+        value: "$SHARED_ACCESS_SIGNATURE"
+EOF
+      else
+        echo "1 *** No credentials setup for azb://"
+        exit 1
+      fi
+    # Azure when using a blob endpoint.  This assumes we are using Azurite.
+    # 'az storage remove' doesn't work (see https://github.com/Azure/azure-cli/issues/19311),
+    # so we rely on 'az storage blob delete-batch'.
+    elif [ "$PATH_PROTOCOL" == "azb://" ] && [ -n "$BLOB_ENDPOINT_HOST" ]
+    then
+      if [ -z "$ACCOUNT_KEY" ]
+      then
+        echo "*** When using blob endpoint, expecting an account key"
+        exit 1
+      fi
+
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: az storage blob delete-batch --account-name $BUCKET_OR_CLUSTER --source $CONTAINER_NAME --pattern "${PATH_PREFIX:1}${TESTCASE_NAME}/*"
+    - op: replace
+      path: /spec/containers/0/image
+      value: mcr.microsoft.com/azure-cli:2.29.0
+    - op: add
+      path: /spec/containers/0/env/-
+      value:
+        name: AZURE_STORAGE_CONNECTION_STRING
+        value: "DefaultEndpointsProtocol=$BLOB_ENDPOINT_PROTOCOL;AccountName=$BUCKET_OR_CLUSTER;AccountKey=$ACCOUNT_KEY;BlobEndpoint=$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST/$BUCKET_OR_CLUSTER;"
+EOF
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: "hadoop fs -rm -r -f -skipTrash ${PATH_PREFIX}${TESTCASE_NAME}"
+    - op: replace
+      path: /spec/containers/0/image
+      value: uhopper/hadoop:2.7.2
+    - op: add
+      path: /spec/containers/0/env
+      value:
+        - name: HADOOP_CONF_DIR
+          value: /etc/hadoop/conf
+        - name: HADOOP_USER_NAME
+          value: hdfs
+    - op: add
+      path: /spec/containers/0/volumeMounts
+      value:
+        - name: hdfs-config
+          mountPath: /etc/hadoop/conf
+          readOnly: true
+    - op: add
+      path: /spec/volumes
+      value:
+        - name: hdfs-config
+          configMap:
+            name: hadoop-conf
+EOF
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
     popd > /dev/null
 }
 
@@ -268,14 +416,6 @@ kind: ConfigMap
 metadata:
   name: e2e
 data:
-  endpoint: $ENDPOINT
-  accesskeyEnc: $(echo -n $ACCESSKEY | base64)
-  secretkeyEnc: $(echo -n $SECRETKEY | base64)
-  accesskeyUnenc: $ACCESSKEY
-  secretkeyUnenc: $SECRETKEY
-  region: $REGION
-  s3Bucket: $S3_BUCKET
-  pathPrefix: $PATH_PREFIX
   verticaImage: ${VERTICA_IMG:-$DEF_VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG:-$DEF_VLOGGER_IMG}
 EOF
@@ -309,20 +449,192 @@ function copy_communal_ep_cert {
     popd > /dev/null
 }
 
+function copy_hadoop_conf {
+    pushd kustomize-base > /dev/null
+    if [ -z "$HADOOP_CONF_CM" ]
+    then
+        # No hadoop conf configMap is present.  We will just create an empty
+        # file so that kustomize doesn't complain about a missing resource.
+        echo "" > hadoop-conf.json
+    else
+        # Copy the secret over stripping out all of the metadata.
+        kubectl get configmap -o json -n $HADOOP_CONF_NAMESPACE $HADOOP_CONF_CM \
+        | jq 'del(.metadata)' \
+        | jq ".metadata += {name: \"$HADOOP_CONF_CM_NS_COPY\"}" > hadoop-conf.json
+    fi
+    popd > /dev/null
+}
+
+function create_communal_creds {
+    pushd manifests/communal-creds > /dev/null
+
+    mkdir -p overlay
+    pushd overlay > /dev/null
+
+    if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ]
+    then
+      if [ "$PATH_PROTOCOL" != "azb://" ]
+      then
+        cat <<EOF > creds.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: communal-creds
+type: Opaque
+data:
+  accesskey: $(echo -n "$ACCESSKEY" | base64)
+  secretkey: $(echo -n "$SECRETKEY" | base64)
+EOF
+      else
+        cat <<EOF > creds.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: communal-creds
+type: Opaque
+data:
+  accountName: $(echo -n "$BUCKET_OR_CLUSTER" | base64)
+EOF
+        if [ -n "$BLOB_ENDPOINT_HOST" ]
+        then
+          cat <<EOF >> creds.yaml
+  blobEndpoint: $(echo -n "$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST" | base64 --wrap 0)
+EOF
+
+          # When using Azurite you can only connect using a single word hostname
+          # or IP.  We include a service object so that it is created in the
+          # same namespace that we are deploying VerticaDB.  It will create a
+          # single word hostname (azure) that maps to the service in the
+          # kuttl-e2e-azb namespace.  For example we can access Azurite with
+          # this: http://azurite:10000
+          AZURITE_NS=kuttl-e2e-azb
+          if kubectl get -n $AZURITE_NS svc azurite > /dev/null
+          then
+            AZURITE_SVC=ext-svc.yaml
+            cat <<EOF > $AZURITE_SVC
+kind: Service
+apiVersion: v1
+metadata:
+  name: azurite
+spec:
+  type: ExternalName
+  externalName: azurite.$AZURITE_NS.svc.cluster.local
+EOF
+          fi
+        fi
+
+        if [ -n "$ACCOUNT_KEY" ]
+        then
+          cat <<EOF >> creds.yaml
+  accountKey: $(echo -n "$ACCOUNT_KEY" | base64 --wrap 0)
+EOF
+        elif [ -n "$SHARED_ACCESS_SIGNATURE" ]
+        then
+          cat <<EOF >> creds.yaml
+  sharedAccessSignature: $(echo -n "$SHARED_ACCESS_SIGNATURE" | base64 --wrap 0)
+EOF
+        else
+          echo "*** No credentials setup for azb://"
+          exit 1
+        fi
+      fi
+
+      cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base
+- creds.yaml
+EOF
+      # Include the ExternalName service object if one was created.
+      if [ -n "$AZURITE_SVC" ]
+      then
+        cat <<EOF >> kustomization.yaml
+- $AZURITE_SVC
+EOF
+      fi
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    then
+      cat <<EOF > kustomization.yaml
+resources:
+- ../base
+EOF
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
+    
+    popd > /dev/null
+    popd > /dev/null
+}
+
+function setup_creds_for_create_s3_bucket {
+    pushd manifests/create-s3-bucket > /dev/null
+
+    mkdir -p overlay
+    pushd overlay > /dev/null
+
+    if [ "$PATH_PROTOCOL" == "s3://" ]
+    then
+      cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base
+
+patches:
+- target:
+    version: v1
+    kind: Pod
+    name: create-s3-bucket
+  patch: |-
+    - op: replace
+      path: /spec/containers/0/env/0/value
+      value: $BUCKET_OR_CLUSTER
+    - op: replace
+      path: /spec/containers/0/env/1/value
+      value: $ACCESSKEY
+    - op: replace
+      path: /spec/containers/0/env/2/value
+      value: $SECRETKEY
+    - op: replace
+      path: /spec/containers/0/env/4/value
+      value: $ENDPOINT
+EOF
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ]
+    then
+      cat <<EOF > kustomization.yaml
+# Intentionally blank -- either no permissions to create a bucket or one doesn't exist for protocol.
+EOF
+    else
+      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      exit 1
+    fi
+    
+    popd > /dev/null
+    popd > /dev/null
+}
+
 cd $REPO_DIR/tests
 
 # Create the configMap that is used to control the communal endpoint and creds.
 create_communal_cfg
 # Copy over the cert that was used to set up the communal endpoint
 copy_communal_ep_cert
+# Copy over the hadoop conf configMap.  This may be set for HDFS communal paths.
+copy_hadoop_conf
+# Setup the communal credentials according to the protocol used
+create_communal_creds
+# Setup an overlay for create-s3-bucket so it has access to the credentials
+setup_creds_for_create_s3_bucket
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e/*/*/base
+for tdir in e2e/*/*/base e2e-extra/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e/* e2e-disabled/*
+for tdir in e2e/* e2e-extra/* e2e-disabled/*
 do
-    clean_s3_bucket_kustomization $tdir
+    clean_communal_kustomization $tdir
 done

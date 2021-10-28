@@ -284,8 +284,18 @@ func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, s
 const testAccessKey = "dummy"
 const testSecretKey = "dummy"
 
-func createCommunalCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
-	secret := buildCommunalCredSecret(vdb, testAccessKey, testSecretKey)
+func createS3CredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	secret := buildS3CommunalCredSecret(vdb, testAccessKey, testSecretKey)
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
+func createAzureAccountKeyCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	secret := buildAzureAccountKeyCommunalCredSecret(vdb, "verticaAccountName", "secretKey")
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
+func createAzureSASCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	secret := buildAzureSASCommunalCredSecret(vdb, "blob.microsoft.net", "sharedAccessKey")
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 

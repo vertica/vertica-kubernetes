@@ -18,9 +18,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://non-existent"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret: s3-creds
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   dbName: vertdb

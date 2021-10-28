@@ -19,7 +19,7 @@ set -o errexit
 set -o pipefail
 set -o xtrace
 
-MINIO_NS=kuttl-e2e-communal
+MINIO_NS=kuttl-e2e-s3
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 KUSTOMIZE=$REPO_DIR/bin/kustomize
@@ -53,10 +53,17 @@ done
 set -o errexit
 set +o xtrace
 
-$KUSTOMIZE build $REPO_DIR/tests/manifests/s3-creds/base | kubectl apply -f - -n $MINIO_NS
+EXP_CREDS_NAME=communal-creds
+if ! $KUSTOMIZE build $REPO_DIR/tests/manifests/communal-creds/overlay | grep -q "name: $EXP_CREDS_NAME"
+then
+    echo "*** Credential secret '$EXP_CREDS_NAME' not found.  Are you setup for minio?"
+    exit 1
+fi
+
+$KUSTOMIZE build $REPO_DIR/tests/manifests/communal-creds/overlay | kubectl apply -f - -n $MINIO_NS
 kubectl apply -f $REPO_DIR/tests/manifests/minio/02-tenant.yaml -n $MINIO_NS
 kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/minio/02-assert.yaml
 
 # Create the s3 bucket
-$KUSTOMIZE build $REPO_DIR/tests/manifests/create-s3-bucket/base | kubectl -n $MINIO_NS apply -f -
+$KUSTOMIZE build $REPO_DIR/tests/manifests/create-s3-bucket/overlay | kubectl -n $MINIO_NS apply -f -
 kubectl kuttl assert -n $MINIO_NS --timeout 180 $REPO_DIR/tests/manifests/create-s3-bucket/assert.yaml

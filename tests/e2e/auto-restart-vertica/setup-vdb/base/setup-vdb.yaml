@@ -21,9 +21,6 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://auto-restart-vertica"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret:  s3-creds
     includeUIDInPath: true
   local:
     requestSize: 100Mi

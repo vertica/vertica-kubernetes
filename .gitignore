@@ -9,13 +9,14 @@ kuttl-test.xml
 kubeconfig
 run.out
 local-soak.cfg
-local-kustomize.cfg
+local-kustomize*.cfg
 
 # Generated files from create-kustomize-overlay.sh
 overlay/
 create-s3-bucket-overlay/
 e2e.yaml
 communal-ep-cert.json
+hadoop-conf.json
 
 # Binaries for programs and plugins
 *.exe

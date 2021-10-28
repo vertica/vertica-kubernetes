@@ -18,9 +18,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/lithammer/dedent"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -31,6 +33,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+const (
+	AWSRegionParm    = "awsregion"
+	GCloudRegionParm = "GCSRegion"
 )
 
 type DatabaseInitializer interface {
@@ -169,31 +176,30 @@ func (g *GenericDatabaseInitializer) cleanupLocalFilesInPods(ctx context.Context
 	return nil
 }
 
-// ConstructAuthParms builds the s3 authentication parms and ensure it exists in the pod
+// ConstructAuthParms builds the authentication parms and ensure it exists in the pod
 func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atPod types.NamespacedName) (ctrl.Result, error) {
-	// Extract the auth from the credential secret.
-	auth, res, err := g.getS3Auth(ctx)
-	if err != nil || res.Requeue {
+	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
+
+	if g.Vdb.IsS3() {
+		contentGen = g.getS3AuthParmsContent
+	} else if g.Vdb.IsHDFS() {
+		contentGen = g.getHDFSAuthParmsContent
+	} else if g.Vdb.IsGCloud() {
+		contentGen = g.getGCloudAuthParmsContent
+	} else if g.Vdb.IsAzure() {
+		contentGen = g.getAzureAuthParmsContent
+	} else {
+		err := fmt.Errorf("unknown communal storage type: '%s'", g.Vdb.Spec.Communal.Path)
+		g.Log.Error(err, "unable to create auth parms for communal type")
+		return ctrl.Result{}, err
+	}
+
+	content, res, err := contentGen(ctx)
+	if res.Requeue || err != nil {
 		return res, err
 	}
 
-	_, _, err = g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
-		"bash", "-c", "cat > "+paths.AuthParmsFile+"<<< '"+
-			"awsauth = "+auth+"\n"+
-			"awsendpoint = "+g.getS3Endpoint()+"\n"+
-			"awsenablehttps = "+g.getEnableHTTPS()+"\n"+
-			g.getRegion()+"\n"+
-			g.getCAFile()+"\n"+
-			"'",
-	)
-
-	// We log an event for this error because it could be caused by bad values
-	// in the creds.  If the value we get out of the secret has undisplayable
-	// characters then we won't even be able to copy the file.
-	if err != nil {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3AuthParmsCopyFailed,
-			"Failed to copy s3 auth parms to the pod '%s'", atPod)
-	}
+	err = g.copyAuthFile(ctx, atPod, content)
 	return ctrl.Result{}, err
 }
 
@@ -205,30 +211,144 @@ func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, atPod
 	return err
 }
 
-// getS3Auth will return the access key and secret key.
-// Value is returned in the format: <accessKey>:<secretKey>
-func (g *GenericDatabaseInitializer) getS3Auth(ctx context.Context) (string, ctrl.Result, error) {
-	secret := &corev1.Secret{}
-	if err := g.VRec.Client.Get(ctx, names.GenCommunalCredSecretName(g.Vdb), secret); err != nil {
-		if errors.IsNotFound(err) {
-			g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsNotFound,
-				"Could not find the communal credential secret '%s'", g.Vdb.Spec.Communal.CredentialSecret)
-			return "", ctrl.Result{Requeue: true}, nil
-		}
-		return "", ctrl.Result{}, fmt.Errorf("could not read the communal credential secret %s: %w", g.Vdb.Spec.Communal.CredentialSecret, err)
+// getS3AuthParmsContent construct a string for the auth parms when using S3
+// communal storage.
+func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	// Extract the auth from the credential secret.
+	auth, res, err := g.getCommunalAuth(ctx)
+	if err != nil || res.Requeue {
+		return "", res, err
 	}
 
-	accessKey, ok := secret.Data[S3AccessKeyName]
+	content := fmt.Sprintf(`
+			awsauth = %s
+			awsendpoint = %s
+			awsenablehttps = %s
+			%s
+			%s
+		`, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(AWSRegionParm), g.getCAFile(),
+	)
+	return dedent.Dedent(content), ctrl.Result{}, nil
+}
+
+// getHDFSAuthParmsContent construct a string for the auth parms when using
+// HDFS communal storage.
+func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	if g.Vdb.Spec.Communal.HadoopConfig != "" {
+		content := fmt.Sprintf(`
+			HadoopConfDir = %s
+		`, paths.HadoopConfPath)
+		return dedent.Dedent(content), ctrl.Result{}, nil
+	}
+
+	return "", ctrl.Result{}, nil
+}
+
+// getGCloudAuthParmsContent will get the content for the auth parms when we are
+// connecting to google cloud storage.
+func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	// Extract the auth from the credential secret.
+	auth, res, err := g.getCommunalAuth(ctx)
+	if err != nil || res.Requeue {
+		return "", res, err
+	}
+
+	content := fmt.Sprintf(`
+		GCSAuth = %s
+		GCSEndpoint = %s
+		GCSEnableHttps = %s
+		%s
+	`, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(GCloudRegionParm))
+	return dedent.Dedent(content), ctrl.Result{}, nil
+}
+
+// getAzureAuthParmsContent will get the content for an EON database created in
+// Azure Blob Storage
+func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	azureCreds, azureConfig, res, err := g.getAzureAuth(ctx)
+	if err != nil || res.Requeue {
+		return "", res, err
+	}
+
+	var azureCredsJSON strings.Builder
+	elemPrefix := ""
+	azureCredsJSON.WriteString("[{")
+	if azureCreds.AccountName != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureCreds.AccountName))
+		elemPrefix = ","
+	}
+	if azureCreds.BlobEndpoint != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureCreds.BlobEndpoint))
+		elemPrefix = ","
+	}
+	if azureCreds.AccountKey != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"accountKey": "%s"`, elemPrefix, azureCreds.AccountKey))
+		elemPrefix = ","
+	}
+	if azureCreds.SharedAccessSignature != "" {
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"sharedAccessSignature": "%s"`, elemPrefix, azureCreds.SharedAccessSignature))
+	}
+	azureCredsJSON.WriteString("}]")
+
+	var azureConfigJSON strings.Builder
+	elemPrefix = ""
+	azureConfigJSON.WriteString("[{")
+	if azureConfig.AccountName != "" {
+		azureConfigJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureConfig.AccountName))
+		elemPrefix = ","
+	}
+	if azureConfig.BlobEndpoint != "" {
+		azureConfigJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureConfig.BlobEndpoint))
+		elemPrefix = ","
+	}
+	if azureConfig.Protocol != "" {
+		azureConfigJSON.WriteString(fmt.Sprintf(`%s"protocol": "%s"`, elemPrefix, azureConfig.Protocol))
+		elemPrefix = ","
+	}
+	azureConfigJSON.WriteString(fmt.Sprintf(`%s"isMultiAccountEndpoint": %t`, elemPrefix, azureConfig.IsMultiAccountEndpoint))
+	azureConfigJSON.WriteString("}]")
+
+	content := fmt.Sprintf(`
+	  AzureStorageCredentials = %s
+	  AzureStorageEndpointConfig = %s
+	`, azureCredsJSON.String(), azureConfigJSON.String())
+	return dedent.Dedent(content), ctrl.Result{}, nil
+}
+
+// copyAuthFile will copy the auth file into the container
+func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod types.NamespacedName, content string) error {
+	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+		"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, content))
+
+	// We log an event for this error because it could be caused by bad values
+	// in the creds.  If the value we get out of the secret has undisplayable
+	// characters then we won't even be able to copy the file.
+	if err != nil {
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
+			"Failed to copy auth parms to the pod '%s'", atPod)
+	}
+	return err
+}
+
+// getCommunalAuth will return the access key and secret key.
+// Value is returned in the format: <accessKey>:<secretKey>
+func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (string, ctrl.Result, error) {
+	secret, res, err := g.getCommunalCredsSecret(ctx)
+	if res.Requeue || err != nil {
+		return "", res, err
+	}
+
+	accessKey, ok := secret.Data[CommunalAccessKeyName]
 	if !ok {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, S3AccessKeyName)
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalAccessKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
-	secretKey, ok := secret.Data[S3SecretKeyName]
+	secretKey, ok := secret.Data[CommunalSecretKeyName]
 	if !ok {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3CredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, S3SecretKeyName)
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalSecretKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
@@ -237,9 +357,74 @@ func (g *GenericDatabaseInitializer) getS3Auth(ctx context.Context) (string, ctr
 	return auth, ctrl.Result{}, nil
 }
 
-// getS3Endpoint get the s3 endpoint for inclusion in the auth files.
+// getAzureAuth gets the azure credentials from the communal auth secret
+func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCredential, AzureEndpointConfig, ctrl.Result, error) {
+	secret, res, err := g.getCommunalCredsSecret(ctx)
+	if res.Requeue || err != nil {
+		return AzureCredential{}, AzureEndpointConfig{}, res, err
+	}
+
+	accountName, hasAccountName := secret.Data[AzureAccountName]
+	blobEndpointRaw, hasBlobEndpoint := secret.Data[AzureBlobEndpoint]
+
+	if !hasAccountName && !hasBlobEndpoint {
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
+			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountName, AzureBlobEndpoint)
+		return AzureCredential{}, AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
+	}
+
+	// The blob endpoint may have a protocol scheme as a prefix.  Strip that off
+	// so its just the host and port.
+	var blobEndpoint string
+	if hasBlobEndpoint {
+		blobEndpoint = getEndpointHostPort(string(blobEndpointRaw))
+	}
+
+	accountKey, hasAccountKey := secret.Data[AzureAccountKey]
+	sas, hasSAS := secret.Data[AzureSharedAccessSignature]
+
+	if (!hasAccountKey && !hasSAS) || (hasAccountKey && hasSAS) {
+		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
+			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountKey, AzureSharedAccessSignature)
+		return AzureCredential{}, AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
+	}
+
+	return AzureCredential{
+			AccountName:           string(accountName),
+			BlobEndpoint:          blobEndpoint,
+			AccountKey:            string(accountKey),
+			SharedAccessSignature: string(sas),
+		},
+		AzureEndpointConfig{
+			AccountName:            string(accountName),
+			BlobEndpoint:           blobEndpoint,
+			Protocol:               getEndpointProtocol(string(blobEndpointRaw)),
+			IsMultiAccountEndpoint: false,
+		},
+		ctrl.Result{}, nil
+}
+
+// getCommunalCredsSecret returns the contents of the communal credentials
+// secret.  It handles if the secret is not found and will log an event.
+func (g *GenericDatabaseInitializer) getCommunalCredsSecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
+	secret := &corev1.Secret{}
+	if err := g.VRec.Client.Get(ctx, names.GenCommunalCredSecretName(g.Vdb), secret); err != nil {
+		if errors.IsNotFound(err) {
+			g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsNotFound,
+				"Could not find the communal credential secret '%s'", g.Vdb.Spec.Communal.CredentialSecret)
+			return &corev1.Secret{}, ctrl.Result{Requeue: true}, nil
+		}
+		return &corev1.Secret{}, ctrl.Result{},
+			fmt.Errorf("could not read the communal credential secret %s: %w", g.Vdb.Spec.Communal.CredentialSecret, err)
+	}
+	return secret, ctrl.Result{}, nil
+}
+
+// getCommunalEndpoint get the communal endpoint for inclusion in the auth files.
 // Takes the endpoint from vdb and strips off the protocol.
-func (g *GenericDatabaseInitializer) getS3Endpoint() string {
+func (g *GenericDatabaseInitializer) getCommunalEndpoint() string {
 	prefix := []string{"https://", "http://"}
 	for _, pref := range prefix {
 		if i := strings.Index(g.Vdb.Spec.Communal.Endpoint, pref); i == 0 {
@@ -265,13 +450,35 @@ func (g *GenericDatabaseInitializer) getCAFile() string {
 	return fmt.Sprintf("awscafile = %s", g.Vdb.Spec.Communal.CaFile)
 }
 
-// getRegion will return an entry for awsregion
-func (g *GenericDatabaseInitializer) getRegion() string {
-	const FieldName = "awsregion"
+// getRegion will return an entry for region, specific to the cloud provider
+func (g *GenericDatabaseInitializer) getRegion(parmName string) string {
 	// We have a webhook to set the default value, but for legacy purposes we
 	// always check for the empty string.
 	if g.Vdb.Spec.Communal.Region == "" {
-		return fmt.Sprintf("%s = %s", FieldName, vapi.DefaultS3Region)
+		return fmt.Sprintf("%s = %s", parmName, vapi.DefaultS3Region)
 	}
-	return fmt.Sprintf("%s = %s", FieldName, g.Vdb.Spec.Communal.Region)
+	return fmt.Sprintf("%s = %s", parmName, g.Vdb.Spec.Communal.Region)
+}
+
+// getEndpointProtocol returns the protocol (HTTPS or HTTP) for the given endpoint
+func getEndpointProtocol(blobEndpoint string) string {
+	if blobEndpoint == "" {
+		return AzureDefaultProtocol
+	}
+	re := regexp.MustCompile(`([a-z]+)://`)
+	m := re.FindAllStringSubmatch(blobEndpoint, 1)
+	if len(m) == 0 || len(m[0]) < 2 {
+		return AzureDefaultProtocol
+	}
+	return strings.ToUpper(m[0][1])
+}
+
+// getEndpointHostPort returns just the host and port portion of a endpoint
+func getEndpointHostPort(blobEndpoint string) string {
+	re := regexp.MustCompile(`([a-z]+)://(.*)`)
+	m := re.FindAllStringSubmatch(blobEndpoint, 1)
+	if len(m) == 0 || len(m[0]) < 3 {
+		return blobEndpoint
+	}
+	return m[0][2]
 }

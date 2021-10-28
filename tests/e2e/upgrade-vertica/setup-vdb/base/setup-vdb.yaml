@@ -20,9 +20,6 @@ spec:
   imagePullPolicy: IfNotPresent
   superuserPasswordSecret: su-passwd
   communal:
-    path: "s3://upgrade-vertica"
-    endpoint: kustomize-s3-endpoint
-    credentialSecret:  s3-creds
     includeUIDInPath: true
   local:
     requestSize: 100Mi
