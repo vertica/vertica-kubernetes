@@ -343,6 +343,12 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
 		Expect(dbGen.setCAFile(ctx)).ShouldNot(Succeed())
 
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("SystemCABundlePath", "/certs/ca.crt"))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCAFile(ctx)).ShouldNot(Succeed())
+
 		// Now correct the error by providing a ca file in the opts.
 		dbGen.Opts.CAFile = "ca.crt"
 		Expect(dbGen.setCAFile(ctx)).Should(Succeed())

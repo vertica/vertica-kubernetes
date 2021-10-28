@@ -25,6 +25,10 @@ COMMUNAL_EP_CERT_SECRET=$3
 if [ -f "/certs/$COMMUNAL_EP_CERT_SECRET/ca.crt" ]
 then
     CA_CERT_OPT="-cafile /certs/$COMMUNAL_EP_CERT_SECRET/ca.crt"
+    # We need to be strict about the name of the CA Cert because when using
+    # swebhdfs:// config files in /etc/hadoop hard code the path to
+    # /certs/communal-ep-cert.
+    CA_CERT_NAME_OPT="-cacertname communal-ep-cert"
 fi
 
 HADOOP_CONF=/etc/hadoop
@@ -40,5 +44,6 @@ fi
     -password superuser \
     -ignore-cluster-lease \
     $CA_CERT_OPT \
+    $CA_CERT_NAME_OPT \
     $HADOOP_CONF_OPT \
     v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb
