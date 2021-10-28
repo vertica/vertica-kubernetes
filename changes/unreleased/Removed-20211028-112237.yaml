@@ -1,0 +1,5 @@
+kind: Removed
+body: Removed support for Vertica 10.1.1.  The operator only supports Vertica 11.0.0 or higher.
+time: 2021-10-28T11:22:37.920433251-04:00
+custom:
+  Issue: "88"
