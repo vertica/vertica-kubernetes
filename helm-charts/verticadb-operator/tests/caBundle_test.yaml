@@ -1,4 +1,4 @@
-suite: skip-cert-manager-CRs
+suite: CA bundle tests
 templates:
   - verticadb-operator-mutating-webhook-configuration-mutatingwebhookconfiguration.yaml
   - verticadb-operator-validating-webhook-configuration-validatingwebhookconfiguration.yaml

@@ -24,8 +24,10 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("k8s/uninstall_reconcile", func() {
@@ -49,10 +51,10 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
+		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
 		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
 		recon := actor.(*UninstallReconciler)
 		recon.ATWriter = &atconf.FakeWriter{}
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		_, err := recon.uninstallPodsInSubcluster(ctx, sc, 1, 1)
 		Expect(err).Should(Succeed())
 		rmIndCmd := fpr.FindCommands(fmt.Sprintf("rm %s", paths.InstallerIndicatorFile))
@@ -70,6 +72,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
+		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
 		r := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -88,6 +91,8 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
+		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 2)
+
 		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
 		r := actor.(*UninstallReconciler)
 		r.ATWriter = &atconf.FakeWriter{}
@@ -97,4 +102,37 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		rmIndCmd := fpr.FindCommands(fmt.Sprintf("rm %s", paths.InstallerIndicatorFile))
 		Expect(len(rmIndCmd)).Should(Equal(2))
 	})
+
+	It("should skip uninstall if db_remove_node not yet called", func() {
+		vdb := vapi.MakeVDB()
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Size = 2
+		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdbCopy)
+		sc.Size = 1 // mimic a pending db_remove_node
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pn := names.GenPodName(vdb, sc, 1)
+		Expect(pfacts.Detail[pn].dbExists).Should(Equal(tristate.True))
+
+		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := actor.(*UninstallReconciler)
+		r.ATWriter = &atconf.FakeWriter{}
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+	})
 })
+
+// updatePodFactsForUninstall is a test helper that sets up the podfacts so that
+// a range of pods have the required state to proceed with an uninstall.
+func updatePodFactsForUninstall(ctx context.Context, pf *PodFacts, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	firstUninstallPod, lastUninstallPod int32) {
+	// Run collection first so we don't override the dbExists change.
+	ExpectWithOffset(1, pf.Collect(ctx, vdb)).Should(Succeed())
+	for i := firstUninstallPod; i <= lastUninstallPod; i++ {
+		pn := names.GenPodName(vdb, sc, i)
+		pf.Detail[pn].dbExists = tristate.False
+	}
+}
