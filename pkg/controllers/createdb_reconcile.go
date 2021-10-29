@@ -92,12 +92,12 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 
 		case isBucketNotExistError(stdout):
 			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
-				"The bucket in the S3 path '%s' does not exist", paths.GetCommunalPath(c.Vdb))
+				"The bucket in the S3 path '%s' does not exist", c.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isCommunalPathNotEmpty(stdout):
 			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalPathIsNotEmpty,
-				"The communal path '%s' is not empty", paths.GetCommunalPath(c.Vdb))
+				"The communal path '%s' is not empty", c.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isWrongRegion(stdout):
@@ -198,7 +198,7 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"-t", "create_db",
 		"--skip-fs-checks",
 		"--hosts=" + strings.Join(hostList, ","),
-		"--communal-storage-location=" + paths.GetCommunalPath(c.Vdb),
+		"--communal-storage-location=" + c.Vdb.GetCommunalPath(),
 		"--communal-storage-params=" + paths.AuthParmsFile,
 		"--sql=" + PostDBCreateSQLFile,
 		fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),

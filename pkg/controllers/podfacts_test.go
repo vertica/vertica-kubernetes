@@ -24,7 +24,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"yunion.io/x/pkg/tristate"
@@ -51,7 +50,7 @@ var _ = Describe("podfacts", func() {
 		defer deletePods(ctx, vdb)
 
 		sc := &vdb.Spec.Subclusters[0]
-		installIndFn := paths.GenInstallerIndicatorFileName(vdb)
+		installIndFn := vdb.GenInstallerIndicatorFileName()
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
 			names.GenPodName(vdb, sc, 0): []cmds.CmdResult{
 				{Stderr: "cat: " + installIndFn + ": No such file or directory", Err: errors.New("file not found")},

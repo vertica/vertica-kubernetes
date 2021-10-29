@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -242,6 +243,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.isServiceTypeValid(allErrs)
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
+	allErrs = v.hasValidVolumeMountName(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -484,6 +486,32 @@ func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList 
 			err := field.Invalid(field.NewPath("spec").Child("volumes").Index(i).Child("name"),
 				v.Spec.Volumes[i].Name,
 				"conflicts with the name of one of the internally generated volumes")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// hasValidVolumeMountName checks wether any of the custom volume mounts added
+// shared a name with any of the generated paths.
+func (v *VerticaDB) hasValidVolumeMountName(allErrs field.ErrorList) field.ErrorList {
+	invalidPaths := make([]string, len(paths.MountPaths))
+	copy(invalidPaths, paths.MountPaths)
+	invalidPaths = append(invalidPaths, v.Spec.Local.DataPath, v.Spec.Local.DepotPath)
+	for i := range v.Spec.VolumeMounts {
+		volMnt := v.Spec.VolumeMounts[i]
+		for j := range invalidPaths {
+			if volMnt.MountPath == invalidPaths[j] {
+				err := field.Invalid(field.NewPath("spec").Child("volumeMounts").Index(i).Child("mountPath"),
+					volMnt,
+					"conflicts with the mount path of one of the internally generated paths")
+				allErrs = append(allErrs, err)
+			}
+		}
+		if strings.HasPrefix(volMnt.MountPath, paths.CertsRoot) {
+			err := field.Invalid(field.NewPath("spec").Child("volumeMounts").Index(i).Child("mountPath"),
+				v.Spec.VolumeMounts[i].MountPath,
+				fmt.Sprintf("cannot shared the same path prefix as the certs root '%s'", paths.CertsRoot))
 			allErrs = append(allErrs, err)
 		}
 	}

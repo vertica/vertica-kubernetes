@@ -236,7 +236,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 		return nil
 	}
 
-	fn := paths.GenInstallerIndicatorFileName(vdb)
+	fn := vdb.GenInstallerIndicatorFileName()
 	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", fn); err != nil {
 		if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
 			return err
@@ -316,7 +316,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	cmd := []string{
 		"bash",
 		"-c",
-		fmt.Sprintf("ls -d %s/v_%s_node????_data", paths.GetDBDataPath(vdb), vdb.Spec.DBName),
+		fmt.Sprintf("ls -d %s/v_%s_node????_data", vdb.GetDBDataPath(), vdb.Spec.DBName),
 	}
 	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		if !strings.Contains(stderr, "No such file or directory") {
