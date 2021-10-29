@@ -1,0 +1,6 @@
+kind: Added
+body: Added the ability to speciy custom volume mounts for use within the Vertica
+  container.
+time: 2021-10-29T08:30:36.097279509-04:00
+custom:
+  Issue: "89"
