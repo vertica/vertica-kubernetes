@@ -13,39 +13,27 @@
  limitations under the License.
 */
 
-package paths
+package v1beta1
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"paths Suite",
-		[]Reporter{printer.NewlineReporter{}})
-}
-
-var _ = Describe("paths", func() {
+var _ = Describe("verticadb_types", func() {
 	const FakeUID = "abcdef"
 
 	It("should include UID in path if IncludeUIDInPath is set", func() {
-		vdb := vapi.MakeVDB()
+		vdb := MakeVDB()
 		vdb.ObjectMeta.UID = FakeUID
 		vdb.Spec.Communal.IncludeUIDInPath = true
-		Expect(GetCommunalPath(vdb)).Should(ContainSubstring(string(vdb.ObjectMeta.UID)))
+		Expect(vdb.GetCommunalPath()).Should(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
 
 	It("should not include UID in path if IncludeUIDInPath is not set", func() {
-		vdb := vapi.MakeVDB()
+		vdb := MakeVDB()
 		vdb.ObjectMeta.UID = FakeUID
 		vdb.Spec.Communal.IncludeUIDInPath = false
-		Expect(GetCommunalPath(vdb)).ShouldNot(ContainSubstring(string(vdb.ObjectMeta.UID)))
+		Expect(vdb.GetCommunalPath()).ShouldNot(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
 })

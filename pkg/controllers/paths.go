@@ -32,7 +32,7 @@ import (
 // This step is necessary because of a lack of cleanup in admintools if any of
 // these commands fail.
 func cleanupLocalFiles(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
-	locPaths := []string{paths.GetDBDataPath(vdb), paths.GetDepotPath(vdb)}
+	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDepotPath()}
 	for _, path := range locPaths {
 		cmd := []string{"rm", "-r", path}
 
@@ -72,7 +72,7 @@ func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner,
 // handle the depot directory.
 func changeDepotPermissions(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podList []*PodFact) error {
 	cmd := []string{
-		"sudo", "chown", "dbadmin:verticadba", "-R", fmt.Sprintf("%s/%s", paths.LocalDataPath, paths.GetPVSubPath(vdb, "depot")),
+		"sudo", "chown", "dbadmin:verticadba", "-R", fmt.Sprintf("%s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")),
 	}
 	for _, pod := range podList {
 		if _, _, err := prunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {

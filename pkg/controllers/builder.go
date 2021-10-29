@@ -75,10 +75,10 @@ func buildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "config"), MountPath: paths.ConfigPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "log"), MountPath: paths.LogPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "data"), MountPath: vdb.Spec.Local.DataPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "depot"), MountPath: vdb.Spec.Local.DepotPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("config"), MountPath: paths.ConfigPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("data"), MountPath: vdb.Spec.Local.DataPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("depot"), MountPath: vdb.Spec.Local.DepotPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
 
@@ -97,6 +97,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	}
 
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
+	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
 	return volMnts
 }
@@ -291,7 +292,7 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		// prior to the creation of the VerticaDB.
 		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb)...)
 		// As a convenience, add the database path as an environment variable.
-		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: paths.GetDBDataPath(vdb)})
+		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: vdb.GetDBDataPath()})
 		cnts = append(cnts, c)
 	}
 	return cnts

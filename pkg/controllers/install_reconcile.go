@@ -242,7 +242,7 @@ func (d *InstallReconciler) fetchCompat21NodeNum(ctx context.Context, pf *PodFac
 func (d *InstallReconciler) genCmdCreateInstallIndicator(compat21Node string) []string {
 	// The install indicator file has the UID of the vdb. This allows us to know
 	// that we are working with a different life in the vdb is ever recreated.
-	return []string{"bash", "-c", fmt.Sprintf("echo %s > %s", compat21Node, paths.GenInstallerIndicatorFileName(d.Vdb))}
+	return []string{"bash", "-c", fmt.Sprintf("echo %s > %s", compat21Node, d.Vdb.GenInstallerIndicatorFileName())}
 }
 
 // genCmdRemoveOldConfig generates the command to remove the old admintools.conf file

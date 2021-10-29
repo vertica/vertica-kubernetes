@@ -17,8 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"regexp"
 
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -181,11 +183,21 @@ type VerticaDBSpec struct {
 	Sidecars []corev1.Container `json:"sidecars,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// Custom volumes that are added to sidecars.  Each sidecar must include
-	// the volume in the volumeMounts for it to appear in the container.  It
-	// accepts any valid volume type.  A unique name must be given for each
+	// Custom volumes that are added to sidecars and the Vertica container.
+	// For these volumes to be visible in either container, they must have a
+	// corresonding volumeMounts entry.  For sidecars, this is included in
+	// `spec.sidecars[*].volumeMounts`.  For the Vertica container, it is
+	// included in `spec.volumeMounts`.
+	//
+	// This accepts any valid volume type.  A unique name must be given for each
 	// volume and it cannot conflict with any of the internally generated volumes.
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Additional volume mounts to include in the Vertica container.  These
+	// reference volumes that are in the Volumes list.  The mount path must not
+	// conflict with a mount path that the operator adds internally.
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// Secrets that will be mounted in the vertica container.  The purpose of
@@ -621,4 +633,38 @@ func IsValidSubclusterName(scName string) bool {
 func (v *VerticaDB) GetVerticaVersion() (string, bool) {
 	ver, ok := v.ObjectMeta.Annotations[VersionAnnotation]
 	return ver, ok
+}
+
+// GenInstallerIndicatorFileName returns the name of the installer indicator file.
+// Valid only for the current instance of the vdb.
+func (v *VerticaDB) GenInstallerIndicatorFileName() string {
+	return paths.InstallerIndicatorFile + string(v.UID)
+}
+
+// GetPVSubPath returns the subpath in the local data PV.
+// We use the UID so that we create unique paths in the PV.  If the PV is reused
+// for a new vdb, the UID will be different.
+func (v *VerticaDB) GetPVSubPath(subPath string) string {
+	return fmt.Sprintf("%s/%s", v.UID, subPath)
+}
+
+// GetDBDataPath get the data path for the current database
+func (v *VerticaDB) GetDBDataPath() string {
+	return fmt.Sprintf("%s/%s", v.Spec.Local.DataPath, v.Spec.DBName)
+}
+
+// GetCommunalPath returns the path to use for communal storage
+func (v *VerticaDB) GetCommunalPath() string {
+	// We include the UID in the communal path to generate a unique path for
+	// each new instance of vdb. This means we can't use the same base path for
+	// different databases and we don't require any cleanup if the vdb was
+	// recreated.
+	if !v.Spec.Communal.IncludeUIDInPath {
+		return v.Spec.Communal.Path
+	}
+	return fmt.Sprintf("%s/%s", v.Spec.Communal.Path, v.UID)
+}
+
+func (v *VerticaDB) GetDepotPath() string {
+	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
 }
