@@ -307,6 +307,11 @@ type CommunalStorage struct {
 	// This gets mounted in the container and is used to configure connections
 	// to an HDFS communal path
 	HadoopConfig string `json:"hadoopConfig,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// A config map that contains the contents of the krb5.conf file.  This gets
+	// mounted in each container to provide configuarion inform for Kerberos.
+	KRB5Config string `json:"krb5Config,omitempty"`
 }
 
 type LocalStorage struct {
