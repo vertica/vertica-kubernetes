@@ -150,7 +150,7 @@ EOF
       path: /spec/communal/credentialSecret
       value: communal-creds
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
     then
         if [ -n "$HADOOP_CONF_CM" ]
         then
@@ -372,7 +372,7 @@ EOF
         name: AZURE_STORAGE_CONNECTION_STRING
         value: "DefaultEndpointsProtocol=$BLOB_ENDPOINT_PROTOCOL;AccountName=$BUCKET_OR_CLUSTER;AccountKey=$ACCOUNT_KEY;BlobEndpoint=$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST/$BUCKET_OR_CLUSTER;"
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
     then
       cat <<EOF >> kustomization.yaml
     - op: replace
@@ -553,7 +553,7 @@ EOF
 - $AZURITE_SVC
 EOF
       fi
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ]
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
     then
       cat <<EOF > kustomization.yaml
 resources:
@@ -601,7 +601,8 @@ patches:
       path: /spec/containers/0/env/4/value
       value: $ENDPOINT
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ]
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ] || \
+         [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ]
     then
       cat <<EOF > kustomization.yaml
 # Intentionally blank -- either no permissions to create a bucket or one doesn't exist for protocol.

@@ -31,6 +31,10 @@ HADOOP_CONF=/etc/hadoop
 if [ -d "$HADOOP_CONF" ]
 then
     HADOOP_CONF_OPT="-hadoopConfig $HADOOP_CONF"
+    # We need to be strict about the name of the CA Cert because when using
+    # swebhdfs:// config files in /etc/hadoop hard code the path to
+    # /certs/communal-ep-cert.
+    CA_CERT_NAME_OPT="-cacertname communal-ep-cert"
 fi
 
 /tmp/vdb-gen \
@@ -40,5 +44,6 @@ fi
     -password superuser \
     -ignore-cluster-lease \
     $CA_CERT_OPT \
+    $CA_CERT_NAME_OPT \
     $HADOOP_CONF_OPT \
     v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb

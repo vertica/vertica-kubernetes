@@ -30,4 +30,5 @@ type Options struct {
 	CAFile             string
 	HadoopConfigDir    string
 	AzureAccountName   string
+	CACertName         string
 }

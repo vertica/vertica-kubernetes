@@ -33,7 +33,7 @@ const (
 	// This is the minimum vertica version that the operator currently supports.
 	// If the vertica image that we deploy is older than this then the operator
 	// abort the reconiliation process.
-	MinimumVersion = "v10.1.1"
+	MinimumVersion = "v11.0.0"
 )
 
 // MakeInfo will construct an Info struct by extracting the version from the

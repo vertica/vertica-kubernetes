@@ -533,11 +533,13 @@ func (d *DBGenerator) readCAFile(ctx context.Context) error {
 // setCAFile will capture information about the AWSCAFile and put it into a secret
 func (d *DBGenerator) setCAFile(ctx context.Context) error {
 	const AWSCAFileKey = "AWSCAFile"
+	const SystemCABundlePathKey = "SystemCABundlePath"
 	const CACertKey = "ca.crt"
 
 	// The db cfg is already loaded in fetchDatabaseConfig
-	_, ok := d.DBCfg[AWSCAFileKey]
-	if !ok {
+	_, awsOk := d.DBCfg[AWSCAFileKey]
+	_, systemOk := d.DBCfg[SystemCABundlePathKey]
+	if !awsOk && !systemOk {
 		// Not an error, this just means there is no CA file set
 		return nil
 	}
@@ -549,7 +551,11 @@ func (d *DBGenerator) setCAFile(ctx context.Context) error {
 	d.Objs.HasCAFile = true
 	d.Objs.CAFile.TypeMeta.APIVersion = SecretAPIVersion
 	d.Objs.CAFile.TypeMeta.Kind = SecretKindName
-	d.Objs.CAFile.ObjectMeta.Name = fmt.Sprintf("%s-ca-cert", d.Opts.VdbName)
+	if d.Opts.CACertName == "" {
+		d.Objs.CAFile.ObjectMeta.Name = fmt.Sprintf("%s-ca-cert", d.Opts.VdbName)
+	} else {
+		d.Objs.CAFile.ObjectMeta.Name = d.Opts.CACertName
+	}
 	d.Objs.CAFile.Data = map[string][]byte{CACertKey: d.CAFileData}
 	d.Objs.Vdb.Spec.CertSecrets = append(d.Objs.Vdb.Spec.CertSecrets,
 		corev1.LocalObjectReference{Name: d.Objs.CAFile.ObjectMeta.Name})

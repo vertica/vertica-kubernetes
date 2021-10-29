@@ -104,7 +104,7 @@ vertica(v11.0.0-1) built by @re-docker2 from master@abcd on 'Tue Jun 10' $BuildI
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{
 				{
-					Stdout: `Vertica Analytic Database v10.1.1-0
+					Stdout: `Vertica Analytic Database v11.1.1-0
 vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_10_20210413 on 'Wed Jun  2 2021' $BuildId$
 `,
 				},
@@ -116,7 +116,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
 		Expect(len(fetchVdb.ObjectMeta.Annotations)).Should(Equal(3))
-		Expect(fetchVdb.ObjectMeta.Annotations[vapi.VersionAnnotation]).Should(Equal("v10.1.1-0"))
+		Expect(fetchVdb.ObjectMeta.Annotations[vapi.VersionAnnotation]).Should(Equal("v11.1.1-0"))
 		Expect(fetchVdb.ObjectMeta.Annotations[vapi.BuildRefAnnotation]).Should(Equal("releases/VER_10_1_RELEASE_BUILD_10_20210413"))
 		Expect(fetchVdb.ObjectMeta.Annotations[vapi.BuildDateAnnotation]).Should(Equal("Wed Jun  2 2021"))
 	})
