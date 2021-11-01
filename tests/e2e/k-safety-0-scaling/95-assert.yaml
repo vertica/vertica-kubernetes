@@ -11,19 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-k-safety-0-scaling-sc1
+  name: clean-communal
 status:
-  currentReplicas: 2
-  readyReplicas: 2
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-k-safety-0-scaling
-status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 2
+  phase: Succeeded
