@@ -103,3 +103,5 @@ kubectl cp -n $HADOOP_NS hdfs-ci-krb5-0:/tmp/hdfs.keytab hdfs.keytab
 KEYTAB_SECRET=hdfs-ci-krb5-keytab
 kubectl delete secret -n $HADOOP_NS $KEYTAB_SECRET || :
 kubectl create secret generic -n $HADOOP_NS $KEYTAB_SECRET --from-file=hdfs.keytab
+
+# SPILLY setup a single secret that has the krb5.conf and krb5.keytab.  That way we are in sync with the operator

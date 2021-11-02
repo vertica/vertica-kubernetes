@@ -96,6 +96,21 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
+	if vdb.Spec.KerberosSecret != "" {
+		volMnts = append(volMnts,
+			corev1.VolumeMount{
+				Name:      vapi.KerberosMountName,
+				MountPath: fmt.Sprintf("%s/%s", paths.KerberosRoot, paths.Krb5Conf),
+				SubPath:   paths.Krb5Conf,
+			},
+			corev1.VolumeMount{
+				Name:      vapi.KerberosMountName,
+				MountPath: fmt.Sprintf("%s/%s", paths.KerberosRoot, paths.Krb5Keytab),
+				SubPath:   paths.Krb5Keytab,
+			},
+		)
+	}
+
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
@@ -123,6 +138,9 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	}
 	if vdb.Spec.Communal.HadoopConfig != "" {
 		vols = append(vols, buildHadoopConfigVolume(vdb))
+	}
+	if vdb.Spec.KerberosSecret != "" {
+		vols = append(vols, buildKerberosVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -233,6 +251,17 @@ func buildHadoopConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HadoopConfig},
+			},
+		},
+	}
+}
+
+func buildKerberosVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.KerberosMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.KerberosSecret,
 			},
 		},
 	}
@@ -426,6 +455,20 @@ func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 			AzureBlobEndpoint:          []byte(blobEndpoint),
 			AzureSharedAccessSignature: []byte(sas),
 		},
+	}
+	return secret
+}
+
+// buildKerberosSecretBase is a test helper that creates the skeleton of a
+// Kerberos secret.  The caller's responsibility to add the necessary data.
+func buildKerberosSecretBase(vdb *vapi.VerticaDB) *corev1.Secret {
+	nm := names.GenNamespacedName(vdb, vdb.Spec.KerberosSecret)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		Data: map[string][]byte{},
 	}
 	return secret
 }

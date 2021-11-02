@@ -121,7 +121,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
 		// Creates or updates any k8s objects the CRD creates. This includes any
 		// statefulsets and service objects.
-		MakeObjReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
+		MakeObjReconciler(r, log, vdb, &pfacts),
 		// Set version info in the annotations and check that it is the minimum
 		MakeVersionReconciler(r, log, vdb, prunner, &pfacts),
 		// Handle calls to add hosts to admintools.conf

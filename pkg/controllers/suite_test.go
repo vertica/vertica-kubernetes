@@ -300,7 +300,11 @@ func createAzureSASCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
 }
 
 func deleteCommunalCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
-	nm := names.GenCommunalCredSecretName(vdb)
+	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
+}
+
+func deleteSecret(ctx context.Context, vdb *vapi.VerticaDB, secretName string) {
+	nm := names.GenNamespacedName(vdb, secretName)
 	secret := &corev1.Secret{}
 	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())

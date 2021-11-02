@@ -31,7 +31,7 @@ const (
 	ReviveDBPermissionDenied        = "ReviveDBPermissionDenied"
 	ReviveDBNodeCountMismatch       = "ReviveDBNodeCountMismatch"
 	ReviveOrderBad                  = "ReviveOrderBad"
-	CommunalCredsNotFound           = "CommunalCredsNotFound"
+	SecretNotFound                  = "SecretNotFound"
 	CommunalCredsWrongKey           = "CommunalCredsWrongKey"
 	S3EndpointIssue                 = "S3EndpointIssue"
 	S3BucketDoesNotExist            = "S3BucketDoesNotExist"
@@ -58,4 +58,5 @@ const (
 	ClusterShutdownFailed           = "ClusterShutdownFailed"
 	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
 	ReipFailed                      = "ReipFailed"
+	MissingSecretKeys               = "MissingSecretKeys"
 )
