@@ -59,9 +59,9 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 // Reconcile is the main driver for reconciliation of Kubernetes objects.
 // This will ensure the desired svc and sts objects exist and are in the correct state.
 func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// Ensure any secrets that we mount exist with the correct keys.
+	// Ensure any secrets/configMaps that we mount exist with the correct keys.
 	// We catch the errors here so that we can provide timely events.
-	if res, err := o.checkMountedSecrets(ctx); res.Requeue || err != nil {
+	if res, err := o.checkMountedObjs(ctx); res.Requeue || err != nil {
 		return res, err
 	}
 
@@ -86,18 +86,24 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.
 	return ctrl.Result{}, nil
 }
 
-// checkMountedSecrets will check if the mounted secrets exist and have the
-// correct keys in them.
-func (o *ObjReconciler) checkMountedSecrets(ctx context.Context) (ctrl.Result, error) {
-	// First check for secrets that just need to exist.  We mount the entire
-	// secret in a directory and don't care what keys it has.
-	simpleChecks := []string{o.Vdb.Spec.LicenseSecret, o.Vdb.Spec.Communal.HadoopConfig}
-	for _, secretName := range simpleChecks {
-		if secretName != "" {
-			_, res, err := getSecret(ctx, o.VRec, o.Vdb, names.GenNamespacedName(o.Vdb, secretName))
-			if res.Requeue || err != nil {
-				return res, err
-			}
+// checkMountedObjs will check if the mounted secrets/configMap exist and have
+// the correct keys in them.
+func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, error) {
+	// First check for secrets/configMaps that just need to exist.  We mount the
+	// entire object in a directory and don't care what keys it has.
+	if o.Vdb.Spec.LicenseSecret != "" {
+		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.LicenseSecret))
+		if res.Requeue || err != nil {
+			return res, err
+		}
+	}
+
+	if o.Vdb.Spec.Communal.HadoopConfig != "" {
+		_, res, err := getConfigMap(ctx, o.VRec, o.Vdb,
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.Communal.HadoopConfig))
+		if res.Requeue || err != nil {
+			return res, err
 		}
 	}
 

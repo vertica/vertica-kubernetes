@@ -466,6 +466,17 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
 
+		It("should requeue if the hadoop conf is not found", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Communal.HadoopConfig = "not-here-3"
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		})
+
 		It("should succeed if the kerberos secret is setup correctly", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.KerberosSecret = "my-secret-v1"

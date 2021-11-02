@@ -320,6 +320,7 @@ type CommunalStorage struct {
 	// +kubebuilder:validation:Optional
 	// Name of the Kerberos service principal that is used for bootstrapping
 	// during create or revive db of a HDFS communal endpoint.
+	// SPILLY - double check this name, maybe match with ServiceName
 	KerberosServicePrincipal string `json:"kerberosServicePrincipal,omitempty"`
 
 	// +kubebuilder:validation:Optional

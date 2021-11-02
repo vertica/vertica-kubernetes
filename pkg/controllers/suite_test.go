@@ -309,3 +309,10 @@ func deleteSecret(ctx context.Context, vdb *vapi.VerticaDB, secretName string) {
 	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }
+
+func deleteConfigMap(ctx context.Context, vdb *vapi.VerticaDB, cmName string) {
+	nm := names.GenNamespacedName(vdb, cmName)
+	cm := &corev1.ConfigMap{}
+	Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
+	Expect(k8sClient.Delete(ctx, cm)).Should(Succeed())
+}

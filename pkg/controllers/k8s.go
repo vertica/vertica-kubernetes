@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // getSecret is a generic function to get a secret and return its contents.  If
@@ -33,14 +34,41 @@ import (
 func getSecret(ctx context.Context, vrec *VerticaDBReconciler, vdb *vapi.VerticaDB,
 	nm types.NamespacedName) (*corev1.Secret, ctrl.Result, error) {
 	secret := &corev1.Secret{}
-	if err := vrec.Client.Get(ctx, nm, secret); err != nil {
+	res, err := getConfigMapOrSecret(ctx, vrec, vdb, nm, secret)
+	return secret, res, err
+}
+
+// getConfigMap is like getSecret except that it works for configMap's.  It the
+// configMap is not found, then the ctrl.Result returned will indicate a requeue
+// is needed.
+func getConfigMap(ctx context.Context, vrec *VerticaDBReconciler, vdb *vapi.VerticaDB,
+	nm types.NamespacedName) (*corev1.ConfigMap, ctrl.Result, error) {
+	cm := &corev1.ConfigMap{}
+	res, err := getConfigMapOrSecret(ctx, vrec, vdb, nm, cm)
+	return cm, res, err
+}
+
+// getConfigMapOrSecret is a generic function to fetch a ConfigMap or a Secret.
+// It will handle logging an event if the configMap or secret is missing.
+func getConfigMapOrSecret(ctx context.Context, vrec *VerticaDBReconciler, vdb *vapi.VerticaDB,
+	nm types.NamespacedName, obj client.Object) (ctrl.Result, error) {
+	if err := vrec.Client.Get(ctx, nm, obj); err != nil {
 		if errors.IsNotFound(err) {
-			vrec.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.SecretNotFound,
-				"Could not find the secret '%s'", nm)
-			return &corev1.Secret{}, ctrl.Result{Requeue: true}, nil
+			objType := ""
+			switch v := obj.(type) {
+			default:
+				objType = fmt.Sprintf("%T", v)
+			case *corev1.Secret:
+				objType = "Secret"
+			case *corev1.ConfigMap:
+				objType = "ConfigMap"
+			}
+			vrec.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.ObjectNotFound,
+				"Could not find the %s '%s'", objType, nm)
+			return ctrl.Result{Requeue: true}, nil
 		}
-		return &corev1.Secret{}, ctrl.Result{},
+		return ctrl.Result{},
 			fmt.Errorf("could not read the secret %s: %w", nm, err)
 	}
-	return secret, ctrl.Result{}, nil
+	return ctrl.Result{}, nil
 }

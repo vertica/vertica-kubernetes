@@ -31,7 +31,7 @@ const (
 	ReviveDBPermissionDenied        = "ReviveDBPermissionDenied"
 	ReviveDBNodeCountMismatch       = "ReviveDBNodeCountMismatch"
 	ReviveOrderBad                  = "ReviveOrderBad"
-	SecretNotFound                  = "SecretNotFound"
+	ObjectNotFound                  = "ObjectNotFound"
 	CommunalCredsWrongKey           = "CommunalCredsWrongKey"
 	S3EndpointIssue                 = "S3EndpointIssue"
 	S3BucketDoesNotExist            = "S3BucketDoesNotExist"
