@@ -58,6 +58,11 @@ func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will ensure Vertica is installed and running in the pods.
 func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	// no-op for ScheduleOnly init policy
+	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		return ctrl.Result{}, nil
+	}
+
 	// The reconcile loop works by collecting all of the facts about the running
 	// pods. We then analyze those facts to determine a course of action to take.
 	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
@@ -76,9 +81,13 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 	}
 
 	fns := []func(context.Context) error{
-		d.addHostsToATConf,
 		d.acceptEulaIfMissing,
 		d.checkConfigDir,
+		// This has to be after accepting the EULA.  re_ip will not succeed if
+		// the EULA is not accepted and a re_ip can happen before coming to this
+		// reconcile function.  So if the pod is rescheduled after adding
+		// hosts to the config, we have to know that a re_ip will succeed.
+		d.addHostsToATConf,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -233,7 +242,7 @@ func (d *InstallReconciler) fetchCompat21NodeNum(ctx context.Context, pf *PodFac
 func (d *InstallReconciler) genCmdCreateInstallIndicator(compat21Node string) []string {
 	// The install indicator file has the UID of the vdb. This allows us to know
 	// that we are working with a different life in the vdb is ever recreated.
-	return []string{"bash", "-c", fmt.Sprintf("echo %s > %s", compat21Node, paths.GenInstallerIndicatorFileName(d.Vdb))}
+	return []string{"bash", "-c", fmt.Sprintf("echo %s > %s", compat21Node, d.Vdb.GenInstallerIndicatorFileName())}
 }
 
 // genCmdRemoveOldConfig generates the command to remove the old admintools.conf file

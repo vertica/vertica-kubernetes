@@ -80,12 +80,12 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 		case isClusterLeaseNotExpired(stdout):
 			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
 				"revive_db failed because the cluster lease has not expired for '%s'",
-				paths.GetCommunalPath(r.Vdb))
+				r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isBucketNotExistError(stdout):
 			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
-				"The bucket in the S3 path '%s' does not exist", paths.GetCommunalPath(r.Vdb))
+				"The bucket in the S3 path '%s' does not exist", r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isEndpointBadError(stdout):
@@ -96,7 +96,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 		case isDatabaseNotFound(stdout):
 			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBNotFound,
 				"revive_db failed because the database '%s' could not be found in the communal path '%s'",
-				r.Vdb.Spec.DBName, paths.GetCommunalPath(r.Vdb))
+				r.Vdb.Spec.DBName, r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isPermissionDeniedError(stdout):
@@ -130,7 +130,8 @@ func isClusterLeaseNotExpired(op string) bool {
 }
 
 func isDatabaseNotFound(op string) bool {
-	rs := `Could not copy file.+: No such file or directory`
+	rs := `(?s)Could not copy file.+: ` +
+		`(No such file or directory|.*FileNotFoundException|File not found|.*blob does not exist)`
 	re := regexp.MustCompile(rs)
 	return re.FindAllString(op, -1) != nil
 }
@@ -150,12 +151,6 @@ func isNodeCountMismatch(op string) bool {
 // DatabaseInitializer interface.
 func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName) error {
 	return nil
-}
-
-// getAdditionalAuthParms returns additional auth parms that we need to set for revive_db.
-// This is only needed by the GenericDatabaseInitializer interface and isn't used by revive.
-func (r *ReviveDBReconciler) getAdditionalAuthParms() string {
-	return ""
 }
 
 // getPodList gets a list of the pods we are going to use in revive db.
@@ -231,7 +226,7 @@ func (r *ReviveDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 	cmd := []string{
 		"-t", "revive_db",
 		"--hosts=" + strings.Join(hostList, ","),
-		"--communal-storage-location=" + paths.GetCommunalPath(r.Vdb),
+		"--communal-storage-location=" + r.Vdb.GetCommunalPath(),
 		"--communal-storage-params=" + paths.AuthParmsFile,
 		"--database", r.Vdb.Spec.DBName,
 	}

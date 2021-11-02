@@ -18,44 +18,55 @@ package vdbgen
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"regexp"
+	"strings"
 
 	// Blank import of vertica since we use it indirectly through the sql interface
 	_ "github.com/vertica/vertica-sql-go"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 )
 
 type DBGenerator struct {
-	Conn        *sql.DB
-	Opts        *Options
-	Objs        KObjs
-	LicenseData []byte
+	Conn           *sql.DB
+	Opts           *Options
+	Objs           KObjs
+	LicenseData    []byte
+	DBCfg          map[string]string // Contents extracted from 'SHOW DATABASE DEFAULT ALL'
+	CAFileData     []byte
+	HadoopConfData map[string]string
 }
 
 type QueryType string
 
 const (
-	ShardCountKey       QueryType = "shardCount"
-	CommunalEndpointKey QueryType = "communalEP"
-	StorageLocationKey  QueryType = "storageLocation"
-	SubclusterQueryKey  QueryType = "subcluster"
+	ShardCountKey      QueryType = "shardCount"
+	DBCfgKey           QueryType = "dbCfg"
+	StorageLocationKey QueryType = "storageLocation"
+	SubclusterQueryKey QueryType = "subcluster"
 
 	SecretAPIVersion = "v1"
 	SecretKindName   = "Secret"
+
+	ConfigAPIVersion = "v1"
+	ConfigKindName   = "ConfigMap"
 )
 
 var Queries = map[QueryType]string{
-	ShardCountKey:       "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
-	CommunalEndpointKey: "SHOW DATABASE DEFAULT ALL",
-	StorageLocationKey:  "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
-	SubclusterQueryKey:  "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
+	ShardCountKey:      "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
+	DBCfgKey:           "SHOW DATABASE DEFAULT ALL",
+	StorageLocationKey: "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
+	SubclusterQueryKey: "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
 }
 
 // Create will generate a VerticaDB based the specifics gathered from a live database
@@ -67,12 +78,19 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.readLicense,
 		d.connect,
 		d.setShardCount,
-		d.setCommunalEndpoint,
+		d.setCommunalPath,
+		d.fetchDatabaseConfig,
+		d.setCommunalEndpointAWS,
+		d.setCommunalEndpointGCloud,
+		d.setCommunalEndpointAzure,
 		d.setLocalPaths,
 		d.setSubclusterDetail,
-		d.setCommunalPath,
 		d.setLicense,
 		d.setPasswordSecret,
+		d.readCAFile,
+		d.setCAFile,
+		d.readHadoopConfig,
+		d.setHadoopConfig,
 	}
 
 	for _, collector := range collectors {
@@ -148,21 +166,17 @@ func (d *DBGenerator) setShardCount(ctx context.Context) error {
 	return nil
 }
 
-// setCommunalEndpoint will fetch the communal endpoint and set it in v.vdb
-func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
-	q := Queries[CommunalEndpointKey]
+// fetchDatabaseConfig populate the DbCfg with output of the call to
+// 'SHOW DATABASE DEFAULT ALL'
+func (d *DBGenerator) fetchDatabaseConfig(ctx context.Context) error {
+	q := Queries[DBCfgKey]
 	rows, err := d.Conn.QueryContext(ctx, q)
 	if err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
 	defer rows.Close()
 
-	const HTTPSKey = "AWSEnableHttps"
-	const EndpointKey = "AWSEndpoint"
-	const AWSAuth = "AWSAuth"
-	var protocol, endpoint string
-	var auth []string
-
+	d.DBCfg = map[string]string{}
 	for rows.Next() {
 		if rows.Err() != nil {
 			return fmt.Errorf("failed running '%s': %w", q, rows.Err())
@@ -172,37 +186,132 @@ func (d *DBGenerator) setCommunalEndpoint(ctx context.Context) error {
 		if err := rows.Scan(&key, &value); err != nil {
 			return fmt.Errorf("failed running '%s': %w", q, err)
 		}
+		d.DBCfg[key] = value
+	}
+	return nil
+}
 
-		switch key {
-		case HTTPSKey:
-			if value == "0" {
-				protocol = "http"
-			} else {
-				protocol = "https"
-			}
-		case EndpointKey:
-			endpoint = value
+// setCommunalEndpointAWS will fetch the communal endpoint for AWS and set it in v.vdb
+func (d *DBGenerator) setCommunalEndpointAWS(ctx context.Context) error {
+	if !d.Objs.Vdb.IsS3() {
+		return nil
+	}
 
-		case AWSAuth:
-			authRE := regexp.MustCompile(`:`)
-			const NumAuthComponents = 2
-			auth = authRE.Split(value, NumAuthComponents)
+	const HTTPSKey = "AWSEnableHttps"
+	const EndpointKey = "AWSEndpoint"
+	const AWSAuth = "AWSAuth"
+	const RegionKey = "AWSRegion"
+	return d.setCommunalEndpointGeneric(HTTPSKey, EndpointKey, AWSAuth, RegionKey)
+}
+
+// setCommunalEndpointGCloud will fetch the communal endpoint for Google Cloud and set it in v.vdb
+func (d *DBGenerator) setCommunalEndpointGCloud(ctx context.Context) error {
+	if !d.Objs.Vdb.IsGCloud() {
+		return nil
+	}
+
+	const HTTPSKey = "GCSEnableHttps"
+	const EndpointKey = "GCSEndpoint"
+	const AWSAuth = "GCSAuth"
+	const RegionKey = "GCSRegion"
+	return d.setCommunalEndpointGeneric(HTTPSKey, EndpointKey, AWSAuth, RegionKey)
+}
+
+// setCommunalEndpointAzure will look for Azure config and setup the communal
+// secret if found.
+func (d *DBGenerator) setCommunalEndpointAzure(ctx context.Context) error {
+	if !d.Objs.Vdb.IsAzure() {
+		return nil
+	}
+
+	const AzureCredentialKey = "AzureStorageCredentials"
+	const AzureConfigKey = "AzureStorageEndpointConfig"
+
+	credsStr, ok := d.DBCfg[AzureCredentialKey]
+	if !ok {
+		// Missing entry just means we didn't setup for this endpoint.
+		return nil
+	}
+
+	cred, ok, err := d.extractAzureCredential(credsStr)
+	if !ok || err != nil {
+		return err
+	}
+
+	// Peek into the azure endpoint config (if it exists), to know if the
+	// endpoint is http or https.
+	blobEndpoint := cred.BlobEndpoint
+	epCfg := controllers.AzureEndpointConfig{}
+	configStr, ok := d.DBCfg[AzureConfigKey]
+	if ok {
+		epCfg, ok, err = d.extractAzureEndpointConfig(configStr)
+		if err != nil {
+			return err
+		}
+		if ok && epCfg.Protocol != "" {
+			blobEndpoint = fmt.Sprintf("%s://%s", epCfg.Protocol, cred.BlobEndpoint)
 		}
 	}
-	if protocol == "" {
-		return fmt.Errorf("missing '%s' in query '%s'", HTTPSKey, q)
+
+	d.Objs.CredSecret.Data = map[string][]byte{}
+	if cred.AccountKey != "" {
+		d.Objs.CredSecret.Data[controllers.AzureAccountKey] = []byte(cred.AccountKey)
 	}
-	if endpoint == "" {
-		return fmt.Errorf("missing '%s' in query '%s'", EndpointKey, q)
+	if cred.AccountName != "" {
+		d.Objs.CredSecret.Data[controllers.AzureAccountName] = []byte(cred.AccountName)
 	}
-	if len(auth) == 0 {
-		return fmt.Errorf("missing '%s' in query '%s'", AWSAuth, q)
+	if cred.BlobEndpoint != "" {
+		d.Objs.CredSecret.Data[controllers.AzureBlobEndpoint] = []byte(blobEndpoint)
+	}
+	if cred.SharedAccessSignature != "" {
+		d.Objs.CredSecret.Data[controllers.AzureSharedAccessSignature] = []byte(cred.SharedAccessSignature)
+	}
+
+	return nil
+}
+
+// setCommunalEndpointGeneric gathers information about the endpoint for a
+// generic service.  All of the key names are passed in by the caller.
+func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey, regionKey string) error {
+	var protocol, endpoint string
+	var auth []string
+
+	// The db cfg is already loaded in fetchDatabaseConfig
+	value, ok := d.DBCfg[httpsKey]
+	if !ok {
+		// Missing entry just means we didn't setup for this endpoint.
+		return nil
+	}
+	if value == "0" {
+		protocol = "http"
+	} else {
+		protocol = "https"
+	}
+
+	value, ok = d.DBCfg[endpointKey]
+	if !ok {
+		return fmt.Errorf("missing '%s' in query '%s'", endpointKey, Queries[DBCfgKey])
+	}
+	endpoint = value
+
+	value, ok = d.DBCfg[authKey]
+	if !ok {
+		return fmt.Errorf("missing '%s' in query '%s'", authKey, Queries[DBCfgKey])
+	}
+	authRE := regexp.MustCompile(`:`)
+	const NumAuthComponents = 2
+	auth = authRE.Split(value, NumAuthComponents)
+
+	// The region may not be present if the default was never overridden.
+	value, ok = d.DBCfg[regionKey]
+	if ok {
+		d.Objs.Vdb.Spec.Communal.Region = value
 	}
 
 	d.Objs.Vdb.Spec.Communal.Endpoint = fmt.Sprintf("%s://%s", protocol, endpoint)
 	d.Objs.CredSecret.Data = map[string][]byte{
-		controllers.S3AccessKeyName: []byte(auth[0]),
-		controllers.S3SecretKeyName: []byte(auth[1]),
+		controllers.CommunalAccessKeyName: []byte(auth[0]),
+		controllers.CommunalSecretKeyName: []byte(auth[1]),
 	}
 
 	return nil
@@ -408,4 +517,198 @@ func (d *DBGenerator) setPasswordSecret(ctx context.Context) error {
 	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{controllers.SuperuserPasswordKey: []byte(d.Opts.Password)}
 
 	return nil
+}
+
+// readCAFile will read the CA file provided on the command line
+func (d *DBGenerator) readCAFile(ctx context.Context) error {
+	if d.Opts.CAFile == "" {
+		return nil
+	}
+
+	var err error
+	d.CAFileData, err = ioutil.ReadFile(d.Opts.CAFile)
+	return err
+}
+
+// setCAFile will capture information about the AWSCAFile and put it into a secret
+func (d *DBGenerator) setCAFile(ctx context.Context) error {
+	const AWSCAFileKey = "AWSCAFile"
+	const SystemCABundlePathKey = "SystemCABundlePath"
+	const CACertKey = "ca.crt"
+
+	// The db cfg is already loaded in fetchDatabaseConfig
+	_, awsOk := d.DBCfg[AWSCAFileKey]
+	_, systemOk := d.DBCfg[SystemCABundlePathKey]
+	if !awsOk && !systemOk {
+		// Not an error, this just means there is no CA file set
+		return nil
+	}
+
+	if d.Opts.CAFile == "" {
+		return fmt.Errorf("communal endpoint authenticates with a CA file but -cafile not provided")
+	}
+
+	d.Objs.HasCAFile = true
+	d.Objs.CAFile.TypeMeta.APIVersion = SecretAPIVersion
+	d.Objs.CAFile.TypeMeta.Kind = SecretKindName
+	if d.Opts.CACertName == "" {
+		d.Objs.CAFile.ObjectMeta.Name = fmt.Sprintf("%s-ca-cert", d.Opts.VdbName)
+	} else {
+		d.Objs.CAFile.ObjectMeta.Name = d.Opts.CACertName
+	}
+	d.Objs.CAFile.Data = map[string][]byte{CACertKey: d.CAFileData}
+	d.Objs.Vdb.Spec.CertSecrets = append(d.Objs.Vdb.Spec.CertSecrets,
+		corev1.LocalObjectReference{Name: d.Objs.CAFile.ObjectMeta.Name})
+	d.Objs.Vdb.Spec.Communal.CaFile = fmt.Sprintf("%s/%s/%s", paths.CertsRoot, d.Objs.CAFile.ObjectMeta.Name, CACertKey)
+
+	return nil
+}
+
+// readHadoopConfig will read the contents of the hadoop directory
+func (d *DBGenerator) readHadoopConfig(ctx context.Context) error {
+	if d.Opts.HadoopConfigDir == "" {
+		return nil
+	}
+
+	d.HadoopConfData = map[string]string{}
+
+	dir, err := os.Open(d.Opts.HadoopConfigDir)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	fileNames, err := dir.Readdirnames(0)
+	if err != nil {
+		return err
+	}
+	for _, fn := range fileNames {
+		if !strings.HasSuffix(fn, ".xml") {
+			continue
+		}
+		cnt, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", d.Opts.HadoopConfigDir, fn))
+		if err != nil {
+			return err
+		}
+		d.HadoopConfData[fn] = string(cnt)
+	}
+
+	return nil
+}
+
+// setHadoopConfig will set the Hadoop config in the Vdb
+func (d *DBGenerator) setHadoopConfig(ctx context.Context) error {
+	const HadoopConfigKey = "HadoopConfDir"
+
+	_, ok := d.DBCfg[HadoopConfigKey]
+	if !ok {
+		// Not an error, this just means there is no hadoop conf set
+		return nil
+	}
+
+	d.Objs.HasHadoopConfig = true
+	d.Objs.HadoopConfig.TypeMeta.APIVersion = ConfigAPIVersion
+	d.Objs.HadoopConfig.TypeMeta.Kind = ConfigKindName
+	d.Objs.HadoopConfig.ObjectMeta.Name = fmt.Sprintf("%s-hadoop-conf", d.Opts.VdbName)
+	d.Objs.HadoopConfig.Data = d.HadoopConfData
+	d.Objs.Vdb.Spec.Communal.HadoopConfig = d.Objs.HadoopConfig.ObjectMeta.Name
+
+	return nil
+}
+
+// extractAzureCredential will grab the Azure credential to be used for communal access.
+// nolint:dupl
+func (d *DBGenerator) extractAzureCredential(credsStr string) (controllers.AzureCredential, bool, error) {
+	// The azure credentials are stored in JSON format.  We should be able to
+	// take the string value stored in the database defaults and unmarhsal it
+	// into JSON.  If this fails, we will fail with an error.
+	creds := []controllers.AzureCredential{}
+	if err := json.Unmarshal([]byte(credsStr), &creds); err != nil {
+		return controllers.AzureCredential{}, false, fmt.Errorf("unmarshal azure creds: %w", err)
+	}
+
+	if len(creds) == 0 {
+		// No azure storage credentials setup.  Skip Azure endpoint setup.
+		return controllers.AzureCredential{}, false, nil
+	}
+
+	// If there is more than one credential stored, then we require the
+	// command line option specified that tells what account to use.
+	if len(creds) > 1 && d.Opts.AzureAccountName == "" {
+		return controllers.AzureCredential{}, false,
+			fmt.Errorf("%d azure credentials exist -- must specify the azure account name to use",
+				len(creds))
+	}
+
+	// We default to the first (and only) credential if no account name was specified.
+	if d.Opts.AzureAccountName == "" {
+		d.Opts.AzureAccountName = creds[0].AccountName
+	}
+
+	cred, ok := d.getAzureCredential(creds)
+	if !ok {
+		return controllers.AzureCredential{}, false,
+			fmt.Errorf("could not find a azure credential with matching account name '%s'",
+				d.Opts.AzureAccountName)
+	}
+	return cred, true, nil
+}
+
+// getAzureCredential will find the credential that matches the d.Opts.AzureAccountName
+func (d *DBGenerator) getAzureCredential(creds []controllers.AzureCredential) (controllers.AzureCredential, bool) {
+	for i := range creds {
+		if creds[i].AccountName == d.Opts.AzureAccountName {
+			return creds[i], true
+		}
+	}
+	return controllers.AzureCredential{}, false
+}
+
+// extractAzureEndpointConfig will parse out the endpoint config for the correct
+// accountName.  If nothing is found, the bool return is set to false.
+// nolint:dupl
+func (d *DBGenerator) extractAzureEndpointConfig(configStr string) (controllers.AzureEndpointConfig, bool, error) {
+	// The azure endpoint config is stored in JSON format.  We will be able to
+	// take the string value stored in the database defaults and unmarhsal it
+	// into JSON.  If this fails, we will fail with an error.
+	epCfgs := []controllers.AzureEndpointConfig{}
+	if err := json.Unmarshal([]byte(configStr), &epCfgs); err != nil {
+		return controllers.AzureEndpointConfig{}, false, fmt.Errorf("unmarshal azure endpoint config: %w", err)
+	}
+
+	if len(epCfgs) == 0 {
+		// No azure endpoint configs.
+		return controllers.AzureEndpointConfig{}, false, nil
+	}
+
+	// If there is more than one credential stored, then we require the
+	// command line option specified that tells what account to use.
+	if len(epCfgs) > 1 && d.Opts.AzureAccountName == "" {
+		return controllers.AzureEndpointConfig{}, false,
+			fmt.Errorf("%d azure endpoint configs exist -- must specify the azure account name to use",
+				len(epCfgs))
+	}
+
+	// We default to the first (and only) credential if no account name was specified.
+	if d.Opts.AzureAccountName == "" {
+		d.Opts.AzureAccountName = epCfgs[0].AccountName
+	}
+
+	cfg, ok := d.getAzureConfig(epCfgs)
+	if !ok {
+		return controllers.AzureEndpointConfig{}, false,
+			fmt.Errorf("could not find a azure credential with matching account name '%s'",
+				d.Opts.AzureAccountName)
+	}
+	return cfg, true, nil
+}
+
+// getAzureCredential will find the credential that matches the d.Opts.AzureAccountName
+func (d *DBGenerator) getAzureConfig(cfgs []controllers.AzureEndpointConfig) (controllers.AzureEndpointConfig, bool) {
+	for i := range cfgs {
+		if cfgs[i].AccountName == d.Opts.AzureAccountName {
+			return cfgs[i], true
+		}
+	}
+	return controllers.AzureEndpointConfig{}, false
 }

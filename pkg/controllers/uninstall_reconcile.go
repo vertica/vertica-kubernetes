@@ -25,7 +25,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -74,6 +73,11 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 // everything in Vdb. We will know if we are scaling down by comparing the
 // expected subcluster size with the current.
 func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	// no-op for ScheduleOnly init policy
+	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		return ctrl.Result{}, nil
+	}
+
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -169,6 +173,11 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 		if podFact.isInstalled.IsFalse() {
 			continue
 		}
+		if !podFact.dbExists.IsFalse() {
+			s.Log.Info("DB exists at the pod, which needs to be removed first", "pod", uninstallPod)
+			requeueNeeded = true
+			continue
+		}
 		pods = append(pods, podFact)
 	}
 	return pods, requeueNeeded
@@ -176,5 +185,5 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 
 // genCmdRemoveInstallIndicator will generate the command to get rid of the installer indicator file
 func (s *UninstallReconciler) genCmdRemoveInstallIndicator() []string {
-	return []string{"rm", paths.GenInstallerIndicatorFileName(s.Vdb)}
+	return []string{"rm", s.Vdb.GenInstallerIndicatorFileName()}
 }

@@ -315,7 +315,6 @@ var _ = Describe("restart_reconciler", func() {
 		// Setup the pod runner to grep out admintools.conf
 		atPod := names.GenPodName(vdb, sc, 3)
 		fpr.Results[atPod] = []cmds.CmdResult{
-			{}, // Query -t list_allnodes
 			{
 				Stdout: "node0001 = 4.4.4.4,/d,/d\nnode0002 = 5.5.5.5,/f,/f\n",
 			},
@@ -373,6 +372,7 @@ var _ = Describe("restart_reconciler", func() {
 
 		atPod := names.GenPodName(vdb, sc, 3)
 		fpr.Results[atPod] = []cmds.CmdResult{
+			{}, // re-ip command
 			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
 				"---------------+------------+-------+-------------------------+----\n" +
 				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | d \n" +
@@ -385,8 +385,8 @@ var _ = Describe("restart_reconciler", func() {
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		lastCmd := fpr.Histories[len(fpr.Histories)-1]
-		Expect(lastCmd.Command).Should(ContainElement("list_allnodes"))
+		listCmd := fpr.FindCommands("list_allnodes")
+		Expect(len(listCmd)).Should(Equal(1))
 	})
 
 	It("should avoid restart_node since cluster state still says the host is up", func() {
@@ -498,5 +498,27 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reip := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "re_ip")
 		Expect(len(reip)).Should(Equal(1))
+	})
+
+	It("should requeue if one pod is not running", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyScheduleOnly
+		sc := &vdb.Spec.Subclusters[0]
+		const ScSize = 2
+		sc.Size = ScSize
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsNotRunning)
+		defer deletePods(ctx, vdb)
+
+		// Pod -0 is running and pod -1 is not running.
+		setPodStatusHelper(ctx, 1, names.GenPodName(vdb, sc, 0), 0, 0, AllPodsRunning, false)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		const DownPodIndex = 1
+		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{DownPodIndex})
+
+		r := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 })

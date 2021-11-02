@@ -56,6 +56,12 @@ then
     source $CONFIG
 fi
 
+# Read in the kustomize defaults for setup-kustomize.sh
+source tests/kustomize-defaults.cfg
+if [ -n "$KUSTOMIZE_CFG" ]
+then
+    source $KUSTOMIZE_CFG
+fi
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -70,11 +76,9 @@ kubectl delete namespace $NAMESPACE 2> /dev/null || :
 kubectl create namespace $NAMESPACE
 
 # Install the license file if one exists.
-if [ -n "$LICENSE_FILE" ]
+if [ -n "$LICENSE_FILE" && -n "$LICENSE_SECRET" ]
 then
-    kubectl -n $NAMESPACE create secret generic license --from-file=license.key=$LICENSE_FILE
-    # Set this env var so that its picked up by kuttl when it creates the vdb.
-    export LICENSE_OPT="-l license"
+    kubectl -n $NAMESPACE create secret generic $LICENSE_SECRET --from-file=license.key=$LICENSE_FILE
 fi
 
 # NOTE: Most of the environment variables in use here were read in from the config file.

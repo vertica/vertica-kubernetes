@@ -27,4 +27,8 @@ type Options struct {
 	IgnoreClusterLease bool
 	Image              string
 	LicenseFile        string
+	CAFile             string
+	HadoopConfigDir    string
+	AzureAccountName   string
+	CACertName         string
 }

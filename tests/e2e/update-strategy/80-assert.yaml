@@ -15,17 +15,6 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: v-ks-1-update-strategy-sc1-2
-spec:
-  containers:
-    - volumeMounts:
-        - mountPath: /home/dbadmin/local-data
-        - mountPath: /opt/vertica/config
-        - mountPath: /opt/vertica/log
-        - mountPath: /data
-        - mountPath: /depot
-        - mountPath: /etc/podinfo
-        - mountPath: /home/dbadmin/licensing/mnt
-        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
 status:
   containerStatuses:
     - ready: true
@@ -34,17 +23,6 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: v-ks-1-update-strategy-sc1-1
-spec:
-  containers:
-    - volumeMounts:
-        - mountPath: /home/dbadmin/local-data
-        - mountPath: /opt/vertica/config
-        - mountPath: /opt/vertica/log
-        - mountPath: /data
-        - mountPath: /depot
-        - mountPath: /etc/podinfo
-        - mountPath: /home/dbadmin/licensing/mnt
-        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
 status:
   containerStatuses:
     - ready: true
@@ -53,17 +31,6 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: v-ks-1-update-strategy-sc1-0
-spec:
-  containers:
-    - volumeMounts:
-        - mountPath: /home/dbadmin/local-data
-        - mountPath: /opt/vertica/config
-        - mountPath: /opt/vertica/log
-        - mountPath: /data
-        - mountPath: /depot
-        - mountPath: /etc/podinfo
-        - mountPath: /home/dbadmin/licensing/mnt
-        - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
 status:
   containerStatuses:
     - ready: true

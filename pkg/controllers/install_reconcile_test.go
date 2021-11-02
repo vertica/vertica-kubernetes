@@ -59,7 +59,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
 			names.GenPodName(vdb, sc, 0): []cmds.CmdResult{{}},
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{Stderr: "cat: " + paths.GenInstallerIndicatorFileName(vdb) + ": No such file or directory",
+				{Stderr: "cat: " + vdb.GenInstallerIndicatorFileName() + ": No such file or directory",
 					Err: errors.New("command terminated with exit code 1")},
 			},
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{{}},
@@ -94,10 +94,10 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
 			names.GenPodName(vdb, sc, 0): []cmds.CmdResult{{}},
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{{
-				Stderr: "cat: " + paths.GenInstallerIndicatorFileName(vdb) + ": No such file or directory",
+				Stderr: "cat: " + vdb.GenInstallerIndicatorFileName() + ": No such file or directory",
 				Err:    errors.New("command terminated with exit code 1")}},
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{{
-				Stderr: "cat: " + paths.GenInstallerIndicatorFileName(vdb) + ": No such file or directory",
+				Stderr: "cat: " + vdb.GenInstallerIndicatorFileName() + ": No such file or directory",
 				Err:    errors.New("command terminated with exit code 1")}},
 		}}
 

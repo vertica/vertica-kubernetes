@@ -19,9 +19,6 @@ spec:
   image: kustomize-vertica-image
   ignoreClusterLease: false
   communal:
-    path: "s3://revivedb-failures"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
     includeUIDInPath: false
   initPolicy: Revive
   local:
@@ -34,3 +31,4 @@ spec:
       size: 2
   kSafety: "0"
   requeueTime: 4
+  certSecrets: []

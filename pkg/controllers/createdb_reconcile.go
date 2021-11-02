@@ -92,12 +92,17 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 
 		case isBucketNotExistError(stdout):
 			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
-				"The bucket in the S3 path '%s' does not exist", paths.GetCommunalPath(c.Vdb))
+				"The bucket in the S3 path '%s' does not exist", c.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isCommunalPathNotEmpty(stdout):
 			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalPathIsNotEmpty,
-				"The communal path '%s' is not empty", paths.GetCommunalPath(c.Vdb))
+				"The communal path '%s' is not empty", c.Vdb.GetCommunalPath())
+			return ctrl.Result{Requeue: true}, nil
+
+		case isWrongRegion(stdout):
+			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3WrongRegion,
+				"You are trying to access your S3 bucket using the wrong region")
 			return ctrl.Result{Requeue: true}, nil
 
 		default:
@@ -116,16 +121,30 @@ func isCommunalPathNotEmpty(op string) bool {
 	return re.FindAllString(op, -1) != nil
 }
 
+// isWrongRegion will check the error to see if we are accessing the wrong S3 region
+func isWrongRegion(op string) bool {
+	// We have seen two varieties of errors
+	errTexts := []string{
+		"You are trying to access your S3 bucket using the wrong region",
+		"the region '.+' is wrong; expecting '.+'",
+	}
+
+	for i := range errTexts {
+		re := regexp.MustCompile(errTexts[i])
+		if re.FindAllString(op, -1) != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
 func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName) error {
-	// We include SQL to reset the AWS connection parms we temporarily set in the
-	// auth file (see constructAuthParms).  We also rename the default
-	// subcluster to match the name of the first subcluster in the spec -- any
-	// remaining subclusters will be added by DBAddSubclusterReconciler.
-	sql := "alter database default clear AWSConnectTimeout;\n" +
-		"alter database default clear AWSMaxRetryCount;\n" +
-		"alter subcluster default_subcluster rename to " + c.Vdb.Spec.Subclusters[0].Name + ";\n"
+	// We include SQL to rename the default subcluster to match the name of the
+	// first subcluster in the spec -- any remaining subclusters will be added
+	// by DBAddSubclusterReconciler.
+	sql := "alter subcluster default_subcluster rename to " + c.Vdb.Spec.Subclusters[0].Name + ";\n"
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"
 	}
@@ -133,20 +152,6 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< '"+sql+"'",
 	)
 	return err
-}
-
-// getAdditionalAuthParms returns additional auth parms that we need to set for create_db
-func (c *CreateDBReconciler) getAdditionalAuthParms() string {
-	// We temporarily lower the connect time and retry count for AWS. This is
-	// done so that we fail fast if the S3 endpoint isn't setup. These are
-	// cleared at the end of the create_db.
-	const TempAWSConnectTime = "20"
-	const TempMaxRetryCount = "3"
-
-	return fmt.Sprintf("%s = %s\n%s = %s\n",
-		"AWSConnectTimeout", TempAWSConnectTime,
-		"AWSMaxRetryCount", TempMaxRetryCount,
-	)
 }
 
 // getPodList gets a list of all of the pods we are going to use with create db.
@@ -193,7 +198,7 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"-t", "create_db",
 		"--skip-fs-checks",
 		"--hosts=" + strings.Join(hostList, ","),
-		"--communal-storage-location=" + paths.GetCommunalPath(c.Vdb),
+		"--communal-storage-location=" + c.Vdb.GetCommunalPath(),
 		"--communal-storage-params=" + paths.AuthParmsFile,
 		"--sql=" + PostDBCreateSQLFile,
 		fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),

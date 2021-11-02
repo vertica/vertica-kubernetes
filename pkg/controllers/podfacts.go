@@ -56,6 +56,11 @@ type PodFact struct {
 	// process of starting or restarting.
 	isPodRunning bool
 
+	// true means the statefulset exists and its size includes this pod.  The
+	// cases where this would be false are (a) statefulset doesn't yet exist or
+	// (b) statefulset exists but it isn't sized to include this pod yet.
+	managedByParent bool
+
 	// Have we run install for this pod? None means we are unable to determine
 	// whether it is run.
 	isInstalled tristate.TriState
@@ -75,7 +80,7 @@ type PodFact struct {
 	vnodeName string
 
 	// The compat21 node name that Vertica assignes to the pod. This is only set
-	// if installation has occurred.
+	// if installation has occurred and the initPolicy is not ScheduleOnly.
 	compat21NodeName string
 
 	// True if the end user license agreement has been accepted
@@ -143,20 +148,20 @@ func (p *PodFacts) Invalidate() {
 // collectSubcluster will collect facts about each pod in a specific subcluster
 func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster) error {
 	sts := &appsv1.StatefulSet{}
+	maxStsSize := sc.Size
 	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil {
 		// If the statefulset doesn't exist, none of the pods within it exist.  So fine to skip.
-		if errors.IsNotFound(err) {
-			return nil
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 		}
-		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
-	}
-	maxStsSize := sc.Size
-	if *sts.Spec.Replicas > maxStsSize {
-		maxStsSize = *sts.Spec.Replicas
+	} else {
+		if *sts.Spec.Replicas > maxStsSize {
+			maxStsSize = *sts.Spec.Replicas
+		}
 	}
 
 	for i := int32(0); i < maxStsSize; i++ {
-		if err := p.collectPodByStsIndex(ctx, vdb, sc, i); err != nil {
+		if err := p.collectPodByStsIndex(ctx, vdb, sc, sts, i); err != nil {
 			return err
 		}
 	}
@@ -164,7 +169,8 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 }
 
 // collectPodByStsIndex will collect facts about a single pod in a subcluster
-func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) error {
+func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	sts *appsv1.StatefulSet, podIndex int32) error {
 	pf := PodFact{
 		name:       names.GenPodName(vdb, sc, podIndex),
 		subcluster: sc.Name,
@@ -179,6 +185,9 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		return err
 	}
 	pf.exists = true // Success from the Get() implies pod exists in API server
+	if sts.Spec.Replicas != nil {
+		pf.managedByParent = podIndex < *sts.Spec.Replicas
+	}
 	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
@@ -205,30 +214,48 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 
 // checkIsInstalled will check a single pod to see if the installation has happened.
 func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if pf.isPodRunning {
-		fn := paths.GenInstallerIndicatorFileName(vdb)
-		if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", fn); err != nil {
-			if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
-				return err
-			}
-			pf.isInstalled = tristate.False
+	if !pf.isPodRunning {
+		pf.isInstalled = tristate.None
+		return nil
+	}
 
-			// Check if there is a stale admintools.conf
-			cmd := []string{"ls", paths.AdminToolsConf}
-			if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-				if !strings.Contains(stderr, "No such file or directory") {
-					return err
-				}
-				pf.hasStaleAdmintoolsConf = false
-			} else {
-				pf.hasStaleAdmintoolsConf = true
-			}
+	// If initPolicy is ScheduleOnly, there is no install indicator since the
+	// operator didn't initiate it.  We are going to do based on the existence
+	// of admintools.conf.
+	if vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-f", paths.AdminToolsConf); err != nil {
+			pf.isInstalled = tristate.False
 		} else {
 			pf.isInstalled = tristate.True
-			pf.compat21NodeName = strings.TrimSuffix(stdout, "\n")
+		}
+
+		// We can't reliably set compat21NodeName because the operator didn't
+		// originate the install.  We will intentionally leave that blank.
+		pf.compat21NodeName = ""
+
+		return nil
+	}
+
+	fn := vdb.GenInstallerIndicatorFileName()
+	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", fn); err != nil {
+		if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
+			return err
+		}
+		pf.isInstalled = tristate.False
+
+		// Check if there is a stale admintools.conf
+		cmd := []string{"ls", paths.AdminToolsConf}
+		if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
+			if !strings.Contains(stderr, "No such file or directory") {
+				return err
+			}
+			pf.hasStaleAdmintoolsConf = false
+		} else {
+			pf.hasStaleAdmintoolsConf = true
 		}
 	} else {
-		pf.isInstalled = tristate.None
+		pf.isInstalled = tristate.True
+		pf.compat21NodeName = strings.TrimSuffix(stdout, "\n")
 	}
 	return nil
 }
@@ -289,7 +316,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	cmd := []string{
 		"bash",
 		"-c",
-		fmt.Sprintf("ls -d %s/v_%s_node????_data", paths.GetDBDataPath(vdb), vdb.Spec.DBName),
+		fmt.Sprintf("ls -d %s/v_%s_node????_data", vdb.GetDBDataPath(), vdb.Spec.DBName),
 	}
 	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		if !strings.Contains(stderr, "No such file or directory") {
@@ -480,15 +507,46 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 	return pods
 }
 
-// countReipablePods returns number of pods that are running and have an install
-func (p *PodFacts) countRunningAndInstalled() int {
-	count := 0
+// areAllPodsRunningAndZeroInstalled returns true if all of the pods are running
+// and none of the pods have an installation.
+func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
 	for _, v := range p.Detail {
-		if v.isPodRunning && v.isInstalled.IsTrue() {
-			count++
+		if ((!v.exists || !v.isPodRunning) && v.managedByParent) || v.isInstalled.IsTrue() {
+			return false
 		}
 	}
+	return true
+}
+
+// countPods is a generic function to do a count across the pod facts
+func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
+	count := 0
+	for _, v := range p.Detail {
+		count += countFunc(v)
+	}
 	return count
+}
+
+// countRunningAndInstalled returns number of pods that are running and have an install
+func (p *PodFacts) countRunningAndInstalled() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.isPodRunning && v.isInstalled.IsTrue() {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countNotRunning returns number of pods that aren't running yet
+func (p *PodFacts) countNotRunning() int {
+	return p.countPods(func(v *PodFact) int {
+		// We don't count non-running pods that aren't yet managed by the parent
+		// sts.  The sts needs to be created or sized first.
+		if !v.isPodRunning && v.managedByParent {
+			return 1
+		}
+		return 0
+	})
 }
 
 // getUpNodeCount returns the number of up nodes.

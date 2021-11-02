@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -63,6 +64,21 @@ func getWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+// getIsWebhookEnabled will return true if the webhook is enabled
+func getIsWebhookEnabled() bool {
+	const DefaultEnabled = true
+	const EnableWebhookEnv = "ENABLE_WEBHOOKS"
+	enableWebhook, found := os.LookupEnv(EnableWebhookEnv)
+	if !found {
+		return DefaultEnabled
+	}
+	enabled, err := strconv.ParseBool(enableWebhook)
+	if err != nil {
+		return DefaultEnabled
+	}
+	return enabled
 }
 
 func main() {
@@ -129,11 +145,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&verticacomv1beta1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
-		os.Exit(1)
+	if getIsWebhookEnabled() {
+		if err = (&verticacomv1beta1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
+			os.Exit(1)
+		}
+		//+kubebuilder:scaffold:builder
 	}
-	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

@@ -57,6 +57,16 @@ func main() {
 	flag.StringVar(&opts.LicenseFile, "license", "",
 		"A path to a license that you want to use with the VerticaDB manifest.  This license is included in a secret that gets "+
 			"printed out with the other manifests.  If omitted, no license is set in the VerticaDB.")
+	flag.StringVar(&opts.CAFile, "cafile", "",
+		"A path to a CA bundle used to authenticate over https.  This is only needed if a CA file is used to connect "+
+			"to the communal endpoint.")
+	flag.StringVar(&opts.CACertName, "cacertname", "",
+		"The name of the Secret that will contain the CA bundle.  You can use this if you have a specific name the cert must be.")
+	flag.StringVar(&opts.HadoopConfigDir, "hadoopConfig", "",
+		"A path to a directory that contains the Hadoop config.  All of the files within the directory will be included in a configMap.")
+	flag.StringVar(&opts.AzureAccountName, "accountName", "",
+		"The Azure accountName to use for communal access credentials.  This is required if more than one credential is present.  "+
+			"If only one exists, it will default to using that.")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {

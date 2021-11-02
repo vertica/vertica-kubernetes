@@ -19,10 +19,10 @@ metadata:
   labels:
     stern: include
 spec:
-  image: minio/minio:RELEASE.2021-02-24T18-44-45Z
+  image: minio/minio:RELEASE.2021-09-03T03-56-13Z
   imagePullPolicy: IfNotPresent
   credsSecret:
-    name: minio-creds-secret
+    name: communal-creds
   pools:
     - servers: 1
       volumesPerServer: 4
@@ -37,3 +37,6 @@ spec:
               storage: 250Mi
   mountPath: /export
   requestAutoCert: false
+  externalCertSecret:
+    - name: communal-ep-cert
+      type: kubernetes.io/tls

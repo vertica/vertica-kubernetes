@@ -17,7 +17,7 @@ metadata:
   name: v-upgrade-vertica-defsc-0
 spec:
   containers:
-    - image: vertica/vertica-k8s:latest
+    - image: vertica/vertica-k8s:11.0.0-0-minimal
 ---
 apiVersion: v1
 kind: Pod
@@ -25,19 +25,11 @@ metadata:
   name: v-upgrade-vertica-defsc-1
 spec:
   containers:
-    - image: vertica/vertica-k8s:latest
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-2
-spec:
-  containers:
-    - image: vertica/vertica-k8s:latest
+    - image: vertica/vertica-k8s:11.0.0-0-minimal
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-upgrade-vertica-defsc
 status:
-  readyReplicas: 3
+  readyReplicas: 2

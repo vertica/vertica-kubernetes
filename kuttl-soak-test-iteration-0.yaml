@@ -20,7 +20,7 @@ timeout: 900
 namespace: soak
 commands:
   # Create the helm charts
-  - command: make helm-create-resources kuttl-step-gen kustomize
+  - command: make create-helm-charts kuttl-step-gen kustomize
 
   # Deploy the operator
   - command: make undeploy-webhook
@@ -28,12 +28,13 @@ commands:
   - command: make deploy-webhook
   - command: sh -c "make deploy-operator NAMESPACE=soak"
 
-  # Create the kustomize overlay files to set the image to use.
-  - command: tests/create-kustomize-overlay.sh $LICENSE_OPT $VERTICA_IMG
+  # Create the kustomize overlay files to set the image,
+  # endpoints, etc to use.
+  - command: scripts/setup-kustomize.sh
 
   # Create minio tenant and the vdb
   - command: kubectl krew update
-  - command: kubectl krew install minio
+  - command: kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/95d35f73fd3c57465c837bed2cf9ad2d933328b2/plugins/minio.yaml
   # If these images ever change, they must be updated in tests/external-images.txt
   - command: kubectl minio init --console-image minio/console:v0.6.3 --image minio/operator:v4.0.2
   - command: bash -c "bin/kustomize build tests/manifests/soak-setup/overlay | kubectl -n soak apply -f -"

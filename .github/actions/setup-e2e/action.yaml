@@ -1,0 +1,36 @@
+name: 'Setup e2e environment'
+description: 'Will setup the environment to run e2e tests'
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.2
+
+    - name: Install kubectl
+      shell: bash
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+        kubectl version --client
+    
+    - name: Install kubectx   
+      shell: bash
+      env:
+          KUBECTX_URL: https://github.com/ahmetb/kubectx/releases/download/v0.9.3/kubectx
+      run: |
+        curl -fsSLO $KUBECTX_URL
+        chmod +x kubectx
+        sudo install -o root -g root -m 0755 kubectx /usr/local/bin/kubectx
+        
+    - name: Install stern and Download vertica RPM package
+      shell: bash
+      env:
+          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-11.0.0-0.x86_64.RHEL6.rpm"
+          STERN_URL: "https://github.com/stern/stern/releases/download/v1.19.0/stern_1.19.0_linux_amd64.tar.gz"
+      run: |
+        curl -fsSLO $STERN_URL 
+        tar zxvf stern_1.19.0_linux_amd64.tar.gz
+        sudo cp stern_1.19.0_linux_amd64/stern /usr/local/bin/
+        curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-x86_64.RHEL6.latest.rpm

@@ -9,10 +9,14 @@ kuttl-test.xml
 kubeconfig
 run.out
 local-soak.cfg
+local-kustomize*.cfg
 
 # Generated files from create-kustomize-overlay.sh
 overlay/
 create-s3-bucket-overlay/
+e2e.yaml
+communal-ep-cert.json
+hadoop-conf.json
 
 # Binaries for programs and plugins
 *.exe
@@ -42,13 +46,17 @@ testbin/*
 # Omit some fully generated files
 config/crd/bases/vertica.com_verticadbs.yaml
 config/rbac/role.yaml
-api/v1alpha1/zz_generated.deepcopy.go
+api/v1beta1/zz_generated.deepcopy.go
 
 # Omit generated files for helm verticadb-operator
 helm-charts/verticadb-operator/templates/*.yaml
-helm-charts/verticadb-operator/crds/*
+helm-charts/verticadb-operator/crds/*yaml
 helm-charts/verticadb-webhook/templates/*.yaml
 helm-charts/verticadb-webhook/crds/*
 
 # Omit overlays files
 config/overlays/
+
+# bundle files are all auto generated, so omit them
+docker-bundle/Dockerfile
+bundle/

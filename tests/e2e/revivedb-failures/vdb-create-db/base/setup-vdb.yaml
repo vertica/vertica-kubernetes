@@ -18,9 +18,6 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://revivedb-failures"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
     includeUIDInPath: false
   local:
     dataPath: "/data"
@@ -31,3 +28,4 @@ spec:
     - name: main
       size: 2
   kSafety: "0"
+  certSecrets: []

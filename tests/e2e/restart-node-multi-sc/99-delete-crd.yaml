@@ -18,3 +18,5 @@ delete:
     kind: VerticaDB
   - apiVersion: v1
     kind: PersistentVolumeClaim
+commands:
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

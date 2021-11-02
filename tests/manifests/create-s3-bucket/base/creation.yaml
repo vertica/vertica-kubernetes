@@ -23,16 +23,16 @@ spec:
   - name: aws
     image: amazon/aws-cli:2.2.24
     command:
-        ["bash", "-c", "aws s3api head-bucket --endpoint $S3_EP --bucket $S3_BUCKET || aws s3 mb --endpoint $S3_EP s3://$S3_BUCKET"]
+        ["bash", "-c", "aws s3api head-bucket --endpoint $S3_EP --bucket $S3_BUCKET --no-verify-ssl || aws s3 mb --endpoint $S3_EP s3://$S3_BUCKET --no-verify-ssl"]
     env:
       - name: S3_BUCKET
-        value: $(S3_BUCKET)
+        value: kustomize-s3-bucket
       - name: AWS_ACCESS_KEY_ID
-        value: minio
+        value: kustomize-s3-accesskey
       - name: AWS_SECRET_ACCESS_KEY
-        value: minio123
+        value: kustomize-s3-secretkey
       - name: AWS_EC2_METADATA_DISABLED
         value: 'true'
       - name: S3_EP
-        value: http://minio.kuttl-e2e-communal
+        value: kustomize-s3-endpoint
   restartPolicy: Never

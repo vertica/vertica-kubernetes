@@ -1,15 +1,14 @@
 suite: test image:tag creation
 templates:
-  - operator.yaml
+  - verticadb-operator-controller-manager-deployment.yaml
 tests:
   - it: allows the operator image and tag to be specified
-    documentIndex: 7
     set:
       image:
-        name: verticadb-operator:kind
+        name: something:tag
     asserts:
       - isNotNull:
-          path: spec.template.spec.containers[1].image
+          path: spec.template.spec.containers[0].image
       - equal:
-          path: spec.template.spec.containers[1].image
-          value: verticadb-operator:kind
+          path: spec.template.spec.containers[0].image
+          value: something:tag

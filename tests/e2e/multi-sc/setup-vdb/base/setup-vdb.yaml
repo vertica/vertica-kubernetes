@@ -19,9 +19,7 @@ spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   communal:
-    path: "s3://multi-sc"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   subclusters:
@@ -32,3 +30,4 @@ spec:
       size: 1
       isPrimary: false
   kSafety: "0"
+  certSecrets: []

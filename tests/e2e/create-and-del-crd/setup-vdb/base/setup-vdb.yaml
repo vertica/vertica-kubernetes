@@ -18,9 +18,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://nimbusdb/db"
-    endpoint: "https://minio"
-    credentialSecret: s
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   sidecars:
@@ -32,5 +30,9 @@ spec:
   volumes:
     - name: my-extra-vol1
       emptyDir: {}
+  volumeMounts:
+    - mountPath: /tenants
+      name: my-extra-vol1
   subclusters:
     - name: defaultsubcluster
+  certSecrets: []

@@ -11,21 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-upgrade-vertica
-spec:
-  image: vertica/vertica-k8s:11.0.0-0-minimal
-  imagePullPolicy: IfNotPresent
-  communal:
-    path: "s3://upgrade-vertica"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret:  minio-creds-secret
-  local:
-    requestSize: 100Mi
-  dbName: vd
-  shardCount: 17
-  subclusters:
-    - name: defsc
-      size: 3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build setup-vdb/overlay | kubectl -n $NAMESPACE apply -f - "

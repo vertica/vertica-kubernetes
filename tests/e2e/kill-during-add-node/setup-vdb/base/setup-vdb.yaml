@@ -21,9 +21,7 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://kill-during-add-node"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   subclusters:
@@ -31,3 +29,4 @@ spec:
       size: 1
       isPrimary: true
   kSafety: "0"
+  certSecrets: []

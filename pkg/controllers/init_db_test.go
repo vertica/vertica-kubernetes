@@ -24,14 +24,16 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("s3_auth", func() {
+var _ = Describe("init_db", func() {
 	ctx := context.Background()
 
 	It("should be able to read the auth from secret", func() {
 		vdb := vapi.MakeVDB()
-		createCommunalCredSecret(ctx, vdb)
+		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
@@ -41,7 +43,7 @@ var _ = Describe("s3_auth", func() {
 			Vdb:     vdb,
 			PRunner: fpr,
 		}
-		Expect(g.getS3Auth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
+		Expect(g.getCommunalAuth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
 	})
 
 	It("should return s3 endpoint stripped of https/http", func() {
@@ -56,12 +58,12 @@ var _ = Describe("s3_auth", func() {
 			PRunner: fpr,
 		}
 
-		Expect(g.getS3Endpoint()).Should(Equal("192.168.0.1"))
+		Expect(g.getCommunalEndpoint()).Should(Equal("192.168.0.1"))
 		Expect(g.getEnableHTTPS()).Should(Equal("1"))
 
 		vdb.Spec.Communal.Endpoint = "http://fqdn.example.com:8080"
 
-		Expect(g.getS3Endpoint()).Should(Equal("fqdn.example.com:8080"))
+		Expect(g.getCommunalEndpoint()).Should(Equal("fqdn.example.com:8080"))
 		Expect(g.getEnableHTTPS()).Should(Equal("0"))
 	})
 
@@ -92,4 +94,94 @@ var _ = Describe("s3_auth", func() {
 		ok := g.checkPodList(podList)
 		Expect(ok).Should(BeFalse())
 	})
+
+	It("should setup auth file with hdfs config dir if hdfs communal path is used", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster1"
+		vdb.Spec.Communal.HadoopConfig = "hadoop-conf"
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		_ = contructAuthParmsHelper(ctx, vdb, "HadoopConf")
+	})
+
+	It("should create an empty auth file if hdfs is used and no hdfs config dir was specified", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster2"
+		vdb.Spec.Communal.HadoopConfig = ""
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		cmds := contructAuthParmsHelper(ctx, vdb, "cat")
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(fmt.Sprintf("%s<<< ''", paths.AuthParmsFile)))
+	})
+
+	It("should create a auth file with google parms when using GCloud", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		_ = contructAuthParmsHelper(ctx, vdb, "GCSAuth")
+	})
+
+	It("should create an auth file with azure parms when using azb:// scheme and accountKey", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "azb://account/container/path1"
+		createAzureAccountKeyCredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureAccountKey))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(AzureSharedAccessSignature))
+	})
+
+	It("should create an auth file with azure parms when using azb:// scheme and shared access signature", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "azb://account/container/path2"
+		createAzureSASCredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(AzureAccountKey))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureSharedAccessSignature))
+	})
+
+	It("should return correct protocol when calling getEndpointProtocol", func() {
+		Expect(getEndpointProtocol("")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("192.168.0.1")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("accountname.mcr.net")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("https://accountname.mcr.net")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("http://accountname.mcr.net:300")).Should(Equal("HTTP"))
+		Expect(getEndpointProtocol("http://192.168.0.1")).Should(Equal("HTTP"))
+	})
+
+	It("should return host/port without protocol when calling getEndpointHostPort", func() {
+		Expect(getEndpointHostPort("192.168.0.1")).Should(Equal("192.168.0.1"))
+		Expect(getEndpointHostPort("hostname:10000")).Should(Equal("hostname:10000"))
+		Expect(getEndpointHostPort("http://hostname")).Should(Equal("hostname"))
+		Expect(getEndpointHostPort("https://tlsHost:3000")).Should(Equal("tlsHost:3000"))
+		Expect(getEndpointHostPort("account@myhost")).Should(Equal("account@myhost"))
+	})
 })
+
+func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {
+	fpr := &cmds.FakePodRunner{}
+	g := GenericDatabaseInitializer{
+		VRec:    vrec,
+		Log:     logger,
+		Vdb:     vdb,
+		PRunner: fpr,
+	}
+
+	atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+	res, err := g.ConstructAuthParms(ctx, atPod)
+	ExpectWithOffset(1, err).Should(Succeed())
+	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+	c := fpr.FindCommands(mustHaveCmd)
+	ExpectWithOffset(1, len(c)).Should(Equal(1))
+	return c
+}

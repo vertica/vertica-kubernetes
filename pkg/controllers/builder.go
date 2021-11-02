@@ -75,10 +75,10 @@ func buildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "config"), MountPath: paths.ConfigPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "log"), MountPath: paths.LogPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "data"), MountPath: vdb.Spec.Local.DataPath},
-		{Name: vapi.LocalDataPVC, SubPath: paths.GetPVSubPath(vdb, "depot"), MountPath: vdb.Spec.Local.DepotPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("config"), MountPath: paths.ConfigPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("data"), MountPath: vdb.Spec.Local.DataPath},
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("depot"), MountPath: vdb.Spec.Local.DepotPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
 
@@ -89,7 +89,29 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
+	if vdb.Spec.Communal.HadoopConfig != "" {
+		volMnts = append(volMnts, corev1.VolumeMount{
+			Name:      vapi.HadoopConfigMountName,
+			MountPath: paths.HadoopConfPath,
+		})
+	}
+
+	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
+	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
+
 	return volMnts
+}
+
+// buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
+func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	mnts := []corev1.VolumeMount{}
+	for _, s := range vdb.Spec.CertSecrets {
+		mnts = append(mnts, corev1.VolumeMount{
+			Name:      s.Name,
+			MountPath: fmt.Sprintf("%s/%s", paths.CertsRoot, s.Name),
+		})
+	}
+	return mnts
 }
 
 // buildVolumes builds up a list of volumes to include in the sts
@@ -99,6 +121,10 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
+	if vdb.Spec.Communal.HadoopConfig != "" {
+		vols = append(vols, buildHadoopConfigVolume(vdb))
+	}
+	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
 	return vols
 }
@@ -187,6 +213,31 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 }
 
+// buildCertSecretVolumes returns a list of volumes, one for each secret in certSecrets.
+func buildCertSecretVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
+	vols := []corev1.Volume{}
+	for _, s := range vdb.Spec.CertSecrets {
+		vols = append(vols, corev1.Volume{
+			Name: s.Name,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{SecretName: s.Name},
+			},
+		})
+	}
+	return vols
+}
+
+func buildHadoopConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.HadoopConfigMountName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HadoopConfig},
+			},
+		},
+	}
+}
+
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
@@ -222,8 +273,10 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		},
 		Env: []corev1.EnvVar{
 			{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-			}},
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
+			},
+			{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
+			{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
 		},
 		VolumeMounts: buildVolumeMounts(vdb),
 	}
@@ -239,7 +292,7 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		// prior to the creation of the VerticaDB.
 		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb)...)
 		// As a convenience, add the database path as an environment variable.
-		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: paths.GetDBDataPath(vdb)})
+		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: vdb.GetDBDataPath()})
 		cnts = append(cnts, c)
 	}
 	return cnts
@@ -304,8 +357,10 @@ func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	nm := names.GenPodName(vdb, sc, podIndex)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nm.Name,
-			Namespace: nm.Namespace,
+			Name:        nm.Name,
+			Namespace:   nm.Namespace,
+			Labels:      makeLabelsForObject(vdb, sc),
+			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc),
 	}
@@ -325,8 +380,8 @@ func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	return pod
 }
 
-// buildCommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
-func buildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
+// buildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
+func buildS3CommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
 	nm := names.GenCommunalCredSecretName(vdb)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -334,8 +389,42 @@ func buildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *
 			Namespace: nm.Namespace,
 		},
 		Data: map[string][]byte{
-			S3AccessKeyName: []byte(accessKey),
-			S3SecretKeyName: []byte(secretKey),
+			CommunalAccessKeyName: []byte(accessKey),
+			CommunalSecretKeyName: []byte(secretKey),
+		},
+	}
+	return secret
+}
+
+// buildAzureAccountKeyCommunalCredSecret builds a secret that is setup for
+// Azure using an account key.
+func buildAzureAccountKeyCommunalCredSecret(vdb *vapi.VerticaDB, accountName, accountKey string) *corev1.Secret {
+	nm := names.GenCommunalCredSecretName(vdb)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		Data: map[string][]byte{
+			AzureAccountName: []byte(accountName),
+			AzureAccountKey:  []byte(accountKey),
+		},
+	}
+	return secret
+}
+
+// buildAzureSASCommunalCredSecret builds a secret that is setup for Azure using
+// shared access signature.
+func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas string) *corev1.Secret {
+	nm := names.GenCommunalCredSecretName(vdb)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		Data: map[string][]byte{
+			AzureBlobEndpoint:          []byte(blobEndpoint),
+			AzureSharedAccessSignature: []byte(sas),
 		},
 	}
 	return secret

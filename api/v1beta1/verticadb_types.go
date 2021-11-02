@@ -17,8 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"regexp"
 
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,8 +52,10 @@ type VerticaDBSpec struct {
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="vertica/vertica-k8s:11.0.0-0-minimal"
-	// The docker image name that contains Vertica.
+	// +kubebuilder:default:="vertica/vertica-k8s:11.0.1-0-minimal"
+	// The docker image name that contains Vertica.  Whenever this changes, the
+	// operator treats this as an upgrade and will stop the entire cluster and
+	// restart it with the new image.
 	Image string `json:"image,omitempty"`
 
 	// Custom labels that will be added to all of the objects that the operator
@@ -66,8 +70,8 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// State to indicate whether the operator will restart Vertica if the
 	// process is not running. Under normal cicumstances this is set to true.
-	// The purpose of this is to allow a maintenance window, such as an
-	// upgrade, without the operator interfering.
+	// The purpose of this is to allow a maintenance window, such as a
+	// manual upgrade, without the operator interfering.
 	AutoRestartVertica bool `json:"autoRestartVertica"`
 
 	// +kubebuilder:default:="vertdb"
@@ -141,6 +145,7 @@ type VerticaDBSpec struct {
 	// of 20 minutes.
 	RestartTimeout int `json:"restartTimeout,omitempty"`
 
+	// +kubebuilder:validation:Optional
 	// Contains details about the communal storage.
 	Communal CommunalStorage `json:"communal"`
 
@@ -178,11 +183,29 @@ type VerticaDBSpec struct {
 	Sidecars []corev1.Container `json:"sidecars,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// Custom volumes that are added to sidecars.  Each sidecar must include
-	// the volume in the volumeMounts for it to appear in the container.  It
-	// accepts any valid volume type.  A unique name must be given for each
+	// Custom volumes that are added to sidecars and the Vertica container.
+	// For these volumes to be visible in either container, they must have a
+	// corresonding volumeMounts entry.  For sidecars, this is included in
+	// `spec.sidecars[*].volumeMounts`.  For the Vertica container, it is
+	// included in `spec.volumeMounts`.
+	//
+	// This accepts any valid volume type.  A unique name must be given for each
 	// volume and it cannot conflict with any of the internally generated volumes.
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Additional volume mounts to include in the Vertica container.  These
+	// reference volumes that are in the Volumes list.  The mount path must not
+	// conflict with a mount path that the operator adds internally.
+	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Secrets that will be mounted in the vertica container.  The purpose of
+	// this is to allow custom certs to be available.  The full path is:
+	//   /certs/<secretName>/<key_i>
+	// Where <secretName> is the name provided in the secret and <key_i> is one
+	// of the keys in the secret.
+	CertSecrets []corev1.LocalObjectReference `json:"certSecrets,omitempty"`
 }
 
 type CommunalInitPolicy string
@@ -194,6 +217,12 @@ const (
 	// The database in the communal path will be initialized in the VerticaDB
 	// through a revive_db.  The communal path must have a preexisting database.
 	CommunalInitPolicyRevive = "Revive"
+	// Only schedule pods to run with the vertica container.  The bootstrap of
+	// the database, either create_db or revive_db, is not handled.  Use this
+	// policy when you have a vertica cluster running outside of Kubernetes and
+	// you want to provision new nodes to run inside Kubernetes.  Most of the
+	// automation is disabled when running in this mode.
+	CommunalInitPolicyScheduleOnly = "ScheduleOnly"
 )
 
 type KSafetyType string
@@ -217,11 +246,13 @@ type SubclusterPodCount struct {
 
 // Holds details about the communal storage
 type CommunalStorage struct {
-	// +kubebuilder:validation:required
-	// The path to the communal storage. This must be the s3 bucket. You specify
-	// this using the s3:// bucket notation. For example:
-	// s3://bucket-name/key-name. The bucket must be created prior to creating
-	// the VerticaDB.  This field is required and cannot change after creation.
+	// +kubebuilder:validation:Optional
+	// The path to the communal storage. We support S3, Google Cloud Storage,
+	// and HDFS paths.  The protocol in the path (e.g. s3:// or webhdfs://)
+	// dictates the type of storage.  The path, whether it be a S3 bucket or
+	// HDFS path, must exist prior to creating the VerticaDB.  When initPolicy
+	// is Create, this field is required and the path must be empty.  When
+	// initPolicy is Revive, this field is required and must be non-empty.
 	Path string `json:"path"`
 
 	// +kubebuilder:validation:Optional
@@ -231,17 +262,51 @@ type CommunalStorage struct {
 	// forces each database path to be unique.
 	IncludeUIDInPath bool `json:"includeUIDInPath,omitempty"`
 
-	// +kubebuilder:validation:required
-	// The URL to the s3 endpoint. The endpoint must be prefaced with http:// or
-	// https:// to know what protocol to connect with. This field is required
-	// and cannot change after creation.
+	// +kubebuilder:validation:Optional
+	// The URL to the communal endpoint. The endpoint must be prefaced with http:// or
+	// https:// to know what protocol to connect with. If using S3 or Google
+	// Cloud Storage as communal storage and initPolicy is Create or Revive,
+	// this field is required and cannot change after creation.
 	Endpoint string `json:"endpoint"`
 
-	// +kubebuilder:validation:required
+	// +kubebuilder:validation:Optional
 	// The name of a secret that contains the credentials to connect to the
-	// communal S3 endpoint. The secret must have the following keys set:
-	// accessey and secretkey.
+	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
+	// need to be set, depending on the endpoint type:
+	// - s3:// or gs:// - It must have the following keys set: accessey and secretkey.
+	//     When using Google Cloud Storage, the IDs set in the secret are taken
+	//     from the hash-based message authentication code (HMAC) keys.
+	// - azb:// - It must have the following keys set:
+	//     accountName - Name of the Azure account
+	//     blobEndpoint - (Optional) Set this to the location of the endpoint.
+	//       If using an emulator like Azurite, it can be set to something like
+	//       'http://<IP-addr>:<port>'
+	//     accountKey - If accessing with an account key set it here
+	//     sharedAccessSignature - If accessing with a shared access signature,
+	//     	  set it here
+	//
+	// When initPolicy is Create or Revive, and not using HDFS this field is
+	// required.
 	CredentialSecret string `json:"credentialSecret"`
+
+	// +kubebuilder:validation:Optional
+	// The absolute path to a certificate bundle of trusted CAs. This CA bundle
+	// is used when establishing TLS connections to external services such as
+	// AWS, Azure or swebhdf:// scheme.  Typically this would refer to a path to
+	// one of the certSecrets.
+	CaFile string `json:"caFile,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// The region containing the bucket.  If you do not set the correct
+	// region, you might experience a delay before the bootstrap fails because
+	// Vertica retries several times before giving up.
+	Region string `json:"region,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// A config map that contains the contents of the /etc/hadoop directory.
+	// This gets mounted in the container and is used to configure connections
+	// to an HDFS communal path
+	HadoopConfig string `json:"hadoopConfig,omitempty"`
 }
 
 type LocalStorage struct {
@@ -380,21 +445,33 @@ type VerticaDBConditionType string
 const (
 	// AutoRestartVertica indicates whether the operator should restart the vertica process
 	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
-	// DBInitialized indicateds the database has been created or revived
+	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
+	// ImageChangeInProgress indicates if the vertica server is in the process of having its image change
+	ImageChangeInProgress VerticaDBConditionType = "ImageChangeInProgress"
 )
 
 // Fixed index entries for each condition.
 const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
+	ImageChangeInProgressIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
 // index in the condition array
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica: AutoRestartVerticaIndex,
-	DBInitialized:      DBInitializedIndex,
+	AutoRestartVertica:    AutoRestartVerticaIndex,
+	DBInitialized:         DBInitializedIndex,
+	ImageChangeInProgress: ImageChangeInProgressIndex,
+}
+
+// VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
+// maps an index to the condition name.
+var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
+	AutoRestartVerticaIndex:    AutoRestartVertica,
+	DBInitializedIndex:         DBInitialized,
+	ImageChangeInProgressIndex: ImageChangeInProgress,
 }
 
 // VerticaDBCondition defines condition for VerticaDB
@@ -449,9 +526,8 @@ type VerticaDBPodStatus struct {
 //+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
 //+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
 //+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
-//+kubebuilder:printcolumn:name="AutoRestartVertica",type="string",JSONPath=".status.conditions[0].status"
 
-// VerticaDB is the Schema for the verticadbs API
+// VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.
 type VerticaDB struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -478,6 +554,10 @@ const (
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
 	BuildRefAnnotation  = "vertica.com/buildRef"
+
+	DefaultS3Region       = "us-east-1"
+	DefaultGCloudRegion   = "US-EAST1"
+	DefaultGCloudEndpoint = "https://storage.googleapis.com"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -553,4 +633,38 @@ func IsValidSubclusterName(scName string) bool {
 func (v *VerticaDB) GetVerticaVersion() (string, bool) {
 	ver, ok := v.ObjectMeta.Annotations[VersionAnnotation]
 	return ver, ok
+}
+
+// GenInstallerIndicatorFileName returns the name of the installer indicator file.
+// Valid only for the current instance of the vdb.
+func (v *VerticaDB) GenInstallerIndicatorFileName() string {
+	return paths.InstallerIndicatorFile + string(v.UID)
+}
+
+// GetPVSubPath returns the subpath in the local data PV.
+// We use the UID so that we create unique paths in the PV.  If the PV is reused
+// for a new vdb, the UID will be different.
+func (v *VerticaDB) GetPVSubPath(subPath string) string {
+	return fmt.Sprintf("%s/%s", v.UID, subPath)
+}
+
+// GetDBDataPath get the data path for the current database
+func (v *VerticaDB) GetDBDataPath() string {
+	return fmt.Sprintf("%s/%s", v.Spec.Local.DataPath, v.Spec.DBName)
+}
+
+// GetCommunalPath returns the path to use for communal storage
+func (v *VerticaDB) GetCommunalPath() string {
+	// We include the UID in the communal path to generate a unique path for
+	// each new instance of vdb. This means we can't use the same base path for
+	// different databases and we don't require any cleanup if the vdb was
+	// recreated.
+	if !v.Spec.Communal.IncludeUIDInPath {
+		return v.Spec.Communal.Path
+	}
+	return fmt.Sprintf("%s/%s", v.Spec.Communal.Path, v.UID)
+}
+
+func (v *VerticaDB) GetDepotPath() string {
+	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
 }

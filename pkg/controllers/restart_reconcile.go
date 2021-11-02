@@ -84,9 +84,10 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	}
 
 	// We have two paths.  If the entire cluster is down we have separate
-	// admintools commands to run.
-
-	if r.PFacts.getUpNodeCount() == 0 {
+	// admintools commands to run.  Cluster operations only apply if the entire
+	// vertica cluster is managed by k8s.  We skip that if initPolicy is
+	// ScheduleOnly.
+	if r.PFacts.getUpNodeCount() == 0 && r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
 		return r.reconcileCluster(ctx)
 	}
 	return r.reconcileNodes(ctx)
@@ -94,13 +95,32 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 
 // reconcileCluster will handle restart when the entire cluster is down
 func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, error) {
-	if r.PFacts.countRunningAndInstalled() == 0 {
+	if r.PFacts.areAllPodsRunningAndZeroInstalled() {
+		// Restart has nothing to do if nothing is installed
+		r.Log.Info("All pods are running and none of them have an installation.  Nothing to restart.")
 		return ctrl.Result{}, nil
+	}
+	if r.PFacts.countRunningAndInstalled() == 0 {
+		// None of the running pods have Vertica installed.  Since there may be
+		// a pod that isn't running that may need Vertica restarted we are going
+		// to requeue to wait for that pod to start.
+		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	if ok := r.setATPod(); !ok {
 		r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// re_ip/start_db require all pods to be running that have run the
+	// installation.  This check is done when we generate the map file
+	// (genMapFile).
+	//
+	// We do the re-ip before checking if nodes are done as it greatly speeds
+	// that part up if we use the new IPs.
+	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); err != nil || res.Requeue {
+		return res, err
 	}
 
 	dbDoesNotExist := !r.PFacts.doesDBExist().IsTrue()
@@ -117,13 +137,6 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	downPods := r.PFacts.findRestartablePods()
 	if err := r.killOldProcesses(ctx, downPods); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// re_ip/start_db require all pods to be running that have run the
-	// installation.  This check is done when we generate the map file
-	// (genMapFile).
-	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); err != nil || res.Requeue {
-		return res, err
 	}
 
 	// If no db, there is nothing to restart so we can exit.
@@ -153,6 +166,14 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 		}
 	}
 
+	// The rest of the steps depend on knowing the compat21 node name for the
+	// pod.  If ScheduleOnly, we cannot reliable know that since the operator
+	// didn't originate the install.  So we will skip the rest if running in
+	// that mode.
+	if r.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+		return ctrl.Result{Requeue: r.shouldRequeueIfPodsNotRunning()}, nil
+	}
+
 	// Find any pods that need to have their IP updated.  These are nodes that
 	// have been installed but not yet added to a database.
 	reIPPods := r.PFacts.findReIPPods(true)
@@ -161,10 +182,12 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
-		return r.reipNodes(ctx, reIPPods)
+		if res, err := r.reipNodes(ctx, reIPPods); res.Requeue || err != nil {
+			return res, err
+		}
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{Requeue: r.shouldRequeueIfPodsNotRunning()}, nil
 }
 
 // restartPods restart the down pods using admintools
@@ -343,6 +366,9 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 
 	cmd = genReIPCommand()
 	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...); err != nil {
+		// Log an event as failure to re_ip means we won't be able to bring up the database.
+		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReipFailed,
+			"Attempt to run 'admintools -t re_ip' failed")
 		return ctrl.Result{}, err
 	}
 
@@ -533,4 +559,15 @@ func (r *RestartReconciler) setATPod() bool {
 		r.ATPod = atPod.name
 	}
 	return true
+}
+
+// shouldRequeueIfPodsNotRunning is a helper function that will determine
+// whether a requeue of the reconcile is necessary because some pods are not yet
+// running.
+func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
+	if r.PFacts.countNotRunning() > 0 {
+		r.Log.Info("Requeue.  Some pods are not yet running.")
+		return true
+	}
+	return false
 }

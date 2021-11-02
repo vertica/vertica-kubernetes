@@ -18,9 +18,6 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://update-strategy/ks-0"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
     includeUIDInPath: true
   local:
     requestSize: 100Mi
@@ -28,3 +25,5 @@ spec:
     - name: sc1
       size: 1
   kSafety: "0"
+  requeueTime: 4
+  certSecrets: []

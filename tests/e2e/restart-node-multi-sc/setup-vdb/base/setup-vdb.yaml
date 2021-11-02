@@ -21,9 +21,7 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://restart-node-multi-sc"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
+    includeUIDInPath: true
   dbName: vertdb
   shardCount: 16
   subclusters:
@@ -33,3 +31,4 @@ spec:
       size: 1
     - name: sc3
       size: 2
+  certSecrets: []

@@ -23,7 +23,7 @@ function usage() {
     echo "usage: $(basename $0) [-t <testcase>]"
     echo
     echo "Options:"
-    echo "  -c <testcase>   Run only the following testcase.  By default it"
+    echo "  -t <testcase>   Run only the following testcase.  By default it"
     echo "                  runs all of the testcases."
     exit 1
 }
@@ -47,7 +47,7 @@ done
 function start_iteration {
     printf "\n${GREEN}Iteration $(($count))${NC}\n"
     printf "\t${ORANGE}$(date +%r): Deleting old kuttl namespaces${NC}\n"
-    for ns in $(kubens | grep kuttl)
+    for ns in $(kubens | grep kuttl-test)
     do
         kubectl delete ns $ns 2>&1 > /dev/null
     done

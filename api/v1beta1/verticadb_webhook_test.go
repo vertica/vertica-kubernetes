@@ -16,8 +16,11 @@
 package v1beta1
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -216,11 +219,6 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.ShardCount = 10
 		validateImmutableFields(vdbUpdate)
 	})
-	It("should not change image after creation if autoRestartVertica is enabled", func() {
-		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.Image = "vertica-k8s:v11"
-		validateImmutableFields(vdbUpdate)
-	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.AutoRestartVertica = false
@@ -281,6 +279,30 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeClusterIP
 		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should default endpoint for google cloud", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.Path = "gs://some-bucket/db"
+		vdb.Spec.Communal.Endpoint = ""
+		vdb.Default()
+		Expect(vdb.Spec.Communal.Endpoint).Should(Equal(DefaultGCloudEndpoint))
+	})
+
+	It("should prevent volumeMount paths to use same path as internal mount points", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.VolumeMounts = []v1.VolumeMount{
+			{MountPath: paths.LogPath}}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.VolumeMounts = []v1.VolumeMount{
+			{MountPath: vdb.Spec.Local.DataPath}}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.VolumeMounts = []v1.VolumeMount{
+			{MountPath: fmt.Sprintf("%s/my.cert", paths.CertsRoot)}}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.VolumeMounts = []v1.VolumeMount{
+			{MountPath: "/good/path"}}
+		validateSpecValuesHaveErr(vdb, false)
 	})
 })
 

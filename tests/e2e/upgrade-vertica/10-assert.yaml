@@ -16,7 +16,7 @@ kind: StatefulSet
 metadata:
   name: v-upgrade-vertica-defsc
 status:
-  replicas: 3
+  replicas: 2
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
@@ -24,4 +24,4 @@ metadata:
   name: v-upgrade-vertica
 status:
   subclusters:
-    - installCount: 3
+    - installCount: 2

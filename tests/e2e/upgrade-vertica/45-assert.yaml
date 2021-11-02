@@ -11,30 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-upgrade-vertica
+  name: v-upgrade-vertica-defsc
 status:
-  upNodeCount: 0
+  replicas: 1
 ---
 apiVersion: v1
 kind: Pod
 metadata:
   name: v-upgrade-vertica-defsc-0
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-1
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-2
-status:
-  phase: Running
+spec:
+  containers:
+    - image: wrong-image

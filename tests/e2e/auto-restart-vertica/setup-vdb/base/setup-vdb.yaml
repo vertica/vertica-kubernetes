@@ -21,9 +21,7 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://auto-restart-vertica"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret:  minio-creds-secret
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   dbName: vd
@@ -32,3 +30,4 @@ spec:
   subclusters:
     - name: defsc
       size: 2
+  certSecrets: []

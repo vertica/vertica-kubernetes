@@ -21,12 +21,11 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   communal:
-    path: "s3://k-safety-1-scaling"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   subclusters:
     - name: main
       size: 3
   kSafety: "1"
+  certSecrets: []

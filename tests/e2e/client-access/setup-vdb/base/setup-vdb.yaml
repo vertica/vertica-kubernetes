@@ -18,9 +18,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    path: "s3://client-access"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   dbName: vertdb
@@ -28,3 +26,4 @@ spec:
     - name: sc1
       size: 2
   kSafety: "0"
+  certSecrets: []

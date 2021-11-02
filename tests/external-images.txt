@@ -5,14 +5,13 @@
 # nodes.
 #    scripts/push-to-kind.sh -f tests/external-images.txt
 #
-vertica/vertica-k8s:latest
 vertica/vertica-k8s:11.0.0-0-minimal
-minio/minio:RELEASE.2021-02-24T18-44-45Z
+minio/minio:RELEASE.2021-09-03T03-56-13Z
 amazon/aws-cli:2.2.24
 quay.io/helmpack/chart-testing:v3.3.1
 bitnami/kubectl:1.20.4
-minio/operator:v4.0.2
-minio/console:v0.6.3
+minio/operator:v4.2.7
+minio/console:v0.9.8
 rancher/local-path-provisioner:v0.0.19
 gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
 
@@ -22,5 +21,12 @@ golang:1.15
 gcr.io/distroless/static:nonroot
 alpine:3.13
 
-# Images needed for testing
+# Images needed for testing in CI
 kindest/node:v1.21.1
+registry:2
+
+# Images needed for olm
+quay.io/operator-framework/olm:v0.18.3
+
+# Images needed if testing gcloud
+# google/cloud-sdk:360.0.0-alpine

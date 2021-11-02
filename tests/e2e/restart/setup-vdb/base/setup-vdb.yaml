@@ -19,9 +19,7 @@ spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   communal:
-    path: "s3://restart"
-    endpoint: "http://minio.kuttl-e2e-communal"
-    credentialSecret: minio-creds-secret
+    includeUIDInPath: false
   local:
     requestSize: 100Mi
   dbName: spilchendb2
@@ -31,3 +29,4 @@ spec:
   subclusters:
     - name: defsc
       size: 3
+  certSecrets: []
