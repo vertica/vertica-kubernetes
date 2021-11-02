@@ -35,6 +35,8 @@ type KObjs struct {
 	CAFile                  corev1.Secret
 	HasHadoopConfig         bool
 	HadoopConfig            corev1.ConfigMap
+	HasKerberosSecret       bool
+	KerberosSecret          corev1.Secret
 }
 
 type VDBCreator interface {
@@ -88,6 +90,15 @@ func writeManifest(wr io.Writer, objs *KObjs) (err error) {
 
 	if objs.HasHadoopConfig {
 		y, err = yaml.Marshal(objs.HadoopConfig)
+		if err != nil {
+			return err
+		}
+		fmt.Fprint(wr, "---\n")
+		fmt.Fprint(wr, string(y))
+	}
+
+	if objs.HasKerberosSecret {
+		y, err = yaml.Marshal(objs.KerberosSecret)
 		if err != nil {
 			return err
 		}

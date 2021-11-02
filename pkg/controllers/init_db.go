@@ -242,8 +242,8 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 	return strings.TrimSpace(dedent.Dedent(content)), ctrl.Result{}, nil
 }
 
-// SPILLY - update vdb-gen to pull out Kerberos information
-
+// getKerberosAuthParmsContent constructs a string for Kerberos related auth
+// parms if that is setup.  Returns an empty string if no Kerberos setup.
 func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
 	if !g.Vdb.HasKerberosConfig() {
 		return ""

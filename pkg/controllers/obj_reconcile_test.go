@@ -446,7 +446,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if the license secret is not found", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.LicenseSecret = "not-here"
+			vdb.Spec.LicenseSecret = "not-here-1"
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
@@ -457,7 +457,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if the kerberos secret is not found", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.KerberosSecret = "not-here"
+			vdb.Spec.KerberosSecret = "not-here-2"
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 

@@ -67,6 +67,10 @@ func main() {
 	flag.StringVar(&opts.AzureAccountName, "accountName", "",
 		"The Azure accountName to use for communal access credentials.  This is required if more than one credential is present.  "+
 			"If only one exists, it will default to using that.")
+	flag.StringVar(&opts.Krb5Conf, "krb5conf", "",
+		"If the communal backend is authenticated with Kerberos, use this parameter to pass in the contents of the krb5.conf file")
+	flag.StringVar(&opts.Krb5Keytab, "krb5keytab", "",
+		"If the communal backend is authenticated with Kerberos, use this parameter to pass in the contents of the krb5.keytab file")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {
