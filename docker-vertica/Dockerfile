@@ -118,7 +118,6 @@ RUN set -x \
   cronie \
   dialog \
   iproute \
-  krb5-libs \
   krb5-workstation \
   mcelog \
   logrotate \

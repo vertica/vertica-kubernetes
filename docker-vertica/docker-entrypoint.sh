@@ -25,25 +25,12 @@ ensure_path_is_owned_by_dbadmin() {
     [ -z "$1" ] || [ "$(stat -c "%U" "$1")" == "dbadmin" ] || sudo chown -R dbadmin:verticadba "$1"
 }
 
-# SPILLY - pretty hacky, don't want to leave this in
-setup_dbadmin_keytab() {
-    if [ -f /etc/krb5.keytab ]
-    then
-        KEYTAB=/home/dbadmin/keytab/krb5.keytab
-        mkdir -p $(dirname $KEYTAB)
-        cp /etc/krb5.keytab $KEYTAB
-        sudo chown dbadmin:verticadba $KEYTAB
-        sudo chmod 0600 $KEYTAB
-    fi
-}
-
 start_cron
 ensure_path_is_owned_by_dbadmin /opt/vertica/config
 ensure_path_is_owned_by_dbadmin /opt/vertica/log
 ensure_path_is_owned_by_dbadmin $DATA_PATH
 ensure_path_is_owned_by_dbadmin $DEPOT_PATH
 copy_config_files
-setup_dbadmin_keytab
 
 echo "Vertica container is now running"
 

@@ -37,6 +37,7 @@ const (
 	KerberosRoot           = "/etc"
 	Krb5Conf               = "krb5.conf"
 	Krb5Keytab             = "krb5.keytab"
+	Krb5KeytabCopyDir      = "/home/dbadmin/keytabs"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.

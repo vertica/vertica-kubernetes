@@ -44,10 +44,12 @@ const (
 	PodInfoMountName      = "podinfo"
 	LicensingMountName    = "licensing"
 	HadoopConfigMountName = "hadoop-conf"
-	KerberosMountName     = "krb5"
-	S3Prefix              = "s3://"
-	GCloudPrefix          = "gs://"
-	AzurePrefix           = "azb://"
+	// SPILLY - short then, and make it more descriptive?
+	KerberosMountName       = "krb5"
+	Krb5KeytabCopyMountName = "krb5-keytab-copy"
+	S3Prefix                = "s3://"
+	GCloudPrefix            = "gs://"
+	AzurePrefix             = "azb://"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.

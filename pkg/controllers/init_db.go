@@ -250,14 +250,13 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 // getKerberosAuthParmsContent constructs a string for Kerberos related auth
 // parms if that is setup.  Must have Kerberos config in the Vdb.
 func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
-	// SPILLY - hard coding a value in here.
 	// SPILLY - add a UT for this
 	return fmt.Sprintf(`
 			KerberosServiceName = %s
 			KerberosRealm = %s
-			KerberosKeytabFile = %s
+			KerberosKeytabFile = %s/%s
 	`, g.Vdb.Spec.Communal.KerberosServicePrincipal,
-		g.Vdb.Spec.Communal.KerberosRealm, "/home/dbadmin/keytab/krb5.keytab")
+		g.Vdb.Spec.Communal.KerberosRealm, paths.Krb5KeytabCopyDir, paths.Krb5Keytab)
 }
 
 // getGCloudAuthParmsContent will get the content for the auth parms when we are
