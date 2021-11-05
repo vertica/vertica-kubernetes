@@ -59,4 +59,5 @@ const (
 	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
 	ReipFailed                      = "ReipFailed"
 	MissingSecretKeys               = "MissingSecretKeys"
+	KerberosAuthError               = "KerberosAuthError"
 )

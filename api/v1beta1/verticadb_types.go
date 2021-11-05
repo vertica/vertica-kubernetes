@@ -322,6 +322,8 @@ type CommunalStorage struct {
 	// in the database config parameter KerberosServiceName during bootstrapping.
 	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
 
+	// SPILLY - confirm vdb-gen works
+
 	// +kubebuilder:validation:Optional
 	// Name of the Kerberos realm.  This is set in the database config parameter
 	// KerberosRealm during bootstrapping.
