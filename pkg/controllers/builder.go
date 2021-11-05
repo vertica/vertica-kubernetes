@@ -109,17 +109,17 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 func buildKerberosVolumeMounts() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
-			Name:      vapi.KerberosMountName,
+			Name:      vapi.KrbSecretMountName,
 			MountPath: fmt.Sprintf("%s/%s", paths.KerberosRoot, paths.Krb5Conf),
 			SubPath:   paths.Krb5Conf,
 		},
 		{
-			Name:      vapi.KerberosMountName,
+			Name:      vapi.KrbSecretMountName,
 			MountPath: fmt.Sprintf("%s/%s", paths.KerberosRoot, paths.Krb5Keytab),
 			SubPath:   paths.Krb5Keytab,
 		},
 		{
-			Name:      vapi.Krb5KeytabCopyMountName,
+			Name:      vapi.KrbKeytabCopyMountName,
 			MountPath: paths.Krb5KeytabCopyDir,
 		},
 	}
@@ -268,7 +268,7 @@ func buildKerberosVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	emptyDir := corev1.EmptyDirVolumeSource{}
 	return []corev1.Volume{
 		{
-			Name: vapi.KerberosMountName,
+			Name: vapi.KrbSecretMountName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: vdb.Spec.KerberosSecret,
@@ -276,7 +276,7 @@ func buildKerberosVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 			},
 		},
 		{
-			Name:         vapi.Krb5KeytabCopyMountName,
+			Name:         vapi.KrbKeytabCopyMountName,
 			VolumeSource: corev1.VolumeSource{EmptyDir: &emptyDir},
 		},
 	}

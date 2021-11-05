@@ -313,7 +313,7 @@ var _ = Describe("verticadb_webhook", func() {
 			vdb := createVDBHelper()
 			vdb.Spec.KerberosSecret = vals[0]
 			vdb.Spec.Communal.KerberosRealm = vals[1]
-			vdb.Spec.Communal.KerberosServicePrincipal = vals[2]
+			vdb.Spec.Communal.KerberosServiceName = vals[2]
 			validateSpecValuesHaveErr(vdb, true)
 		}
 	})

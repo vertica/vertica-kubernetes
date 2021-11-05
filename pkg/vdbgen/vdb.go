@@ -758,7 +758,7 @@ func (d *DBGenerator) setKrb5Secret(ctx context.Context) error {
 
 	d.Objs.HasKerberosSecret = true
 	d.Objs.Vdb.Spec.Communal.KerberosRealm = realm
-	d.Objs.Vdb.Spec.Communal.KerberosServicePrincipal = svcName
+	d.Objs.Vdb.Spec.Communal.KerberosServiceName = svcName
 	d.Objs.KerberosSecret.TypeMeta.APIVersion = SecretAPIVersion
 	d.Objs.KerberosSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.KerberosSecret.ObjectMeta.Name = fmt.Sprintf("%s-krb5", d.Opts.VdbName)

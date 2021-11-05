@@ -255,7 +255,7 @@ func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
 			KerberosServiceName = %s
 			KerberosRealm = %s
 			KerberosKeytabFile = %s/%s
-	`, g.Vdb.Spec.Communal.KerberosServicePrincipal,
+	`, g.Vdb.Spec.Communal.KerberosServiceName,
 		g.Vdb.Spec.Communal.KerberosRealm, paths.Krb5KeytabCopyDir, paths.Krb5Keytab)
 }
 

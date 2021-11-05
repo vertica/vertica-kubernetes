@@ -33,23 +33,22 @@ import (
 )
 
 const (
-	invalidDBNameChars    = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
-	dbNameLengthLimit     = 30
-	KSafety0MinHosts      = 1
-	KSafety0MaxHosts      = 3
-	KSafety1MinHosts      = 3
-	portLowerBound        = 30000
-	portUpperBound        = 32767
-	LocalDataPVC          = "local-data"
-	PodInfoMountName      = "podinfo"
-	LicensingMountName    = "licensing"
-	HadoopConfigMountName = "hadoop-conf"
-	// SPILLY - short then, and make it more descriptive?
-	KerberosMountName       = "krb5"
-	Krb5KeytabCopyMountName = "krb5-keytab-copy"
-	S3Prefix                = "s3://"
-	GCloudPrefix            = "gs://"
-	AzurePrefix             = "azb://"
+	invalidDBNameChars     = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
+	dbNameLengthLimit      = 30
+	KSafety0MinHosts       = 1
+	KSafety0MaxHosts       = 3
+	KSafety1MinHosts       = 3
+	portLowerBound         = 30000
+	portUpperBound         = 32767
+	LocalDataPVC           = "local-data"
+	PodInfoMountName       = "podinfo"
+	LicensingMountName     = "licensing"
+	HadoopConfigMountName  = "hadoop-conf"
+	KrbSecretMountName     = "krb"
+	KrbKeytabCopyMountName = "krb-keytab-copy"
+	S3Prefix               = "s3://"
+	GCloudPrefix           = "gs://"
+	AzurePrefix            = "azb://"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -93,7 +92,7 @@ func (v *VerticaDB) IsAzure() bool {
 func (v *VerticaDB) HasKerberosConfig() bool {
 	// We have a webhook check that makes sure if the principal is set, the
 	// other things are set too.
-	return v.Spec.Communal.KerberosServicePrincipal != ""
+	return v.Spec.Communal.KerberosServiceName != ""
 }
 
 //+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
@@ -558,8 +557,8 @@ func (v *VerticaDB) canUpdateScName(oldObj *VerticaDB) bool {
 func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorList {
 	// Handle two valid cases.  None of the Kerberos settings are used or they
 	// all are.  This will detect cases when only a portion of them are set.
-	if (v.Spec.Communal.KerberosRealm == "" && v.Spec.Communal.KerberosServicePrincipal == "") ||
-		(v.Spec.Communal.KerberosRealm != "" && v.Spec.Communal.KerberosServicePrincipal != "" && v.Spec.KerberosSecret != "") {
+	if (v.Spec.Communal.KerberosRealm == "" && v.Spec.Communal.KerberosServiceName == "") ||
+		(v.Spec.Communal.KerberosRealm != "" && v.Spec.Communal.KerberosServiceName != "" && v.Spec.KerberosSecret != "") {
 		return allErrs
 	}
 
@@ -569,9 +568,9 @@ func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorLi
 			"kerberosRealm must be set if setting up Kerberos")
 		allErrs = append(allErrs, err)
 	}
-	if v.Spec.Communal.KerberosServicePrincipal == "" {
+	if v.Spec.Communal.KerberosServiceName == "" {
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("kerberosPrincipal"),
-			v.Spec.Communal.KerberosServicePrincipal,
+			v.Spec.Communal.KerberosServiceName,
 			"kerberosPrincipal must be set if setting up Kerberos")
 		allErrs = append(allErrs, err)
 	}
