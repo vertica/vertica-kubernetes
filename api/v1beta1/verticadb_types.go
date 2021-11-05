@@ -322,8 +322,6 @@ type CommunalStorage struct {
 	// in the database config parameter KerberosServiceName during bootstrapping.
 	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
 
-	// SPILLY - try KerberosHostname to see if that is a solution for keytab management
-
 	// +kubebuilder:validation:Optional
 	// Name of the Kerberos realm.  This is set in the database config parameter
 	// KerberosRealm during bootstrapping.
