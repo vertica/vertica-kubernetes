@@ -173,6 +173,11 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 		if podFact.isInstalled.IsFalse() {
 			continue
 		}
+		if !podFact.dbExists.IsFalse() {
+			s.Log.Info("DB exists at the pod, which needs to be removed first", "pod", uninstallPod)
+			requeueNeeded = true
+			continue
+		}
 		pods = append(pods, podFact)
 	}
 	return pods, requeueNeeded

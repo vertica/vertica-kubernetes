@@ -9,6 +9,7 @@
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
  See the License for the specific language governing permissions and
  limitations under the License.
 */
@@ -17,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -73,14 +75,14 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	for i := range o.Vdb.Spec.Subclusters {
-		if err := o.checkForCreatedSubcluster(ctx, &o.Vdb.Spec.Subclusters[i]); err != nil {
-			return ctrl.Result{}, err
+		if res, err := o.checkForCreatedSubcluster(ctx, &o.Vdb.Spec.Subclusters[i]); res.Requeue || err != nil {
+			return res, err
 		}
 	}
 
 	// Check to see if we need to remove any objects for deleted subclusters
-	if err := o.checkForDeletedSubcluster(ctx); err != nil {
-		return ctrl.Result{}, err
+	if res, err := o.checkForDeletedSubcluster(ctx); res.Requeue || err != nil {
+		return res, err
 	}
 
 	return ctrl.Result{}, nil
@@ -129,46 +131,54 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 }
 
 // checkForCreatedSubcluster handles reconciliation of one subcluster that should exist
-func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.Subcluster) error {
+func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	if err := o.reconcileExtSvc(ctx, sc); err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 
-	_, err := o.reconcileSts(ctx, sc)
-	return err
+	_, res, err := o.reconcileSts(ctx, sc)
+	return res, err
 }
 
 // checkForDeletedSubcluster will remove any objects that were created for
 // subclusters that don't exist anymore.
-func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) error {
+func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Result, error) {
 	finder := MakeSubclusterFinder(o.VRec.Client, o.Vdb)
 
-	// Find any statefulsets that need to be delete
+	// Find any statefulsets that need to be deleted
 	stss, err := finder.FindStatefulSets(ctx, FindNotInVdb)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 
 	for i := range stss.Items {
+		// Ensure that we have correctly done db_remove_node and uninstall for
+		// all pods in the subcluster.  If that isn't the case, we requeue to
+		// give those reconcilers a chance to do those actions.  Failure to do
+		// this will result in corruption of admintools.conf.
+		if r, e := o.checkForOrphanAdmintoolsConfEntries(0, &stss.Items[i]); r.Requeue || e != nil {
+			return r, e
+		}
+
 		err = o.VRec.Client.Delete(ctx, &stss.Items[i])
 		if err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 	}
 
 	// Find any service objects that need to be deleted
 	svcs, err := finder.FindServices(ctx, FindNotInVdb)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 
 	for i := range svcs.Items {
 		err = o.VRec.Client.Delete(ctx, &svcs.Items[i])
 		if err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 	}
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // reconcileExtSvc verifies the external service objects exists and creates it if necessary.
@@ -241,7 +251,7 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
-func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (bool, error) {
+func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (bool, ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
 	expSts := buildStsSpec(nm, o.Vdb, sc)
@@ -250,11 +260,19 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		err = ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme)
 		if err != nil {
-			return false, err
+			return false, ctrl.Result{}, err
 		}
 		// Invalidate the pod facts cache since we are creating a new sts
 		o.PFacts.Invalidate()
-		return true, o.VRec.Client.Create(ctx, expSts)
+		return true, ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
+	}
+
+	// We can only remove pods if we have called 'admintools -t db_remove_node'
+	// and done the uninstall.  If we haven't yet done that we will requeue the
+	// reconciliation.  This will cause us to go through the remove node and
+	// uninstall reconcile actors to properly handle the scale down.
+	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); r.Requeue || e != nil {
+		return false, r, e
 	}
 
 	// To distinguish when this is called as part of the upgrade reconciler, we
@@ -273,13 +291,42 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	curSts.DeepCopyInto(origSts)
 	expSts.Spec.DeepCopyInto(&curSts.Spec)
 	if err := o.VRec.Client.Patch(ctx, curSts, patch); err != nil {
-		return false, err
+		return false, ctrl.Result{}, err
 	}
 	if !reflect.DeepEqual(curSts.Spec, origSts.Spec) {
 		o.Log.Info("Patching statefulset", "Name", expSts.Name, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		// Invalidate the pod facts cache since we are about to change the sts
 		o.PFacts.Invalidate()
-		return true, nil
+		return true, ctrl.Result{}, nil
 	}
-	return false, nil
+	return false, ctrl.Result{}, nil
+}
+
+// checkForOrphanAdmintoolsConfEntries will check whether it is okay to proceed
+// with the statefulset update.  This checks if we are deleting pods/sts and if
+// what we are deleting has had proper cleanup in admintools.conf.  Failure to
+// do this will cause us to orphan entries leading admintools to fail for most
+// operations.
+func (o *ObjReconciler) checkForOrphanAdmintoolsConfEntries(newStsSize int32, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	if newStsSize >= *sts.Spec.Replicas {
+		// Nothing to do as we aren't scaling down.
+		return ctrl.Result{}, nil
+	}
+
+	// Cycle through each pod that is going to be deleted to see if it is safe
+	// to remove it.
+	for i := newStsSize; i < *sts.Spec.Replicas; i++ {
+		pn := names.GenPodNameFromSts(o.Vdb, sts, i)
+		pf, ok := o.PFacts.Detail[pn]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
+		}
+		if !pf.isInstalled.IsFalse() || !pf.dbExists.IsFalse() {
+			o.Log.Info("Requeue since some pods still need db_remove_node and uninstall done.",
+				"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists)
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+
+	return ctrl.Result{}, nil
 }

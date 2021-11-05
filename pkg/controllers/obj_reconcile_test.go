@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"yunion.io/x/pkg/tristate"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -502,6 +503,39 @@ var _ = Describe("obj_reconcile", func() {
 			defer deleteCrd(vdb)
 
 			runReconciler(vdb, ctrl.Result{Requeue: true})
+		})
+
+		It("should not proceed with the scale down if uninstall or db_remove_node hasn't happened", func() {
+			vdb := vapi.MakeVDB()
+			origSize := int32(4)
+			vdb.Spec.Subclusters[0].Size = origSize
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			newSize := int32(3)
+			vdb.Spec.Subclusters[0].Size = newSize
+			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+			nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+			sts := &appsv1.StatefulSet{}
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+
+			pn := names.GenPodNameFromSts(vdb, sts, origSize-1)
+			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.True, dbExists: tristate.False}
+
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+
+			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.False, dbExists: tristate.True}
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+
+			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.False, dbExists: tristate.False}
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			curSize := *sts.Spec.Replicas
+			Expect(curSize).Should(Equal(newSize))
 		})
 	})
 })

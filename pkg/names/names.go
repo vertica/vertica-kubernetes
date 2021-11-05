@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -72,4 +73,12 @@ func GenSUPasswdSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 // to lookup a pod by its generated name.
 func GenPodName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
 	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s-%d", vdb.Name, sc.Name, podIndex))
+}
+
+// GenPodNameFromSts returns the name of a specific pod in a statefulset
+func GenPodNameFromSts(vdb *vapi.VerticaDB, sts *appsv1.StatefulSet, podIndex int32) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      fmt.Sprintf("%s-%d", sts.GetObjectMeta().GetName(), podIndex),
+		Namespace: vdb.Namespace,
+	}
 }

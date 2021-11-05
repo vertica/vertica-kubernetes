@@ -1,0 +1,5 @@
+kind: Fixed
+body: Timing with scale down that can cause corruption in admintools.conf
+time: 2021-10-29T14:03:15.739313414-04:00
+custom:
+  Issue: "90"
