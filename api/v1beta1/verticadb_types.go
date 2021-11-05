@@ -318,15 +318,15 @@ type CommunalStorage struct {
 	HadoopConfig string `json:"hadoopConfig,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// The service name portion of the Vertica Kerberos principal. This is used
-	// for bootstrapping during create or revive db of a HDFS communal endpoint.
+	// The service name portion of the Vertica Kerberos principal. This is set
+	// in the database config parameter KerberosServiceName during bootstrapping.
 	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
 
 	// SPILLY - try KerberosHostname to see if that is a solution for keytab management
 
 	// +kubebuilder:validation:Optional
-	// Name of the Kerberos realm that is used for bootstrapping during create
-	// or revive db of a HDFS communal endpoint.
+	// Name of the Kerberos realm.  This is set in the database config parameter
+	// KerberosRealm during bootstrapping.
 	KerberosRealm string `json:"kerberosRealm,omitempty"`
 }
 

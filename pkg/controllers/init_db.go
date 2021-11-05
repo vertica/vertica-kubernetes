@@ -250,7 +250,6 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 // getKerberosAuthParmsContent constructs a string for Kerberos related auth
 // parms if that is setup.  Must have Kerberos config in the Vdb.
 func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
-	// SPILLY - add a UT for this
 	return fmt.Sprintf(`
 			KerberosServiceName = %s
 			KerberosRealm = %s
