@@ -65,43 +65,4 @@ then
     helm repo update
 fi
 
-# SPILLY temp temp
-cd $HOME/git/kubernetes-HDFS/charts
-helm dependency build hdfs-ci
-helm package hdfs-ci
-
-helm install -n $HADOOP_NS $RELEASE $HOME/git/kubernetes-HDFS/charts/hdfs-ci-0.1.1.tgz --set global.kerberosEnabled=true --set tags.kerberos=true --timeout ${TIMEOUT}s
-
-while ! kubectl get pod -n $HADOOP_NS hdfs-ci-krb5-0; do sleep 0.1; done
-kubectl wait -n $HADOOP_NS --for=condition=Ready=True pod hdfs-ci-krb5-0 --timeout ${TIMEOUT}s
-
-KRB5_CONFIG=hdfs-ci-krb5-config
-kubectl cp -n $HADOOP_NS hdfs-ci-krb5-0:/etc/krb5.conf $HOME/tmp/krb5.conf
-kubectl delete configmap -n $HADOOP_NS $KRB5_CONFIG || :
-kubectl create configmap -n $HADOOP_NS $KRB5_CONFIG --from-file=$HOME/tmp/krb5.conf
-
-HOSTS="matt1-control-plane hdfs-ci-namenode-0.hdfs-ci-namenode.kuttl-e2e-hadoop.svc.cluster.local "
-for i in $(seq 0 2)
-do
-    HOSTS+="hdfs-ci-datanode-$i.hdfs-ci-datanode.kuttl-e2e-hadoop.svc.cluster.local "
-done
-
-ALL_PRINCIPALS=
-for HOST in $HOSTS
-do
-    for p in hdfs HTTP
-    do
-      kubectl exec -n $HADOOP_NS hdfs-ci-krb5-0 -- kadmin.local -q "addprinc -randkey $p/$HOST@MYCOMPANY.COM"
-      ALL_PRINCIPALS+="$p/$HOST@MYCOMPANY.COM "
-    done
-done
-
-kubectl exec -n $HADOOP_NS hdfs-ci-krb5-0 -- rm /tmp/hdfs.keytab || :
-rm hdfs.keytab || :
-kubectl exec -n $HADOOP_NS hdfs-ci-krb5-0 -- kadmin.local -q "ktadd -norandkey -k /tmp/hdfs.keytab $ALL_PRINCIPALS"
-kubectl cp -n $HADOOP_NS hdfs-ci-krb5-0:/tmp/hdfs.keytab hdfs.keytab
-KEYTAB_SECRET=hdfs-ci-krb5-keytab
-kubectl delete secret -n $HADOOP_NS $KEYTAB_SECRET || :
-kubectl create secret generic -n $HADOOP_NS $KEYTAB_SECRET --from-file=hdfs.keytab
-
-# SPILLY setup a single secret that has the krb5.conf and krb5.keytab.  That way we are in sync with the operator
+helm install --wait -n $HADOOP_NS $RELEASE $CHART --timeout ${TIMEOUT}s
