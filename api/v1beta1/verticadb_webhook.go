@@ -33,22 +33,22 @@ import (
 )
 
 const (
-	invalidDBNameChars     = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
-	dbNameLengthLimit      = 30
-	KSafety0MinHosts       = 1
-	KSafety0MaxHosts       = 3
-	KSafety1MinHosts       = 3
-	portLowerBound         = 30000
-	portUpperBound         = 32767
-	LocalDataPVC           = "local-data"
-	PodInfoMountName       = "podinfo"
-	LicensingMountName     = "licensing"
-	HadoopConfigMountName  = "hadoop-conf"
-	KrbSecretMountName     = "krb"
-	KrbKeytabCopyMountName = "krb-keytab-copy"
-	S3Prefix               = "s3://"
-	GCloudPrefix           = "gs://"
-	AzurePrefix            = "azb://"
+	invalidDBNameChars      = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
+	dbNameLengthLimit       = 30
+	KSafety0MinHosts        = 1
+	KSafety0MaxHosts        = 3
+	KSafety1MinHosts        = 3
+	portLowerBound          = 30000
+	portUpperBound          = 32767
+	LocalDataPVC            = "local-data"
+	PodInfoMountName        = "podinfo"
+	LicensingMountName      = "licensing"
+	HadoopConfigMountName   = "hadoop-conf"
+	Krb5SecretMountName     = "krb5"
+	Krb5KeytabCopyMountName = "krb5-keytab-copy"
+	S3Prefix                = "s3://"
+	GCloudPrefix            = "gs://"
+	AzurePrefix             = "azb://"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -569,9 +569,9 @@ func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorLi
 		allErrs = append(allErrs, err)
 	}
 	if v.Spec.Communal.KerberosServiceName == "" {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("kerberosPrincipal"),
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("kerberosServiceName"),
 			v.Spec.Communal.KerberosServiceName,
-			"kerberosPrincipal must be set if setting up Kerberos")
+			"kerberosServiceName must be set if setting up Kerberos")
 		allErrs = append(allErrs, err)
 	}
 	if v.Spec.KerberosSecret == "" {

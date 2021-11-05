@@ -34,7 +34,7 @@ const (
 	EulaAcceptanceFile     = "/opt/vertica/config/d5415f948449e9d4c421b568f2411140.dat"
 	EulaAcceptanceScript   = "/opt/vertica/config/accept_eula.py"
 	CertsRoot              = "/certs"
-	KerberosRoot           = "/etc"
+	Krb5Root               = "/etc"
 	Krb5Conf               = "krb5.conf"
 	Krb5Keytab             = "krb5.keytab"
 	Krb5KeytabCopyDir      = "/home/dbadmin/keytabs"
@@ -44,4 +44,4 @@ const (
 var MountPaths = []string{LocalDataPath, CELicensePath, MountedLicensePath,
 	HadoopConfPath, ConfigPath, ConfigSharePath, ConfigLogrotatePath,
 	LogPath, PodInfoPath, AdminToolsConf, AuthParmsFile, EulaAcceptanceFile,
-	EulaAcceptanceScript, CertsRoot, KerberosRoot}
+	EulaAcceptanceScript, CertsRoot, Krb5Root}

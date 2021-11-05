@@ -150,7 +150,7 @@ var _ = Describe("init_db", func() {
 		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureSharedAccessSignature))
 	})
 
-	It("should include Kerberos parms when if kerberos settings are set", func() {
+	It("should include Kerberos parms if there are kerberos settings", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.KerberosRealm = "EXAMPLE.COM"
 		vdb.Spec.Communal.KerberosServiceName = "vertica"
