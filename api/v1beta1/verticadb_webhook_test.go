@@ -304,6 +304,19 @@ var _ = Describe("verticadb_webhook", func() {
 			{MountPath: "/good/path"}}
 		validateSpecValuesHaveErr(vdb, false)
 	})
+
+	It("should detect when Kerberos is partially setup", func() {
+		kerberosSetup := [][]string{{"", "realm", ""}, {"", "", "principal"},
+			{"secret", "realm", ""}, {"secret", "", "principal"}, {"", "realm", "principal"}}
+
+		for _, vals := range kerberosSetup {
+			vdb := createVDBHelper()
+			vdb.Spec.KerberosSecret = vals[0]
+			vdb.Spec.Communal.KerberosRealm = vals[1]
+			vdb.Spec.Communal.KerberosServiceName = vals[2]
+			validateSpecValuesHaveErr(vdb, true)
+		}
+	})
 })
 
 func createVDBHelper() *VerticaDB {

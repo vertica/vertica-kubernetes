@@ -30,7 +30,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -199,6 +198,12 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 		return res, err
 	}
 
+	if g.Vdb.HasKerberosConfig() {
+		content = dedent.Dedent(fmt.Sprintf(`
+			%s
+			%s`, content, g.getKerberosAuthParmsContent()))
+	}
+
 	err = g.copyAuthFile(ctx, atPod, content)
 	return ctrl.Result{}, err
 }
@@ -240,6 +245,17 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 		`, g.getHadoopConfDir(), g.getCAFile(),
 	)
 	return strings.TrimSpace(dedent.Dedent(content)), ctrl.Result{}, nil
+}
+
+// getKerberosAuthParmsContent constructs a string for Kerberos related auth
+// parms if that is setup.  Must have Kerberos config in the Vdb.
+func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
+	return fmt.Sprintf(`
+			KerberosServiceName = %s
+			KerberosRealm = %s
+			KerberosKeytabFile = %s/%s
+	`, g.Vdb.Spec.Communal.KerberosServiceName,
+		g.Vdb.Spec.Communal.KerberosRealm, paths.Krb5KeytabCopyDir, paths.Krb5Keytab)
 }
 
 // getGCloudAuthParmsContent will get the content for the auth parms when we are
@@ -409,17 +425,7 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCre
 // getCommunalCredsSecret returns the contents of the communal credentials
 // secret.  It handles if the secret is not found and will log an event.
 func (g *GenericDatabaseInitializer) getCommunalCredsSecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
-	secret := &corev1.Secret{}
-	if err := g.VRec.Client.Get(ctx, names.GenCommunalCredSecretName(g.Vdb), secret); err != nil {
-		if errors.IsNotFound(err) {
-			g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsNotFound,
-				"Could not find the communal credential secret '%s'", g.Vdb.Spec.Communal.CredentialSecret)
-			return &corev1.Secret{}, ctrl.Result{Requeue: true}, nil
-		}
-		return &corev1.Secret{}, ctrl.Result{},
-			fmt.Errorf("could not read the communal credential secret %s: %w", g.Vdb.Spec.Communal.CredentialSecret, err)
-	}
-	return secret, ctrl.Result{}, nil
+	return getSecret(ctx, g.VRec, g.Vdb, names.GenCommunalCredSecretName(g.Vdb))
 }
 
 // getCommunalEndpoint get the communal endpoint for inclusion in the auth files.

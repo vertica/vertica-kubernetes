@@ -1,0 +1,5 @@
+kind: Added
+body: Support for Kerberos authentication
+time: 2021-11-05T12:05:35.976673063-04:00
+custom:
+  Issue: "91"

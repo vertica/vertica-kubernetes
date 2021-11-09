@@ -118,6 +118,7 @@ RUN set -x \
   cronie \
   dialog \
   iproute \
+  krb5-workstation \
   mcelog \
   logrotate \
   openssh-server \

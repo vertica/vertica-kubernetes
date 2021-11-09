@@ -105,6 +105,11 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 				"You are trying to access your S3 bucket using the wrong region")
 			return ctrl.Result{Requeue: true}, nil
 
+		case isKerberosAuthError(stdout):
+			c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
+				"Error during keberos authentication")
+			return ctrl.Result{Requeue: true}, nil
+
 		default:
 			c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeWarning, events.CreateDBFailed,
 				"Failed to create the database")
@@ -136,6 +141,12 @@ func isWrongRegion(op string) bool {
 		}
 	}
 	return false
+}
+
+// isKerberosAuthError will check if the error is related to Keberos authentication
+func isKerberosAuthError(op string) bool {
+	re := regexp.MustCompile(`An error occurred during kerberos authentication`)
+	return re.FindAllString(op, -1) != nil
 }
 
 // preCmdSetup will generate the file we include with the create_db.

@@ -150,6 +150,16 @@ var _ = Describe("init_db", func() {
 		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureSharedAccessSignature))
 	})
 
+	It("should include Kerberos parms if there are kerberos settings", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.KerberosRealm = "EXAMPLE.COM"
+		vdb.Spec.Communal.KerberosServiceName = "vertica"
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		_ = contructAuthParmsHelper(ctx, vdb, "KerberosRealm")
+	})
+
 	It("should return correct protocol when calling getEndpointProtocol", func() {
 		Expect(getEndpointProtocol("")).Should(Equal(AzureDefaultProtocol))
 		Expect(getEndpointProtocol("192.168.0.1")).Should(Equal(AzureDefaultProtocol))
