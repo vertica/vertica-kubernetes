@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -482,8 +483,8 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.KerberosSecret = "my-secret-v1"
 			secret := buildKerberosSecretBase(vdb)
-			secret.Data[paths.Krb5Keytab] = []byte("keytab")
-			secret.Data[paths.Krb5Conf] = []byte("conf")
+			secret.Data[filepath.Base(paths.Krb5Keytab)] = []byte("keytab")
+			secret.Data[filepath.Base(paths.Krb5Conf)] = []byte("conf")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			defer deleteSecret(ctx, vdb, vdb.Spec.KerberosSecret)
 			createCrd(vdb, false)
@@ -496,7 +497,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.KerberosSecret = "my-secret-v2"
 			secret := buildKerberosSecretBase(vdb)
-			secret.Data[paths.Krb5Conf] = []byte("conf") // Only the krb5.conf
+			secret.Data[filepath.Base(paths.Krb5Conf)] = []byte("conf") // Only the krb5.conf
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			defer deleteSecret(ctx, vdb, vdb.Spec.KerberosSecret)
 			createCrd(vdb, false)

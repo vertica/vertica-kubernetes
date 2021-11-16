@@ -34,14 +34,12 @@ const (
 	EulaAcceptanceFile     = "/opt/vertica/config/d5415f948449e9d4c421b568f2411140.dat"
 	EulaAcceptanceScript   = "/opt/vertica/config/accept_eula.py"
 	CertsRoot              = "/certs"
-	Krb5Root               = "/etc"
-	Krb5Conf               = "krb5.conf"
-	Krb5Keytab             = "krb5.keytab"
-	Krb5KeytabCopyDir      = "/home/dbadmin/keytabs"
+	Krb5Conf               = "/etc/krb5.conf"
+	Krb5Keytab             = "/etc/krb5/krb5.keytab"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.
 var MountPaths = []string{LocalDataPath, CELicensePath, MountedLicensePath,
 	HadoopConfPath, ConfigPath, ConfigSharePath, ConfigLogrotatePath,
 	LogPath, PodInfoPath, AdminToolsConf, AuthParmsFile, EulaAcceptanceFile,
-	EulaAcceptanceScript, CertsRoot, Krb5Root}
+	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab}

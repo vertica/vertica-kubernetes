@@ -26,7 +26,6 @@ import (
 const (
 	ServerContainer      = "server"
 	ServerContainerIndex = 0
-	Krb5KeytabContainer  = "krb5-copy-keytab"
 )
 
 // GenNamespacedName will take any name and make it a namespace name that uses

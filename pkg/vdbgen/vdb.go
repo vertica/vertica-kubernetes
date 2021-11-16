@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -763,8 +764,8 @@ func (d *DBGenerator) setKrb5Secret(ctx context.Context) error {
 	d.Objs.KerberosSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.KerberosSecret.ObjectMeta.Name = fmt.Sprintf("%s-krb5", d.Opts.VdbName)
 	d.Objs.KerberosSecret.Data = map[string][]byte{
-		paths.Krb5Conf:   d.Krb5ConfData,
-		paths.Krb5Keytab: d.Krb5KeytabData,
+		filepath.Base(paths.Krb5Conf):   d.Krb5ConfData,
+		filepath.Base(paths.Krb5Keytab): d.Krb5KeytabData,
 	}
 	d.Objs.Vdb.Spec.KerberosSecret = d.Objs.KerberosSecret.ObjectMeta.Name
 

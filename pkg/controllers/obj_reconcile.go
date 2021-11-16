@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -117,7 +118,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 			return res, err
 		}
 
-		keyNames := []string{paths.Krb5Conf, paths.Krb5Keytab}
+		keyNames := []string{filepath.Base(paths.Krb5Conf), filepath.Base(paths.Krb5Keytab)}
 		for _, key := range keyNames {
 			if _, ok := secret.Data[key]; !ok {
 				o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,

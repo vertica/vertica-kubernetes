@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"fmt"
+	"path/filepath"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -107,20 +108,21 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 }
 
 func buildKerberosVolumeMounts() []corev1.VolumeMount {
+	// We create two mounts.  One is to set /etc/krb5.conf.  It needs to be set
+	// at the specific location.  The second one is to mount a directory that
+	// contains all of the keys in the Kerberos secret.  We mount the entire
+	// directory, as opposed to using SubPath, so that the keytab file within
+	// the Secret will automatically get updated if the Secret is updated.  This
+	// saves having to restart the pod if the keytab changes.
 	return []corev1.VolumeMount{
 		{
 			Name:      vapi.Krb5SecretMountName,
-			MountPath: fmt.Sprintf("%s/%s", paths.Krb5Root, paths.Krb5Conf),
-			SubPath:   paths.Krb5Conf,
+			MountPath: paths.Krb5Conf,
+			SubPath:   filepath.Base(paths.Krb5Conf),
 		},
 		{
 			Name:      vapi.Krb5SecretMountName,
-			MountPath: fmt.Sprintf("%s/%s", paths.Krb5Root, paths.Krb5Keytab),
-			SubPath:   paths.Krb5Keytab,
-		},
-		{
-			Name:      vapi.Krb5KeytabCopyMountName,
-			MountPath: paths.Krb5KeytabCopyDir,
+			MountPath: filepath.Dir(paths.Krb5Keytab),
 		},
 	}
 }
@@ -148,7 +150,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		vols = append(vols, buildHadoopConfigVolume(vdb))
 	}
 	if vdb.Spec.KerberosSecret != "" {
-		vols = append(vols, buildKerberosVolumes(vdb)...)
+		vols = append(vols, buildKerberosVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -264,20 +266,13 @@ func buildHadoopConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 }
 
-func buildKerberosVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
-	emptyDir := corev1.EmptyDirVolumeSource{}
-	return []corev1.Volume{
-		{
-			Name: vapi.Krb5SecretMountName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: vdb.Spec.KerberosSecret,
-				},
+func buildKerberosVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.Krb5SecretMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.KerberosSecret,
 			},
-		},
-		{
-			Name:         vapi.Krb5KeytabCopyMountName,
-			VolumeSource: corev1.VolumeSource{EmptyDir: &emptyDir},
 		},
 	}
 }
@@ -290,7 +285,6 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		Affinity:                      sc.Affinity,
 		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              vdb.Spec.ImagePullSecrets,
-		InitContainers:                makeInitContainers(vdb, sc),
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
@@ -340,34 +334,6 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: vdb.GetDBDataPath()})
 		cnts = append(cnts, c)
 	}
-	return cnts
-}
-
-// makeInitContainers creates any initContainers to include in the pod spec
-func makeInitContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
-	cnts := []corev1.Container{}
-
-	// If we are using Kerberos, we need an init container to setup the keytab
-	// properly.  The Vertica engine requires that it have a specific ownership
-	// and permissions.
-	if vdb.HasKerberosConfig() {
-		c := corev1.Container{
-			Name:            names.Krb5KeytabContainer,
-			Image:           vdb.Spec.Image,
-			ImagePullPolicy: vdb.Spec.ImagePullPolicy,
-			Resources:       sc.Resources,
-			VolumeMounts:    buildKerberosVolumeMounts(),
-			Command: []string{
-				"bash", "-c",
-				fmt.Sprintf("cp %s/%s %s && chmod 0600 %s/%s",
-					paths.Krb5Root, paths.Krb5Keytab, paths.Krb5KeytabCopyDir,
-					paths.Krb5KeytabCopyDir, paths.Krb5Keytab,
-				),
-			},
-		}
-		cnts = append(cnts, c)
-	}
-
 	return cnts
 }
 
