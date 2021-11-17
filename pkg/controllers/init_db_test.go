@@ -160,6 +160,30 @@ var _ = Describe("init_db", func() {
 		_ = contructAuthParmsHelper(ctx, vdb, "KerberosRealm")
 	})
 
+	It("should requeue if trying to use Kerberos but have an older engine version", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.KerberosRealm = "VERTICACORP.COM"
+		vdb.Spec.Communal.KerberosServiceName = "vert"
+		// Setting this annotation will set the version in the vdb.  The version
+		// was picked because it isn't compatible with Kerberos.
+		vdb.Annotations[vapi.VersionAnnotation] = "v11.0.1"
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:    vrec,
+			Log:     logger,
+			Vdb:     vdb,
+			PRunner: fpr,
+		}
+
+		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		res, err := g.ConstructAuthParms(ctx, atPod)
+		ExpectWithOffset(1, err).Should(Succeed())
+		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
+	})
+
 	It("should return correct protocol when calling getEndpointProtocol", func() {
 		Expect(getEndpointProtocol("")).Should(Equal(AzureDefaultProtocol))
 		Expect(getEndpointProtocol("192.168.0.1")).Should(Equal(AzureDefaultProtocol))
