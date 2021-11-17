@@ -60,5 +60,4 @@ const (
 	ReipFailed                      = "ReipFailed"
 	MissingSecretKeys               = "MissingSecretKeys"
 	KerberosAuthError               = "KerberosAuthError"
-	KerberosOldEngineVerError       = "KerberosOldEngineVerError"
 )

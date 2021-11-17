@@ -515,7 +515,7 @@ func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Resu
 	if !ok || ok && vinf.IsEqualOrNewer(DefaultKerberosSupportedVersion) {
 		return ctrl.Result{}
 	}
-	g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.KerberosOldEngineVerError,
+	g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 		"The engine (%s) doesn't have the required change to setup Kerberos in "+
 			"the container.  You must be on version %s or greater",
 		vinf.VdbVer, DefaultKerberosSupportedVersion)
