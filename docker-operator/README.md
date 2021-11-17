@@ -33,9 +33,9 @@ This image is used to deploy the VerticaDB operator. The operator manages a Vert
 - Service management and health monitoring for pods
 - Load balancing for internal and external traffic
 
-Vertica recommends that you download the [docker-webhook](https://github.com/vertica/vertica-kubernetes/tree/main/docker-webhook) image to install the [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/) with the operator. The admission controller uses a webhook to verify changes to mutable states in a custom resource instance.
+The VerticaDB operator image includes an [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The admission controller uses a webhook to verify changes to mutable states in a custom resource instance.
 
-For a brief overview on how to install and configure the operator, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
+For a brief overview on how to install and configure the operator and admission controller, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
 
 # License
 
