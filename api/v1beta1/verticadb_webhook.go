@@ -33,22 +33,21 @@ import (
 )
 
 const (
-	invalidDBNameChars      = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
-	dbNameLengthLimit       = 30
-	KSafety0MinHosts        = 1
-	KSafety0MaxHosts        = 3
-	KSafety1MinHosts        = 3
-	portLowerBound          = 30000
-	portUpperBound          = 32767
-	LocalDataPVC            = "local-data"
-	PodInfoMountName        = "podinfo"
-	LicensingMountName      = "licensing"
-	HadoopConfigMountName   = "hadoop-conf"
-	Krb5SecretMountName     = "krb5"
-	Krb5KeytabCopyMountName = "krb5-keytab-copy"
-	S3Prefix                = "s3://"
-	GCloudPrefix            = "gs://"
-	AzurePrefix             = "azb://"
+	invalidDBNameChars    = "$=<>`" + `'^\".@*?#&/-:;{}()[] \~!%+|,`
+	dbNameLengthLimit     = 30
+	KSafety0MinHosts      = 1
+	KSafety0MaxHosts      = 3
+	KSafety1MinHosts      = 3
+	portLowerBound        = 30000
+	portUpperBound        = 32767
+	LocalDataPVC          = "local-data"
+	PodInfoMountName      = "podinfo"
+	LicensingMountName    = "licensing"
+	HadoopConfigMountName = "hadoop-conf"
+	Krb5SecretMountName   = "krb5"
+	S3Prefix              = "s3://"
+	GCloudPrefix          = "gs://"
+	AzurePrefix           = "azb://"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.

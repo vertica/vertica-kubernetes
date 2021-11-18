@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -199,6 +200,9 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 	}
 
 	if g.Vdb.HasKerberosConfig() {
+		if res = g.hasCompatibleVersionForKerberos(); res.Requeue {
+			return res, nil
+		}
 		content = dedent.Dedent(fmt.Sprintf(`
 			%s
 			%s`, content, g.getKerberosAuthParmsContent()))
@@ -250,12 +254,16 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 // getKerberosAuthParmsContent constructs a string for Kerberos related auth
 // parms if that is setup.  Must have Kerberos config in the Vdb.
 func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
-	return fmt.Sprintf(`
+	// We disable KerberosEnableKeytabPermissionCheck, otherwise the engine will
+	// complain that the keytab file doesn't have read/write permissions from
+	// dbadmin only.
+	return dedent.Dedent(fmt.Sprintf(`
 			KerberosServiceName = %s
 			KerberosRealm = %s
-			KerberosKeytabFile = %s/%s
+			KerberosKeytabFile = %s
+			KerberosEnableKeytabPermissionCheck = 0
 	`, g.Vdb.Spec.Communal.KerberosServiceName,
-		g.Vdb.Spec.Communal.KerberosRealm, paths.Krb5KeytabCopyDir, paths.Krb5Keytab)
+		g.Vdb.Spec.Communal.KerberosRealm, paths.Krb5Keytab))
 }
 
 // getGCloudAuthParmsContent will get the content for the auth parms when we are
@@ -496,4 +504,20 @@ func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
 		return fmt.Sprintf(`HadoopConfDir = %s`, paths.HadoopConfPath)
 	}
 	return ""
+}
+
+// hasCompatibleVersionForKerberos checks whether it has the required engine fix
+// to run with a Kerberos config.  If it doesn't the ctrl.Result will have the
+// requeue bool set.
+func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Result {
+	vinf, ok := version.MakeInfo(g.Vdb)
+	const DefaultKerberosSupportedVersion = "v11.0.2"
+	if !ok || ok && vinf.IsEqualOrNewer(DefaultKerberosSupportedVersion) {
+		return ctrl.Result{}
+	}
+	g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		"The engine (%s) doesn't have the required change to setup Kerberos in "+
+			"the container.  You must be on version %s or greater",
+		vinf.VdbVer, DefaultKerberosSupportedVersion)
+	return ctrl.Result{Requeue: true}
 }
