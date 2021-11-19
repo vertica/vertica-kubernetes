@@ -111,6 +111,11 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 				"revive_db failed because of a node count mismatch")
 			return ctrl.Result{Requeue: true}, nil
 
+		case isKerberosAuthError(stdout):
+			r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
+				"Error during keberos authentication")
+			return ctrl.Result{Requeue: true}, nil
+
 		default:
 			r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBFailed,
 				"Failed to revive the database")

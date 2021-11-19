@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"fmt"
+	"path/filepath"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -96,10 +97,34 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
+	if vdb.Spec.KerberosSecret != "" {
+		volMnts = append(volMnts, buildKerberosVolumeMounts()...)
+	}
+
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
 	return volMnts
+}
+
+func buildKerberosVolumeMounts() []corev1.VolumeMount {
+	// We create two mounts.  One is to set /etc/krb5.conf.  It needs to be set
+	// at the specific location.  The second one is to mount a directory that
+	// contains all of the keys in the Kerberos secret.  We mount the entire
+	// directory, as opposed to using SubPath, so that the keytab file within
+	// the Secret will automatically get updated if the Secret is updated.  This
+	// saves having to restart the pod if the keytab changes.
+	return []corev1.VolumeMount{
+		{
+			Name:      vapi.Krb5SecretMountName,
+			MountPath: paths.Krb5Conf,
+			SubPath:   filepath.Base(paths.Krb5Conf),
+		},
+		{
+			Name:      vapi.Krb5SecretMountName,
+			MountPath: filepath.Dir(paths.Krb5Keytab),
+		},
+	}
 }
 
 // buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
@@ -123,6 +148,9 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	}
 	if vdb.Spec.Communal.HadoopConfig != "" {
 		vols = append(vols, buildHadoopConfigVolume(vdb))
+	}
+	if vdb.Spec.KerberosSecret != "" {
+		vols = append(vols, buildKerberosVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -233,6 +261,17 @@ func buildHadoopConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HadoopConfig},
+			},
+		},
+	}
+}
+
+func buildKerberosVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.Krb5SecretMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.KerberosSecret,
 			},
 		},
 	}
@@ -426,6 +465,20 @@ func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 			AzureBlobEndpoint:          []byte(blobEndpoint),
 			AzureSharedAccessSignature: []byte(sas),
 		},
+	}
+	return secret
+}
+
+// buildKerberosSecretBase is a test helper that creates the skeleton of a
+// Kerberos secret.  The caller's responsibility to add the necessary data.
+func buildKerberosSecretBase(vdb *vapi.VerticaDB) *corev1.Secret {
+	nm := names.GenNamespacedName(vdb, vdb.Spec.KerberosSecret)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		Data: map[string][]byte{},
 	}
 	return secret
 }

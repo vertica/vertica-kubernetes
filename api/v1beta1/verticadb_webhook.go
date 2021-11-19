@@ -44,6 +44,7 @@ const (
 	PodInfoMountName      = "podinfo"
 	LicensingMountName    = "licensing"
 	HadoopConfigMountName = "hadoop-conf"
+	Krb5SecretMountName   = "krb5"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
 	AzurePrefix           = "azb://"
@@ -84,6 +85,13 @@ func (v *VerticaDB) IsGCloud() bool {
 // IsAzure returns true if VerticaDB has a communal path in Azure Blob Storage
 func (v *VerticaDB) IsAzure() bool {
 	return strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix)
+}
+
+// HasKerberosConfig returns true if VerticaDB is setup for Kerberos authentication.
+func (v *VerticaDB) HasKerberosConfig() bool {
+	// We have a webhook check that makes sure if the principal is set, the
+	// other things are set too.
+	return v.Spec.Communal.KerberosServiceName != ""
 }
 
 //+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
@@ -244,6 +252,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasDuplicateScName(allErrs)
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
+	allErrs = v.hasValidKerberosSetup(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -541,4 +550,35 @@ func (v *VerticaDB) canUpdateScName(oldObj *VerticaDB) bool {
 		canUpdate = true
 	}
 	return canUpdate
+}
+
+// hasValidKerberosSetup checks whether Kerberos settings are correct
+func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorList {
+	// Handle two valid cases.  None of the Kerberos settings are used or they
+	// all are.  This will detect cases when only a portion of them are set.
+	if (v.Spec.Communal.KerberosRealm == "" && v.Spec.Communal.KerberosServiceName == "") ||
+		(v.Spec.Communal.KerberosRealm != "" && v.Spec.Communal.KerberosServiceName != "" && v.Spec.KerberosSecret != "") {
+		return allErrs
+	}
+
+	if v.Spec.Communal.KerberosRealm == "" {
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("kerberosRealm"),
+			v.Spec.Communal.KerberosRealm,
+			"kerberosRealm must be set if setting up Kerberos")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.Communal.KerberosServiceName == "" {
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("kerberosServiceName"),
+			v.Spec.Communal.KerberosServiceName,
+			"kerberosServiceName must be set if setting up Kerberos")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.KerberosSecret == "" {
+		err := field.Invalid(field.NewPath("spec").Child("kerberosSecret"),
+			v.Spec.KerberosSecret,
+			"kerberosSecret must be set if setting up Kerberos")
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
 }

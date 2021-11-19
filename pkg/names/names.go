@@ -28,54 +28,50 @@ const (
 	ServerContainerIndex = 0
 )
 
-// GenExtSvcName returns the name of the external service object.
-func GenExtSvcName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
+// GenNamespacedName will take any name and make it a namespace name that uses
+// the same namespace as the VerticaDB.
+func GenNamespacedName(vdb *vapi.VerticaDB, name string) types.NamespacedName {
 	return types.NamespacedName{
-		Name:      vdb.Name + "-" + sc.Name,
+		Name:      name,
 		Namespace: vdb.Namespace,
 	}
+}
+
+// GenExtSvcName returns the name of the external service object.
+func GenExtSvcName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
+	return GenNamespacedName(vdb, vdb.Name+"-"+sc.Name)
 }
 
 // GenHlSvcName returns the name of the headless service object.
 func GenHlSvcName(vdb *vapi.VerticaDB) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vdb.Name,
-		Namespace: vdb.Namespace,
-	}
+	return GenNamespacedName(vdb, vdb.Name)
 }
 
 // GenStsName returns the name of the statefulset object
 func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vdb.Name + "-" + sc.Name,
-		Namespace: vdb.Namespace,
-	}
+	return GenNamespacedName(vdb, vdb.Name+"-"+sc.Name)
 }
 
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
 func GenCommunalCredSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vdb.Spec.Communal.CredentialSecret,
-		Namespace: vdb.Namespace,
-	}
+	return GenNamespacedName(vdb, vdb.Spec.Communal.CredentialSecret)
+}
+
+// GenKrb5SecretName returns the name of the secret that has the Kerberos config and keytab
+func GenKrb5SecretName(vdb *vapi.VerticaDB) types.NamespacedName {
+	return GenNamespacedName(vdb, vdb.Spec.KerberosSecret)
 }
 
 // GenSUPasswdSecretName returns the name of the secret that has the superuser password
 func GenSUPasswdSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vdb.Spec.SuperuserPasswordSecret,
-		Namespace: vdb.Namespace,
-	}
+	return GenNamespacedName(vdb, vdb.Spec.SuperuserPasswordSecret)
 }
 
 // GenPodName returns the name of a specific pod in a subcluster
 // The name of the pod is generated, this function is just a helper for when we need
 // to lookup a pod by its generated name.
 func GenPodName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vdb.Name + "-" + sc.Name + "-" + fmt.Sprintf("%d", podIndex),
-		Namespace: vdb.Namespace,
-	}
+	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s-%d", vdb.Name, sc.Name, podIndex))
 }
 
 // GenPodNameFromSts returns the name of a specific pod in a statefulset

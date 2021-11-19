@@ -355,4 +355,38 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.Objs.HasCAFile).Should(BeTrue())
 		Expect(len(dbGen.Objs.Vdb.Spec.CertSecrets)).Should(Equal(1))
 	})
+
+	It("should fail if kerberos options exist but Kerberos data was not loaded in", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("KerberosRealm", "VERTICA.COM").
+				AddRow("KerberosServiceName", "vertica"))
+
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setKrb5Secret(ctx)).ShouldNot(Succeed())
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
+	It("should succeed if Kerberos options exist and Kerberos data was loaded in", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{},
+			Krb5ConfData: []byte("data1"), Krb5KeytabData: []byte("data2")}
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("KerberosRealm", "VERTICA.COM").
+				AddRow("KerberosServiceName", "vertica"))
+
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setKrb5Secret(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.HasKerberosSecret).Should(BeTrue())
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
 })

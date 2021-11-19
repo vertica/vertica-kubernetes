@@ -206,6 +206,15 @@ type VerticaDBSpec struct {
 	// Where <secretName> is the name provided in the secret and <key_i> is one
 	// of the keys in the secret.
 	CertSecrets []corev1.LocalObjectReference `json:"certSecrets,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// A secret that contains files required for Kereberos setup.  The secret
+	// must have the following keys:
+	// - krb5.conf: The contents of the Kerberos config file
+	// - krb5.keytab: The keytab file that stores credentials for each Vertica principal.
+	// These files will be mounted in /etc.  We use the same keytab file on each
+	// host, so it must contain all of the Vertica principals.
+	KerberosSecret string `json:"kerberosSecret,omitempty"`
 }
 
 type CommunalInitPolicy string
@@ -307,6 +316,16 @@ type CommunalStorage struct {
 	// This gets mounted in the container and is used to configure connections
 	// to an HDFS communal path
 	HadoopConfig string `json:"hadoopConfig,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// The service name portion of the Vertica Kerberos principal. This is set
+	// in the database config parameter KerberosServiceName during bootstrapping.
+	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Name of the Kerberos realm.  This is set in the database config parameter
+	// KerberosRealm during bootstrapping.
+	KerberosRealm string `json:"kerberosRealm,omitempty"`
 }
 
 type LocalStorage struct {

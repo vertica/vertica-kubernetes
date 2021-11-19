@@ -17,17 +17,19 @@ package controllers
 
 import (
 	"context"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"yunion.io/x/pkg/tristate"
 	//+kubebuilder:scaffold:imports
@@ -39,18 +41,23 @@ import (
 var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 
-	createCrd := func(vdb *vapi.VerticaDB) {
+	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result) {
+		// Create any dependent objects for the CRD.
+		pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+		objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
+		Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(expResult))
+	}
+
+	createCrd := func(vdb *vapi.VerticaDB, doReconcile bool) {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		nameLookup := vdb.ExtractNamespacedName()
 
 		createdVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, nameLookup, createdVdb)).Should(Succeed())
 
-		// Create any dependent objects for the CRD.
-		pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-		objr := MakeObjReconciler(k8sClient, scheme.Scheme, logger, createdVdb, &pfacts)
-		_, err := objr.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
+		if doReconcile {
+			runReconciler(vdb, ctrl.Result{})
+		}
 	}
 
 	deleteCrd := func(vdb *vapi.VerticaDB) {
@@ -69,26 +76,38 @@ var _ = Describe("obj_reconcile", func() {
 
 		for i := range vdb.Spec.Subclusters {
 			svc := &corev1.Service{}
-			Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[i]), svc)).Should(Succeed())
-			Expect(svc.ObjectMeta.OwnerReferences).To(ContainElement(expOwnerRef))
-			Expect(k8sClient.Delete(ctx, svc)).Should(Succeed())
+			err := k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[i]), svc)
+			if err == nil {
+				Expect(svc.ObjectMeta.OwnerReferences).To(ContainElement(expOwnerRef))
+				Expect(k8sClient.Delete(ctx, svc)).Should(Succeed())
+			} else {
+				Expect(errors.IsNotFound(err)).Should(BeTrue())
+			}
 
 			stsNm := names.GenStsName(vdb, &vdb.Spec.Subclusters[i])
 			sts := &appsv1.StatefulSet{}
-			Expect(k8sClient.Get(ctx, stsNm, sts)).Should(Succeed())
-			Expect(sts.ObjectMeta.OwnerReferences).To(ContainElement(expOwnerRef))
-			Expect(k8sClient.Delete(ctx, sts)).Should(Succeed())
+			err = k8sClient.Get(ctx, stsNm, sts)
+			if err == nil {
+				Expect(sts.ObjectMeta.OwnerReferences).To(ContainElement(expOwnerRef))
+				Expect(k8sClient.Delete(ctx, sts)).Should(Succeed())
+			} else {
+				Expect(errors.IsNotFound(err)).Should(BeTrue())
+			}
 		}
 		svc := &corev1.Service{}
-		Expect(k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)).Should(Succeed())
-		Expect(svc.ObjectMeta.OwnerReferences).To(ContainElement(expOwnerRef))
-		Expect(k8sClient.Delete(ctx, svc)).Should(Succeed())
+		err := k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)
+		if err == nil {
+			Expect(svc.ObjectMeta.OwnerReferences).To(ContainElement(expOwnerRef))
+			Expect(k8sClient.Delete(ctx, svc)).Should(Succeed())
+		} else {
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
+		}
 	}
 
 	Context("When reconciling a VerticaDB CRD", func() {
 		It("Should create service objects", func() {
 			vdb := vapi.MakeVDB()
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			By("Checking the VerticaDB has an external service object")
@@ -118,7 +137,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb.Spec.Subclusters[0].NodePort = desiredNodePort
 			vdb.Spec.Subclusters[0].ExternalIPs = desiredExternalIPs
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			extNameLookup := names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])
@@ -139,7 +158,7 @@ var _ = Describe("obj_reconcile", func() {
 
 			// Refresh any dependent objects
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			objr := MakeObjReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
 
@@ -165,7 +184,7 @@ var _ = Describe("obj_reconcile", func() {
 				}
 			}
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			svc := &corev1.Service{}
@@ -184,7 +203,7 @@ var _ = Describe("obj_reconcile", func() {
 			var desiredSize int32 = 16
 			vdb.Spec.Subclusters[0].Size = desiredSize
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -199,7 +218,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.ImagePullPolicy = corev1.PullNever
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -214,7 +233,7 @@ var _ = Describe("obj_reconcile", func() {
 			desiredStorageClass := "my-storage"
 			vdb.Spec.Local.StorageClass = desiredStorageClass
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -232,7 +251,7 @@ var _ = Describe("obj_reconcile", func() {
 			}
 			vdb.Spec.Subclusters[0].NodeSelector = desiredNodeSelector
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -271,7 +290,7 @@ var _ = Describe("obj_reconcile", func() {
 			}
 			vdb.Spec.Subclusters[0].Affinity = desiredAffinity
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -292,7 +311,7 @@ var _ = Describe("obj_reconcile", func() {
 			}
 			vdb.Spec.Subclusters[0].Tolerations = desiredTolerations
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -312,7 +331,7 @@ var _ = Describe("obj_reconcile", func() {
 			}
 			vdb.Spec.Subclusters[0].Resources = desiredResources
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -329,7 +348,7 @@ var _ = Describe("obj_reconcile", func() {
 				Size: 8,
 			})
 
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -342,7 +361,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("Increasing the size of the subcluster should cause the sts to scale out", func() {
 			vdb := vapi.MakeVDB()
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 			origSize := vdb.Spec.Subclusters[0].Size
 
@@ -358,7 +377,7 @@ var _ = Describe("obj_reconcile", func() {
 
 			// Refresh any dependent objects
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			objr := MakeObjReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
 
@@ -370,7 +389,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should have updateStrategy OnDelete for kSafety 0", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.KSafety = vapi.KSafety0
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			updateStrategyHelper(ctx, vdb, appsv1.OnDeleteStatefulSetStrategyType)
@@ -379,7 +398,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should have updateStrategy RollingUpdate for kSafety 1", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.KSafety = vapi.KSafety1
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			updateStrategyHelper(ctx, vdb, appsv1.RollingUpdateStatefulSetStrategyType)
@@ -400,7 +419,7 @@ var _ = Describe("obj_reconcile", func() {
 					Requests: corev1.ResourceList{"cpu": cpuResource, "memory": memResource},
 				},
 			})
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -417,7 +436,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			const PullSecretName = "docker-info"
 			vdb.Spec.ImagePullSecrets = append(vdb.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: PullSecretName})
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			sts := &appsv1.StatefulSet{}
@@ -427,11 +446,71 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(sts.Spec.Template.Spec.ImagePullSecrets).Should(ContainElement(vdb.Spec.ImagePullSecrets[0]))
 		})
 
+		It("should requeue if the license secret is not found", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.LicenseSecret = "not-here-1"
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		})
+
+		It("should requeue if the kerberos secret is not found", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.KerberosSecret = "not-here-2"
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		})
+
+		It("should requeue if the hadoop conf is not found", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Communal.HadoopConfig = "not-here-3"
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		})
+
+		It("should succeed if the kerberos secret is setup correctly", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.KerberosSecret = "my-secret-v1"
+			secret := buildKerberosSecretBase(vdb)
+			secret.Data[filepath.Base(paths.Krb5Keytab)] = []byte("keytab")
+			secret.Data[filepath.Base(paths.Krb5Conf)] = []byte("conf")
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			defer deleteSecret(ctx, vdb, vdb.Spec.KerberosSecret)
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			runReconciler(vdb, ctrl.Result{})
+		})
+
+		It("should requeue if the kerberos secret has a missing keytab", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.KerberosSecret = "my-secret-v2"
+			secret := buildKerberosSecretBase(vdb)
+			secret.Data[filepath.Base(paths.Krb5Conf)] = []byte("conf") // Only the krb5.conf
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			defer deleteSecret(ctx, vdb, vdb.Spec.KerberosSecret)
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			runReconciler(vdb, ctrl.Result{Requeue: true})
+		})
+
 		It("should not proceed with the scale down if uninstall or db_remove_node hasn't happened", func() {
 			vdb := vapi.MakeVDB()
 			origSize := int32(4)
 			vdb.Spec.Subclusters[0].Size = origSize
-			createCrd(vdb)
+			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
 			newSize := int32(3)
@@ -446,7 +525,7 @@ var _ = Describe("obj_reconcile", func() {
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.True, dbExists: tristate.False}
 
-			objr := MakeObjReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vrec, logger, vdb, &pfacts)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.False, dbExists: tristate.True}

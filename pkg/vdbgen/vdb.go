@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -45,6 +46,8 @@ type DBGenerator struct {
 	DBCfg          map[string]string // Contents extracted from 'SHOW DATABASE DEFAULT ALL'
 	CAFileData     []byte
 	HadoopConfData map[string]string
+	Krb5ConfData   []byte
+	Krb5KeytabData []byte
 }
 
 type QueryType string
@@ -91,6 +94,9 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.setCAFile,
 		d.readHadoopConfig,
 		d.setHadoopConfig,
+		d.readKrb5ConfFile,
+		d.readKrb5KeytabFile,
+		d.setKrb5Secret,
 	}
 
 	for _, collector := range collectors {
@@ -711,4 +717,57 @@ func (d *DBGenerator) getAzureConfig(cfgs []controllers.AzureEndpointConfig) (co
 		}
 	}
 	return controllers.AzureEndpointConfig{}, false
+}
+
+func (d *DBGenerator) readKrb5ConfFile(ctx context.Context) error {
+	if d.Opts.Krb5Conf == "" {
+		return nil
+	}
+
+	var err error
+	d.Krb5ConfData, err = ioutil.ReadFile(d.Opts.Krb5Conf)
+	return err
+}
+
+func (d *DBGenerator) readKrb5KeytabFile(ctx context.Context) error {
+	if d.Opts.Krb5Keytab == "" {
+		return nil
+	}
+
+	var err error
+	d.Krb5KeytabData, err = ioutil.ReadFile(d.Opts.Krb5Keytab)
+	return err
+}
+
+func (d *DBGenerator) setKrb5Secret(ctx context.Context) error {
+	const KerberosServiceNameKey = "KerberosServiceName"
+	const KerberosRealmKey = "KerberosRealm"
+	realm, okRealm := d.DBCfg[KerberosRealmKey]
+	svcName, okSvc := d.DBCfg[KerberosServiceNameKey]
+
+	if !okRealm || !okSvc {
+		// Not an error, this just means there is no Kerberos setup
+		return nil
+	}
+
+	if len(d.Krb5ConfData) == 0 {
+		return fmt.Errorf("no krb5.conf data.  Need to specify path to this file with the -krb5conf option")
+	}
+	if len(d.Krb5KeytabData) == 0 {
+		return fmt.Errorf("no krb5.keytab data.  Need to specify path to this file with the -krb5keytab option")
+	}
+
+	d.Objs.HasKerberosSecret = true
+	d.Objs.Vdb.Spec.Communal.KerberosRealm = realm
+	d.Objs.Vdb.Spec.Communal.KerberosServiceName = svcName
+	d.Objs.KerberosSecret.TypeMeta.APIVersion = SecretAPIVersion
+	d.Objs.KerberosSecret.TypeMeta.Kind = SecretKindName
+	d.Objs.KerberosSecret.ObjectMeta.Name = fmt.Sprintf("%s-krb5", d.Opts.VdbName)
+	d.Objs.KerberosSecret.Data = map[string][]byte{
+		filepath.Base(paths.Krb5Conf):   d.Krb5ConfData,
+		filepath.Base(paths.Krb5Keytab): d.Krb5KeytabData,
+	}
+	d.Objs.Vdb.Spec.KerberosSecret = d.Objs.KerberosSecret.ObjectMeta.Name
+
+	return nil
 }

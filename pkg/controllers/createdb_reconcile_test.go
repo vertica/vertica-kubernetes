@@ -108,7 +108,7 @@ var _ = Describe("createdb_reconciler", func() {
 		Expect(len(fpr.Histories)).Should(Equal(0))
 	})
 
-	It("should generate a requeue error for various known s3 errors", func() {
+	It("should generate a requeue error for various known createdb errors", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
@@ -123,6 +123,7 @@ var _ = Describe("createdb_reconciler", func() {
 			"Communal location [s3://blah] is not empty",
 			"You are trying to access your S3 bucket using the wrong region. If you are using S3",
 			"The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'eu-central-1'.",
+			"An error occurred during kerberos authentication",
 		}
 
 		for i := range errStrings {

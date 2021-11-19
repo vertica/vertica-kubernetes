@@ -29,8 +29,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -199,6 +199,15 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 		return res, err
 	}
 
+	if g.Vdb.HasKerberosConfig() {
+		if res = g.hasCompatibleVersionForKerberos(); res.Requeue {
+			return res, nil
+		}
+		content = dedent.Dedent(fmt.Sprintf(`
+			%s
+			%s`, content, g.getKerberosAuthParmsContent()))
+	}
+
 	err = g.copyAuthFile(ctx, atPod, content)
 	return ctrl.Result{}, err
 }
@@ -240,6 +249,21 @@ func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context
 		`, g.getHadoopConfDir(), g.getCAFile(),
 	)
 	return strings.TrimSpace(dedent.Dedent(content)), ctrl.Result{}, nil
+}
+
+// getKerberosAuthParmsContent constructs a string for Kerberos related auth
+// parms if that is setup.  Must have Kerberos config in the Vdb.
+func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
+	// We disable KerberosEnableKeytabPermissionCheck, otherwise the engine will
+	// complain that the keytab file doesn't have read/write permissions from
+	// dbadmin only.
+	return dedent.Dedent(fmt.Sprintf(`
+			KerberosServiceName = %s
+			KerberosRealm = %s
+			KerberosKeytabFile = %s
+			KerberosEnableKeytabPermissionCheck = 0
+	`, g.Vdb.Spec.Communal.KerberosServiceName,
+		g.Vdb.Spec.Communal.KerberosRealm, paths.Krb5Keytab))
 }
 
 // getGCloudAuthParmsContent will get the content for the auth parms when we are
@@ -409,17 +433,7 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCre
 // getCommunalCredsSecret returns the contents of the communal credentials
 // secret.  It handles if the secret is not found and will log an event.
 func (g *GenericDatabaseInitializer) getCommunalCredsSecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
-	secret := &corev1.Secret{}
-	if err := g.VRec.Client.Get(ctx, names.GenCommunalCredSecretName(g.Vdb), secret); err != nil {
-		if errors.IsNotFound(err) {
-			g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsNotFound,
-				"Could not find the communal credential secret '%s'", g.Vdb.Spec.Communal.CredentialSecret)
-			return &corev1.Secret{}, ctrl.Result{Requeue: true}, nil
-		}
-		return &corev1.Secret{}, ctrl.Result{},
-			fmt.Errorf("could not read the communal credential secret %s: %w", g.Vdb.Spec.Communal.CredentialSecret, err)
-	}
-	return secret, ctrl.Result{}, nil
+	return getSecret(ctx, g.VRec, g.Vdb, names.GenCommunalCredSecretName(g.Vdb))
 }
 
 // getCommunalEndpoint get the communal endpoint for inclusion in the auth files.
@@ -490,4 +504,20 @@ func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
 		return fmt.Sprintf(`HadoopConfDir = %s`, paths.HadoopConfPath)
 	}
 	return ""
+}
+
+// hasCompatibleVersionForKerberos checks whether it has the required engine fix
+// to run with a Kerberos config.  If it doesn't the ctrl.Result will have the
+// requeue bool set.
+func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Result {
+	vinf, ok := version.MakeInfo(g.Vdb)
+	const DefaultKerberosSupportedVersion = "v11.0.2"
+	if !ok || ok && vinf.IsEqualOrNewer(DefaultKerberosSupportedVersion) {
+		return ctrl.Result{}
+	}
+	g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		"The engine (%s) doesn't have the required change to setup Kerberos in "+
+			"the container.  You must be on version %s or greater",
+		vinf.VdbVer, DefaultKerberosSupportedVersion)
+	return ctrl.Result{Requeue: true}
 }

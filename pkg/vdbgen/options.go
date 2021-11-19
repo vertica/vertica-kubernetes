@@ -31,4 +31,6 @@ type Options struct {
 	HadoopConfigDir    string
 	AzureAccountName   string
 	CACertName         string
+	Krb5Conf           string
+	Krb5Keytab         string
 }
