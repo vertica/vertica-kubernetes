@@ -310,6 +310,12 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 				},
 			},
 		},
+		// Is needed to run sshd on Openshift
+		SecurityContext: &corev1.SecurityContext{
+			Capabilities: &corev1.Capabilities{
+				Add: []corev1.Capability{"SYS_CHROOT", "AUDIT_WRITE"},
+			},
+		},
 		Env: []corev1.EnvVar{
 			{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
