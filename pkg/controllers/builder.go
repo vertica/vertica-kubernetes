@@ -324,8 +324,6 @@ func buildSSHVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
-	const VerticaDBAGID = 5000
-	fsGroup := int64(VerticaDBAGID)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
 		Affinity:                      sc.Affinity,
@@ -334,9 +332,6 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
-		SecurityContext: &corev1.PodSecurityContext{
-			FSGroup: &fsGroup,
-		},
 	}
 }
 
