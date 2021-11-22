@@ -309,15 +309,12 @@ func buildKerberosVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 func buildSSHVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
-	const O700 = 448
-	o700 := int32(O700)
 	return []corev1.Volume{
 		{
 			Name: vapi.SSHMountName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName:  vdb.Spec.SSHSecret,
-					DefaultMode: &o700,
+					SecretName: vdb.Spec.SSHSecret,
 				},
 			},
 		},
