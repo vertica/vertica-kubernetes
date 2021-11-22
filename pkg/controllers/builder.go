@@ -132,27 +132,15 @@ func buildKerberosVolumeMounts() []corev1.VolumeMount {
 }
 
 func buildSSHVolumeMounts() []corev1.VolumeMount {
-	// We have two mount points for ssh.  The first one is the actual ssh
-	// Secret.  The second is a copy of the first but adjusted for proper
-	// permissions.
-	// SPILLY - use a loop for each of the subPath's
-	return []corev1.VolumeMount{
-		{
+	mnts := []corev1.VolumeMount{}
+	for _, p := range []string{"id_rsa", "id_rsa.pub", "authorized_keys"} {
+		mnts = append(mnts, corev1.VolumeMount{
 			Name:      vapi.SSHMountName,
-			MountPath: fmt.Sprintf("%s/id_rsa", paths.SSHPath),
-			SubPath:   "id_rsa",
-		},
-		{
-			Name:      vapi.SSHMountName,
-			MountPath: fmt.Sprintf("%s/id_rsa.pub", paths.SSHPath),
-			SubPath:   "id_rsa.pub",
-		},
-		{
-			Name:      vapi.SSHMountName,
-			MountPath: fmt.Sprintf("%s/authorized_keys", paths.SSHPath),
-			SubPath:   "authorized_keys",
-		},
+			MountPath: fmt.Sprintf("%s/%s", paths.SSHPath, p),
+			SubPath:   p,
+		})
 	}
+	return mnts
 }
 
 // buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
@@ -181,7 +169,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		vols = append(vols, buildKerberosVolume(vdb))
 	}
 	if vdb.Spec.SSHSecret != "" {
-		vols = append(vols, buildSSHVolumes(vdb)...)
+		vols = append(vols, buildSSHVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -308,14 +296,12 @@ func buildKerberosVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 }
 
-func buildSSHVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
-	return []corev1.Volume{
-		{
-			Name: vapi.SSHMountName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: vdb.Spec.SSHSecret,
-				},
+func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.SSHMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.SSHSecret,
 			},
 		},
 	}

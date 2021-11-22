@@ -36,13 +36,11 @@ const (
 	CertsRoot              = "/certs"
 	Krb5Conf               = "/etc/krb5.conf"
 	Krb5Keytab             = "/etc/krb5/krb5.keytab"
-	// SPILLY - be consistent with this next path setup or copy or secret??
-	SSHSecretPath = "/ssh-secret"
-	SSHPath       = "/home/dbadmin/.ssh"
+	SSHPath                = "/home/dbadmin/.ssh"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.
 var MountPaths = []string{LocalDataPath, CELicensePath, MountedLicensePath,
 	HadoopConfPath, ConfigPath, ConfigSharePath, ConfigLogrotatePath,
 	LogPath, PodInfoPath, AdminToolsConf, AuthParmsFile, EulaAcceptanceFile,
-	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab, SSHSecretPath, SSHPath}
+	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab, SSHPath}
