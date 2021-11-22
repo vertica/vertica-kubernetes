@@ -135,14 +135,22 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	// We have two mount points for ssh.  The first one is the actual ssh
 	// Secret.  The second is a copy of the first but adjusted for proper
 	// permissions.
+	// SPILLY - use a loop for each of the subPath's
 	return []corev1.VolumeMount{
 		{
 			Name:      vapi.SSHMountName,
-			MountPath: paths.SSHSecretPath,
+			MountPath: fmt.Sprintf("%s/id_rsa", paths.SSHPath),
+			SubPath:   "id_rsa",
 		},
 		{
-			Name:      vapi.SSHCopyMountName,
-			MountPath: paths.SSHPath,
+			Name:      vapi.SSHMountName,
+			MountPath: fmt.Sprintf("%s/id_rsa.pub", paths.SSHPath),
+			SubPath:   "id_rsa.pub",
+		},
+		{
+			Name:      vapi.SSHMountName,
+			MountPath: fmt.Sprintf("%s/authorized_keys", paths.SSHPath),
+			SubPath:   "authorized_keys",
 		},
 	}
 }
@@ -301,20 +309,16 @@ func buildKerberosVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 func buildSSHVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
-	emptyDir := corev1.EmptyDirVolumeSource{}
+	const O700 = 448
+	o700 := int32(O700)
 	return []corev1.Volume{
 		{
 			Name: vapi.SSHMountName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: vdb.Spec.SSHSecret,
+					SecretName:  vdb.Spec.SSHSecret,
+					DefaultMode: &o700,
 				},
-			},
-		},
-		{
-			Name: vapi.SSHCopyMountName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &emptyDir,
 			},
 		},
 	}
@@ -323,15 +327,19 @@ func buildSSHVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
+	const VerticaDBAGID = 5000
+	fsGroup := int64(VerticaDBAGID)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
 		Affinity:                      sc.Affinity,
 		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              vdb.Spec.ImagePullSecrets,
 		Containers:                    makeContainers(vdb, sc),
-		InitContainers:                makeInitContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
+		SecurityContext: &corev1.PodSecurityContext{
+			FSGroup: &fsGroup,
+		},
 	}
 }
 
@@ -379,32 +387,6 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		cnts = append(cnts, c)
 	}
 	return cnts
-}
-
-// makeInitContainers will build the list of any init containers (if applicable)
-func makeInitContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
-	if vdb.Spec.SSHSecret == "" {
-		return []corev1.Container{}
-	}
-
-	// If the SSH secret is set, we need an initContainer that will setup the
-	// .ssh directory with the proper permissions.  K8s isn't good about
-	// mounting files with specific permissions.  So we create an emptyDir to
-	// copy the keys and set the proper permissions.
-	return []corev1.Container{
-		{
-			Image:           vdb.Spec.Image,
-			ImagePullPolicy: vdb.Spec.ImagePullPolicy,
-			Name:            names.SSHSetupContainer,
-			Resources:       sc.Resources,
-			VolumeMounts:    buildVolumeMounts(vdb),
-			Command: []string{
-				"bash", "-c",
-				fmt.Sprintf("cp %s/* %s && chmod 0600 %s/*",
-					paths.SSHSecretPath, paths.SSHPath, paths.SSHPath),
-			},
-		},
-	}
 }
 
 // getStorageClassName returns a  pointer to the StorageClass

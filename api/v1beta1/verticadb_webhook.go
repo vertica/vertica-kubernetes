@@ -45,7 +45,6 @@ const (
 	LicensingMountName    = "licensing"
 	HadoopConfigMountName = "hadoop-conf"
 	Krb5SecretMountName   = "krb5"
-	SSHCopyMountName      = "ssh-copy"
 	SSHMountName          = "ssh"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
