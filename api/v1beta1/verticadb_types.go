@@ -219,8 +219,8 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// An optional secret that has the files for /home/dbadmin/.ssh.  If this is
 	// omitted, the ssh files from the image are used.  You can this option if
-	// you have a cluster that talks to Vertica notes outside of Kubernetes, so
-	// it needs the public keys to be able to ssh to those nodes.  It must have
+	// you have a cluster that talks to Vertica notes outside of Kubernetes, as
+	// it has the public keys to be able to ssh to those nodes.  It must have
 	// the following keys present: id_rsa, id_rsa.pub and authorized_keys.
 	SSHSecret string `json:"sshSecret,omitempty"`
 }

@@ -133,7 +133,7 @@ func buildKerberosVolumeMounts() []corev1.VolumeMount {
 
 func buildSSHVolumeMounts() []corev1.VolumeMount {
 	mnts := []corev1.VolumeMount{}
-	for _, p := range []string{"id_rsa", "id_rsa.pub", "authorized_keys"} {
+	for _, p := range paths.SSHKeyPaths {
 		mnts = append(mnts, corev1.VolumeMount{
 			Name:      vapi.SSHMountName,
 			MountPath: fmt.Sprintf("%s/%s", paths.SSHPath, p),
@@ -503,6 +503,12 @@ func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 // Kerberos secret.  The caller's responsibility to add the necessary data.
 func buildKerberosSecretBase(vdb *vapi.VerticaDB) *corev1.Secret {
 	nm := names.GenNamespacedName(vdb, vdb.Spec.KerberosSecret)
+	return buildSecretBase(nm)
+}
+
+// buildSecretBase is a test helper that creates a Secret base with a specific
+// name.  The caller is responsible to add data elemets and create it.
+func buildSecretBase(nm types.NamespacedName) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nm.Name,

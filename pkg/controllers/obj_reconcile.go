@@ -113,21 +113,35 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	// Next check for secrets that must have specific keys.
 
 	if o.Vdb.Spec.KerberosSecret != "" {
-		secret, res, err := getSecret(ctx, o.VRec, o.Vdb, names.GenNamespacedName(o.Vdb, o.Vdb.Spec.KerberosSecret))
-		if res.Requeue || err != nil {
-			return res, err
-		}
-
 		keyNames := []string{filepath.Base(paths.Krb5Conf), filepath.Base(paths.Krb5Keytab)}
-		for _, key := range keyNames {
-			if _, ok := secret.Data[key]; !ok {
-				o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
-					"Kerberos secret '%s' has missing key '%s'", o.Vdb.Spec.KerberosSecret, key)
-				return ctrl.Result{Requeue: true}, nil
-			}
+		if res, err := o.checkSecretHasKeys(ctx, "Kerberos", o.Vdb.Spec.KerberosSecret, keyNames); res.Requeue || err != nil {
+			return res, err
 		}
 	}
 
+	if o.Vdb.Spec.SSHSecret != "" {
+		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); res.Requeue || err != nil {
+			return res, err
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// checkSecretHasKeys is a helper to check that a secret has a set of keys in it
+func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secretName string, keyNames []string) (ctrl.Result, error) {
+	secret, res, err := getSecret(ctx, o.VRec, o.Vdb, names.GenNamespacedName(o.Vdb, secretName))
+	if res.Requeue || err != nil {
+		return res, err
+	}
+
+	for _, key := range keyNames {
+		if _, ok := secret.Data[key]; !ok {
+			o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
+				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
