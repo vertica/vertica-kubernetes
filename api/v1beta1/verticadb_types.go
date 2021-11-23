@@ -215,6 +215,14 @@ type VerticaDBSpec struct {
 	// These files will be mounted in /etc.  We use the same keytab file on each
 	// host, so it must contain all of the Vertica principals.
 	KerberosSecret string `json:"kerberosSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// An optional secret that has the files for /home/dbadmin/.ssh.  If this is
+	// omitted, the ssh files from the image are used.  You can this option if
+	// you have a cluster that talks to Vertica notes outside of Kubernetes, as
+	// it has the public keys to be able to ssh to those nodes.  It must have
+	// the following keys present: id_rsa, id_rsa.pub and authorized_keys.
+	SSHSecret string `json:"sshSecret,omitempty"`
 }
 
 type CommunalInitPolicy string

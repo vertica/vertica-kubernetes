@@ -506,6 +506,20 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{Requeue: true})
 		})
 
+		It("should requeue if the ssh secret has a missing keys", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.SSHSecret = "my-secret-v3"
+			nm := names.GenNamespacedName(vdb, vdb.Spec.SSHSecret)
+			secret := buildSecretBase(nm)
+			secret.Data[paths.SSHKeyPaths[0]] = []byte("conf") // Only 1 of the keys
+			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+			defer deleteSecret(ctx, vdb, vdb.Spec.SSHSecret)
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			runReconciler(vdb, ctrl.Result{Requeue: true})
+		})
+
 		It("should not proceed with the scale down if uninstall or db_remove_node hasn't happened", func() {
 			vdb := vapi.MakeVDB()
 			origSize := int32(4)

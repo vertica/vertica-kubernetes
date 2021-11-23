@@ -101,6 +101,10 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildKerberosVolumeMounts()...)
 	}
 
+	if vdb.Spec.SSHSecret != "" {
+		volMnts = append(volMnts, buildSSHVolumeMounts()...)
+	}
+
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
@@ -127,6 +131,18 @@ func buildKerberosVolumeMounts() []corev1.VolumeMount {
 	}
 }
 
+func buildSSHVolumeMounts() []corev1.VolumeMount {
+	mnts := []corev1.VolumeMount{}
+	for _, p := range paths.SSHKeyPaths {
+		mnts = append(mnts, corev1.VolumeMount{
+			Name:      vapi.SSHMountName,
+			MountPath: fmt.Sprintf("%s/%s", paths.SSHPath, p),
+			SubPath:   p,
+		})
+	}
+	return mnts
+}
+
 // buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
 func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	mnts := []corev1.VolumeMount{}
@@ -151,6 +167,9 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	}
 	if vdb.Spec.KerberosSecret != "" {
 		vols = append(vols, buildKerberosVolume(vdb))
+	}
+	if vdb.Spec.SSHSecret != "" {
+		vols = append(vols, buildSSHVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -272,6 +291,17 @@ func buildKerberosVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: vdb.Spec.KerberosSecret,
+			},
+		},
+	}
+}
+
+func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.SSHMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.SSHSecret,
 			},
 		},
 	}
@@ -473,6 +503,12 @@ func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 // Kerberos secret.  The caller's responsibility to add the necessary data.
 func buildKerberosSecretBase(vdb *vapi.VerticaDB) *corev1.Secret {
 	nm := names.GenNamespacedName(vdb, vdb.Spec.KerberosSecret)
+	return buildSecretBase(nm)
+}
+
+// buildSecretBase is a test helper that creates a Secret base with a specific
+// name.  The caller is responsible to add data elemets and create it.
+func buildSecretBase(nm types.NamespacedName) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nm.Name,
