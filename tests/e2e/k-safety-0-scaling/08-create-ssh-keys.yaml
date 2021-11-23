@@ -11,22 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-k-safety-0-scaling
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: false
-  local:
-    requestSize: 100Mi
-  subclusters:
-    - name: sc1
-      size: 1
-  kSafety: "0"
-  certSecrets: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: "mkdir -p ssh-keys && rm -f ssh-keys/* && ssh-keygen -q -t rsa -N '' -f ssh-keys/id_rsa && cp ssh-keys/id_rsa.pub ssh-keys/authorized_keys"
+  - script: "kubectl delete secret -n $NAMESPACE ssh-keys || :"
+  - script: "kubectl create secret -n $NAMESPACE generic ssh-keys --from-file=ssh-keys"
