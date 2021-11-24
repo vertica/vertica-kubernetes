@@ -71,9 +71,7 @@ then
 fi
 
 # Get the namespace where the catalog is
-COUNT=$(kubectl get namespace openshift-operator-lifecycle-manager -o yaml 2>/dev/null | grep config.openshift.io/v1 | wc -l)
-
-if [ $COUNT -gt 0 ]
+if scripts/is-openshift.sh
 then
     OLM_NS=openshift-marketplace
 fi
