@@ -26,6 +26,7 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=120
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 CATALOG_SOURCE_NAME=$(grep OLM_TEST_CATALOG_SOURCE= $REPO_DIR/Makefile | cut -d'=' -f2)
+OLM_NS=olm
 
 function usage() {
     echo "usage: $(basename $0) [-n <namespace>] [-t <seconds>] [<catalog_source_name>]"
@@ -70,7 +71,12 @@ then
 fi
 
 # Get the namespace where the catalog is
-OLM_NS=$(kubectl get catalogsource -A | grep $CATALOG_SOURCE_NAME | awk '{print $1}')
+COUNT=$(kubectl get namespace openshift-operator-lifecycle-manager -o yaml 2>/dev/null | grep config.openshift.io/v1 | wc -l)
+
+if [ $COUNT -gt 0 ]
+then
+    OLM_NS=openshift-marketplace
+fi
 
 echo "Namespace: $NAMESPACE"
 echo "Catalog source name: $CATALOG_SOURCE_NAME"
