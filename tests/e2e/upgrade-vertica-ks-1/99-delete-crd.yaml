@@ -13,6 +13,10 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
+delete:
+  - apiVersion: vertica.com/v1beta1
+    kind: VerticaDB
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
 commands:
-  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
-    ignoreFailure: true
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

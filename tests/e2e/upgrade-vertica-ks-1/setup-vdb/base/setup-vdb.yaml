@@ -11,8 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
-    ignoreFailure: true
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-upgrade-vertica
+spec:
+  image: vertica/vertica-k8s:11.0.0-0-minimal
+  imagePullPolicy: IfNotPresent
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+  kSafety: "1"
+  subclusters:
+    - name: sc1
+      size: 3
+  # Set requeueTime to prevent the exponential backoff kicking in, which can
+  # cause the test to timeout.
+  requeueTime: 5
+  certSecrets: []

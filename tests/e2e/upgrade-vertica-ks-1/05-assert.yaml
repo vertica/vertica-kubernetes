@@ -11,8 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
-    ignoreFailure: true
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: controller-manager
+status:
+  phase: Running

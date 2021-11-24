@@ -11,8 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
-    ignoreFailure: true
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-upgrade-vertica-sc1
+status:
+  replicas: 3
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-upgrade-vertica
+status:
+  subclusters:
+    - installCount: 3

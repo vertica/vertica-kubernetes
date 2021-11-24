@@ -14,5 +14,8 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
-    ignoreFailure: true
+  - command: bash -c "kustomize build ../../manifests/image-pull/upgrade-vertica-1 | kubectl -n $NAMESPACE apply -f -"
+  - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
+    namespaced: true
+  - command: kubectl delete pod vertica-k8s-image-pull
+    namespaced: true
