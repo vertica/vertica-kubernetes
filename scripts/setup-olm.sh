@@ -22,6 +22,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 OPERATOR_SDK=${REPO_DIR}/bin/operator-sdk
 OLM_NS=olm
+OLM_OP_NS=olm
 TIMEOUT=120
 OPERATOR_NAME=verticadb-operator
 CATALOG_SOURCE_NAME=$(grep OLM_TEST_CATALOG_SOURCE= $REPO_DIR/Makefile | cut -d'=' -f2)
@@ -76,14 +77,22 @@ then
     $OPERATOR_SDK olm uninstall || true
 fi
 
+COUNT=$(kubectl get namespace openshift-operator-lifecycle-manager -o yaml 2>/dev/null | grep config.openshift.io/v1 | wc -l)
+
+if [ $COUNT -gt 0 ]
+then
+    OLM_NS=openshift-marketplace
+    OLM_OP_NS=openshift-operator-lifecycle-manager
+fi
+
 # Setup olm if not already present
-if ! kubectl get -n olm deployment olm-operator
+if ! kubectl get -n $OLM_OP_NS deployment olm-operator
 then
     # When changing the olm version, update the digest in tests/external-images.txt
     $OPERATOR_SDK olm install --version 0.18.3
 
     # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
-    kubectl delete catalogsource operatorhubio-catalog -n olm || true
+    kubectl delete catalogsource operatorhubio-catalog -n $OLM_OP_NS || true
 fi
 
 # Create a catalog source using the catalog we build with 'docker-build-olm-catalog'

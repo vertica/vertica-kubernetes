@@ -69,8 +69,12 @@ then
   NAMESPACE=default
 fi
 
+# Get the namespace where the catalog is
+OLM_NS=$(kubectl get catalogsource -A | grep $CATALOG_SOURCE_NAME | awk '{print $1}')
+
 echo "Namespace: $NAMESPACE"
 echo "Catalog source name: $CATALOG_SOURCE_NAME"
+echo "Catalog source namespace: $OLM_NS"
 
 set -o xtrace
 
@@ -97,7 +101,7 @@ spec:
   channel: stable
   name: verticadb-operator
   source: $CATALOG_SOURCE_NAME
-  sourceNamespace: olm
+  sourceNamespace: $OLM_NS
 EOF
 
 # Wait for the CSV to show up and report success
