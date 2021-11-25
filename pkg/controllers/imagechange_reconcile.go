@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -217,6 +218,11 @@ func (u *ImageChangeReconciler) updateImageInStatefulSets(ctx context.Context) (
 		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
 			u.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
 			sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = u.Vdb.Spec.Image
+			// We change the update strategy to OnDelete.  We don't want the k8s
+			// sts controller to interphere and do a rolling update after the
+			// update has completed.  We don't explicitly change this back.  The
+			// ObjReconciler will handle it for us.
+			sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
 			err = u.VRec.Client.Update(ctx, sts)
 			if err != nil {
 				return ctrl.Result{}, err
