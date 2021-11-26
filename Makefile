@@ -36,7 +36,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 BUNDLE_DOCKERFILE=docker-bundle/Dockerfile
 
 # Set the namespace
-GET_NAMESPACE_SH=kubectl config view --minify --output 'jsonpath={..namespace}'
+GET_NAMESPACE_SH=kubectl config view --minify --output 'jsonpath={..namespace}' 2> /dev/null
 ifeq (, $(shell ${GET_NAMESPACE_SH}))
 	NAMESPACE?=default
 else
@@ -52,7 +52,7 @@ GOLANGCI_LINT_VER=1.41.1
 LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
-KIND_CHECK=kubectl get node -o=jsonpath='{.items[0].spec.providerID}' | grep 'kind://' -c
+KIND_CHECK:=kubectl get node -o=jsonpath='{.items[0].spec.providerID}' 2> /dev/null | grep 'kind://' -c
 
 # We pick an image tag based on the environment we are in.  We special case kind
 # environments because we need to use a different imagePullPolicy -- kind
@@ -129,8 +129,8 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
-HELM_UNITTEST_PLUGIN_INSTALLED=$(shell helm plugin list | grep -c '^unittest')
-KUTTL_PLUGIN_INSTALLED=$(shell kubectl krew list | grep -c '^kuttl')
+HELM_UNITTEST_PLUGIN_INSTALLED:=$(shell helm plugin list | grep -c '^unittest')
+KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^kuttl')
 INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
