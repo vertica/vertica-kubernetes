@@ -303,9 +303,8 @@ docker-build-bundle: bundle ## Build the bundle image
 docker-push-bundle: ## Push the bundle image
 	docker push $(BUNDLE_IMG)
 
-OLM_CATALOG_BASE?=quay.io/operatorhubio/catalog:latest
 docker-build-olm-catalog: opm ## Build an OLM catalog that includes our bundle (testing purposes only)
-	$(OPM) index add --bundles $(BUNDLE_IMG) --from-index $(OLM_CATALOG_BASE) --tag $(OLM_CATALOG_IMG) --build-tool docker --skip-tls
+	$(OPM) index add --bundles $(BUNDLE_IMG) --tag $(OLM_CATALOG_IMG) --build-tool docker --skip-tls
 
 docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
