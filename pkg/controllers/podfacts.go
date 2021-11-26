@@ -175,6 +175,11 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		name:       names.GenPodName(vdb, sc, podIndex),
 		subcluster: sc.Name,
 	}
+	// It is possible for a pod to be managed by a parent sts but not yet exist.
+	// So, this has to be checked before we check for pod existence.
+	if sts.Spec.Replicas != nil {
+		pf.managedByParent = podIndex < *sts.Spec.Replicas
+	}
 
 	pod := &corev1.Pod{}
 	if err := p.Client.Get(ctx, pf.name, pod); errors.IsNotFound(err) {
@@ -185,9 +190,6 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		return err
 	}
 	pf.exists = true // Success from the Get() implies pod exists in API server
-	if sts.Spec.Replicas != nil {
-		pf.managedByParent = podIndex < *sts.Spec.Replicas
-	}
 	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
