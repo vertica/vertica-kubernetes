@@ -326,9 +326,7 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	}
 	if azureConfig.Protocol != "" {
 		azureConfigJSON.WriteString(fmt.Sprintf(`%s"protocol": "%s"`, elemPrefix, azureConfig.Protocol))
-		elemPrefix = ","
 	}
-	azureConfigJSON.WriteString(fmt.Sprintf(`%s"isMultiAccountEndpoint": %t`, elemPrefix, azureConfig.IsMultiAccountEndpoint))
 	azureConfigJSON.WriteString("}]")
 
 	content := fmt.Sprintf(`
@@ -422,10 +420,9 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCre
 			SharedAccessSignature: string(sas),
 		},
 		AzureEndpointConfig{
-			AccountName:            string(accountName),
-			BlobEndpoint:           blobEndpoint,
-			Protocol:               getEndpointProtocol(string(blobEndpointRaw)),
-			IsMultiAccountEndpoint: false,
+			AccountName:  string(accountName),
+			BlobEndpoint: blobEndpoint,
+			Protocol:     getEndpointProtocol(string(blobEndpointRaw)),
 		},
 		ctrl.Result{}, nil
 }
