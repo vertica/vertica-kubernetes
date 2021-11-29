@@ -77,7 +77,7 @@ then
 fi
 
 # Setup olm if not already present
-if ! scripts/is-openshift.sh 
+if ! $SCRIPT_DIR/is-openshift.sh 
 then
     if ! kubectl get -n $OLM_NS deployment olm-operator
     then

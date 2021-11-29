@@ -71,7 +71,7 @@ then
 fi
 
 # Get the namespace where the catalog is
-if scripts/is-openshift.sh
+if $SCRIPT_DIR/is-openshift.sh
 then
     OLM_NS=openshift-marketplace
 fi
