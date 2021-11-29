@@ -26,6 +26,7 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=120
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 CATALOG_SOURCE_NAME=$(grep OLM_TEST_CATALOG_SOURCE= $REPO_DIR/Makefile | cut -d'=' -f2)
+OLM_NS=olm
 
 function usage() {
     echo "usage: $(basename $0) [-n <namespace>] [-t <seconds>] [<catalog_source_name>]"
@@ -69,8 +70,15 @@ then
   NAMESPACE=default
 fi
 
+# Get the namespace where the catalog is
+if $SCRIPT_DIR/is-openshift.sh
+then
+    OLM_NS=openshift-marketplace
+fi
+
 echo "Namespace: $NAMESPACE"
 echo "Catalog source name: $CATALOG_SOURCE_NAME"
+echo "Catalog source namespace: $OLM_NS"
 
 set -o xtrace
 
@@ -97,7 +105,7 @@ spec:
   channel: stable
   name: verticadb-operator
   source: $CATALOG_SOURCE_NAME
-  sourceNamespace: olm
+  sourceNamespace: $OLM_NS
 EOF
 
 # Wait for the CSV to show up and report success

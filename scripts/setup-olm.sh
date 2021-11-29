@@ -77,13 +77,18 @@ then
 fi
 
 # Setup olm if not already present
-if ! kubectl get -n olm deployment olm-operator
+if ! $SCRIPT_DIR/is-openshift.sh 
 then
-    # When changing the olm version, update the digest in tests/external-images.txt
-    $OPERATOR_SDK olm install --version 0.18.3
+    if ! kubectl get -n $OLM_NS deployment olm-operator
+    then
+        # When changing the olm version, update the digest in tests/external-images.txt
+        $OPERATOR_SDK olm install --version 0.18.3
 
-    # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
-    kubectl delete catalogsource operatorhubio-catalog -n olm || true
+        # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
+        kubectl delete catalogsource operatorhubio-catalog -n $OLM_NS || true
+    fi
+else
+    OLM_NS=openshift-marketplace
 fi
 
 # Create a catalog source using the catalog we build with 'docker-build-olm-catalog'
