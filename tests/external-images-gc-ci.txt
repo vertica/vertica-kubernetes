@@ -1,0 +1,4 @@
+# List of additional images that are needed to run the CI against a Google
+Cloud endpoint in CI.
+# These are pushed to kind in run-k8s-int-tests.sh.
+google/cloud-sdk:360.0.0-alpine
