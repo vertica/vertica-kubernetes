@@ -16,3 +16,5 @@ kind: TestStep
 delete:
   - apiVersion: vertica.com/v1beta1
     kind: VerticaDB
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
