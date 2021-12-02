@@ -21,6 +21,179 @@ spec:
       displayName: Vertica DB
       kind: VerticaDB
       name: verticadbs.vertica.com
+      resources:
+      - kind: Pod
+        name: ""
+        version: v1
+      - kind: Service
+        name: ""
+        version: v1
+      - kind: Statefulset
+        name: ""
+        version: apps/v1
+      specDescriptors:
+      - description: Custom annotations that will be added to all of the objects that
+          the operator will create.
+        displayName: Annotations
+        path: annotations
+      - description: State to indicate whether the operator will restart Vertica if
+          the process is not running. Under normal cicumstances this is set to true.
+          The purpose of this is to allow a maintenance window, such as a manual upgrade,
+          without the operator interfering.
+        displayName: Auto Restart Vertica
+        path: autoRestartVertica
+      - description: 'Secrets that will be mounted in the vertica container.  The
+          purpose of this is to allow custom certs to be available.  The full path
+          is:   /certs/<secretName>/<key_i> Where <secretName> is the name provided
+          in the secret and <key_i> is one of the keys in the secret.'
+        displayName: Cert Secrets
+        path: certSecrets
+      - description: Contains details about the communal storage.
+        displayName: Communal
+        path: communal
+      - description: The name of the database.  This cannot be updated once the CRD
+          is created.
+        displayName: DBName
+        path: dbName
+      - description: Ignore the cluster lease when doing a revive or start_db.  Use
+          this with caution, as ignoring the cluster lease when another system is
+          using the same communal storage will cause corruption.
+        displayName: Ignore Cluster Lease
+        path: ignoreClusterLease
+      - description: The docker image name that contains Vertica.  Whenever this changes,
+          the operator treats this as an upgrade and will stop the entire cluster
+          and restart it with the new image.
+        displayName: Image
+        path: image
+      - description: This dictates the image pull policy to use
+        displayName: Image Pull Policy
+        path: imagePullPolicy
+      - description: 'ImagePullSecrets is an optional list of references to secrets
+          in the same namespace to use for pulling the image. If specified, these
+          secrets will be passed to individual puller implementations for them to
+          use. For example, in the case of docker, only DockerConfig type secrets
+          are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod'
+        displayName: Image Pull Secrets
+        path: imagePullSecrets
+      - description: The initialization policy defines how to setup the database.  Available
+          options are to create a new database or revive an existing one.
+        displayName: Init Policy
+        path: initPolicy
+      - description: "Sets the fault tolerance for the cluster.  Allowable values
+          are 0 or 1.  0 is only suitable for test environments because we have no
+          fault tolerance and the cluster can only have between 1 and 3 pods.  If
+          set to 1, we have fault tolerance if nodes die and the cluster has a minimum
+          of 3 pods. \n This value cannot change after the initial creation of the
+          VerticaDB."
+        displayName: KSafety
+        path: kSafety
+      - description: 'A secret that contains files required for Kereberos setup.  The
+          secret must have the following keys: - krb5.conf: The contents of the Kerberos
+          config file - krb5.keytab: The keytab file that stores credentials for each
+          Vertica principal. These files will be mounted in /etc.  We use the same
+          keytab file on each host, so it must contain all of the Vertica principals.'
+        displayName: Kerberos Secret
+        path: kerberosSecret
+      - description: Custom labels that will be added to all of the objects that the
+          operator will create.
+        displayName: Labels
+        path: labels
+      - description: The name of a secret that contains the contents of license files.
+          The secret must be in the same namespace as the CRD. Each of the keys in
+          the secret will be mounted as files in /home/dbadmin/licensing/mnt. If this
+          is set prior to creating a database, it will include one of the licenses
+          from the secret -- if there are multiple licenses it will pick one by selecting
+          the first one alphabetically.  The user is responsible for installing any
+          additional licenses or if the license was added to the secret after DB creation.
+        displayName: License Secret
+        path: licenseSecret
+      - description: Contain details about the local storage
+        displayName: Local
+        path: local
+      - description: If a reconciliation iteration needs to be requeued this controls
+          the amount of time in seconds to wait.  If this is set to 0, then the requeue
+          time will increase using an exponential backoff algorithm.  Caution, when
+          setting this to some positive value the exponential backoff is disabled.
+          This should be reserved for test environments as an error scenario could
+          easily consume the logs.
+        displayName: Requeue Time
+        path: requeueTime
+      - description: The timeout, in seconds, to use when admintools restarts a node
+          or the entire cluster.  If omitted, we use the admintools default timeout
+          of 20 minutes.
+        displayName: Restart Timeout
+        path: restartTimeout
+      - description: "This specifies the order of nodes when doing a revive.  Each
+          entry contains an index to a subcluster, which is an index in Subclusters[],
+          and a pod count of the number of pods include from the subcluster. \n For
+          example, suppose the database you want to revive has the following setup:
+          v_db_node0001: subcluster A v_db_node0002: subcluster A v_db_node0003: subcluster
+          B v_db_node0004: subcluster A v_db_node0005: subcluster B v_db_node0006:
+          subcluster B \n And the Subcluster[] array is defined as {'A', 'B'}.  The
+          revive order would be: - {subclusterIndex:0, podCount:2}  # 2 pods from
+          subcluster A - {subclusterIndex:1, podCount:1}  # 1 pod from subcluster
+          B - {subclusterIndex:0, podCount:1}  # 1 pod from subcluster A - {subclusterIndex:1,
+          podCount:2}  # 2 pods from subcluster B \n If InitPolicy is not Revive,
+          this field can be ignored."
+        displayName: Revive Order
+        path: reviveOrder
+      - description: The number of shards to create in the database. This cannot be
+          updated once the CRD is created.
+        displayName: Shard Count
+        path: shardCount
+      - description: Optional sidecar containers that run along side the vertica server.  The
+          operator adds the same volume mounts that are in the vertica server container
+          to each sidecar container.
+        displayName: Sidecars
+        path: sidecars
+      - description: 'An optional secret that has the files for /home/dbadmin/.ssh.  If
+          this is omitted, the ssh files from the image are used.  You can this option
+          if you have a cluster that talks to Vertica notes outside of Kubernetes,
+          as it has the public keys to be able to ssh to those nodes.  It must have
+          the following keys present: id_rsa, id_rsa.pub and authorized_keys.'
+        displayName: SSHSecret
+        path: sshSecret
+      - displayName: Subclusters
+        path: subclusters
+      - description: An optional name for a secret that contains the password for
+          the database's superuser. If this is not set, then we assume no such password
+          is set for the database. If this is set, it is up the user to create this
+          secret before deployment. The secret must have a key named password.
+        displayName: Superuser Password Secret
+        path: superuserPasswordSecret
+      - description: Additional volume mounts to include in the Vertica container.  These
+          reference volumes that are in the Volumes list.  The mount path must not
+          conflict with a mount path that the operator adds internally.
+        displayName: Volume Mounts
+        path: volumeMounts
+      - description: "Custom volumes that are added to sidecars and the Vertica container.
+          For these volumes to be visible in either container, they must have a corresonding
+          volumeMounts entry.  For sidecars, this is included in `spec.sidecars[*].volumeMounts`.
+          \ For the Vertica container, it is included in `spec.volumeMounts`. \n This
+          accepts any valid volume type.  A unique name must be given for each volume
+          and it cannot conflict with any of the internally generated volumes."
+        displayName: Volumes
+        path: volumes
+      statusDescriptors:
+      - description: A count of the number of pods that have been added to the database.
+        displayName: Added To DBCount
+        path: addedToDBCount
+      - description: Conditions for VerticaDB
+        displayName: Conditions
+        path: conditions
+      - description: A count of the number of pods that have been installed into the
+          vertica cluster.
+        displayName: Install Count
+        path: installCount
+      - description: The number of subclusters in the database
+        displayName: Subcluster Count
+        path: subclusterCount
+      - description: Status per subcluster.
+        displayName: Subclusters
+        path: subclusters
+      - description: A count of the number of pods that have a running vertica process.
+        displayName: Up Node Count
+        path: upNodeCount
       version: v1beta1
   description: |-
     ### What is Vertica?
