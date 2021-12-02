@@ -1,6 +1,6 @@
-# This file contains images that are requried for the build and setup of the
-e2e tests.  These images aren't used during the run of the e2e tests
-themselves.
+# This file contains images that are required for the build and setup of the
+# e2e tests.  These images aren't used during the run of the e2e tests
+# themselves.
 
 # Images that are used as the base in our containers
 centos:centos7.9.2009
