@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -75,6 +76,9 @@ type PodFact struct {
 	// true means the pod has a running vertica process accepting connections on
 	// port 5433.
 	upNode bool
+
+	// true means the node is up, but in read-only state
+	readOnly bool
 
 	// The vnode name that Vertica assigned to this pod.
 	vnodeName string
@@ -197,7 +201,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
-		p.checkIfNodeIsUp,
+		p.checkIfNodeIsUpAndReadOnly,
 		p.checkEulaAcceptance,
 		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
@@ -333,13 +337,30 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	return nil
 }
 
-// checkIfNodeIsUp will determine whether Vertica process is running in the pod.
-func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+// checkIfNodeIsUpAndReadOnly will determine whether Vertica process is running
+// in the pod and whether it is in read-only mode.
+func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.dbExists.IsFalse() || !pf.isPodRunning {
 		pf.upNode = false
+		pf.readOnly = false
 		return nil
 	}
 
+	// The read-only state is a new state added in 11.0.2.  So we can only query
+	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
+	// disabled.
+	vinf, ok := version.MakeInfo(vdb)
+	if ok && vinf.IsEqualOrNewer(version.NodesHaveReadOnlyStateVersion) {
+		return p.queryNodeStatus(ctx, pf)
+	}
+	return p.checkIfNodeIsUp(ctx, pf)
+}
+
+// checkIfNodeIsUp will check if the Vertica is up and running in this process.
+// It assumes the pod is running and the database exists.  It doesn't check for
+// read-only state.  This exists for backwards compatibility of versions older
+// than 11.0.2.
+func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 	cmd := []string{
 		"-c",
 		"select 1",
@@ -349,11 +370,54 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, vdb *vapi.VerticaDB, pf 
 			return err
 		}
 		pf.upNode = false
+		pf.readOnly = false
 	} else {
 		pf.upNode = true
+		pf.readOnly = false
 	}
 
 	return nil
+}
+
+// queryNodeStatus will query the nodes system table to see if the node is up
+// and wether it is in read-only state.  It assumes the database exists and the
+// pod is running.
+func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact) error {
+	cmd := []string{
+		"-tAc",
+		"select node_state, is_readonly " +
+			"from sessions as a, nodes as b " +
+			"where a.session_id = current_session() and a.node_name = b.node_name",
+	}
+	if stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
+		if !strings.Contains(stderr, "vsql: could not connect to server:") {
+			return err
+		}
+		pf.upNode = false
+		pf.readOnly = false
+	} else if pf.upNode, pf.readOnly, err = parseNodeStateAndReadOnly(stdout); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// parseNodeStateAndReadOnly will parse query output to determine if a node is
+// up and read-only.
+func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, err error) {
+	// The stdout comes in the form like this:
+	// UP|t
+	// This means upNode is true and readOnly is true.
+	lines := strings.Split(stdout, "\n")
+	cols := strings.Split(lines[0], "|")
+	const ExpectedCols = 2
+	if len(cols) != ExpectedCols {
+		err = fmt.Errorf("expected %d columns from node query but only got %d", ExpectedCols, len(cols))
+		return
+	}
+	upNode = cols[0] == "UP"
+	readOnly = cols[1] == "t"
+	return
 }
 
 // parseVerticaNodeName extract the vertica node name from the directory list

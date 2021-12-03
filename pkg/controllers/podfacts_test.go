@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"yunion.io/x/pkg/tristate"
@@ -182,7 +183,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUp(ctx, vdb, pf)).Should(Succeed())
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeFalse())
 	})
 
@@ -198,11 +199,11 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUp(ctx, vdb, pf)).Should(Succeed())
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
 
-	It("should fail if checkIfNodeIsUp gets an unexpected error", func() {
+	It("should fail if checkIfNodeIsUpAndReadOnly gets an unexpected error", func() {
 		vdb := vapi.MakeVDB()
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{
@@ -214,7 +215,30 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUp(ctx, vdb, pf)).ShouldNot(Succeed())
+		// Run with no annotation
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).ShouldNot(Succeed())
+		// Run with 11.0.2 annotation
+		vdb.Annotations[vapi.VersionAnnotation] = version.NodesHaveReadOnlyStateVersion
+		fpr.Results[pn] = []cmds.CmdResult{{Err: errors.New("unexpected error"), Stderr: "unknown error"}}
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).ShouldNot(Succeed())
+	})
+
+	It("checkIfNodeIsUpAndReadOnly should check for read-only on 11.0.2 servers", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vapi.VersionAnnotation] = version.NodesHaveReadOnlyStateVersion
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		fpr := &cmds.FakePodRunner{
+			Results: cmds.CmdResults{
+				pn: []cmds.CmdResult{
+					{Stdout: "UP|t"},
+				},
+			},
+		}
+		pfs := MakePodFacts(k8sClient, fpr)
+		pf := &PodFact{name: pn, isPodRunning: true}
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
+		Expect(pf.upNode).Should(BeTrue())
+		Expect(pf.readOnly).Should(BeTrue())
 	})
 
 	It("should parse out the compat21 node name from install indicator file", func() {
@@ -234,5 +258,23 @@ var _ = Describe("podfacts", func() {
 		Expect(ok).Should(BeTrue())
 		Expect(pf.isInstalled).Should(Equal(tristate.True))
 		Expect(pf.compat21NodeName).Should(Equal("node0010"))
+	})
+
+	It("should parse read-only state from node query", func() {
+		upNode1, readOnly1, err := parseNodeStateAndReadOnly("UP|t\n")
+		Expect(err).Should(Succeed())
+		Expect(upNode1).Should(BeTrue())
+		Expect(readOnly1).Should(BeTrue())
+
+		upNode2, readOnly2, err := parseNodeStateAndReadOnly("UP|f\n")
+		Expect(err).Should(Succeed())
+		Expect(upNode2).Should(BeTrue())
+		Expect(readOnly2).Should(BeFalse())
+
+		_, _, err = parseNodeStateAndReadOnly("")
+		Expect(err).ShouldNot(Succeed())
+
+		_, _, err = parseNodeStateAndReadOnly("UP|z|garbage")
+		Expect(err).ShouldNot(Succeed())
 	})
 })
