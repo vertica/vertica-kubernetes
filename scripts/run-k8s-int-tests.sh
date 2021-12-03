@@ -117,7 +117,7 @@ function push {
     echo "Pushing the images to the kind cluster"
     make  docker-push
     echo "Pushing the external images to the kind cluster"
-    scripts/push-to-kind.sh -f tests/external-images.txt
+    scripts/push-to-kind.sh -f tests/external-images-common-ci.txt
     if [ -n "$EXTRA_EXTERNAL_IMAGE_FILE" ]
     then
         scripts/push-to-kind.sh -f $EXTRA_EXTERNAL_IMAGE_FILE
