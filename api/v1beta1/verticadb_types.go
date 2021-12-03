@@ -277,10 +277,12 @@ const (
 // Defines a number of pods for a specific subcluster
 type SubclusterPodCount struct {
 	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The index of the subcluster.  This is an index into Subclusters[]
 	SubclusterIndex int `json:"subclusterIndex"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The number of pods paired with this subcluster.  If this is omitted then,
 	// all remaining pods in the subcluster will be used.
 	PodCount int `json:"podCount,omitempty"`
@@ -289,6 +291,7 @@ type SubclusterPodCount struct {
 // Holds details about the communal storage
 type CommunalStorage struct {
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The path to the communal storage. We support S3, Google Cloud Storage,
 	// and HDFS paths.  The protocol in the path (e.g. s3:// or webhdfs://)
 	// dictates the type of storage.  The path, whether it be a S3 bucket or
@@ -299,12 +302,14 @@ type CommunalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// If true, the operator will include the VerticaDB's UID in the path.  This
 	// option exists if you reuse the communal path in the same endpoint as it
 	// forces each database path to be unique.
 	IncludeUIDInPath bool `json:"includeUIDInPath,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The URL to the communal endpoint. The endpoint must be prefaced with http:// or
 	// https:// to know what protocol to connect with. If using S3 or Google
 	// Cloud Storage as communal storage and initPolicy is Create or Revive,
@@ -312,6 +317,7 @@ type CommunalStorage struct {
 	Endpoint string `json:"endpoint"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The name of a secret that contains the credentials to connect to the
 	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
 	// need to be set, depending on the endpoint type:
@@ -332,6 +338,7 @@ type CommunalStorage struct {
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The absolute path to a certificate bundle of trusted CAs. This CA bundle
 	// is used when establishing TLS connections to external services such as
 	// AWS, Azure or swebhdf:// scheme.  Typically this would refer to a path to
@@ -339,23 +346,27 @@ type CommunalStorage struct {
 	CaFile string `json:"caFile,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The region containing the bucket.  If you do not set the correct
 	// region, you might experience a delay before the bootstrap fails because
 	// Vertica retries several times before giving up.
 	Region string `json:"region,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A config map that contains the contents of the /etc/hadoop directory.
 	// This gets mounted in the container and is used to configure connections
 	// to an HDFS communal path
 	HadoopConfig string `json:"hadoopConfig,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The service name portion of the Vertica Kerberos principal. This is set
 	// in the database config parameter KerberosServiceName during bootstrapping.
 	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Name of the Kerberos realm.  This is set in the database config parameter
 	// KerberosRealm during bootstrapping.
 	KerberosRealm string `json:"kerberosRealm,omitempty"`
@@ -363,6 +374,7 @@ type CommunalStorage struct {
 
 type LocalStorage struct {
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The local data stores the local catalog, depot and config files. This
 	// defines the name of the storageClass to use for that volume. This will be
 	// set when creating the PVC. By default, it is not set. This means that
@@ -372,11 +384,13 @@ type LocalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="500Gi"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The minimum size of the local data volume when picking a PV.
 	RequestSize resource.Quantity `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=/data
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The path in the container to the local catalog.  When initializing the
 	// database with revive, the local path here must match the path that was
 	// used when the database was first created.
@@ -384,6 +398,7 @@ type LocalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=/depot
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The path in the container to the depot.  When initializing the database with
 	// revive, this path must match the depot path used when the database was
 	// first created.
@@ -392,6 +407,7 @@ type LocalStorage struct {
 
 type Subcluster struct {
 	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The name of the subcluster. This is a required parameter. This cannot
 	// change after CRD creation.
 	Name string `json:"name"`
@@ -399,6 +415,7 @@ type Subcluster struct {
 	// +kubebuilder:default:=3
 	// +kubebuilder:Minimum:=3
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The number of pods that the subcluster will have. This determines the
 	// number of Vertica nodes that it will have. Changing this number will
 	// either delete or schedule new pods.
@@ -415,29 +432,35 @@ type Subcluster struct {
 
 	// +kubebuilder:default:=true
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Indicates whether the subcluster is a primary or secondary. You must have
 	// at least one primary subcluster in the database.
 	IsPrimary bool `json:"isPrimary"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A map of label keys and values to restrict Vertica node scheduling to workers
 	// with matchiing labels.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Like nodeSelector this allows you to constrain the pod only to certain
 	// pods. It is more expressive than just using node selectors.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The priority class name given to pods in this subcluster. This affects
 	// where the pod gets scheduled.
 	// More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Any tolerations and taints to use to aid in where to schedule a pod.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// This defines the resource requests and limits for pods in the subcluster.
 	// It is advisable that the request and limits match as this ensures the
 	// pods are assigned to the guaranteed QoS class. This will reduces the
@@ -447,6 +470,7 @@ type Subcluster struct {
 
 	// +kubebuilder:default:=ClusterIP
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Identifies the type of Kubernetes service to use for external client
 	// connectivity. The default is to use a ClusterIP, which sets a stable IP
 	// and port to use that is accessible only from within Kubernetes itself.
@@ -456,6 +480,7 @@ type Subcluster struct {
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// When setting serviceType to NodePort, this parameter allows you to define the
 	// port that is opened at each node. If using NodePort and this is omitted,
 	// Kubernetes will choose the port automatically. This port must be from
@@ -464,6 +489,7 @@ type Subcluster struct {
 	NodePort int32 `json:"nodePort,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Allows the service object to be attached to a list of external IPs that you
 	// specify. If not set, the external IP list is left empty in the service object.
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
@@ -534,13 +560,16 @@ var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
 
 // VerticaDBCondition defines condition for VerticaDB
 type VerticaDBCondition struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Type is the type of the condition
 	Type VerticaDBConditionType `json:"type"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Status is the status of the condition
 	// can be True, False or Unknown
 	Status corev1.ConditionStatus `json:"status"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Last time the condition transitioned from one status to another.
 	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
@@ -548,29 +577,38 @@ type VerticaDBCondition struct {
 
 // SubclusterStatus defines the per-subcluster status that we track
 type SubclusterStatus struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Name of the subcluster
 	Name string `json:"name"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been installed into the subcluster.
 	InstallCount int32 `json:"installCount"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been added to the database for this subcluster.
 	AddedToDBCount int32 `json:"addedToDBCount"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have a running vertica process in this subcluster.
 	UpNodeCount int32 `json:"upNodeCount"`
 
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Detail []VerticaDBPodStatus `json:"detail"`
 }
 
 // VerticaDBPodStatus holds state for a single pod in a subcluster
 type VerticaDBPodStatus struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// This is set to true if /opt/vertica/config has been bootstrapped.
 	Installed bool `json:"installed"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// This is set to true if the DB exists and the pod has been added to it.
 	AddedToDB bool `json:"addedToDB"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// This is the vnode name that Vertica internally assigned this pod (e.g. v_<dbname>_nodexxxx)
 	VNodeName string `json:"vnodeName"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// True means the vertica process is running on this pod and it can accept
 	// connections on port 5433.
 	UpNode bool `json:"upNode"`

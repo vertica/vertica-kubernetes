@@ -51,6 +51,63 @@ spec:
       - description: Contains details about the communal storage.
         displayName: Communal
         path: communal
+      - description: The absolute path to a certificate bundle of trusted CAs. This
+          CA bundle is used when establishing TLS connections to external services
+          such as AWS, Azure or swebhdf:// scheme.  Typically this would refer to
+          a path to one of the certSecrets.
+        displayName: Ca File
+        path: communal.caFile
+      - description: "The name of a secret that contains the credentials to connect
+          to the communal endpoint (only applies to s3://, gs:// or azb://). Certain
+          keys need to be set, depending on the endpoint type: - s3:// or gs:// -
+          It must have the following keys set: accessey and secretkey.     When using
+          Google Cloud Storage, the IDs set in the secret are taken     from the hash-based
+          message authentication code (HMAC) keys. - azb:// - It must have the following
+          keys set:     accountName - Name of the Azure account     blobEndpoint -
+          (Optional) Set this to the location of the endpoint.       If using an emulator
+          like Azurite, it can be set to something like       'http://<IP-addr>:<port>'
+          \    accountKey - If accessing with an account key set it here     sharedAccessSignature
+          - If accessing with a shared access signature,     \t  set it here \n When
+          initPolicy is Create or Revive, and not using HDFS this field is required."
+        displayName: Credential Secret
+        path: communal.credentialSecret
+      - description: The URL to the communal endpoint. The endpoint must be prefaced
+          with http:// or https:// to know what protocol to connect with. If using
+          S3 or Google Cloud Storage as communal storage and initPolicy is Create
+          or Revive, this field is required and cannot change after creation.
+        displayName: Endpoint
+        path: communal.endpoint
+      - description: A config map that contains the contents of the /etc/hadoop directory.
+          This gets mounted in the container and is used to configure connections
+          to an HDFS communal path
+        displayName: Hadoop Config
+        path: communal.hadoopConfig
+      - description: If true, the operator will include the VerticaDB's UID in the
+          path.  This option exists if you reuse the communal path in the same endpoint
+          as it forces each database path to be unique.
+        displayName: Include UIDIn Path
+        path: communal.includeUIDInPath
+      - description: Name of the Kerberos realm.  This is set in the database config
+          parameter KerberosRealm during bootstrapping.
+        displayName: Kerberos Realm
+        path: communal.kerberosRealm
+      - description: The service name portion of the Vertica Kerberos principal. This
+          is set in the database config parameter KerberosServiceName during bootstrapping.
+        displayName: Kerberos Service Name
+        path: communal.kerberosServiceName
+      - description: The path to the communal storage. We support S3, Google Cloud
+          Storage, and HDFS paths.  The protocol in the path (e.g. s3:// or webhdfs://)
+          dictates the type of storage.  The path, whether it be a S3 bucket or HDFS
+          path, must exist prior to creating the VerticaDB.  When initPolicy is Create,
+          this field is required and the path must be empty.  When initPolicy is Revive,
+          this field is required and must be non-empty.
+        displayName: Path
+        path: communal.path
+      - description: The region containing the bucket.  If you do not set the correct
+          region, you might experience a delay before the bootstrap fails because
+          Vertica retries several times before giving up.
+        displayName: Region
+        path: communal.region
       - description: The name of the database.  This cannot be updated once the CRD
           is created.
         displayName: DBName
@@ -110,6 +167,25 @@ spec:
       - description: Contain details about the local storage
         displayName: Local
         path: local
+      - description: The path in the container to the local catalog.  When initializing
+          the database with revive, the local path here must match the path that was
+          used when the database was first created.
+        displayName: Data Path
+        path: local.dataPath
+      - description: The path in the container to the depot.  When initializing the
+          database with revive, this path must match the depot path used when the
+          database was first created.
+        displayName: Depot Path
+        path: local.depotPath
+      - description: The minimum size of the local data volume when picking a PV.
+        displayName: Request Size
+        path: local.requestSize
+      - description: The local data stores the local catalog, depot and config files.
+          This defines the name of the storageClass to use for that volume. This will
+          be set when creating the PVC. By default, it is not set. This means that
+          that the PVC we create will have the default storage class set in Kubernetes.
+        displayName: Storage Class
+        path: local.storageClass
       - description: If a reconciliation iteration needs to be requeued this controls
           the amount of time in seconds to wait.  If this is set to 0, then the requeue
           time will increase using an exponential backoff algorithm.  Caution, when
@@ -137,6 +213,13 @@ spec:
           this field can be ignored."
         displayName: Revive Order
         path: reviveOrder
+      - description: The number of pods paired with this subcluster.  If this is omitted
+          then, all remaining pods in the subcluster will be used.
+        displayName: Pod Count
+        path: reviveOrder[0].podCount
+      - description: The index of the subcluster.  This is an index into Subclusters[]
+        displayName: Subcluster Index
+        path: reviveOrder[0].subclusterIndex
       - description: The number of shards to create in the database. This cannot be
           updated once the CRD is created.
         displayName: Shard Count
@@ -155,6 +238,67 @@ spec:
         path: sshSecret
       - displayName: Subclusters
         path: subclusters
+      - description: 'Like nodeSelector this allows you to constrain the pod only
+          to certain pods. It is more expressive than just using node selectors. More
+          info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity'
+        displayName: Affinity
+        path: subclusters[0].affinity
+      - description: 'Allows the service object to be attached to a list of external
+          IPs that you specify. If not set, the external IP list is left empty in
+          the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
+        displayName: External IPs
+        path: subclusters[0].externalIPs
+      - description: Indicates whether the subcluster is a primary or secondary. You
+          must have at least one primary subcluster in the database.
+        displayName: Is Primary
+        path: subclusters[0].isPrimary
+      - description: The name of the subcluster. This is a required parameter. This
+          cannot change after CRD creation.
+        displayName: Name
+        path: subclusters[0].name
+      - description: When setting serviceType to NodePort, this parameter allows you
+          to define the port that is opened at each node. If using NodePort and this
+          is omitted, Kubernetes will choose the port automatically. This port must
+          be from within the defined range allocated by the control plane (default
+          is 30000-32767).
+        displayName: Node Port
+        path: subclusters[0].nodePort
+      - description: 'A map of label keys and values to restrict Vertica node scheduling
+          to workers with matchiing labels. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector'
+        displayName: Node Selector
+        path: subclusters[0].nodeSelector
+      - description: 'The priority class name given to pods in this subcluster. This
+          affects where the pod gets scheduled. More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass'
+        displayName: Priority Class Name
+        path: subclusters[0].priorityClassName
+      - description: 'This defines the resource requests and limits for pods in the
+          subcluster. It is advisable that the request and limits match as this ensures
+          the pods are assigned to the guaranteed QoS class. This will reduces the
+          chance that pods are chosen by the OOM killer. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+        displayName: Resources
+        path: subclusters[0].resources
+      - description: 'Identifies the type of Kubernetes service to use for external
+          client connectivity. The default is to use a ClusterIP, which sets a stable
+          IP and port to use that is accessible only from within Kubernetes itself.
+          Depending on the service type chosen the user may need to set other config
+          knobs to further config it. These other knobs follow this one. More info:
+          https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types'
+        displayName: Service Type
+        path: subclusters[0].serviceType
+      - description: "The number of pods that the subcluster will have. This determines
+          the number of Vertica nodes that it will have. Changing this number will
+          either delete or schedule new pods. \n The database has a k-safety of 1.
+          So, if this is a primary subcluster, the minimum value is 3. If this is
+          a secondary subcluster, the minimum is 0. \n Note, you must have a valid
+          license to pick a value larger than 3. The default license that comes in
+          the vertica container is for the community edition, which can only have
+          3 nodes. The license can be set with the db.licenseSecret parameter."
+        displayName: Size
+        path: subclusters[0].size
+      - description: 'Any tolerations and taints to use to aid in where to schedule
+          a pod. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: subclusters[0].tolerations
       - description: An optional name for a secret that contains the password for
           the database's superuser. If this is not set, then we assume no such password
           is set for the database. If this is set, it is up the user to create this
@@ -181,6 +325,15 @@ spec:
       - description: Conditions for VerticaDB
         displayName: Conditions
         path: conditions
+      - description: Last time the condition transitioned from one status to another.
+        displayName: Last Transition Time
+        path: conditions[0].lastTransitionTime
+      - description: Status is the status of the condition can be True, False or Unknown
+        displayName: Status
+        path: conditions[0].status
+      - description: Type is the type of the condition
+        displayName: Type
+        path: conditions[0].type
       - description: A count of the number of pods that have been installed into the
           vertica cluster.
         displayName: Install Count
@@ -191,6 +344,38 @@ spec:
       - description: Status per subcluster.
         displayName: Subclusters
         path: subclusters
+      - description: A count of the number of pods that have been added to the database
+          for this subcluster.
+        displayName: Added To DBCount
+        path: subclusters[0].addedToDBCount
+      - displayName: Detail
+        path: subclusters[0].detail
+      - description: This is set to true if the DB exists and the pod has been added
+          to it.
+        displayName: Added To DB
+        path: subclusters[0].detail[0].addedToDB
+      - description: This is set to true if /opt/vertica/config has been bootstrapped.
+        displayName: Installed
+        path: subclusters[0].detail[0].installed
+      - description: True means the vertica process is running on this pod and it
+          can accept connections on port 5433.
+        displayName: Up Node
+        path: subclusters[0].detail[0].upNode
+      - description: This is the vnode name that Vertica internally assigned this
+          pod (e.g. v_<dbname>_nodexxxx)
+        displayName: VNode Name
+        path: subclusters[0].detail[0].vnodeName
+      - description: A count of the number of pods that have been installed into the
+          subcluster.
+        displayName: Install Count
+        path: subclusters[0].installCount
+      - description: Name of the subcluster
+        displayName: Name
+        path: subclusters[0].name
+      - description: A count of the number of pods that have a running vertica process
+          in this subcluster.
+        displayName: Up Node Count
+        path: subclusters[0].upNodeCount
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
