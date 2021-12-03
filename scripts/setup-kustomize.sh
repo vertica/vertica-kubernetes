@@ -74,10 +74,10 @@ then
 fi
 
 if [ -z "${VERTICA_IMG}" ]; then
-    VERTICA_IMG=$DEF_VERTICA_IMG
+    VERTICA_IMG=$(cd $REPO_DIR && make echo-images | grep VERTICA_IMG | cut -d'=' -f2)
 fi
 if [ -z "${VLOGGER_IMG}" ]; then
-    VLOGGER_IMG=$DEF_VLOGGER_IMG
+    VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
 
 # Name of the secret that contains the cert to use for communal access
@@ -416,8 +416,8 @@ kind: ConfigMap
 metadata:
   name: e2e
 data:
-  verticaImage: ${VERTICA_IMG:-$DEF_VERTICA_IMG}
-  vloggerImage: ${VLOGGER_IMG:-$DEF_VLOGGER_IMG}
+  verticaImage: ${VERTICA_IMG}
+  vloggerImage: ${VLOGGER_IMG}
 EOF
 
     # If a cert was specified for communal endpoint access, include a datapoint
