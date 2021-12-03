@@ -3,7 +3,7 @@
 # To avoid pull issues during the test runs in kind, you can use
 # this file with push-to-kind.sh to ensure they are in the kind
 # nodes.
-#    scripts/push-to-kind.sh -f tests/external-images.txt
+#    scripts/push-to-kind.sh -f tests/external-images-common-ci.txt
 #
 vertica/vertica-k8s:11.0.1-0-minimal
 minio/minio:RELEASE.2021-09-03T03-56-13Z
@@ -14,19 +14,3 @@ minio/operator:v4.2.7
 minio/console:v0.9.8
 rancher/local-path-provisioner:v0.0.19
 gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
-
-# Images that are used as the base in our containers
-centos:centos7.9.2009
-golang:1.15
-gcr.io/distroless/static:nonroot
-alpine:3.13
-
-# Images needed for testing in CI
-kindest/node:v1.21.1
-registry:2
-
-# Images needed for olm
-quay.io/operator-framework/olm:v0.18.3
-
-# Images needed if testing gcloud
-# google/cloud-sdk:360.0.0-alpine
