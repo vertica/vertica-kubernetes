@@ -2,22 +2,6 @@
 
 This guide explains how to set up an environment to develop and test the Vertica operator.
 
-# Software Setup
-Developing with this repo requires a working Kubernetes cluster. Additionally, the integration tests require the following software:
-
-- [go](https://golang.org/doc/install) (version 1.16.2)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.20.1).  If you are using a real Kubernetes cluster, this is already installed.
-- [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
-- [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)
-- [kubens](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubens) (version 0.9.1)
-- [golangci-lint](https://golangci-lint.run/usage/install/) (version 1.41.1)
-- [krew](https://github.com/kubernetes-sigs/krew/releases/tag/v0.4.1) (version 0.4.1) $HOME/.krew/bin must be in your path
-- [stern](https://github.com/stern/stern) (version 1.15.0)
-- [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
-- [changie](https://github.com/miniscruff/changie) (version 0.5.0)
-- [operator-sdk](https://github.com/operator-framework/operator-sdk/releases/download/v1.10.1/operator-sdk_linux_amd64) (version 1.10.1)
-- [opm](https://github.com/operator-framework/operator-registry/releases/tag/v1.18.1) (version 1.18.1)
-
 # Repo Structure
 
 - **docker-vertica/**: has the necessary files to build a Vertica server container. The build process requires that you provide a Vertica version 10.1.1 or higher RPM package. The RPM is not included in this repo.
@@ -33,6 +17,19 @@ Developing with this repo requires a working Kubernetes cluster. Additionally, t
 - **changes/**: stores the changelog for past releases and details about the changes for the next release
 - **hack/**: includes a boilerplate file of a copyright that is included on the generated files
 - **helm-charts/**: contains the Helm charts that this repository builds
+
+# Software Setup
+Prior to developing, the following software needs to be installed manually.  There is other software that needed, but it is downloaded through make targets into the repo's bin directory.
+
+- [docker](https://docs.docker.com/get-docker/)
+- [go](https://golang.org/doc/install) (version 1.16.2)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.20.1)
+- [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
+- [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)
+- [kubens](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubens) (version 0.9.1)
+- [krew](https://github.com/kubernetes-sigs/krew/releases/tag/v0.4.1) (version 0.4.1) $HOME/.krew/bin must be in your path
+- [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
+- [changie](https://github.com/miniscruff/changie) (version 0.5.0)
 
 # Kind Setup
 [Kind](https://kind.sigs.k8s.io/) is a way to set up a multi-node Kubernetes cluster using Docker. It mimics a multi-node setup by starting a separate container for each node.  The machine requirements for running Kind are minimal - it is possible to set this up on your own laptop. This is the intended deployment to run the tests in an automated fashion.
