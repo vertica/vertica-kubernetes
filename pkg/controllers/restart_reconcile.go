@@ -120,8 +120,8 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// the database isn't running, which would be case if there are read-only
 	// nodes.
 	downPods := r.PFacts.findRestartablePods()
-	if err := r.killOldProcesses(ctx, downPods); err != nil {
-		return ctrl.Result{}, err
+	if res, err := r.killOldProcesses(ctx, downPods); err != nil {
+		return res, err
 	}
 
 	// re_ip/start_db require all pods to be running that have run the
@@ -196,8 +196,8 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 	vnodeList := genRestartVNodeList(downPods)
 	ipList := genRestartIPList(downPods)
 
-	if err := r.killOldProcesses(ctx, downPods); err != nil {
-		return ctrl.Result{}, err
+	if res, err := r.killOldProcesses(ctx, downPods); res.Requeue || err != nil {
+		return res, err
 	}
 
 	debugDumpAdmintoolsConf(ctx, r.PRunner, r.ATPod)
@@ -402,18 +402,33 @@ func genRestartIPList(downPods []*PodFact) []string {
 
 // killOldProcesses will remove any running vertica processes.  At this point,
 // we have determined the nodes are down, so we are cleaning up so that it
-// doesn't impact the restart.
-func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFact) error {
+// doesn't impact the restart.  This may include killed a pod that is in the
+// read-only state.  For this reason, we requeue the iteration if anything is
+// killed so that status is updated before starting a restart; this is done for
+// the benefit of PD purposes and stability in the restart test.
+func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
+	killedAtLeastOnePid := false
 	for _, pod := range pods {
+		const KillMarker = "Killing process"
 		cmd := []string{
-			"bash", "-c", "for pid in $(pgrep ^vertica$); do kill -n SIGKILL $pid; done",
+			"bash", "-c",
+			fmt.Sprintf("for pid in $(pgrep ^vertica$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", KillMarker),
 		}
 		// Avoid all errors since the process may not even be running
-		if _, _, err := r.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-			return err
+		if stdout, _, err := r.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
+			return ctrl.Result{}, err
+		} else if strings.Contains(stdout, KillMarker) {
+			killedAtLeastOnePid = true
 		}
 	}
-	return nil
+	if killedAtLeastOnePid {
+		// We are going to requeue if killed at least one process.  This is for
+		// the benefit of the status reconciler, so that we don't treat it as
+		// an up node anymore.
+		r.Log.Info("Requeue.  Killed at least one vertica process.")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
 }
 
 // genRestartNodeCmd returns the command to run to restart a pod
