@@ -386,8 +386,8 @@ func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact) error {
 	cmd := []string{
 		"-tAc",
 		"select node_state, is_readonly " +
-			"from sessions as a, nodes as b " +
-			"where a.session_id = current_session() and a.node_name = b.node_name",
+			"from nodes " +
+			"where node_name in (select node_name from current_session)",
 	}
 	if stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		if !strings.Contains(stderr, "vsql: could not connect to server:") {
@@ -531,9 +531,11 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 
 // findRestartablePods returns a list of pod facts that can be restarted.
 // An empty list implies there are no pods that need to be restarted.
+// We treat read-only nodes as being restartable because they are in the
+// read-only state due to losing of cluster quorum.
 func (p *PodFacts) findRestartablePods() []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
-		return !v.upNode && v.dbExists.IsTrue() && v.isPodRunning
+		return (!v.upNode || v.readOnly) && v.dbExists.IsTrue() && v.isPodRunning
 	})
 }
 
@@ -618,13 +620,24 @@ func (p *PodFacts) countNotRunning() int {
 // getUpNodeCount returns the number of up nodes.
 // A pod is considered down if it doesn't have a running vertica process.
 func (p *PodFacts) getUpNodeCount() int {
-	var count = 0
-	for _, v := range p.Detail {
+	return p.countPods(func(v *PodFact) int {
 		if v.upNode {
-			count++
+			return 1
 		}
-	}
-	return count
+		return 0
+	})
+}
+
+// getUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
+// writable.  Starting in 11.0SP2, nodes can be up but only in read-only state.
+// This function filters out those *up* nodes that are in read-only state.
+func (p *PodFacts) getUpNodeAndNotReadOnlyCount() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.upNode && !v.readOnly {
+			return 1
+		}
+		return 0
+	})
 }
 
 // genPodNames will generate a string of pods names given a list of pods
