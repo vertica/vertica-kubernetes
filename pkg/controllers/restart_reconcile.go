@@ -120,7 +120,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// the database isn't running, which would be case if there are read-only
 	// nodes.
 	downPods := r.PFacts.findRestartablePods()
-	if res, err := r.killOldProcesses(ctx, downPods); err != nil {
+	if res, err := r.killOldProcesses(ctx, downPods); res.Requeue || err != nil {
 		return res, err
 	}
 
