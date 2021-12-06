@@ -370,11 +370,12 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 			return err
 		}
 		pf.upNode = false
-		pf.readOnly = false
 	} else {
 		pf.upNode = true
-		pf.readOnly = false
 	}
+	// This is called for server versions that don't have read-only state.  So
+	// read-only will always be false.
+	pf.readOnly = false
 
 	return nil
 }
