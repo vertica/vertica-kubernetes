@@ -19,7 +19,7 @@ spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   communal:
-    includeUIDInPath: false
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   dbName: spilchendb2
