@@ -402,7 +402,7 @@ func genRestartIPList(downPods []*PodFact) []string {
 
 // killOldProcesses will remove any running vertica processes.  At this point,
 // we have determined the nodes are down, so we are cleaning up so that it
-// doesn't impact the restart.  This may include killed a pod that is in the
+// doesn't impact the restart.  This may include killing a pod that is in the
 // read-only state.  For this reason, we requeue the iteration if anything is
 // killed so that status is updated before starting a restart; this is done for
 // the benefit of PD purposes and stability in the restart test.
