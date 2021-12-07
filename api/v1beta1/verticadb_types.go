@@ -44,7 +44,7 @@ type VerticaDBSpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// ImagePullSecrets is an optional list of references to secrets in the same
 	// namespace to use for pulling the image. If specified, these secrets will
 	// be passed to individual puller implementations for them to use. For
@@ -88,13 +88,13 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:=12
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The number of shards to create in the database. This cannot be updated
 	// once the CRD is created.
 	ShardCount int `json:"shardCount"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// An optional name for a secret that contains the password for the
 	// database's superuser. If this is not set, then we assume no such password
 	// is set for the database. If this is set, it is up the user to create this
@@ -102,7 +102,7 @@ type VerticaDBSpec struct {
 	SuperuserPasswordSecret string `json:"superuserPasswordSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// The name of a secret that contains the contents of license files. The
 	// secret must be in the same namespace as the CRD. Each of the keys in the
 	// secret will be mounted as files in /home/dbadmin/licensing/mnt. If this
@@ -123,7 +123,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=Create
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Revive"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Revive","urn:alm:descriptor:com.tectonic.ui:select:ScheduleOnly"}
 	// The initialization policy defines how to setup the database.  Available
 	// options are to create a new database or revive an existing one.
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
@@ -153,7 +153,7 @@ type VerticaDBSpec struct {
 	ReviveOrder []SubclusterPodCount `json:"reviveOrder,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The timeout, in seconds, to use when admintools restarts a node or the
 	// entire cluster.  If omitted, we use the admintools default timeout
 	// of 20 minutes.
@@ -186,7 +186,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// If a reconciliation iteration needs to be requeued this controls the
 	// amount of time in seconds to wait.  If this is set to 0, then the requeue
 	// time will increase using an exponential backoff algorithm.  Caution, when
@@ -222,7 +222,7 @@ type VerticaDBSpec struct {
 	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// Secrets that will be mounted in the vertica container.  The purpose of
 	// this is to allow custom certs to be available.  The full path is:
 	//   /certs/<secretName>/<key_i>
@@ -231,7 +231,7 @@ type VerticaDBSpec struct {
 	CertSecrets []corev1.LocalObjectReference `json:"certSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// A secret that contains files required for Kereberos setup.  The secret
 	// must have the following keys:
 	// - krb5.conf: The contents of the Kerberos config file
@@ -241,7 +241,7 @@ type VerticaDBSpec struct {
 	KerberosSecret string `json:"kerberosSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// An optional secret that has the files for /home/dbadmin/.ssh.  If this is
 	// omitted, the ssh files from the image are used.  You can this option if
 	// you have a cluster that talks to Vertica notes outside of Kubernetes, as
@@ -317,7 +317,7 @@ type CommunalStorage struct {
 	Endpoint string `json:"endpoint"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// The name of a secret that contains the credentials to connect to the
 	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
 	// need to be set, depending on the endpoint type:
@@ -374,7 +374,7 @@ type CommunalStorage struct {
 
 type LocalStorage struct {
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:StorageClass"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:StorageClass"
 	// The local data stores the local catalog, depot and config files. This
 	// defines the name of the storageClass to use for that volume. This will be
 	// set when creating the PVC. By default, it is not set. This means that
@@ -480,7 +480,7 @@ type Subcluster struct {
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// When setting serviceType to NodePort, this parameter allows you to define the
 	// port that is opened at each node. If using NodePort and this is omitted,
 	// Kubernetes will choose the port automatically. This port must be from

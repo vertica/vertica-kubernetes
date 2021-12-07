@@ -50,8 +50,6 @@ spec:
           in the secret and <key_i> is one of the keys in the secret.'
         displayName: Cert Secrets
         path: certSecrets
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
       - description: Contains details about the communal storage.
         displayName: Communal
         path: communal
@@ -144,8 +142,6 @@ spec:
           are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod'
         displayName: Image Pull Secrets
         path: imagePullSecrets
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
       - description: The initialization policy defines how to setup the database.  Available
           options are to create a new database or revive an existing one.
         displayName: Init Policy
@@ -153,6 +149,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:Create
         - urn:alm:descriptor:com.tectonic.ui:select:Revive
+        - urn:alm:descriptor:com.tectonic.ui:select:ScheduleOnly
       - description: "Sets the fault tolerance for the cluster.  Allowable values
           are 0 or 1.  0 is only suitable for test environments because we have no
           fault tolerance and the cluster can only have between 1 and 3 pods.  If
@@ -220,11 +217,15 @@ spec:
           easily consume the logs.
         displayName: Requeue Time
         path: requeueTime
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: The timeout, in seconds, to use when admintools restarts a node
           or the entire cluster.  If omitted, we use the admintools default timeout
           of 20 minutes.
         displayName: Restart Timeout
         path: restartTimeout
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: "This specifies the order of nodes when doing a revive.  Each
           entry contains an index to a subcluster, which is an index in Subclusters[],
           and a pod count of the number of pods include from the subcluster. \n For
@@ -254,6 +255,8 @@ spec:
           updated once the CRD is created.
         displayName: Shard Count
         path: shardCount
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: Optional sidecar containers that run along side the vertica server.  The
           operator adds the same volume mounts that are in the vertica server container
           to each sidecar container.
@@ -297,6 +300,8 @@ spec:
           is 30000-32767).
         displayName: Node Port
         path: subclusters[0].nodePort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: 'A map of label keys and values to restrict Vertica node scheduling
           to workers with matchiing labels. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector'
         displayName: Node Selector
