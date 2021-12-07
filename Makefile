@@ -5,6 +5,13 @@
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 1.1.0
 
+# VLOGGER_VERSION defines the version to use for the Vertica logger image
+# (see docker-vlogger).  This version is separate from VERSION above in
+# order to have a different release cadence.
+#
+# When changing this, be sure to update the tags in docker-vlogger/README.md
+VLOGGER_VERSION ?= 1.0.0
+
 SHELL:=$(shell which bash)
 REPO_DIR:=$(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
@@ -76,7 +83,7 @@ export OPERATOR_IMG
 VERTICA_IMG ?= vertica-k8s:$(TAG)
 export VERTICA_IMG
 # Image URL to use for the logger sidecar
-VLOGGER_IMG ?= vertica-logger:$(TAG)
+VLOGGER_IMG ?= vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # The port number for the local registry
 REG_PORT ?= 5000
