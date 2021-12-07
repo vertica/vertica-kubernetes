@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -75,6 +76,9 @@ type PodFact struct {
 	// true means the pod has a running vertica process accepting connections on
 	// port 5433.
 	upNode bool
+
+	// true means the node is up, but in read-only state
+	readOnly bool
 
 	// The vnode name that Vertica assigned to this pod.
 	vnodeName string
@@ -197,7 +201,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
-		p.checkIfNodeIsUp,
+		p.checkIfNodeIsUpAndReadOnly,
 		p.checkEulaAcceptance,
 		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
@@ -333,13 +337,30 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	return nil
 }
 
-// checkIfNodeIsUp will determine whether Vertica process is running in the pod.
-func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+// checkIfNodeIsUpAndReadOnly will determine whether Vertica process is running
+// in the pod and whether it is in read-only mode.
+func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	if pf.dbExists.IsFalse() || !pf.isPodRunning {
 		pf.upNode = false
+		pf.readOnly = false
 		return nil
 	}
 
+	// The read-only state is a new state added in 11.0.2.  So we can only query
+	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
+	// disabled.
+	vinf, ok := version.MakeInfo(vdb)
+	if ok && vinf.IsEqualOrNewer(version.NodesHaveReadOnlyStateVersion) {
+		return p.queryNodeStatus(ctx, pf)
+	}
+	return p.checkIfNodeIsUp(ctx, pf)
+}
+
+// checkIfNodeIsUp will check if the Vertica is up and running in this process.
+// It assumes the pod is running and the database exists.  It doesn't check for
+// read-only state.  This exists for backwards compatibility of versions older
+// than 11.0.2.
+func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
 	cmd := []string{
 		"-c",
 		"select 1",
@@ -352,8 +373,52 @@ func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, vdb *vapi.VerticaDB, pf 
 	} else {
 		pf.upNode = true
 	}
+	// This is called for server versions that don't have read-only state.  So
+	// read-only will always be false.
+	pf.readOnly = false
 
 	return nil
+}
+
+// queryNodeStatus will query the nodes system table to see if the node is up
+// and wether it is in read-only state.  It assumes the database exists and the
+// pod is running.
+func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact) error {
+	cmd := []string{
+		"-tAc",
+		"select node_state, is_readonly " +
+			"from nodes " +
+			"where node_name in (select node_name from current_session)",
+	}
+	if stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
+		if !strings.Contains(stderr, "vsql: could not connect to server:") {
+			return err
+		}
+		pf.upNode = false
+		pf.readOnly = false
+	} else if pf.upNode, pf.readOnly, err = parseNodeStateAndReadOnly(stdout); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// parseNodeStateAndReadOnly will parse query output to determine if a node is
+// up and read-only.
+func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, err error) {
+	// The stdout comes in the form like this:
+	// UP|t
+	// This means upNode is true and readOnly is true.
+	lines := strings.Split(stdout, "\n")
+	cols := strings.Split(lines[0], "|")
+	const ExpectedCols = 2
+	if len(cols) != ExpectedCols {
+		err = fmt.Errorf("expected %d columns from node query but only got %d", ExpectedCols, len(cols))
+		return
+	}
+	upNode = cols[0] == "UP"
+	readOnly = cols[1] == "t"
+	return
 }
 
 // parseVerticaNodeName extract the vertica node name from the directory list
@@ -467,9 +532,11 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 
 // findRestartablePods returns a list of pod facts that can be restarted.
 // An empty list implies there are no pods that need to be restarted.
+// We treat read-only nodes as being restartable because they are in the
+// read-only state due to losing of cluster quorum.
 func (p *PodFacts) findRestartablePods() []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
-		return !v.upNode && v.dbExists.IsTrue() && v.isPodRunning
+		return (!v.upNode || v.readOnly) && v.dbExists.IsTrue() && v.isPodRunning
 	})
 }
 
@@ -554,13 +621,24 @@ func (p *PodFacts) countNotRunning() int {
 // getUpNodeCount returns the number of up nodes.
 // A pod is considered down if it doesn't have a running vertica process.
 func (p *PodFacts) getUpNodeCount() int {
-	var count = 0
-	for _, v := range p.Detail {
+	return p.countPods(func(v *PodFact) int {
 		if v.upNode {
-			count++
+			return 1
 		}
-	}
-	return count
+		return 0
+	})
+}
+
+// getUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
+// writable.  Starting in 11.0SP2, nodes can be up but only in read-only state.
+// This function filters out those *up* nodes that are in read-only state.
+func (p *PodFacts) getUpNodeAndNotReadOnlyCount() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.upNode && !v.readOnly {
+			return 1
+		}
+		return 0
+	})
 }
 
 // genPodNames will generate a string of pods names given a list of pods

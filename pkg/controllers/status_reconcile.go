@@ -109,6 +109,7 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 			continue
 		}
 		curStat.Detail[podIndex].UpNode = pf.upNode
+		curStat.Detail[podIndex].ReadOnly = pf.readOnly
 		// We can only reliably update the status for running pods. Skip those
 		// that we couldn't figure out to preserve their state.
 		if !pf.isInstalled.IsNone() {
@@ -125,6 +126,7 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 	curStat.InstallCount = 0
 	curStat.AddedToDBCount = 0
 	curStat.UpNodeCount = 0
+	curStat.ReadOnlyCount = 0
 	for _, v := range curStat.Detail {
 		if v.Installed {
 			curStat.InstallCount++
@@ -134,6 +136,9 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		}
 		if v.UpNode {
 			curStat.UpNodeCount++
+		}
+		if v.ReadOnly {
+			curStat.ReadOnlyCount++
 		}
 	}
 	return nil

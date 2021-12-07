@@ -356,9 +356,9 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(n2).Should(Equal("DOWN"))
 	})
 
-	It("should avoid start_db since cluster state still says a host is up", func() {
+	It("should do full cluster restart if all up nodes are read-only", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 2
+		vdb.Spec.Subclusters[0].Size = 3
 		vdb.Spec.DBName = "db"
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -367,25 +367,17 @@ var _ = Describe("restart_reconciler", func() {
 		defer deletePods(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1})
-		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-
-		atPod := names.GenPodName(vdb, sc, 3)
-		fpr.Results[atPod] = []cmds.CmdResult{
-			{}, // re-ip command
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | d \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | d \n" +
-				"\n",
-			},
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
+			downPodNm := names.GenPodName(vdb, sc, podIndex)
+			pfacts.Detail[downPodNm].upNode = true
+			pfacts.Detail[downPodNm].readOnly = true
 		}
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts)
-		r := act.(*RestartReconciler)
-		r.ATPod = atPod
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		listCmd := fpr.FindCommands("list_allnodes")
+		r := MakeRestartReconciler(vrec, logger, vdb, fpr, &pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		listCmd := fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(1))
 	})
 

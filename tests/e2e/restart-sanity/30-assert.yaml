@@ -20,3 +20,4 @@ status:
     - installCount: 3
       addedToDBCount: 3
       upNodeCount: 3
+      readOnlyCount: 0

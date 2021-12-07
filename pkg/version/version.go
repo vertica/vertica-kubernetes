@@ -34,6 +34,8 @@ const (
 	// If the vertica image that we deploy is older than this then the operator
 	// abort the reconiliation process.
 	MinimumVersion = "v11.0.0"
+	// The version that added read-only state
+	NodesHaveReadOnlyStateVersion = "v11.0.2"
 )
 
 // MakeInfo will construct an Info struct by extracting the version from the
