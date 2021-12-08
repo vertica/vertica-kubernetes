@@ -110,6 +110,10 @@ func (u *ImageChangeReconciler) startImageChange(ctx context.Context) (ctrl.Resu
 
 // finishImageChange handles condition status and event recording for the end of an image change
 func (u *ImageChangeReconciler) finishImageChange(ctx context.Context) (ctrl.Result, error) {
+	if err := u.setImageChangeStatus(ctx, ""); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err := u.toggleImageChangeInProgress(ctx, corev1.ConditionFalse); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -182,6 +186,10 @@ func (u *ImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Result, e
 		return ctrl.Result{}, err
 	}
 
+	if err := u.setImageChangeStatus(ctx, "Starting cluster shutdown"); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	start := time.Now()
 	u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
 		"Calling 'admintools -t stop_db'")
@@ -217,6 +225,10 @@ func (u *ImageChangeReconciler) updateImageInStatefulSets(ctx context.Context) (
 		// Skip the statefulset if it already has the proper image.
 		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != u.Vdb.Spec.Image {
 			u.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
+			err = u.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 			sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = u.Vdb.Spec.Image
 			// We change the update strategy to OnDelete.  We don't want the k8s
 			// sts controller to interphere and do a rolling update after the
@@ -290,6 +302,9 @@ func (u *ImageChangeReconciler) checkForNewPods(ctx context.Context) (ctrl.Resul
 // been recreated.  Once the cluster is back up, then the image change is considered complete.
 func (u *ImageChangeReconciler) restartCluster(ctx context.Context) (ctrl.Result, error) {
 	u.Log.Info("Starting restart phase of image change for this reconcile iteration")
+	if err := u.setImageChangeStatus(ctx, "Restarting cluster"); err != nil {
+		return ctrl.Result{}, err
+	}
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
 	r := MakeRestartReconciler(u.VRec, u.Log, u.Vdb, u.PRunner, u.PFacts)
@@ -317,4 +332,9 @@ func (u *ImageChangeReconciler) anyPodsRunningWithOldImage(ctx context.Context) 
 		}
 	}
 	return false, nil
+}
+
+// setImageChangeStatus is a helper to set the imageChangeStatus message.
+func (u *ImageChangeReconciler) setImageChangeStatus(ctx context.Context, msg string) error {
+	return status.UpdateImageChangeStatus(ctx, u.VRec.Client, u.Vdb, msg)
 }
