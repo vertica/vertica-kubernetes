@@ -5,7 +5,7 @@
 
 # Supported Tags
 
-* [1.0.0](https://github.com/vertica/vertica-kubernetes/blob/main/docker-vlogger/Dockerfile)
+* [1.0.0](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-vlogger/Dockerfile)
 
 # Quick Reference
 
