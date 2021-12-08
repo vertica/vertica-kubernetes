@@ -50,6 +50,11 @@ spec:
           in the secret and <key_i> is one of the keys in the secret.'
         displayName: Cert Secrets
         path: certSecrets
+      - description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+        displayName: Name
+        path: certSecrets[0].name
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: Contains details about the communal storage.
         displayName: Communal
         path: communal
@@ -142,6 +147,11 @@ spec:
           are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod'
         displayName: Image Pull Secrets
         path: imagePullSecrets
+      - description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+        displayName: Name
+        path: imagePullSecrets[0].name
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: The initialization policy defines how to setup the database.  Available
           options are to create a new database or revive an existing one.
         displayName: Init Policy
@@ -278,6 +288,23 @@ spec:
           info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity'
         displayName: Affinity
         path: subclusters[0].affinity
+      - description: Describes node affinity scheduling rules for the pod.
+        displayName: Node Affinity
+        path: subclusters[0].affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: Describes pod affinity scheduling rules (e.g. co-locate this
+          pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Affinity
+        path: subclusters[0].affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: Describes pod anti-affinity scheduling rules (e.g. avoid putting
+          this pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Anti Affinity
+        path: subclusters[0].affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'

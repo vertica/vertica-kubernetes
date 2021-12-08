@@ -52,7 +52,7 @@ type VerticaDBSpec struct {
 	// example, in the case of docker, only DockerConfig type secrets are
 	// honored.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="vertica/vertica-k8s:11.0.1-0-minimal"
@@ -229,7 +229,7 @@ type VerticaDBSpec struct {
 	//   /certs/<secretName>/<key_i>
 	// Where <secretName> is the name provided in the secret and <key_i> is one
 	// of the keys in the secret.
-	CertSecrets []corev1.LocalObjectReference `json:"certSecrets,omitempty"`
+	CertSecrets []LocalObjectReference `json:"certSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
@@ -249,6 +249,14 @@ type VerticaDBSpec struct {
 	// it has the public keys to be able to ssh to those nodes.  It must have
 	// the following keys present: id_rsa, id_rsa.pub and authorized_keys.
 	SSHSecret string `json:"sshSecret,omitempty"`
+}
+
+type LocalObjectReference struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
+	// Name of the referent.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+	// +optional
+	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
 }
 
 type CommunalInitPolicy string
@@ -448,7 +456,7 @@ type Subcluster struct {
 	// Like nodeSelector this allows you to constrain the pod only to certain
 	// pods. It is more expressive than just using node selectors.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	Affinity Affinity `json:"affinity,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The priority class name given to pods in this subcluster. This affects
@@ -495,6 +503,21 @@ type Subcluster struct {
 	// specify. If not set, the external IP list is left empty in the service object.
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
 	ExternalIPs []string `json:"externalIPs,omitempty"`
+}
+
+type Affinity struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:nodeAffinity"
+	// Describes node affinity scheduling rules for the pod.
+	// +optional
+	NodeAffinity *corev1.NodeAffinity `json:"nodeAffinity,omitempty" protobuf:"bytes,1,opt,name=nodeAffinity"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podAffinity"
+	// Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+	// +optional
+	PodAffinity *corev1.PodAffinity `json:"podAffinity,omitempty" protobuf:"bytes,2,opt,name=podAffinity"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podAntiAffinity"
+	// Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+	// +optional
+	PodAntiAffinity *corev1.PodAntiAffinity `json:"podAntiAffinity,omitempty" protobuf:"bytes,3,opt,name=podAntiAffinity"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB
