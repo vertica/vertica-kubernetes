@@ -251,6 +251,12 @@ type VerticaDBSpec struct {
 	SSHSecret string `json:"sshSecret,omitempty"`
 }
 
+// Is used instead of corev1.LocalObjectReference and behaves the same.
+// This is useful for the Openshift web console. This structure is used in some
+// VerticaDB spec fields to define a list of secrets but, with the k8s',
+// we could not add the "Secret" x-descriptor. By using this instead,
+// we can add it and it (the x-descriptor) will take effect
+// wherever this structure is used.
 type LocalObjectReference struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// Name of the referent.
@@ -362,7 +368,7 @@ type CommunalStorage struct {
 	Region string `json:"region,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:ConfigMap"
 	// A config map that contains the contents of the /etc/hadoop directory.
 	// This gets mounted in the container and is used to configure connections
 	// to an HDFS communal path
@@ -479,7 +485,7 @@ type Subcluster struct {
 
 	// +kubebuilder:default:=ClusterIP
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:ClusterIP","urn:alm:descriptor:com.tectonic.ui:select:NodePort","urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer"}
 	// Identifies the type of Kubernetes service to use for external client
 	// connectivity. The default is to use a ClusterIP, which sets a stable IP
 	// and port to use that is accessible only from within Kubernetes itself.
@@ -505,6 +511,12 @@ type Subcluster struct {
 	ExternalIPs []string `json:"externalIPs,omitempty"`
 }
 
+// Is used instead of corev1.Affinity and behaves the same.
+// This structure is used in subcluster to define the "Affinity".
+// corev1.Affinity is composed of 3 fields and for each of them,
+// there is a x-descriptor. However there is not a x-descriptor for corev1.Affinity itself.
+// In this structure, we have the same fields as corev1' but we also added
+// the corresponding x-descriptor to each field. That will be useful for the Openshift web console.
 type Affinity struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:nodeAffinity"
 	// Describes node affinity scheduling rules for the pod.

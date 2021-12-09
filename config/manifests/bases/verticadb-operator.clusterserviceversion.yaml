@@ -91,6 +91,8 @@ spec:
           to an HDFS communal path
         displayName: Hadoop Config
         path: communal.hadoopConfig
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
       - description: If true, the operator will include the VerticaDB's UID in the
           path.  This option exists if you reuse the communal path in the same endpoint
           as it forces each database path to be unique.
@@ -353,6 +355,10 @@ spec:
           https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types'
         displayName: Service Type
         path: subclusters[0].serviceType
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
+        - urn:alm:descriptor:com.tectonic.ui:select:NodePort
+        - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
       - description: "The number of pods that the subcluster will have. This determines
           the number of Vertica nodes that it will have. Changing this number will
           either delete or schedule new pods. \n The database has a k-safety of 1.
