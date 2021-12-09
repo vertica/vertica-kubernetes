@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
       - name: main
-        image: mcr.microsoft.com/azure-storage/azurite:3.9.0
+        image: mcr.microsoft.com/azure-storage/azurite:3.15.0
         imagePullPolicy: IfNotPresent
         command:
         - azurite-blob
