@@ -24,7 +24,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -385,7 +384,6 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 
 // buildStsSpec builds manifest for a subclusters statefulset
 func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
-	size, _ := resource.ParseQuantity(vdb.Spec.Local.RequestSize)
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -418,7 +416,7 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 						StorageClassName: getStorageClassName(vdb),
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								"storage": size,
+								"storage": vdb.Spec.Local.RequestSize,
 							},
 						},
 					},

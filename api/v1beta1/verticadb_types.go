@@ -23,6 +23,7 @@ import (
 
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -44,7 +45,7 @@ type VerticaDBSpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// ImagePullSecrets is an optional list of references to secrets in the same
 	// namespace to use for pulling the image. If specified, these secrets will
 	// be passed to individual puller implementations for them to use. For
@@ -73,7 +74,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:=true
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// State to indicate whether the operator will restart Vertica if the
 	// process is not running. Under normal cicumstances this is set to true.
 	// The purpose of this is to allow a maintenance window, such as a
@@ -82,7 +83,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:="vertdb"
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// The name of the database.  This cannot be updated once the CRD is created.
 	DBName string `json:"dbName"`
 
@@ -115,7 +116,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Ignore the cluster lease when doing a revive or start_db.  Use this with
 	// caution, as ignoring the cluster lease when another system is using the
 	// same communal storage will cause corruption.
@@ -129,7 +130,7 @@ type VerticaDBSpec struct {
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// This specifies the order of nodes when doing a revive.  Each entry
 	// contains an index to a subcluster, which is an index in Subclusters[],
 	// and a pod count of the number of pods include from the subcluster.
@@ -153,7 +154,7 @@ type VerticaDBSpec struct {
 	ReviveOrder []SubclusterPodCount `json:"reviveOrder,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// The timeout, in seconds, to use when admintools restarts a node or the
 	// entire cluster.  If omitted, we use the admintools default timeout
 	// of 20 minutes.
@@ -175,7 +176,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:="1"
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:0","urn:alm:descriptor:com.tectonic.ui:select:1"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:0","urn:alm:descriptor:com.tectonic.ui:select:1","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
 	// suitable for test environments because we have no fault tolerance and the cluster
 	// can only have between 1 and 3 pods.  If set to 1, we have fault tolerance if nodes
@@ -186,7 +187,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// If a reconciliation iteration needs to be requeued this controls the
 	// amount of time in seconds to wait.  If this is set to 0, then the requeue
 	// time will increase using an exponential backoff algorithm.  Caution, when
@@ -196,14 +197,14 @@ type VerticaDBSpec struct {
 	RequeueTime int `json:"requeueTime,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Optional sidecar containers that run along side the vertica server.  The
 	// operator adds the same volume mounts that are in the vertica server
 	// container to each sidecar container.
 	Sidecars []corev1.Container `json:"sidecars,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Custom volumes that are added to sidecars and the Vertica container.
 	// For these volumes to be visible in either container, they must have a
 	// corresonding volumeMounts entry.  For sidecars, this is included in
@@ -215,7 +216,7 @@ type VerticaDBSpec struct {
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Additional volume mounts to include in the Vertica container.  These
 	// reference volumes that are in the Volumes list.  The mount path must not
 	// conflict with a mount path that the operator adds internally.
@@ -231,7 +232,7 @@ type VerticaDBSpec struct {
 	CertSecrets []LocalObjectReference `json:"certSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// A secret that contains files required for Kereberos setup.  The secret
 	// must have the following keys:
 	// - krb5.conf: The contents of the Kerberos config file
@@ -241,7 +242,7 @@ type VerticaDBSpec struct {
 	KerberosSecret string `json:"kerberosSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// An optional secret that has the files for /home/dbadmin/.ssh.  If this is
 	// omitted, the ssh files from the image are used.  You can this option if
 	// you have a cluster that talks to Vertica notes outside of Kubernetes, as
@@ -316,7 +317,7 @@ type CommunalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// If true, the operator will include the VerticaDB's UID in the path.  This
 	// option exists if you reuse the communal path in the same endpoint as it
 	// forces each database path to be unique.
@@ -374,13 +375,13 @@ type CommunalStorage struct {
 	HadoopConfig string `json:"hadoopConfig,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// The service name portion of the Vertica Kerberos principal. This is set
 	// in the database config parameter KerberosServiceName during bootstrapping.
 	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Name of the Kerberos realm.  This is set in the database config parameter
 	// KerberosRealm during bootstrapping.
 	KerberosRealm string `json:"kerberosRealm,omitempty"`
@@ -398,9 +399,9 @@ type LocalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="500Gi"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The minimum size of the local data volume when picking a PV.
-	RequestSize string `json:"requestSize,omitempty"`
+	RequestSize resource.Quantity `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=/data

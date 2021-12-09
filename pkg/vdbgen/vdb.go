@@ -30,6 +30,7 @@ import (
 
 	// Blank import of vertica since we use it indirectly through the sql interface
 	_ "github.com/vertica/vertica-sql-go"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -133,7 +134,7 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.ObjectMeta.Name = d.Opts.VdbName
 	// You cannot omit the RequestSize field.  If you do it shows up as "0", so
 	// we need to set the default.
-	d.Objs.Vdb.Spec.Local.RequestSize = "100Mi"
+	d.Objs.Vdb.Spec.Local.RequestSize = resource.MustParse("100Mi")
 
 	if d.Opts.IgnoreClusterLease {
 		d.Objs.Vdb.Spec.IgnoreClusterLease = true

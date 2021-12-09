@@ -44,6 +44,7 @@ spec:
         path: autoRestartVertica
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'Secrets that will be mounted in the vertica container.  The
           purpose of this is to allow custom certs to be available.  The full path
           is:   /certs/<secretName>/<key_i> Where <secretName> is the name provided
@@ -100,14 +101,19 @@ spec:
         path: communal.includeUIDInPath
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Name of the Kerberos realm.  This is set in the database config
           parameter KerberosRealm during bootstrapping.
         displayName: Kerberos Realm
         path: communal.kerberosRealm
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: The service name portion of the Vertica Kerberos principal. This
           is set in the database config parameter KerberosServiceName during bootstrapping.
         displayName: Kerberos Service Name
         path: communal.kerberosServiceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: The path to the communal storage. We support S3, Google Cloud
           Storage, and HDFS paths.  The protocol in the path (e.g. s3:// or webhdfs://)
           dictates the type of storage.  The path, whether it be a S3 bucket or HDFS
@@ -125,6 +131,8 @@ spec:
           is created.
         displayName: DBName
         path: dbName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Ignore the cluster lease when doing a revive or start_db.  Use
           this with caution, as ignoring the cluster lease when another system is
           using the same communal storage will cause corruption.
@@ -132,6 +140,7 @@ spec:
         path: ignoreClusterLease
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: The docker image name that contains Vertica.  Whenever this changes,
           the operator treats this as an upgrade and will stop the entire cluster
           and restart it with the new image.
@@ -149,6 +158,8 @@ spec:
           are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod'
         displayName: Image Pull Secrets
         path: imagePullSecrets
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
         displayName: Name
         path: imagePullSecrets[0].name
@@ -173,6 +184,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:0
         - urn:alm:descriptor:com.tectonic.ui:select:1
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'A secret that contains files required for Kereberos setup.  The
           secret must have the following keys: - krb5.conf: The contents of the Kerberos
           config file - krb5.keytab: The keytab file that stores credentials for each
@@ -182,6 +194,7 @@ spec:
         path: kerberosSecret
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Custom labels that will be added to all of the objects that the
           operator will create.
         displayName: Labels
@@ -213,8 +226,6 @@ spec:
       - description: The minimum size of the local data volume when picking a PV.
         displayName: Request Size
         path: local.requestSize
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:text
       - description: The local data stores the local catalog, depot and config files.
           This defines the name of the storageClass to use for that volume. This will
           be set when creating the PVC. By default, it is not set. This means that
@@ -233,6 +244,7 @@ spec:
         path: requeueTime
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: The timeout, in seconds, to use when admintools restarts a node
           or the entire cluster.  If omitted, we use the admintools default timeout
           of 20 minutes.
@@ -240,6 +252,7 @@ spec:
         path: restartTimeout
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: "This specifies the order of nodes when doing a revive.  Each
           entry contains an index to a subcluster, which is an index in Subclusters[],
           and a pod count of the number of pods include from the subcluster. \n For
@@ -256,6 +269,7 @@ spec:
         path: reviveOrder
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: The number of pods paired with this subcluster.  If this is omitted
           then, all remaining pods in the subcluster will be used.
         displayName: Pod Count
@@ -276,6 +290,8 @@ spec:
           to each sidecar container.
         displayName: Sidecars
         path: sidecars
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'An optional secret that has the files for /home/dbadmin/.ssh.  If
           this is omitted, the ssh files from the image are used.  You can this option
           if you have a cluster that talks to Vertica notes outside of Kubernetes,
@@ -285,6 +301,7 @@ spec:
         path: sshSecret
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - displayName: Subclusters
         path: subclusters
       - description: 'Like nodeSelector this allows you to constrain the pod only
@@ -390,6 +407,8 @@ spec:
           conflict with a mount path that the operator adds internally.
         displayName: Volume Mounts
         path: volumeMounts
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: "Custom volumes that are added to sidecars and the Vertica container.
           For these volumes to be visible in either container, they must have a corresonding
           volumeMounts entry.  For sidecars, this is included in `spec.sidecars[*].volumeMounts`.
@@ -398,6 +417,8 @@ spec:
           and it cannot conflict with any of the internally generated volumes."
         displayName: Volumes
         path: volumes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       statusDescriptors:
       - description: A count of the number of pods that have been added to the database.
         displayName: Added To DBCount

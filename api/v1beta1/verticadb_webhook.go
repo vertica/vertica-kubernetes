@@ -214,7 +214,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 		allErrs = append(allErrs, err)
 	}
 	// local.requestSize cannot change after creation
-	if v.Spec.Local.RequestSize != oldObj.Spec.Local.RequestSize {
+	if v.Spec.Local.RequestSize.Cmp(oldObj.Spec.Local.RequestSize) != 0 {
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("requestSize"),
 			v.Spec.Local.RequestSize,
 			"local.requestSize cannot change after creation")
