@@ -47,7 +47,7 @@ func MakeImageChangeInitiator(vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB
 }
 
 // IsImageChangeNeeded checks whether an image change is needed and/or in
-// progress.  It will return true for the first parm is an image change should
+// progress.  It will return true for the first parm if an image change should
 // proceed.
 func (i *ImageChangeInitiator) IsImageChangeNeeded(ctx context.Context) (bool, error) {
 	// no-op for ScheduleOnly init policy
@@ -82,9 +82,9 @@ func (i *ImageChangeInitiator) isImageChangeInProgress() (bool, error) {
 	return false, nil
 }
 
+// isVDBImageDifferent will check if an image change is needed based on the
+// image being different between the Vdb and any of the statefulset's.
 func (i *ImageChangeInitiator) isVDBImageDifferent(ctx context.Context) (bool, error) {
-	// Next check if an image change is needed based on the image being different
-	// between the Vdb and any of the statefulset's.
 	stss, err := i.Finder.FindStatefulSets(ctx, FindInVdb)
 	if err != nil {
 		return false, err
