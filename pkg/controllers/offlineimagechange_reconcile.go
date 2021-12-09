@@ -54,16 +54,12 @@ func MakeOfflineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
 func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// no-op for ScheduleOnly init policy
-	if o.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
-		return ctrl.Result{}, nil
-	}
-
-	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+	initiator := MakeImageChangeInitiator(o.VRec, o.Vdb, o)
+	if ok, err := initiator.IsImageChangeNeeded(ctx); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if ok, err := o.isImageChangeNeeded(ctx); !ok || err != nil {
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -337,4 +333,16 @@ func (o *OfflineImageChangeReconciler) anyPodsRunningWithOldImage(ctx context.Co
 // setImageChangeStatus is a helper to set the imageChangeStatus message.
 func (o *OfflineImageChangeReconciler) setImageChangeStatus(ctx context.Context, msg string) error {
 	return status.UpdateImageChangeStatus(ctx, o.VRec.Client, o.Vdb, msg)
+}
+
+// IsAllowedForImageChangePolicy will determine if offline image change is
+// allowed based on the policy in the Vdb
+func (o *OfflineImageChangeReconciler) IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool {
+	return offlineImageChangeAllowed(vdb)
+}
+
+// SetContinuningImageChange sets state to know if this reconcile round is a
+// continuation of another reconcile.
+func (o *OfflineImageChangeReconciler) SetContinuingImageChange() {
+	o.ContinuingImageChange = true
 }

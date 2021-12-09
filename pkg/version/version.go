@@ -36,6 +36,8 @@ const (
 	MinimumVersion = "v11.0.0"
 	// The version that added read-only state
 	NodesHaveReadOnlyStateVersion = "v11.0.2"
+	// The minimum version that allows for online image change.
+	OnlineImageChangeVersion = "v11.1.0"
 )
 
 // MakeInfo will construct an Info struct by extracting the version from the
