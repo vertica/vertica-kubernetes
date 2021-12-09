@@ -2,4 +2,4 @@
 # These are pushed to kind in run-k8s-int-tests.sh.
 #
 mcr.microsoft.com/azure-cli:2.29.0
-mcr.microsoft.com/azure-storage/azurite:3.14.2
+mcr.microsoft.com/azure-storage/azurite:3.15.0
