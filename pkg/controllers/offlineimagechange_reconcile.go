@@ -120,35 +120,6 @@ func (o *OfflineImageChangeReconciler) finishImageChange(ctx context.Context) (c
 	return ctrl.Result{}, nil
 }
 
-// isImageChangeNeeded returns true if we are in the middle of an image change or we need to start one
-func (o *OfflineImageChangeReconciler) isImageChangeNeeded(ctx context.Context) (bool, error) {
-	// We first check if the status condition indicates the image change is in progress
-	inx, ok := vapi.VerticaDBConditionIndexMap[vapi.ImageChangeInProgress]
-	if !ok {
-		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", vapi.ImageChangeInProgress)
-	}
-	if inx < len(o.Vdb.Status.Conditions) && o.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
-		// Set a flag to indicate that we are continuing an image change.  This silences the ImageChangeStarted event.
-		o.ContinuingImageChange = true
-		return true, nil
-	}
-
-	// Next check if an image change is needed based on the image being different
-	// between the Vdb and any of the statefulset's.
-	stss, err := o.Finder.FindStatefulSets(ctx, FindInVdb)
-	if err != nil {
-		return false, err
-	}
-	for i := range stss.Items {
-		sts := stss.Items[i]
-		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != o.Vdb.Spec.Image {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
 // toggleImageChangeInProgress is a helper for updating the ImageChangeInProgress condition
 func (o *OfflineImageChangeReconciler) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
 	return status.UpdateCondition(ctx, o.VRec.Client, o.Vdb,

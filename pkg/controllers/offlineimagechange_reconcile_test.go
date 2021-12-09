@@ -31,19 +31,6 @@ import (
 var _ = Describe("offlineimagechange_reconcile", func() {
 	ctx := context.Background()
 
-	It("should not need an image change if images match in sts and vdb", func() {
-		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
-		actor := MakeOfflineImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
-		r := actor.(*OfflineImageChangeReconciler)
-		Expect(r.isImageChangeNeeded(ctx)).Should(Equal(false))
-		Expect(actor.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-	})
-
 	It("should change image if image don't match between sts and vdb", func() {
 		vdb := vapi.MakeVDB()
 		createVdb(ctx, vdb)
@@ -60,7 +47,6 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 		updateVdbToCauseImageChange(ctx, vdb, NewImage)
 
 		r, _, _ := createImageChangeReconciler(vdb)
-		Expect(r.isImageChangeNeeded(ctx)).Should(Equal(true))
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())

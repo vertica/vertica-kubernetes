@@ -16,6 +16,8 @@
 package controllers
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -23,6 +25,8 @@ import (
 )
 
 var _ = Describe("imagechange", func() {
+	ctx := context.Background()
+
 	It("should correctly pick the image change type", func() {
 		vdb := vapi.MakeVDB()
 
@@ -57,4 +61,21 @@ var _ = Describe("imagechange", func() {
 		vdb.Spec.KSafety = vapi.KSafety0
 		Expect(offlineImageChangeAllowed(vdb)).Should(Equal(true))
 	})
+
+	It("should not need an image change if images match in sts and vdb", func() {
+		vdb := vapi.MakeVDB()
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		ici := MakeImageChangeInitiator(vrec, vdb, &testImageChangeReconciler{})
+		Expect(ici.IsImageChangeNeeded(ctx)).Should(Equal(false))
+	})
 })
+
+type testImageChangeReconciler struct{}
+
+func (t *testImageChangeReconciler) IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool {
+	return true
+}
+
+func (t *testImageChangeReconciler) SetContinuingImageChange() {}
