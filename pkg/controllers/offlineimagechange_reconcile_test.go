@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("imagechange_reconcile", func() {
+var _ = Describe("offlineimagechange_reconcile", func() {
 	ctx := context.Background()
 
 	It("should not need an image change if images match in sts and vdb", func() {
@@ -38,8 +38,8 @@ var _ = Describe("imagechange_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		actor := MakeImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
-		r := actor.(*ImageChangeReconciler)
+		actor := MakeOfflineImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := actor.(*OfflineImageChangeReconciler)
 		Expect(r.isImageChangeNeeded(ctx)).Should(Equal(false))
 		Expect(actor.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -173,9 +173,9 @@ func updateVdbToCauseImageChange(ctx context.Context, vdb *vapi.VerticaDB, newIm
 }
 
 // createImageChangeReconciler is a helper to run the ImageChangeReconciler.
-func createImageChangeReconciler(vdb *vapi.VerticaDB) (*ImageChangeReconciler, *cmds.FakePodRunner, *PodFacts) {
+func createImageChangeReconciler(vdb *vapi.VerticaDB) (*OfflineImageChangeReconciler, *cmds.FakePodRunner, *PodFacts) {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := MakePodFacts(k8sClient, fpr)
-	actor := MakeImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
-	return actor.(*ImageChangeReconciler), fpr, &pfacts
+	actor := MakeOfflineImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
+	return actor.(*OfflineImageChangeReconciler), fpr, &pfacts
 }
