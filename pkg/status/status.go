@@ -24,33 +24,38 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Update will set status fields in the VerticaDB.  It handles retry for
+// transient errors like when update fails because another client updated the
+// VerticaDB.
 func Update(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, updateFunc func(*vapi.VerticaDB) error) error {
-	// Always fetch the latest to minimize the chance of getting a conflict error.
-	nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
-	if err := clnt.Get(ctx, nm, vdb); err != nil {
-		return err
-	}
-
-	// We will calculate the status for the vdb object. This update is done in
-	// place. If anything differs from the copy then we will do a single update.
-	vdbChg := vdb.DeepCopy()
-
-	// Refresh the status using the users provided function
-	if err := updateFunc(vdbChg); err != nil {
-		return err
-	}
-
-	if !reflect.DeepEqual(vdb.Status, vdbChg.Status) {
-		vdbChg.Status.DeepCopyInto(&vdb.Status)
-		if err := clnt.Status().Update(ctx, vdb); err != nil {
-			return fmt.Errorf("failed to update status of vdb %w", err)
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest to minimize the chance of getting a conflict error.
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
+		if err := clnt.Get(ctx, nm, vdb); err != nil {
+			return err
 		}
-	}
 
-	return nil
+		// We will calculate the status for the vdb object. This update is done in
+		// place. If anything differs from the copy then we will do a single update.
+		vdbChg := vdb.DeepCopy()
+
+		// Refresh the status using the users provided function
+		if err := updateFunc(vdbChg); err != nil {
+			return err
+		}
+
+		if !reflect.DeepEqual(vdb.Status, vdbChg.Status) {
+			vdbChg.Status.DeepCopyInto(&vdb.Status)
+			if err := clnt.Status().Update(ctx, vdb); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // UpdateCondition will update a condition status
@@ -84,4 +89,13 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaD
 	}
 
 	return Update(ctx, clnt, vdb, refreshConditionInPlace)
+}
+
+// UpdateImageChangeStatus will update the image change status message.  The
+// input vdb will be updated with the status message.
+func UpdateImageChangeStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, msg string) error {
+	return Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
+		vdb.Status.ImageChangeStatus = msg
+		return nil
+	})
 }
