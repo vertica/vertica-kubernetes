@@ -19,29 +19,39 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/status"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type ImageChangeReconciler interface {
 	IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool
-	SetContinuingImageChange()
+	// SPILLY - capitalize this function
+	setImageChangeStatus(ctx context.Context, msg string) error
 }
 
 type ImageChangeInitiator struct {
-	Reconciler ImageChangeReconciler
-	Vdb        *vapi.VerticaDB
-	Finder     SubclusterFinder
+	VRec                  *VerticaDBReconciler
+	Reconciler            ImageChangeReconciler
+	Vdb                   *vapi.VerticaDB
+	Log                   logr.Logger
+	Finder                SubclusterFinder
+	ContinuingImageChange bool // true if UpdateInProgress was already set upon entry
 }
 
 // MakeImageChangeInitiator will construct a ImageChangeInitiator object
-func MakeImageChangeInitiator(vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB,
-	reconciler ImageChangeReconciler) *ImageChangeInitiator {
+func MakeImageChangeInitiator(vdbrecon *VerticaDBReconciler, log logr.Logger,
+	vdb *vapi.VerticaDB, reconciler ImageChangeReconciler) *ImageChangeInitiator {
 	return &ImageChangeInitiator{
+		VRec:       vdbrecon,
 		Reconciler: reconciler,
 		Vdb:        vdb,
+		Log:        log,
 		Finder:     MakeSubclusterFinder(vdbrecon.Client, vdb),
 	}
 }
@@ -76,7 +86,7 @@ func (i *ImageChangeInitiator) isImageChangeInProgress() (bool, error) {
 	}
 	if inx < len(i.Vdb.Status.Conditions) && i.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
 		// Set a flag to indicate that we are continuing an image change.  This silences the ImageChangeStarted event.
-		i.Reconciler.SetContinuingImageChange()
+		i.ContinuingImageChange = true
 		return true, nil
 	}
 	return false, nil
@@ -97,6 +107,44 @@ func (i *ImageChangeInitiator) isVDBImageDifferent(ctx context.Context) (bool, e
 	}
 
 	return false, nil
+}
+
+// StartImageChange handles condition status and event recording for start of an image change
+func (o *ImageChangeInitiator) StartImageChange(ctx context.Context) (ctrl.Result, error) {
+	o.Log.Info("Starting image change for reconciliation iteration", "ContinuingImageChange", o.ContinuingImageChange)
+	if err := o.toggleImageChangeInProgress(ctx, corev1.ConditionTrue); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// We only log an event message the first time we begin an image change.
+	if !o.ContinuingImageChange {
+		o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ImageChangeStart,
+			"Vertica server image change has started.  New image is '%s'", o.Vdb.Spec.Image)
+	}
+	return ctrl.Result{}, nil
+}
+
+// FinishImageChange handles condition status and event recording for the end of an image change
+func (o *ImageChangeInitiator) FinishImageChange(ctx context.Context) (ctrl.Result, error) {
+	if err := o.Reconciler.setImageChangeStatus(ctx, ""); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := o.toggleImageChangeInProgress(ctx, corev1.ConditionFalse); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ImageChangeSucceeded,
+		"Vertica server image change has completed successfully")
+
+	return ctrl.Result{}, nil
+}
+
+// toggleImageChangeInProgress is a helper for updating the ImageChangeInProgress condition
+func (o *ImageChangeInitiator) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
+	return status.UpdateCondition(ctx, o.VRec.Client, o.Vdb,
+		vapi.VerticaDBCondition{Type: vapi.ImageChangeInProgress, Status: newVal},
+	)
 }
 
 // onlineImageChangeAllowed returns true if image change must be done online

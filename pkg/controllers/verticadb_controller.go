@@ -107,6 +107,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineImageChangeReconciler(r, log, vdb, prunner, &pfacts),
+		MakeOnlineImageChangeReconciler(r, log, vdb, prunner, &pfacts),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
