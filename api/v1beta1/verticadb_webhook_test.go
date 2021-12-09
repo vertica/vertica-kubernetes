@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var _ = Describe("verticadb_webhook", func() {
@@ -240,7 +239,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 	It("should not change local.requestSize after creation", func() {
 		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.Local.RequestSize = resource.MustParse("600Gi")
+		vdbUpdate.Spec.Local.RequestSize = "600Gi"
 		validateImmutableFields(vdbUpdate)
 	})
 	It("should not change local.storageClass after creation", func() {
@@ -325,7 +324,7 @@ func createVDBHelper() *VerticaDB {
 	sc := &vdb.Spec.Subclusters[0]
 	sc.IsPrimary = true
 	vdb.Spec.KSafety = KSafety1
-	requestSize, _ := resource.ParseQuantity("500Gi")
+	requestSize := "500Gi"
 	vdb.Spec.Local.RequestSize = requestSize
 	vdb.Status.Subclusters = []SubclusterStatus{}
 	vdb.Status.Subclusters = append(vdb.Status.Subclusters, SubclusterStatus{AddedToDBCount: 1})

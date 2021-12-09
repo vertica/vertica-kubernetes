@@ -23,7 +23,6 @@ import (
 
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -251,7 +250,7 @@ type VerticaDBSpec struct {
 	SSHSecret string `json:"sshSecret,omitempty"`
 }
 
-// Is used instead of corev1.LocalObjectReference and behaves the same.
+// LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
 // This is useful for the Openshift web console. This structure is used in some
 // VerticaDB spec fields to define a list of secrets but, with the k8s',
 // we could not add the "Secret" x-descriptor. By using this instead,
@@ -399,9 +398,9 @@ type LocalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="500Gi"
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The minimum size of the local data volume when picking a PV.
-	RequestSize resource.Quantity `json:"requestSize,omitempty"`
+	RequestSize string `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=/data
@@ -511,7 +510,7 @@ type Subcluster struct {
 	ExternalIPs []string `json:"externalIPs,omitempty"`
 }
 
-// Is used instead of corev1.Affinity and behaves the same.
+// Affinity is used instead of corev1.Affinity and behaves the same.
 // This structure is used in subcluster to define the "Affinity".
 // corev1.Affinity is composed of 3 fields and for each of them,
 // there is a x-descriptor. However there is not a x-descriptor for corev1.Affinity itself.

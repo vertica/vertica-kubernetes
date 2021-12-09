@@ -213,6 +213,8 @@ spec:
       - description: The minimum size of the local data volume when picking a PV.
         displayName: Request Size
         path: local.requestSize
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
       - description: The local data stores the local catalog, depot and config files.
           This defines the name of the storageClass to use for that volume. This will
           be set when creating the PVC. By default, it is not set. This means that
