@@ -91,12 +91,12 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*core
 // FindSubclusters will return a list of subclusters.
 // It accepts a flags field to indicate whether to return subclusters in the vdb,
 // not in the vdb or both.
-func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags) ([]*vapi.Subcluster, error) {
-	subclusters := []*vapi.Subcluster{}
+func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags) ([]*SubclusterHandle, error) {
+	subclusters := []*SubclusterHandle{}
 
 	if flags&FindInVdb != 0 {
 		for i := range m.Vdb.Spec.Subclusters {
-			subclusters = append(subclusters, &m.Vdb.Spec.Subclusters[i])
+			subclusters = append(subclusters, makeSubclusterHandle(&m.Vdb.Spec.Subclusters[i]))
 		}
 	}
 
@@ -107,10 +107,10 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		}
 
 		// We will convert each statefulset into a vapi.Subcluster stub object.  We
-		// only fill in the name.
+		// only fill what portions we can get from the statefulset.  So it won't
+		// be a complete object.
 		for i := range missingSts.Items {
-			scName := missingSts.Items[i].Labels[SubclusterNameLabel]
-			subclusters = append(subclusters, &vapi.Subcluster{Name: scName})
+			subclusters = append(subclusters, makeSubclusterHandleFromSts(&missingSts.Items[i]))
 		}
 	}
 	return subclusters, nil

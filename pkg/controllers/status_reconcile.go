@@ -66,7 +66,7 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 			if i == len(vdbChg.Status.Subclusters) {
 				vdbChg.Status.Subclusters = append(vdbChg.Status.Subclusters, vapi.SubclusterStatus{})
 			}
-			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
+			if err := s.calculateSubclusterStatus(ctx, &subclusters[i].Subcluster, &vdbChg.Status.Subclusters[i]); err != nil {
 				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
 			}
 		}

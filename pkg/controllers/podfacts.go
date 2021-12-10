@@ -135,7 +135,7 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 
 	// Collect all of the facts about each running pod
 	for i := range subclusters {
-		if err := p.collectSubcluster(ctx, vdb, subclusters[i]); err != nil {
+		if err := p.collectSubcluster(ctx, vdb, &subclusters[i].Subcluster); err != nil {
 			return err
 		}
 	}

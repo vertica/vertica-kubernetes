@@ -87,7 +87,7 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 	}
 
 	for i := range subclusters {
-		if res, err := d.reconcileSubcluster(ctx, subclusters[i]); err != nil || res.Requeue {
+		if res, err := d.reconcileSubcluster(ctx, &subclusters[i].Subcluster); err != nil || res.Requeue {
 			return res, err
 		}
 	}

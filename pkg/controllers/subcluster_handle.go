@@ -16,7 +16,10 @@
 package controllers
 
 import (
+	"strconv"
+
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 // SubclusterHandle is a runtime object that has meta-data for a subcluster.  It
@@ -34,9 +37,24 @@ type SubclusterHandle struct {
 	Image string
 }
 
+// makeSubclusterHandle will form a SubclusterHandle from a Subcluster object
+// found in the VerticaDB
 func makeSubclusterHandle(sc *vapi.Subcluster) *SubclusterHandle {
 	return &SubclusterHandle{
 		Subcluster: *sc,
-		IsStandby:  false,
+		IsStandby:  false, // Assume not a standby since it is from VerticaDB
 	}
+}
+
+// SPILLY - need to figure out how to see if the service object accepts traffic to this SubclusterHandle
+
+// makeSubclusterHandleFromSts will form a SubclusterHandle from a StatefulSet
+// object.
+func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet) *SubclusterHandle {
+	sc := &SubclusterHandle{}
+	sc.Name = sts.Labels[SubclusterNameLabel]
+	sc.IsPrimary = sts.Labels[SubclusterTypeLabel] == PrimarySubclusterType
+	sc.IsStandby, _ = strconv.ParseBool(sts.Labels[SubclusterStandbyLabel])
+	sc.Image = sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+	return sc
 }

@@ -99,7 +99,7 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 	}
 
 	for i := range subclusters {
-		if res, err := s.reconcileSubcluster(ctx, subclusters[i]); err != nil || res.Requeue {
+		if res, err := s.reconcileSubcluster(ctx, &subclusters[i].Subcluster); err != nil || res.Requeue {
 			return res, err
 		}
 	}
