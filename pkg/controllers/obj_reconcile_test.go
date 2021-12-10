@@ -263,7 +263,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should create a statefulset with a configured Affinity", func() {
 			vdb := vapi.MakeVDB()
-			desiredAffinity := &corev1.Affinity{
+			desiredAffinity := vapi.Affinity{
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -297,7 +297,7 @@ var _ = Describe("obj_reconcile", func() {
 			nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 			currAffinity := sts.Spec.Template.Spec.Affinity
-			Expect(*currAffinity).Should(Equal(*desiredAffinity))
+			Expect(*currAffinity).Should(Equal(*getK8sAffinity(desiredAffinity)))
 		})
 
 		It("should create a statefulset with a configured Tolerations", func() {
@@ -435,7 +435,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should include imagePullSecrets if specified in the vdb", func() {
 			vdb := vapi.MakeVDB()
 			const PullSecretName = "docker-info"
-			vdb.Spec.ImagePullSecrets = append(vdb.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: PullSecretName})
+			vdb.Spec.ImagePullSecrets = append(vdb.Spec.ImagePullSecrets, vapi.LocalObjectReference{Name: PullSecretName})
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -443,7 +443,8 @@ var _ = Describe("obj_reconcile", func() {
 			nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 			Expect(len(sts.Spec.Template.Spec.ImagePullSecrets)).Should(Equal(1))
-			Expect(sts.Spec.Template.Spec.ImagePullSecrets).Should(ContainElement(vdb.Spec.ImagePullSecrets[0]))
+			imagePullSecrets := getK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets)
+			Expect(sts.Spec.Template.Spec.ImagePullSecrets).Should(ContainElement(imagePullSecrets[0]))
 		})
 
 		It("should requeue if the license secret is not found", func() {
