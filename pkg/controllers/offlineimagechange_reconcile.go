@@ -54,16 +54,12 @@ func MakeOfflineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
 func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// no-op for ScheduleOnly init policy
-	if o.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
-		return ctrl.Result{}, nil
-	}
-
-	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+	initiator := MakeImageChangeInitiator(o.VRec, o.Vdb, o)
+	if ok, err := initiator.IsImageChangeNeeded(ctx); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if ok, err := o.isImageChangeNeeded(ctx); !ok || err != nil {
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -122,35 +118,6 @@ func (o *OfflineImageChangeReconciler) finishImageChange(ctx context.Context) (c
 		"Vertica server image change has completed successfully")
 
 	return ctrl.Result{}, nil
-}
-
-// isImageChangeNeeded returns true if we are in the middle of an image change or we need to start one
-func (o *OfflineImageChangeReconciler) isImageChangeNeeded(ctx context.Context) (bool, error) {
-	// We first check if the status condition indicates the image change is in progress
-	inx, ok := vapi.VerticaDBConditionIndexMap[vapi.ImageChangeInProgress]
-	if !ok {
-		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", vapi.ImageChangeInProgress)
-	}
-	if inx < len(o.Vdb.Status.Conditions) && o.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
-		// Set a flag to indicate that we are continuing an image change.  This silences the ImageChangeStarted event.
-		o.ContinuingImageChange = true
-		return true, nil
-	}
-
-	// Next check if an image change is needed based on the image being different
-	// between the Vdb and any of the statefulset's.
-	stss, err := o.Finder.FindStatefulSets(ctx, FindInVdb)
-	if err != nil {
-		return false, err
-	}
-	for i := range stss.Items {
-		sts := stss.Items[i]
-		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != o.Vdb.Spec.Image {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 // toggleImageChangeInProgress is a helper for updating the ImageChangeInProgress condition
@@ -337,4 +304,16 @@ func (o *OfflineImageChangeReconciler) anyPodsRunningWithOldImage(ctx context.Co
 // setImageChangeStatus is a helper to set the imageChangeStatus message.
 func (o *OfflineImageChangeReconciler) setImageChangeStatus(ctx context.Context, msg string) error {
 	return status.UpdateImageChangeStatus(ctx, o.VRec.Client, o.Vdb, msg)
+}
+
+// IsAllowedForImageChangePolicy will determine if offline image change is
+// allowed based on the policy in the Vdb
+func (o *OfflineImageChangeReconciler) IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool {
+	return offlineImageChangeAllowed(vdb)
+}
+
+// SetContinuningImageChange sets state to know if this reconcile round is a
+// continuation of another reconcile.
+func (o *OfflineImageChangeReconciler) SetContinuingImageChange() {
+	o.ContinuingImageChange = true
 }
