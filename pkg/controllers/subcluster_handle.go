@@ -47,6 +47,9 @@ func makeSubclusterHandle(sc *vapi.Subcluster) *SubclusterHandle {
 }
 
 // SPILLY - need to figure out how to see if the service object accepts traffic to this SubclusterHandle
+// SPILLY - we are also adding the standby label to the service object.  That
+// seems wrong since a service object will handle both kinds of traffic.
+// Unless, we use that as an indication of what traffic is getting routed where.
 
 // makeSubclusterHandleFromSts will form a SubclusterHandle from a StatefulSet
 // object.
