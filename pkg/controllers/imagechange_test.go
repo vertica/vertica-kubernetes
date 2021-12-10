@@ -67,18 +67,7 @@ var _ = Describe("imagechange", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		ici := MakeImageChangeInitiator(vrec, logger, vdb, &testImageChangeReconciler{})
-		Expect(ici.IsImageChangeNeeded(ctx)).Should(Equal(false))
+		mgr := MakeImageChangeManager(vrec, logger, vdb, func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(false))
 	})
 })
-
-type testImageChangeReconciler struct{}
-
-func (t *testImageChangeReconciler) IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool {
-	return true
-}
-
-// setImageChangeStatus is a helper to set the imageChangeStatus message.
-func (t *testImageChangeReconciler) setImageChangeStatus(ctx context.Context, msg string) error {
-	return nil
-}

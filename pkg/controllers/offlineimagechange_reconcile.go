@@ -25,7 +25,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/status"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,29 +33,28 @@ import (
 
 // OfflineImageChangeReconciler will handle the process when the vertica image changes
 type OfflineImageChangeReconciler struct {
-	VRec      *VerticaDBReconciler
-	Log       logr.Logger
-	Vdb       *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner   cmds.PodRunner
-	PFacts    *PodFacts
-	Finder    SubclusterFinder
-	Initiator ImageChangeInitiator
+	VRec    *VerticaDBReconciler
+	Log     logr.Logger
+	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner cmds.PodRunner
+	PFacts  *PodFacts
+	Finder  SubclusterFinder
+	Manager ImageChangeManager
 }
 
 // MakeOfflineImageChangeReconciler will build an OfflineImageChangeReconciler object
 func MakeOfflineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
-	r := &OfflineImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
-		Finder: MakeSubclusterFinder(vdbrecon.Client, vdb),
+	return &OfflineImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
+		Finder:  MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Manager: *MakeImageChangeManager(vdbrecon, log, vdb, offlineImageChangeAllowed),
 	}
-	r.Initiator = *MakeImageChangeInitiator(vdbrecon, log, vdb, r)
-	return r
 }
 
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
 func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if ok, err := o.Initiator.IsImageChangeNeeded(ctx); !ok || err != nil {
+	if ok, err := o.Manager.IsImageChangeNeeded(ctx); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -67,7 +65,7 @@ func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an image change by setting condition and event recording
-		o.Initiator.StartImageChange,
+		o.Manager.startImageChange,
 		// Do a clean shutdown of the cluster
 		o.stopCluster,
 		// Set the new image in the statefulset objects.
@@ -79,7 +77,7 @@ func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.
 		// Start up vertica in each pod.
 		o.restartCluster,
 		// Cleanup up the condition and event recording for a completed image change
-		o.Initiator.FinishImageChange,
+		o.Manager.finishImageChange,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); res.Requeue || err != nil {
@@ -116,7 +114,7 @@ func (o *OfflineImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if err := o.setImageChangeStatus(ctx, "Starting cluster shutdown"); err != nil {
+	if err := o.Manager.setImageChangeStatus(ctx, "Starting cluster shutdown"); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -155,7 +153,7 @@ func (o *OfflineImageChangeReconciler) updateImageInStatefulSets(ctx context.Con
 		// Skip the statefulset if it already has the proper image.
 		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != o.Vdb.Spec.Image {
 			o.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
-			err = o.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
+			err = o.Manager.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -232,7 +230,7 @@ func (o *OfflineImageChangeReconciler) checkForNewPods(ctx context.Context) (ctr
 // been recreated.  Once the cluster is back up, then the image change is considered complete.
 func (o *OfflineImageChangeReconciler) restartCluster(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("Starting restart phase of image change for this reconcile iteration")
-	if err := o.setImageChangeStatus(ctx, "Restarting cluster"); err != nil {
+	if err := o.Manager.setImageChangeStatus(ctx, "Restarting cluster"); err != nil {
 		return ctrl.Result{}, err
 	}
 	// The restart reconciler is called after this reconciler.  But we call the
@@ -262,16 +260,4 @@ func (o *OfflineImageChangeReconciler) anyPodsRunningWithOldImage(ctx context.Co
 		}
 	}
 	return false, nil
-}
-
-// setImageChangeStatus is a helper to set the imageChangeStatus message.
-func (o *OfflineImageChangeReconciler) setImageChangeStatus(ctx context.Context, msg string) error {
-	// SPILLY - move this to initiator?
-	return status.UpdateImageChangeStatus(ctx, o.VRec.Client, o.Vdb, msg)
-}
-
-// IsAllowedForImageChangePolicy will determine if offline image change is
-// allowed based on the policy in the Vdb
-func (o *OfflineImageChangeReconciler) IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool {
-	return offlineImageChangeAllowed(vdb)
 }
