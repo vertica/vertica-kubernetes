@@ -180,7 +180,7 @@ var _ = Describe("obj_reconcile", func() {
 				Expect(objectMeta.Annotations["gitRef"]).Should(Equal("1234abc"))
 				Expect(objectMeta.Labels["vertica.com/database"]).Should(Equal(vdb.Spec.DBName))
 				if isScSpecific {
-					Expect(objectMeta.Labels["vertica.com/subcluster"]).Should(Equal(vdb.Spec.Subclusters[0].Name))
+					Expect(objectMeta.Labels[SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
 				}
 			}
 

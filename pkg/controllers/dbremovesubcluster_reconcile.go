@@ -138,7 +138,7 @@ func (d *DBRemoveSubclusterReconciler) resetDefaultSubcluster(ctx context.Contex
 		// remove the default subcluster that we do later will fail.  That
 		// provides a better error message than anything we do here.
 		if len(svcs.Items) > 0 {
-			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[SubclusterLabel])
+			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[SubclusterNameLabel])
 		}
 	}
 	return nil

@@ -109,7 +109,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		// We will convert each statefulset into a vapi.Subcluster stub object.  We
 		// only fill in the name.
 		for i := range missingSts.Items {
-			scName := missingSts.Items[i].Labels[SubclusterLabel]
+			scName := missingSts.Items[i].Labels[SubclusterNameLabel]
 			subclusters = append(subclusters, &vapi.Subcluster{Name: scName})
 		}
 	}
@@ -132,7 +132,7 @@ func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list 
 
 // hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
-	scName := objLabels[SubclusterLabel]
+	scName := objLabels[SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
 	return ok
 }
@@ -155,7 +155,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		}
 		// Skip if object is not subcluster specific.  This is necessary for objects like
 		// the headless service object that is cluster wide.
-		_, ok = l[SubclusterLabel]
+		_, ok = l[SubclusterNameLabel]
 		if !ok {
 			return nil
 		}
