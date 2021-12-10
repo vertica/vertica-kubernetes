@@ -78,6 +78,32 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 	return svcs, nil
 }
 
+// FindServicesMap will find services for subclusters.  It returns the output in
+// a map with the subcluster name as the key to the map.
+func (m *SubclusterFinder) FindServicesMap(ctx context.Context, flags FindFlags) (map[string]corev1.Service, error) {
+	svcs, err := m.FindServices(ctx, flags)
+	if err != nil {
+		return nil, err
+	}
+	// Convert the found services to a map, where the key is the name of the
+	// subcluster.
+	svcMap := map[string]corev1.Service{}
+	for i := range svcs.Items {
+		l, ok := getLabelsFromObject(&svcs.Items[i])
+		if !ok {
+			return nil, fmt.Errorf("could not find labels from k8s object %v", svcs.Items[i])
+		}
+		// Skip if object is not subcluster specific as there is no way to
+		// include it in the map.
+		_, ok = l[SubclusterNameLabel]
+		if !ok {
+			continue
+		}
+		svcMap[l[SubclusterNameLabel]] = svcs.Items[i]
+	}
+	return svcMap, nil
+}
+
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
 func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*corev1.PodList, error) {
@@ -91,28 +117,55 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*core
 // FindSubclusters will return a list of subclusters.
 // It accepts a flags field to indicate whether to return subclusters in the vdb,
 // not in the vdb or both.
-func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags) ([]*SubclusterHandle, error) {
-	subclusters := []*SubclusterHandle{}
+func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags) ([]*vapi.Subcluster, error) {
+	subclusters := []*vapi.Subcluster{}
 
 	if flags&FindInVdb != 0 {
 		for i := range m.Vdb.Spec.Subclusters {
-			subclusters = append(subclusters, makeSubclusterHandle(&m.Vdb.Spec.Subclusters[i]))
+			subclusters = append(subclusters, &m.Vdb.Spec.Subclusters[i])
 		}
 	}
 
 	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
-		missingSts, err := m.FindStatefulSets(ctx, FindNotInVdb)
+		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb)
 		if err != nil {
 			return nil, err
 		}
 
 		// We will convert each statefulset into a vapi.Subcluster stub object.  We
-		// only fill what portions we can get from the statefulset.  So it won't
-		// be a complete object.
+		// only fill in the name.
 		for i := range missingSts.Items {
-			subclusters = append(subclusters, makeSubclusterHandleFromSts(&missingSts.Items[i]))
+			scName := missingSts.Items[i].Labels[SubclusterNameLabel]
+			subclusters = append(subclusters, &vapi.Subcluster{Name: scName})
 		}
 	}
+	return subclusters, nil
+}
+
+// FindSubclusterHandles returns an array of SubclusterHandle objects.
+func (m *SubclusterFinder) FindSubclusterHandles(ctx context.Context, flags FindFlags) ([]*SubclusterHandle, error) {
+	subclusters := []*SubclusterHandle{}
+
+	// SubclusterHandle can only have its extended information filled in if
+	// reading k8s objects.  So caller must set FindExisting.
+	if flags&FindExisting == 0 {
+		return nil, fmt.Errorf("this function only accepts FindExisting: %d", flags)
+	}
+
+	stss, err := m.FindStatefulSets(ctx, flags)
+	if err != nil {
+		return nil, err
+	}
+
+	svcMap, err := m.FindServicesMap(ctx, flags)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range stss.Items {
+		subclusters = append(subclusters, makeSubclusterHandleFromSts(&stss.Items[i], svcMap))
+	}
+
 	return subclusters, nil
 }
 

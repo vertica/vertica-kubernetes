@@ -16,39 +16,23 @@
 package controllers
 
 import (
-	"strconv"
-
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
 const (
-	SvcTypeLabel            = "vertica.com/svc-type"
-	SubclusterNameLabel     = "vertica.com/subcluster-name"
-	SubclusterTypeLabel     = "vertica.com/subcluster-type"
-	SubclusterStandbyLabel  = "vertica.com/subcluster-standby"
-	OperatorName            = "verticadb-operator" // The name of the operator
-	OperatorVersion         = "1.1.0"              // The version number of the operator
-	PrimarySubclusterType   = "primary"
-	SecondarySubclusterType = "secondary"
+	SvcTypeLabel        = "vertica.com/svc-type"
+	SubclusterNameLabel = "vertica.com/subcluster-name"
+	SubclusterTypeLabel = "vertica.com/subcluster-type"
+	OperatorName        = "verticadb-operator" // The name of the operator
+	OperatorVersion     = "1.1.0"              // The version number of the operator
 )
-
-// SPILLY - consider renaming the standby cluster.  transient.
 
 // makeSubclusterLabels returns the labels added for the subcluster
 func makeSubclusterLabels(sc *SubclusterHandle) map[string]string {
 	return map[string]string{
-		SubclusterNameLabel:    sc.Name,
-		SubclusterTypeLabel:    getSubclusterTypeStr(sc),
-		SubclusterStandbyLabel: strconv.FormatBool(sc.IsStandby),
+		SubclusterNameLabel: sc.Name,
+		SubclusterTypeLabel: sc.GetSubclusterType(),
 	}
-}
-
-// getSubclusterTypeStr returns the type of the subcluster in string form
-func getSubclusterTypeStr(sc *SubclusterHandle) string {
-	if sc.IsPrimary {
-		return PrimarySubclusterType
-	}
-	return SecondarySubclusterType
 }
 
 // makeOperatorLabels returns the labels that all objects created by this operator will have

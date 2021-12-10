@@ -16,10 +16,9 @@
 package controllers
 
 import (
-	"strconv"
-
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // SubclusterHandle is a runtime object that has meta-data for a subcluster.  It
@@ -33,8 +32,37 @@ type SubclusterHandle struct {
 	// for online upgrade.
 	IsStandby bool
 
-	// The name of the image that is currently being run in this subcluster
+	// The name of the image that is currently being run in this subcluster.  If
+	// the corresponding sts doesn't exist, then this will be left blank.
 	Image string
+
+	// Indicates whether a service object is currently routing traffic to this
+	// subcluster.  When dealing with primary and standby subclusters pairs,
+	// only one will have traffic routed to it.
+	IsAcceptingTraffic bool
+}
+
+const (
+	PrimarySubclusterType   = "primary"
+	StandbySubclusterType   = "standby"
+	SecondarySubclusterType = "secondary"
+)
+
+// GetSubclusterType returns the type of the subcluster in string form
+func (s *SubclusterHandle) GetSubclusterType() string {
+	if s.IsPrimary {
+		if s.IsStandby {
+			return StandbySubclusterType
+		}
+		return PrimarySubclusterType
+	}
+	return SecondarySubclusterType
+}
+
+func (s *SubclusterHandle) SetIsAcceptingTraffic(svcLabels map[string]string) error {
+	// Traffic is routed to the subcluster if the labels from the serivce
+	s.IsAcceptingTraffic = svcLabels[SubclusterTypeLabel] == s.GetSubclusterType()
+	return nil
 }
 
 // makeSubclusterHandle will form a SubclusterHandle from a Subcluster object
@@ -46,18 +74,22 @@ func makeSubclusterHandle(sc *vapi.Subcluster) *SubclusterHandle {
 	}
 }
 
-// SPILLY - need to figure out how to see if the service object accepts traffic to this SubclusterHandle
-// SPILLY - we are also adding the standby label to the service object.  That
-// seems wrong since a service object will handle both kinds of traffic.
-// Unless, we use that as an indication of what traffic is getting routed where.
-
 // makeSubclusterHandleFromSts will form a SubclusterHandle from a StatefulSet
 // object.
-func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet) *SubclusterHandle {
+func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet, svcMap map[string]corev1.Service) *SubclusterHandle {
 	sc := &SubclusterHandle{}
 	sc.Name = sts.Labels[SubclusterNameLabel]
 	sc.IsPrimary = sts.Labels[SubclusterTypeLabel] == PrimarySubclusterType
-	sc.IsStandby, _ = strconv.ParseBool(sts.Labels[SubclusterStandbyLabel])
+	sc.IsStandby = sts.Labels[SubclusterTypeLabel] == StandbySubclusterType
 	sc.Image = sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+
+	// Augment the SubclusterHandle with the service map.  We check if the
+	// service is currently routing traffic to the subcluster.
+	svc, ok := svcMap[sc.Name]
+	if ok {
+		// SPILLY - need a test for this, but only when we can create standby
+		sc.IsAcceptingTraffic = svc.Labels[SubclusterTypeLabel] == sc.GetSubclusterType()
+	}
+
 	return sc
 }

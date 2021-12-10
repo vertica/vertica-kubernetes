@@ -27,7 +27,6 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
-    vertica.com/subcluster-standby: false
 status:
   phase: Running
 ---
@@ -47,7 +46,6 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
-    vertica.com/subcluster-standby: false
 ---
 apiVersion: v1
 kind: Service
@@ -65,7 +63,6 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
-    vertica.com/subcluster-standby: false
 ---
 apiVersion: v1
 kind: Service

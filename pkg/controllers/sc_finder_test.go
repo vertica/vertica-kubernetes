@@ -95,26 +95,49 @@ var _ = Describe("sc_finder", func() {
 		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
 	})
 
-	It("should only find statefulsets that exist in k8s", func() {
+	It("should only find statefulsets and subclusters that exist in k8s", func() {
 		vdb := vapi.MakeVDB()
+		const RunningImage = "the-running-image"
+		vdb.Spec.Image = RunningImage
 		scNames := []string{"first", "second"}
 		scSizes := []int32{2, 3}
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: scNames[0], Size: scSizes[0]},
-			{Name: scNames[1], Size: scSizes[1]},
+			{Name: scNames[0], Size: scSizes[0], IsPrimary: true},
+			{Name: scNames[1], Size: scSizes[1], IsPrimary: false},
 		}
 		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		vdbCopy := *vdb // Make a copy for cleanup since we will mutate vdb
+		defer deletePods(ctx, &vdbCopy)
 
-		// When use the finder, pass in a Vdb that is entirely different then
-		// the one we used above.  It will be ignored anyway when using
-		// FindExisting.
-		finder := MakeSubclusterFinder(k8sClient, vapi.MakeVDB())
+		// Add another subcluster, but since we didn't create any k8s objects
+		// for it, it won't be returned by the finder.
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{Name: "not there"})
+		// Change the image in the vdb spec to prove that we fill in the image
+		// from the statefulset
+		vdb.Spec.Image = "should-not-report-this-image"
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
 		sts, err := finder.FindStatefulSets(ctx, FindExisting)
 		Expect(err).Should(Succeed())
 		Expect(len(sts.Items)).Should(Equal(2))
 		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
 		Expect(sts.Items[1].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[1]).Name))
+
+		scs, err := finder.FindSubclusters(ctx, FindExisting)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(2))
+		Expect(scs[0].Name).Should(Equal(vdb.Spec.Subclusters[0].Name))
+		Expect(scs[1].Name).Should(Equal(vdb.Spec.Subclusters[1].Name))
+
+		schs, err := finder.FindSubclusterHandles(ctx, FindExisting)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(2))
+		Expect(schs[0].Name).Should(Equal(vdb.Spec.Subclusters[0].Name))
+		Expect(schs[0].IsPrimary).Should(Equal(vdb.Spec.Subclusters[0].IsPrimary))
+		Expect(schs[0].Image).Should(Equal(RunningImage))
+		Expect(schs[1].Name).Should(Equal(vdb.Spec.Subclusters[1].Name))
+		Expect(schs[1].IsPrimary).Should(Equal(vdb.Spec.Subclusters[1].IsPrimary))
+		Expect(schs[1].Image).Should(Equal(RunningImage))
 	})
 
 	It("should find all pods that exist in k8s for the VerticaDB", func() {
