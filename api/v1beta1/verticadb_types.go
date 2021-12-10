@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// nolint:lll
 package v1beta1
 
 import (
@@ -127,6 +128,34 @@ type VerticaDBSpec struct {
 	// The initialization policy defines how to setup the database.  Available
 	// options are to create a new database or revive an existing one.
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
+	// +kubebuilder:default:=Auto
+	// How will image changes be managed?  Available values are: Offline, Online
+	// and Auto.
+	// - Offline: means we take down the entire cluster then bring it back up
+	// with the new image.
+	// - Online: will keep the cluster up when the image change occurs.  The
+	// data will go into read-only mode until the Vertica nodes from the primary
+	// subcluster reform the cluster with the new image.  This policy requires
+	// that a Vertica license be used to allow the subcluster to expand
+	// temporarily to handle traffic for each of the primary subclusters.
+	// - Auto: will pick between Offline or Online.  Online is only chosen if a
+	// license Secret exists, the k-Safety of the database is 1 and we are
+	// running with a Vertica version that supports read-only subclusters.
+	ImageChangePolicy ImageChangePolicyType `json:"imageChangePolicy"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:="0.5"
+	// When doing an online image change, we create standby subclusters for each of
+	// the primary subclusters to temporarily handle its traffic.  This
+	// parameter determines the size of those standby subclusters.  The
+	// modifier, which must be between 0 and 1, is applied to the current size
+	// of the primary subcluster.  For example, if set to 0.5, the size of the
+	// standby subcluster will be half the size of the primary subcluster.
+	StandbySubclusterSizeModifier resource.Quantity `json:"standbySubclusterSizeModifier,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -272,6 +301,25 @@ type KSafetyType string
 const (
 	KSafety0 KSafetyType = "0"
 	KSafety1 KSafetyType = "1"
+)
+
+type ImageChangePolicyType string
+
+const (
+	// Image change is done fully offline.  This means the cluster is stopped,
+	// then restarted with the new image.
+	OfflineImageChange ImageChangePolicyType = "Offline"
+	// Image change is done online.  This scales out new secondary subcluster
+	// for each primary subcluster.  Then primary subclusters are then taken
+	// down, leaving the secondary subclusters in read-only mode.  When the
+	// primary subcluster comes back up, we restart/remove all of the secondary
+	// subclusters to take them out of read-only mode.
+	OnlineImageChange ImageChangePolicyType = "Online"
+	// This automatically picks between offline and online image change.  Online
+	// can only be used if (a) a license secret exists since we need to scale
+	// out, (b) we are already on a minimum Vertica engine version that supports
+	// read-only subclusters and (c) has a k-safety of 1.
+	AutoImageChange ImageChangePolicyType = "Auto"
 )
 
 // Defines a number of pods for a specific subcluster
