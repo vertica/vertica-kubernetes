@@ -60,6 +60,28 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an image change by setting condition and event recording
 		o.Manager.startImageChange,
+		// Create a secondary standby subcluster for each primary
+		o.createStandbySubclusters,
+		// Reroute all traffic from primary subclusters to their standby's
+		o.rerouteClientTrafficToStandby,
+		// Drain all connections from the primary subcluster.  This waits for
+		// connections that were established before traffic was routed to the
+		// standby's.
+		o.drainPrimaries,
+		// Change the image in each of the primary subclusters.
+		o.changeImageInPrimaries,
+		// Restart the pods of the primary subclusters.
+		o.restartPrimaries,
+		// Reroute all traffic from standby subclusters back to the primary
+		o.rerouteClientTrafficToPrimary,
+		// Drain all connections from the standby subclusters to prepare them
+		// for being removed.
+		o.drainStandbys,
+		// Will delete the standby subclusters now that the primaries are back up.
+		o.deleteStandbySubclusters,
+		// With the primaries back up, we can do a "rolling upgrade" style of
+		// update for the secondary subclusters.
+		o.startRollingUpgradeOfSecondarySubclusters,
 		// Cleanup up the condition and event recording for a completed image change
 		o.Manager.finishImageChange,
 	}
@@ -69,5 +91,67 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		}
 	}
 
+	return ctrl.Result{}, nil
+}
+
+// createStandbySubclusters this will create a secondary subcluster to accept
+// traffic from the primaries when they are down.  These subclusters are scalled
+// standby and are transient since they only exist for the life of the image
+// change.
+func (o *OnlineImageChangeReconciler) createStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// rerouteClientTrafficToStandby will update the service objects for each of the
+// primary subclusters so that they are routed to the standby subclusters.
+func (o *OnlineImageChangeReconciler) rerouteClientTrafficToStandby(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// drainPrimaries will only succeed if the primary subclusters are already down
+// or have no active connections.  All traffic to the primaries get routed to
+// the standby subclusters, so this step waits for any connection that were
+// established before the standby's were created.
+func (o *OnlineImageChangeReconciler) drainPrimaries(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// changeImageInPrimaries will update the statefulset of each of the primary
+// subcluster's with the new image.  It will also force the cluster in read-only
+// mode as all of the pods in the primary will be rescheduled with the new
+// image.
+func (o *OnlineImageChangeReconciler) changeImageInPrimaries(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// restartPrimaries will restart all of the pods in the primary subclusters.
+func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// rerouteClientTrafficToPrimary will update the service objects of the primary
+// subclusters so that traffic is not routed to the standby's anymore but back
+// to te primary subclusters.
+func (o *OnlineImageChangeReconciler) rerouteClientTrafficToPrimary(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// drainStandbys will wait for all active connections in the standby subclusters
+// to leave.  This is preparation for eventual removal of the standby
+// subclusters.
+func (o *OnlineImageChangeReconciler) drainStandbys(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// deleteStandbySubclusters will delete any standby subclusters that were created for the image change.
+func (o *OnlineImageChangeReconciler) deleteStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
+// startRollingUpgradeOfSecondarySubclusters will update the image of each of
+// the secondary subclusters.  The update policy will be rolling upgrade.  This
+// gives control of restarting each pod back to k8s.  This can be done because
+// secondary subclusters don't participate in cluster quorum.
+func (o *OnlineImageChangeReconciler) startRollingUpgradeOfSecondarySubclusters(ctx context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
