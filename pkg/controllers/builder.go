@@ -312,9 +312,9 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
-		Affinity:                      sc.Affinity,
+		Affinity:                      getK8sAffinity(sc.Affinity),
 		Tolerations:                   sc.Tolerations,
-		ImagePullSecrets:              vdb.Spec.ImagePullSecrets,
+		ImagePullSecrets:              getK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
@@ -549,4 +549,24 @@ func buildReadinessProbeSQL(vdb *vapi.VerticaDB) string {
 	}
 
 	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
+}
+
+// getK8sLocalObjectReferenceArray returns a k8s LocalObjecReference array
+// from a vapi.LocalObjectReference array
+func getK8sLocalObjectReferenceArray(lors []vapi.LocalObjectReference) []corev1.LocalObjectReference {
+	localObjectReferences := []corev1.LocalObjectReference{}
+	for i := range lors {
+		l := corev1.LocalObjectReference{Name: lors[i].Name}
+		localObjectReferences = append(localObjectReferences, l)
+	}
+	return localObjectReferences
+}
+
+// getK8sAffinity returns a K8s Affinity object from a vapi.Affinity object
+func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
+	return &corev1.Affinity{
+		NodeAffinity:    a.NodeAffinity,
+		PodAffinity:     a.PodAffinity,
+		PodAntiAffinity: a.PodAntiAffinity,
+	}
 }
