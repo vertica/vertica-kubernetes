@@ -40,19 +40,19 @@ const VerticaDBAPIVersion = "vertica.com/v1beta1"
 type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=IfNotPresent
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:imagePullPolicy"
 	// This dictates the image pull policy to use
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// ImagePullSecrets is an optional list of references to secrets in the same
 	// namespace to use for pulling the image. If specified, these secrets will
 	// be passed to individual puller implementations for them to use. For
 	// example, in the case of docker, only DockerConfig type secrets are
 	// honored.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="vertica/vertica-k8s:11.0.1-0-minimal"
@@ -74,7 +74,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:=true
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// State to indicate whether the operator will restart Vertica if the
 	// process is not running. Under normal cicumstances this is set to true.
 	// The purpose of this is to allow a maintenance window, such as a
@@ -83,19 +83,19 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:="vertdb"
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// The name of the database.  This cannot be updated once the CRD is created.
 	DBName string `json:"dbName"`
 
 	// +kubebuilder:default:=12
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The number of shards to create in the database. This cannot be updated
 	// once the CRD is created.
 	ShardCount int `json:"shardCount"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// An optional name for a secret that contains the password for the
 	// database's superuser. If this is not set, then we assume no such password
 	// is set for the database. If this is set, it is up the user to create this
@@ -103,7 +103,7 @@ type VerticaDBSpec struct {
 	SuperuserPasswordSecret string `json:"superuserPasswordSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// The name of a secret that contains the contents of license files. The
 	// secret must be in the same namespace as the CRD. Each of the keys in the
 	// secret will be mounted as files in /home/dbadmin/licensing/mnt. If this
@@ -116,7 +116,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Ignore the cluster lease when doing a revive or start_db.  Use this with
 	// caution, as ignoring the cluster lease when another system is using the
 	// same communal storage will cause corruption.
@@ -124,7 +124,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=Create
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Revive","urn:alm:descriptor:com.tectonic.ui:select:ScheduleOnly"}
 	// The initialization policy defines how to setup the database.  Available
 	// options are to create a new database or revive an existing one.
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
@@ -158,7 +158,7 @@ type VerticaDBSpec struct {
 	StandbySubclusterSizeModifier resource.Quantity `json:"standbySubclusterSizeModifier,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// This specifies the order of nodes when doing a revive.  Each entry
 	// contains an index to a subcluster, which is an index in Subclusters[],
 	// and a pod count of the number of pods include from the subcluster.
@@ -182,7 +182,7 @@ type VerticaDBSpec struct {
 	ReviveOrder []SubclusterPodCount `json:"reviveOrder,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// The timeout, in seconds, to use when admintools restarts a node or the
 	// entire cluster.  If omitted, we use the admintools default timeout
 	// of 20 minutes.
@@ -204,7 +204,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:="1"
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:0","urn:alm:descriptor:com.tectonic.ui:select:1","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
 	// suitable for test environments because we have no fault tolerance and the cluster
 	// can only have between 1 and 3 pods.  If set to 1, we have fault tolerance if nodes
@@ -215,7 +215,7 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// If a reconciliation iteration needs to be requeued this controls the
 	// amount of time in seconds to wait.  If this is set to 0, then the requeue
 	// time will increase using an exponential backoff algorithm.  Caution, when
@@ -225,14 +225,14 @@ type VerticaDBSpec struct {
 	RequeueTime int `json:"requeueTime,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Optional sidecar containers that run along side the vertica server.  The
 	// operator adds the same volume mounts that are in the vertica server
 	// container to each sidecar container.
 	Sidecars []corev1.Container `json:"sidecars,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Custom volumes that are added to sidecars and the Vertica container.
 	// For these volumes to be visible in either container, they must have a
 	// corresonding volumeMounts entry.  For sidecars, this is included in
@@ -244,7 +244,7 @@ type VerticaDBSpec struct {
 	Volumes []corev1.Volume `json:"volumes,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Additional volume mounts to include in the Vertica container.  These
 	// reference volumes that are in the Volumes list.  The mount path must not
 	// conflict with a mount path that the operator adds internally.
@@ -257,10 +257,10 @@ type VerticaDBSpec struct {
 	//   /certs/<secretName>/<key_i>
 	// Where <secretName> is the name provided in the secret and <key_i> is one
 	// of the keys in the secret.
-	CertSecrets []corev1.LocalObjectReference `json:"certSecrets,omitempty"`
+	CertSecrets []LocalObjectReference `json:"certSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// A secret that contains files required for Kereberos setup.  The secret
 	// must have the following keys:
 	// - krb5.conf: The contents of the Kerberos config file
@@ -270,13 +270,27 @@ type VerticaDBSpec struct {
 	KerberosSecret string `json:"kerberosSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// An optional secret that has the files for /home/dbadmin/.ssh.  If this is
 	// omitted, the ssh files from the image are used.  You can this option if
 	// you have a cluster that talks to Vertica notes outside of Kubernetes, as
 	// it has the public keys to be able to ssh to those nodes.  It must have
 	// the following keys present: id_rsa, id_rsa.pub and authorized_keys.
 	SSHSecret string `json:"sshSecret,omitempty"`
+}
+
+// LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
+// This is useful for the Openshift web console. This structure is used in some
+// VerticaDB spec fields to define a list of secrets but, with the k8s',
+// we could not add the "Secret" x-descriptor. By using this instead,
+// we can add it and it (the x-descriptor) will take effect
+// wherever this structure is used.
+type LocalObjectReference struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
+	// Name of the referent.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+	// +optional
+	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
 }
 
 type CommunalInitPolicy string
@@ -330,7 +344,7 @@ type SubclusterPodCount struct {
 	SubclusterIndex int `json:"subclusterIndex"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
 	// The number of pods paired with this subcluster.  If this is omitted then,
 	// all remaining pods in the subcluster will be used.
 	PodCount int `json:"podCount,omitempty"`
@@ -350,7 +364,7 @@ type CommunalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// If true, the operator will include the VerticaDB's UID in the path.  This
 	// option exists if you reuse the communal path in the same endpoint as it
 	// forces each database path to be unique.
@@ -365,7 +379,7 @@ type CommunalStorage struct {
 	Endpoint string `json:"endpoint"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// The name of a secret that contains the credentials to connect to the
 	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
 	// need to be set, depending on the endpoint type:
@@ -401,20 +415,20 @@ type CommunalStorage struct {
 	Region string `json:"region,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:ConfigMap"
 	// A config map that contains the contents of the /etc/hadoop directory.
 	// This gets mounted in the container and is used to configure connections
 	// to an HDFS communal path
 	HadoopConfig string `json:"hadoopConfig,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// The service name portion of the Vertica Kerberos principal. This is set
 	// in the database config parameter KerberosServiceName during bootstrapping.
 	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Name of the Kerberos realm.  This is set in the database config parameter
 	// KerberosRealm during bootstrapping.
 	KerberosRealm string `json:"kerberosRealm,omitempty"`
@@ -422,7 +436,7 @@ type CommunalStorage struct {
 
 type LocalStorage struct {
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:StorageClass"
 	// The local data stores the local catalog, depot and config files. This
 	// defines the name of the storageClass to use for that volume. This will be
 	// set when creating the PVC. By default, it is not set. This means that
@@ -463,7 +477,7 @@ type Subcluster struct {
 	// +kubebuilder:default:=3
 	// +kubebuilder:Minimum:=3
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
 	// The number of pods that the subcluster will have. This determines the
 	// number of Vertica nodes that it will have. Changing this number will
 	// either delete or schedule new pods.
@@ -480,7 +494,7 @@ type Subcluster struct {
 
 	// +kubebuilder:default:=true
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
 	// Indicates whether the subcluster is a primary or secondary. You must have
 	// at least one primary subcluster in the database.
 	IsPrimary bool `json:"isPrimary"`
@@ -495,7 +509,7 @@ type Subcluster struct {
 	// Like nodeSelector this allows you to constrain the pod only to certain
 	// pods. It is more expressive than just using node selectors.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	Affinity Affinity `json:"affinity,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The priority class name given to pods in this subcluster. This affects
@@ -508,7 +522,7 @@ type Subcluster struct {
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:resourceRequirements"
 	// This defines the resource requests and limits for pods in the subcluster.
 	// It is advisable that the request and limits match as this ensures the
 	// pods are assigned to the guaranteed QoS class. This will reduces the
@@ -518,7 +532,7 @@ type Subcluster struct {
 
 	// +kubebuilder:default:=ClusterIP
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:ClusterIP","urn:alm:descriptor:com.tectonic.ui:select:NodePort","urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer"}
 	// Identifies the type of Kubernetes service to use for external client
 	// connectivity. The default is to use a ClusterIP, which sets a stable IP
 	// and port to use that is accessible only from within Kubernetes itself.
@@ -528,7 +542,7 @@ type Subcluster struct {
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// When setting serviceType to NodePort, this parameter allows you to define the
 	// port that is opened at each node. If using NodePort and this is omitted,
 	// Kubernetes will choose the port automatically. This port must be from
@@ -542,6 +556,27 @@ type Subcluster struct {
 	// specify. If not set, the external IP list is left empty in the service object.
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
 	ExternalIPs []string `json:"externalIPs,omitempty"`
+}
+
+// Affinity is used instead of corev1.Affinity and behaves the same.
+// This structure is used in subcluster to define the "Affinity".
+// corev1.Affinity is composed of 3 fields and for each of them,
+// there is a x-descriptor. However there is not a x-descriptor for corev1.Affinity itself.
+// In this structure, we have the same fields as corev1' but we also added
+// the corresponding x-descriptor to each field. That will be useful for the Openshift web console.
+type Affinity struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:nodeAffinity"
+	// Describes node affinity scheduling rules for the pod.
+	// +optional
+	NodeAffinity *corev1.NodeAffinity `json:"nodeAffinity,omitempty" protobuf:"bytes,1,opt,name=nodeAffinity"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podAffinity"
+	// Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
+	// +optional
+	PodAffinity *corev1.PodAffinity `json:"podAffinity,omitempty" protobuf:"bytes,2,opt,name=podAffinity"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podAntiAffinity"
+	// Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
+	// +optional
+	PodAntiAffinity *corev1.PodAntiAffinity `json:"podAntiAffinity,omitempty" protobuf:"bytes,3,opt,name=podAntiAffinity"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB

@@ -30,7 +30,6 @@ import (
 
 	// Blank import of vertica since we use it indirectly through the sql interface
 	_ "github.com/vertica/vertica-sql-go"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -564,7 +563,7 @@ func (d *DBGenerator) setCAFile(ctx context.Context) error {
 	}
 	d.Objs.CAFile.Data = map[string][]byte{CACertKey: d.CAFileData}
 	d.Objs.Vdb.Spec.CertSecrets = append(d.Objs.Vdb.Spec.CertSecrets,
-		corev1.LocalObjectReference{Name: d.Objs.CAFile.ObjectMeta.Name})
+		vapi.LocalObjectReference{Name: d.Objs.CAFile.ObjectMeta.Name})
 	d.Objs.Vdb.Spec.Communal.CaFile = fmt.Sprintf("%s/%s/%s", paths.CertsRoot, d.Objs.CAFile.ObjectMeta.Name, CACertKey)
 
 	return nil
