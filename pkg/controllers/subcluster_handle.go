@@ -87,7 +87,6 @@ func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet, svcMap map[string]core
 	// service is currently routing traffic to the subcluster.
 	svc, ok := svcMap[sc.Name]
 	if ok {
-		// SPILLY - need a test for this, but only when we can create standby
 		sc.IsAcceptingTraffic = svc.Labels[SubclusterTypeLabel] == sc.GetSubclusterType()
 	}
 

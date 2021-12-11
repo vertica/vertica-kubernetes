@@ -108,6 +108,8 @@ var _ = Describe("sc_finder", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		vdbCopy := *vdb // Make a copy for cleanup since we will mutate vdb
 		defer deletePods(ctx, &vdbCopy)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
 
 		// Add another subcluster, but since we didn't create any k8s objects
 		// for it, it won't be returned by the finder.
@@ -135,9 +137,11 @@ var _ = Describe("sc_finder", func() {
 		Expect(schs[0].Name).Should(Equal(vdb.Spec.Subclusters[0].Name))
 		Expect(schs[0].IsPrimary).Should(Equal(vdb.Spec.Subclusters[0].IsPrimary))
 		Expect(schs[0].Image).Should(Equal(RunningImage))
+		Expect(schs[0].IsAcceptingTraffic).Should(Equal(true))
 		Expect(schs[1].Name).Should(Equal(vdb.Spec.Subclusters[1].Name))
 		Expect(schs[1].IsPrimary).Should(Equal(vdb.Spec.Subclusters[1].IsPrimary))
 		Expect(schs[1].Image).Should(Equal(RunningImage))
+		Expect(schs[1].IsAcceptingTraffic).Should(Equal(true))
 	})
 
 	It("should find all pods that exist in k8s for the VerticaDB", func() {
