@@ -48,3 +48,7 @@ do
 done
 # 5. Template the resource limits and requests
 sed -i 's/resources: template-placeholder/resources:\n          {{- toYaml .Values.resources | nindent 10 }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+
+# Delete openshift clusterRole and clusterRoleBinding files
+rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 
+rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-rolebinding-crb.yaml
