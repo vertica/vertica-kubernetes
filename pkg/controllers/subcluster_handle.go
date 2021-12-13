@@ -75,6 +75,15 @@ func makeSubclusterHandle(sc *vapi.Subcluster) *SubclusterHandle {
 	}
 }
 
+// makeStandbySubclusterHandle will form a SubclusterHandle for a standby subcluster
+func makeStandbySubclusterHandle(sc *vapi.Subcluster) *SubclusterHandle {
+	// SPILLY - need to adjust the size of the sub
+	return &SubclusterHandle{
+		Subcluster: *sc,
+		IsStandby:  true,
+	}
+}
+
 // makeSubclusterHandleFromSts will form a SubclusterHandle from a StatefulSet
 // object.
 func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet, svcMap map[string]corev1.Service) *SubclusterHandle {

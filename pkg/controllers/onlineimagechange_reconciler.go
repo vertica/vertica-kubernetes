@@ -21,25 +21,29 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // OnlineImageChangeReconciler will handle the process when the vertica image
 // changes.  It does this while keeping the database online.
 type OnlineImageChangeReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	Finder  SubclusterFinder
-	Manager ImageChangeManager
+	VRec        *VerticaDBReconciler
+	Log         logr.Logger
+	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner     cmds.PodRunner
+	PFacts      *PodFacts
+	Finder      SubclusterFinder
+	Manager     ImageChangeManager
+	Subclusters []*SubclusterHandle
 }
 
 // MakeOnlineImageChangeReconciler will build an OnlineImageChangeReconciler object
 func MakeOnlineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
-	return &OfflineImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
+	return &OnlineImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
 		Finder:  MakeSubclusterFinder(vdbrecon.Client, vdb),
 		Manager: *MakeImageChangeManager(vdbrecon, log, vdb, onlineImageChangeAllowed),
 	}
@@ -52,16 +56,18 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
-		return ctrl.Result{}, err
-	}
+	// SPILLY - we may need to add podfacts collection, something to force collection of pods for standbys
 
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an image change by setting condition and event recording
 		o.Manager.startImageChange,
-		// Create a secondary standby subcluster for each primary
+		// Load up state that is used for the subsequent steps
+		o.loadSubclusterState,
+		// Setup a secondary standby subcluster for each primary
 		o.createStandbySubclusters,
+		o.installVerticaOnStandbySubclusters,
+		o.addNodesOnStandbySubclusters,
 		// Reroute all traffic from primary subclusters to their standby's
 		o.rerouteClientTrafficToStandby,
 		// Drain all connections from the primary subcluster.  This waits for
@@ -94,11 +100,68 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 	return ctrl.Result{}, nil
 }
 
+// loadSubclusterState will load state into the OnlineImageChangeReconciler that
+// is used in subsequent steps.
+func (o *OnlineImageChangeReconciler) loadSubclusterState(ctx context.Context) (ctrl.Result, error) {
+	var err error
+	err = o.PFacts.Collect(ctx, o.Vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	o.Subclusters, err = o.Finder.FindSubclusterHandles(ctx, FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
 // createStandbySubclusters this will create a secondary subcluster to accept
 // traffic from the primaries when they are down.  These subclusters are scalled
 // standby and are transient since they only exist for the life of the image
 // change.
 func (o *OnlineImageChangeReconciler) createStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
+	if o.skipStandbySetup() {
+		return ctrl.Result{}, nil
+	}
+
+	// We create a standby subcluster for each primary
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	objRec := actor.(*ObjReconciler)
+	for i := range o.Vdb.Spec.Subclusters {
+		if o.Vdb.Spec.Subclusters[i].IsPrimary {
+			sch := makeStandbySubclusterHandle(&o.Vdb.Spec.Subclusters[i])
+			nm := names.GenStandbyStsName(o.Vdb, &sch.Subcluster)
+			if modifiedSts, res, err := objRec.reconcileSts(ctx, nm, sch); res.Requeue || err != nil {
+				return res, err
+			} else if modifiedSts {
+				if err2 := o.Manager.setImageChangeStatus(ctx, "Creating standby secondary subclusters"); err2 != nil {
+					return res, err2
+				}
+			}
+		}
+	}
+	// SPILLY - need to handle install and add node
+	return ctrl.Result{}, nil
+}
+
+// installVerticaOnStandbySubclusters will ensure we have installed vertica on
+// each of the standby nodes.
+func (o *OnlineImageChangeReconciler) installVerticaOnStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
+	if o.skipStandbySetup() {
+		return ctrl.Result{}, nil
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// addNodesOnStandbySubclusters will ensure nodes on the standby's have been
+// added to the cluster.
+func (o *OnlineImageChangeReconciler) addNodesOnStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
+	if o.skipStandbySetup() {
+		return ctrl.Result{}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -145,6 +208,24 @@ func (o *OnlineImageChangeReconciler) drainStandbys(ctx context.Context) (ctrl.R
 
 // deleteStandbySubclusters will delete any standby subclusters that were created for the image change.
 func (o *OnlineImageChangeReconciler) deleteStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
+	for i := range o.Subclusters {
+		sc := o.Subclusters[i]
+		if sc.IsStandby {
+			sts := &appsv1.StatefulSet{}
+			err := o.VRec.Client.Get(ctx, names.GenStandbyStsName(o.Vdb, &sc.Subcluster), sts)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					continue
+				}
+				return ctrl.Result{}, err
+			}
+			err = o.VRec.Client.Delete(ctx, sts)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -154,4 +235,24 @@ func (o *OnlineImageChangeReconciler) deleteStandbySubclusters(ctx context.Conte
 // secondary subclusters don't participate in cluster quorum.
 func (o *OnlineImageChangeReconciler) startRollingUpgradeOfSecondarySubclusters(ctx context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
+}
+
+// allPrimariesHaveNewImage returns true if all of the primary subclusters have the new image
+func (o *OnlineImageChangeReconciler) allPrimariesHaveNewImage() bool {
+	for i := range o.Subclusters {
+		sc := o.Subclusters[i]
+		if sc.IsPrimary && sc.Image != o.Vdb.Spec.Image {
+			return false
+		}
+	}
+	return true
+}
+
+// skipStandbySetup will return true if we can skip creation, install and
+// scale-out of the standby subcluster
+func (o *OnlineImageChangeReconciler) skipStandbySetup() bool {
+	// We can skip this entirely if all of the primary subclusters already have
+	// the new image.  This is an indication that we have already created the
+	// standbys and done the image change.
+	return o.allPrimariesHaveNewImage()
 }

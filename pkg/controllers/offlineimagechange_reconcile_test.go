@@ -46,7 +46,7 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 
 		updateVdbToCauseImageChange(ctx, vdb, NewImage)
 
-		r, _, _ := createImageChangeReconciler(vdb)
+		r, _, _ := createOfflineImageChangeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
@@ -62,7 +62,7 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 
 		updateVdbToCauseImageChange(ctx, vdb, "container1:newimage")
 
-		r, fpr, _ := createImageChangeReconciler(vdb)
+		r, fpr, _ := createOfflineImageChangeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(1))
@@ -77,7 +77,7 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 
 		updateVdbToCauseImageChange(ctx, vdb, "container2:newimage")
 
-		r, _, _ := createImageChangeReconciler(vdb)
+		r, _, _ := createOfflineImageChangeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		// Delete the sts in preparation of recrating everything with the new
 		// image.  Pods will come up not running to force a requeue by the
@@ -96,7 +96,7 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 
 		updateVdbToCauseImageChange(ctx, vdb, "container2:newimage")
 
-		r, _, _ := createImageChangeReconciler(vdb)
+		r, _, _ := createOfflineImageChangeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
@@ -114,7 +114,7 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 		defer deletePods(ctx, vdb)
 
 		updateVdbToCauseImageChange(ctx, vdb, "container2:newimage")
-		r, fpr, pfacts := createImageChangeReconciler(vdb)
+		r, fpr, pfacts := createOfflineImageChangeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].upNode = false
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -132,7 +132,7 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 		defer deletePods(ctx, vdb)
 
 		updateVdbToCauseImageChange(ctx, vdb, "container3:newimage")
-		r, fpr, pfacts := createImageChangeReconciler(vdb)
+		r, fpr, pfacts := createOfflineImageChangeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
 		// Fail stop_db so that the reconciler fails
@@ -158,8 +158,8 @@ func updateVdbToCauseImageChange(ctx context.Context, vdb *vapi.VerticaDB, newIm
 	ExpectWithOffset(1, k8sClient.Update(ctx, vdb)).Should(Succeed())
 }
 
-// createImageChangeReconciler is a helper to run the ImageChangeReconciler.
-func createImageChangeReconciler(vdb *vapi.VerticaDB) (*OfflineImageChangeReconciler, *cmds.FakePodRunner, *PodFacts) {
+// createOfflineImageChangeReconciler is a helper to run the ImageChangeReconciler.
+func createOfflineImageChangeReconciler(vdb *vapi.VerticaDB) (*OfflineImageChangeReconciler, *cmds.FakePodRunner, *PodFacts) {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := MakePodFacts(k8sClient, fpr)
 	actor := MakeOfflineImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
