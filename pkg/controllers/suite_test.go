@@ -108,7 +108,8 @@ const (
 func createPods(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
-		sts := buildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
+		sch := makeSubclusterHandle(sc)
+		sts := buildStsSpec(names.GenStsName(vdb, sc), vdb, sch)
 		ExpectWithOffset(1, k8sClient.Create(ctx, sts)).Should(Succeed())
 		for j := int32(0); j < sc.Size; j++ {
 			pod := buildPod(vdb, sc, j)
