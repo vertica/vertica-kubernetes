@@ -151,7 +151,9 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 		return ctrl.Result{}, err
 	}
 
-	_, res, err := o.reconcileSts(ctx, sc)
+	sch := makeSubclusterHandle(sc)
+	nm := names.GenStsName(o.Vdb, &sch.Subcluster)
+	_, res, err := o.reconcileSts(ctx, nm, sch)
 	return res, err
 }
 
@@ -266,10 +268,9 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
-func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (bool, ctrl.Result, error) {
-	nm := names.GenStsName(o.Vdb, sc)
+func (o *ObjReconciler) reconcileSts(ctx context.Context, nm types.NamespacedName, sch *SubclusterHandle) (bool, ctrl.Result, error) {
 	curSts := &appsv1.StatefulSet{}
-	expSts := buildStsSpec(nm, o.Vdb, sc)
+	expSts := buildStsSpec(nm, o.Vdb, sch)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
@@ -286,7 +287,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// and done the uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
-	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); r.Requeue || e != nil {
+	if r, e := o.checkForOrphanAdmintoolsConfEntries(sch.Size, curSts); r.Requeue || e != nil {
 		return false, r, e
 	}
 

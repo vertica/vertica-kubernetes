@@ -15,21 +15,23 @@
 
 package controllers
 
-import vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+import (
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+)
 
 const (
-	SvcTypeLabel    = "vertica.com/svc-type"
-	SubclusterLabel = "vertica.com/subcluster"
-	// The name of the operator
-	OperatorName = "verticadb-operator"
-	// The version number of the operator
-	OperatorVersion = "1.1.0"
+	SvcTypeLabel        = "vertica.com/svc-type"
+	SubclusterNameLabel = "vertica.com/subcluster-name"
+	SubclusterTypeLabel = "vertica.com/subcluster-type"
+	OperatorName        = "verticadb-operator" // The name of the operator
+	OperatorVersion     = "1.1.0"              // The version number of the operator
 )
 
 // makeSubclusterLabels returns the labels added for the subcluster
-func makeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
+func makeSubclusterLabels(sc *SubclusterHandle) map[string]string {
 	return map[string]string{
-		SubclusterLabel: sc.Name,
+		SubclusterNameLabel: sc.Name,
+		SubclusterTypeLabel: sc.GetSubclusterType(),
 	}
 }
 
@@ -46,7 +48,7 @@ func makeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 }
 
 // makeCommonLabels returns the labels that are common to all objects.
-func makeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+func makeCommonLabels(vdb *vapi.VerticaDB, sc *SubclusterHandle) map[string]string {
 	labels := makeOperatorLabels(vdb)
 
 	// Remaining labels are for objects that are subcluster specific
@@ -62,7 +64,7 @@ func makeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]strin
 }
 
 // makeLabelsForObjects constructs the labels for a new k8s object
-func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+func makeLabelsForObject(vdb *vapi.VerticaDB, sc *SubclusterHandle) map[string]string {
 	labels := makeCommonLabels(vdb, sc)
 
 	// Add any custom labels that were in the spec.
@@ -74,7 +76,7 @@ func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]st
 }
 
 // makeLabelsForSvcObject will create the set of labels for use with service objects
-func makeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType string) map[string]string {
+func makeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *SubclusterHandle, svcType string) map[string]string {
 	labels := makeLabelsForObject(vdb, sc)
 	labels[SvcTypeLabel] = svcType
 	return labels
@@ -91,7 +93,7 @@ func makeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 }
 
 // makeSvcSelectorLabels returns the labels that are used for selectors in service objects.
-func makeSvcSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+func makeSvcSelectorLabels(vdb *vapi.VerticaDB, sc *SubclusterHandle) map[string]string {
 	// The selector will simply use the common labels for all objects.
 	return makeCommonLabels(vdb, sc)
 }

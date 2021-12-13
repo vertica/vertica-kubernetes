@@ -25,7 +25,8 @@ metadata:
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
     vertica.com/database: vdb
-    vertica.com/subcluster: cluster1
+    vertica.com/subcluster-name: cluster1
+    vertica.com/subcluster-type: primary
 status:
   phase: Running
 ---
@@ -43,7 +44,8 @@ metadata:
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
     vertica.com/database: vdb
-    vertica.com/subcluster: cluster1
+    vertica.com/subcluster-name: cluster1
+    vertica.com/subcluster-type: primary
 ---
 apiVersion: v1
 kind: Service
@@ -59,7 +61,8 @@ metadata:
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
     vertica.com/database: vdb
-    vertica.com/subcluster: cluster1
+    vertica.com/subcluster-name: cluster1
+    vertica.com/subcluster-type: primary
 ---
 apiVersion: v1
 kind: Service

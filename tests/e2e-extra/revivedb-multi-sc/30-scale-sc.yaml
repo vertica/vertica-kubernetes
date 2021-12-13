@@ -19,5 +19,7 @@ spec:
   subclusters:
     - name: main
       size: 2
+      isPrimary: true
     - name: secondary
       size: 1
+      isPrimary: false

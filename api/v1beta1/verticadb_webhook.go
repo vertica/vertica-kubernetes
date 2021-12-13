@@ -234,6 +234,14 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			"at least one subcluster name should match its old name")
 		allErrs = append(allErrs, err)
 	}
+	// validate that for existing subclusters that we don't change the
+	// primary/secondary type
+	if ok, inx := v.isSubclusterTypeIsChanging(oldObj); ok {
+		err := field.Invalid(field.NewPath("spec").Child("subclusters").Child("isPrimary"),
+			v.Spec.Subclusters[inx],
+			fmt.Sprintf("subcluster %s cannot have its isPrimary type change", v.Spec.Subclusters[inx].Name))
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
@@ -582,4 +590,23 @@ func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorLi
 	}
 
 	return allErrs
+}
+
+func (v *VerticaDB) isSubclusterTypeIsChanging(oldObj *VerticaDB) (ok bool, scInx int) {
+	// Create a map of subclusterName -> isPrimary using the old object.
+	nameToPrimaryMap := map[string]bool{}
+	for i := range oldObj.Spec.Subclusters {
+		sc := oldObj.Spec.Subclusters[i]
+		nameToPrimaryMap[sc.Name] = sc.IsPrimary
+	}
+	// Go through new object to see that IsPrimary isn't changing for any
+	// existing subcluster
+	for i := range v.Spec.Subclusters {
+		sc := v.Spec.Subclusters[i]
+		isPrimary, ok := nameToPrimaryMap[sc.Name]
+		if ok && isPrimary != sc.IsPrimary {
+			return true, i
+		}
+	}
+	return false, 0
 }
