@@ -60,7 +60,8 @@ func (s *SubclusterHandle) GetSubclusterType() string {
 }
 
 func (s *SubclusterHandle) SetIsAcceptingTraffic(svcLabels map[string]string) error {
-	// Traffic is routed to the subcluster if the labels from the serivce
+	// We determine if traffic is routed to the subcluster by checking the
+	// labels from the service.
 	s.IsAcceptingTraffic = svcLabels[SubclusterTypeLabel] == s.GetSubclusterType()
 	return nil
 }
@@ -83,11 +84,11 @@ func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet, svcMap map[string]core
 	sc.IsStandby = sts.Labels[SubclusterTypeLabel] == StandbySubclusterType
 	sc.Image = sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 
-	// Augment the SubclusterHandle with the service map.  We check if the
-	// service is currently routing traffic to the subcluster.
+	// We check the service object to see if traffic is currently being routed
+	// to the subcluster.
 	svc, ok := svcMap[sc.Name]
 	if ok {
-		sc.IsAcceptingTraffic = svc.Labels[SubclusterTypeLabel] == sc.GetSubclusterType()
+		sc.IsAcceptingTraffic = svc.Spec.Selector[SubclusterTypeLabel] == sc.GetSubclusterType()
 	}
 
 	return sc

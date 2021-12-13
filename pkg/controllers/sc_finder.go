@@ -89,17 +89,13 @@ func (m *SubclusterFinder) FindServicesMap(ctx context.Context, flags FindFlags)
 	// subcluster.
 	svcMap := map[string]corev1.Service{}
 	for i := range svcs.Items {
-		l, ok := getLabelsFromObject(&svcs.Items[i])
-		if !ok {
-			return nil, fmt.Errorf("could not find labels from k8s object %v", svcs.Items[i])
-		}
 		// Skip if object is not subcluster specific as there is no way to
 		// include it in the map.
-		_, ok = l[SubclusterNameLabel]
+		nm, ok := svcs.Items[i].Labels[SubclusterNameLabel]
 		if !ok {
 			continue
 		}
-		svcMap[l[SubclusterNameLabel]] = svcs.Items[i]
+		svcMap[nm] = svcs.Items[i]
 	}
 	return svcMap, nil
 }
