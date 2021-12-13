@@ -219,6 +219,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.ShardCount = 10
 		validateImmutableFields(vdbUpdate)
 	})
+	It("should not change isPrimary after creation", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Spec.Subclusters[0].IsPrimary = !vdbUpdate.Spec.Subclusters[0].IsPrimary
+		validateImmutableFields(vdbUpdate)
+	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.AutoRestartVertica = false
