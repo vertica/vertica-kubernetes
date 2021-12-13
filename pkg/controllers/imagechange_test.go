@@ -67,15 +67,7 @@ var _ = Describe("imagechange", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		ici := MakeImageChangeInitiator(vrec, vdb, &testImageChangeReconciler{})
-		Expect(ici.IsImageChangeNeeded(ctx)).Should(Equal(false))
+		mgr := MakeImageChangeManager(vrec, logger, vdb, func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(false))
 	})
 })
-
-type testImageChangeReconciler struct{}
-
-func (t *testImageChangeReconciler) IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool {
-	return true
-}
-
-func (t *testImageChangeReconciler) SetContinuingImageChange() {}

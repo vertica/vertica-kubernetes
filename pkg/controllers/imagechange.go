@@ -19,37 +19,42 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/status"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type ImageChangeReconciler interface {
-	IsAllowedForImageChangePolicy(vdb *vapi.VerticaDB) bool
-	SetContinuingImageChange()
+type ImageChangeManager struct {
+	VRec                  *VerticaDBReconciler
+	Vdb                   *vapi.VerticaDB
+	Log                   logr.Logger
+	Finder                SubclusterFinder
+	ContinuingImageChange bool // true if UpdateInProgress was already set upon entry
+	// Function that will check if the image policy allows for a type of upgrade (offline or online)
+	IsAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool
 }
 
-type ImageChangeInitiator struct {
-	Reconciler ImageChangeReconciler
-	Vdb        *vapi.VerticaDB
-	Finder     SubclusterFinder
-}
-
-// MakeImageChangeInitiator will construct a ImageChangeInitiator object
-func MakeImageChangeInitiator(vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB,
-	reconciler ImageChangeReconciler) *ImageChangeInitiator {
-	return &ImageChangeInitiator{
-		Reconciler: reconciler,
-		Vdb:        vdb,
-		Finder:     MakeSubclusterFinder(vdbrecon.Client, vdb),
+// MakeImageChangeManager will construct a ImageChangeManager object
+func MakeImageChangeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	isAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool) *ImageChangeManager {
+	return &ImageChangeManager{
+		VRec:                              vdbrecon,
+		Vdb:                               vdb,
+		Log:                               log,
+		Finder:                            MakeSubclusterFinder(vdbrecon.Client, vdb),
+		IsAllowedForImageChangePolicyFunc: isAllowedForImageChangePolicyFunc,
 	}
 }
 
 // IsImageChangeNeeded checks whether an image change is needed and/or in
 // progress.  It will return true for the first parm if an image change should
 // proceed.
-func (i *ImageChangeInitiator) IsImageChangeNeeded(ctx context.Context) (bool, error) {
+func (i *ImageChangeManager) IsImageChangeNeeded(ctx context.Context) (bool, error) {
 	// no-op for ScheduleOnly init policy
 	if i.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return false, nil
@@ -59,7 +64,7 @@ func (i *ImageChangeInitiator) IsImageChangeNeeded(ctx context.Context) (bool, e
 		return ok, err
 	}
 
-	if ok := i.Reconciler.IsAllowedForImageChangePolicy(i.Vdb); !ok {
+	if ok := i.IsAllowedForImageChangePolicyFunc(i.Vdb); !ok {
 		return ok, nil
 	}
 
@@ -68,7 +73,7 @@ func (i *ImageChangeInitiator) IsImageChangeNeeded(ctx context.Context) (bool, e
 
 // isImageChangeInProgress returns true if state indicates that an image change
 // is already occurring.
-func (i *ImageChangeInitiator) isImageChangeInProgress() (bool, error) {
+func (i *ImageChangeManager) isImageChangeInProgress() (bool, error) {
 	// We first check if the status condition indicates the image change is in progress
 	inx, ok := vapi.VerticaDBConditionIndexMap[vapi.ImageChangeInProgress]
 	if !ok {
@@ -76,7 +81,7 @@ func (i *ImageChangeInitiator) isImageChangeInProgress() (bool, error) {
 	}
 	if inx < len(i.Vdb.Status.Conditions) && i.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
 		// Set a flag to indicate that we are continuing an image change.  This silences the ImageChangeStarted event.
-		i.Reconciler.SetContinuingImageChange()
+		i.ContinuingImageChange = true
 		return true, nil
 	}
 	return false, nil
@@ -84,7 +89,7 @@ func (i *ImageChangeInitiator) isImageChangeInProgress() (bool, error) {
 
 // isVDBImageDifferent will check if an image change is needed based on the
 // image being different between the Vdb and any of the statefulset's.
-func (i *ImageChangeInitiator) isVDBImageDifferent(ctx context.Context) (bool, error) {
+func (i *ImageChangeManager) isVDBImageDifferent(ctx context.Context) (bool, error) {
 	stss, err := i.Finder.FindStatefulSets(ctx, FindInVdb)
 	if err != nil {
 		return false, err
@@ -97,6 +102,49 @@ func (i *ImageChangeInitiator) isVDBImageDifferent(ctx context.Context) (bool, e
 	}
 
 	return false, nil
+}
+
+// startImageChange handles condition status and event recording for start of an image change
+func (i *ImageChangeManager) startImageChange(ctx context.Context) (ctrl.Result, error) {
+	i.Log.Info("Starting image change for reconciliation iteration", "ContinuingImageChange", i.ContinuingImageChange)
+	if err := i.toggleImageChangeInProgress(ctx, corev1.ConditionTrue); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// We only log an event message the first time we begin an image change.
+	if !i.ContinuingImageChange {
+		i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.ImageChangeStart,
+			"Vertica server image change has started.  New image is '%s'", i.Vdb.Spec.Image)
+	}
+	return ctrl.Result{}, nil
+}
+
+// finishImageChange handles condition status and event recording for the end of an image change
+func (i *ImageChangeManager) finishImageChange(ctx context.Context) (ctrl.Result, error) {
+	if err := i.setImageChangeStatus(ctx, ""); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := i.toggleImageChangeInProgress(ctx, corev1.ConditionFalse); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.ImageChangeSucceeded,
+		"Vertica server image change has completed successfully")
+
+	return ctrl.Result{}, nil
+}
+
+// toggleImageChangeInProgress is a helper for updating the ImageChangeInProgress condition
+func (i *ImageChangeManager) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
+	return status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
+		vapi.VerticaDBCondition{Type: vapi.ImageChangeInProgress, Status: newVal},
+	)
+}
+
+// setImageChangeStatus is a helper to set the imageChangeStatus message.
+func (i *ImageChangeManager) setImageChangeStatus(ctx context.Context, msg string) error {
+	return status.UpdateImageChangeStatus(ctx, i.VRec.Client, i.Vdb, msg)
 }
 
 // onlineImageChangeAllowed returns true if image change must be done online

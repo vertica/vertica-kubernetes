@@ -141,13 +141,13 @@ var _ = Describe("offlineimagechange_reconcile", func() {
 
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).ShouldNot(Succeed())
-		Expect(r.ContinuingImageChange).Should(Equal(false))
+		Expect(r.Manager.ContinuingImageChange).Should(Equal(false))
 
 		// Read the latest vdb to get status conditions, etc.
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), vdb)).Should(Succeed())
 
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		Expect(r.ContinuingImageChange).Should(Equal(true))
+		Expect(r.Manager.ContinuingImageChange).Should(Equal(true))
 	})
 })
 
