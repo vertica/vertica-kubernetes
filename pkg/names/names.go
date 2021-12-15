@@ -52,11 +52,6 @@ func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Name+"-"+sc.Name)
 }
 
-// GenStandbyStsName returns the name of the standby stateful object
-func GenStandbyStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
-	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s-%s", vdb.Name, sc.Name, "standby"))
-}
-
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
 func GenCommunalCredSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.Communal.CredentialSecret)

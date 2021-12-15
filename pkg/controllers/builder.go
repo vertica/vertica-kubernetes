@@ -32,16 +32,15 @@ const SuperuserPasswordPath = "superuser-passwd"
 
 // buildExtSvc creates desired spec for the external service.
 func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.Service {
-	scHandle := makeSubclusterHandle(sc)
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForSvcObject(vdb, scHandle, "external"),
+			Labels:      makeLabelsForSvcObject(vdb, sc, "external"),
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: makeSvcSelectorLabels(vdb, scHandle),
+			Selector: makeSvcSelectorLabels(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
@@ -384,26 +383,26 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // buildStsSpec builds manifest for a subclusters statefulset
-func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, scHandle *SubclusterHandle) *appsv1.StatefulSet {
+func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForObject(vdb, scHandle),
+			Labels:      makeLabelsForObject(vdb, sc),
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: makeSvcSelectorLabels(vdb, scHandle),
+				MatchLabels: makeSvcSelectorLabels(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
-			Replicas:    &scHandle.Size,
+			Replicas:    &sc.Size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      makeLabelsForObject(vdb, scHandle),
+					Labels:      makeLabelsForObject(vdb, sc),
 					Annotations: makeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, &scHandle.Subcluster),
+				Spec: buildPodSpec(vdb, sc),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -431,13 +430,12 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, scHandle *Subclu
 // This is only here for testing purposes when we need to construct the pods ourselves.  This
 // bit is typically handled by the statefulset controller.
 func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.Pod {
-	scHandle := makeSubclusterHandle(sc)
 	nm := names.GenPodName(vdb, sc, podIndex)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForObject(vdb, scHandle),
+			Labels:      makeLabelsForObject(vdb, sc),
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc),
@@ -570,5 +568,24 @@ func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 		NodeAffinity:    a.NodeAffinity,
 		PodAffinity:     a.PodAffinity,
 		PodAntiAffinity: a.PodAntiAffinity,
+	}
+}
+
+// buildStandby creates a Standby subcluster based on a primary
+func buildStandby(sc *vapi.Subcluster) *vapi.Subcluster {
+	return &vapi.Subcluster{
+		Name:              fmt.Sprintf("%s-standby", sc.Name),
+		Size:              1,
+		IsStandby:         true,
+		StandbyParent:     sc.Name,
+		IsPrimary:         false,
+		NodeSelector:      sc.NodeSelector,
+		Affinity:          sc.Affinity,
+		PriorityClassName: sc.PriorityClassName,
+		Tolerations:       sc.Tolerations,
+		Resources:         sc.Resources,
+		ServiceType:       sc.ServiceType,
+		NodePort:          sc.NodePort,
+		ExternalIPs:       sc.ExternalIPs,
 	}
 }

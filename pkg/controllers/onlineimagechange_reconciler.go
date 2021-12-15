@@ -21,9 +21,8 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -129,24 +128,12 @@ func (o *OnlineImageChangeReconciler) createStandbySts(ctx context.Context) (ctr
 		return ctrl.Result{}, nil
 	}
 
-	// We create a standby subcluster for each primary
-	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
-	objRec := actor.(*ObjReconciler)
-	for i := range o.Vdb.Spec.Subclusters {
-		if o.Vdb.Spec.Subclusters[i].IsPrimary {
-			sch := makeStandbySubclusterHandle(&o.Vdb.Spec.Subclusters[i])
-			nm := names.GenStandbyStsName(o.Vdb, &sch.Subcluster)
-			if modifiedSts, res, err := objRec.reconcileSts(ctx, nm, sch); res.Requeue || err != nil {
-				return res, err
-			} else if modifiedSts {
-				if err2 := o.Manager.setImageChangeStatus(ctx, "Creating standby secondary subclusters"); err2 != nil {
-					return res, err2
-				}
-			}
-		}
+	if err := o.addStandbysToVdb(ctx); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // installStandbyNodes will ensure we have installed vertica on
@@ -156,6 +143,7 @@ func (o *OnlineImageChangeReconciler) installStandbyNodes(ctx context.Context) (
 		return ctrl.Result{}, nil
 	}
 
+	o.Log.Info("Starting actor to handle install of standby nodes")
 	actor := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
@@ -166,6 +154,7 @@ func (o *OnlineImageChangeReconciler) addStandbySubclusters(ctx context.Context)
 		return ctrl.Result{}, nil
 	}
 
+	o.Log.Info("Starting actor to handle db add standby subcluster")
 	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
@@ -177,6 +166,7 @@ func (o *OnlineImageChangeReconciler) addStandbyNodes(ctx context.Context) (ctrl
 		return ctrl.Result{}, nil
 	}
 
+	o.Log.Info("Starting actor to handle db add of standby nodes")
 	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
@@ -251,25 +241,12 @@ func (o *OnlineImageChangeReconciler) uninstallStandbyNodes(ctx context.Context)
 
 // deleteStandbySts will delete any standby subclusters that were created for the image change.
 func (o *OnlineImageChangeReconciler) deleteStandbySts(ctx context.Context) (ctrl.Result, error) {
-	for i := range o.Subclusters {
-		sc := o.Subclusters[i]
-		if sc.IsStandby {
-			sts := &appsv1.StatefulSet{}
-			err := o.VRec.Client.Get(ctx, names.GenStandbyStsName(o.Vdb, &sc.Subcluster), sts)
-			if err != nil {
-				if errors.IsNotFound(err) {
-					continue
-				}
-				return ctrl.Result{}, err
-			}
-			err = o.VRec.Client.Delete(ctx, sts)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
+	if err := o.removeStandbysFromVdb(ctx); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // startRollingUpgradeOfSecondarySubclusters will update the image of each of
@@ -298,4 +275,65 @@ func (o *OnlineImageChangeReconciler) skipStandbySetup() bool {
 	// the new image.  This is an indication that we have already created the
 	// standbys and done the image change.
 	return o.allPrimariesHaveNewImage()
+}
+
+// addStandbysToVdb will create standby subclusters for each primary. The
+// standbys are added to the Vdb struct inplace.
+// SPILLY - add test for this
+func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest to minimize the chance of getting a conflict error.
+		nm := types.NamespacedName{Namespace: o.Vdb.Namespace, Name: o.Vdb.Name}
+		if err := o.VRec.Client.Get(ctx, nm, o.Vdb); err != nil {
+			return err
+		}
+
+		// Figure out if any standbys need to be added
+		standbyMap := o.Vdb.GenSubclusterStandbyMap()
+		standbys := []vapi.Subcluster{}
+		for i := range o.Vdb.Spec.Subclusters {
+			sc := &o.Vdb.Spec.Subclusters[i]
+			if sc.IsPrimary {
+				_, ok := standbyMap[sc.Name]
+				if !ok {
+					standbys = append(standbys, *buildStandby(sc))
+				}
+			}
+		}
+
+		if len(standbys) > 0 {
+			if err := o.Manager.setImageChangeStatus(ctx, "Creating standby secondary subclusters"); err != nil {
+				return err
+			}
+			o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters, standbys...)
+			return o.VRec.Client.Update(ctx, o.Vdb)
+		}
+		return nil
+	})
+}
+
+// removeStandbysFromVdb will delete any standby subclusters that exist.  The
+// standbys will be removed from the Vdb struct inplace.
+func (o *OnlineImageChangeReconciler) removeStandbysFromVdb(ctx context.Context) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest to minimize the chance of getting a conflict error.
+		nm := types.NamespacedName{Namespace: o.Vdb.Namespace, Name: o.Vdb.Name}
+		if err := o.VRec.Client.Get(ctx, nm, o.Vdb); err != nil {
+			return err
+		}
+
+		scToKeep := []vapi.Subcluster{}
+		for i := range o.Vdb.Spec.Subclusters {
+			sc := &o.Vdb.Spec.Subclusters[i]
+			if !sc.IsStandby {
+				scToKeep = append(scToKeep, *sc)
+			}
+		}
+
+		if len(scToKeep) != len(o.Vdb.Spec.Subclusters) {
+			o.Vdb.Spec.Subclusters = scToKeep
+			return o.VRec.Client.Update(ctx, o.Vdb)
+		}
+		return nil
+	})
 }

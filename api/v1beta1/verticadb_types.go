@@ -499,9 +499,22 @@ type Subcluster struct {
 	// at least one primary subcluster in the database.
 	IsPrimary bool `json:"isPrimary"`
 
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// Internal state that indicates whether this is a standby subcluster for a
+	// primary.  Standby are transient subclusters that are created during an
+	// online image change.
+	IsStandby bool `json:"isStandby,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// If a standby, this is the name of the primary subcluster it is a standby
+	// for.  This is state internally managed for online image change.
+	StandbyParent string `json:"standbyParent,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A map of label keys and values to restrict Vertica node scheduling to workers
-	// with matchiing labels.
+	// with matching labels.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
@@ -814,6 +827,19 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	return scMap
 }
 
+// GenSubclusterStandbyMap will create a map of primary subclusters to their
+// standby subcluster.  It returns an empty map if there are no standbys.
+func (v *VerticaDB) GenSubclusterStandbyMap() map[string]string {
+	m := map[string]string{}
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.IsStandby {
+			m[sc.StandbyParent] = sc.Name
+		}
+	}
+	return m
+}
+
 // IsValidSubclusterName validates the subcluster name is valid.  We have rules
 // about its name because it is included in the name of the statefulset, so we
 // must adhere to the Kubernetes rules for object names.
@@ -859,4 +885,21 @@ func (v *VerticaDB) GetCommunalPath() string {
 
 func (v *VerticaDB) GetDepotPath() string {
 	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
+}
+
+const (
+	PrimarySubclusterType   = "primary"
+	StandbySubclusterType   = "standby"
+	SecondarySubclusterType = "secondary"
+)
+
+// GetType returns the type of the subcluster in string form
+func (s *Subcluster) GetType() string {
+	if s.IsPrimary {
+		if s.IsStandby {
+			return StandbySubclusterType
+		}
+		return PrimarySubclusterType
+	}
+	return SecondarySubclusterType
 }

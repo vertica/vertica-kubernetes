@@ -28,10 +28,6 @@ import (
 type SubclusterHandle struct {
 	vapi.Subcluster
 
-	// Indicates whether this subcluster is a transient standby that is created
-	// for online upgrade.
-	IsStandby bool
-
 	// The name of the image that is currently being run in this subcluster.  If
 	// the corresponding sts doesn't exist, then this will be left blank.
 	Image string
@@ -64,24 +60,6 @@ func (s *SubclusterHandle) SetIsAcceptingTraffic(svcLabels map[string]string) er
 	// labels from the service.
 	s.IsAcceptingTraffic = svcLabels[SubclusterTypeLabel] == s.GetSubclusterType()
 	return nil
-}
-
-// makeSubclusterHandle will form a SubclusterHandle from a Subcluster object
-// found in the VerticaDB
-func makeSubclusterHandle(sc *vapi.Subcluster) *SubclusterHandle {
-	return &SubclusterHandle{
-		Subcluster: *sc,
-		IsStandby:  false, // Assume not a standby since it is from VerticaDB
-	}
-}
-
-// makeStandbySubclusterHandle will form a SubclusterHandle for a standby subcluster
-func makeStandbySubclusterHandle(sc *vapi.Subcluster) *SubclusterHandle {
-	// SPILLY - need to adjust the size of the sub
-	return &SubclusterHandle{
-		Subcluster: *sc,
-		IsStandby:  true,
-	}
 }
 
 // makeSubclusterHandleFromSts will form a SubclusterHandle from a StatefulSet

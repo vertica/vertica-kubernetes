@@ -108,13 +108,18 @@ const (
 func createPods(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
-		sch := makeSubclusterHandle(sc)
-		sts := buildStsSpec(names.GenStsName(vdb, sc), vdb, sch)
-		ExpectWithOffset(1, k8sClient.Create(ctx, sts)).Should(Succeed())
+		sts := &appsv1.StatefulSet{}
+		if err := k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
+			sts = buildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
+			ExpectWithOffset(1, k8sClient.Create(ctx, sts)).Should(Succeed())
+		}
 		for j := int32(0); j < sc.Size; j++ {
-			pod := buildPod(vdb, sc, j)
-			ExpectWithOffset(1, k8sClient.Create(ctx, pod)).Should(Succeed())
-			setPodStatusHelper(ctx, 2 /* funcOffset */, names.GenPodName(vdb, sc, j), int32(i), j, podRunningState, false)
+			pod := &corev1.Pod{}
+			if err := k8sClient.Get(ctx, names.GenPodName(vdb, sc, j), pod); kerrors.IsNotFound(err) {
+				pod = buildPod(vdb, sc, j)
+				ExpectWithOffset(1, k8sClient.Create(ctx, pod)).Should(Succeed())
+				setPodStatusHelper(ctx, 2 /* funcOffset */, names.GenPodName(vdb, sc, j), int32(i), j, podRunningState, false)
+			}
 		}
 		// Update the status in the sts to reflect the number of pods we created
 		sts.Status.Replicas = sc.Size
@@ -175,8 +180,10 @@ func deletePods(ctx context.Context, vdb *vapi.VerticaDB) {
 			}
 		}
 		sts := &appsv1.StatefulSet{}
-		ExpectWithOffset(1, k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts)).Should(Succeed())
-		ExpectWithOffset(1, k8sClient.Delete(ctx, sts)).Should(Succeed())
+		err := k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts)
+		if !kerrors.IsNotFound(err) {
+			ExpectWithOffset(1, k8sClient.Delete(ctx, sts)).Should(Succeed())
+		}
 	}
 }
 

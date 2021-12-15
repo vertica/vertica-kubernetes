@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("onlineimagechange_reconcile", func() {
@@ -46,7 +47,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 	It("should create and delete standby subclusters", func() {
 		vdb := vapi.MakeVDB()
 		scs := []vapi.Subcluster{
-			{Name: "sc1-primary", IsPrimary: true, Size: 5},
+			{Name: "sc1-secondary", IsPrimary: false, Size: 5},
 			{Name: "sc2-secondary", IsPrimary: false, Size: 1},
 			{Name: "sc3-primary", IsPrimary: true, Size: 3},
 		}
@@ -55,22 +56,35 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		r := createOnlineImageChangeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.createStandbySts(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{})) // Pickup new subclusters
-		defer func() { Expect(r.deleteStandbySts(ctx)).Should(Equal(ctrl.Result{})) }()
+
+		fetchVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb))
+		defer deletePods(ctx, fetchVdb) // Add to defer again for pods in standbys
+		createPods(ctx, fetchVdb, AllPodsRunning)
+
+		fscs := fetchVdb.Spec.Subclusters
+		Expect(len(fscs)).Should(Equal(4)) // orig + 1 standbys
+		Expect(fscs[3].Name).Should(Equal("sc3-primary-standby"))
+
+		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{})) // Collect state again for new pods/sts
+
+		// Override the pod facts so that newly created pod shows up as not
+		// install and db doesn't exist.  This is needed to allow the sts
+		// deletion to occur.
+		pn := names.GenPodName(fetchVdb, &fscs[3], 0)
+		r.PFacts.Detail[pn].isInstalled = tristate.False
+		r.PFacts.Detail[pn].dbExists = tristate.False
 
 		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[0]), sts)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[1]), sts)).ShouldNot(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[2]), sts)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).Should(Succeed())
 		Expect(r.deleteStandbySts(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[0]), sts)).ShouldNot(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[1]), sts)).ShouldNot(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[2]), sts)).ShouldNot(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).ShouldNot(Succeed())
 	})
 })
 

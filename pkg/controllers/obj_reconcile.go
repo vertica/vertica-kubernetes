@@ -147,14 +147,15 @@ func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secr
 
 // checkForCreatedSubcluster handles reconciliation of one subcluster that should exist
 func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	if err := o.reconcileExtSvc(ctx, sc); err != nil {
-		return ctrl.Result{}, err
+	// Standby's never have their own service objects.  They always reuse the
+	// one we create for the primary.
+	if !sc.IsStandby {
+		if err := o.reconcileExtSvc(ctx, sc); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
-	sch := makeSubclusterHandle(sc)
-	nm := names.GenStsName(o.Vdb, &sch.Subcluster)
-	_, res, err := o.reconcileSts(ctx, nm, sch)
-	return res, err
+	return o.reconcileSts(ctx, sc)
 }
 
 // checkForDeletedSubcluster will remove any objects that were created for
@@ -268,27 +269,28 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
 // true if any create/update was done.
-func (o *ObjReconciler) reconcileSts(ctx context.Context, nm types.NamespacedName, sch *SubclusterHandle) (bool, ctrl.Result, error) {
+func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
+	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := buildStsSpec(nm, o.Vdb, sch)
+	expSts := buildStsSpec(nm, o.Vdb, sc)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		err = ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme)
 		if err != nil {
-			return false, ctrl.Result{}, err
+			return ctrl.Result{}, err
 		}
 		// Invalidate the pod facts cache since we are creating a new sts
 		o.PFacts.Invalidate()
-		return true, ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
+		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
 	}
 
 	// We can only remove pods if we have called 'admintools -t db_remove_node'
 	// and done the uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
-	if r, e := o.checkForOrphanAdmintoolsConfEntries(sch.Size, curSts); r.Requeue || e != nil {
-		return false, r, e
+	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); r.Requeue || e != nil {
+		return r, e
 	}
 
 	// To distinguish when this is called as part of the upgrade reconciler, we
@@ -307,15 +309,15 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, nm types.NamespacedNam
 	curSts.DeepCopyInto(origSts)
 	expSts.Spec.DeepCopyInto(&curSts.Spec)
 	if err := o.VRec.Client.Patch(ctx, curSts, patch); err != nil {
-		return false, ctrl.Result{}, err
+		return ctrl.Result{}, err
 	}
 	if !reflect.DeepEqual(curSts.Spec, origSts.Spec) {
 		o.Log.Info("Patching statefulset", "Name", expSts.Name, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		// Invalidate the pod facts cache since we are about to change the sts
 		o.PFacts.Invalidate()
-		return true, ctrl.Result{}, nil
+		return ctrl.Result{}, nil
 	}
-	return false, ctrl.Result{}, nil
+	return ctrl.Result{}, nil
 }
 
 // checkForOrphanAdmintoolsConfEntries will check whether it is okay to proceed
