@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -268,6 +269,19 @@ func (o *OnlineImageChangeReconciler) allPrimariesHaveNewImage() bool {
 	return true
 }
 
+// fetchOldImage will return the old image that existed prior to the image
+// change process.  If we cannot determine the old image, then the bool return
+// value returns false.
+func (o *OnlineImageChangeReconciler) fetchOldImage() (string, bool) {
+	for i := range o.Subclusters {
+		sc := o.Subclusters[i]
+		if sc.Image != o.Vdb.Spec.Image {
+			return sc.Image, true
+		}
+	}
+	return "", false
+}
+
 // skipStandbySetup will return true if we can skip creation, install and
 // scale-out of the standby subcluster
 func (o *OnlineImageChangeReconciler) skipStandbySetup() bool {
@@ -281,6 +295,12 @@ func (o *OnlineImageChangeReconciler) skipStandbySetup() bool {
 // standbys are added to the Vdb struct inplace.
 // SPILLY - add test for this
 func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) error {
+	oldImage, ok := o.fetchOldImage()
+	if !ok {
+		return fmt.Errorf("could not determine the old image name.  "+
+			"Only available image is %s", o.Vdb.Spec.Image)
+	}
+
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
 		nm := types.NamespacedName{Namespace: o.Vdb.Namespace, Name: o.Vdb.Name}
@@ -296,7 +316,7 @@ func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) erro
 			if sc.IsPrimary {
 				_, ok := standbyMap[sc.Name]
 				if !ok {
-					standbys = append(standbys, *buildStandby(sc))
+					standbys = append(standbys, *buildStandby(sc, oldImage))
 				}
 			}
 		}

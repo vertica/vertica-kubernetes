@@ -325,7 +325,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 // makeServerContainer builds the spec for the server container
 func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	return corev1.Container{
-		Image:           vdb.Spec.Image,
+		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ServerContainer,
 		Resources:       sc.Resources,
@@ -372,6 +372,16 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		cnts = append(cnts, c)
 	}
 	return cnts
+}
+
+// pickImage will pick the correct image for the subcluster to use
+func pickImage(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
+	// The ImageOverride exists to allow standby subclusters created for
+	// primaries to continue to use the old image during an online image change.
+	if sc.ImageOverride != "" {
+		return sc.ImageOverride
+	}
+	return vdb.Spec.Image
 }
 
 // getStorageClassName returns a  pointer to the StorageClass
@@ -572,12 +582,13 @@ func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 }
 
 // buildStandby creates a Standby subcluster based on a primary
-func buildStandby(sc *vapi.Subcluster) *vapi.Subcluster {
+func buildStandby(sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
 	return &vapi.Subcluster{
 		Name:              fmt.Sprintf("%s-standby", sc.Name),
 		Size:              1,
 		IsStandby:         true,
 		StandbyParent:     sc.Name,
+		ImageOverride:     imageOverride,
 		IsPrimary:         false,
 		NodeSelector:      sc.NodeSelector,
 		Affinity:          sc.Affinity,

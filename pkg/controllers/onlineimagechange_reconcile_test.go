@@ -30,6 +30,7 @@ import (
 
 var _ = Describe("onlineimagechange_reconcile", func() {
 	ctx := context.Background()
+	const OldImage = "old-image"
 	const NewImageName = "different-image"
 
 	It("should properly report if primaries don't have matching image in vdb", func() {
@@ -85,6 +86,22 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).Should(Succeed())
 		Expect(r.deleteStandbySts(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).ShouldNot(Succeed())
+	})
+
+	It("should be able to figure out what the old image was", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
+		oldImage, ok := r.fetchOldImage()
+		Expect(ok).Should(BeTrue())
+		Expect(oldImage).Should(Equal(OldImage))
 	})
 })
 

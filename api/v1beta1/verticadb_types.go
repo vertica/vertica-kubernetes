@@ -512,6 +512,13 @@ type Subcluster struct {
 	// for.  This is state internally managed for online image change.
 	StandbyParent string `json:"standbyParent,omitempty"`
 
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// This allows a different image to be used for the subcluster than the one
+	// in VerticaDB.  This is intended to be used internally by the online image
+	// change process.
+	ImageOverride string `json:"imageOverride,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A map of label keys and values to restrict Vertica node scheduling to workers
 	// with matching labels.
