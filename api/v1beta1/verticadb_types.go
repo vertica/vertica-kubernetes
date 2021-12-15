@@ -632,8 +632,12 @@ const (
 	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
-	// ImageChangeInProgress indicates if the vertica server is in the process of having its image change
-	ImageChangeInProgress VerticaDBConditionType = "ImageChangeInProgress"
+	// ImageChangeInProgress indicates if the vertica server is in the process
+	// of having its image change.  We have two additional conditions to
+	// distinguish between online and offline image change.
+	ImageChangeInProgress        VerticaDBConditionType = "ImageChangeInProgress"
+	OfflineImageChangeInProgress VerticaDBConditionType = "OfflineImageChangeInProgress"
+	OnlineImageChangeInProgress  VerticaDBConditionType = "OnlineImageChangeInProgress"
 )
 
 // Fixed index entries for each condition.
@@ -641,22 +645,28 @@ const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
 	ImageChangeInProgressIndex
+	OfflineImageChangeInProgressIndex
+	OnlineImageChangeInProgressIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
 // index in the condition array
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica:    AutoRestartVerticaIndex,
-	DBInitialized:         DBInitializedIndex,
-	ImageChangeInProgress: ImageChangeInProgressIndex,
+	AutoRestartVertica:           AutoRestartVerticaIndex,
+	DBInitialized:                DBInitializedIndex,
+	ImageChangeInProgress:        ImageChangeInProgressIndex,
+	OfflineImageChangeInProgress: OfflineImageChangeInProgressIndex,
+	OnlineImageChangeInProgress:  OnlineImageChangeInProgressIndex,
 }
 
 // VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
 // maps an index to the condition name.
 var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
-	AutoRestartVerticaIndex:    AutoRestartVertica,
-	DBInitializedIndex:         DBInitialized,
-	ImageChangeInProgressIndex: ImageChangeInProgress,
+	AutoRestartVerticaIndex:           AutoRestartVertica,
+	DBInitializedIndex:                DBInitialized,
+	ImageChangeInProgressIndex:        ImageChangeInProgress,
+	OfflineImageChangeInProgressIndex: OfflineImageChangeInProgress,
+	OnlineImageChangeInProgressIndex:  OnlineImageChangeInProgress,
 }
 
 // VerticaDBCondition defines condition for VerticaDB

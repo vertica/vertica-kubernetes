@@ -46,7 +46,7 @@ func MakeOfflineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &OfflineImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
 		Finder:  MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeImageChangeManager(vdbrecon, log, vdb, offlineImageChangeAllowed),
+		Manager: *MakeImageChangeManager(vdbrecon, log, vdb, vapi.OfflineImageChangeInProgress, offlineImageChangeAllowed),
 	}
 }
 

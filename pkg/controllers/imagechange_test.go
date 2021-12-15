@@ -70,7 +70,8 @@ var _ = Describe("imagechange", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, func(vdb *vapi.VerticaDB) bool { return true })
+		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OnlineImageChangeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(false))
 	})
 
@@ -90,7 +91,8 @@ var _ = Describe("imagechange", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, func(vdb *vapi.VerticaDB) bool { return true })
+		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(true))
 		stsChange, res, err := mgr.updateImageInStatefulSets(ctx, true, false)
 		Expect(err).Should(Succeed())

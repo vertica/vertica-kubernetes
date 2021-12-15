@@ -36,18 +36,21 @@ type ImageChangeManager struct {
 	Log                   logr.Logger
 	Finder                SubclusterFinder
 	ContinuingImageChange bool // true if UpdateInProgress was already set upon entry
+	StatusCondition       vapi.VerticaDBConditionType
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
 	IsAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool
 }
 
 // MakeImageChangeManager will construct a ImageChangeManager object
 func MakeImageChangeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	statusCondition vapi.VerticaDBConditionType,
 	isAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool) *ImageChangeManager {
 	return &ImageChangeManager{
 		VRec:                              vdbrecon,
 		Vdb:                               vdb,
 		Log:                               log,
 		Finder:                            MakeSubclusterFinder(vdbrecon.Client, vdb),
+		StatusCondition:                   statusCondition,
 		IsAllowedForImageChangePolicyFunc: isAllowedForImageChangePolicyFunc,
 	}
 }
@@ -76,9 +79,9 @@ func (i *ImageChangeManager) IsImageChangeNeeded(ctx context.Context) (bool, err
 // is already occurring.
 func (i *ImageChangeManager) isImageChangeInProgress() (bool, error) {
 	// We first check if the status condition indicates the image change is in progress
-	inx, ok := vapi.VerticaDBConditionIndexMap[vapi.ImageChangeInProgress]
+	inx, ok := vapi.VerticaDBConditionIndexMap[i.StatusCondition]
 	if !ok {
-		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", vapi.ImageChangeInProgress)
+		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", i.StatusCondition)
 	}
 	if inx < len(i.Vdb.Status.Conditions) && i.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
 		// Set a flag to indicate that we are continuing an image change.  This silences the ImageChangeStarted event.
@@ -136,10 +139,18 @@ func (i *ImageChangeManager) finishImageChange(ctx context.Context) (ctrl.Result
 	return ctrl.Result{}, nil
 }
 
-// toggleImageChangeInProgress is a helper for updating the ImageChangeInProgress condition
+// toggleImageChangeInProgress is a helper for updating the
+// ImageChangeInProgress condition's.  We set the ImageChangeInProgress plus the
+// one defined in i.StatusCondition.
 func (i *ImageChangeManager) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
-	return status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
+	err := status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
 		vapi.VerticaDBCondition{Type: vapi.ImageChangeInProgress, Status: newVal},
+	)
+	if err != nil {
+		return err
+	}
+	return status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
+		vapi.VerticaDBCondition{Type: i.StatusCondition, Status: newVal},
 	)
 }
 
