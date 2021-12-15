@@ -428,3 +428,7 @@ operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
 	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.10.1/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
+
+WAIT_TIME = 120s
+run-scorecard-tests: bundle ## Run the scorecard tests
+	$(OPERATOR_SDK) scorecard bundle --wait-time $(WAIT_TIME)
