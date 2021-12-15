@@ -59,15 +59,15 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 
 		r := createOnlineImageChangeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.createStandbySubclusters(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(r.createStandbySts(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{})) // Pickup new subclusters
-		defer func() { Expect(r.deleteStandbySubclusters(ctx)).Should(Equal(ctrl.Result{})) }()
+		defer func() { Expect(r.deleteStandbySts(ctx)).Should(Equal(ctrl.Result{})) }()
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[0]), sts)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[1]), sts)).ShouldNot(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[2]), sts)).Should(Succeed())
-		Expect(r.deleteStandbySubclusters(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(r.deleteStandbySts(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[0]), sts)).ShouldNot(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[1]), sts)).ShouldNot(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenStandbyStsName(vdb, &scs[2]), sts)).ShouldNot(Succeed())

@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -145,6 +146,55 @@ func (i *ImageChangeManager) toggleImageChangeInProgress(ctx context.Context, ne
 // setImageChangeStatus is a helper to set the imageChangeStatus message.
 func (i *ImageChangeManager) setImageChangeStatus(ctx context.Context, msg string) error {
 	return status.UpdateImageChangeStatus(ctx, i.VRec.Client, i.Vdb, msg)
+}
+
+// updateImageInStatefulSets will change the image in each of the statefulsets.
+// Caller can indicate whether primary or secondary types change.
+func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgPrimary, chgSecondary bool) (int, ctrl.Result, error) {
+	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
+
+	// We use FindExisting for the finder because we only want to work with sts
+	// that already exist.  This is necessary incase the image change was paired
+	// with a scaling operation.  The pod change due to the scaling operation
+	// doesn't take affect until after the image change.
+	stss, err := i.Finder.FindStatefulSets(ctx, FindExisting)
+	if err != nil {
+		return numStsChanged, ctrl.Result{}, err
+	}
+	for inx := range stss.Items {
+		sts := &stss.Items[inx]
+
+		if !chgPrimary && sts.Labels[SubclusterTypeLabel] == PrimarySubclusterType {
+			continue
+		}
+		if !chgSecondary && sts.Labels[SubclusterTypeLabel] == SecondarySubclusterType {
+			continue
+		}
+		if sts.Labels[SubclusterTypeLabel] == StandbySubclusterType {
+			continue
+		}
+
+		// Skip the statefulset if it already has the proper image.
+		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+			i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
+			err = i.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
+			if err != nil {
+				return numStsChanged, ctrl.Result{}, err
+			}
+			sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = i.Vdb.Spec.Image
+			// We change the update strategy to OnDelete.  We don't want the k8s
+			// sts controller to interphere and do a rolling update after the
+			// update has completed.  We don't explicitly change this back.  The
+			// ObjReconciler will handle it for us.
+			sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
+			err = i.VRec.Client.Update(ctx, sts)
+			if err != nil {
+				return numStsChanged, ctrl.Result{}, err
+			}
+			numStsChanged++
+		}
+	}
+	return numStsChanged, ctrl.Result{}, nil
 }
 
 // onlineImageChangeAllowed returns true if image change must be done online
