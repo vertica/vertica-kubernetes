@@ -84,7 +84,6 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.drainStandbys,
 		// Will cleanup the standby subclusters now that the primaries are back up.
 		o.removeStandbySubclusters,
-		o.removeStandbyNodes,
 		o.uninstallStandbyNodes,
 		o.deleteStandbySts,
 		// With the primaries back up, we can do a "rolling upgrade" style of
@@ -237,19 +236,10 @@ func (o *OnlineImageChangeReconciler) removeStandbySubclusters(ctx context.Conte
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// removeNodesOnStandybSubclusters will remove any vertica nodes from the
-// database for standby subclusters.  This is part of the tear down of the
-// standby's.
-func (o *OnlineImageChangeReconciler) removeStandbyNodes(ctx context.Context) (ctrl.Result, error) {
-	actor := MakeDBRemoveNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
-	o.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
-}
-
 // uninstallStandbyNodes will drive uninstall logic for any
 // standby nodes.
 func (o *OnlineImageChangeReconciler) uninstallStandbyNodes(ctx context.Context) (ctrl.Result, error) {
-	actor := MakeDBRemoveNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	actor := MakeUninstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
