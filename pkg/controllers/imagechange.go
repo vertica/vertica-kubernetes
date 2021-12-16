@@ -208,6 +208,45 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgP
 	return numStsChanged, ctrl.Result{}, nil
 }
 
+// deletePodsRunningOldImage will delete pods that have the old image.  It will return the
+// number of pods that were deleted.  Callers can control whether to delete pods
+// just for the primary or primary/secondary.
+func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delSecondary bool) (int, ctrl.Result, error) {
+	numPodsDeleted := 0 // Tracks the number of pods that were deleted
+
+	// We use FindExisting for the finder because we only want to work with pods
+	// that already exist.  This is necessary in case the image change was paired
+	// with a scaling operation.  The pod change due to the scaling operation
+	// doesn't take affect until after the image change.
+	pods, err := i.Finder.FindPods(ctx, FindExisting)
+	if err != nil {
+		return numPodsDeleted, ctrl.Result{}, err
+	}
+	for inx := range pods.Items {
+		pod := &pods.Items[inx]
+
+		// We aren't deleting secondary pods, so we only continue if the pod is
+		// for a primary
+		if !delSecondary {
+			scType, ok := pod.Labels[SubclusterTypeLabel]
+			if ok && scType != vapi.PrimarySubclusterType {
+				continue
+			}
+		}
+
+		// Skip the pod if it already has the proper image.
+		if pod.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
+			err = i.VRec.Client.Delete(ctx, pod)
+			if err != nil {
+				return numPodsDeleted, ctrl.Result{}, err
+			}
+			numPodsDeleted++
+		}
+	}
+	return numPodsDeleted, ctrl.Result{}, nil
+}
+
 // onlineImageChangeAllowed returns true if image change must be done online
 func onlineImageChangeAllowed(vdb *vapi.VerticaDB) bool {
 	if vdb.Spec.ImageChangePolicy == vapi.OfflineImageChange {

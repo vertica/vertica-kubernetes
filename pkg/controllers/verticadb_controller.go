@@ -109,7 +109,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		MakeOfflineImageChangeReconciler(r, log, vdb, prunner, &pfacts),
 		MakeOnlineImageChangeReconciler(r, log, vdb, prunner, &pfacts),
 		// Handles restart + re_ip of vertica
-		MakeRestartReconciler(r, log, vdb, prunner, &pfacts),
+		MakeRestartReconciler(r, log, vdb, prunner, &pfacts, true),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
 		// Handles calls to admintools -t db_remove_subcluster
 		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, &pfacts),

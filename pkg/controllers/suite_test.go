@@ -279,12 +279,14 @@ func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, f
 }
 
 func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
-	fpr *cmds.FakePodRunner, podsDownByIndex []int32) *PodFacts {
+	fpr *cmds.FakePodRunner, podsDownByIndex []int32, readOnly bool) *PodFacts {
 	pfacts := MakePodFacts(k8sClient, fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, podIndex := range podsDownByIndex {
 		downPodNm := names.GenPodName(vdb, sc, podIndex)
-		pfacts.Detail[downPodNm].upNode = false
+		// If readOnly is true, pod will be up and running.
+		pfacts.Detail[downPodNm].upNode = readOnly
+		pfacts.Detail[downPodNm].readOnly = readOnly
 	}
 	return &pfacts
 }

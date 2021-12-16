@@ -56,8 +56,6 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// SPILLY - we may need to add podfacts collection, something to force collection of pods for standbys
-
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an image change by setting condition and event recording
@@ -132,8 +130,10 @@ func (o *OnlineImageChangeReconciler) createStandbySts(ctx context.Context) (ctr
 	if err := o.addStandbysToVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
+	o.Log.Info("Adding standby's", "num subclusters", len(o.Vdb.Spec.Subclusters))
 
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -144,8 +144,8 @@ func (o *OnlineImageChangeReconciler) installStandbyNodes(ctx context.Context) (
 		return ctrl.Result{}, nil
 	}
 
-	o.Log.Info("Starting actor to handle install of standby nodes")
 	actor := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -155,8 +155,8 @@ func (o *OnlineImageChangeReconciler) addStandbySubclusters(ctx context.Context)
 		return ctrl.Result{}, nil
 	}
 
-	o.Log.Info("Starting actor to handle db add standby subcluster")
 	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -167,8 +167,8 @@ func (o *OnlineImageChangeReconciler) addStandbyNodes(ctx context.Context) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	o.Log.Info("Starting actor to handle db add of standby nodes")
 	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -193,6 +193,7 @@ func (o *OnlineImageChangeReconciler) drainPrimaries(ctx context.Context) (ctrl.
 func (o *OnlineImageChangeReconciler) changeImageInPrimaries(ctx context.Context) (ctrl.Result, error) {
 	numStsChanged, res, err := o.Manager.updateImageInStatefulSets(ctx, true, false)
 	if numStsChanged > 0 {
+		o.Log.Info("changed image in statefulsets", "num", numStsChanged)
 		o.PFacts.Invalidate()
 	}
 	return res, err
@@ -200,7 +201,19 @@ func (o *OnlineImageChangeReconciler) changeImageInPrimaries(ctx context.Context
 
 // restartPrimaries will restart all of the pods in the primary subclusters.
 func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
+	numPodsDeleted, res, err := o.Manager.deletePodsRunningOldImage(ctx, false)
+	if res.Requeue || err != nil {
+		return res, err
+	}
+	if numPodsDeleted > 0 {
+		o.Log.Info("deleted pods running old image", "num", numPodsDeleted)
+		o.PFacts.Invalidate()
+	}
+
+	const DoNotRestartReadOnly = false
+	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // rerouteClientTrafficToPrimary will update the service objects of the primary
@@ -219,25 +232,26 @@ func (o *OnlineImageChangeReconciler) drainStandbys(ctx context.Context) (ctrl.R
 
 // removeStandbySubclusters will drive subcluster removal of any standbys
 func (o *OnlineImageChangeReconciler) removeStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
-	act := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
-	return act.Reconcile(ctx, &ctrl.Request{})
+	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // removeNodesOnStandybSubclusters will remove any vertica nodes from the
 // database for standby subclusters.  This is part of the tear down of the
 // standby's.
 func (o *OnlineImageChangeReconciler) removeStandbyNodes(ctx context.Context) (ctrl.Result, error) {
-	act := MakeDBRemoveNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
-	return act.Reconcile(ctx, &ctrl.Request{})
-	// SPILLY - need subcluster add and removal.
-	// SPILLY - Also, should we have a single function for a log of these?  Maybe a setup function and teardown function?
+	actor := MakeDBRemoveNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // uninstallStandbyNodes will drive uninstall logic for any
 // standby nodes.
 func (o *OnlineImageChangeReconciler) uninstallStandbyNodes(ctx context.Context) (ctrl.Result, error) {
-	act := MakeDBRemoveNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
-	return act.Reconcile(ctx, &ctrl.Request{})
+	actor := MakeDBRemoveNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // deleteStandbySts will delete any standby subclusters that were created for the image change.
@@ -247,6 +261,7 @@ func (o *OnlineImageChangeReconciler) deleteStandbySts(ctx context.Context) (ctr
 	}
 
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -293,7 +308,6 @@ func (o *OnlineImageChangeReconciler) skipStandbySetup() bool {
 
 // addStandbysToVdb will create standby subclusters for each primary. The
 // standbys are added to the Vdb struct inplace.
-// SPILLY - add test for this
 func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) error {
 	oldImage, ok := o.fetchOldImage()
 	if !ok {
@@ -356,4 +370,8 @@ func (o *OnlineImageChangeReconciler) removeStandbysFromVdb(ctx context.Context)
 		}
 		return nil
 	})
+}
+
+func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) {
+	o.Log.Info("starting actor for online image change", "name", fmt.Sprintf("%T", actor))
 }
