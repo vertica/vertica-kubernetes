@@ -508,8 +508,9 @@ type Subcluster struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// If a standby, this is the name of the primary subcluster it is a standby
-	// for.  This is state internally managed for online image change.
+	// If this is a standby subcluster, this is the name of the primary
+	// subcluster it was created for.  This is state internally managed for an
+	// online image change.
 	StandbyParent string `json:"standbyParent,omitempty"`
 
 	// +kubebuilder:validation:Optional
