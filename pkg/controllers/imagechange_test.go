@@ -21,7 +21,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var _ = Describe("imagechange", func() {
@@ -67,7 +71,81 @@ var _ = Describe("imagechange", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, func(vdb *vapi.VerticaDB) bool { return true })
+		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OnlineImageChangeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(false))
+	})
+
+	It("should change the image of just the primaries or just secondaries", func() {
+		const OldImage = "old-image"
+		const NewImage1 = "new-image-1"
+		const NewImage2 = "new-image-2"
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Image = OldImage
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 2, IsPrimary: true},
+			{Name: "sc2", Size: 3, IsPrimary: false},
+		}
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		vdb.Spec.Image = NewImage1
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+
+		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(true))
+		stsChange, res, err := mgr.updateImageInStatefulSets(ctx, true, false)
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(stsChange).Should(Equal(1))
+
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage1))
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(OldImage))
+
+		vdb.Spec.Image = NewImage2
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		stsChange, res, err = mgr.updateImageInStatefulSets(ctx, false, true)
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(stsChange).Should(Equal(1))
+
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage1))
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage2))
+	})
+
+	It("should delete pods of primaries only", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 1, IsPrimary: true},
+			{Name: "sc2", Size: 1, IsPrimary: false},
+		}
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		vdb.Spec.Image = "new-image" // Change image to force pod deletion
+
+		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		numPodsDeleted, res, err := mgr.deletePodsRunningOldImage(ctx, false) // pods from primaries only
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(numPodsDeleted).Should(Equal(1))
+
+		pod := &corev1.Pod{}
+		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0), pod)).ShouldNot(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0), pod)).Should(Succeed())
+
+		numPodsDeleted, res, err = mgr.deletePodsRunningOldImage(ctx, true) // pods from secondary and primaries
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(numPodsDeleted).Should(Equal(1))
+
+		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0), pod)).ShouldNot(Succeed())
 	})
 })

@@ -499,9 +499,30 @@ type Subcluster struct {
 	// at least one primary subcluster in the database.
 	IsPrimary bool `json:"isPrimary"`
 
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// Internal state that indicates whether this is a standby subcluster for a
+	// primary.  Standby are transient subclusters that are created during an
+	// online image change.
+	IsStandby bool `json:"isStandby,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// If this is a standby subcluster, this is the name of the primary
+	// subcluster it was created for.  This is state internally managed for an
+	// online image change.
+	StandbyParent string `json:"standbyParent,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// This allows a different image to be used for the subcluster than the one
+	// in VerticaDB.  This is intended to be used internally by the online image
+	// change process.
+	ImageOverride string `json:"imageOverride,omitempty"`
+
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A map of label keys and values to restrict Vertica node scheduling to workers
-	// with matchiing labels.
+	// with matching labels.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
@@ -619,8 +640,12 @@ const (
 	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
-	// ImageChangeInProgress indicates if the vertica server is in the process of having its image change
-	ImageChangeInProgress VerticaDBConditionType = "ImageChangeInProgress"
+	// ImageChangeInProgress indicates if the vertica server is in the process
+	// of having its image change.  We have two additional conditions to
+	// distinguish between online and offline image change.
+	ImageChangeInProgress        VerticaDBConditionType = "ImageChangeInProgress"
+	OfflineImageChangeInProgress VerticaDBConditionType = "OfflineImageChangeInProgress"
+	OnlineImageChangeInProgress  VerticaDBConditionType = "OnlineImageChangeInProgress"
 )
 
 // Fixed index entries for each condition.
@@ -628,22 +653,28 @@ const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
 	ImageChangeInProgressIndex
+	OfflineImageChangeInProgressIndex
+	OnlineImageChangeInProgressIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
 // index in the condition array
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica:    AutoRestartVerticaIndex,
-	DBInitialized:         DBInitializedIndex,
-	ImageChangeInProgress: ImageChangeInProgressIndex,
+	AutoRestartVertica:           AutoRestartVerticaIndex,
+	DBInitialized:                DBInitializedIndex,
+	ImageChangeInProgress:        ImageChangeInProgressIndex,
+	OfflineImageChangeInProgress: OfflineImageChangeInProgressIndex,
+	OnlineImageChangeInProgress:  OnlineImageChangeInProgressIndex,
 }
 
 // VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
 // maps an index to the condition name.
 var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
-	AutoRestartVerticaIndex:    AutoRestartVertica,
-	DBInitializedIndex:         DBInitialized,
-	ImageChangeInProgressIndex: ImageChangeInProgress,
+	AutoRestartVerticaIndex:           AutoRestartVertica,
+	DBInitializedIndex:                DBInitialized,
+	ImageChangeInProgressIndex:        ImageChangeInProgress,
+	OfflineImageChangeInProgressIndex: OfflineImageChangeInProgress,
+	OnlineImageChangeInProgressIndex:  OnlineImageChangeInProgress,
 }
 
 // VerticaDBCondition defines condition for VerticaDB
@@ -798,7 +829,7 @@ func MakeVDB() *VerticaDB {
 			DBName:     "db",
 			ShardCount: 12,
 			Subclusters: []Subcluster{
-				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP},
+				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, IsPrimary: true},
 			},
 		},
 	}
@@ -812,6 +843,19 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 		scMap[sc.Name] = sc
 	}
 	return scMap
+}
+
+// GenSubclusterStandbyMap will create a map of primary subclusters to their
+// standby subcluster.  It returns an empty map if there are no standbys.
+func (v *VerticaDB) GenSubclusterStandbyMap() map[string]string {
+	m := map[string]string{}
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.IsStandby {
+			m[sc.StandbyParent] = sc.Name
+		}
+	}
+	return m
 }
 
 // IsValidSubclusterName validates the subcluster name is valid.  We have rules
@@ -859,4 +903,21 @@ func (v *VerticaDB) GetCommunalPath() string {
 
 func (v *VerticaDB) GetDepotPath() string {
 	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
+}
+
+const (
+	PrimarySubclusterType   = "primary"
+	StandbySubclusterType   = "standby"
+	SecondarySubclusterType = "secondary"
+)
+
+// GetType returns the type of the subcluster in string form
+func (s *Subcluster) GetType() string {
+	if s.IsPrimary {
+		if s.IsStandby {
+			return StandbySubclusterType
+		}
+		return PrimarySubclusterType
+	}
+	return SecondarySubclusterType
 }

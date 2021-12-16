@@ -25,7 +25,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,7 +46,7 @@ func MakeOfflineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &OfflineImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
 		Finder:  MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeImageChangeManager(vdbrecon, log, vdb, offlineImageChangeAllowed),
+		Manager: *MakeImageChangeManager(vdbrecon, log, vdb, vapi.OfflineImageChangeInProgress, offlineImageChangeAllowed),
 	}
 }
 
@@ -140,37 +139,11 @@ func (o *OfflineImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Re
 // Since there will be processing after to delete the pods so that they come up
 // with the new image.
 func (o *OfflineImageChangeReconciler) updateImageInStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	// We use FindExisting for the finder because we only want to work with sts
-	// that already exist.  This is necessary incase the image change was paired
-	// with a scaling operation.  The pod change due to the scaling operation
-	// doesn't take affect until after the image change.
-	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
-	if err != nil {
-		return ctrl.Result{}, err
+	numStsChanged, res, err := o.Manager.updateImageInStatefulSets(ctx, true, true)
+	if numStsChanged > 0 {
+		o.PFacts.Invalidate()
 	}
-	for i := range stss.Items {
-		sts := &stss.Items[i]
-		// Skip the statefulset if it already has the proper image.
-		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != o.Vdb.Spec.Image {
-			o.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
-			err = o.Manager.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = o.Vdb.Spec.Image
-			// We change the update strategy to OnDelete.  We don't want the k8s
-			// sts controller to interphere and do a rolling update after the
-			// update has completed.  We don't explicitly change this back.  The
-			// ObjReconciler will handle it for us.
-			sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
-			err = o.VRec.Client.Update(ctx, sts)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			o.PFacts.Invalidate()
-		}
-	}
-	return ctrl.Result{}, nil
+	return res, err
 }
 
 // deletePods will delete pods that are running the old image.  The assumption
@@ -178,27 +151,11 @@ func (o *OfflineImageChangeReconciler) updateImageInStatefulSets(ctx context.Con
 // the sts is OnDelete.  Deleting the pods ensures they get rescheduled with the
 // new image.
 func (o *OfflineImageChangeReconciler) deletePods(ctx context.Context) (ctrl.Result, error) {
-	// We use FindExisting for the finder because we only want to work with pods
-	// that already exist.  This is necessary in case the image change was paired
-	// with a scaling operation.  The pod change due to the scaling operation
-	// doesn't take affect until after the image change.
-	pods, err := o.Finder.FindPods(ctx, FindExisting)
-	if err != nil {
-		return ctrl.Result{}, err
+	numPodsDeleted, res, err := o.Manager.deletePodsRunningOldImage(ctx, true)
+	if numPodsDeleted > 0 {
+		o.PFacts.Invalidate()
 	}
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		// Skip the pod if it already has the proper image.
-		if pod.Spec.Containers[names.ServerContainerIndex].Image != o.Vdb.Spec.Image {
-			o.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
-			err = o.VRec.Client.Delete(ctx, pod)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			o.PFacts.Invalidate()
-		}
-	}
-	return ctrl.Result{}, nil
+	return res, err
 }
 
 // checkForNewPods will check to ensure at least one pod exists with the new image.
@@ -235,7 +192,7 @@ func (o *OfflineImageChangeReconciler) restartCluster(ctx context.Context) (ctrl
 	}
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
-	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

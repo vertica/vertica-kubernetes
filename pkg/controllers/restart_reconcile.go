@@ -48,18 +48,20 @@ type verticaIPLookup map[string]string
 
 // RestartReconciler will ensure each pod has a running vertica process
 type RestartReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	ATPod   types.NamespacedName // The pod that we run admintools from
+	VRec            *VerticaDBReconciler
+	Log             logr.Logger
+	Vdb             *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner         cmds.PodRunner
+	PFacts          *PodFacts
+	ATPod           types.NamespacedName // The pod that we run admintools from
+	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
 func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
-	return &RestartReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, restartReadOnly bool) ReconcileActor {
+	return &RestartReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
+		RestartReadOnly: restartReadOnly}
 }
 
 // Reconcile will ensure each pod is UP in the vertica sense.
@@ -119,7 +121,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// read-only nodes.  This is needed before re_ip, as re_ip can only work if
 	// the database isn't running, which would be case if there are read-only
 	// nodes.
-	downPods := r.PFacts.findRestartablePods()
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly)
 	if res, err := r.killOldProcesses(ctx, downPods); res.Requeue || err != nil {
 		return res, err
 	}
@@ -146,7 +148,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// Find any pods that need to be restarted. These only include running pods.
 	// If there is a pod that is not yet running, we leave them off for now.
 	// When it does start running there will be another reconciliation cycle.
-	downPods := r.PFacts.findRestartablePods()
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly)
 	if len(downPods) > 0 {
 		if ok := r.setATPod(); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")

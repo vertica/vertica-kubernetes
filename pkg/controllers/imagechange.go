@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -35,18 +36,21 @@ type ImageChangeManager struct {
 	Log                   logr.Logger
 	Finder                SubclusterFinder
 	ContinuingImageChange bool // true if UpdateInProgress was already set upon entry
+	StatusCondition       vapi.VerticaDBConditionType
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
 	IsAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool
 }
 
 // MakeImageChangeManager will construct a ImageChangeManager object
 func MakeImageChangeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	statusCondition vapi.VerticaDBConditionType,
 	isAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool) *ImageChangeManager {
 	return &ImageChangeManager{
 		VRec:                              vdbrecon,
 		Vdb:                               vdb,
 		Log:                               log,
 		Finder:                            MakeSubclusterFinder(vdbrecon.Client, vdb),
+		StatusCondition:                   statusCondition,
 		IsAllowedForImageChangePolicyFunc: isAllowedForImageChangePolicyFunc,
 	}
 }
@@ -75,9 +79,9 @@ func (i *ImageChangeManager) IsImageChangeNeeded(ctx context.Context) (bool, err
 // is already occurring.
 func (i *ImageChangeManager) isImageChangeInProgress() (bool, error) {
 	// We first check if the status condition indicates the image change is in progress
-	inx, ok := vapi.VerticaDBConditionIndexMap[vapi.ImageChangeInProgress]
+	inx, ok := vapi.VerticaDBConditionIndexMap[i.StatusCondition]
 	if !ok {
-		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", vapi.ImageChangeInProgress)
+		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", i.StatusCondition)
 	}
 	if inx < len(i.Vdb.Status.Conditions) && i.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
 		// Set a flag to indicate that we are continuing an image change.  This silences the ImageChangeStarted event.
@@ -135,16 +139,112 @@ func (i *ImageChangeManager) finishImageChange(ctx context.Context) (ctrl.Result
 	return ctrl.Result{}, nil
 }
 
-// toggleImageChangeInProgress is a helper for updating the ImageChangeInProgress condition
+// toggleImageChangeInProgress is a helper for updating the
+// ImageChangeInProgress condition's.  We set the ImageChangeInProgress plus the
+// one defined in i.StatusCondition.
 func (i *ImageChangeManager) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
-	return status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
+	err := status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
 		vapi.VerticaDBCondition{Type: vapi.ImageChangeInProgress, Status: newVal},
+	)
+	if err != nil {
+		return err
+	}
+	return status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
+		vapi.VerticaDBCondition{Type: i.StatusCondition, Status: newVal},
 	)
 }
 
 // setImageChangeStatus is a helper to set the imageChangeStatus message.
 func (i *ImageChangeManager) setImageChangeStatus(ctx context.Context, msg string) error {
 	return status.UpdateImageChangeStatus(ctx, i.VRec.Client, i.Vdb, msg)
+}
+
+// updateImageInStatefulSets will change the image in each of the statefulsets.
+// Caller can indicate whether primary or secondary types change.
+func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgPrimary, chgSecondary bool) (int, ctrl.Result, error) {
+	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
+
+	// We use FindExisting for the finder because we only want to work with sts
+	// that already exist.  This is necessary incase the image change was paired
+	// with a scaling operation.  The pod change due to the scaling operation
+	// doesn't take affect until after the image change.
+	stss, err := i.Finder.FindStatefulSets(ctx, FindExisting)
+	if err != nil {
+		return numStsChanged, ctrl.Result{}, err
+	}
+	for inx := range stss.Items {
+		sts := &stss.Items[inx]
+
+		if !chgPrimary && sts.Labels[SubclusterTypeLabel] == PrimarySubclusterType {
+			continue
+		}
+		if !chgSecondary && sts.Labels[SubclusterTypeLabel] == SecondarySubclusterType {
+			continue
+		}
+		if sts.Labels[SubclusterTypeLabel] == StandbySubclusterType {
+			continue
+		}
+
+		// Skip the statefulset if it already has the proper image.
+		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+			i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
+			err = i.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
+			if err != nil {
+				return numStsChanged, ctrl.Result{}, err
+			}
+			sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = i.Vdb.Spec.Image
+			// We change the update strategy to OnDelete.  We don't want the k8s
+			// sts controller to interphere and do a rolling update after the
+			// update has completed.  We don't explicitly change this back.  The
+			// ObjReconciler will handle it for us.
+			sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
+			err = i.VRec.Client.Update(ctx, sts)
+			if err != nil {
+				return numStsChanged, ctrl.Result{}, err
+			}
+			numStsChanged++
+		}
+	}
+	return numStsChanged, ctrl.Result{}, nil
+}
+
+// deletePodsRunningOldImage will delete pods that have the old image.  It will return the
+// number of pods that were deleted.  Callers can control whether to delete pods
+// just for the primary or primary/secondary.
+func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delSecondary bool) (int, ctrl.Result, error) {
+	numPodsDeleted := 0 // Tracks the number of pods that were deleted
+
+	// We use FindExisting for the finder because we only want to work with pods
+	// that already exist.  This is necessary in case the image change was paired
+	// with a scaling operation.  The pod change due to the scaling operation
+	// doesn't take affect until after the image change.
+	pods, err := i.Finder.FindPods(ctx, FindExisting)
+	if err != nil {
+		return numPodsDeleted, ctrl.Result{}, err
+	}
+	for inx := range pods.Items {
+		pod := &pods.Items[inx]
+
+		// We aren't deleting secondary pods, so we only continue if the pod is
+		// for a primary
+		if !delSecondary {
+			scType, ok := pod.Labels[SubclusterTypeLabel]
+			if ok && scType != vapi.PrimarySubclusterType {
+				continue
+			}
+		}
+
+		// Skip the pod if it already has the proper image.
+		if pod.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
+			err = i.VRec.Client.Delete(ctx, pod)
+			if err != nil {
+				return numPodsDeleted, ctrl.Result{}, err
+			}
+			numPodsDeleted++
+		}
+	}
+	return numPodsDeleted, ctrl.Result{}, nil
 }
 
 // onlineImageChangeAllowed returns true if image change must be done online
