@@ -174,7 +174,13 @@ func (o *OnlineImageChangeReconciler) addStandbyNodes(ctx context.Context) (ctrl
 // rerouteClientTrafficToStandby will update the service objects for each of the
 // primary subclusters so that they are routed to the standby subclusters.
 func (o *OnlineImageChangeReconciler) rerouteClientTrafficToStandby(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
+	if o.skipStandbySetup() {
+		return ctrl.Result{}, nil
+	}
+
+	o.Log.Info("starting client traffic routing to standby")
+	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsStandby })
+	return ctrl.Result{}, err
 }
 
 // drainPrimaries will only succeed if the primary subclusters are already down
@@ -219,7 +225,9 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 // subclusters so that traffic is not routed to the standby's anymore but back
 // to te primary subclusters.
 func (o *OnlineImageChangeReconciler) rerouteClientTrafficToPrimary(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
+	o.Log.Info("starting client traffic routing to primary")
+	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsPrimary })
+	return ctrl.Result{}, err
 }
 
 // drainStandbys will wait for all active connections in the standby subclusters
@@ -313,14 +321,15 @@ func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) erro
 		}
 
 		// Figure out if any standbys need to be added
-		standbyMap := o.Vdb.GenSubclusterStandbyMap()
+		scMap := o.Vdb.GenSubclusterMap()
 		standbys := []vapi.Subcluster{}
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
 			if sc.IsPrimary {
-				_, ok := standbyMap[sc.Name]
+				standby := buildStandby(sc, oldImage)
+				_, ok := scMap[standby.Name]
 				if !ok {
-					standbys = append(standbys, *buildStandby(sc, oldImage))
+					standbys = append(standbys, *standby)
 				}
 			}
 		}
@@ -364,4 +373,23 @@ func (o *OnlineImageChangeReconciler) removeStandbysFromVdb(ctx context.Context)
 
 func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) {
 	o.Log.Info("starting actor for online image change", "name", fmt.Sprintf("%T", actor))
+}
+
+// routeClientTraffic will update service objects to route to either the primary
+// or standby.  The subcluster picked is determined by the scCheckFunc the
+// caller provides.  If it returns true for a given subcluster, traffic will be
+// routed to that.
+func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context, scCheckFunc func(sc *vapi.Subcluster) bool) error {
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	objRec := actor.(*ObjReconciler)
+
+	for i := range o.Vdb.Spec.Subclusters {
+		sc := &o.Vdb.Spec.Subclusters[i]
+		if scCheckFunc(sc) {
+			if err := objRec.reconcileExtSvc(ctx, sc); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

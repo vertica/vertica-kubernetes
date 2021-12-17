@@ -238,6 +238,13 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, sc *vapi.Subcluster)
 		updated = true
 		curSvc.Spec.ExternalIPs = expSvc.Spec.ExternalIPs
 	}
+
+	// Check if the selectors are changing
+	if !reflect.DeepEqual(expSvc.Spec.Selector, curSvc.Spec.Selector) {
+		curSvc.Spec.Selector = expSvc.Spec.Selector
+		updated = true
+	}
+
 	if updated {
 		o.Log.Info("updating svc", "Name", svcName)
 		return o.VRec.Client.Update(ctx, curSvc)

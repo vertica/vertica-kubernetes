@@ -39,7 +39,7 @@ func GenNamespacedName(vdb *vapi.VerticaDB, name string) types.NamespacedName {
 
 // GenExtSvcName returns the name of the external service object.
 func GenExtSvcName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
-	return GenNamespacedName(vdb, vdb.Name+"-"+sc.Name)
+	return GenNamespacedName(vdb, vdb.Name+"-"+sc.GetServiceName())
 }
 
 // GenHlSvcName returns the name of the headless service object.

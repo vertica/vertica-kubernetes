@@ -587,7 +587,6 @@ func buildStandby(sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
 		Name:              fmt.Sprintf("%s-standby", sc.Name),
 		Size:              1,
 		IsStandby:         true,
-		StandbyParent:     sc.Name,
 		ImageOverride:     imageOverride,
 		IsPrimary:         false,
 		NodeSelector:      sc.NodeSelector,
@@ -596,6 +595,7 @@ func buildStandby(sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
 		Tolerations:       sc.Tolerations,
 		Resources:         sc.Resources,
 		ServiceType:       sc.ServiceType,
+		ServiceName:       sc.GetServiceName(),
 		NodePort:          sc.NodePort,
 		ExternalIPs:       sc.ExternalIPs,
 	}

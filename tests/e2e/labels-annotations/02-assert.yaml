@@ -27,6 +27,8 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
+    vertica.com/subcluster-svc: cluster1
+    vertica.com/subcluster-standby: "false"
 status:
   phase: Running
 ---
@@ -46,6 +48,8 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
+    vertica.com/subcluster-svc: cluster1
+    vertica.com/subcluster-standby: "false"
 ---
 apiVersion: v1
 kind: Service
@@ -63,6 +67,8 @@ metadata:
     vertica.com/database: vdb
     vertica.com/subcluster-name: cluster1
     vertica.com/subcluster-type: primary
+    vertica.com/subcluster-svc: cluster1
+    vertica.com/subcluster-standby: "false"
 ---
 apiVersion: v1
 kind: Service
@@ -73,8 +79,4 @@ metadata:
   labels:
     app: kuttl
     ver: 0.7.2
-    app.kubernetes.io/component: database
     app.kubernetes.io/instance: vdb-label-ant
-    app.kubernetes.io/managed-by: verticadb-operator
-    app.kubernetes.io/name: vertica
-    vertica.com/database: vdb

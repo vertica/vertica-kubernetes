@@ -36,19 +36,4 @@ var _ = Describe("verticadb_types", func() {
 		vdb.Spec.Communal.IncludeUIDInPath = false
 		Expect(vdb.GetCommunalPath()).ShouldNot(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
-
-	It("should generate map of standbys", func() {
-		vdb := MakeVDB()
-		vdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", IsPrimary: true},
-			{Name: "sc1-standby", IsPrimary: false, IsStandby: true, StandbyParent: "sc1"},
-			{Name: "sc2", IsPrimary: false},
-			{Name: "sc3", IsPrimary: true},
-			{Name: "sc3-standby", IsPrimary: false, IsStandby: true, StandbyParent: "sc3"},
-		}
-		m := vdb.GenSubclusterStandbyMap()
-		Expect(m["sc1"]).Should(Equal("sc1-standby"))
-		Expect(m["sc3"]).Should(Equal("sc3-standby"))
-		Expect(m["sc2"]).Should(Equal(""))
-	})
 })

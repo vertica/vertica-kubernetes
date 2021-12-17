@@ -18,7 +18,6 @@ package controllers
 import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // SubclusterHandle is a runtime object that has meta-data for a subcluster.  It
@@ -31,11 +30,6 @@ type SubclusterHandle struct {
 	// The name of the image that is currently being run in this subcluster.  If
 	// the corresponding sts doesn't exist, then this will be left blank.
 	Image string
-
-	// Indicates whether a service object is currently routing traffic to this
-	// subcluster.  When dealing with primary and standby subclusters pairs,
-	// only one will have traffic routed to it.
-	IsAcceptingTraffic bool
 }
 
 const (
@@ -55,28 +49,13 @@ func (s *SubclusterHandle) GetSubclusterType() string {
 	return SecondarySubclusterType
 }
 
-func (s *SubclusterHandle) SetIsAcceptingTraffic(svcLabels map[string]string) error {
-	// We determine if traffic is routed to the subcluster by checking the
-	// labels from the service.
-	s.IsAcceptingTraffic = svcLabels[SubclusterTypeLabel] == s.GetSubclusterType()
-	return nil
-}
-
 // makeSubclusterHandleFromSts will form a SubclusterHandle from a StatefulSet
 // object.
-func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet, svcMap map[string]corev1.Service) *SubclusterHandle {
+func makeSubclusterHandleFromSts(sts *appsv1.StatefulSet) *SubclusterHandle {
 	sc := &SubclusterHandle{}
 	sc.Name = sts.Labels[SubclusterNameLabel]
 	sc.IsPrimary = sts.Labels[SubclusterTypeLabel] == PrimarySubclusterType
 	sc.IsStandby = sts.Labels[SubclusterTypeLabel] == StandbySubclusterType
 	sc.Image = sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
-
-	// We check the service object to see if traffic is currently being routed
-	// to the subcluster.
-	svc, ok := svcMap[sc.Name]
-	if ok {
-		sc.IsAcceptingTraffic = svc.Spec.Selector[SubclusterTypeLabel] == sc.GetSubclusterType()
-	}
-
 	return sc
 }

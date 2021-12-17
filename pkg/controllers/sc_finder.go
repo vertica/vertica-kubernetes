@@ -78,28 +78,6 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 	return svcs, nil
 }
 
-// FindServicesMap will find services for subclusters.  It returns the output in
-// a map with the subcluster name as the key to the map.
-func (m *SubclusterFinder) FindServicesMap(ctx context.Context, flags FindFlags) (map[string]corev1.Service, error) {
-	svcs, err := m.FindServices(ctx, flags)
-	if err != nil {
-		return nil, err
-	}
-	// Convert the found services to a map, where the key is the name of the
-	// subcluster.
-	svcMap := map[string]corev1.Service{}
-	for i := range svcs.Items {
-		// Skip if object is not subcluster specific as there is no way to
-		// include it in the map.
-		nm, ok := svcs.Items[i].Labels[SubclusterNameLabel]
-		if !ok {
-			continue
-		}
-		svcMap[nm] = svcs.Items[i]
-	}
-	return svcMap, nil
-}
-
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
 func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*corev1.PodList, error) {
@@ -153,13 +131,8 @@ func (m *SubclusterFinder) FindSubclusterHandles(ctx context.Context, flags Find
 		return nil, err
 	}
 
-	svcMap, err := m.FindServicesMap(ctx, flags)
-	if err != nil {
-		return nil, err
-	}
-
 	for i := range stss.Items {
-		subclusters = append(subclusters, makeSubclusterHandleFromSts(&stss.Items[i], svcMap))
+		subclusters = append(subclusters, makeSubclusterHandleFromSts(&stss.Items[i]))
 	}
 
 	return subclusters, nil

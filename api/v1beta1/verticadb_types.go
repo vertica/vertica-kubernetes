@@ -508,13 +508,6 @@ type Subcluster struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// If this is a standby subcluster, this is the name of the primary
-	// subcluster it was created for.  This is state internally managed for an
-	// online image change.
-	StandbyParent string `json:"standbyParent,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// This allows a different image to be used for the subcluster than the one
 	// in VerticaDB.  This is intended to be used internally by the online image
 	// change process.
@@ -561,6 +554,17 @@ type Subcluster struct {
 	// config knobs to further config it. These other knobs follow this one.
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Identifies the name of the service object that will serve this
+	// subcluster.  If multiple subclusters share the same service name then
+	// they all share the same service object.  This allows for a single service
+	// object to round robin between multiple subclusters.  If this is left
+	// blank, a service object matching the subcluster name is used.  The actual
+	// name of the service object is always prefixed with the name of the owning
+	// VerticaDB.
+	ServiceName string `json:"serviceName,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
@@ -845,19 +849,6 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	return scMap
 }
 
-// GenSubclusterStandbyMap will create a map of primary subclusters to their
-// standby subcluster.  It returns an empty map if there are no standbys.
-func (v *VerticaDB) GenSubclusterStandbyMap() map[string]string {
-	m := map[string]string{}
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		if sc.IsStandby {
-			m[sc.StandbyParent] = sc.Name
-		}
-	}
-	return m
-}
-
 // IsValidSubclusterName validates the subcluster name is valid.  We have rules
 // about its name because it is included in the name of the statefulset, so we
 // must adhere to the Kubernetes rules for object names.
@@ -914,10 +905,19 @@ const (
 // GetType returns the type of the subcluster in string form
 func (s *Subcluster) GetType() string {
 	if s.IsPrimary {
-		if s.IsStandby {
-			return StandbySubclusterType
-		}
 		return PrimarySubclusterType
 	}
+	if s.IsStandby {
+		return StandbySubclusterType
+	}
 	return SecondarySubclusterType
+}
+
+// GetServiceName returns the name of the service object that route traffic to
+// this subcluster.
+func (s *Subcluster) GetServiceName() string {
+	if s.ServiceName == "" {
+		return s.Name
+	}
+	return s.ServiceName
 }
