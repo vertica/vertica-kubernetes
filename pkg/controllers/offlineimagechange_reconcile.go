@@ -151,11 +151,11 @@ func (o *OfflineImageChangeReconciler) updateImageInStatefulSets(ctx context.Con
 // the sts is OnDelete.  Deleting the pods ensures they get rescheduled with the
 // new image.
 func (o *OfflineImageChangeReconciler) deletePods(ctx context.Context) (ctrl.Result, error) {
-	numPodsDeleted, res, err := o.Manager.deletePodsRunningOldImage(ctx, true)
+	numPodsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, true, "")
 	if numPodsDeleted > 0 {
 		o.PFacts.Invalidate()
 	}
-	return res, err
+	return ctrl.Result{}, err
 }
 
 // checkForNewPods will check to ensure at least one pod exists with the new image.

@@ -190,20 +190,10 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgP
 			continue
 		}
 
-		// Skip the statefulset if it already has the proper image.
-		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
-			i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
+		if stsUpdated, err := i.updateImageInStatefulSet(ctx, sts); err != nil {
+			return numStsChanged, ctrl.Result{}, err
+		} else if stsUpdated {
 			err = i.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
-			if err != nil {
-				return numStsChanged, ctrl.Result{}, err
-			}
-			sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = i.Vdb.Spec.Image
-			// We change the update strategy to OnDelete.  We don't want the k8s
-			// sts controller to interphere and do a rolling update after the
-			// update has completed.  We don't explicitly change this back.  The
-			// ObjReconciler will handle it for us.
-			sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
-			err = i.VRec.Client.Update(ctx, sts)
 			if err != nil {
 				return numStsChanged, ctrl.Result{}, err
 			}
@@ -213,10 +203,29 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgP
 	return numStsChanged, ctrl.Result{}, nil
 }
 
+func (i *ImageChangeManager) updateImageInStatefulSet(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
+	stsUpdated := false
+	// Skip the statefulset if it already has the proper image.
+	if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+		i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
+		sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = i.Vdb.Spec.Image
+		// We change the update strategy to OnDelete.  We don't want the k8s
+		// sts controller to interphere and do a rolling update after the
+		// update has completed.  We don't explicitly change this back.  The
+		// ObjReconciler will handle it for us.
+		sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
+		if err := i.VRec.Client.Update(ctx, sts); err != nil {
+			return false, err
+		}
+		stsUpdated = true
+	}
+	return stsUpdated, nil
+}
+
 // deletePodsRunningOldImage will delete pods that have the old image.  It will return the
 // number of pods that were deleted.  Callers can control whether to delete pods
 // just for the primary or primary/secondary.
-func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delSecondary bool) (int, ctrl.Result, error) {
+func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delSecondary bool, scName string) (int, error) {
 	numPodsDeleted := 0 // Tracks the number of pods that were deleted
 
 	// We use FindExisting for the finder because we only want to work with pods
@@ -225,7 +234,7 @@ func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delS
 	// doesn't take affect until after the image change.
 	pods, err := i.Finder.FindPods(ctx, FindExisting)
 	if err != nil {
-		return numPodsDeleted, ctrl.Result{}, err
+		return numPodsDeleted, err
 	}
 	for inx := range pods.Items {
 		pod := &pods.Items[inx]
@@ -239,17 +248,25 @@ func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delS
 			}
 		}
 
+		// If scName was passed in, we only delete for a specific subcluster
+		if scName != "" {
+			scNameFromLabel, ok := pod.Labels[SubclusterNameLabel]
+			if ok && scNameFromLabel != scName {
+				continue
+			}
+		}
+
 		// Skip the pod if it already has the proper image.
 		if pod.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
 			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, pod)
 			if err != nil {
-				return numPodsDeleted, ctrl.Result{}, err
+				return numPodsDeleted, err
 			}
 			numPodsDeleted++
 		}
 	}
-	return numPodsDeleted, ctrl.Result{}, nil
+	return numPodsDeleted, nil
 }
 
 // onlineImageChangeAllowed returns true if image change must be done online

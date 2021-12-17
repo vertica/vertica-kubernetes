@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -80,6 +81,8 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.restartPrimaries,
 		// Reroute all traffic from transient subcluster back to the primaries
 		o.rerouteClientTrafficToPrimaries,
+		// Handle restart of secondary subclusters
+		o.drainAndRestartSecondaries,
 		// Drain all connections from the transient subcluster to prepare it
 		// for being removed.
 		o.drainTransient,
@@ -87,9 +90,6 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
-		// With the primaries back up, we can do a "rolling upgrade" style of
-		// update for the secondary subclusters.
-		o.startRollingUpgradeOfSecondarySubclusters,
 		// Cleanup up the condition and event recording for a completed image change
 		o.Manager.finishImageChange,
 	}
@@ -203,9 +203,9 @@ func (o *OnlineImageChangeReconciler) changeImageInPrimaries(ctx context.Context
 
 // restartPrimaries will restart all of the pods in the primary subclusters.
 func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
-	numPodsDeleted, res, err := o.Manager.deletePodsRunningOldImage(ctx, false)
-	if res.Requeue || err != nil {
-		return res, err
+	numPodsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, false, "")
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 	if numPodsDeleted > 0 {
 		o.Log.Info("deleted pods running old image", "num", numPodsDeleted)
@@ -225,6 +225,51 @@ func (o *OnlineImageChangeReconciler) rerouteClientTrafficToPrimaries(ctx contex
 	o.Log.Info("starting client traffic routing to primary")
 	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsPrimary })
 	return ctrl.Result{}, err
+}
+
+// drainAndRestartSecondaries will restart all of the secondaries, temporarily
+// rerouting traffic to the transient while it does the restart.
+func (o *OnlineImageChangeReconciler) drainAndRestartSecondaries(ctx context.Context) (ctrl.Result, error) {
+	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// SPILLY - bad smell.  A weird kind of duplication, where I handle
+	// primaries and secondaries the same and different.
+	for i := range stss.Items {
+		sts := &stss.Items[i]
+		isTransient, err := strconv.ParseBool(sts.Labels[SubclusterTransientLabel])
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("could not read label %s: %w", SubclusterTransientLabel, err)
+		}
+		scName := sts.Labels[SubclusterNameLabel]
+		if sts.Labels[SubclusterTypeLabel] == vapi.SecondarySubclusterType && !isTransient {
+			stsChanged, err := o.Manager.updateImageInStatefulSet(ctx, sts)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if stsChanged {
+				o.PFacts.Invalidate()
+			}
+
+			podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, true, scName)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if podsDeleted > 0 {
+				o.PFacts.Invalidate()
+			}
+
+			const DoNotRestartReadOnly = false
+			actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
+			o.traceActorReconcile(actor)
+			res, err := actor.Reconcile(ctx, &ctrl.Request{})
+			if res.Requeue || err != nil {
+				return res, err
+			}
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // drainTransient will wait for all active connections in the transient subcluster
@@ -256,14 +301,6 @@ func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (c
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
-}
-
-// startRollingUpgradeOfSecondarySubclusters will update the image of each of
-// the secondary subclusters.  The update policy will be rolling upgrade.  This
-// gives control of restarting each pod back to k8s.  This can be done because
-// secondary subclusters don't participate in cluster quorum.
-func (o *OnlineImageChangeReconciler) startRollingUpgradeOfSecondarySubclusters(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
 }
 
 // cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
