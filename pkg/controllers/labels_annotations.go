@@ -22,23 +22,23 @@ import (
 )
 
 const (
-	SvcTypeLabel           = "vertica.com/svc-type"
-	SubclusterNameLabel    = "vertica.com/subcluster-name"
-	SubclusterTypeLabel    = "vertica.com/subcluster-type"
-	SubclusterSvcNameLabel = "vertica.com/subcluster-svc"
-	SubclusterStandbyLabel = "vertica.com/subcluster-standby"
-	VDBInstanceLabel       = "app.kubernetes.io/instance"
-	OperatorName           = "verticadb-operator" // The name of the operator
-	OperatorVersion        = "1.1.0"              // The version number of the operator
+	SvcTypeLabel             = "vertica.com/svc-type"
+	SubclusterNameLabel      = "vertica.com/subcluster-name"
+	SubclusterTypeLabel      = "vertica.com/subcluster-type"
+	SubclusterSvcNameLabel   = "vertica.com/subcluster-svc"
+	SubclusterTransientLabel = "vertica.com/subcluster-transient"
+	VDBInstanceLabel         = "app.kubernetes.io/instance"
+	OperatorName             = "verticadb-operator" // The name of the operator
+	OperatorVersion          = "1.1.0"              // The version number of the operator
 )
 
 // makeSubclusterLabels returns the labels added for the subcluster
 func makeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	return map[string]string{
-		SubclusterNameLabel:    sc.Name,
-		SubclusterTypeLabel:    sc.GetType(),
-		SubclusterSvcNameLabel: sc.GetServiceName(),
-		SubclusterStandbyLabel: strconv.FormatBool(sc.IsStandby),
+		SubclusterNameLabel:      sc.Name,
+		SubclusterTypeLabel:      sc.GetType(),
+		SubclusterSvcNameLabel:   sc.GetServiceName(),
+		SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient),
 	}
 }
 
@@ -110,9 +110,9 @@ func makeSvcSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 	}
 	if sc != nil {
 		m[SubclusterSvcNameLabel] = sc.GetServiceName()
-		// The standby label is here to ensure service object routes to
-		// primary/secondary or the standby, but never both
-		m[SubclusterStandbyLabel] = strconv.FormatBool(sc.IsStandby)
+		// This label is here to ensure service object routes to
+		// primary/secondary or the transient, but never both
+		m[SubclusterTransientLabel] = strconv.FormatBool(sc.IsTransient)
 	}
 	return m
 }

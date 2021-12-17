@@ -130,16 +130,6 @@ var _ = Describe("sc_finder", func() {
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0].Name).Should(Equal(vdb.Spec.Subclusters[0].Name))
 		Expect(scs[1].Name).Should(Equal(vdb.Spec.Subclusters[1].Name))
-
-		schs, err := finder.FindSubclusterHandles(ctx, FindExisting)
-		Expect(err).Should(Succeed())
-		Expect(len(scs)).Should(Equal(2))
-		Expect(schs[0].Name).Should(Equal(vdb.Spec.Subclusters[0].Name))
-		Expect(schs[0].IsPrimary).Should(Equal(vdb.Spec.Subclusters[0].IsPrimary))
-		Expect(schs[0].Image).Should(Equal(RunningImage))
-		Expect(schs[1].Name).Should(Equal(vdb.Spec.Subclusters[1].Name))
-		Expect(schs[1].IsPrimary).Should(Equal(vdb.Spec.Subclusters[1].IsPrimary))
-		Expect(schs[1].Image).Should(Equal(RunningImage))
 	})
 
 	It("should find all pods that exist in k8s for the VerticaDB", func() {

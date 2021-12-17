@@ -148,14 +148,11 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:="0.5"
-	// When doing an online image change, we create standby subclusters for each of
-	// the primary subclusters to temporarily handle its traffic.  This
-	// parameter determines the size of those standby subclusters.  The
-	// modifier, which must be between 0 and 1, is applied to the current size
-	// of the primary subcluster.  For example, if set to 0.5, the size of the
-	// standby subcluster will be half the size of the primary subcluster.
-	StandbySubclusterSizeModifier resource.Quantity `json:"standbySubclusterSizeModifier,omitempty"`
+	// When doing an online image change, we utilize a transient subcluster to
+	// serve traffic while one of the other subclusters restart.  This is the
+	// size of that subcluster.  This subcluster is created at the beginning of
+	// the online image change and is removed when that process cleans up.
+	TransientSubclusterSize int `json:"transientSubclusterSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive","urn:alm:descriptor:com.tectonic.ui:advanced"}
@@ -501,10 +498,11 @@ type Subcluster struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// Internal state that indicates whether this is a standby subcluster for a
-	// primary.  Standby are transient subclusters that are created during an
-	// online image change.
-	IsStandby bool `json:"isStandby,omitempty"`
+	// Internal state that indicates whether this is a transient read-only
+	// subcluster used for online image change.  A subcluster that exists
+	// temporarily to serve traffic for subclusters that are restarting with the
+	// new image.
+	IsTransient bool `json:"isTransient,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -898,7 +896,6 @@ func (v *VerticaDB) GetDepotPath() string {
 
 const (
 	PrimarySubclusterType   = "primary"
-	StandbySubclusterType   = "standby"
 	SecondarySubclusterType = "secondary"
 )
 
@@ -906,9 +903,6 @@ const (
 func (s *Subcluster) GetType() string {
 	if s.IsPrimary {
 		return PrimarySubclusterType
-	}
-	if s.IsStandby {
-		return StandbySubclusterType
 	}
 	return SecondarySubclusterType
 }

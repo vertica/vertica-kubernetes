@@ -147,9 +147,9 @@ func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secr
 
 // checkForCreatedSubcluster handles reconciliation of one subcluster that should exist
 func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	// Standby's never have their own service objects.  They always reuse the
-	// one we create for the primary.
-	if !sc.IsStandby {
+	// Transient subclusters never have their own service objects.  They always
+	// reuse ones we have for other primary/secondary subclusters.
+	if !sc.IsTransient {
 		if err := o.reconcileExtSvc(ctx, sc); err != nil {
 			return ctrl.Result{}, err
 		}

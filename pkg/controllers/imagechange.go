@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -175,13 +176,17 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgP
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		if !chgPrimary && sts.Labels[SubclusterTypeLabel] == PrimarySubclusterType {
+		if !chgPrimary && sts.Labels[SubclusterTypeLabel] == vapi.PrimarySubclusterType {
 			continue
 		}
-		if !chgSecondary && sts.Labels[SubclusterTypeLabel] == SecondarySubclusterType {
+		if !chgSecondary && sts.Labels[SubclusterTypeLabel] == vapi.SecondarySubclusterType {
 			continue
 		}
-		if sts.Labels[SubclusterTypeLabel] == StandbySubclusterType {
+		isTransient, err := strconv.ParseBool(sts.Labels[SubclusterTransientLabel])
+		if err != nil {
+			return numStsChanged, ctrl.Result{}, err
+		}
+		if isTransient {
 			continue
 		}
 

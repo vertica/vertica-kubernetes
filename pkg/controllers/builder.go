@@ -28,7 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const SuperuserPasswordPath = "superuser-passwd"
+const (
+	SuperuserPasswordPath   = "superuser-passwd"
+	TransientSubclusterName = "transient"
+)
 
 // buildExtSvc creates desired spec for the external service.
 func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.Service {
@@ -581,12 +584,13 @@ func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 	}
 }
 
-// buildStandby creates a Standby subcluster based on a primary
-func buildStandby(sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
+// buildTransientSubcluster creates a temporary read-only subcluster based on an
+// existing subcluster
+func buildTransientSubcluster(sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
 	return &vapi.Subcluster{
-		Name:              fmt.Sprintf("%s-standby", sc.Name),
+		Name:              TransientSubclusterName,
 		Size:              1,
-		IsStandby:         true,
+		IsTransient:       true,
 		ImageOverride:     imageOverride,
 		IsPrimary:         false,
 		NodeSelector:      sc.NodeSelector,

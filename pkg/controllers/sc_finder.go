@@ -116,28 +116,6 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 	return subclusters, nil
 }
 
-// FindSubclusterHandles returns an array of SubclusterHandle objects.
-func (m *SubclusterFinder) FindSubclusterHandles(ctx context.Context, flags FindFlags) ([]*SubclusterHandle, error) {
-	subclusters := []*SubclusterHandle{}
-
-	// SubclusterHandle can only have its extended information filled in if
-	// reading k8s objects.  So caller must set FindExisting.
-	if flags&FindExisting == 0 {
-		return nil, fmt.Errorf("this function only accepts FindExisting: %d", flags)
-	}
-
-	stss, err := m.FindStatefulSets(ctx, flags)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range stss.Items {
-		subclusters = append(subclusters, makeSubclusterHandleFromSts(&stss.Items[i]))
-	}
-
-	return subclusters, nil
-}
-
 // listObjectsOwnedByOperator will return all objects of a specific type that
 // are owned by the operator.  This includes objects like statefulsets or
 // service objects.  The type is derived from what kind of list is passed in.

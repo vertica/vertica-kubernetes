@@ -33,19 +33,19 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 	const OldImage = "old-image"
 	const NewImageName = "different-image"
 
-	It("should properly report if primaries don't have matching image in vdb", func() {
+	It("should skip transient subcluster setup only when primaries have matching image", func() {
 		vdb := vapi.MakeVDB()
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
 		r := createOnlineImageChangeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.allPrimariesHaveNewImage()).Should(BeTrue())
+		Expect(r.skipTransientSetup()).Should(BeTrue())
 		vdb.Spec.Image = NewImageName
-		Expect(r.allPrimariesHaveNewImage()).Should(BeFalse())
+		Expect(r.skipTransientSetup()).Should(BeFalse())
 	})
 
-	It("should create and delete standby subclusters", func() {
+	It("should create and delete transient subcluster", func() {
 		vdb := vapi.MakeVDB()
 		scs := []vapi.Subcluster{
 			{Name: "sc1-secondary", IsPrimary: false, Size: 5},
@@ -62,16 +62,16 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 
 		r := createOnlineImageChangeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(r.createStandbySts(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb))
-		defer deletePods(ctx, fetchVdb) // Add to defer again for pods in standbys
+		defer deletePods(ctx, fetchVdb) // Add to defer again for pods in transient
 		createPods(ctx, fetchVdb, AllPodsRunning)
 
 		fscs := fetchVdb.Spec.Subclusters
-		Expect(len(fscs)).Should(Equal(4)) // orig + 1 standbys
-		Expect(fscs[3].Name).Should(Equal("sc3-primary-standby"))
+		Expect(len(fscs)).Should(Equal(4)) // orig + 1 transient
+		Expect(fscs[3].Name).Should(Equal(TransientSubclusterName))
 
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{})) // Collect state again for new pods/sts
 
@@ -84,7 +84,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).Should(Succeed())
-		Expect(r.deleteStandbySts(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(r.deleteTransientSts(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).ShouldNot(Succeed())
 	})
 

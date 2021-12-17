@@ -30,14 +30,14 @@ import (
 // OnlineImageChangeReconciler will handle the process when the vertica image
 // changes.  It does this while keeping the database online.
 type OnlineImageChangeReconciler struct {
-	VRec        *VerticaDBReconciler
-	Log         logr.Logger
-	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner     cmds.PodRunner
-	PFacts      *PodFacts
-	Finder      SubclusterFinder
-	Manager     ImageChangeManager
-	Subclusters []*SubclusterHandle
+	VRec          *VerticaDBReconciler
+	Log           logr.Logger
+	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner       cmds.PodRunner
+	PFacts        *PodFacts
+	Finder        SubclusterFinder
+	Manager       ImageChangeManager
+	PrimaryImages []string // Known images in the primaries.  Should be of length 1 or 2.
 }
 
 // MakeOnlineImageChangeReconciler will build an OnlineImageChangeReconciler object
@@ -62,30 +62,31 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.Manager.startImageChange,
 		// Load up state that is used for the subsequent steps
 		o.loadSubclusterState,
-		// Setup a secondary standby subcluster for each primary
-		o.createStandbySts,
-		o.installStandbyNodes,
-		o.addStandbySubclusters,
-		o.addStandbyNodes,
-		// Reroute all traffic from primary subclusters to their standby's
-		o.rerouteClientTrafficToStandby,
+		// Setup a transient subcluster to accept traffic when other subclusters
+		// are down
+		o.createTransientSts,
+		o.installTransientNodes,
+		o.addTransientSubcluster,
+		o.addTransientNodes,
+		// Reroute all traffic from primary subclusters to the transient
+		o.rerouteClientTrafficToTransient,
 		// Drain all connections from the primary subcluster.  This waits for
 		// connections that were established before traffic was routed to the
-		// standby's.
+		// transient.
 		o.drainPrimaries,
 		// Change the image in each of the primary subclusters.
 		o.changeImageInPrimaries,
 		// Restart the pods of the primary subclusters.
 		o.restartPrimaries,
-		// Reroute all traffic from standby subclusters back to the primary
-		o.rerouteClientTrafficToPrimary,
-		// Drain all connections from the standby subclusters to prepare them
+		// Reroute all traffic from transient subcluster back to the primaries
+		o.rerouteClientTrafficToPrimaries,
+		// Drain all connections from the transient subcluster to prepare it
 		// for being removed.
-		o.drainStandbys,
-		// Will cleanup the standby subclusters now that the primaries are back up.
-		o.removeStandbySubclusters,
-		o.uninstallStandbyNodes,
-		o.deleteStandbySts,
+		o.drainTransient,
+		// Will cleanup the transient subcluster now that the primaries are back up.
+		o.removeTransientSubclusters,
+		o.uninstallTransientNodes,
+		o.deleteTransientSts,
 		// With the primaries back up, we can do a "rolling upgrade" style of
 		// update for the secondary subclusters.
 		o.startRollingUpgradeOfSecondarySubclusters,
@@ -110,36 +111,32 @@ func (o *OnlineImageChangeReconciler) loadSubclusterState(ctx context.Context) (
 		return ctrl.Result{}, err
 	}
 
-	o.Subclusters, err = o.Finder.FindSubclusterHandles(ctx, FindExisting)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	err = o.cachePrimaryImages(ctx)
+	return ctrl.Result{}, err
 }
 
-// createStandbySts this will create a secondary subcluster to accept
-// traffic from the primaries when they are down.  These subclusters are scalled
-// standby and are transient since they only exist for the life of the image
-// change.
-func (o *OnlineImageChangeReconciler) createStandbySts(ctx context.Context) (ctrl.Result, error) {
-	if o.skipStandbySetup() {
+// createTransientSts this will create a secondary subcluster to accept
+// traffic from subclusters when they are down.  This subcluster is called
+// the transient and only exist for the life of the image change.
+func (o *OnlineImageChangeReconciler) createTransientSts(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
-	if err := o.addStandbysToVdb(ctx); err != nil {
+	if err := o.addTransientToVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
-	o.Log.Info("Adding standby's", "num subclusters", len(o.Vdb.Spec.Subclusters))
+	o.Log.Info("Adding transient", "num subclusters", len(o.Vdb.Spec.Subclusters))
 
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// installStandbyNodes will ensure we have installed vertica on
-// each of the standby nodes.
-func (o *OnlineImageChangeReconciler) installStandbyNodes(ctx context.Context) (ctrl.Result, error) {
-	if o.skipStandbySetup() {
+// installTransientNodes will ensure we have installed vertica on
+// each of the nodes in the transient subcluster.
+func (o *OnlineImageChangeReconciler) installTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
@@ -148,9 +145,9 @@ func (o *OnlineImageChangeReconciler) installStandbyNodes(ctx context.Context) (
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// addStandbySubclusters will register new standby subclusters with Vertica
-func (o *OnlineImageChangeReconciler) addStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
-	if o.skipStandbySetup() {
+// addTransientSubcluster will register a new transient subcluster with Vertica
+func (o *OnlineImageChangeReconciler) addTransientSubcluster(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
@@ -159,10 +156,10 @@ func (o *OnlineImageChangeReconciler) addStandbySubclusters(ctx context.Context)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// addStandbyNodes will ensure nodes on the standby's have been
-// added to the cluster.
-func (o *OnlineImageChangeReconciler) addStandbyNodes(ctx context.Context) (ctrl.Result, error) {
-	if o.skipStandbySetup() {
+// addTransientNodes will ensure nodes on the transient have been added to the
+// cluster.
+func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
@@ -171,22 +168,22 @@ func (o *OnlineImageChangeReconciler) addStandbyNodes(ctx context.Context) (ctrl
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// rerouteClientTrafficToStandby will update the service objects for each of the
-// primary subclusters so that they are routed to the standby subclusters.
-func (o *OnlineImageChangeReconciler) rerouteClientTrafficToStandby(ctx context.Context) (ctrl.Result, error) {
-	if o.skipStandbySetup() {
+// rerouteClientTrafficToTransient will update the service objects for each of the
+// primary subclusters so that they are routed to the transient subcluster.
+func (o *OnlineImageChangeReconciler) rerouteClientTrafficToTransient(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
-	o.Log.Info("starting client traffic routing to standby")
-	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsStandby })
+	o.Log.Info("starting client traffic routing to transient")
+	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsTransient })
 	return ctrl.Result{}, err
 }
 
 // drainPrimaries will only succeed if the primary subclusters are already down
 // or have no active connections.  All traffic to the primaries get routed to
-// the standby subclusters, so this step waits for any connection that were
-// established before the standby's were created.
+// the transient subcluster, so this step waits for any connection that were
+// established before the transient was created.
 func (o *OnlineImageChangeReconciler) drainPrimaries(ctx context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
@@ -221,40 +218,38 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// rerouteClientTrafficToPrimary will update the service objects of the primary
-// subclusters so that traffic is not routed to the standby's anymore but back
-// to te primary subclusters.
-func (o *OnlineImageChangeReconciler) rerouteClientTrafficToPrimary(ctx context.Context) (ctrl.Result, error) {
+// rerouteClientTrafficToPrimaries will update the service objects of the primary
+// subclusters so that traffic is not routed to the transient anymore but back
+// to the primary subclusters.
+func (o *OnlineImageChangeReconciler) rerouteClientTrafficToPrimaries(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("starting client traffic routing to primary")
 	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsPrimary })
 	return ctrl.Result{}, err
 }
 
-// drainStandbys will wait for all active connections in the standby subclusters
-// to leave.  This is preparation for eventual removal of the standby
-// subclusters.
-func (o *OnlineImageChangeReconciler) drainStandbys(ctx context.Context) (ctrl.Result, error) {
+// drainTransient will wait for all active connections in the transient subcluster
+// to leave.  This is preparation for eventual removal of the transient subcluster.
+func (o *OnlineImageChangeReconciler) drainTransient(ctx context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-// removeStandbySubclusters will drive subcluster removal of any standbys
-func (o *OnlineImageChangeReconciler) removeStandbySubclusters(ctx context.Context) (ctrl.Result, error) {
+// removeTransientSubclusters will drive subcluster removal of the transient subcluster
+func (o *OnlineImageChangeReconciler) removeTransientSubclusters(ctx context.Context) (ctrl.Result, error) {
 	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// uninstallStandbyNodes will drive uninstall logic for any
-// standby nodes.
-func (o *OnlineImageChangeReconciler) uninstallStandbyNodes(ctx context.Context) (ctrl.Result, error) {
+// uninstallTransientNodes will drive uninstall logic for any transient nodes.
+func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	actor := MakeUninstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// deleteStandbySts will delete any standby subclusters that were created for the image change.
-func (o *OnlineImageChangeReconciler) deleteStandbySts(ctx context.Context) (ctrl.Result, error) {
-	if err := o.removeStandbysFromVdb(ctx); err != nil {
+// deleteTransientSts will delete the transient subcluster that was created for the image change.
+func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (ctrl.Result, error) {
+	if err := o.removeTransientFromVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -271,42 +266,55 @@ func (o *OnlineImageChangeReconciler) startRollingUpgradeOfSecondarySubclusters(
 	return ctrl.Result{}, nil
 }
 
-// allPrimariesHaveNewImage returns true if all of the primary subclusters have the new image
-func (o *OnlineImageChangeReconciler) allPrimariesHaveNewImage() bool {
-	for i := range o.Subclusters {
-		sc := o.Subclusters[i]
-		if sc.IsPrimary && sc.Image != o.Vdb.Spec.Image {
-			return false
+// cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
+func (o *OnlineImageChangeReconciler) cachePrimaryImages(ctx context.Context) error {
+	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
+	if err != nil {
+		return err
+	}
+	for i := range stss.Items {
+		sts := &stss.Items[i]
+		if sts.Labels[SubclusterTypeLabel] == vapi.PrimarySubclusterType {
+			img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+			imageFound := false
+			for j := range o.PrimaryImages {
+				imageFound = o.PrimaryImages[j] == img
+				if imageFound {
+					break
+				}
+			}
+			if !imageFound {
+				o.PrimaryImages = append(o.PrimaryImages, img)
+			}
 		}
 	}
-	return true
+	return nil
 }
 
 // fetchOldImage will return the old image that existed prior to the image
 // change process.  If we cannot determine the old image, then the bool return
 // value returns false.
 func (o *OnlineImageChangeReconciler) fetchOldImage() (string, bool) {
-	for i := range o.Subclusters {
-		sc := o.Subclusters[i]
-		if sc.Image != o.Vdb.Spec.Image {
-			return sc.Image, true
+	for i := range o.PrimaryImages {
+		if o.PrimaryImages[i] != o.Vdb.Spec.Image {
+			return o.PrimaryImages[i], true
 		}
 	}
 	return "", false
 }
 
-// skipStandbySetup will return true if we can skip creation, install and
-// scale-out of the standby subcluster
-func (o *OnlineImageChangeReconciler) skipStandbySetup() bool {
+// skipTransientSetup will return true if we can skip creation, install and
+// scale-out of the transient subcluster
+func (o *OnlineImageChangeReconciler) skipTransientSetup() bool {
 	// We can skip this entirely if all of the primary subclusters already have
 	// the new image.  This is an indication that we have already created the
-	// standbys and done the image change.
-	return o.allPrimariesHaveNewImage()
+	// transient and done the image change.
+	return len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image
 }
 
-// addStandbysToVdb will create standby subclusters for each primary. The
-// standbys are added to the Vdb struct inplace.
-func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) error {
+// addTransientToVdb will create a transient subcluster. The transient is added
+// to the Vdb struct inplace.
+func (o *OnlineImageChangeReconciler) addTransientToVdb(ctx context.Context) error {
 	oldImage, ok := o.fetchOldImage()
 	if !ok {
 		return fmt.Errorf("could not determine the old image name.  "+
@@ -320,34 +328,29 @@ func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) erro
 			return err
 		}
 
-		// Figure out if any standbys need to be added
+		// Figure out if a transient needs to be added
 		scMap := o.Vdb.GenSubclusterMap()
-		standbys := []vapi.Subcluster{}
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
 			if sc.IsPrimary {
-				standby := buildStandby(sc, oldImage)
-				_, ok := scMap[standby.Name]
+				transient := buildTransientSubcluster(sc, oldImage)
+				_, ok := scMap[transient.Name]
 				if !ok {
-					standbys = append(standbys, *standby)
+					if err := o.Manager.setImageChangeStatus(ctx, "Creating transient subcluster"); err != nil {
+						return err
+					}
+					o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters, *transient)
+					return o.VRec.Client.Update(ctx, o.Vdb)
 				}
 			}
-		}
-
-		if len(standbys) > 0 {
-			if err := o.Manager.setImageChangeStatus(ctx, "Creating standby secondary subclusters"); err != nil {
-				return err
-			}
-			o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters, standbys...)
-			return o.VRec.Client.Update(ctx, o.Vdb)
 		}
 		return nil
 	})
 }
 
-// removeStandbysFromVdb will delete any standby subclusters that exist.  The
-// standbys will be removed from the Vdb struct inplace.
-func (o *OnlineImageChangeReconciler) removeStandbysFromVdb(ctx context.Context) error {
+// removeTransientFromVdb will delete any transientsubcluster that exists.  The
+// transient will be removed from the Vdb struct inplace.
+func (o *OnlineImageChangeReconciler) removeTransientFromVdb(ctx context.Context) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
 		nm := types.NamespacedName{Namespace: o.Vdb.Namespace, Name: o.Vdb.Name}
@@ -358,7 +361,7 @@ func (o *OnlineImageChangeReconciler) removeStandbysFromVdb(ctx context.Context)
 		scToKeep := []vapi.Subcluster{}
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
-			if !sc.IsStandby {
+			if !sc.IsTransient {
 				scToKeep = append(scToKeep, *sc)
 			}
 		}
