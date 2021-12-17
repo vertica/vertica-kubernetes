@@ -333,7 +333,7 @@ func (o *OnlineImageChangeReconciler) addTransientToVdb(ctx context.Context) err
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
 			if sc.IsPrimary {
-				transient := buildTransientSubcluster(sc, oldImage)
+				transient := buildTransientSubcluster(o.Vdb, sc, oldImage)
 				_, ok := scMap[transient.Name]
 				if !ok {
 					if err := o.Manager.setImageChangeStatus(ctx, "Creating transient subcluster"); err != nil {

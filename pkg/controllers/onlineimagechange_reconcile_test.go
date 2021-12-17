@@ -71,7 +71,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 
 		fscs := fetchVdb.Spec.Subclusters
 		Expect(len(fscs)).Should(Equal(4)) // orig + 1 transient
-		Expect(fscs[3].Name).Should(Equal(TransientSubclusterName))
+		Expect(fscs[3].Name).Should(Equal(DefaultTransientSubclusterName))
 
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{})) // Collect state again for new pods/sts
 

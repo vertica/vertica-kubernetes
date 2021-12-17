@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	SuperuserPasswordPath   = "superuser-passwd"
-	TransientSubclusterName = "transient"
+	SuperuserPasswordPath          = "superuser-passwd"
+	DefaultTransientSubclusterName = "transient"
 )
 
 // buildExtSvc creates desired spec for the external service.
@@ -586,21 +586,35 @@ func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 
 // buildTransientSubcluster creates a temporary read-only subcluster based on an
 // existing subcluster
-func buildTransientSubcluster(sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
+func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
 	return &vapi.Subcluster{
-		Name:              TransientSubclusterName,
-		Size:              1,
+		Name:              transientSubclusterName(vdb),
+		Size:              transientSubclusterSize(vdb),
 		IsTransient:       true,
 		ImageOverride:     imageOverride,
 		IsPrimary:         false,
-		NodeSelector:      sc.NodeSelector,
-		Affinity:          sc.Affinity,
-		PriorityClassName: sc.PriorityClassName,
-		Tolerations:       sc.Tolerations,
-		Resources:         sc.Resources,
+		NodeSelector:      vdb.Spec.TransientSubclusterTemplate.NodeSelector,
+		Affinity:          vdb.Spec.TransientSubclusterTemplate.Affinity,
+		PriorityClassName: vdb.Spec.TransientSubclusterTemplate.PriorityClassName,
+		Tolerations:       vdb.Spec.TransientSubclusterTemplate.Tolerations,
+		Resources:         vdb.Spec.TransientSubclusterTemplate.Resources,
 		ServiceType:       sc.ServiceType,
 		ServiceName:       sc.GetServiceName(),
 		NodePort:          sc.NodePort,
 		ExternalIPs:       sc.ExternalIPs,
 	}
+}
+
+func transientSubclusterName(vdb *vapi.VerticaDB) string {
+	if vdb.Spec.TransientSubclusterTemplate.Name == "" {
+		return DefaultTransientSubclusterName
+	}
+	return vdb.Spec.TransientSubclusterTemplate.Name
+}
+
+func transientSubclusterSize(vdb *vapi.VerticaDB) int32 {
+	if vdb.Spec.TransientSubclusterTemplate.Size > 0 {
+		return vdb.Spec.TransientSubclusterTemplate.Size
+	}
+	return 1
 }
