@@ -914,10 +914,10 @@ const (
 // GetType returns the type of the subcluster in string form
 func (s *Subcluster) GetType() string {
 	if s.IsPrimary {
-		if s.IsStandby {
-			return StandbySubclusterType
-		}
 		return PrimarySubclusterType
+	}
+	if s.IsStandby {
+		return StandbySubclusterType
 	}
 	return SecondarySubclusterType
 }
