@@ -16,22 +16,29 @@
 package controllers
 
 import (
+	"strconv"
+
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
 const (
-	SvcTypeLabel        = "vertica.com/svc-type"
-	SubclusterNameLabel = "vertica.com/subcluster-name"
-	SubclusterTypeLabel = "vertica.com/subcluster-type"
-	OperatorName        = "verticadb-operator" // The name of the operator
-	OperatorVersion     = "1.1.0"              // The version number of the operator
+	SvcTypeLabel           = "vertica.com/svc-type"
+	SubclusterNameLabel    = "vertica.com/subcluster-name"
+	SubclusterTypeLabel    = "vertica.com/subcluster-type"
+	SubclusterSvcNameLabel = "vertica.com/subcluster-svc"
+	SubclusterStandbyLabel = "vertica.com/subcluster-standby"
+	VDBInstanceLabel       = "app.kubernetes.io/instance"
+	OperatorName           = "verticadb-operator" // The name of the operator
+	OperatorVersion        = "1.1.0"              // The version number of the operator
 )
 
 // makeSubclusterLabels returns the labels added for the subcluster
 func makeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	return map[string]string{
-		SubclusterNameLabel: sc.Name,
-		SubclusterTypeLabel: sc.GetType(),
+		SubclusterNameLabel:    sc.Name,
+		SubclusterTypeLabel:    sc.GetType(),
+		SubclusterSvcNameLabel: sc.GetServiceName(),
+		SubclusterStandbyLabel: strconv.FormatBool(sc.IsStandby),
 	}
 }
 
@@ -40,7 +47,7 @@ func makeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/managed-by": OperatorName,
 		"app.kubernetes.io/name":       "vertica",
-		"app.kubernetes.io/instance":   vdb.Name,
+		VDBInstanceLabel:               vdb.Name,
 		"app.kubernetes.io/version":    OperatorVersion,
 		"app.kubernetes.io/component":  "database",
 		"vertica.com/database":         vdb.Spec.DBName,
@@ -94,6 +101,18 @@ func makeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 
 // makeSvcSelectorLabels returns the labels that are used for selectors in service objects.
 func makeSvcSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	// The selector will simply use the common labels for all objects.
-	return makeCommonLabels(vdb, sc)
+	// We intentionally don't use the common labels because that includes things
+	// specific to the operator version.  To allow the selector to work with
+	// pods created from an older operator, we need to be more selective in the
+	// labels we choose.
+	m := map[string]string{
+		VDBInstanceLabel: vdb.Name,
+	}
+	if sc != nil {
+		m[SubclusterSvcNameLabel] = sc.GetServiceName()
+		// The standby label is here to ensure service object routes to
+		// primary/secondary or the standby, but never both
+		m[SubclusterStandbyLabel] = strconv.FormatBool(sc.IsStandby)
+	}
+	return m
 }

@@ -563,6 +563,17 @@ type Subcluster struct {
 	ServiceType corev1.ServiceType `json:"serviceType,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Identifies the name of the service object that will serve this
+	// subcluster.  If multiple subclusters share the same service name then
+	// they all share the same service object.  This allows for a single service
+	// object to round robin between multiple subclusters.  If this is left
+	// blank, a service object matching the subcluster name is used.  The actual
+	// name of the service object is always prefixed with the name of the owning
+	// VerticaDB.
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// When setting serviceType to NodePort, this parameter allows you to define the
 	// port that is opened at each node. If using NodePort and this is omitted,
@@ -920,4 +931,13 @@ func (s *Subcluster) GetType() string {
 		return StandbySubclusterType
 	}
 	return SecondarySubclusterType
+}
+
+// GetServiceName returns the name of the service object that route traffic to
+// this subcluster.
+func (s *Subcluster) GetServiceName() string {
+	if s.ServiceName == "" {
+		return s.Name
+	}
+	return s.ServiceName
 }

@@ -596,6 +596,7 @@ func buildStandby(sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
 		Tolerations:       sc.Tolerations,
 		Resources:         sc.Resources,
 		ServiceType:       sc.ServiceType,
+		ServiceName:       sc.GetServiceName(),
 		NodePort:          sc.NodePort,
 		ExternalIPs:       sc.ExternalIPs,
 	}
