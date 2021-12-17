@@ -22,9 +22,11 @@ The operator Helm chart will install the CRD if it is not currently installed.
 # Installing the VerticaDB Operator
 
 You have the following options when installing the VerticaDB operator:
-- [OperatorHub.io](https://operatorhub.io). Download and install the operator using the Install instructions
+- [OperatorHub.io](https://operatorhub.io/operator/verticadb-operator). If you use the Operator Lifecycle Manager (OLM) for your Kubernetes operators.
 - Install the Vertica Helm chart. The Helm chart includes the operator and admission controller.
- When you install the operator with the Helm charts, you must configure TLS for the admission controller webhook. For details, see Installing the [VerticaDB Operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/InstallOperator.htm).
+ When you install the operator with the Helm charts, you must configure TLS for the admission controller webhook.
+ 
+For additional details, see Installing the [VerticaDB Operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/InstallOperator.htm).
 
 
 # Deploying Vertica
@@ -48,11 +50,9 @@ spec:
       size: 3
 ```
 
-For a detailed custom resource example, see [Creating a Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CreatingCustomResource.htm). For details about each parameter, see [Custom Resource Definition Parameters](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CustomResourceDefinitionParams.htm).
-
-
-
 After this manifest is applied, the operator creates the necessary objects in Kubernetes, sets up the config directory in each pod, and creates an Eon Mode database in the communal path.
+
+For a detailed custom resource example, see [Creating a Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CreatingCustomResource.htm).
 
 
 # Configuration Parameters
