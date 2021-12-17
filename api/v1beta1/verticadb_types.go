@@ -508,13 +508,6 @@ type Subcluster struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// If this is a standby subcluster, this is the name of the primary
-	// subcluster it was created for.  This is state internally managed for an
-	// online image change.
-	StandbyParent string `json:"standbyParent,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// This allows a different image to be used for the subcluster than the one
 	// in VerticaDB.  This is intended to be used internally by the online image
 	// change process.
@@ -854,19 +847,6 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 		scMap[sc.Name] = sc
 	}
 	return scMap
-}
-
-// GenSubclusterStandbyMap will create a map of primary subclusters to their
-// standby subcluster.  It returns an empty map if there are no standbys.
-func (v *VerticaDB) GenSubclusterStandbyMap() map[string]string {
-	m := map[string]string{}
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		if sc.IsStandby {
-			m[sc.StandbyParent] = sc.Name
-		}
-	}
-	return m
 }
 
 // IsValidSubclusterName validates the subcluster name is valid.  We have rules

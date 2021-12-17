@@ -321,14 +321,15 @@ func (o *OnlineImageChangeReconciler) addStandbysToVdb(ctx context.Context) erro
 		}
 
 		// Figure out if any standbys need to be added
-		standbyMap := o.Vdb.GenSubclusterStandbyMap()
+		scMap := o.Vdb.GenSubclusterMap()
 		standbys := []vapi.Subcluster{}
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
 			if sc.IsPrimary {
-				_, ok := standbyMap[sc.Name]
+				standby := buildStandby(sc, oldImage)
+				_, ok := scMap[standby.Name]
 				if !ok {
-					standbys = append(standbys, *buildStandby(sc, oldImage))
+					standbys = append(standbys, *standby)
 				}
 			}
 		}
