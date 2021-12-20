@@ -176,7 +176,7 @@ func (o *OnlineImageChangeReconciler) rerouteClientTrafficToTransient(ctx contex
 	}
 
 	o.Log.Info("starting client traffic routing to transient")
-	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsTransient })
+	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsPrimary }, true)
 	return ctrl.Result{}, err
 }
 
@@ -223,7 +223,7 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 // to the primary subclusters.
 func (o *OnlineImageChangeReconciler) rerouteClientTrafficToPrimaries(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("starting client traffic routing to primary")
-	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsPrimary })
+	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsPrimary }, false)
 	return ctrl.Result{}, err
 }
 
@@ -243,7 +243,16 @@ func (o *OnlineImageChangeReconciler) drainAndRestartSecondaries(ctx context.Con
 			return ctrl.Result{}, fmt.Errorf("could not read label %s: %w", SubclusterTransientLabel, err)
 		}
 		scName := sts.Labels[SubclusterNameLabel]
+		img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 		if sts.Labels[SubclusterTypeLabel] == vapi.SecondarySubclusterType && !isTransient {
+			if img != o.Vdb.Spec.Image {
+				o.Log.Info("starting client traffic routing of secondary to transient", "name", scName)
+				err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, true)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+
 			stsChanged, err := o.Manager.updateImageInStatefulSet(ctx, sts)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -266,6 +275,12 @@ func (o *OnlineImageChangeReconciler) drainAndRestartSecondaries(ctx context.Con
 			res, err := actor.Reconcile(ctx, &ctrl.Request{})
 			if res.Requeue || err != nil {
 				return res, err
+			}
+
+			o.Log.Info("starting client traffic routing back to secondary", "name", scName)
+			err = o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, false)
+			if err != nil {
+				return ctrl.Result{}, err
 			}
 		}
 	}
@@ -416,17 +431,25 @@ func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) 
 }
 
 // routeClientTraffic will update service objects to route to either the primary
-// or standby.  The subcluster picked is determined by the scCheckFunc the
+// or transient.  The subcluster picked is determined by the scCheckFunc the
 // caller provides.  If it returns true for a given subcluster, traffic will be
 // routed to that.
-func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context, scCheckFunc func(sc *vapi.Subcluster) bool) error {
+func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
+	scSelectorFunc func(sc *vapi.Subcluster) bool, useTransientSc bool) error {
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	objRec := actor.(*ObjReconciler)
 
+	// We update the external service object to route traffic to transient or
+	// primary/secondary.  We make a copy of the subcluster than modify it
+	// in-place with the IsTransient state to route to transient subcluster or
+	// not.
 	for i := range o.Vdb.Spec.Subclusters {
-		sc := &o.Vdb.Spec.Subclusters[i]
-		if scCheckFunc(sc) {
-			if err := objRec.reconcileExtSvc(ctx, sc); err != nil {
+		sc := o.Vdb.Spec.Subclusters[i]
+		if scSelectorFunc(&sc) {
+			// We are modifying a copy of sc, so we flip the IsTransient flag to
+			// know what subcluster we are going to route to.
+			sc.IsTransient = useTransientSc
+			if err := objRec.reconcileExtSvc(ctx, &sc); err != nil {
 				return err
 			}
 		}

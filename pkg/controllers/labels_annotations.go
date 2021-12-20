@@ -34,12 +34,18 @@ const (
 
 // makeSubclusterLabels returns the labels added for the subcluster
 func makeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
-	return map[string]string{
+	m := map[string]string{
 		SubclusterNameLabel:      sc.Name,
 		SubclusterTypeLabel:      sc.GetType(),
-		SubclusterSvcNameLabel:   sc.GetServiceName(),
 		SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient),
 	}
+	// Transient subclusters never have the service name label set.  At various
+	// parts of the image change, it will accept traffic from all of the
+	// subclusters.
+	if !sc.IsTransient {
+		m[SubclusterSvcNameLabel] = sc.GetServiceName()
+	}
+	return m
 }
 
 // makeOperatorLabels returns the labels that all objects created by this operator will have
@@ -109,10 +115,13 @@ func makeSvcSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 		VDBInstanceLabel: vdb.Name,
 	}
 	if sc != nil {
-		m[SubclusterSvcNameLabel] = sc.GetServiceName()
-		// This label is here to ensure service object routes to
-		// primary/secondary or the transient, but never both
-		m[SubclusterTransientLabel] = strconv.FormatBool(sc.IsTransient)
+		if sc.IsTransient {
+			// This label is here to ensure service object routes to
+			// primary/secondary or the transient, but never both
+			m[SubclusterTransientLabel] = strconv.FormatBool(sc.IsTransient)
+		} else {
+			m[SubclusterSvcNameLabel] = sc.GetServiceName()
+		}
 	}
 	return m
 }
