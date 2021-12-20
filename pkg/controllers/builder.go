@@ -605,6 +605,7 @@ func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOve
 	}
 }
 
+// transientSuclusterName returns the name of the transient subcluster
 func transientSubclusterName(vdb *vapi.VerticaDB) string {
 	if vdb.Spec.TransientSubclusterTemplate.Name == "" {
 		return DefaultTransientSubclusterName
@@ -612,6 +613,7 @@ func transientSubclusterName(vdb *vapi.VerticaDB) string {
 	return vdb.Spec.TransientSubclusterTemplate.Name
 }
 
+// transientSubclusterSize returns the size of the transient subcluster.
 func transientSubclusterSize(vdb *vapi.VerticaDB) int32 {
 	if vdb.Spec.TransientSubclusterTemplate.Size > 0 {
 		return vdb.Spec.TransientSubclusterTemplate.Size
