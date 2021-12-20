@@ -161,8 +161,8 @@ func (i *ImageChangeManager) setImageChangeStatus(ctx context.Context, msg strin
 }
 
 // updateImageInStatefulSets will change the image in each of the statefulsets.
-// Caller can indicate whether primary or secondary types change.
-func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgPrimary, chgSecondary bool) (int, ctrl.Result, error) {
+// This changes the images in all subclusters except any transient ones.
+func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context) (int, ctrl.Result, error) {
 	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
 
 	// We use FindExisting for the finder because we only want to work with sts
@@ -176,12 +176,6 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgP
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		if !chgPrimary && sts.Labels[SubclusterTypeLabel] == vapi.PrimarySubclusterType {
-			continue
-		}
-		if !chgSecondary && sts.Labels[SubclusterTypeLabel] == vapi.SecondarySubclusterType {
-			continue
-		}
 		isTransient, err := strconv.ParseBool(sts.Labels[SubclusterTransientLabel])
 		if err != nil {
 			return numStsChanged, ctrl.Result{}, err
@@ -203,6 +197,8 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context, chgP
 	return numStsChanged, ctrl.Result{}, nil
 }
 
+// updateImageInStatefulSet will update the image in the given statefulset.  It
+// returns true if the image was changed.
 func (i *ImageChangeManager) updateImageInStatefulSet(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
 	stsUpdated := false
 	// Skip the statefulset if it already has the proper image.
@@ -224,8 +220,8 @@ func (i *ImageChangeManager) updateImageInStatefulSet(ctx context.Context, sts *
 
 // deletePodsRunningOldImage will delete pods that have the old image.  It will return the
 // number of pods that were deleted.  Callers can control whether to delete pods
-// just for the primary or primary/secondary.
-func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delSecondary bool, scName string) (int, error) {
+// for a specific subcluster or all -- passing an empty string for scName will delete all.
+func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, scName string) (int, error) {
 	numPodsDeleted := 0 // Tracks the number of pods that were deleted
 
 	// We use FindExisting for the finder because we only want to work with pods
@@ -238,15 +234,6 @@ func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, delS
 	}
 	for inx := range pods.Items {
 		pod := &pods.Items[inx]
-
-		// We aren't deleting secondary pods, so we only continue if the pod is
-		// for a primary
-		if !delSecondary {
-			scType, ok := pod.Labels[SubclusterTypeLabel]
-			if ok && scType != vapi.PrimarySubclusterType {
-				continue
-			}
-		}
 
 		// If scName was passed in, we only delete for a specific subcluster
 		if scName != "" {

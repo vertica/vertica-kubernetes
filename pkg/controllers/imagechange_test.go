@@ -31,8 +31,7 @@ import (
 var _ = Describe("imagechange", func() {
 	ctx := context.Background()
 	const OldImage = "old-image"
-	const NewImage1 = "new-image-1"
-	const NewImage2 = "new-image-2"
+	const NewImage = "new-image-1"
 
 	It("should correctly pick the image change type", func() {
 		vdb := vapi.MakeVDB()
@@ -79,7 +78,7 @@ var _ = Describe("imagechange", func() {
 		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(false))
 	})
 
-	It("should change the image of just the primaries or just secondaries", func() {
+	It("should change the image of both primaries and secondaries", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Image = OldImage
 		vdb.Spec.Subclusters = []vapi.Subcluster{
@@ -88,39 +87,26 @@ var _ = Describe("imagechange", func() {
 		}
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		vdb.Spec.Image = NewImage1
+		vdb.Spec.Image = NewImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 
 		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(true))
-		stsChange, res, err := mgr.updateImageInStatefulSets(ctx, true, false)
+		stsChange, res, err := mgr.updateImageInStatefulSets(ctx)
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(stsChange).Should(Equal(1))
+		Expect(stsChange).Should(Equal(2))
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage1))
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(OldImage))
-
-		vdb.Spec.Image = NewImage2
-		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
-
-		stsChange, res, err = mgr.updateImageInStatefulSets(ctx, false, true)
-		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(stsChange).Should(Equal(1))
-
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage1))
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage2))
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage))
 	})
 
-	It("should delete pods of primaries only", func() {
+	It("should delete pods of all subclusters", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "sc1", Size: 1, IsPrimary: true},
@@ -128,22 +114,16 @@ var _ = Describe("imagechange", func() {
 		}
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		vdb.Spec.Image = NewImage1 // Change image to force pod deletion
+		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
 		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, false, "") // pods from primaries only
+		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, "") // pods from primaries only
 		Expect(err).Should(Succeed())
-		Expect(numPodsDeleted).Should(Equal(1))
+		Expect(numPodsDeleted).Should(Equal(2))
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0), pod)).ShouldNot(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0), pod)).Should(Succeed())
-
-		numPodsDeleted, err = mgr.deletePodsRunningOldImage(ctx, true, "") // pods from secondary and primaries
-		Expect(err).Should(Succeed())
-		Expect(numPodsDeleted).Should(Equal(1))
-
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0), pod)).ShouldNot(Succeed())
 	})
 
@@ -155,15 +135,11 @@ var _ = Describe("imagechange", func() {
 		}
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		vdb.Spec.Image = NewImage1 // Change image to force pod deletion
+		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
 		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, false, vdb.Spec.Subclusters[1].Name)
-		Expect(err).Should(Succeed())
-		Expect(numPodsDeleted).Should(Equal(0))
-
-		numPodsDeleted, err = mgr.deletePodsRunningOldImage(ctx, true, vdb.Spec.Subclusters[1].Name)
+		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[1].Name)
 		Expect(err).Should(Succeed())
 		Expect(numPodsDeleted).Should(Equal(1))
 
@@ -171,7 +147,7 @@ var _ = Describe("imagechange", func() {
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0), pod)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0), pod)).ShouldNot(Succeed())
 
-		numPodsDeleted, err = mgr.deletePodsRunningOldImage(ctx, true, vdb.Spec.Subclusters[0].Name)
+		numPodsDeleted, err = mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[0].Name)
 		Expect(err).Should(Succeed())
 		Expect(numPodsDeleted).Should(Equal(1))
 

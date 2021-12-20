@@ -256,7 +256,7 @@ func (o *OnlineImageChangeReconciler) takeSubclusterOffline(ctx context.Context,
 		o.PFacts.Invalidate()
 	}
 
-	podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, true, scName)
+	podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, scName)
 	if err != nil {
 		return err
 	}

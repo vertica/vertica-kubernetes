@@ -139,7 +139,7 @@ func (o *OfflineImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Re
 // Since there will be processing after to delete the pods so that they come up
 // with the new image.
 func (o *OfflineImageChangeReconciler) updateImageInStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	numStsChanged, res, err := o.Manager.updateImageInStatefulSets(ctx, true, true)
+	numStsChanged, res, err := o.Manager.updateImageInStatefulSets(ctx)
 	if numStsChanged > 0 {
 		o.PFacts.Invalidate()
 	}
@@ -151,7 +151,7 @@ func (o *OfflineImageChangeReconciler) updateImageInStatefulSets(ctx context.Con
 // the sts is OnDelete.  Deleting the pods ensures they get rescheduled with the
 // new image.
 func (o *OfflineImageChangeReconciler) deletePods(ctx context.Context) (ctrl.Result, error) {
-	numPodsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, true, "")
+	numPodsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, "")
 	if numPodsDeleted > 0 {
 		o.PFacts.Invalidate()
 	}
