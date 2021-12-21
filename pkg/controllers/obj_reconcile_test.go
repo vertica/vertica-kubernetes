@@ -570,7 +570,8 @@ var _ = Describe("obj_reconcile", func() {
 			actor := MakeObjReconciler(vrec, logger, vdb, &pfacts)
 			objr := actor.(*ObjReconciler)
 			// Force a label change to reconcile with the standby subcluster
-			Expect(objr.reconcileExtSvc(ctx, standby)).Should(Succeed())
+			svcName := names.GenExtSvcName(vdb, sc)
+			Expect(objr.reconcileExtSvc(ctx, svcName, standby)).Should(Succeed())
 
 			// Fetch the service object again.  The selectors should be different.
 			svc2 := &corev1.Service{}

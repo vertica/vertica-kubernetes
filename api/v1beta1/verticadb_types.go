@@ -192,13 +192,14 @@ type VerticaDBSpec struct {
 	Subclusters []Subcluster `json:"subclusters"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// When doing an online image change, we utilize a transient subcluster to
-	// serve traffic while one of the other subclusters restart.  This is the
-	// template to create that subcluster.  This subcluster is created at the
-	// beginning of the online image change and is removed when that process
-	// cleans up.
-	TransientSubclusterTemplate Subcluster `json:"transientSubclusterTemplate,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// When doing an online image change, we designate a secondary subcluster to
+	// accept traffic while the other subclusters restart.  The designated
+	// subcluster is specified here.  The name of the subcluster can refer to an
+	// existing one or an entirely new subcluster.  If the subcluster is new, it
+	// will be exist only for the duration of the image change.
+	// SPILLY - what subcluster is in the list?  We don't always update it.  So should it be there?
+	TemporaryRoutingSubcluster SubclusterSelection `json:"temporaryRoutingSubcluster,omitempty"`
 
 	// +kubebuilder:default:="1"
 	// +kubebuilder:validation:Optional
@@ -289,6 +290,23 @@ type LocalObjectReference struct {
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
 	// +optional
 	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+}
+
+// SubclusterSelection is used to select between existing subcluster by name
+// or provide a template for a new subcluster.  This is used to specify what
+// subcluster gets client routing for subcluster we are restarting during online
+// image change.
+type SubclusterSelection struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// Names of existing subclusters to use for temporary routing of client
+	// connections.  The operator will use the first subcluster that is online.
+	Names []string `json:"names,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// A new subcluster will be created using this as a template.
+	Template Subcluster `json:"template,omitempty"`
 }
 
 type CommunalInitPolicy string
@@ -915,4 +933,17 @@ func (s *Subcluster) GetServiceName() string {
 		return s.Name
 	}
 	return s.ServiceName
+}
+
+// RequiresTransientSubcluster checks if an online image change requires a
+// transient subcluster.  A transient subcluster exists if the template is
+// filled out or the name of the temporary routing subcluster doesn't exist.
+func (v *VerticaDB) RequiresTransientSubcluster() bool {
+	scMap := v.GenSubclusterMap()
+	for i := range v.Spec.TemporaryRoutingSubcluster.Names {
+		if _, ok := scMap[v.Spec.TemporaryRoutingSubcluster.Names[i]]; ok {
+			return false
+		}
+	}
+	return true
 }

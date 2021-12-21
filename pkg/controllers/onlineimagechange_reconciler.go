@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -242,7 +243,7 @@ func (o *OnlineImageChangeReconciler) takeSubclusterOffline(ctx context.Context,
 
 	if img != o.Vdb.Spec.Image {
 		o.Log.Info("starting client traffic routing of secondary to transient", "name", scName)
-		err = o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, true)
+		err = o.routeClientTraffic(ctx, scName, true)
 		if err != nil {
 			return err
 		}
@@ -278,12 +279,15 @@ func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context,
 
 	scName := sts.Labels[SubclusterNameLabel]
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
-	err = o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, false)
+	err = o.routeClientTraffic(ctx, scName, false)
 	return ctrl.Result{}, err
 }
 
 // removeTransientSubclusters will drive subcluster removal of the transient subcluster
 func (o *OnlineImageChangeReconciler) removeTransientSubclusters(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
 	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
@@ -291,6 +295,9 @@ func (o *OnlineImageChangeReconciler) removeTransientSubclusters(ctx context.Con
 
 // uninstallTransientNodes will drive uninstall logic for any transient nodes.
 func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
 	actor := MakeUninstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
@@ -298,6 +305,10 @@ func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Contex
 
 // deleteTransientSts will delete the transient subcluster that was created for the image change.
 func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
+
 	if err := o.removeTransientFromVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -350,7 +361,7 @@ func (o *OnlineImageChangeReconciler) skipTransientSetup() bool {
 	// We can skip this entirely if all of the primary subclusters already have
 	// the new image.  This is an indication that we have already created the
 	// transient and done the image change.
-	return len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image
+	return !o.Vdb.RequiresTransientSubcluster() || (len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image)
 }
 
 // addTransientToVdb will create a transient subcluster. The transient is added
@@ -424,24 +435,48 @@ func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) 
 // caller provides.  If it returns true for a given subcluster, traffic will be
 // routed to that.
 func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
-	scSelectorFunc func(sc *vapi.Subcluster) bool, useTransientSc bool) error {
+	scName string, setTemporaryRouting bool) error {
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	objRec := actor.(*ObjReconciler)
 
+	scMap := o.Vdb.GenSubclusterMap()
+	sc, ok := scMap[scName]
+	if !ok {
+		return fmt.Errorf("we are routing for a subcluster that isn't in the vdb: %s", scName)
+	}
+
 	// We update the external service object to route traffic to transient or
 	// primary/secondary.  We make a copy of the subcluster than modify it
-	// in-place with the IsTransient state to route to transient subcluster or
-	// not.
-	for i := range o.Vdb.Spec.Subclusters {
-		sc := o.Vdb.Spec.Subclusters[i]
-		if scSelectorFunc(&sc) {
-			// We are modifying a copy of sc, so we flip the IsTransient flag to
-			// know what subcluster we are going to route to.
-			sc.IsTransient = useTransientSc
-			if err := objRec.reconcileExtSvc(ctx, &sc); err != nil {
-				return err
+	// in-place with the IsTransient or ServiceName changed to update the
+	// routing target for the subcluster.
+	scCpy := sc.DeepCopy()
+	svcName := names.GenExtSvcName(o.Vdb, scCpy) // Get the name before making changes to scCpy
+
+	// If we are to set temporary routing, we are going to route traffic
+	// to a transient subcluster (if one exists) or to the subcluster
+	// defined in
+	if setTemporaryRouting {
+		foundRoutingSubcluster := false
+		for i := range o.Vdb.Spec.TemporaryRoutingSubcluster.Names {
+			routeName := o.Vdb.Spec.TemporaryRoutingSubcluster.Names[i]
+			// Don't route to the subcluster that we are taking offline
+			if routeName == scName {
+				continue
 			}
+			routingSc, ok := scMap[routeName]
+			if !ok {
+				o.Log.Info("Temporary routing subcluster not found.  Skipping", "Name", routeName)
+				continue
+			}
+			scCpy.ServiceName = routingSc.GetServiceName()
+			foundRoutingSubcluster = true
+			break
+		}
+		if !foundRoutingSubcluster {
+			// We are modifying a copy of sc, so we set the IsTransient flag to
+			// know what subcluster we are going to route to.
+			scCpy.IsTransient = true
 		}
 	}
-	return nil
+	return objRec.reconcileExtSvc(ctx, svcName, scCpy)
 }

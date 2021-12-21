@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"yunion.io/x/pkg/tristate"
 )
@@ -102,6 +103,79 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		oldImage, ok := r.fetchOldImage()
 		Expect(ok).Should(BeTrue())
 		Expect(oldImage).Should(Equal(OldImage))
+	})
+
+	It("should route client traffic to transient subcluster", func() {
+		vdb := vapi.MakeVDB()
+		const ScName = "sc1"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: ScName, IsPrimary: true},
+		}
+		vdb.Spec.TemporaryRoutingSubcluster.Template.Name = "transient"
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
+		svc := &corev1.Service{}
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal("true"))
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(""))
+
+		// Route back to original subcluster
+		Expect(r.routeClientTraffic(ctx, ScName, false)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(ScName))
+	})
+
+	It("should route client traffic to existing subcluster", func() {
+		vdb := vapi.MakeVDB()
+		const PriScName = "pri"
+		const SecScName = "sec"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: PriScName, IsPrimary: true},
+			{Name: SecScName, IsPrimary: true},
+		}
+		vdb.Spec.TemporaryRoutingSubcluster.Names = []string{"dummy-non-existent", SecScName, PriScName}
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		svc := &corev1.Service{}
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(PriScName))
+
+		r := createOnlineImageChangeReconciler(vdb)
+
+		// Route for primary subcluster
+		Expect(r.routeClientTraffic(ctx, PriScName, true)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(SecScName))
+		Expect(r.routeClientTraffic(ctx, PriScName, false)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(PriScName))
+
+		// Route for secondasy subcluster
+		Expect(r.routeClientTraffic(ctx, SecScName, true)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(PriScName))
+		Expect(r.routeClientTraffic(ctx, SecScName, false)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(SecScName))
 	})
 })
 
