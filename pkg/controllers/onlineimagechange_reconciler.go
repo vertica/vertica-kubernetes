@@ -473,8 +473,8 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 	// defined in the vdb.
 	if setTemporaryRouting {
 		foundRoutingSubcluster := false
-		for i := range o.Vdb.Spec.TemporaryRoutingSubcluster.Names {
-			routeName := o.Vdb.Spec.TemporaryRoutingSubcluster.Names[i]
+		for i := range o.Vdb.Spec.TemporarySubclusterRouting.Names {
+			routeName := o.Vdb.Spec.TemporarySubclusterRouting.Names[i]
 			// Don't route to the subcluster that we are taking offline
 			if routeName == scName {
 				continue

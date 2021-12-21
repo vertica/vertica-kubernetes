@@ -113,7 +113,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 			{Name: ScName, IsPrimary: true},
 		}
 		sc := &vdb.Spec.Subclusters[0]
-		vdb.Spec.TemporaryRoutingSubcluster.Template.Name = TransientScName
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = TransientScName
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -145,7 +145,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 			{Name: PriScName, IsPrimary: true},
 			{Name: SecScName, IsPrimary: true},
 		}
-		vdb.Spec.TemporaryRoutingSubcluster.Names = []string{"dummy-non-existent", SecScName, PriScName}
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{"dummy-non-existent", SecScName, PriScName}
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)

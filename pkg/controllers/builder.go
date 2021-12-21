@@ -594,11 +594,11 @@ func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOve
 		IsTransient:       true,
 		ImageOverride:     imageOverride,
 		IsPrimary:         false,
-		NodeSelector:      vdb.Spec.TemporaryRoutingSubcluster.Template.NodeSelector,
-		Affinity:          vdb.Spec.TemporaryRoutingSubcluster.Template.Affinity,
-		PriorityClassName: vdb.Spec.TemporaryRoutingSubcluster.Template.PriorityClassName,
-		Tolerations:       vdb.Spec.TemporaryRoutingSubcluster.Template.Tolerations,
-		Resources:         vdb.Spec.TemporaryRoutingSubcluster.Template.Resources,
+		NodeSelector:      vdb.Spec.TemporarySubclusterRouting.Template.NodeSelector,
+		Affinity:          vdb.Spec.TemporarySubclusterRouting.Template.Affinity,
+		PriorityClassName: vdb.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
+		Tolerations:       vdb.Spec.TemporarySubclusterRouting.Template.Tolerations,
+		Resources:         vdb.Spec.TemporarySubclusterRouting.Template.Resources,
 		ServiceType:       sc.ServiceType,
 		ServiceName:       sc.GetServiceName(),
 		NodePort:          sc.NodePort,
@@ -608,16 +608,16 @@ func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOve
 
 // transientSuclusterName returns the name of the transient subcluster
 func transientSubclusterName(vdb *vapi.VerticaDB) string {
-	if vdb.Spec.TemporaryRoutingSubcluster.Template.Name == "" {
+	if vdb.Spec.TemporarySubclusterRouting.Template.Name == "" {
 		return DefaultTransientSubclusterName
 	}
-	return vdb.Spec.TemporaryRoutingSubcluster.Template.Name
+	return vdb.Spec.TemporarySubclusterRouting.Template.Name
 }
 
 // transientSubclusterSize returns the size of the transient subcluster.
 func transientSubclusterSize(vdb *vapi.VerticaDB) int32 {
-	if vdb.Spec.TemporaryRoutingSubcluster.Template.Size > 0 {
-		return vdb.Spec.TemporaryRoutingSubcluster.Template.Size
+	if vdb.Spec.TemporarySubclusterRouting.Template.Size > 0 {
+		return vdb.Spec.TemporarySubclusterRouting.Template.Size
 	}
 	return 1
 }

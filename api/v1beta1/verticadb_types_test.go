@@ -43,9 +43,9 @@ var _ = Describe("verticadb_types", func() {
 			{Name: "sc1"},
 			{Name: "sc2"},
 		}
-		vdb.Spec.TemporaryRoutingSubcluster.Names = []string{"transient"}
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{"transient"}
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeTrue())
-		vdb.Spec.TemporaryRoutingSubcluster.Names = []string{"sc1"}
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{"sc1"}
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeFalse())
 	})
 })
