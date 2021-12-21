@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.1.0
+VERSION ?= 1.2.0
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
 # (see docker-vlogger).  This version is separate from VERSION above in
