@@ -565,7 +565,7 @@ var _ = Describe("obj_reconcile", func() {
 			svc1 := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, nm, svc1)).Should(Succeed())
 
-			standby := buildTransientSubcluster(sc, "")
+			standby := buildTransientSubcluster(vdb, sc, "")
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 			actor := MakeObjReconciler(vrec, logger, vdb, &pfacts)
 			objr := actor.(*ObjReconciler)

@@ -147,14 +147,6 @@ type VerticaDBSpec struct {
 	ImageChangePolicy ImageChangePolicyType `json:"imageChangePolicy"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// When doing an online image change, we utilize a transient subcluster to
-	// serve traffic while one of the other subclusters restart.  This is the
-	// size of that subcluster.  This subcluster is created at the beginning of
-	// the online image change and is removed when that process cleans up.
-	TransientSubclusterSize int `json:"transientSubclusterSize,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// This specifies the order of nodes when doing a revive.  Each entry
 	// contains an index to a subcluster, which is an index in Subclusters[],
@@ -198,6 +190,15 @@ type VerticaDBSpec struct {
 
 	//+operator-sdk:csv:customresourcedefinitions:type=spec
 	Subclusters []Subcluster `json:"subclusters"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// When doing an online image change, we utilize a transient subcluster to
+	// serve traffic while one of the other subclusters restart.  This is the
+	// template to create that subcluster.  This subcluster is created at the
+	// beginning of the online image change and is removed when that process
+	// cleans up.
+	TransientSubclusterTemplate Subcluster `json:"transientSubclusterTemplate,omitempty"`
 
 	// +kubebuilder:default:="1"
 	// +kubebuilder:validation:Optional

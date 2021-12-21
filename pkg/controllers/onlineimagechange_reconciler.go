@@ -18,10 +18,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -68,28 +70,14 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.installTransientNodes,
 		o.addTransientSubcluster,
 		o.addTransientNodes,
-		// Reroute all traffic from primary subclusters to the transient
-		o.rerouteClientTrafficToTransient,
-		// Drain all connections from the primary subcluster.  This waits for
-		// connections that were established before traffic was routed to the
-		// transient.
-		o.drainPrimaries,
-		// Change the image in each of the primary subclusters.
-		o.changeImageInPrimaries,
-		// Restart the pods of the primary subclusters.
+		// Handle restart of the primary subclusters
 		o.restartPrimaries,
-		// Reroute all traffic from transient subcluster back to the primaries
-		o.rerouteClientTrafficToPrimaries,
-		// Drain all connections from the transient subcluster to prepare it
-		// for being removed.
-		o.drainTransient,
+		// Handle restart of secondary subclusters
+		o.restartSecondaries,
 		// Will cleanup the transient subcluster now that the primaries are back up.
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
-		// With the primaries back up, we can do a "rolling upgrade" style of
-		// update for the secondary subclusters.
-		o.startRollingUpgradeOfSecondarySubclusters,
 		// Cleanup up the condition and event recording for a completed image change
 		o.Manager.finishImageChange,
 	}
@@ -168,69 +156,130 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// rerouteClientTrafficToTransient will update the service objects for each of the
-// primary subclusters so that they are routed to the transient subcluster.
-func (o *OnlineImageChangeReconciler) rerouteClientTrafficToTransient(ctx context.Context) (ctrl.Result, error) {
-	if o.skipTransientSetup() {
-		return ctrl.Result{}, nil
+// restartPrimaries will handle the image change on all of the primaries.
+func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
+	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	o.Log.Info("starting client traffic routing to transient")
-	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsTransient })
-	return ctrl.Result{}, err
-}
+	// We bring all primaries offline before we start to bring any of them back up.
+	primaries := []*appsv1.StatefulSet{}
 
-// drainPrimaries will only succeed if the primary subclusters are already down
-// or have no active connections.  All traffic to the primaries get routed to
-// the transient subcluster, so this step waits for any connection that were
-// established before the transient was created.
-func (o *OnlineImageChangeReconciler) drainPrimaries(ctx context.Context) (ctrl.Result, error) {
+	for i := range stss.Items {
+		sts := &stss.Items[i]
+		matches := false
+		if matches, err = o.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType); err != nil {
+			return ctrl.Result{}, err
+		} else if !matches {
+			continue
+		}
+		primaries = append(primaries, sts)
+
+		err = o.takeSubclusterOffline(ctx, sts)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	for i := range primaries {
+		res, err := o.bringSubclusterOnline(ctx, primaries[i])
+		if res.Requeue || err != nil {
+			return res, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
-// changeImageInPrimaries will update the statefulset of each of the primary
-// subcluster's with the new image.  It will also force the cluster in read-only
-// mode as all of the pods in the primary will be rescheduled with the new
-// image.
-func (o *OnlineImageChangeReconciler) changeImageInPrimaries(ctx context.Context) (ctrl.Result, error) {
-	numStsChanged, res, err := o.Manager.updateImageInStatefulSets(ctx, true, false)
-	if numStsChanged > 0 {
-		o.Log.Info("changed image in statefulsets", "num", numStsChanged)
-		o.PFacts.Invalidate()
+// restartSecondaries will restart all of the secondaries, temporarily
+// rerouting traffic to the transient while it does the restart.
+func (o *OnlineImageChangeReconciler) restartSecondaries(ctx context.Context) (ctrl.Result, error) {
+	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
-	return res, err
+	// We do each subcluster at a time for secondary.  We can do this
+	// differently than primaries because the secondaries aren't needed to form
+	// the cluster, so it can be done in a piece meal fashion.
+	for i := range stss.Items {
+		sts := &stss.Items[i]
+		if matches, err := o.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType); err != nil {
+			return ctrl.Result{}, err
+		} else if !matches {
+			continue
+		}
+
+		err := o.takeSubclusterOffline(ctx, sts)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		res, err := o.bringSubclusterOnline(ctx, sts)
+		if res.Requeue || err != nil {
+			return res, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
-// restartPrimaries will restart all of the pods in the primary subclusters.
-func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
-	numPodsDeleted, res, err := o.Manager.deletePodsRunningOldImage(ctx, false)
-	if res.Requeue || err != nil {
-		return res, err
+// isMatchingSubclusterType will return true if the subcluster type matches the
+// input string.  Always returns false for the transient subcluster.
+func (o *OnlineImageChangeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) (bool, error) {
+	isTransient, err := strconv.ParseBool(sts.Labels[SubclusterTransientLabel])
+	if err != nil {
+		return false, fmt.Errorf("could not parse label %s: %w", SubclusterTransientLabel, err)
 	}
-	if numPodsDeleted > 0 {
-		o.Log.Info("deleted pods running old image", "num", numPodsDeleted)
+	return sts.Labels[SubclusterTypeLabel] == scType && isTransient, nil
+}
+
+// takeSubclusterOffline will take bring down a subcluster if it running the old
+// image.  It will reroute client traffic to the transient subcluster so that
+// access stays online during the image change.
+func (o *OnlineImageChangeReconciler) takeSubclusterOffline(ctx context.Context, sts *appsv1.StatefulSet) error {
+	var err error
+	scName := sts.Labels[SubclusterNameLabel]
+	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+
+	if img != o.Vdb.Spec.Image {
+		o.Log.Info("starting client traffic routing of secondary to transient", "name", scName)
+		err = o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	stsChanged, err := o.Manager.updateImageInStatefulSet(ctx, sts)
+	if err != nil {
+		return err
+	}
+	if stsChanged {
 		o.PFacts.Invalidate()
 	}
 
+	podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, scName)
+	if err != nil {
+		return err
+	}
+	if podsDeleted > 0 {
+		o.PFacts.Invalidate()
+	}
+	return nil
+}
+
+// bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.
+func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	const DoNotRestartReadOnly = false
 	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
 	o.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
-}
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	if res.Requeue || err != nil {
+		return res, err
+	}
 
-// rerouteClientTrafficToPrimaries will update the service objects of the primary
-// subclusters so that traffic is not routed to the transient anymore but back
-// to the primary subclusters.
-func (o *OnlineImageChangeReconciler) rerouteClientTrafficToPrimaries(ctx context.Context) (ctrl.Result, error) {
-	o.Log.Info("starting client traffic routing to primary")
-	err := o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.IsPrimary })
+	scName := sts.Labels[SubclusterNameLabel]
+	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
+	err = o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, false)
 	return ctrl.Result{}, err
-}
-
-// drainTransient will wait for all active connections in the transient subcluster
-// to leave.  This is preparation for eventual removal of the transient subcluster.
-func (o *OnlineImageChangeReconciler) drainTransient(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
 }
 
 // removeTransientSubclusters will drive subcluster removal of the transient subcluster
@@ -256,14 +305,6 @@ func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (c
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
-}
-
-// startRollingUpgradeOfSecondarySubclusters will update the image of each of
-// the secondary subclusters.  The update policy will be rolling upgrade.  This
-// gives control of restarting each pod back to k8s.  This can be done because
-// secondary subclusters don't participate in cluster quorum.
-func (o *OnlineImageChangeReconciler) startRollingUpgradeOfSecondarySubclusters(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
 }
 
 // cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
@@ -333,7 +374,7 @@ func (o *OnlineImageChangeReconciler) addTransientToVdb(ctx context.Context) err
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
 			if sc.IsPrimary {
-				transient := buildTransientSubcluster(sc, oldImage)
+				transient := buildTransientSubcluster(o.Vdb, sc, oldImage)
 				_, ok := scMap[transient.Name]
 				if !ok {
 					if err := o.Manager.setImageChangeStatus(ctx, "Creating transient subcluster"); err != nil {
@@ -379,17 +420,25 @@ func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) 
 }
 
 // routeClientTraffic will update service objects to route to either the primary
-// or standby.  The subcluster picked is determined by the scCheckFunc the
+// or transient.  The subcluster picked is determined by the scCheckFunc the
 // caller provides.  If it returns true for a given subcluster, traffic will be
 // routed to that.
-func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context, scCheckFunc func(sc *vapi.Subcluster) bool) error {
+func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
+	scSelectorFunc func(sc *vapi.Subcluster) bool, useTransientSc bool) error {
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	objRec := actor.(*ObjReconciler)
 
+	// We update the external service object to route traffic to transient or
+	// primary/secondary.  We make a copy of the subcluster than modify it
+	// in-place with the IsTransient state to route to transient subcluster or
+	// not.
 	for i := range o.Vdb.Spec.Subclusters {
-		sc := &o.Vdb.Spec.Subclusters[i]
-		if scCheckFunc(sc) {
-			if err := objRec.reconcileExtSvc(ctx, sc); err != nil {
+		sc := o.Vdb.Spec.Subclusters[i]
+		if scSelectorFunc(&sc) {
+			// We are modifying a copy of sc, so we flip the IsTransient flag to
+			// know what subcluster we are going to route to.
+			sc.IsTransient = useTransientSc
+			if err := objRec.reconcileExtSvc(ctx, &sc); err != nil {
 				return err
 			}
 		}
