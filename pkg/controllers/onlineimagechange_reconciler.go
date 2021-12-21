@@ -475,10 +475,6 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 		foundRoutingSubcluster := false
 		for i := range o.Vdb.Spec.TemporarySubclusterRouting.Names {
 			routeName := o.Vdb.Spec.TemporarySubclusterRouting.Names[i]
-			// Don't route to the subcluster that we are taking offline
-			if routeName == scName {
-				continue
-			}
 			routingSc, ok := scMap[routeName]
 			if !ok {
 				o.Log.Info("Temporary routing subcluster not found.  Skipping", "Name", routeName)
@@ -486,6 +482,14 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 			}
 			svc.Spec.Selector = makeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, routingSc)
 			foundRoutingSubcluster = true
+
+			// Keep searching if we are routing to the subcluster we are taking
+			// offline.  We may continue with this subcluster still if no other
+			// subclusters are defined -- this is why we updated the svc object
+			// with it.
+			if routeName == scName {
+				continue
+			}
 			break
 		}
 		if !foundRoutingSubcluster {
