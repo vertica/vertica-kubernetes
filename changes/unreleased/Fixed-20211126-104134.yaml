@@ -1,6 +1,0 @@
-kind: Fixed
-body: The image change can be marked complete before we finish the restart of the
-  pods.
-time: 2021-11-26T10:41:34.063761924-04:00
-custom:
-  Issue: "101"
