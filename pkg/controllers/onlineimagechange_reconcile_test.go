@@ -143,7 +143,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		const SecScName = "sec"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: PriScName, IsPrimary: true},
-			{Name: SecScName, IsPrimary: true},
+			{Name: SecScName, IsPrimary: false},
 		}
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{"dummy-non-existent", SecScName, PriScName}
 		vdb.Spec.Image = OldImage
@@ -188,7 +188,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		const SecScName = "sec"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: PriScName, IsPrimary: true},
-			{Name: SecScName, IsPrimary: true},
+			{Name: SecScName, IsPrimary: false},
 		}
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
@@ -205,12 +205,41 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeTrue())
-		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
+		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeFalse())
+		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeTrue())
 
 		sts.Labels[SubclusterTypeLabel] = "true" // Fake a transient subcluster
 		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeFalse())
 		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
+	})
+
+	It("should update image in each sts", func() {
+		vdb := vapi.MakeVDB()
+		const PriScName = "pri"
+		const SecScName = "sec"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: PriScName, IsPrimary: true},
+			{Name: SecScName, IsPrimary: false},
+		}
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{SecScName, PriScName}
+		vdb.Spec.Image = OldImage
+		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
+		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
 	})
 })
 
