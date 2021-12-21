@@ -132,8 +132,8 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
 	// +kubebuilder:default:=Auto
-	// How will image changes be managed?  Available values are: Offline, Online
-	// and Auto.
+	// Defines how image change will be managed.  Available values are: Offline,
+	// Online and Auto.
 	// - Offline: means we take down the entire cluster then bring it back up
 	// with the new image.
 	// - Online: will keep the cluster up when the image change occurs.  The

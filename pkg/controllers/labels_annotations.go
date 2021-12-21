@@ -106,22 +106,30 @@ func makeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 }
 
 // makeSvcSelectorLabels returns the labels that are used for selectors in service objects.
-func makeSvcSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+func makeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 	// We intentionally don't use the common labels because that includes things
 	// specific to the operator version.  To allow the selector to work with
 	// pods created from an older operator, we need to be more selective in the
 	// labels we choose.
-	m := map[string]string{
+	return map[string]string{
 		VDBInstanceLabel: vdb.Name,
 	}
-	if sc != nil {
-		if sc.IsTransient {
-			// This label is here to ensure service object routes to
-			// primary/secondary or the transient, but never both
-			m[SubclusterTransientLabel] = strconv.FormatBool(sc.IsTransient)
-		} else {
-			m[SubclusterSvcNameLabel] = sc.GetServiceName()
-		}
-	}
+}
+
+// makeSvcSelectorLabelsForServiceNameRouting will create the labels for when we
+// want a service object to pick the pods based on the service name.  This
+// allows us to combine multiple subcluster under a single service object.
+func makeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	m := makeBaseSvcSelectorLabels(vdb)
+	m[SubclusterSvcNameLabel] = sc.GetServiceName()
+	return m
+}
+
+// makeSvcSelectorLabelsForSubclusterNameRouting will create the labels for when
+// we want a service object to pick the pods based on the subcluster name.
+func makeSvcSelectorLabelsForSubclusterNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	m := makeBaseSvcSelectorLabels(vdb)
+	// Routing is done solely with the subcluster name.
+	m[SubclusterNameLabel] = sc.Name
 	return m
 }

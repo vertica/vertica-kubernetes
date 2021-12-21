@@ -151,7 +151,8 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 	// reuse ones we have for other primary/secondary subclusters.
 	if !sc.IsTransient {
 		svcName := names.GenExtSvcName(o.Vdb, sc)
-		if err := o.reconcileExtSvc(ctx, svcName, sc); err != nil {
+		expSvc := buildExtSvc(svcName, o.Vdb, sc, makeSvcSelectorLabelsForServiceNameRouting)
+		if err := o.reconcileExtSvc(ctx, expSvc, sc); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -201,9 +202,9 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 }
 
 // reconcileExtSvc verifies the external service objects exists and creates it if necessary.
-func (o ObjReconciler) reconcileExtSvc(ctx context.Context, svcName types.NamespacedName, sc *vapi.Subcluster) error {
+func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Service, sc *vapi.Subcluster) error {
 	curSvc := &corev1.Service{}
-	expSvc := buildExtSvc(svcName, o.Vdb, sc)
+	svcName := types.NamespacedName{Name: expSvc.Name, Namespace: expSvc.Namespace}
 	err := o.VRec.Client.Get(ctx, svcName, curSvc)
 	if err != nil && errors.IsNotFound(err) {
 		return o.createService(ctx, expSvc, svcName)

@@ -192,7 +192,7 @@ func createSvcs(ctx context.Context, vdb *vapi.VerticaDB) {
 	ExpectWithOffset(1, k8sClient.Create(ctx, svc)).Should(Succeed())
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
-		svc := buildExtSvc(names.GenExtSvcName(vdb, sc), vdb, sc)
+		svc := buildExtSvc(names.GenExtSvcName(vdb, sc), vdb, sc, makeSvcSelectorLabelsForServiceNameRouting)
 		ExpectWithOffset(1, k8sClient.Create(ctx, svc)).Should(Succeed())
 	}
 }

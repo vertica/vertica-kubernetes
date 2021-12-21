@@ -34,7 +34,8 @@ const (
 )
 
 // buildExtSvc creates desired spec for the external service.
-func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.Service {
+func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -43,7 +44,7 @@ func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: makeSvcSelectorLabels(vdb, sc),
+			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
@@ -64,7 +65,7 @@ func buildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector:                 makeSvcSelectorLabels(vdb, nil),
+			Selector:                 makeBaseSvcSelectorLabels(vdb),
 			ClusterIP:                "None",
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
@@ -406,7 +407,7 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: makeSvcSelectorLabels(vdb, sc),
+				MatchLabels: makeSvcSelectorLabelsForSubclusterNameRouting(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
 			Replicas:    &sc.Size,

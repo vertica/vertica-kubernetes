@@ -108,10 +108,12 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 	It("should route client traffic to transient subcluster", func() {
 		vdb := vapi.MakeVDB()
 		const ScName = "sc1"
+		const TransientScName = "transient"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: ScName, IsPrimary: true},
 		}
-		vdb.Spec.TemporaryRoutingSubcluster.Template.Name = "transient"
+		sc := &vdb.Spec.Subclusters[0]
+		vdb.Spec.TemporaryRoutingSubcluster.Template.Name = TransientScName
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -124,15 +126,15 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		r := createOnlineImageChangeReconciler(vdb)
 		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
 		svc := &corev1.Service{}
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal("true"))
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(TransientScName))
 
 		// Route back to original subcluster
 		Expect(r.routeClientTraffic(ctx, ScName, false)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(ScName))
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(sc.GetServiceName()))
+		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(""))
 	})
 
 	It("should route client traffic to existing subcluster", func() {
@@ -163,19 +165,52 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(r.routeClientTraffic(ctx, PriScName, true)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(SecScName))
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(SecScName))
 		Expect(r.routeClientTraffic(ctx, PriScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(PriScName))
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].GetServiceName()))
+		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(""))
 
-		// Route for secondasy subcluster
+		// Route for secondary subcluster
 		Expect(r.routeClientTraffic(ctx, SecScName, true)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(PriScName))
+		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(PriScName))
 		Expect(r.routeClientTraffic(ctx, SecScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(SecScName))
+	})
+
+	It("should not match transient subclusters", func() {
+		vdb := vapi.MakeVDB()
+		const PriScName = "pri"
+		const SecScName = "sec"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: PriScName, IsPrimary: true},
+			{Name: SecScName, IsPrimary: true},
+		}
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		r := createOnlineImageChangeReconciler(vdb)
+
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
+		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeTrue())
+		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
+
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
+		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeTrue())
+		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
+
+		sts.Labels[SubclusterTypeLabel] = "true" // Fake a transient subcluster
+		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeFalse())
+		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
 	})
 })
 
