@@ -197,7 +197,7 @@ type VerticaDBSpec struct {
 	// accept traffic while the other subclusters restart.  The designated
 	// subcluster is specified here.  The name of the subcluster can refer to an
 	// existing one or an entirely new subcluster.  If the subcluster is new, it
-	// will be exist only for the duration of the image change.
+	// will exist only for the duration of the image change.
 	TemporarySubclusterRouting SubclusterSelection `json:"temporarySubclusterRouting,omitempty"`
 
 	// +kubebuilder:default:="1"
@@ -304,7 +304,10 @@ type SubclusterSelection struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
-	// A new subcluster will be created using this as a template.
+	// A new subcluster will be created using this as a template.  This
+	// subcluster will only exist for the life of the online image change.  It
+	// will accept client traffic for a subcluster that are in the process of
+	// being restarted.
 	Template Subcluster `json:"template,omitempty"`
 }
 
@@ -937,6 +940,8 @@ func (s *Subcluster) GetServiceName() string {
 // RequiresTransientSubcluster checks if an online image change requires a
 // transient subcluster.  A transient subcluster exists if the template is
 // filled out or the name of the temporary routing subcluster doesn't exist.
+// The intention of this latter check is to default to creating a transient if
+// all of the subclusters specified don't actually exist.
 func (v *VerticaDB) RequiresTransientSubcluster() bool {
 	scMap := v.GenSubclusterMap()
 	for i := range v.Spec.TemporarySubclusterRouting.Names {
