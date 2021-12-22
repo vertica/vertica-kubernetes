@@ -62,6 +62,7 @@ RUN set -x \
 
 # prepare (put inside) entrypoint script and make right permissions
 ADD dbadmin/.bash_profile /home/dbadmin/
+ADD dbadmin/.ssh /home/dbadmin/.ssh
 ADD ./docker-entrypoint.sh /opt/vertica/bin/
 
 RUN set -x \
@@ -70,11 +71,7 @@ RUN set -x \
   && chmod 600 /home/dbadmin/.bash_profile \
   && ssh-keygen -q -A \
   && mkdir -p /root/.ssh \
-  && mkdir -p /home/dbadmin/.ssh \
-  && ssh-keygen -q -t rsa -N '' -f /root/.ssh/id_rsa \
-  && cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys \
-  # Allow root to ssh into dbadmin account -- needed for install_vertica
-  && cat /root/.ssh/id_rsa.pub >> /home/dbadmin/.ssh/authorized_keys \
+  && cp -r /home/dbadmin/.ssh /root \
   && chmod 700 /root/.ssh \
   && chmod 600 /root/.ssh/* \
   && chmod 700 /home/dbadmin/.ssh \
