@@ -23,6 +23,7 @@ metadata:
   annotations:
     kubernetes.io/description: anyuid-extra provides all features of the anyuid SCC
         but add SYS_CHROOT and AUDIT_WRITE capabilities.
+priority: 1
 requiredDropCapabilities:
 - MKNOD
 runAsUser:

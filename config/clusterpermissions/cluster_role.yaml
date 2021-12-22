@@ -8,6 +8,6 @@ rules:
   resources:
   - securitycontextconstraints
   resourceNames: 
-  - anyuid-extra
+  - privileged
   verbs:
   - use
