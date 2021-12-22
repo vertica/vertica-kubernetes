@@ -45,6 +45,20 @@ type OnlineImageChangeReconciler struct {
 	PrimaryImages []string // Known images in the primaries.  Should be of length 1 or 2.
 }
 
+const (
+	CreatingTransientOnlineMsgIndex = iota
+	RestartingPrimaryOnlineMsgIndex
+	RestartingSecondaryOnlineMsgIndex
+	DestroyingTransientOnlineMsgIndex
+)
+
+var OnlineImageChangeStatusMsgs = []string{
+	"Creating transient secondary subcluster",
+	"Restarting primary subclusters with new image",
+	"Restarting secondary subclusters with new image",
+	"Destroying transient secondary subcluster",
+}
+
 // MakeOnlineImageChangeReconciler will build an OnlineImageChangeReconciler object
 func MakeOnlineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
@@ -69,15 +83,19 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.loadSubclusterState,
 		// Setup a transient subcluster to accept traffic when other subclusters
 		// are down
+		o.postCreatingTransientMsg,
 		o.createTransientSts,
 		o.installTransientNodes,
 		o.addTransientSubcluster,
 		o.addTransientNodes,
 		// Handle restart of the primary subclusters
+		o.postRestartingPrimaryMsg,
 		o.restartPrimaries,
 		// Handle restart of secondary subclusters
+		o.postRestartingSecondaryMsg,
 		o.restartSecondaries,
 		// Will cleanup the transient subcluster now that the primaries are back up.
+		o.postDestroyingTransientMsg,
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
@@ -104,6 +122,12 @@ func (o *OnlineImageChangeReconciler) loadSubclusterState(ctx context.Context) (
 
 	err = o.cachePrimaryImages(ctx)
 	return ctrl.Result{}, err
+}
+
+// postCreatingTransientMsg sets the status message to indicate we are creating
+// transient subcluster
+func (o *OnlineImageChangeReconciler) postCreatingTransientMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, CreatingTransientOnlineMsgIndex)
 }
 
 // createTransientSts this will create a secondary subcluster to accept
@@ -159,6 +183,12 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
+// postRestartingPrimaryMsg sets the status message to indicate we are
+// restarting the primary subclusters
+func (o *OnlineImageChangeReconciler) postRestartingPrimaryMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, RestartingPrimaryOnlineMsgIndex)
+}
+
 // restartPrimaries will handle the image change on all of the primaries.
 func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("Starting the handling of primaries")
@@ -194,6 +224,12 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// postRestartingSecondaryMsg sets the status message to indicate we are
+// restarting the secondary subclusters
+func (o *OnlineImageChangeReconciler) postRestartingSecondaryMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, RestartingSecondaryOnlineMsgIndex)
 }
 
 // restartSecondaries will restart all of the secondaries, temporarily
@@ -288,6 +324,12 @@ func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context,
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
 	err = o.routeClientTraffic(ctx, scName, false)
 	return ctrl.Result{}, err
+}
+
+// postDestroyingTransientMsg sets the status message to indicate we are
+// destroying the transient subcluster
+func (o *OnlineImageChangeReconciler) postDestroyingTransientMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, DestroyingTransientOnlineMsgIndex)
 }
 
 // removeTransientSubclusters will drive subcluster removal of the transient subcluster
@@ -395,9 +437,6 @@ func (o *OnlineImageChangeReconciler) addTransientToVdb(ctx context.Context) err
 				transient := buildTransientSubcluster(o.Vdb, sc, oldImage)
 				_, ok := scMap[transient.Name]
 				if !ok {
-					if err := o.Manager.setImageChangeStatus(ctx, "Creating transient subcluster"); err != nil {
-						return err
-					}
 					o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters, *transient)
 					return o.VRec.Client.Update(ctx, o.Vdb)
 				}
@@ -502,4 +541,10 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 		svc.Spec.Selector = makeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sc)
 	}
 	return objRec.reconcileExtSvc(ctx, svc, sc)
+}
+
+// postNextStatusMsg will set the next status message for an online image change
+// according to msgIndex
+func (o *OnlineImageChangeReconciler) postNextStatusMsg(ctx context.Context, msgIndex int) (ctrl.Result, error) {
+	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, OnlineImageChangeStatusMsgs, msgIndex)
 }

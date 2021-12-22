@@ -32,4 +32,4 @@ kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
 status:
-  imageChangeStatus: "Restarting cluster"
+  imageChangeStatus: "Restarting cluster with new image"

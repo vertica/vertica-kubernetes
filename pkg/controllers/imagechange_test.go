@@ -177,4 +177,39 @@ var _ = Describe("imagechange", func() {
 		Expect(fetchedVdb.Status.Conditions[vapi.OfflineImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionFalse))
 		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(""))
 	})
+
+	It("should post next status message", func() {
+		vdb := vapi.MakeVDB()
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		vdb.Spec.Image = NewImage // Change image to force pod deletion
+
+		statusMsgs := []string{"msg1", "msg2", "msg3"}
+
+		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1)).Should(Succeed()) // no-op
+
+		fetchedVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(""))
+
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 0)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[0]))
+
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed()) // no change
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[0]))
+
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[1]))
+
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[2]))
+
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9)).ShouldNot(Succeed()) // fail - out of bounds
+	})
 })

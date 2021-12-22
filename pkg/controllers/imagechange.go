@@ -187,10 +187,6 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context) (int
 		if stsUpdated, err := i.updateImageInStatefulSet(ctx, sts); err != nil {
 			return numStsChanged, ctrl.Result{}, err
 		} else if stsUpdated {
-			err = i.setImageChangeStatus(ctx, "Rescheduling pods with new image name")
-			if err != nil {
-				return numStsChanged, ctrl.Result{}, err
-			}
 			numStsChanged++
 		}
 	}
@@ -254,6 +250,27 @@ func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, scNa
 		}
 	}
 	return numPodsDeleted, nil
+}
+
+// postNextStatusMsg will set the next status message.  This will only
+// transition to a message, defined by msgIndex, if the current status equals
+// the previous one.
+func (i *ImageChangeManager) postNextStatusMsg(ctx context.Context, statusMsgs []string, msgIndex int) error {
+	if msgIndex >= len(statusMsgs) {
+		return fmt.Errorf("msgIndex out of bounds: %d must be between %d and %d", msgIndex, 0, len(statusMsgs)-1)
+	}
+
+	if msgIndex == 0 {
+		if i.Vdb.Status.ImageChangeStatus == "" {
+			return i.setImageChangeStatus(ctx, statusMsgs[msgIndex])
+		}
+		return nil
+	}
+
+	if statusMsgs[msgIndex-1] == i.Vdb.Status.ImageChangeStatus {
+		return i.setImageChangeStatus(ctx, statusMsgs[msgIndex])
+	}
+	return nil
 }
 
 // onlineImageChangeAllowed returns true if image change must be done online
