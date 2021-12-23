@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.1.0
+VERSION ?= 1.2.0
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
 # (see docker-vlogger).  This version is separate from VERSION above in
@@ -428,3 +428,7 @@ operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
 	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.10.1/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
+
+WAIT_TIME = 120s
+run-scorecard-tests: bundle ## Run the scorecard tests
+	$(OPERATOR_SDK) scorecard bundle --wait-time $(WAIT_TIME)

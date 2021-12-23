@@ -29,7 +29,7 @@ const (
 	SubclusterTransientLabel = "vertica.com/subcluster-transient"
 	VDBInstanceLabel         = "app.kubernetes.io/instance"
 	OperatorName             = "verticadb-operator" // The name of the operator
-	OperatorVersion          = "1.1.0"              // The version number of the operator
+	OperatorVersion          = "1.2.0"              // The version number of the operator
 )
 
 // makeSubclusterLabels returns the labels added for the subcluster

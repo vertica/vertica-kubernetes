@@ -1,0 +1,22 @@
+name: Scorecard tests
+
+on: [push, pull_request]
+
+jobs:
+
+  sct:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+        
+    - name: Set up Go and kubectx
+      uses: ./.github/actions/setup-go-kctx
+        
+    - name: Create kind cluster
+      run: |
+        echo "Setting up kind cluster named vertica"
+        scripts/kind.sh  init vertica
+        kubectx kind-vertica
+
+    - name: Run scorecard tests
+      run: make run-scorecard-tests

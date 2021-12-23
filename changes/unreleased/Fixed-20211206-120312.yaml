@@ -1,5 +1,0 @@
-kind: Fixed
-body: Restart of a cluster that has nodes in read-only state.  This is needed to run the operator with Vertica version 11.0.2 or newer.
-time: 2021-12-06T12:03:12.188403858-04:00
-custom:
-  Issue: "113"

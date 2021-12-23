@@ -458,6 +458,9 @@ spec:
       - description: This is set to true if /opt/vertica/config has been bootstrapped.
         displayName: Installed
         path: subclusters[0].detail[0].installed
+      - description: True means the vertica process on this pod is in read-only state
+        displayName: Read Only
+        path: subclusters[0].detail[0].readOnly
       - description: True means the vertica process is running on this pod and it
           can accept connections on port 5433.
         displayName: Up Node
@@ -473,6 +476,10 @@ spec:
       - description: Name of the subcluster
         displayName: Name
         path: subclusters[0].name
+      - description: A count of the number of pods that are in read-only state in
+          this subcluster.
+        displayName: Read Only Count
+        path: subclusters[0].readOnlyCount
       - description: A count of the number of pods that have a running vertica process
           in this subcluster.
         displayName: Up Node Count

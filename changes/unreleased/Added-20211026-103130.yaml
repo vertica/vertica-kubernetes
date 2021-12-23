@@ -1,5 +1,0 @@
-kind: Added
-body: Support for HDFS (webhdfs://) as a communal endpoint.
-time: 2021-10-26T10:31:30.658421351-04:00
-custom:
-  Issue: "87"
