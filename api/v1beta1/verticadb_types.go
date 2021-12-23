@@ -140,7 +140,7 @@ type VerticaDBSpec struct {
 	// data will go into read-only mode until the Vertica nodes from the primary
 	// subcluster reform the cluster with the new image.  This policy requires
 	// that a Vertica license be used to allow the subcluster to expand
-	// temporarily to handle traffic for each of the primary subclusters.
+	// temporarily to handle traffic for each subclusters.
 	// - Auto: will pick between Offline or Online.  Online is only chosen if a
 	// license Secret exists, the k-Safety of the database is 1 and we are
 	// running with a Vertica version that supports read-only subclusters.
