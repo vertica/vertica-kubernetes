@@ -15,12 +15,19 @@
 # and is needed to run vertica PODs on OpenShift.
 kind: SecurityContextConstraints
 apiVersion: security.openshift.io/v1
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
 metadata:
   name: anyuid-extra
   annotations:
     kubernetes.io/description: anyuid-extra provides all features of the anyuid SCC
         but add SYS_CHROOT and AUDIT_WRITE capabilities.
 priority: 10
+readOnlyRootFilesystem: false
 requiredDropCapabilities:
 - MKNOD
 runAsUser:
