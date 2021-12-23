@@ -21,6 +21,7 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 OPERATOR_SDK=${REPO_DIR}/bin/operator-sdk
+CUSTOM_SCC_DIR=${REPO_DIR}/config/samples
 OLM_NS=olm
 TIMEOUT=120
 OPERATOR_NAME=verticadb-operator
@@ -89,6 +90,10 @@ then
     fi
 else
     OLM_NS=openshift-marketplace
+    # Delete the custom scc if it already exists
+    kubectl delete scc anyuid-extra || :
+    # Create the custom scc
+    kubectl apply -f $CUSTOM_SCC_DIR/custom-scc.yaml
 fi
 
 # Create a catalog source using the catalog we build with 'docker-build-olm-catalog'
