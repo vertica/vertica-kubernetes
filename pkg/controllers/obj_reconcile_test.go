@@ -569,8 +569,10 @@ var _ = Describe("obj_reconcile", func() {
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 			actor := MakeObjReconciler(vrec, logger, vdb, &pfacts)
 			objr := actor.(*ObjReconciler)
-			// Force a label change to reconcile with the standby subcluster
-			Expect(objr.reconcileExtSvc(ctx, standby)).Should(Succeed())
+			// Force a label change to reconcile with the transient subcluster
+			svcName := names.GenExtSvcName(vdb, sc)
+			expSvc := buildExtSvc(svcName, vdb, sc, makeSvcSelectorLabelsForSubclusterNameRouting)
+			Expect(objr.reconcileExtSvc(ctx, expSvc, standby)).Should(Succeed())
 
 			// Fetch the service object again.  The selectors should be different.
 			svc2 := &corev1.Service{}

@@ -34,7 +34,8 @@ const (
 )
 
 // buildExtSvc creates desired spec for the external service.
-func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.Service {
+func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -43,7 +44,7 @@ func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: makeSvcSelectorLabels(vdb, sc),
+			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
@@ -64,7 +65,7 @@ func buildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector:                 makeSvcSelectorLabels(vdb, nil),
+			Selector:                 makeBaseSvcSelectorLabels(vdb),
 			ClusterIP:                "None",
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
@@ -406,7 +407,7 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: makeSvcSelectorLabels(vdb, sc),
+				MatchLabels: makeSvcSelectorLabelsForSubclusterNameRouting(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
 			Replicas:    &sc.Size,
@@ -593,11 +594,11 @@ func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOve
 		IsTransient:       true,
 		ImageOverride:     imageOverride,
 		IsPrimary:         false,
-		NodeSelector:      vdb.Spec.TransientSubclusterTemplate.NodeSelector,
-		Affinity:          vdb.Spec.TransientSubclusterTemplate.Affinity,
-		PriorityClassName: vdb.Spec.TransientSubclusterTemplate.PriorityClassName,
-		Tolerations:       vdb.Spec.TransientSubclusterTemplate.Tolerations,
-		Resources:         vdb.Spec.TransientSubclusterTemplate.Resources,
+		NodeSelector:      vdb.Spec.TemporarySubclusterRouting.Template.NodeSelector,
+		Affinity:          vdb.Spec.TemporarySubclusterRouting.Template.Affinity,
+		PriorityClassName: vdb.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
+		Tolerations:       vdb.Spec.TemporarySubclusterRouting.Template.Tolerations,
+		Resources:         vdb.Spec.TemporarySubclusterRouting.Template.Resources,
 		ServiceType:       sc.ServiceType,
 		ServiceName:       sc.GetServiceName(),
 		NodePort:          sc.NodePort,
@@ -607,16 +608,16 @@ func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOve
 
 // transientSuclusterName returns the name of the transient subcluster
 func transientSubclusterName(vdb *vapi.VerticaDB) string {
-	if vdb.Spec.TransientSubclusterTemplate.Name == "" {
+	if vdb.Spec.TemporarySubclusterRouting.Template.Name == "" {
 		return DefaultTransientSubclusterName
 	}
-	return vdb.Spec.TransientSubclusterTemplate.Name
+	return vdb.Spec.TemporarySubclusterRouting.Template.Name
 }
 
 // transientSubclusterSize returns the size of the transient subcluster.
 func transientSubclusterSize(vdb *vapi.VerticaDB) int32 {
-	if vdb.Spec.TransientSubclusterTemplate.Size > 0 {
-		return vdb.Spec.TransientSubclusterTemplate.Size
+	if vdb.Spec.TemporarySubclusterRouting.Template.Size > 0 {
+		return vdb.Spec.TemporarySubclusterRouting.Template.Size
 	}
 	return 1
 }

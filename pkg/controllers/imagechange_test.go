@@ -153,4 +153,28 @@ var _ = Describe("imagechange", func() {
 
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0), pod)).ShouldNot(Succeed())
 	})
+
+	It("should cleanup image change status", func() {
+		vdb := vapi.MakeVDB()
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		vdb.Spec.Image = NewImage // Change image to force pod deletion
+
+		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.startImageChange(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.setImageChangeStatus(ctx, "doing the change")).Should(Succeed())
+
+		fetchedVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.Conditions[vapi.ImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionTrue))
+		Expect(fetchedVdb.Status.Conditions[vapi.OfflineImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionTrue))
+		Expect(fetchedVdb.Status.ImageChangeStatus).ShouldNot(Equal(""))
+
+		Expect(mgr.finishImageChange(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.Conditions[vapi.ImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionFalse))
+		Expect(fetchedVdb.Status.Conditions[vapi.OfflineImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionFalse))
+		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(""))
+	})
 })

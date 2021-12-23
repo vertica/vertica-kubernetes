@@ -23,7 +23,10 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -158,6 +161,7 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 
 // restartPrimaries will handle the image change on all of the primaries.
 func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
+	o.Log.Info("Starting the handling of primaries")
 	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -195,6 +199,8 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 // restartSecondaries will restart all of the secondaries, temporarily
 // rerouting traffic to the transient while it does the restart.
 func (o *OnlineImageChangeReconciler) restartSecondaries(ctx context.Context) (ctrl.Result, error) {
+	o.Log.Info("Starting the handling of secondaries")
+
 	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -209,6 +215,8 @@ func (o *OnlineImageChangeReconciler) restartSecondaries(ctx context.Context) (c
 		} else if !matches {
 			continue
 		}
+
+		o.Log.Info("Processing secondary", "name", sts.ObjectMeta.Name)
 
 		err := o.takeSubclusterOffline(ctx, sts)
 		if err != nil {
@@ -229,7 +237,7 @@ func (o *OnlineImageChangeReconciler) isMatchingSubclusterType(sts *appsv1.State
 	if err != nil {
 		return false, fmt.Errorf("could not parse label %s: %w", SubclusterTransientLabel, err)
 	}
-	return sts.Labels[SubclusterTypeLabel] == scType && isTransient, nil
+	return sts.Labels[SubclusterTypeLabel] == scType && !isTransient, nil
 }
 
 // takeSubclusterOffline will take bring down a subcluster if it running the old
@@ -242,7 +250,7 @@ func (o *OnlineImageChangeReconciler) takeSubclusterOffline(ctx context.Context,
 
 	if img != o.Vdb.Spec.Image {
 		o.Log.Info("starting client traffic routing of secondary to transient", "name", scName)
-		err = o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, true)
+		err = o.routeClientTraffic(ctx, scName, true)
 		if err != nil {
 			return err
 		}
@@ -278,12 +286,15 @@ func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context,
 
 	scName := sts.Labels[SubclusterNameLabel]
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
-	err = o.routeClientTraffic(ctx, func(sc *vapi.Subcluster) bool { return sc.Name == scName }, false)
+	err = o.routeClientTraffic(ctx, scName, false)
 	return ctrl.Result{}, err
 }
 
 // removeTransientSubclusters will drive subcluster removal of the transient subcluster
 func (o *OnlineImageChangeReconciler) removeTransientSubclusters(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
 	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
@@ -291,6 +302,9 @@ func (o *OnlineImageChangeReconciler) removeTransientSubclusters(ctx context.Con
 
 // uninstallTransientNodes will drive uninstall logic for any transient nodes.
 func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
 	actor := MakeUninstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
@@ -298,6 +312,10 @@ func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Contex
 
 // deleteTransientSts will delete the transient subcluster that was created for the image change.
 func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
+
 	if err := o.removeTransientFromVdb(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -350,7 +368,7 @@ func (o *OnlineImageChangeReconciler) skipTransientSetup() bool {
 	// We can skip this entirely if all of the primary subclusters already have
 	// the new image.  This is an indication that we have already created the
 	// transient and done the image change.
-	return len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image
+	return !o.Vdb.RequiresTransientSubcluster() || (len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image)
 }
 
 // addTransientToVdb will create a transient subcluster. The transient is added
@@ -424,24 +442,64 @@ func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) 
 // caller provides.  If it returns true for a given subcluster, traffic will be
 // routed to that.
 func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
-	scSelectorFunc func(sc *vapi.Subcluster) bool, useTransientSc bool) error {
+	scName string, setTemporaryRouting bool) error {
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	objRec := actor.(*ObjReconciler)
 
-	// We update the external service object to route traffic to transient or
-	// primary/secondary.  We make a copy of the subcluster than modify it
-	// in-place with the IsTransient state to route to transient subcluster or
-	// not.
-	for i := range o.Vdb.Spec.Subclusters {
-		sc := o.Vdb.Spec.Subclusters[i]
-		if scSelectorFunc(&sc) {
-			// We are modifying a copy of sc, so we flip the IsTransient flag to
-			// know what subcluster we are going to route to.
-			sc.IsTransient = useTransientSc
-			if err := objRec.reconcileExtSvc(ctx, &sc); err != nil {
-				return err
-			}
-		}
+	scMap := o.Vdb.GenSubclusterMap()
+	sc, ok := scMap[scName]
+	if !ok {
+		return fmt.Errorf("we are routing for a subcluster that isn't in the vdb: %s", scName)
 	}
-	return nil
+
+	// We update the external service object to route traffic to transient or
+	// primary/secondary.  We are only concerned with changing the labels.  So
+	// we will fetch the current service object, then update the labels so that
+	// traffic diverted to the correct statefulset.  Other things, such as
+	// service type, stay the same.
+	svcName := names.GenExtSvcName(o.Vdb, sc)
+	svc := &corev1.Service{}
+	if err := o.VRec.Client.Get(ctx, svcName, svc); err != nil {
+		if errors.IsNotFound(err) {
+			o.Log.Info("Skipping client traffic routing because service object for subcluster not found",
+				"scName", scName, "svc", svcName)
+			return nil
+		}
+		return err
+	}
+
+	// If we are to set temporary routing, we are going to route traffic
+	// to a transient subcluster (if one exists) or to a subcluster
+	// defined in the vdb.
+	if setTemporaryRouting {
+		foundRoutingSubcluster := false
+		for i := range o.Vdb.Spec.TemporarySubclusterRouting.Names {
+			routeName := o.Vdb.Spec.TemporarySubclusterRouting.Names[i]
+			routingSc, ok := scMap[routeName]
+			if !ok {
+				o.Log.Info("Temporary routing subcluster not found.  Skipping", "Name", routeName)
+				continue
+			}
+			svc.Spec.Selector = makeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, routingSc)
+			foundRoutingSubcluster = true
+
+			// Keep searching if we are routing to the subcluster we are taking
+			// offline.  We may continue with this subcluster still if no other
+			// subclusters are defined -- this is why we updated the svc object
+			// with it.
+			if routeName == scName {
+				continue
+			}
+			break
+		}
+		if !foundRoutingSubcluster {
+			// We are modifying a copy of sc, so we set the IsTransient flag to
+			// know what subcluster we are going to route to.
+			transientSc := buildTransientSubcluster(o.Vdb, sc, "")
+			svc.Spec.Selector = makeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, transientSc)
+		}
+	} else {
+		svc.Spec.Selector = makeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sc)
+	}
+	return objRec.reconcileExtSvc(ctx, svc, sc)
 }
