@@ -1,0 +1,18 @@
+name: 'Setup environment with Go and kubectx'
+description: 'Will setup the environment with Go and kubectx'
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16.2
+    
+    - name: Install kubectx   
+      shell: bash
+      env:
+          KUBECTX_URL: https://github.com/ahmetb/kubectx/releases/download/v0.9.3/kubectx
+      run: |
+        curl -fsSLO $KUBECTX_URL
+        chmod +x kubectx
+        sudo install -o root -g root -m 0755 kubectx /usr/local/bin/kubectx

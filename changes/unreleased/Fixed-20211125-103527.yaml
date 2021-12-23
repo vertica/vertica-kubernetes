@@ -1,6 +1,0 @@
-kind: Fixed
-body: The RollingUpdate strategy can kick-in after an image change causing pods in
-  the cluster to restart again.
-time: 2021-11-25T10:35:27.397320822-04:00
-custom:
-  Issue: "99"

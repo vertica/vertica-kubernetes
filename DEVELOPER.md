@@ -318,28 +318,20 @@ You might need to inspect the contents of the vertica.log to diagnose a problem 
 
 - Drop into the container and navigate to the directory where is is stored. The exact location depends on your CR.  You can refer to the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm) to find the location.  
 
-- Deploy a sidecar to capture the vertica.log and prints it to stdout. If this sidecar is enabled you can use `kubectl logs` to inspect it.  This sidecar can be used by adding the following into your CR:
+- Deploy a sidecar to capture the vertica.log and print it to stdout. If this sidecar is enabled you can use `kubectl logs` to inspect it.  This sidecar can be used by adding the following into your CR:
 
   ```shell
   spec:
-  ...
-  sidecars:
+    ...
+    sidecars:
     - name: vlogger
-      image: name:tag
-      volumeMounts:
-        - name: my-custom-vol
-          mountPath: /path/to/custom-volume
-  volumes:
-    - name: my-custom-vol
-      emptyDir: {}
+      image: vertica/vertica-logger:latest
   ```
 
-  The `sidecars[i].image` is a container that you build yourself. Vertica provides an example container in `docker-vlogger`. You can persist sidecar data by adding a custom volume with `volumes`. For implementation details, see [Creating a Custom Resource](http://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CreatingCustomResource.htm).
-  
-  After the sidecar container is running, inspect the logs with the following command:
+  The `sidecars[i].image` shown here is a container that Vertica publishes on its docker repository. After the sidecar container is running, inspect the logs with the following command:
 
   ```shell
-  $ kubectl logs vertica-sc1-0 -c vlogger
+  $ kubectl logs <vertica-pod-name> -c vlogger
   ```
 
 ## Memory Profiling
