@@ -60,9 +60,13 @@ RUN set -x \
   && rm -rf /opt/vertica/lib64  \
   && sh /tmp/cleanup.sh
 
-# prepare (put inside) entrypoint script and make right permissions
 ADD dbadmin/.bash_profile /home/dbadmin/
+# Copy in a stable ssh key.  This is done so that Vertica pods can communicate
+# with pods running an older image.  This is necessary when doing an online
+# image change as the Vertica cluster will be running with two container
+# versions at once.
 ADD dbadmin/.ssh /home/dbadmin/.ssh
+# prepare (put inside) entrypoint script and make right permissions
 ADD ./docker-entrypoint.sh /opt/vertica/bin/
 
 RUN set -x \
