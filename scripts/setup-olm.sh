@@ -89,10 +89,6 @@ then
     fi
 else
     OLM_NS=openshift-marketplace
-    # Delete the custom scc if it already exists
-    kubectl delete scc anyuid-extra || :
-    # Create the custom scc
-    $SCRIPT_DIR/create-custom-scc.sh
 fi
 
 # Create a catalog source using the catalog we build with 'docker-build-olm-catalog'
