@@ -41,6 +41,18 @@ type OfflineImageChangeReconciler struct {
 	Manager ImageChangeManager
 }
 
+const (
+	ClusterShutdownOfflineMsgIndex = iota
+	ReschedulePodsOfflineMsgIndex
+	ClusterRestartOfflineMsgIndex
+)
+
+var OfflineImageChangeStatusMsgs = []string{
+	"Shutting down cluster",
+	"Rescheduling pods with new image",
+	"Restarting cluster with new image",
+}
+
 // MakeOfflineImageChangeReconciler will build an OfflineImageChangeReconciler object
 func MakeOfflineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
@@ -66,14 +78,17 @@ func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.
 		// Initiate an image change by setting condition and event recording
 		o.Manager.startImageChange,
 		// Do a clean shutdown of the cluster
+		o.postStoppingClusterMsg,
 		o.stopCluster,
 		// Set the new image in the statefulset objects.
+		o.postReschedulePodsMsg,
 		o.updateImageInStatefulSets,
 		// Delete pods that have the old image.
 		o.deletePods,
 		// Check for the pods to be created by the sts controller with the new image
 		o.checkForNewPods,
 		// Start up vertica in each pod.
+		o.postRestartingClusterMsg,
 		o.restartCluster,
 		// Cleanup up the condition and event recording for a completed image change
 		o.Manager.finishImageChange,
@@ -85,6 +100,12 @@ func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// postStoppingClusterMsg will update the status message to indicate a cluster
+// shutdown has commenced.
+func (o *OfflineImageChangeReconciler) postStoppingClusterMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, ClusterShutdownOfflineMsgIndex)
 }
 
 // stopCluster will shutdown the entire cluster using 'admintools -t stop_db'
@@ -113,10 +134,6 @@ func (o *OfflineImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if err := o.Manager.setImageChangeStatus(ctx, "Starting cluster shutdown"); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	start := time.Now()
 	o.VRec.EVRec.Event(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
 		"Calling 'admintools -t stop_db'")
@@ -132,6 +149,12 @@ func (o *OfflineImageChangeReconciler) stopCluster(ctx context.Context) (ctrl.Re
 	o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
 		"Successfully called 'admintools -t stop_db' and it took %s", time.Since(start))
 	return ctrl.Result{}, nil
+}
+
+// postReschedulePodsMsg will update the status message to indicate new pods
+// have been rescheduled with the new image.
+func (o *OfflineImageChangeReconciler) postReschedulePodsMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, ReschedulePodsOfflineMsgIndex)
 }
 
 // updateImageInStatefulSets will update the statefulsets to have the new image.
@@ -183,13 +206,17 @@ func (o *OfflineImageChangeReconciler) checkForNewPods(ctx context.Context) (ctr
 	return ctrl.Result{}, nil
 }
 
+// postRestartingClusterMsg will update the status message to indicate the
+// cluster is being restarted
+func (o *OfflineImageChangeReconciler) postRestartingClusterMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, ClusterRestartOfflineMsgIndex)
+}
+
 // restartCluster will start up vertica.  This is called after the statefulset's have
 // been recreated.  Once the cluster is back up, then the image change is considered complete.
 func (o *OfflineImageChangeReconciler) restartCluster(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("Starting restart phase of image change for this reconcile iteration")
-	if err := o.Manager.setImageChangeStatus(ctx, "Restarting cluster"); err != nil {
-		return ctrl.Result{}, err
-	}
+
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
 	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true)
@@ -217,4 +244,10 @@ func (o *OfflineImageChangeReconciler) anyPodsRunningWithOldImage(ctx context.Co
 		}
 	}
 	return false, nil
+}
+
+// postNextStatusMsg will set the next status message for an online image change
+// according to msgIndex
+func (o *OfflineImageChangeReconciler) postNextStatusMsg(ctx context.Context, msgIndex int) (ctrl.Result, error) {
+	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, OfflineImageChangeStatusMsgs, msgIndex)
 }
