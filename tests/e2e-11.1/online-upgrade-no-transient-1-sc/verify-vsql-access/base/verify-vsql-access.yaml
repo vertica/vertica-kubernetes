@@ -17,24 +17,23 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verify-accessing-transient-node
+  name: script-verify-access-to-both-scs
 data:
   test.sh: |-
     #!/bin/bash
     set +o errexit  # We have our own error checking
     set -o xtrace
 
-    # Access to both pri and sec subclusters should be okay.  One of them will
-    # connect with node0003, which is the node for the transient subcluster.
-    # If any of the connections can't connect, the command will fail and we bail
-    # out because errexit is set.
+    # Access to both pri and sec subclusters should be okay.  During the
+    # upgrade, both of them will route to the same node.  If any of the
+    # connections can't connect, the command will fail and we bail out because
+    # errexit is set.
     PRI_CONNECTION_NODE=$(vsql -h v-base-upgrade-pri -tAc "select node_name from current_session")
     SEC_CONNECTION_NODE=$(vsql -h v-base-upgrade-sec -tAc "select node_name from current_session")
 
     echo $PRI_CONNECTION_NODE
     echo $SEC_CONNECTION_NODE
-    TRANSIENT_NODE="v_vertdb_node0003"
-    if [[ $PRI_CONNECTION_NODE == $TRANSIENT_NODE ]] || [[ $SEC_CONNECTION_NODE == $TRANSIENT_NODE ]]
+    if [[ $PRI_CONNECTION_NODE == $SEC_CONNECTION_NODE ]]
     then
       exit 0
     fi
@@ -44,7 +43,7 @@ data:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-verify-accessing-transient-node
+  name: test-verify-access-to-both-scs
   labels:
     stern: include
 spec:
@@ -62,4 +61,4 @@ spec:
     - name: test-script
       configMap:
         defaultMode: 0777
-        name: script-verify-accessing-transient-node
+        name: script-verify-access-to-both-scs

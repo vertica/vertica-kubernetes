@@ -319,6 +319,7 @@ func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context,
 	if res.Requeue || err != nil {
 		return res, err
 	}
+	o.PFacts.Invalidate() // Status of the pods may have changed
 
 	scName := sts.Labels[SubclusterNameLabel]
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
