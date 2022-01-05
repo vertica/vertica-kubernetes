@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -98,6 +99,9 @@ type PodFact struct {
 
 	// True if /opt/vertica/config/share exists
 	configShareExists bool
+
+	// True if this pod is for a transient subcluster created for online image change
+	isTransient bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -197,6 +201,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
+	pf.isTransient, _ = strconv.ParseBool(pod.Labels[SubclusterTransientLabel])
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,
@@ -543,8 +548,11 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 // in the read-only state due to losing of cluster quorum.  This is an option
 // for online upgrade, which want to keep the read-only up to keep the cluster
 // accessible.
-func (p *PodFacts) findRestartablePods(restartReadOnly bool) []*PodFact {
+func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
+		if !restartTransient && v.isTransient {
+			return false
+		}
 		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists.IsTrue() && v.isPodRunning
 	})
 }

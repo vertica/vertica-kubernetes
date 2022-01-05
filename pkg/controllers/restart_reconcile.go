@@ -121,7 +121,8 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// read-only nodes.  This is needed before re_ip, as re_ip can only work if
 	// the database isn't running, which would be case if there are read-only
 	// nodes.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly)
+	// Include transient nodes since we may need to run re-ip against them.
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, true)
 	if res, err := r.killOldProcesses(ctx, downPods); res.Requeue || err != nil {
 		return res, err
 	}
@@ -148,7 +149,9 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// Find any pods that need to be restarted. These only include running pods.
 	// If there is a pod that is not yet running, we leave them off for now.
 	// When it does start running there will be another reconciliation cycle.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly)
+	// Always skip the transient pods since they only run the old image so they
+	// can't be restarted.
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, false)
 	if len(downPods) > 0 {
 		if ok := r.setATPod(); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
