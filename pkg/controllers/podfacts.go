@@ -493,7 +493,7 @@ func (p *PodFacts) findPodsWithMissingDB(scName string) []*PodFact {
 // Will return false for second parameter if no pod could be found.
 func (p *PodFacts) findPodToRunVsql() (*PodFact, bool) {
 	for _, v := range p.Detail {
-		if v.upNode {
+		if v.upNode && !v.readOnly {
 			return v, true
 		}
 	}

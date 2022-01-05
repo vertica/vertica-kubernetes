@@ -411,7 +411,15 @@ func (o *OnlineImageChangeReconciler) skipTransientSetup() bool {
 	// We can skip this entirely if all of the primary subclusters already have
 	// the new image.  This is an indication that we have already created the
 	// transient and done the image change.
-	return !o.Vdb.RequiresTransientSubcluster() || (len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image)
+	if !o.Vdb.RequiresTransientSubcluster() || (len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image) {
+		return true
+	}
+
+	// We skip creating the transient if the cluster is down.  We cannot add the
+	// transient if everything is down.  And there is nothing "online" with this
+	// image change if we start with everything down.
+	_, found := o.PFacts.findPodToRunVsql()
+	return !found
 }
 
 // addTransientToVdb will create a transient subcluster. The transient is added
@@ -536,6 +544,19 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 			// We are modifying a copy of sc, so we set the IsTransient flag to
 			// know what subcluster we are going to route to.
 			transientSc := buildTransientSubcluster(o.Vdb, sc, "")
+
+			// Only continue if the transient subcluster exists. It may not
+			// exist if the entire cluster was down when we attempted to create it.
+			transientSts := &appsv1.StatefulSet{}
+			stsName := names.GenStsName(o.Vdb, transientSc)
+			if err := o.VRec.Client.Get(ctx, stsName, transientSts); err != nil {
+				if errors.IsNotFound(err) {
+					o.Log.Info("Skipping routing to transient since it does not exist", "name", stsName)
+					return nil
+				}
+				return nil
+			}
+
 			svc.Spec.Selector = makeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, transientSc)
 		}
 	} else {
