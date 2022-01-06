@@ -193,6 +193,12 @@ func (o *OnlineImageChangeReconciler) postRestartingPrimaryMsg(ctx context.Conte
 	return o.postNextStatusMsg(ctx, RestartingPrimaryOnlineMsgIndex)
 }
 
+// postRestartingPrimaryMsg sets the status message to indicate we are
+// restarting the primary subclusters
+func (o *OnlineImageChangeReconciler) postRestartingPrimaryMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, RestartingPrimaryOnlineMsgIndex)
+}
+
 // restartPrimaries will handle the image change on all of the primaries.
 func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("Starting the handling of primaries")
