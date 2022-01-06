@@ -152,7 +152,6 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// Always skip the transient pods since they only run the old image so they
 	// can't be restarted.
 	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, false)
-	r.Log.Info("Finding restartable pods", "downPods", len(downPods))
 	if len(downPods) > 0 {
 		if ok := r.setATPod(); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
@@ -175,7 +174,6 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// Find any pods that need to have their IP updated.  These are nodes that
 	// have been installed but not yet added to a database.
 	reIPPods := r.PFacts.findReIPPods(true)
-	r.Log.Info("Finding re-ip pods", "re-ip", len(reIPPods))
 	if len(reIPPods) > 0 {
 		if ok := r.setATPod(); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
