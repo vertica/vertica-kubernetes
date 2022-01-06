@@ -91,10 +91,8 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	// ScheduleOnly.
 	if r.PFacts.getUpNodeAndNotReadOnlyCount() == 0 &&
 		r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
-		r.Log.Info("Checking for restart of entire cluster")
 		return r.reconcileCluster(ctx)
 	}
-	r.Log.Info("Checking for restart of individual nodes")
 	return r.reconcileNodes(ctx)
 }
 

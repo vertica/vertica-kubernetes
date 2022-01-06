@@ -316,7 +316,6 @@ func (o *OnlineImageChangeReconciler) takeSubclusterOffline(ctx context.Context,
 
 // bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.
 func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	// SPILLY - we are not doing the restart for some reason.  I think it may be because we don't have the transient in Vdb??
 	const DoNotRestartReadOnly = false
 	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
 	o.traceActorReconcile(actor)
