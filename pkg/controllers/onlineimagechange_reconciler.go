@@ -27,8 +27,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -138,14 +136,18 @@ func (o *OnlineImageChangeReconciler) createTransientSts(ctx context.Context) (c
 		return ctrl.Result{}, nil
 	}
 
-	if err := o.addTransientToVdb(ctx); err != nil {
-		return ctrl.Result{}, err
-	}
-	o.Log.Info("Adding transient", "num subclusters", len(o.Vdb.Spec.Subclusters))
-
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	o.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	or := actor.(*ObjReconciler)
+
+	oldImage, ok := o.fetchOldImage()
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("could not determine the old image name.  "+
+			"Only available image is %s", o.Vdb.Spec.Image)
+	}
+
+	sc := buildTransientSubcluster(o.Vdb, oldImage)
+	return or.reconcileSts(ctx, sc)
 }
 
 // installTransientNodes will ensure we have installed vertica on
@@ -168,7 +170,8 @@ func (o *OnlineImageChangeReconciler) addTransientSubcluster(ctx context.Context
 
 	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	d := actor.(*DBAddSubclusterReconciler)
+	return d.addMissingSubclusters(ctx, []vapi.Subcluster{*buildTransientSubcluster(o.Vdb, "")})
 }
 
 // addTransientNodes will ensure nodes on the transient have been added to the
@@ -180,7 +183,8 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 
 	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
-	return actor.Reconcile(ctx, &ctrl.Request{})
+	d := actor.(*DBAddNodeReconciler)
+	return d.reconcileSubcluster(ctx, buildTransientSubcluster(o.Vdb, ""))
 }
 
 // postRestartingPrimaryMsg sets the status message to indicate we are
@@ -312,6 +316,7 @@ func (o *OnlineImageChangeReconciler) takeSubclusterOffline(ctx context.Context,
 
 // bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.
 func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	// SPILLY - we are not doing the restart for some reason.  I think it may be because we don't have the transient in Vdb??
 	const DoNotRestartReadOnly = false
 	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
 	o.traceActorReconcile(actor)
@@ -357,10 +362,6 @@ func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Contex
 func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (ctrl.Result, error) {
 	if !o.Vdb.RequiresTransientSubcluster() {
 		return ctrl.Result{}, nil
-	}
-
-	if err := o.removeTransientFromVdb(ctx); err != nil {
-		return ctrl.Result{}, err
 	}
 
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
@@ -420,65 +421,6 @@ func (o *OnlineImageChangeReconciler) skipTransientSetup() bool {
 	// image change if we start with everything down.
 	_, found := o.PFacts.findPodToRunVsql()
 	return !found
-}
-
-// addTransientToVdb will create a transient subcluster. The transient is added
-// to the Vdb struct inplace.
-func (o *OnlineImageChangeReconciler) addTransientToVdb(ctx context.Context) error {
-	oldImage, ok := o.fetchOldImage()
-	if !ok {
-		return fmt.Errorf("could not determine the old image name.  "+
-			"Only available image is %s", o.Vdb.Spec.Image)
-	}
-
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		// Always fetch the latest to minimize the chance of getting a conflict error.
-		nm := types.NamespacedName{Namespace: o.Vdb.Namespace, Name: o.Vdb.Name}
-		if err := o.VRec.Client.Get(ctx, nm, o.Vdb); err != nil {
-			return err
-		}
-
-		// Figure out if a transient needs to be added
-		scMap := o.Vdb.GenSubclusterMap()
-		for i := range o.Vdb.Spec.Subclusters {
-			sc := &o.Vdb.Spec.Subclusters[i]
-			if sc.IsPrimary {
-				transient := buildTransientSubcluster(o.Vdb, sc, oldImage)
-				_, ok := scMap[transient.Name]
-				if !ok {
-					o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters, *transient)
-					return o.VRec.Client.Update(ctx, o.Vdb)
-				}
-			}
-		}
-		return nil
-	})
-}
-
-// removeTransientFromVdb will delete any transientsubcluster that exists.  The
-// transient will be removed from the Vdb struct inplace.
-func (o *OnlineImageChangeReconciler) removeTransientFromVdb(ctx context.Context) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		// Always fetch the latest to minimize the chance of getting a conflict error.
-		nm := types.NamespacedName{Namespace: o.Vdb.Namespace, Name: o.Vdb.Name}
-		if err := o.VRec.Client.Get(ctx, nm, o.Vdb); err != nil {
-			return err
-		}
-
-		scToKeep := []vapi.Subcluster{}
-		for i := range o.Vdb.Spec.Subclusters {
-			sc := &o.Vdb.Spec.Subclusters[i]
-			if !sc.IsTransient {
-				scToKeep = append(scToKeep, *sc)
-			}
-		}
-
-		if len(scToKeep) != len(o.Vdb.Spec.Subclusters) {
-			o.Vdb.Spec.Subclusters = scToKeep
-			return o.VRec.Client.Update(ctx, o.Vdb)
-		}
-		return nil
-	})
 }
 
 func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) {
@@ -543,7 +485,7 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 		if !foundRoutingSubcluster {
 			// We are modifying a copy of sc, so we set the IsTransient flag to
 			// know what subcluster we are going to route to.
-			transientSc := buildTransientSubcluster(o.Vdb, sc, "")
+			transientSc := buildTransientSubcluster(o.Vdb, "")
 
 			// Only continue if the transient subcluster exists. It may not
 			// exist if the entire cluster was down when we attempted to create it.
@@ -562,6 +504,7 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 	} else {
 		svc.Spec.Selector = makeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sc)
 	}
+	o.Log.Info("Updating svc", "selector", svc.Spec.Selector)
 	return objRec.reconcileExtSvc(ctx, svc, sc)
 }
 

@@ -11,5 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-resources:
-  - verify-vsql-access.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: controller-manager

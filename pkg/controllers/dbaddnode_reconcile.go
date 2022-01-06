@@ -64,15 +64,23 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 	}
 
 	for i := range d.Vdb.Spec.Subclusters {
-		sc := &d.Vdb.Spec.Subclusters[i]
-		if exists := d.PFacts.anyPodsMissingDB(sc.Name); exists.IsTrue() {
-			res, err := d.runAddNode(ctx, sc)
-			if err != nil || res.Requeue {
-				return res, err
-			}
+		if res, err := d.reconcileSubcluster(ctx, &d.Vdb.Spec.Subclusters[i]); err != nil || res.Requeue {
+			return res, err
 		}
 	}
 
+	return ctrl.Result{}, nil
+}
+
+// reconcileSubcluster will reconcile a single subcluster.  Add node will be
+// triggered if we determine that it hasn't been run.
+func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
+	if exists := d.PFacts.anyPodsMissingDB(sc.Name); exists.IsTrue() {
+		res, err := d.runAddNode(ctx, sc)
+		if err != nil || res.Requeue {
+			return res, err
+		}
+	}
 	return ctrl.Result{}, nil
 }
 

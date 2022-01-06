@@ -549,7 +549,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
-		transientSc := buildTransientSubcluster(vdb, &vdb.Spec.Subclusters[0], "")
+		transientSc := buildTransientSubcluster(vdb, "")
 		createSts(ctx, vdb, transientSc, 1, 0, AllPodsRunning)
 		defer deleteSts(ctx, vdb, transientSc, 1)
 

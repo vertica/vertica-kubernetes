@@ -59,6 +59,11 @@ func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, req *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	return d.addMissingSubclusters(ctx, d.Vdb.Spec.Subclusters)
+}
+
+// addMissingSubclusters will compare subclusters passed in and create any missing ones
+func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, scs []vapi.Subcluster) (ctrl.Result, error) {
 	atPod, ok := d.PFacts.findPodToRunAdmintools()
 	if !ok || !atPod.upNode {
 		d.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
@@ -66,18 +71,13 @@ func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, req *ctrl.Req
 	}
 	d.ATPod = atPod
 
-	return d.addMissingSubclusters(ctx)
-}
-
-// addMissingSubclusters will compare subclusters in vertica with vdb and create any missing ones
-func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context) (ctrl.Result, error) {
 	subclusters, res, err := d.fetchSubclusters(ctx)
 	if err != nil || res.Requeue {
 		return res, err
 	}
 
-	for i := range d.Vdb.Spec.Subclusters {
-		sc := &d.Vdb.Spec.Subclusters[i]
+	for i := range scs {
+		sc := &scs[i]
 		_, ok := subclusters[sc.Name]
 		if ok {
 			continue
