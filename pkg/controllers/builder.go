@@ -587,7 +587,7 @@ func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 
 // buildTransientSubcluster creates a temporary read-only subcluster based on an
 // existing subcluster
-func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOverride string) *vapi.Subcluster {
+func buildTransientSubcluster(vdb *vapi.VerticaDB, imageOverride string) *vapi.Subcluster {
 	return &vapi.Subcluster{
 		Name:              transientSubclusterName(vdb),
 		Size:              transientSubclusterSize(vdb),
@@ -599,10 +599,9 @@ func buildTransientSubcluster(vdb *vapi.VerticaDB, sc *vapi.Subcluster, imageOve
 		PriorityClassName: vdb.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
 		Tolerations:       vdb.Spec.TemporarySubclusterRouting.Template.Tolerations,
 		Resources:         vdb.Spec.TemporarySubclusterRouting.Template.Resources,
-		ServiceType:       sc.ServiceType,
-		ServiceName:       sc.GetServiceName(),
-		NodePort:          sc.NodePort,
-		ExternalIPs:       sc.ExternalIPs,
+		// We ignore any parameter that is specific to the subclusters service
+		// object.  These are ignored since transient don't have their own
+		// service objects.
 	}
 }
 

@@ -65,28 +65,25 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))
 
-		fetchVdb := &vapi.VerticaDB{}
-		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb))
-		defer deletePods(ctx, fetchVdb) // Add to defer again for pods in transient
-		createPods(ctx, fetchVdb, AllPodsRunning)
+		transientSc := buildTransientSubcluster(vdb, "")
+		defer deleteSts(ctx, vdb, transientSc, 1) // Add to defer for pods in transient
 
-		fscs := fetchVdb.Spec.Subclusters
-		Expect(len(fscs)).Should(Equal(4)) // orig + 1 transient
-		Expect(fscs[3].Name).Should(Equal(DefaultTransientSubclusterName))
+		fetchedSts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), fetchedSts))
 
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{})) // Collect state again for new pods/sts
 
 		// Override the pod facts so that newly created pod shows up as not
 		// install and db doesn't exist.  This is needed to allow the sts
 		// deletion to occur.
-		pn := names.GenPodName(fetchVdb, &fscs[3], 0)
+		pn := names.GenPodName(vdb, transientSc, 0)
 		r.PFacts.Detail[pn].isInstalled = tristate.False
 		r.PFacts.Detail[pn].dbExists = tristate.False
 
 		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).Should(Succeed())
 		Expect(r.deleteTransientSts(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &fscs[3]), sts)).ShouldNot(Succeed())
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).ShouldNot(Succeed())
 	})
 
 	It("should be able to figure out what the old image was", func() {
@@ -121,6 +118,10 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		defer deletePods(ctx, vdb)
 		createSvcs(ctx, vdb)
 		defer deleteSvcs(ctx, vdb)
+		transientSc := buildTransientSubcluster(vdb, "")
+		createSts(ctx, vdb, transientSc, 1, 0, AllPodsNotRunning)
+		defer deleteSts(ctx, vdb, transientSc, 1)
+
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		r := createOnlineImageChangeReconciler(vdb)
@@ -135,6 +136,51 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(sc.GetServiceName()))
 		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(""))
+	})
+
+	It("should not route client traffic to transient subcluster since it doesn't exist", func() {
+		vdb := vapi.MakeVDB()
+		const ScName = "sc1"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: ScName, IsPrimary: true},
+		}
+		sc := &vdb.Spec.Subclusters[0]
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = "some-sc-not-to-be-created"
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
+		svc := &corev1.Service{}
+		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
+		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(ScName))
+		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(""))
+	})
+
+	It("should avoid creating transient if the cluster is down", func() {
+		vdb := vapi.MakeVDB()
+		const ScName = "sc1"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: ScName, IsPrimary: true},
+		}
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = "wont-be-created"
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsNotRunning)
+		defer deletePods(ctx, vdb)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.skipTransientSetup()).Should(BeTrue())
 	})
 
 	It("should route client traffic to existing subcluster", func() {

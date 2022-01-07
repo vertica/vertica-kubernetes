@@ -541,4 +541,25 @@ var _ = Describe("restart_reconciler", func() {
 		restart = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(1))
 	})
+
+	It("should skip restart_node of transient nodes", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 1
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		transientSc := buildTransientSubcluster(vdb, "")
+		createSts(ctx, vdb, transientSc, 1, 0, AllPodsRunning)
+		defer deleteSts(ctx, vdb, transientSc, 1)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		const DownPodIndex = 0
+		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, transientSc, fpr, []int32{DownPodIndex}, PodReadOnly)
+
+		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
+		Expect(len(restart)).Should(Equal(0))
+	})
 })
