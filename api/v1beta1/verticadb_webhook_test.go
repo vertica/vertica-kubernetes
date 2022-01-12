@@ -322,6 +322,41 @@ var _ = Describe("verticadb_webhook", func() {
 			validateSpecValuesHaveErr(vdb, true)
 		}
 	})
+
+	It("should allow imageChangePolicy to be changed when image change is not in progress", func() {
+		vdbUpdate := createVDBHelper()
+		vdbOrig := createVDBHelper()
+		vdbOrig.Spec.ImageChangePolicy = OfflineImageChange
+		vdbUpdate.Spec.ImageChangePolicy = OnlineImageChange
+		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).Should(BeNil())
+
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[ImageChangeInProgressIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+	})
+
+	It("should fail for various issues with temporary subcluster routing template", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = vdb.Spec.Subclusters[0].Name
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = "transient"
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 0
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = true
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		validateSpecValuesHaveErr(vdb, false)
+	})
 })
 
 func createVDBHelper() *VerticaDB {

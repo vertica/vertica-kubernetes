@@ -242,6 +242,12 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			fmt.Sprintf("subcluster %s cannot have its isPrimary type change", v.Spec.Subclusters[inx].Name))
 		allErrs = append(allErrs, err)
 	}
+	if notAllowed, reason := v.isImageChangePolicyChangingButNotAllowed(oldObj); notAllowed {
+		err := field.Invalid(field.NewPath("spec").Child("imageChangePolicy"),
+			v.Spec.Subclusters,
+			fmt.Sprintf("imageChangePolicy cannot change because %s", reason))
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
@@ -262,6 +268,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidVolumeName(allErrs)
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
+	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -592,6 +599,32 @@ func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorLi
 	return allErrs
 }
 
+func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.TemporarySubclusterRouting.Template.Name != "" {
+		fieldPrefix := field.NewPath("spec").Child("temporarySubclusterRouting").Child("template")
+		if v.Spec.TemporarySubclusterRouting.Template.IsPrimary {
+			err := field.Invalid(fieldPrefix.Child("isPrimary"),
+				v.Spec.TemporarySubclusterRouting.Template.IsPrimary,
+				"subcluster template must be a secondary subcluster")
+			allErrs = append(allErrs, err)
+		}
+		if v.Spec.TemporarySubclusterRouting.Template.Size == 0 {
+			err := field.Invalid(fieldPrefix.Child("size"),
+				v.Spec.TemporarySubclusterRouting.Template.Size,
+				"size of subcluster template must be greater than zero")
+			allErrs = append(allErrs, err)
+		}
+		scMap := v.GenSubclusterMap()
+		if _, ok := scMap[v.Spec.TemporarySubclusterRouting.Template.Name]; ok {
+			err := field.Invalid(fieldPrefix.Child("name"),
+				v.Spec.TemporarySubclusterRouting.Template.Name,
+				"cannot choose a name of an existing subcluster")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
 func (v *VerticaDB) isSubclusterTypeIsChanging(oldObj *VerticaDB) (ok bool, scInx int) {
 	// Create a map of subclusterName -> isPrimary using the old object.
 	nameToPrimaryMap := map[string]bool{}
@@ -609,4 +642,17 @@ func (v *VerticaDB) isSubclusterTypeIsChanging(oldObj *VerticaDB) (ok bool, scIn
 		}
 	}
 	return false, 0
+}
+
+// isImageChangePolicyChangingButNotAllowed will see if it unsafe to change the
+// imageChangePolicy.  It will return true if it isn't allowed.  It will also
+// return a reason message that can be included in the message returned to the
+// caller.
+func (v *VerticaDB) isImageChangePolicyChangingButNotAllowed(oldObj *VerticaDB) (notAllowed bool, reason string) {
+	if v.Spec.ImageChangePolicy == oldObj.Spec.ImageChangePolicy ||
+		len(oldObj.Status.Conditions) < ImageChangeInProgressIndex ||
+		oldObj.Status.Conditions[ImageChangeInProgressIndex].Status == v1.ConditionFalse {
+		return false, ""
+	}
+	return true, "image change is in progress"
 }
