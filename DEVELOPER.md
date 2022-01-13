@@ -262,7 +262,7 @@ Here are the steps on how to override them:
 
       1. AWS S3 BUCKET
 
-         If you have an MicroFocus account for AWS, you can configure your environment so that it uses AWS instead of minio.  There are pre-existing buckets setup for developers to use.  Here are the steps to set that up:
+         If you have an AWS account, you can configure your environment so that it uses AWS instead of minio.  There are pre-existing buckets setup for developers to use.  Here are the steps to set that up:
 
          * Edit my-defaults.cfg and fill in the details.
             * Fill in the ACCESSKEY and SECRETKEY with your unique IDs.
@@ -345,18 +345,6 @@ Here are the steps on how to override them:
                COMMUNAL_EP_CERT_SECRET  | If using swebhdfs:// scheme, this is the name of the secret created at step 1 above. | hadoop-certs
                COMMUNAL_EP_CERT_NAMESPACE  | If using swebhdfs://, the namespace that the Secret from step1 was created in. | certs
 
-      5. PURESTORAGE
-
-         On OpenShift, we can not use minio as it was not possible to get local-path-provisioner working, so instead we are using an internal pureStorage for testing. Once you have got pureStorage credientials from Vertica IT, follow the instructions below.
-            1. Edit my-defaults.cfg and fill in the details.
-
-               Env Name | Description | Sample value
-               | :--- | ---: | :---:
-               ACCESSKEY  | Use the access key that you got from the internal pureStorage. | 
-               SECRETKEY  | Use the secret key that you got from the internal pureStorage. | 
-               ENDPOINT  | Endpoint and credentials for s3 communal access in the tests. | http://10.20.42.5
-               BUCKET_OR_CLUSTER  | This the name of the bucket | vertica-fleeting
-               PATH_PREFIX  | This is used to place the communal path in a subdirectory. | /vdb/
 
 
 
