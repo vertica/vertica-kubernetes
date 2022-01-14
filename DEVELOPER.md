@@ -262,24 +262,32 @@ Here are the steps on how to override them:
 
       1. AWS S3 BUCKET
 
-         If you have an AWS account, you can configure your environment so that it uses AWS instead of minio.  There are pre-existing buckets setup for developers to use.  Here are the steps to set that up:
+         If you have an AWS account, you can configure your environment so that it uses AWS instead of minio.  
+         
+         `Prerequisite:` The s3 bucket must already be created prior to running the tests.
+
+         Here are the steps to set that up:
 
          * Edit my-defaults.cfg and fill in the details.
             * Fill in the ACCESSKEY and SECRETKEY with your unique IDs.
             * Use the chart below to know what to fill in depending on what AWS region you want to write to.
 
 
-            Env Name | us-east-1 | us-west-2
+            Env Name | Description | Sample value
             | :--- | ---: | :---:
-            ENDPOINT  | https://s3.us-east-1.amazonaws.com | https://s3.us-west-2.amazonaws.com
-            REGION  | us-east-1 | us-west-2
-            S3_BUCKET  | vertica-fleeting | vertica-fleeting-us-west-2
-            PATH_PREFIX  | /\<userID> | /\<userID>
-            COMMUNAL_EP_CERT_SECRET  | \<leave blank> | \<leave blank>
-            COMMUNAL_EP_CERT_NAMESPACE  | \<leave blank> | \<leave blank>
+            ENDPOINT  | Endpoint and credentials for s3 communal access in the tests. | https://s3.us-east-1.amazonaws.com
+            REGION  | The AWS region.  | us-east-1
+            S3_BUCKET  | This is the name of the bucket | aws-s3-bucket-name
+            PATH_PREFIX  | his is used to place the communal path in a subdirectory. | /\<userID>
+            COMMUNAL_EP_CERT_SECRET  |  | \<leave blank>
+            COMMUNAL_EP_CERT_NAMESPACE  |  | \<leave blank>
 
       2. Google Cloud Storage
 
+         `Prerequisite:` The Google Cloud bucket must already be created prior to running the tests.
+         
+         Here are the steps:
+         
          1. You need to create a ‘User account HMAC’. This will give you an access key and secret that you can use later on.
          2. Edit my-defaults.cfg and fill in the details. Use the chart below as a guide.
 
@@ -288,25 +296,25 @@ Here are the steps on how to override them:
          ACCESSKEY  | Use the access key that you got when you generated the HMAC |
          SECRETKEY  | Use the secret that you got when you generated the HMAC | 
          PATH_PROTOCOL  | This tells the kustomize scripts to setup for Google cloud. | gs://
-         BUCKET_OR_CLUSTER  | Name of the bucket to use. | vertica-fleeting-europe-north1
-         PATH_PREFIX  | Include your user name here so that all dbs that we know who created the DBs.  It must begin and end with a slash. | /mspilchen/
+         BUCKET_OR_CLUSTER  | Name of the bucket to use. | gc-bucket-name
+         PATH_PREFIX  | Include your user name here so that all dbs that we know who created the DBs.  It must begin and end with a slash. | /johndoe/
 
       3. Azure Blob Storage
 
          1. You have to decide whether to connect with the accountKey or a shared access signature (SAS).  If it is a SAS, you can generate one in a self-serve manner.
-            - In the WebUI (https://portal.azure.com) go to the storage container (e.g. vertica-fleeting) that you want access to
+            - In the WebUI (https://portal.azure.com) go to the storage container that you want access to
             - On the left is a link called “Shared access tokens”.  Click that.
             - Fill in the form to create a SAS token.
          2. Edit my-defaults.cfg and fill in the details.  Use the chart below as a guide.
 
          Env Name | Description | Sample value
          | :--- | ---: | :---:
-         CONTAINERNAME  |Name of the azure container | vertica-fleeting
+         CONTAINERNAME  |Name of the azure container | container-name
          ACCOUNTKEY  | If authenticating with an account key, fill this in.  Otherwise it can be left blank. | 
          SHAREDACCESSSIGNATURE  | If authenticating with a SAS, fill this in.  This can be left blank if using an accountKey.  Before to include it in quotes ("") because of the special characters that are typically used. | 
          PATH_PROTOCOL | Set this to tell the e2e tests that Azure is being used. | azb://
-         BUCKET_OR_CLUSTER  | Fill in the account name | devopsvertica
-         PATH_PREFIX  | Include your user name here so that all dbs that we know who created the DBs.  It must begin and end with a slash. | /mspilchen/
+         BUCKET_OR_CLUSTER  | Fill in the account name | account-name
+         PATH_PREFIX  | Include your user name here so that all dbs that we know who created the DBs.  It must begin and end with a slash. | /johndoe/
 
       4. HDFS
 
@@ -339,7 +347,7 @@ Here are the steps on how to override them:
                | :--- | ---: | :---:
                PATH_PROTOCOL  | Indicate that you are going to use a HDFS scheme. | webhdfs:// or swebhdfs://
                BUCKET_OR_CLUSTER  | If not using HA namenode, you can put in the name node host.  If you are using an HA namenode, include the nameservice name. | hdp31ns or  hdfs-namenode-0.hdfs-namenode.kuttl-e2e-hdfs.svc.cluster.local:50070                              
-               PATH_PREFIX | Fill this in if you want to store the database in some subdirectory within the HDFS cluster. | / or /user/mspilchen/                          
+               PATH_PREFIX | Fill this in if you want to store the database in some subdirectory within the HDFS cluster. | / or /user/johndoe/                          
                HADOOP_CONF_CM  | Name of the config map that contains the hadoop config director (i.e. /etc/hadoop).  This is the name of the configMap that you created at step 2.  This can be left blank if not using HA namenode. | hadoop-conf
                HADOOP_CONF_NAMESPACE  | The k8s namespace that HADOOP_CONF_CM is in.  This can be blank if HADOOP_CONF_CM is blank. | eng-p9
                COMMUNAL_EP_CERT_SECRET  | If using swebhdfs:// scheme, this is the name of the secret created at step 1 above. | hadoop-certs
