@@ -159,6 +159,9 @@ func (o *OnlineImageChangeReconciler) installTransientNodes(ctx context.Context)
 
 	actor := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -170,6 +173,9 @@ func (o *OnlineImageChangeReconciler) addTransientSubcluster(ctx context.Context
 
 	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
 	d := actor.(*DBAddSubclusterReconciler)
 	return d.addMissingSubclusters(ctx, []vapi.Subcluster{*buildTransientSubcluster(o.Vdb, "")})
 }
@@ -183,6 +189,9 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 
 	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
 	d := actor.(*DBAddNodeReconciler)
 	return d.reconcileSubcluster(ctx, buildTransientSubcluster(o.Vdb, ""))
 }

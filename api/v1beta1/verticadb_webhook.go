@@ -19,6 +19,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -118,6 +119,7 @@ func (v *VerticaDB) Default() {
 	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
+	v.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
 }
 
 //+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions={v1,v1beta1}
@@ -242,12 +244,8 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			fmt.Sprintf("subcluster %s cannot have its isPrimary type change", v.Spec.Subclusters[inx].Name))
 		allErrs = append(allErrs, err)
 	}
-	if notAllowed, reason := v.isImageChangePolicyChangingButNotAllowed(oldObj); notAllowed {
-		err := field.Invalid(field.NewPath("spec").Child("imageChangePolicy"),
-			v.Spec.Subclusters,
-			fmt.Sprintf("imageChangePolicy cannot change because %s", reason))
-		allErrs = append(allErrs, err)
-	}
+	allErrs = v.checkImmutableImageChangePolicy(oldObj, allErrs)
+	allErrs = v.checkImmutableTemporarySubclusterRouting(oldObj, allErrs)
 	return allErrs
 }
 
@@ -269,6 +267,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidVolumeMountName(allErrs)
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
+	allErrs = v.matchingServiceNamesAreConsistent(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -600,25 +599,34 @@ func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorLi
 }
 
 func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) field.ErrorList {
+	scMap := v.GenSubclusterMap()
+	fieldPrefix := field.NewPath("spec").Child("temporarySubclusterRouting")
 	if v.Spec.TemporarySubclusterRouting.Template.Name != "" {
-		fieldPrefix := field.NewPath("spec").Child("temporarySubclusterRouting").Child("template")
+		templateFieldPrefix := fieldPrefix.Child("template")
 		if v.Spec.TemporarySubclusterRouting.Template.IsPrimary {
-			err := field.Invalid(fieldPrefix.Child("isPrimary"),
+			err := field.Invalid(templateFieldPrefix.Child("isPrimary"),
 				v.Spec.TemporarySubclusterRouting.Template.IsPrimary,
 				"subcluster template must be a secondary subcluster")
 			allErrs = append(allErrs, err)
 		}
 		if v.Spec.TemporarySubclusterRouting.Template.Size == 0 {
-			err := field.Invalid(fieldPrefix.Child("size"),
+			err := field.Invalid(templateFieldPrefix.Child("size"),
 				v.Spec.TemporarySubclusterRouting.Template.Size,
 				"size of subcluster template must be greater than zero")
 			allErrs = append(allErrs, err)
 		}
-		scMap := v.GenSubclusterMap()
 		if _, ok := scMap[v.Spec.TemporarySubclusterRouting.Template.Name]; ok {
-			err := field.Invalid(fieldPrefix.Child("name"),
+			err := field.Invalid(templateFieldPrefix.Child("name"),
 				v.Spec.TemporarySubclusterRouting.Template.Name,
 				"cannot choose a name of an existing subcluster")
+			allErrs = append(allErrs, err)
+		}
+	}
+	for i := range v.Spec.TemporarySubclusterRouting.Names {
+		if _, ok := scMap[v.Spec.TemporarySubclusterRouting.Names[i]]; !ok {
+			err := field.Invalid(fieldPrefix.Child("names").Index(i),
+				v.Spec.TemporarySubclusterRouting.Names[i],
+				"name must be an existing subcluster")
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -644,15 +652,85 @@ func (v *VerticaDB) isSubclusterTypeIsChanging(oldObj *VerticaDB) (ok bool, scIn
 	return false, 0
 }
 
-// isImageChangePolicyChangingButNotAllowed will see if it unsafe to change the
-// imageChangePolicy.  It will return true if it isn't allowed.  It will also
-// return a reason message that can be included in the message returned to the
-// caller.
-func (v *VerticaDB) isImageChangePolicyChangingButNotAllowed(oldObj *VerticaDB) (notAllowed bool, reason string) {
-	if v.Spec.ImageChangePolicy == oldObj.Spec.ImageChangePolicy ||
-		len(oldObj.Status.Conditions) < ImageChangeInProgressIndex ||
-		oldObj.Status.Conditions[ImageChangeInProgressIndex].Status == v1.ConditionFalse {
-		return false, ""
+// matchingServiceNamesAreConsistent ensures that any subclusters that share the
+// same service name have matching values in them that pertain to the service object.
+func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) field.ErrorList {
+	processedServiceName := map[string]bool{}
+
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if _, ok := processedServiceName[sc.ServiceName]; ok {
+			continue
+		}
+		for j := i + 1; j < len(v.Spec.Subclusters); j++ {
+			osc := &v.Spec.Subclusters[j]
+			if sc.ServiceName == osc.ServiceName {
+				fieldPrefix := field.NewPath("spec").Child("subclusters").Index(j)
+				if !reflect.DeepEqual(sc.ExternalIPs, osc.ExternalIPs) {
+					err := field.Invalid(fieldPrefix.Child("externalIPs").Index(i),
+						sc.ExternalIPs,
+						"externalIPs don't match other subcluster(s) sharing the same serviceName")
+					allErrs = append(allErrs, err)
+				}
+				if sc.NodePort != osc.NodePort {
+					err := field.Invalid(fieldPrefix.Child("nodePort").Index(i),
+						sc.NodePort,
+						"nodePort doesn't match other subcluster(s) sharing the same serviceName")
+					allErrs = append(allErrs, err)
+				}
+				if sc.ServiceType != osc.ServiceType {
+					err := field.Invalid(fieldPrefix.Child("serviceType").Index(i),
+						sc.ServiceType,
+						"serviceType doesn't match other subcluster(s) sharing the same serviceName")
+					allErrs = append(allErrs, err)
+				}
+			}
+		}
+		// Set a flag so that we don't porcess this service name in another subcluster
+		processedServiceName[sc.ServiceName] = true
 	}
-	return true, "image change is in progress"
+	return allErrs
+}
+
+func (v *VerticaDB) isImageChangeInProgress() bool {
+	return len(v.Status.Conditions) > ImageChangeInProgressIndex &&
+		v.Status.Conditions[ImageChangeInProgressIndex].Status == v1.ConditionTrue
+}
+
+// checkImmutableImageChangePolicy will see if it unsafe to change the
+// imageChangePolicy.  It will log an error if it detects a change in that field
+// when it isn't allowed.
+func (v *VerticaDB) checkImmutableImageChangePolicy(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.ImageChangePolicy == oldObj.Spec.ImageChangePolicy ||
+		!oldObj.isImageChangeInProgress() {
+		return allErrs
+	}
+	err := field.Invalid(field.NewPath("spec").Child("imageChangePolicy"),
+		v.Spec.Subclusters,
+		"imageChangePolicy cannot change because image change is in progress")
+	allErrs = append(allErrs, err)
+	return allErrs
+}
+
+// checkImmutableTemporarySubclusterRouting will check if
+// temporarySubclusterRouting is changing when it isn't allowed to.
+func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// TemporarySubclusterRouting is allowed to change as long as an image
+	// change isn't in progress
+	if !oldObj.isImageChangeInProgress() {
+		return allErrs
+	}
+	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Names, oldObj.Spec.TemporarySubclusterRouting.Names) {
+		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("names"),
+			v.Spec.TemporarySubclusterRouting.Names,
+			"subcluster names for temporasySubclusterRouting cannot change when an image change is in progress")
+		allErrs = append(allErrs, err)
+	}
+	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Template, oldObj.Spec.TemporarySubclusterRouting.Template) {
+		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("template"),
+			v.Spec.TemporarySubclusterRouting.Template,
+			"template for temporasySubclusterRouting cannot change when an image change is in progress")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
 }

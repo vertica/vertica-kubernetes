@@ -357,6 +357,74 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
 		validateSpecValuesHaveErr(vdb, false)
 	})
+
+	It("should fail if temporary routing to a subcluster doesn't exist", func() {
+		vdb := createVDBHelper()
+		const ValidScName = "sc1"
+		const InvalidScName = "notexists"
+		vdb.Spec.Subclusters[0].Name = ValidScName
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{InvalidScName}
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{ValidScName, InvalidScName}
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{ValidScName}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should prevent change to temporarySubclusterRouting when image change in progress", func() {
+		vdbUpdate := createVDBHelper()
+		vdbOrig := createVDBHelper()
+
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[ImageChangeInProgressIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+
+		vdbUpdate.Spec.TemporarySubclusterRouting.Names = []string{"sc1", "sc2"}
+		vdbOrig.Spec.TemporarySubclusterRouting.Names = []string{"sc3", "sc4"}
+		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+
+		vdbUpdate.Spec.TemporarySubclusterRouting.Names = vdbOrig.Spec.TemporarySubclusterRouting.Names
+		vdbUpdate.Spec.TemporarySubclusterRouting.Template.Name = "transient-sc"
+		vdbOrig.Spec.TemporarySubclusterRouting.Template.Name = "another-name-transient-sc"
+		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+	})
+
+	It("should error out if service specific fields are different in subclusters with matching serviceNames", func() {
+		vdb := createVDBHelper()
+		const ServiceName = "main"
+		vdb.Spec.Subclusters = []Subcluster{
+			{
+				Name:        "sc1",
+				Size:        2,
+				IsPrimary:   true,
+				ServiceName: ServiceName,
+				ServiceType: "NodePort",
+				NodePort:    30008,
+				ExternalIPs: []string{"8.1.2.3", "8.2.4.6"},
+			},
+			{
+				Name:        "sc2",
+				Size:        1,
+				IsPrimary:   false,
+				ServiceName: ServiceName,
+				ServiceType: "ClusterIP",
+				NodePort:    30009,
+				ExternalIPs: []string{"8.1.2.3", "7.2.4.6"},
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].ServiceType = vdb.Spec.Subclusters[0].ServiceType
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].NodePort = vdb.Spec.Subclusters[0].NodePort
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].ExternalIPs[1] = vdb.Spec.Subclusters[0].ExternalIPs[1]
+		validateSpecValuesHaveErr(vdb, false)
+	})
 })
 
 func createVDBHelper() *VerticaDB {
