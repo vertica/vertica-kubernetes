@@ -598,6 +598,8 @@ func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorLi
 	return allErrs
 }
 
+// hasValidTemporarySubclusterRouting verifies the contents of
+// temporarySubclusterRouting are valid
 func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) field.ErrorList {
 	scMap := v.GenSubclusterMap()
 	fieldPrefix := field.NewPath("spec").Child("temporarySubclusterRouting")
@@ -706,7 +708,7 @@ func (v *VerticaDB) checkImmutableImageChangePolicy(oldObj *VerticaDB, allErrs f
 		return allErrs
 	}
 	err := field.Invalid(field.NewPath("spec").Child("imageChangePolicy"),
-		v.Spec.Subclusters,
+		v.Spec.ImageChangePolicy,
 		"imageChangePolicy cannot change because image change is in progress")
 	allErrs = append(allErrs, err)
 	return allErrs
