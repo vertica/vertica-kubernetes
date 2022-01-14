@@ -688,7 +688,7 @@ func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) f
 				}
 			}
 		}
-		// Set a flag so that we don't porcess this service name in another subcluster
+		// Set a flag so that we don't process this service name in another subcluster
 		processedServiceName[sc.ServiceName] = true
 	}
 	return allErrs
