@@ -75,11 +75,17 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 // reconcileSubcluster will reconcile a single subcluster.  Add node will be
 // triggered if we determine that it hasn't been run.
 func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	if exists := d.PFacts.anyPodsMissingDB(sc.Name); exists.IsTrue() {
-		res, err := d.runAddNode(ctx, sc)
-		if err != nil || res.Requeue {
-			return res, err
+	if missingDB, unknownState := d.PFacts.anyPodsMissingDB(sc.Name); missingDB || unknownState {
+		if missingDB {
+			res, err := d.runAddNode(ctx, sc)
+			if err != nil || res.Requeue {
+				return res, err
+			}
 		}
+		if unknownState {
+			d.Log.Info("Requeue due to some pods were not running")
+		}
+		return ctrl.Result{Requeue: unknownState}, nil
 	}
 	return ctrl.Result{}, nil
 }
