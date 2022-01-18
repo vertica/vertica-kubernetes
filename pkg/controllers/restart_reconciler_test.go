@@ -26,6 +26,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -360,7 +361,7 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(n2).Should(Equal("DOWN"))
 	})
 
-	It("should do full cluster restart if all up nodes are read-only", func() {
+	It("should do full cluster restart if none of the nodes are UP and not read-only", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
 		vdb.Spec.DBName = "db"
@@ -375,8 +376,10 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
-			pfacts.Detail[downPodNm].upNode = true
-			pfacts.Detail[downPodNm].readOnly = true
+			// At least one pod needs to be totally offline.  Cannot have all of them read-only.
+			pfacts.Detail[downPodNm].upNode = podIndex != 0
+			pfacts.Detail[downPodNm].readOnly = podIndex != 0
+			pfacts.Detail[downPodNm].isInstalled = tristate.True
 		}
 
 		r := MakeRestartReconciler(vrec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
@@ -434,7 +437,7 @@ var _ = Describe("restart_reconciler", func() {
 		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
-		Expect(r.restartCluster(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(r.restartCluster(ctx, []*PodFact{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "start_db")
 		Expect(len(restart)).Should(Equal(1))
 		Expect(restart[0].Command).Should(ContainElements("--ignore-cluster-lease"))
@@ -561,5 +564,31 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
+	})
+
+	It("should use --force option in reip if on version that supports it", func() {
+		vdb := vapi.MakeVDB()
+		fpr := &cmds.FakePodRunner{}
+		act := MakeRestartReconciler(vrec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
+		r := act.(*RestartReconciler)
+		vdb.Annotations[vapi.VersionAnnotation] = version.MinimumVersion
+		Expect(r.genReIPCommand()).ShouldNot(ContainElement("--force"))
+		vdb.Annotations[vapi.VersionAnnotation] = version.ReIPAllowedWithUpNodesVersion
+		Expect(r.genReIPCommand()).Should(ContainElement("--force"))
+	})
+
+	It("should use --hosts option in start_db if on version that supports it", func() {
+		vdb := vapi.MakeVDB()
+		fpr := &cmds.FakePodRunner{}
+		act := MakeRestartReconciler(vrec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
+		r := act.(*RestartReconciler)
+		downPods := []*PodFact{
+			{podIP: "9.10.1.1"},
+			{podIP: "9.10.1.2"},
+		}
+		vdb.Annotations[vapi.VersionAnnotation] = version.MinimumVersion
+		Expect(r.genStartDBCommand(downPods)).ShouldNot(ContainElement("--hosts"))
+		vdb.Annotations[vapi.VersionAnnotation] = version.StartDBAcceptsHostListVersion
+		Expect(r.genStartDBCommand(downPods)).Should(ContainElements("--hosts", "9.10.1.1,9.10.1.2"))
 	})
 })

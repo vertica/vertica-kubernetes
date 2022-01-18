@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -111,7 +112,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if ok := r.setATPod(); !ok {
+	if ok := r.setATPod(false); !ok {
 		r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -139,7 +140,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, nil
 	}
 
-	return r.restartCluster(ctx)
+	return r.restartCluster(ctx, downPods)
 }
 
 // reconcileNodes will handle a subset of the pods.  It will try to restart any
@@ -153,7 +154,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// can't be restarted.
 	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, false)
 	if len(downPods) > 0 {
-		if ok := r.setATPod(); !ok {
+		if ok := r.setATPod(true); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -175,7 +176,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// have been installed but not yet added to a database.
 	reIPPods := r.PFacts.findReIPPods(true)
 	if len(reIPPods) > 0 {
-		if ok := r.setATPod(); !ok {
+		if ok := r.setATPod(true); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -345,7 +346,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	// Prior to calling re_ip, dump out the state of admintools.conf for PD purposes
 	debugDumpAdmintoolsConf(ctx, r.PRunner, r.ATPod)
 
-	cmd = genReIPCommand()
+	cmd = r.genReIPCommand()
 	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...); err != nil {
 		// Log an event as failure to re_ip means we won't be able to bring up the database.
 		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReipFailed,
@@ -361,18 +362,8 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 
 // restartCluster will call admintools -t start_db
 // It is assumed that the cluster has already run re_ip.
-func (r *RestartReconciler) restartCluster(ctx context.Context) (ctrl.Result, error) {
-	cmd := []string{
-		"-t", "start_db",
-		"--database=" + r.Vdb.Spec.DBName,
-		"--noprompt",
-	}
-	if r.Vdb.Spec.IgnoreClusterLease {
-		cmd = append(cmd, "--ignore-cluster-lease")
-	}
-	if r.Vdb.Spec.RestartTimeout != 0 {
-		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
-	}
+func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
+	cmd := r.genStartDBCommand(downPods)
 	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Calling 'admintools -t start_db' to restart the cluster")
 	start := time.Now()
@@ -536,25 +527,74 @@ func genMapFileUploadCmd(mapFileContents []string) []string {
 }
 
 // genReIPCommand will return the command to run for the re_ip command
-func genReIPCommand() []string {
-	return []string{
+func (r *RestartReconciler) genReIPCommand() []string {
+	cmd := []string{
 		"-t", "re_ip",
 		"--file=" + AdminToolsMapFile,
 		"--noprompt",
 	}
+
+	// In 11.1, we added a --force option to re_ip to allow us to run it while
+	// some nodes are up.  This was done to support doing a reip while there are
+	// read-only secondary nodes.
+	vinf, ok := version.MakeInfo(r.Vdb)
+	if ok && vinf.IsEqualOrNewer(version.ReIPAllowedWithUpNodesVersion) {
+		cmd = append(cmd, "--force")
+	}
+
+	return cmd
+}
+
+// genStartDBCommand will return the command for start_db
+func (r *RestartReconciler) genStartDBCommand(downPods []*PodFact) []string {
+	cmd := []string{
+		"-t", "start_db",
+		"--database=" + r.Vdb.Spec.DBName,
+		"--noprompt",
+	}
+	if r.Vdb.Spec.IgnoreClusterLease {
+		cmd = append(cmd, "--ignore-cluster-lease")
+	}
+	if r.Vdb.Spec.RestartTimeout != 0 {
+		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
+	}
+
+	// In some versions, we can include a list of hosts to start.  This
+	// parameter becomes important for online upgrade as we use this to start
+	// the primaries while the secondary are in read-only.
+	vinf, ok := version.MakeInfo(r.Vdb)
+	if ok && vinf.IsEqualOrNewer(version.StartDBAcceptsHostListVersion) {
+		hostNames := []string{}
+		for _, pod := range downPods {
+			hostNames = append(hostNames, pod.podIP)
+		}
+		cmd = append(cmd, "--hosts", strings.Join(hostNames, ","))
+	}
+
+	return cmd
 }
 
 // setATPod will set r.ATPod if not already set
-func (r *RestartReconciler) setATPod() bool {
+func (r *RestartReconciler) setATPod(online bool) bool {
 	// If we haven't done so already, figure out the pod to run admintools from.
 	if r.ATPod == (types.NamespacedName{}) {
-		atPod, ok := r.PFacts.findPodToRunAdmintools()
+		findFunc := r.selectFindPodFunction(online)
+		atPod, ok := findFunc()
 		if !ok {
 			return false
 		}
 		r.ATPod = atPod.name
 	}
 	return true
+}
+
+// selectFindPodFunction will pick the appropriate function based on whether the
+// AT operation is online or offline
+func (r *RestartReconciler) selectFindPodFunction(online bool) func() (*PodFact, bool) {
+	if online {
+		return r.PFacts.findPodToRunAdmintoolsOnline
+	}
+	return r.PFacts.findPodToRunAdmintoolsOffline
 }
 
 // shouldRequeueIfPodsNotRunning is a helper function that will determine

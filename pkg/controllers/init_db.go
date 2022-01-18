@@ -78,7 +78,7 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 // runInit will physically setup the database.
 // Depending on g.initializer, this will either do create_db or revive_db.
 func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, error) {
-	atPodFact, ok := g.PFacts.findPodToRunAdmintools()
+	atPodFact, ok := g.PFacts.findPodToRunAdmintoolsOffline()
 	if !ok {
 		// Could not find a runable pod to run from.
 		return ctrl.Result{Requeue: true}, nil
