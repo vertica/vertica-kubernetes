@@ -83,7 +83,7 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 			}
 		}
 		if unknownState {
-			d.Log.Info("Requeue due to some pods were not running")
+			d.Log.Info("Requeue because some pods were not running")
 		}
 		return ctrl.Result{Requeue: unknownState}, nil
 	}
