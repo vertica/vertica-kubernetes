@@ -506,13 +506,13 @@ func (p *PodFacts) findPodToRunVsql() (*PodFact, bool) {
 	return &PodFact{}, false
 }
 
-// findPodToRunAdmintoolsOnline returns the name of the pod we will exec into into
-// order to run admintools.  This version will pick a pod to run an admintools
-// command that is meant to be run on at an online node.
+// findPodToRunAdmintoolsAny returns the name of the pod we will exec into into
+// order to run admintools.  To checking is done regarding whether the pod has a
+// running vertica instance.
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunAdmintoolsOnline() (*PodFact, bool) {
+func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
 	for _, v := range p.Detail {
-		if v.upNode && !v.readOnly {
+		if v.isInstalled.IsTrue() && v.isPodRunning {
 			return v, true
 		}
 	}

@@ -112,7 +112,10 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if ok := r.setATPod(false); !ok {
+	// Find an AT pod.  You must run with a pod that has no vertica process running.
+	// This is needed to be able to start the primaries when secondary read-only
+	// nodes could be running.
+	if ok := r.setATPod(r.PFacts.findPodToRunAdmintoolsOffline); !ok {
 		r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -154,7 +157,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// can't be restarted.
 	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, false)
 	if len(downPods) > 0 {
-		if ok := r.setATPod(true); !ok {
+		if ok := r.setATPod(r.PFacts.findPodToRunAdmintoolsAny); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -176,7 +179,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// have been installed but not yet added to a database.
 	reIPPods := r.PFacts.findReIPPods(true)
 	if len(reIPPods) > 0 {
-		if ok := r.setATPod(true); !ok {
+		if ok := r.setATPod(r.PFacts.findPodToRunAdmintoolsAny); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -574,11 +577,12 @@ func (r *RestartReconciler) genStartDBCommand(downPods []*PodFact) []string {
 	return cmd
 }
 
-// setATPod will set r.ATPod if not already set
-func (r *RestartReconciler) setATPod(online bool) bool {
+// setATPod will set r.ATPod if not already set.
+// Caller can indicate whether there is a requirement that it must be run from a
+// pod that is current not running the vertica daemon.
+func (r *RestartReconciler) setATPod(findFunc func() (*PodFact, bool)) bool {
 	// If we haven't done so already, figure out the pod to run admintools from.
 	if r.ATPod == (types.NamespacedName{}) {
-		findFunc := r.selectFindPodFunction(online)
 		atPod, ok := findFunc()
 		if !ok {
 			return false
@@ -586,15 +590,6 @@ func (r *RestartReconciler) setATPod(online bool) bool {
 		r.ATPod = atPod.name
 	}
 	return true
-}
-
-// selectFindPodFunction will pick the appropriate function based on whether the
-// AT operation is online or offline
-func (r *RestartReconciler) selectFindPodFunction(online bool) func() (*PodFact, bool) {
-	if online {
-		return r.PFacts.findPodToRunAdmintoolsOnline
-	}
-	return r.PFacts.findPodToRunAdmintoolsOffline
 }
 
 // shouldRequeueIfPodsNotRunning is a helper function that will determine
