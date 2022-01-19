@@ -45,23 +45,6 @@ type OnlineImageChangeReconciler struct {
 	MsgIndex      int      // Current index in StatusMsgs
 }
 
-// SPILLY: we want the status messages to be something like:
-// Processing primary subclusters at 'drain' stage
-// Processing primary subclusters at 'recreate' stage
-// Processing primary subclusters at 'restart' stage
-// Processing secondary subcluster 'sc1' at stage 'drain'
-// Processing secondary subcluster 'sc1' at stage 'recreate'
-// Processing secondary subcluster 'sc1' at stage 'restart'
-// One issue is that the status message changer was smart in that it only
-// advanced the messages forward.  During a requeue, we did want to reset the
-// status message to the very beginning.  You can probably get away with
-// maintaining that for the primary subcluster.  But the secondary it is very
-// iterative.  You start drain/recreate/restart for a subcluster, then do it
-// again for the next one.
-// I think we can do it, if we can compute OnlineImageChangeStatusMsgs at the
-// start of the iteration.  We look up the number of secondaries and fill in the
-// array appropriately.
-
 // MakeOnlineImageChangeReconciler will build an OnlineImageChangeReconciler object
 func MakeOnlineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
@@ -134,18 +117,40 @@ func (o *OnlineImageChangeReconciler) loadSubclusterState(ctx context.Context) (
 func (o *OnlineImageChangeReconciler) precomputeStatusMsgs(ctx context.Context) (ctrl.Result, error) {
 	o.StatusMsgs = []string{
 		"Creating transient secondary subcluster",
-		"Restarting primary subclusters with new image",
-		"Restarting secondary subclusters with new image",
-		"Destroying transient secondary subcluster",
+		"Draining primary subclusters",
+		"Recreating pods for primary subclusters",
+		"Restarting vertica in primary subclusters",
 	}
+
+	// Function we call for each secondary subcluster
+	procFunc := func(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+		scName := sts.Labels[SubclusterNameLabel]
+		o.StatusMsgs = append(o.StatusMsgs,
+			fmt.Sprintf("Draining secondary subcluster '%s'", scName),
+			fmt.Sprintf("Recreating pods for secondary subcluster '%s'", scName),
+			fmt.Sprintf("Restarting vertica in secondary subcluster '%s'", scName),
+		)
+		return ctrl.Result{}, nil
+	}
+	if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, procFunc); res.Requeue || err != nil {
+		return res, err
+	}
+	o.StatusMsgs = append(o.StatusMsgs, "Destroying transient secondary subcluster")
 	o.MsgIndex = 0
 	return ctrl.Result{}, nil
 }
 
 // postNextStatusMsg will set the next status message for an online image change
-// according to msgIndex
 func (o *OnlineImageChangeReconciler) postNextStatusMsg(ctx context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, o.StatusMsgs, o.MsgIndex)
+}
+
+// postNextStatusMsgForSts will set the next status message for the online image
+// change.  This version is meant to be called for a specific statefulset.  This
+// exists just to have the proper function signature.  We ignore the sts
+// entirely as the status message for the sts is already precomputed.
+func (o *OnlineImageChangeReconciler) postNextStatusMsgForSts(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx)
 }
 
 // createTransientSts this will create a secondary subcluster to accept
@@ -220,7 +225,7 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 // processFunc for each one that matches the given type.
 func (o *OnlineImageChangeReconciler) iterateSubclusterType(ctx context.Context, scType string,
 	processFunc func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error)) (ctrl.Result, error) {
-	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
+	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting|FindSorted)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -250,6 +255,9 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 		o.bringSubclusterOnline,
 	}
 	for _, fn := range funcs {
+		if res, err := o.postNextStatusMsg(ctx); res.Requeue || err != nil {
+			return res, err
+		}
 		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, fn); res.Requeue || err != nil {
 			return ctrl.Result{}, err
 		}
@@ -267,14 +275,18 @@ func (o *OnlineImageChangeReconciler) restartSecondaries(ctx context.Context) (c
 
 // processSecondary will handle restart of a single secondary subcluster
 func (o *OnlineImageChangeReconciler) processSecondary(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	if res, err := o.drainSubcluster(ctx, sts); res.Requeue || err != nil {
-		return ctrl.Result{}, err
+	funcs := []func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error){
+		o.postNextStatusMsgForSts,
+		o.drainSubcluster,
+		o.postNextStatusMsgForSts,
+		o.recreateSubclusterWithNewImage,
+		o.postNextStatusMsgForSts,
+		o.bringSubclusterOnline,
 	}
-	if res, err := o.recreateSubclusterWithNewImage(ctx, sts); res.Requeue || err != nil {
-		return ctrl.Result{}, err
-	}
-	if res, err := o.bringSubclusterOnline(ctx, sts); res.Requeue || err != nil {
-		return res, err
+	for _, fn := range funcs {
+		if res, err := fn(ctx, sts); res.Requeue || err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }

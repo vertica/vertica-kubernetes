@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -46,6 +47,8 @@ const (
 	// are already present in the vdb as well as ones that are scheduled for
 	// deletion.  This option is mutually exclusive with the other options.
 	FindExisting
+	// Find will return a list of objects that are sorted by their name
+	FindSorted
 	// Find all subclusters, both in the vdb and not in the vdb.
 	FindAll = FindInVdb | FindNotInVdb
 )
@@ -66,6 +69,11 @@ func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags
 	if err := m.buildObjList(ctx, sts, flags); err != nil {
 		return nil, err
 	}
+	if flags&FindSorted != 0 {
+		sort.Slice(sts.Items, func(i, j int) bool {
+			return sts.Items[i].Name < sts.Items[j].Name
+		})
+	}
 	return sts, nil
 }
 
@@ -74,6 +82,11 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 	svcs := &corev1.ServiceList{}
 	if err := m.buildObjList(ctx, svcs, flags); err != nil {
 		return nil, err
+	}
+	if flags&FindSorted != 0 {
+		sort.Slice(svcs.Items, func(i, j int) bool {
+			return svcs.Items[i].Name < svcs.Items[j].Name
+		})
 	}
 	return svcs, nil
 }
@@ -84,6 +97,11 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*core
 	pods := &corev1.PodList{}
 	if err := m.buildObjList(ctx, pods, flags); err != nil {
 		return nil, err
+	}
+	if flags&FindSorted != 0 {
+		sort.Slice(pods.Items, func(i, j int) bool {
+			return pods.Items[i].Name < pods.Items[j].Name
+		})
 	}
 	return pods, nil
 }
