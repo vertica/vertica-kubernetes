@@ -452,24 +452,25 @@ func (p *PodFacts) doesDBExist() tristate.TriState {
 	return returnOnFail
 }
 
-// anyPodsMissingDB will check whether each pod is added to the database
-// It is a tristate return:
-// - we return True if at least one runable pod doesn't have a database
-// - we return False if all pods have a database
-// - we return None if at least one pod we couldn't determine its state
-func (p *PodFacts) anyPodsMissingDB(scName string) tristate.TriState {
-	returnOnFail := tristate.False
+// anyPodsMissingDB will check whether each pod is added to the database.
+// It returns two states:
+// - missingDB is true if at least one pod was running and had a missing DB
+// - unknownState is true if at least one pod we could not determine if the DB
+// was there or not -- due to the pod not running
+func (p *PodFacts) anyPodsMissingDB(scName string) (missingDB, unknownState bool) {
+	missingDB = false
+	unknownState = false
 	for _, v := range p.Detail {
 		if v.subcluster != scName {
 			continue
 		}
-		if v.dbExists.IsFalse() && v.isPodRunning {
-			return tristate.True
+		if v.dbExists.IsFalse() {
+			missingDB = true
 		} else if v.dbExists.IsNone() {
-			returnOnFail = tristate.None
+			unknownState = true
 		}
 	}
-	return returnOnFail
+	return
 }
 
 // findPodsWithMisstingDB will return a list of pods facts that have a missing DB
@@ -505,10 +506,10 @@ func (p *PodFacts) findPodToRunVsql() (*PodFact, bool) {
 	return &PodFact{}, false
 }
 
-// findPodToRunAdmintools returns the name of the pod we will exec into into
-// order to run admintools
+// findPodToRunAdmintoolsAny returns the name of the pod we will exec into into
+// order to run admintools.
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunAdmintools() (*PodFact, bool) {
+func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
 	// Our preference for the pod is as follows:
 	// - up and not read-only
 	// - up and read-only
@@ -525,6 +526,17 @@ func (p *PodFacts) findPodToRunAdmintools() (*PodFact, bool) {
 	}
 	for _, v := range p.Detail {
 		if v.isInstalled.IsTrue() && v.isPodRunning {
+			return v, true
+		}
+	}
+	return &PodFact{}, false
+}
+
+// findPodToRunAdmintoolsOffline will return a pod to run an offline admintools
+// command.  If nothing is found, the second parameter returned will be false.
+func (p *PodFacts) findPodToRunAdmintoolsOffline() (*PodFact, bool) {
+	for _, v := range p.Detail {
+		if v.isInstalled.IsTrue() && v.isPodRunning && !v.upNode {
 			return v, true
 		}
 	}

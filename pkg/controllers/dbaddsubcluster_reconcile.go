@@ -64,7 +64,7 @@ func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, req *ctrl.Req
 
 // addMissingSubclusters will compare subclusters passed in and create any missing ones
 func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, scs []vapi.Subcluster) (ctrl.Result, error) {
-	atPod, ok := d.PFacts.findPodToRunAdmintools()
+	atPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
 	if !ok || !atPod.upNode {
 		d.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
