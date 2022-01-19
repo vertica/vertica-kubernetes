@@ -507,10 +507,23 @@ func (p *PodFacts) findPodToRunVsql() (*PodFact, bool) {
 }
 
 // findPodToRunAdmintoolsAny returns the name of the pod we will exec into into
-// order to run admintools.  To checking is done regarding whether the pod has a
-// running vertica instance.
+// order to run admintools.
 // Will return false for second parameter if no pod could be found.
 func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
+	// Our preference for the pod is as follows:
+	// - up and not read-only
+	// - up and read-only
+	// - has vertica installation
+	for _, v := range p.Detail {
+		if v.upNode && !v.readOnly {
+			return v, true
+		}
+	}
+	for _, v := range p.Detail {
+		if v.upNode {
+			return v, true
+		}
+	}
 	for _, v := range p.Detail {
 		if v.isInstalled.IsTrue() && v.isPodRunning {
 			return v, true
