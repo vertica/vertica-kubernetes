@@ -37,6 +37,27 @@ webhook:
   # apiserver are used.
   caBundle: ""
 
+logging:
+  # filePath, when specified, is the file logging will write to.
+  # When empty, logging will write to standard out.
+  filePath: ""
+  # maxFileSize, when logging to a file, is the maximum size, 
+  # in MB, of the logging file before log rotation occurs.
+  maxFileSize: 500
+  # maxFileAge, when logging to a file, is the maximum age, in days,
+  # of the logging before log rotation gets rid of it.
+  maxFileAge: 7
+  # maxFileRotation, when logging to a file, is the maximum number of files 
+  # that are kept in rotation before the old ones are removed.
+  maxFileRotation: 3
+  # level is the minimum logging level. Valid values are: debug, info, warn, and error
+  level: info
+  # stdOut is used to enforce logging to stdout.
+  stdOut: false
+
+# devEnables development mode if true and production mode otherwise
+dev: true
+
 # The resource requirements for the operator pod.  See this for more info:
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 # These defaults must be kept in sync with config/manifests/kustomization.yaml

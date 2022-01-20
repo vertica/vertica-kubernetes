@@ -18,6 +18,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -26,24 +27,44 @@ import (
 	"net/http"
 	_ "net/http/pprof" // nolint:gosec
 
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
+	"github.com/go-logr/zapr"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
+const (
+	MaxFileSize     = 500
+	MaxFileAge      = 7
+	MaxFileRotation = 3
+	Level           = "info"
+	DevMode         = true
+	Stdout          = false
+)
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
+
+type Logging struct {
+	FilePath        string
+	Level           string
+	MaxFileSize     int
+	MaxFileAge      int
+	MaxFileRotation int
+	Stdout          bool
+}
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -81,11 +102,75 @@ func getIsWebhookEnabled() bool {
 	return enabled
 }
 
+// getEncoderConfig returns a concrete encoders configuration
+func getEncoderConfig(devMode bool) zapcore.EncoderConfig {
+	encoderConfig := zap.NewProductionEncoderConfig()
+	if devMode {
+		encoderConfig = zap.NewDevelopmentEncoderConfig()
+	}
+	return encoderConfig
+}
+
+// getLogWriter returns an io.writer (setting up rolling files) converted
+// into a zapcore.WriteSyncer
+func getLogWriter(path string, age, size, rotation int) zapcore.WriteSyncer {
+	lumberJackLogger := &lumberjack.Logger{
+		Filename:   path,
+		MaxSize:    size, // megabytes
+		MaxBackups: rotation,
+		MaxAge:     age, // days
+	}
+	return zapcore.AddSync(lumberJackLogger)
+}
+
+// getZapcoreLevel takes the level as string and returns the corresponding
+// zapcore.Level. If the string level is invalid, it returns the default
+// level
+func getZapcoreLevel(lvl string) zapcore.Level {
+	lvls := map[string]zapcore.Level{
+		"debug": zapcore.DebugLevel,
+		"info":  zapcore.InfoLevel,
+		"warn":  zapcore.WarnLevel,
+		"error": zapcore.ErrorLevel,
+	}
+	if _, found := lvls[lvl]; !found {
+		// returns default level if the input level is invalid
+		log.Println(fmt.Sprintf("Invalid level, %s level will be used instead", Level))
+		return lvls[Level]
+	}
+	return lvls[lvl]
+}
+
+// getLogger is a wrapper that calls other functions
+// to build a logger.
+func getLogger(logArgs Logging, devMode bool) *zap.Logger {
+	encoderConfig := getEncoderConfig(devMode)
+	writes := []zapcore.WriteSyncer{}
+	lvl := zap.NewAtomicLevelAt(zap.DebugLevel)
+	if logArgs.FilePath != "" {
+		w := getLogWriter(logArgs.FilePath, logArgs.MaxFileAge, logArgs.MaxFileSize, logArgs.MaxFileRotation)
+		lvl = zap.NewAtomicLevelAt(getZapcoreLevel(logArgs.Level))
+		writes = append(writes, w)
+	}
+	if logArgs.FilePath == "" || logArgs.Stdout {
+		writes = append(writes, zapcore.AddSync(os.Stdout))
+	}
+	core := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(encoderConfig),
+		zapcore.NewMultiWriteSyncer(writes...),
+		lvl,
+	)
+	return zap.New(core)
+}
+
+// nolint:funlen
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
 	var enableProfiler bool
+	var devMode bool
+	logArgs := Logging{}
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -94,13 +179,26 @@ func main() {
 	flag.BoolVar(&enableProfiler, "enable-profiler", false,
 		"Enables runtime profiling collection.  The profiling data can be inspected by connecting to port 6060 "+
 			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
+	flag.StringVar(&logArgs.FilePath, "filepath", "", "The file logging will write to.")
+	flag.IntVar(&logArgs.MaxFileSize, "maxfilesize", MaxFileSize,
+		"The maximum size in megabytes of the log file "+
+			"before it gets rotated.")
+	flag.IntVar(&logArgs.MaxFileAge, "maxfileage", MaxFileAge,
+		"This is the maximum age, in days, of the logging "+
+			"before log rotation gets rid of it.")
+	flag.IntVar(&logArgs.MaxFileRotation, "maxfilerotation", MaxFileRotation,
+		"this is the maximum number of files that are kept in rotation before the old ones are removed.")
+	flag.StringVar(&logArgs.Level, "level", Level, "The minimum logging level.  Valid values are: debug, info, warn, and error.")
+	flag.BoolVar(&devMode, "dev", DevMode, "Enables development mode if true and production mode otherwise.")
+	flag.BoolVar(&logArgs.Stdout, "stdout", Stdout, "Enables logging to stdout.")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	logger := getLogger(logArgs, devMode)
+	if logArgs.FilePath != "" {
+		log.Println(fmt.Sprintf("Now logging in file %s", logArgs.FilePath))
+	}
+
+	ctrl.SetLogger(zapr.NewLogger(logger))
 
 	if enableProfiler {
 		go func() {

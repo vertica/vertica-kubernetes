@@ -49,6 +49,15 @@ done
 # 5. Template the resource limits and requests
 sed -i 's/resources: template-placeholder/resources:\n          {{- toYaml .Values.resources | nindent 10 }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
+# 6.  Template the logging
+sed -i "s/--filepath=/--filepath={{ .Values.logging.filePath }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i "s/--maxfilesize=/--maxfilesize={{ .Values.logging.maxFileSize }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i "s/--maxfileage=/--maxfileage={{ .Values.logging.maxFileAge }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i "s/--maxfilerotation=/--maxfilerotation={{ .Values.logging.maxFileRotation }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i "s/--level=/--level={{ .Values.logging.level }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i "s/--dev=/--dev={{ .Values.dev }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i "s/--stdout=/--stdout={{ .Values.logging.stdOut }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+
 # Delete openshift clusterRole and clusterRoleBinding files
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-rolebinding-crb.yaml
