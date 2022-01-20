@@ -11,27 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  imageChangeStatus: "Restarting vertica in primary subclusters"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-pri
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-name: transient
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-sec
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-svc: sec
+# Verifies access to the external service through port 5433.  It does this
+# by connecting using vsql
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build long-running-connection/overlay | kubectl -n $NAMESPACE apply -f - "
+  - command: ./wait-for-connection.sh $NAMESPACE

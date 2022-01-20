@@ -239,7 +239,7 @@ func (o *OnlineImageChangeReconciler) iterateSubclusterType(ctx context.Context,
 		}
 
 		if res, err := processFunc(ctx, sts); res.Requeue || err != nil {
-			o.Log.Info("Error during subcluster iteration", "processFunc", fmt.Sprintf("%T", processFunc), "res", res, "err", err)
+			o.Log.Info("Error during subcluster iteration", "res", res, "err", err)
 			return res, err
 		}
 	}
@@ -255,11 +255,12 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 		o.recreateSubclusterWithNewImage,
 		o.bringSubclusterOnline,
 	}
-	for _, fn := range funcs {
+	for i, fn := range funcs {
 		if res, err := o.postNextStatusMsg(ctx); res.Requeue || err != nil {
 			return res, err
 		}
 		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, fn); res.Requeue || err != nil {
+			o.Log.Info("Error iterating subclusters over function", "i", i)
 			return res, err
 		}
 	}

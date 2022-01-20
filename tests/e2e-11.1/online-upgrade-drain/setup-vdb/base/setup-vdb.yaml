@@ -15,23 +15,26 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
-status:
-  imageChangeStatus: "Restarting vertica in primary subclusters"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-pri
 spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-name: transient
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-sec
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-svc: sec
+  image: kustomize-vertica-image
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+  kSafety: "0"
+  imageChangePolicy: Online
+  requeueTime: 10
+  subclusters:
+    - name: pri1
+      size: 1
+      isPrimary: true
+    - name: pri2
+      size: 1
+      isPrimary: true
+    - name: sec1
+      size: 1
+      isPrimary: false
+  temporarySubclusterRouting:
+    names:
+      - sec1
+  certSecrets: []

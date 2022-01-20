@@ -288,6 +288,27 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
 	})
 
+	It("should have an imageChangeStatus set when it fails during the drain", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", IsPrimary: true, Size: 1},
+		}
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
+		vdb.Spec.Image = OldImage
+		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(vdb.Status.ImageChangeStatus).Should(Equal("Draining primary subclusters"))
+	})
+
 	It("should requeue if there are active connections in the subcluster", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
@@ -304,7 +325,6 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
-		// SPILLY - I don't think we will have a live pod.  Can we execute the query from a read-only node?
 		r := createOnlineImageChangeReconciler(vdb)
 		pn := names.GenPodName(vdb, sc, 0)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())

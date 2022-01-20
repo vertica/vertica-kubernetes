@@ -1,0 +1,79 @@
+# (c) Copyright [2022] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verifies access to the external service through port 5433.  It does this
+# by connecting using vsql
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-long-running-connection
+data:
+  long-running-connection.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    SQL_SCRIPT=/tmp/long-running-connection.sql
+    cat << EOF > $SQL_SCRIPT
+    \set ON_ERROR_STOP ON
+
+    -- create a file, that when removed will cause this script to exit
+    \! touch /tmp/remove-me-to-disconnect
+
+    -- create a file to indicate that we have connect to the database
+    \! touch /tmp/connected
+
+    \! echo "Waiting for /tmp/remove-me-to-disconnect to be removed"
+    \! while [ -f /tmp/remove-me-to-disconnect ]; do sleep 3; done
+
+    -- do a query to prove the connection is still up
+    select * from nodes;
+
+    \! echo "Disconnecting..."
+    EOF
+
+    vsql -U joeuser -h v-base-upgrade-pri2 -f $SQL_SCRIPT
+
+    # To prove that client rerouting rules are working.  Reconnect to dump out
+    # the node.  It should be the node for the secondary subcluster.
+    ACT_NODE=$(vsql -U joeuser -h v-base-upgrade-pri2 -tAc "select node_name from current_session")
+    EXP_NODE="v_vertdb_node0003"
+    echo $ACT_NODE
+    if [[ $ACT_NODE != $EXP_NODE ]]
+    then
+      exit 1
+    fi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-long-running-connection
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: kustomize-vertica-image
+      command: ["/home/dbadmin/long-running-connection.sh"]
+      volumeMounts:
+        - name: test-script
+          mountPath: /home/dbadmin/long-running-connection.sh
+          readOnly: true
+          subPath: long-running-connection.sh 
+  volumes:
+    - name: test-script
+      configMap:
+        defaultMode: 0777
+        name: script-long-running-connection
