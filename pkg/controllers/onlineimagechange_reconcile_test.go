@@ -287,6 +287,39 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
 	})
+
+	It("should requeue if there are active connections in the subcluster", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", IsPrimary: true, Size: 1},
+		}
+		sc := &vdb.Spec.Subclusters[0]
+		vdb.Spec.Image = OldImage
+		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		// SPILLY - I don't think we will have a live pod.  Can we execute the query from a read-only node?
+		r := createOnlineImageChangeReconciler(vdb)
+		pn := names.GenPodName(vdb, sc, 0)
+		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
+		r.PFacts.Detail[pn].upNode = true
+		r.PFacts.Detail[pn].readOnly = false
+		fpr := r.PRunner.(*cmds.FakePodRunner)
+		fpr.Results[pn] = []cmds.CmdResult{
+			{Stdout: "  5\n"},
+		}
+		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: true}))
+		fpr.Results[pn] = []cmds.CmdResult{
+			{Stdout: "  0\n"},
+		}
+		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
+	})
 })
 
 // createOnlineImageChangeReconciler is a helper to run the OnlineImageChangeReconciler.

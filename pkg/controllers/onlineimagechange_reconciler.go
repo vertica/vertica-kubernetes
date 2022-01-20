@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -77,10 +78,8 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.addTransientSubcluster,
 		o.addTransientNodes,
 		// Handle restart of the primary subclusters
-		o.postNextStatusMsg,
 		o.restartPrimaries,
 		// Handle restart of secondary subclusters
-		o.postNextStatusMsg,
 		o.restartSecondaries,
 		// Will cleanup the transient subcluster now that the primaries are back up.
 		o.postNextStatusMsg,
@@ -132,16 +131,17 @@ func (o *OnlineImageChangeReconciler) precomputeStatusMsgs(ctx context.Context) 
 		)
 		return ctrl.Result{}, nil
 	}
-	if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, procFunc); res.Requeue || err != nil {
+	if res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubclusterType, procFunc); res.Requeue || err != nil {
 		return res, err
 	}
 	o.StatusMsgs = append(o.StatusMsgs, "Destroying transient secondary subcluster")
-	o.MsgIndex = 0
+	o.MsgIndex = -1
 	return ctrl.Result{}, nil
 }
 
 // postNextStatusMsg will set the next status message for an online image change
 func (o *OnlineImageChangeReconciler) postNextStatusMsg(ctx context.Context) (ctrl.Result, error) {
+	o.MsgIndex++
 	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, o.StatusMsgs, o.MsgIndex)
 }
 
@@ -239,6 +239,7 @@ func (o *OnlineImageChangeReconciler) iterateSubclusterType(ctx context.Context,
 		}
 
 		if res, err := processFunc(ctx, sts); res.Requeue || err != nil {
+			o.Log.Info("Error during subcluster iteration", "processFunc", fmt.Sprintf("%T", processFunc), "res", res, "err", err)
 			return res, err
 		}
 	}
@@ -259,7 +260,7 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 			return res, err
 		}
 		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, fn); res.Requeue || err != nil {
-			return ctrl.Result{}, err
+			return res, err
 		}
 	}
 	return ctrl.Result{}, nil
@@ -285,7 +286,7 @@ func (o *OnlineImageChangeReconciler) processSecondary(ctx context.Context, sts 
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx, sts); res.Requeue || err != nil {
-			return ctrl.Result{}, err
+			return res, err
 		}
 	}
 	return ctrl.Result{}, nil
@@ -301,19 +302,21 @@ func (o *OnlineImageChangeReconciler) isMatchingSubclusterType(sts *appsv1.State
 	return sts.Labels[SubclusterTypeLabel] == scType && !isTransient, nil
 }
 
-// drainSubcluster will drain all connections from a subcluster.  This is a
-// no-op if the image has already been updated for the subcluster.
+// drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
+// This is a no-op if the image has already been updated for the subcluster.
 func (o *OnlineImageChangeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	scName := sts.Labels[SubclusterNameLabel]
 	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 
+	// SPILLY - need to handle the case where there is one subcluster and no transient
 	if img != o.Vdb.Spec.Image {
+		scName := sts.Labels[SubclusterNameLabel]
 		o.Log.Info("starting client traffic routing of secondary to transient", "name", scName)
 		if err := o.routeClientTraffic(ctx, scName, true); err != nil {
 			return ctrl.Result{}, err
 		}
 
-		// SPILLY - drain logic here
+		o.Log.Info("starting check for active connections in subcluster", "name", scName)
+		return o.isSubclusterIdle(ctx, scName)
 	}
 	return ctrl.Result{}, nil
 }
@@ -527,4 +530,41 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 	}
 	o.Log.Info("Updating svc", "selector", svc.Spec.Selector)
 	return objRec.reconcileExtSvc(ctx, svc, sc)
+}
+
+// isSubclusterIdle will run a query to see the number of connections
+// that are active for a given subcluster.  It returns a requeue error if there
+// are active connections still.
+func (o *OnlineImageChangeReconciler) isSubclusterIdle(ctx context.Context, scName string) (ctrl.Result, error) {
+	pf, ok := o.PFacts.findPodToRunVsql()
+	if !ok {
+		o.Log.Info("No pod found to run vsql.  Skipping active connection check")
+		return ctrl.Result{}, nil
+	}
+
+	sql := fmt.Sprintf(
+		"select count(session_id) sessions"+
+			" from v_monitor.sessions join v_catalog.subclusters using (node_name)"+
+			" where session_id not in (select session_id from current_session)"+
+			"       and subcluster_name = '%s';", scName)
+
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := o.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Parse the output.  We requeue if there is an active connection.  This
+	// will rely on the exponential backoff algorithm that is in implemented by
+	// the controller-runtime: start at 5ms, doubles until it gets to 16minutes.
+	return ctrl.Result{Requeue: o.doesScHaveActiveConnections(stdout)}, nil
+}
+
+// doesScHaveActiveConnections will parse the output from vsql to see if there
+// are any active connections.  Returns true if there is at least one
+// connection.
+func (o *OnlineImageChangeReconciler) doesScHaveActiveConnections(stdout string) bool {
+	lines := strings.Split(stdout, "\n")
+	res := strings.Trim(lines[0], " ")
+	return res != "0"
 }
