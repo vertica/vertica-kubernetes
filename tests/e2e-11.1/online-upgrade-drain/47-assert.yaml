@@ -11,10 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies access to the external service through port 5433.  It does this
-# by connecting using vsql
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl exec -i -n $NAMESPACE test-long-running-connection -- rm /tmp/remove-me-to-disconnect
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-base-upgrade
+status:
+  imageChangeStatus: "Draining secondary subcluster 'sec1'"

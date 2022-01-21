@@ -340,6 +340,52 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		}
 		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
 	})
+
+	It("should return transient if doing online image change and transient isn't created yet", func() {
+		vdb := vapi.MakeVDB()
+		const ScName = "sc1"
+		const TransientScName = "a-transient"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: ScName, IsPrimary: true, Size: 1},
+		}
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = TransientScName
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
+		transientSc := buildTransientSubcluster(vdb, "")
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.Manager.startImageChange(ctx)).Should(Equal(ctrl.Result{}))
+
+		// Confirm transient doesn't exist
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).ShouldNot(Succeed())
+
+		// Confirm it gets returned from the finder
+		scs, err := r.Finder.FindSubclusters(ctx, FindAll|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(2))
+		Expect(scs[0].Name).Should(Equal(TransientScName))
+		Expect(scs[0].Size).Should(Equal(int32(1)))
+		Expect(scs[1].Name).Should(Equal(ScName))
+
+		// Create transient and make sure finder only returns one instance of
+		// the transient
+		createSts(ctx, vdb, transientSc, 1, 0, AllPodsRunning)
+		defer deleteSts(ctx, vdb, transientSc, 1)
+
+		scs, err = r.Finder.FindSubclusters(ctx, FindAll|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(2))
+		Expect(scs[0].Name).Should(Equal(TransientScName))
+		Expect(scs[1].Name).Should(Equal(ScName))
+	})
 })
 
 // createOnlineImageChangeReconciler is a helper to run the OnlineImageChangeReconciler.

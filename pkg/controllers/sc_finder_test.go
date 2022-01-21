@@ -240,4 +240,20 @@ var _ = Describe("sc_finder", func() {
 		Expect(pods.Items[1].Name).Should(ContainSubstring(fmt.Sprintf("%s-0", scNames[0])))
 		Expect(pods.Items[2].Name).Should(ContainSubstring(fmt.Sprintf("%s-1", scNames[0])))
 	})
+
+	It("should return sorted subclusters if requested", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"zzlast", "aaseemefirst"}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: 2},
+			{Name: scNames[1], Size: 1},
+		}
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
+		subclusters, err := finder.FindSubclusters(ctx, FindInVdb|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(len(subclusters)).Should(Equal(2))
+		Expect(subclusters[0].Name).Should(ContainSubstring(scNames[1]))
+		Expect(subclusters[1].Name).Should(ContainSubstring(scNames[0]))
+	})
 })

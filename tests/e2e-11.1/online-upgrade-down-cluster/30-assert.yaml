@@ -11,11 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies access to the external service through port 5433.  It does this
-# by connecting using vsql
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "kustomize build long-running-connection/overlay | kubectl -n $NAMESPACE apply -f - "
-  - command: ./wait-for-connection.sh $NAMESPACE
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: controller-manager
+status:
+  phase: Running

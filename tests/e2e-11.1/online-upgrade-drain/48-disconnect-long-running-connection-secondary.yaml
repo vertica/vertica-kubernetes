@@ -11,13 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-long-running-connection-primary
-status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0
+# Verifies access to the external service through port 5433.  It does this
+# by connecting using vsql
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl exec -i -n $NAMESPACE test-long-running-connection-secondary -- rm /tmp/remove-me-to-disconnect

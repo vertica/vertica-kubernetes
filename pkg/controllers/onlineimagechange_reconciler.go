@@ -184,9 +184,6 @@ func (o *OnlineImageChangeReconciler) installTransientNodes(ctx context.Context)
 
 	actor := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
-	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
-		return ctrl.Result{}, err
-	}
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -311,7 +308,7 @@ func (o *OnlineImageChangeReconciler) drainSubcluster(ctx context.Context, sts *
 	// SPILLY - need to handle the case where there is one subcluster and no transient
 	if img != o.Vdb.Spec.Image {
 		scName := sts.Labels[SubclusterNameLabel]
-		o.Log.Info("starting client traffic routing of secondary to transient", "name", scName)
+		o.Log.Info("rerouting client traffic from subcluster", "name", scName)
 		if err := o.routeClientTraffic(ctx, scName, true); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -444,7 +441,7 @@ func (o *OnlineImageChangeReconciler) skipTransientSetup() bool {
 	// We skip creating the transient if the cluster is down.  We cannot add the
 	// transient if everything is down.  And there is nothing "online" with this
 	// image change if we start with everything down.
-	_, found := o.PFacts.findPodToRunVsql()
+	_, found := o.PFacts.findPodToRunVsql(false, "")
 	return !found
 }
 
@@ -537,7 +534,7 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 // that are active for a given subcluster.  It returns a requeue error if there
 // are active connections still.
 func (o *OnlineImageChangeReconciler) isSubclusterIdle(ctx context.Context, scName string) (ctrl.Result, error) {
-	pf, ok := o.PFacts.findPodToRunVsql()
+	pf, ok := o.PFacts.findPodToRunVsql(true, scName)
 	if !ok {
 		o.Log.Info("No pod found to run vsql.  Skipping active connection check")
 		return ctrl.Result{}, nil

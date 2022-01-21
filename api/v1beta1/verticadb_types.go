@@ -951,3 +951,9 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 	}
 	return true
 }
+
+// IsOnlineImageChangeInProgress returns true if an online image change is in progress
+func (v *VerticaDB) IsOnlineImageChangeInProgress() bool {
+	inx := OnlineImageChangeInProgressIndex
+	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
+}

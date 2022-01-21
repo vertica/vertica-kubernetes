@@ -16,7 +16,8 @@
 set -o errexit
 
 NAMESPACE=$1
-POD=test-long-running-connection
+SC_TYPE=$2
+POD=test-long-running-connection-$SC_TYPE
 
 while ! kubectl get pod -n $NAMESPACE $POD 2> /dev/null; do sleep 0.1; done
 echo "Waiting for pod to be in ready state..."
