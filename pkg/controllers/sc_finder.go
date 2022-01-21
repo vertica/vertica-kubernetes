@@ -133,7 +133,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 	}
 
 	// We include the transient if it should exist based on online image in
-	// progress state.  This added after we fetch any subcluster from the
+	// progress state.  This is added after we fetch any subcluster from the
 	// statefulset lookup.  This prevents us from including it twice.
 	if flags&FindInVdb != 0 && m.Vdb.RequiresTransientSubcluster() && m.Vdb.IsOnlineImageChangeInProgress() {
 		transient := buildTransientSubcluster(m.Vdb, "")
