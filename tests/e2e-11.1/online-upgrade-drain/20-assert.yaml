@@ -16,16 +16,13 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  imageChangeStatus: "Restarting primary subclusters with new image"
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "True"
-    - type: OfflineImageChangeInProgress
-      status: "False"
-    - type: OnlineImageChangeInProgress
-      status: "True"
-  subclusterCount: 1
+  subclusters:
+    - installCount: 1
+      addedToDBCount: 1
+      upNodeCount: 1
+    - installCount: 1
+      addedToDBCount: 1
+      upNodeCount: 1
+    - installCount: 1
+      addedToDBCount: 1
+      upNodeCount: 1

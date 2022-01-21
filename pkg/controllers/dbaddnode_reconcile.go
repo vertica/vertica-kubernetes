@@ -99,7 +99,7 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, sc *vapi.Subcluste
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	atPod, ok := d.PFacts.findPodToRunVsql()
+	atPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil

@@ -11,27 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  imageChangeStatus: "Restarting vertica in primary subclusters"
----
 apiVersion: v1
-kind: Service
+kind: Pod
 metadata:
-  name: v-base-upgrade-pri
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-name: transient
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-sec
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-svc: sec
+  labels:
+    control-plane: controller-manager

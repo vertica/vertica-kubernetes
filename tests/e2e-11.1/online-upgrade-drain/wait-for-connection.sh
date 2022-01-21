@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # (c) Copyright [2022] Micro Focus or one of its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -11,27 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  imageChangeStatus: "Restarting vertica in primary subclusters"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-pri
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-name: transient
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-base-upgrade-sec
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-svc: sec
+set -o errexit
+
+NAMESPACE=$1
+SC_TYPE=$2
+POD=test-long-running-connection-$SC_TYPE
+
+while ! kubectl get pod -n $NAMESPACE $POD 2> /dev/null; do sleep 0.1; done
+echo "Waiting for pod to be in ready state..."
+kubectl wait -n $NAMESPACE --for=condition=Ready=True pod $POD --timeout 600s
+echo "Waiting for vsql connection..."
+kubectl exec -i -n $NAMESPACE $POD -- bash -c "while [ ! -f /tmp/connected ]; do sleep 3; done"

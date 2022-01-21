@@ -11,11 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  installCount: 1
-  addedToDBCount: 1
-  upNodeCount: 0
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kustomize build ../../manifests/communal-creds/overlay | kubectl apply -f - --namespace $NAMESPACE

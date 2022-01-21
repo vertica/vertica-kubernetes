@@ -287,6 +287,105 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
 	})
+
+	It("should have an imageChangeStatus set when it fails during the drain", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", IsPrimary: true, Size: 1},
+		}
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
+		vdb.Spec.Image = OldImage
+		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(vdb.Status.ImageChangeStatus).Should(Equal("Draining primary subclusters"))
+	})
+
+	It("should requeue if there are active connections in the subcluster", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", IsPrimary: true, Size: 1},
+		}
+		sc := &vdb.Spec.Subclusters[0]
+		vdb.Spec.Image = OldImage
+		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		r := createOnlineImageChangeReconciler(vdb)
+		pn := names.GenPodName(vdb, sc, 0)
+		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
+		r.PFacts.Detail[pn].upNode = true
+		r.PFacts.Detail[pn].readOnly = false
+		fpr := r.PRunner.(*cmds.FakePodRunner)
+		fpr.Results[pn] = []cmds.CmdResult{
+			{Stdout: "  5\n"},
+		}
+		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: true}))
+		fpr.Results[pn] = []cmds.CmdResult{
+			{Stdout: "  0\n"},
+		}
+		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
+	})
+
+	It("should return transient if doing online image change and transient isn't created yet", func() {
+		vdb := vapi.MakeVDB()
+		const ScName = "sc1"
+		const TransientScName = "a-transient"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: ScName, IsPrimary: true, Size: 1},
+		}
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = TransientScName
+		vdb.Spec.Image = OldImage
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
+		transientSc := buildTransientSubcluster(vdb, "")
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		r := createOnlineImageChangeReconciler(vdb)
+		Expect(r.Manager.startImageChange(ctx)).Should(Equal(ctrl.Result{}))
+
+		// Confirm transient doesn't exist
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).ShouldNot(Succeed())
+
+		// Confirm it gets returned from the finder
+		scs, err := r.Finder.FindSubclusters(ctx, FindAll|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(2))
+		Expect(scs[0].Name).Should(Equal(TransientScName))
+		Expect(scs[0].Size).Should(Equal(int32(1)))
+		Expect(scs[1].Name).Should(Equal(ScName))
+
+		// Create transient and make sure finder only returns one instance of
+		// the transient
+		createSts(ctx, vdb, transientSc, 1, 0, AllPodsRunning)
+		defer deleteSts(ctx, vdb, transientSc, 1)
+
+		scs, err = r.Finder.FindSubclusters(ctx, FindAll|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(2))
+		Expect(scs[0].Name).Should(Equal(TransientScName))
+		Expect(scs[1].Name).Should(Equal(ScName))
+	})
 })
 
 // createOnlineImageChangeReconciler is a helper to run the OnlineImageChangeReconciler.

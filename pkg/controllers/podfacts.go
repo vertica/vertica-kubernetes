@@ -157,15 +157,12 @@ func (p *PodFacts) Invalidate() {
 func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster) error {
 	sts := &appsv1.StatefulSet{}
 	maxStsSize := sc.Size
-	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil {
-		// If the statefulset doesn't exist, none of the pods within it exist.  So fine to skip.
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
-		}
-	} else {
-		if *sts.Spec.Replicas > maxStsSize {
-			maxStsSize = *sts.Spec.Replicas
-		}
+	// Attempt to fetch the sts.  We continue even for 'not found' errors
+	// because we want to populate the missing pods into the pod facts.
+	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
+	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
+		maxStsSize = *sts.Spec.Replicas
 	}
 
 	for i := int32(0); i < maxStsSize; i++ {
@@ -497,9 +494,12 @@ func (p *PodFacts) findPodsWithMissingDB(scName string) []*PodFact {
 // findPodToRunVsql returns the name of the pod we will exec into in
 // order to run vsql
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunVsql() (*PodFact, bool) {
+func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact, bool) {
 	for _, v := range p.Detail {
-		if v.upNode && !v.readOnly {
+		if scName != "" && v.subcluster != scName {
+			continue
+		}
+		if v.upNode && (allowReadOnly || !v.readOnly) {
 			return v, true
 		}
 	}
