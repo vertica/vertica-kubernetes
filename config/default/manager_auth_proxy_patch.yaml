@@ -24,10 +24,14 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
+        # These are the placeholders that we patch in when applying the helm chart.
+        # The default values here will be replaced in helm templates by the values 
+        # of parameters. When creating the bundle instead for olm these flags with
+        # these default values will be put in the CSV and as filepath is not set, there
+        # will be no logging to file with olm as expected.
         - "--filepath="
-        - "--maxfilesize="
-        - "--maxfileage="
-        - "--maxfilerotation="
-        - "--level="
-        - "--dev="
-        - "--stdout="
+        - "--maxfilesize=500"
+        - "--maxfileage=7"
+        - "--maxfilerotation=3"
+        - "--level=info"
+        - "--dev=false"

@@ -17,4 +17,4 @@ commands:
   - script: |
       PN=$(kubectl get pods -n $NAMESPACE --no-headers -o custom-columns=":metadata.name" | grep verticadb ) \
       && kubectl wait --for=condition=Ready=true pod/$PN -n $NAMESPACE \
-      && kubectl exec $PN -n $NAMESPACE -c sidecar-container -- tail -n 1  var/logs/try.log
+      && kubectl exec $PN -n $NAMESPACE -c sidecar-container -- tail -n 1  /logs/try.log

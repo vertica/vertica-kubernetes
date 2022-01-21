@@ -44,12 +44,12 @@ import (
 )
 
 const (
-	MaxFileSize     = 500
-	MaxFileAge      = 7
-	MaxFileRotation = 3
-	Level           = "info"
-	DevMode         = true
-	Stdout          = false
+	DefaultMaxFileSize     = 500
+	DefaultMaxFileAge      = 7
+	DefaultMaxFileRotation = 3
+	DefaultLevel           = "info"
+	DefaultDevMode         = true
+	DefaultZapcoreLevel    = zapcore.InfoLevel
 )
 
 var (
@@ -57,13 +57,21 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+type FlagConfig struct {
+	MetricsAddr          string
+	EnableLeaderElection bool
+	ProbeAddr            string
+	EnableProfiler       bool
+	LogArgs              *Logging
+}
+
 type Logging struct {
 	FilePath        string
 	Level           string
 	MaxFileSize     int
 	MaxFileAge      int
 	MaxFileRotation int
-	Stdout          bool
+	DevMode         bool
 }
 
 func init() {
@@ -71,6 +79,35 @@ func init() {
 
 	utilruntime.Must(verticacomv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
+}
+
+// setLoggingFlagArgs define logging flags with specified names and default values
+func (l *Logging) setLoggingFlagArgs() {
+	flag.StringVar(&l.FilePath, "filepath", "", "The file logging will write to.")
+	flag.IntVar(&l.MaxFileSize, "maxfilesize", DefaultMaxFileSize,
+		"The maximum size in megabytes of the log file "+
+			"before it gets rotated.")
+	flag.IntVar(&l.MaxFileAge, "maxfileage", DefaultMaxFileAge,
+		"This is the maximum age, in days, of the logging "+
+			"before log rotation gets rid of it.")
+	flag.IntVar(&l.MaxFileRotation, "maxfilerotation", DefaultMaxFileRotation,
+		"this is the maximum number of files that are kept in rotation before the old ones are removed.")
+	flag.StringVar(&l.Level, "level", DefaultLevel, "The minimum logging level.  Valid values are: debug, info, warn, and error.")
+	flag.BoolVar(&l.DevMode, "dev", DefaultDevMode, "Enables development mode if true and production mode otherwise.")
+}
+
+// setFlagArgs define flags with specified names and default values
+func (fc *FlagConfig) setFlagArgs() {
+	flag.StringVar(&fc.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&fc.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.BoolVar(&fc.EnableLeaderElection, "leader-elect", false,
+		"Enable leader election for controller manager. "+
+			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&fc.EnableProfiler, "enable-profiler", false,
+		"Enables runtime profiling collection.  The profiling data can be inspected by connecting to port 6060 "+
+			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
+	fc.LogArgs = &Logging{}
+	fc.LogArgs.setLoggingFlagArgs()
 }
 
 // getWatchNamespace returns the Namespace the operator should be watching for changes
@@ -113,12 +150,12 @@ func getEncoderConfig(devMode bool) zapcore.EncoderConfig {
 
 // getLogWriter returns an io.writer (setting up rolling files) converted
 // into a zapcore.WriteSyncer
-func getLogWriter(path string, age, size, rotation int) zapcore.WriteSyncer {
+func getLogWriter(logArgs Logging) zapcore.WriteSyncer {
 	lumberJackLogger := &lumberjack.Logger{
-		Filename:   path,
-		MaxSize:    size, // megabytes
-		MaxBackups: rotation,
-		MaxAge:     age, // days
+		Filename:   logArgs.FilePath,
+		MaxSize:    logArgs.MaxFileSize, // megabytes
+		MaxBackups: logArgs.MaxFileRotation,
+		MaxAge:     logArgs.MaxFileAge, // days
 	}
 	return zapcore.AddSync(lumberJackLogger)
 }
@@ -127,32 +164,26 @@ func getLogWriter(path string, age, size, rotation int) zapcore.WriteSyncer {
 // zapcore.Level. If the string level is invalid, it returns the default
 // level
 func getZapcoreLevel(lvl string) zapcore.Level {
-	lvls := map[string]zapcore.Level{
-		"debug": zapcore.DebugLevel,
-		"info":  zapcore.InfoLevel,
-		"warn":  zapcore.WarnLevel,
-		"error": zapcore.ErrorLevel,
+	var level = new(zapcore.Level)
+	err := level.UnmarshalText([]byte(lvl))
+	if err != nil {
+		log.Println(fmt.Sprintf("unrecognized level, %s level will be used instead", DefaultLevel))
+		return DefaultZapcoreLevel
 	}
-	if _, found := lvls[lvl]; !found {
-		// returns default level if the input level is invalid
-		log.Println(fmt.Sprintf("Invalid level, %s level will be used instead", Level))
-		return lvls[Level]
-	}
-	return lvls[lvl]
+	return *level
 }
 
 // getLogger is a wrapper that calls other functions
 // to build a logger.
-func getLogger(logArgs Logging, devMode bool) *zap.Logger {
-	encoderConfig := getEncoderConfig(devMode)
+func getLogger(logArgs Logging) *zap.Logger {
+	encoderConfig := getEncoderConfig(logArgs.DevMode)
 	writes := []zapcore.WriteSyncer{}
-	lvl := zap.NewAtomicLevelAt(zap.DebugLevel)
+	lvl := zap.NewAtomicLevelAt(getZapcoreLevel(logArgs.Level))
 	if logArgs.FilePath != "" {
-		w := getLogWriter(logArgs.FilePath, logArgs.MaxFileAge, logArgs.MaxFileSize, logArgs.MaxFileRotation)
-		lvl = zap.NewAtomicLevelAt(getZapcoreLevel(logArgs.Level))
+		w := getLogWriter(logArgs)
 		writes = append(writes, w)
 	}
-	if logArgs.FilePath == "" || logArgs.Stdout {
+	if logArgs.FilePath == "" || logArgs.DevMode {
 		writes = append(writes, zapcore.AddSync(os.Stdout))
 	}
 	core := zapcore.NewCore(
@@ -163,37 +194,18 @@ func getLogger(logArgs Logging, devMode bool) *zap.Logger {
 	return zap.New(core)
 }
 
-// nolint:funlen
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var enableProfiler bool
-	var devMode bool
-	logArgs := Logging{}
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&enableProfiler, "enable-profiler", false,
-		"Enables runtime profiling collection.  The profiling data can be inspected by connecting to port 6060 "+
-			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
-	flag.StringVar(&logArgs.FilePath, "filepath", "", "The file logging will write to.")
-	flag.IntVar(&logArgs.MaxFileSize, "maxfilesize", MaxFileSize,
-		"The maximum size in megabytes of the log file "+
-			"before it gets rotated.")
-	flag.IntVar(&logArgs.MaxFileAge, "maxfileage", MaxFileAge,
-		"This is the maximum age, in days, of the logging "+
-			"before log rotation gets rid of it.")
-	flag.IntVar(&logArgs.MaxFileRotation, "maxfilerotation", MaxFileRotation,
-		"this is the maximum number of files that are kept in rotation before the old ones are removed.")
-	flag.StringVar(&logArgs.Level, "level", Level, "The minimum logging level.  Valid values are: debug, info, warn, and error.")
-	flag.BoolVar(&devMode, "dev", DevMode, "Enables development mode if true and production mode otherwise.")
-	flag.BoolVar(&logArgs.Stdout, "stdout", Stdout, "Enables logging to stdout.")
+	flagArgs := &FlagConfig{}
+	flagArgs.setFlagArgs()
 	flag.Parse()
 
-	logger := getLogger(logArgs, devMode)
+	metricsAddr := flagArgs.MetricsAddr
+	enableLeaderElection := flagArgs.EnableLeaderElection
+	probeAddr := flagArgs.ProbeAddr
+	enableProfiler := flagArgs.EnableProfiler
+	logArgs := flagArgs.LogArgs
+
+	logger := getLogger(*logArgs)
 	if logArgs.FilePath != "" {
 		log.Println(fmt.Sprintf("Now logging in file %s", logArgs.FilePath))
 	}

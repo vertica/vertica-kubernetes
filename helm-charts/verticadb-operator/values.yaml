@@ -52,11 +52,15 @@ logging:
   maxFileRotation: 3
   # level is the minimum logging level. Valid values are: debug, info, warn, and error
   level: info
-  # stdOut is used to enforce logging to stdout.
-  stdOut: false
+  # dev Enables development mode if true and production mode otherwise and also affects
+  # logs format. Afew differences on logging will be: in dev mode the the level is displayed
+  # in capital letters, the time is in a ISO8601-formatted string, in prod, the level is in
+  # lower case, the time is in epoch time format.
+  # example:
+  # dev ->  2022-01-21T12:50:10.078Z        INFO    controller-runtime.certwatcher  Starting certificate watcher
+  # prod -> 1.6427683530752437e+09  info    controller-runtime.certwatcher  Starting certificate watcher
+  dev: false
 
-# devEnables development mode if true and production mode otherwise
-dev: true
 
 # The resource requirements for the operator pod.  See this for more info:
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
