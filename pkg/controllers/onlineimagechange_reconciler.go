@@ -305,7 +305,6 @@ func (o *OnlineImageChangeReconciler) isMatchingSubclusterType(sts *appsv1.State
 func (o *OnlineImageChangeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 
-	// SPILLY - need to handle the case where there is one subcluster and no transient
 	if img != o.Vdb.Spec.Image {
 		scName := sts.Labels[SubclusterNameLabel]
 		o.Log.Info("rerouting client traffic from subcluster", "name", scName)
