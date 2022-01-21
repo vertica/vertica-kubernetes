@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -77,6 +78,7 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.installTransientNodes,
 		o.addTransientSubcluster,
 		o.addTransientNodes,
+		o.waitForReadyTransientPod,
 		// Handle restart of the primary subclusters
 		o.restartPrimaries,
 		// Handle restart of secondary subclusters
@@ -216,6 +218,39 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 	}
 	d := actor.(*DBAddNodeReconciler)
 	return d.reconcileSubcluster(ctx, buildTransientSubcluster(o.Vdb, ""))
+}
+
+// waitForReadyTransientPod will wait for one of the transient pods to be ready.
+// This is done so that when we direct traffic to the transient subcluster the
+// service object has a pod to route too.
+func (o *OnlineImageChangeReconciler) waitForReadyTransientPod(ctx context.Context) (ctrl.Result, error) {
+	pod := &corev1.Pod{}
+	sc := buildTransientSubcluster(o.Vdb, "")
+	// We only check the first pod is ready
+	pn := names.GenPodName(o.Vdb, sc, 0)
+
+	const MaxAttempts = 30 // Retry for roughly 30 seconds
+	for i := 0; i < MaxAttempts; i++ {
+		if err := o.VRec.Client.Get(ctx, pn, pod); err != nil {
+			// Any error, including not found, aborts the retry.  The pod should
+			// have already existed because we call this after db add node.  The
+			// transient pod is not restartable, so if the pod isn't running,
+			// then it won't ever be ready.
+			o.Log.Info("Error while fetching transient pod", "err", err)
+			return ctrl.Result{}, nil
+		}
+		if pod.Status.ContainerStatuses[ServerContainerIndex].Ready {
+			o.Log.Info("Transient pod is in ready state",
+				"containerStatuses", pod.Status.ContainerStatuses[ServerContainerIndex])
+			return ctrl.Result{}, nil
+		}
+		const AttemptSleepTime = 1
+		time.Sleep(AttemptSleepTime * time.Second)
+	}
+	// If we timeout, we still continue on.  The transient pod is not
+	// restartable, so we don't want to wait indefinitely.  The image change
+	// will proceed but any routing to the transient pods will fail.
+	return ctrl.Result{}, nil
 }
 
 // iterateSubclusterType will iterate over the subclusters, calling the
