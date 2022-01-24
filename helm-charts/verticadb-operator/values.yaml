@@ -38,27 +38,23 @@ webhook:
   caBundle: ""
 
 logging:
-  # filePath, when specified, is the file logging will write to.
-  # When empty, logging will write to standard out.
+  # filePath is the path to the log file. If omitted, all logging will be written to stdout.
   filePath: ""
-  # maxFileSize, when logging to a file, is the maximum size, 
-  # in MB, of the logging file before log rotation occurs.
+  # maxFileSize is the maximum size, in MB, of the logging file before log rotation occurs. 
+  # This is only applicable if logging to a file.
   maxFileSize: 500
-  # maxFileAge, when logging to a file, is the maximum age, in days,
-  # of the logging before log rotation gets rid of it.
+  # maxFileAge is the maximum number of days to retain old log files based on the timestamp
+  # encoded in the file. This is only applicable if logging to a file.
   maxFileAge: 7
-  # maxFileRotation, when logging to a file, is the maximum number of files 
-  # that are kept in rotation before the old ones are removed.
+  # maxFileRotation is the maximum number of files that are kept in rotation before the old ones are removed. 
+  # This is only applicable if logging to a file.
   maxFileRotation: 3
   # level is the minimum logging level. Valid values are: debug, info, warn, and error
   level: info
   # dev Enables development mode if true and production mode otherwise and also affects
-  # logs format. Afew differences on logging will be: in dev mode the the level is displayed
-  # in capital letters, the time is in a ISO8601-formatted string, in prod, the level is in
-  # lower case, the time is in epoch time format.
-  # example:
-  # dev ->  2022-01-21T12:50:10.078Z        INFO    controller-runtime.certwatcher  Starting certificate watcher
-  # prod -> 1.6427683530752437e+09  info    controller-runtime.certwatcher  Starting certificate watcher
+  # logs format. A few differences on logging will be: in dev mode stack traces are produced more liberally,
+  # on logs of WarnLevel and above while in production, they are included on logs of ErrorLevel and above.
+  # Moreover dev mode disables sampling. 
   dev: false
 
 

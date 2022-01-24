@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -50,6 +51,8 @@ const (
 	DefaultLevel           = "info"
 	DefaultDevMode         = true
 	DefaultZapcoreLevel    = zapcore.InfoLevel
+	First                  = 100
+	ThereAfter             = 100
 )
 
 var (
@@ -83,17 +86,19 @@ func init() {
 
 // setLoggingFlagArgs define logging flags with specified names and default values
 func (l *Logging) setLoggingFlagArgs() {
-	flag.StringVar(&l.FilePath, "filepath", "", "The file logging will write to.")
+	flag.StringVar(&l.FilePath, "filepath", "",
+		"The path to the log file. If omitted, all logging will be written to stdout.")
 	flag.IntVar(&l.MaxFileSize, "maxfilesize", DefaultMaxFileSize,
 		"The maximum size in megabytes of the log file "+
 			"before it gets rotated.")
 	flag.IntVar(&l.MaxFileAge, "maxfileage", DefaultMaxFileAge,
-		"This is the maximum age, in days, of the logging "+
-			"before log rotation gets rid of it.")
+		"The maximum number of days to retain old log files based on the timestamp encoded in the file.")
 	flag.IntVar(&l.MaxFileRotation, "maxfilerotation", DefaultMaxFileRotation,
-		"this is the maximum number of files that are kept in rotation before the old ones are removed.")
-	flag.StringVar(&l.Level, "level", DefaultLevel, "The minimum logging level.  Valid values are: debug, info, warn, and error.")
-	flag.BoolVar(&l.DevMode, "dev", DefaultDevMode, "Enables development mode if true and production mode otherwise.")
+		"The maximum number of files that are kept in rotation before the old ones are removed.")
+	flag.StringVar(&l.Level, "level", DefaultLevel,
+		"The minimum logging level.  Valid values are: debug, info, warn, and error.")
+	flag.BoolVar(&l.DevMode, "dev", DefaultDevMode,
+		"Enables development mode if true and production mode otherwise.")
 }
 
 // setFlagArgs define flags with specified names and default values
@@ -141,9 +146,11 @@ func getIsWebhookEnabled() bool {
 
 // getEncoderConfig returns a concrete encoders configuration
 func getEncoderConfig(devMode bool) zapcore.EncoderConfig {
-	encoderConfig := zap.NewProductionEncoderConfig()
-	if devMode {
-		encoderConfig = zap.NewDevelopmentEncoderConfig()
+	encoderConfig := zap.NewDevelopmentEncoderConfig()
+	if !devMode {
+		encoderConfig = zap.NewProductionEncoderConfig()
+		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 	return encoderConfig
 }
@@ -173,11 +180,22 @@ func getZapcoreLevel(lvl string) zapcore.Level {
 	return *level
 }
 
+// getStackTrace returns an option that configures
+// the logger to record a stack strace.
+func getStackTrace(devMode bool) zap.Option {
+	lvl := zapcore.ErrorLevel
+	if devMode {
+		lvl = zapcore.WarnLevel
+	}
+	return zap.AddStacktrace(zapcore.LevelEnabler(lvl))
+}
+
 // getLogger is a wrapper that calls other functions
 // to build a logger.
 func getLogger(logArgs Logging) *zap.Logger {
 	encoderConfig := getEncoderConfig(logArgs.DevMode)
 	writes := []zapcore.WriteSyncer{}
+	opts := []zap.Option{}
 	lvl := zap.NewAtomicLevelAt(getZapcoreLevel(logArgs.Level))
 	if logArgs.FilePath != "" {
 		w := getLogWriter(logArgs)
@@ -191,7 +209,12 @@ func getLogger(logArgs Logging) *zap.Logger {
 		zapcore.NewMultiWriteSyncer(writes...),
 		lvl,
 	)
-	return zap.New(core)
+	opts = append(opts, getStackTrace(logArgs.DevMode))
+	if !logArgs.DevMode {
+		// This enables sampling only in prod
+		core = zapcore.NewSamplerWithOptions(core, time.Second, First, ThereAfter)
+	}
+	return zap.New(core, opts...)
 }
 
 func main() {
