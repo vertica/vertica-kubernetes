@@ -2,7 +2,7 @@ name: e2e (operator-upgrade) tests
 
 on: 
   push:
-     branches: [main, online-upgrade-op-pod]
+     branches: [main]
   pull_request:
   workflow_dispatch:
 
