@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.2.0
+VERSION ?= 1.3.0
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
 # (see docker-vlogger).  This version is separate from VERSION above in
@@ -222,6 +222,13 @@ ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_TEST_DIRS)
+
+.PHONY: run-operator-upgrade-tests
+run-operator-upgrade-tests: install-kuttl-plugin setup-e2e-communal ## Run the e2e tests that upgrade from older operator versions
+	# Parallelism for this test must always be 1.  We cannot run any in
+	# parallel because they uninstall/install CRD, which are cluster scope
+	# objects.
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel 1 tests/e2e-operator-upgrade
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests

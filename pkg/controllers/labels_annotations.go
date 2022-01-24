@@ -22,14 +22,20 @@ import (
 )
 
 const (
-	SvcTypeLabel             = "vertica.com/svc-type"
-	SubclusterNameLabel      = "vertica.com/subcluster-name"
-	SubclusterTypeLabel      = "vertica.com/subcluster-type"
-	SubclusterSvcNameLabel   = "vertica.com/subcluster-svc"
-	SubclusterTransientLabel = "vertica.com/subcluster-transient"
-	VDBInstanceLabel         = "app.kubernetes.io/instance"
-	OperatorName             = "verticadb-operator" // The name of the operator
-	OperatorVersion          = "1.2.0"              // The version number of the operator
+	SvcTypeLabel              = "vertica.com/svc-type"
+	SubclusterNameLabel       = "vertica.com/subcluster-name"
+	SubclusterLegacyNameLabel = "vertica.com/subcluster"
+	SubclusterTypeLabel       = "vertica.com/subcluster-type"
+	SubclusterSvcNameLabel    = "vertica.com/subcluster-svc"
+	SubclusterTransientLabel  = "vertica.com/subcluster-transient"
+	VDBInstanceLabel          = "app.kubernetes.io/instance"
+	OperatorVersionLabel      = "app.kubernetes.io/version"
+	OperatorName              = "verticadb-operator" // The name of the operator
+
+	CurOperatorVersion = "1.3.0" // The version number of the operator
+	OperatorVersion100 = "1.0.0"
+	OperatorVersion110 = "1.1.0"
+	OperatorVersion120 = "1.2.0"
 )
 
 // makeSubclusterLabels returns the labels added for the subcluster
@@ -54,7 +60,6 @@ func makeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 		"app.kubernetes.io/managed-by": OperatorName,
 		"app.kubernetes.io/name":       "vertica",
 		VDBInstanceLabel:               vdb.Name,
-		"app.kubernetes.io/version":    OperatorVersion,
 		"app.kubernetes.io/component":  "database",
 		"vertica.com/database":         vdb.Spec.DBName,
 	}
@@ -63,6 +68,9 @@ func makeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 // makeCommonLabels returns the labels that are common to all objects.
 func makeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	labels := makeOperatorLabels(vdb)
+	// Apply a label to indicate a version of the operator that created the object
+	// SPILLY - need to confirm that this isn't in the selector
+	labels[OperatorVersionLabel] = CurOperatorVersion
 
 	// Remaining labels are for objects that are subcluster specific
 	if sc == nil {

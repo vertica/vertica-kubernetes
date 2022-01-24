@@ -189,8 +189,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		}
 		// Skip if object is not subcluster specific.  This is necessary for objects like
 		// the headless service object that is cluster wide.
-		_, ok = l[SubclusterNameLabel]
-		if !ok {
+		if !hasSubclusterNameLabel(l) {
 			return nil
 		}
 		if flags&FindExisting != 0 {
@@ -210,6 +209,20 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		return err
 	}
 	return meta.SetList(list, rawObjs)
+}
+
+// hasSubclusterNameLabel returns true if there exists a label that indicates
+// the object is for a subcluster
+func hasSubclusterNameLabel(l map[string]string) bool {
+	_, ok := l[SubclusterNameLabel]
+	if ok {
+		return true
+	}
+	// Prior to 1.3.0, we had a different name for the subcluster name.  We
+	// renamed it as we added additional subcluster attributes to the labele.
+	// Check for this one too.
+	_, ok = l[SubclusterLegacyNameLabel]
+	return ok
 }
 
 // getLabelsFromObject will extract the labels from a k8s object.

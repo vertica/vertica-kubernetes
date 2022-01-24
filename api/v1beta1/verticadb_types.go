@@ -650,6 +650,7 @@ type VerticaDBStatus struct {
 	Conditions []VerticaDBCondition `json:"conditions,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
 	// Status message for the current running image change.   If no image change
 	// is occurring, this message remains blank.
 	ImageChangeStatus string `json:"imageChangeStatus"`
