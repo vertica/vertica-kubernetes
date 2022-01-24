@@ -68,8 +68,9 @@ func makeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 // makeCommonLabels returns the labels that are common to all objects.
 func makeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	labels := makeOperatorLabels(vdb)
-	// Apply a label to indicate a version of the operator that created the object
-	// SPILLY - need to confirm that this isn't in the selector
+	// Apply a label to indicate a version of the operator that created the
+	// object.  This is separate from makeOperatorLabels as we don't want to
+	// include that in any sort of label selector.
 	labels[OperatorVersionLabel] = CurOperatorVersion
 
 	// Remaining labels are for objects that are subcluster specific

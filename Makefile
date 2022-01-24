@@ -223,13 +223,6 @@ ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_TEST_DIRS)
 
-.PHONY: run-operator-upgrade-tests
-run-operator-upgrade-tests: install-kuttl-plugin setup-e2e-communal ## Run the e2e tests that upgrade from older operator versions
-	# Parallelism for this test must always be 1.  We cannot run any in
-	# parallel because they uninstall/install CRD, which are cluster scope
-	# objects.
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel 1 tests/e2e-operator-upgrade
-
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
 	scripts/soak-runner.sh $(SOAK_CFG)
