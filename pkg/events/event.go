@@ -60,4 +60,5 @@ const (
 	ReipFailed                      = "ReipFailed"
 	MissingSecretKeys               = "MissingSecretKeys"
 	KerberosAuthError               = "KerberosAuthError"
+	OperatorUpgrade                 = "OperatorUpgrade"
 )

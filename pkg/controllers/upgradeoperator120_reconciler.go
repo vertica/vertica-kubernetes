@@ -17,9 +17,12 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -56,8 +59,9 @@ func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, req *ctrl.
 		}
 		switch opVer {
 		case OperatorVersion120, OperatorVersion110, OperatorVersion100:
-			u.Log.Info("Detected statefulset created by old operator version pre-1.3.0."+
-				" Deleting this for the upgrade", "name", sts.Name)
+			u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeNormal, events.OperatorUpgrade,
+				fmt.Sprintf("Deleting statefulset '%s' because it was created by an old operator (pre-%s)",
+					sts.Name, OperatorVersion130))
 			if err := u.VRec.Client.Delete(ctx, sts); err != nil {
 				u.Log.Info("Error deleting old statefulset", "opVer", opVer)
 				return ctrl.Result{}, err

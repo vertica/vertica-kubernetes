@@ -36,6 +36,7 @@ const (
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion110 = "1.1.0"
 	OperatorVersion120 = "1.2.0"
+	OperatorVersion130 = CurOperatorVersion
 )
 
 // makeSubclusterLabels returns the labels added for the subcluster
