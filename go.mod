@@ -7,11 +7,13 @@ require (
 	github.com/bigkevmcd/go-configparser v0.0.0-20210106142102-909504547ead
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v0.3.0
+	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/lithammer/dedent v1.1.0
-	github.com/mogensen/kubernetes-split-yaml v0.3.0 // indirect
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/vertica/vertica-sql-go v1.1.1
+	go.uber.org/zap v1.15.0
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v0.19.2
