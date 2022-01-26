@@ -23,10 +23,14 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
+type Components struct {
+	VdbMajor, VdbMinor, VdbPatch int
+}
+
 type Info struct {
 	// The version that was extracted from a Vdb
-	VdbVer                       string
-	VdbMajor, VdbMinor, VdbPatch int
+	VdbVer string
+	Components
 }
 
 const (
@@ -44,17 +48,32 @@ const (
 	StartDBAcceptsHostListVersion = "v11.0.1"
 )
 
+// UpgradePaths has all of the vertica releases supported by the operator.  For
+// each release, the next release that must be upgrade too.  Use this map to
+// know if a new version is the next supported version by Vertica.
+var UpgradePaths = map[Components]Info{
+	{11, 0, 0}: {"v11.0.1", Components{11, 0, 1}},
+	{11, 0, 1}: {"v11.0.2", Components{11, 0, 2}},
+	{11, 0, 2}: {"v11.1.0", Components{11, 1, 0}},
+}
+
 // MakeInfo will construct an Info struct by extracting the version from the
 // given vdb.  This returns false if it was unable to get the version from the
 // vdb.
+// SPILLY - rename to MakeInfoFromVdb
 func MakeInfo(vdb *vapi.VerticaDB) (*Info, bool) {
 	vdbVer, ok := vdb.GetVerticaVersion()
 	// If the version annotation isn't present, we abort creation of Info
 	if !ok {
 		return nil, false
 	}
-	ma, mi, pa, ok := parseVersion(vdbVer)
-	return &Info{vdbVer, ma, mi, pa}, ok
+	return MakeInfoFromStr(vdbVer)
+}
+
+// MakeInfoFromStr will construct an Info struct by parsing the version string
+func MakeInfoFromStr(ver string) (*Info, bool) {
+	ma, mi, pa, ok := parseVersion(ver)
+	return &Info{ver, Components{ma, mi, pa}}, ok
 }
 
 // IsUnsupported returns true if the version in the vdb is unsupported by the operator.
@@ -90,6 +109,43 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 		return false
 	}
 	return true
+}
+
+// IsEqual compares two versions to see if they are equal
+func (i *Info) IsEqual(other *Info) bool {
+	return other.VdbMajor == i.VdbMajor && other.VdbMinor == i.VdbMinor && other.VdbPatch == i.VdbPatch
+}
+
+// IsValidUpgradePath will return true if the current version is allowed to
+// upgrade to targetVer.  This will return false if the path isn't compatible.
+func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason string) {
+	t, ok := MakeInfoFromStr(targetVer)
+	if !ok {
+		panic(fmt.Sprintf("could not parse input version: %s", targetVer))
+	}
+	// Early out for when versions are identical
+	if i.IsEqual(t) {
+		return true, ""
+	}
+	// Check for a downgrade.  Those are always blocked.
+	if t.VdbMajor < i.VdbMajor ||
+		(t.VdbMajor == i.VdbMajor && t.VdbMinor < i.VdbMinor) ||
+		(t.VdbMajor == i.VdbMajor && t.VdbMinor == i.VdbMinor && t.VdbPatch < i.VdbPatch) {
+		return false, "downgrade"
+	}
+	// Check if the upgrade path is followed.  You can only go from one released
+	// version to the next released version.
+	nextVer, ok := UpgradePaths[i.Components]
+	if !ok {
+		// The version isn't found in the upgrade path.  This path may be
+		// unsafe, but we aren't going to block this incase we are using a
+		// version vertica that came out after the version of this operator.
+		return true, ""
+	}
+	if t.IsEqual(&nextVer) {
+		return true, ""
+	}
+	return false, fmt.Sprintf("unsupported upgrade path, next version is %s", nextVer.VdbVer)
 }
 
 // parseVersion will extract out the portions of a verson into 3 components:

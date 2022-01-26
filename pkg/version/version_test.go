@@ -75,4 +75,24 @@ var _ = Describe("version", func() {
 		Expect(vinf.IsUnsupported()).Should(BeFalse())
 		Expect(vinf.IsSupported()).Should(BeTrue())
 	})
+
+	It("should block some version transitions", func() {
+		cur, ok := MakeInfoFromStr("v11.0.1")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v11.0.0")
+		Expect(ok).Should(BeFalse())
+		ok, _ = cur.IsValidUpgradePath("v10.1.1")
+		Expect(ok).Should(BeFalse())
+		ok, _ = cur.IsValidUpgradePath("v11.1.0")
+		Expect(ok).Should(BeFalse()) // We fail because we skip v11.0.2
+		ok, _ = cur.IsValidUpgradePath("v11.0.2")
+		Expect(ok).Should(BeTrue())
+
+		cur, ok = MakeInfoFromStr("v15.1.1")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v14.0.2")
+		Expect(ok).Should(BeFalse())
+		ok, _ = cur.IsValidUpgradePath("v16.1.3")
+		Expect(ok).Should(BeTrue())
+	})
 })
