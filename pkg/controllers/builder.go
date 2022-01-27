@@ -18,6 +18,8 @@ package controllers
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -324,7 +326,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 
 // makeServerContainer builds the spec for the server container
 func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
-	return corev1.Container{
+	cnt := corev1.Container{
 		Image:           vdb.Spec.Image,
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ServerContainer,
@@ -356,6 +358,8 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		},
 		VolumeMounts: buildVolumeMounts(vdb),
 	}
+	cnt.Env = append(cnt.Env, getEnvVars(vdb)...)
+	return cnt
 }
 
 // makeContainers creates the list of containers to include in the pod spec.
@@ -372,6 +376,21 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		cnts = append(cnts, c)
 	}
 	return cnts
+}
+
+// getEnvVars returns a list of EnvVars from the annotations
+// in the CR
+func getEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+	envVars := []corev1.EnvVar{}
+	m := regexp.MustCompile(`[^a-zA-Z0-9]`)
+	for k, v := range vdb.Spec.Annotations {
+		name := strings.ToUpper(m.ReplaceAllString(k, "_"))
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  name,
+			Value: v,
+		})
+	}
+	return envVars
 }
 
 // getStorageClassName returns a  pointer to the StorageClass

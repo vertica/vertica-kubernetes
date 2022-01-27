@@ -17,3 +17,6 @@ metadata:
   name: v-ks-1-update-strategy
 spec:
   licenseSecret: ce-license
+  annotations:
+    TZ: CET
+    vertica.com/git-ref: 1fab313k
