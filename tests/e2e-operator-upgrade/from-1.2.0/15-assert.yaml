@@ -11,15 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-mc-restart
+  labels:
+    control-plane: controller-manager
+spec:
+  containers:
+  - name: manager
+    image: vertica/verticadb-operator:1.2.0
+  - name: kube-rbac-proxy
 status:
-  subclusters:
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 0
-    - installCount: 2
-      addedToDBCount: 2
-      upNodeCount: 0
+  phase: Running
