@@ -326,7 +326,15 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 
 // makeServerContainer builds the spec for the server container
 func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
-	cnt := corev1.Container{
+	envVars := translateAnnotationsToEnvVars(vdb)
+	envVars = append(envVars, []corev1.EnvVar{
+		{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
+		},
+		{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
+		{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
+	}...)
+	return corev1.Container{
 		Image:           vdb.Spec.Image,
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ServerContainer,
@@ -349,17 +357,9 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 				Add: []corev1.Capability{"SYS_CHROOT", "AUDIT_WRITE"},
 			},
 		},
-		Env: []corev1.EnvVar{
-			{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
-			},
-			{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
-			{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
-		},
+		Env:          envVars,
 		VolumeMounts: buildVolumeMounts(vdb),
 	}
-	cnt.Env = append(cnt.Env, getEnvVars(vdb)...)
-	return cnt
 }
 
 // makeContainers creates the list of containers to include in the pod spec.
@@ -371,6 +371,8 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		// because some of the the mount path include the UID, which isn't know
 		// prior to the creation of the VerticaDB.
 		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb)...)
+		// Append additional environment variables passed through annotations.
+		c.Env = append(c.Env, translateAnnotationsToEnvVars(vdb)...)
 		// As a convenience, add the database path as an environment variable.
 		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: vdb.GetDBDataPath()})
 		cnts = append(cnts, c)
@@ -378,13 +380,19 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 	return cnts
 }
 
-// getEnvVars returns a list of EnvVars from the annotations
+// translateAnnotationsToEnvVars returns a list of EnvVars from the annotations
 // in the CR
-func getEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+func translateAnnotationsToEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{}
-	m := regexp.MustCompile(`[^a-zA-Z0-9]`)
+	// regexp to match annotations starting with a letter
+	m1 := regexp.MustCompile(`^[a-zA-Z].*`)
+	// regexp to match any non-alphanumerical character
+	m2 := regexp.MustCompile(`[^a-zA-Z0-9]`)
 	for k, v := range vdb.Spec.Annotations {
-		name := strings.ToUpper(m.ReplaceAllString(k, "_"))
+		if !m1.MatchString(k) {
+			continue
+		}
+		name := strings.ToUpper(m2.ReplaceAllString(k, "_"))
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  name,
 			Value: v,
