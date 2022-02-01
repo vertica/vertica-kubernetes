@@ -120,6 +120,7 @@ func (o *OnlineImageChangeReconciler) precomputeStatusMsgs(ctx context.Context) 
 		"Creating transient secondary subcluster",
 		"Draining primary subclusters",
 		"Recreating pods for primary subclusters",
+		"Checking if new version is compatible",
 		"Restarting vertica in primary subclusters",
 	}
 
@@ -285,6 +286,7 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 	funcs := []func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error){
 		o.drainSubcluster,
 		o.recreateSubclusterWithNewImage,
+		o.checkVersion,
 		o.bringSubclusterOnline,
 	}
 	for i, fn := range funcs {
@@ -375,6 +377,29 @@ func (o *OnlineImageChangeReconciler) recreateSubclusterWithNewImage(ctx context
 		o.PFacts.Invalidate()
 	}
 	return ctrl.Result{}, nil
+}
+
+func (o *OnlineImageChangeReconciler) checkVersion(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	if o.Vdb.Spec.IgnoreUpgradePath {
+		return ctrl.Result{}, nil
+	}
+
+	const EnforceUpgradePath = true
+	a := MakeVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
+
+	// We use a custom lookup function to only find pods for the subcluster we
+	// are working on.
+	vr := a.(*VersionReconciler)
+	scName := sts.Labels[SubclusterNameLabel]
+	vr.FindPodFunc = func() (*PodFact, bool) {
+		for _, v := range o.PFacts.Detail {
+			if v.isPodRunning && v.subcluster == scName {
+				return v, true
+			}
+		}
+		return &PodFact{}, false
+	}
+	return vr.Reconcile(ctx, &ctrl.Request{})
 }
 
 // bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.

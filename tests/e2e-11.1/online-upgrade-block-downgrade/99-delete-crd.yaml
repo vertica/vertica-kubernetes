@@ -13,6 +13,10 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
+delete:
+  - apiVersion: vertica.com/v1beta1
+    kind: VerticaDB
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
 commands:
-  - command: kubectl wait --for=condition=OnlineImageChangeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

@@ -11,8 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl wait --for=condition=OnlineImageChangeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: controller-manager

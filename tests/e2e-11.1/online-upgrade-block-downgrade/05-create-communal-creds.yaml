@@ -14,5 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl wait --for=condition=OnlineImageChangeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
+  - script: kustomize build ../../manifests/communal-creds/overlay | kubectl apply -f - --namespace $NAMESPACE

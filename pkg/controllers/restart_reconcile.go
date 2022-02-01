@@ -540,7 +540,7 @@ func (r *RestartReconciler) genReIPCommand() []string {
 	// In 11.1, we added a --force option to re_ip to allow us to run it while
 	// some nodes are up.  This was done to support doing a reip while there are
 	// read-only secondary nodes.
-	vinf, ok := version.MakeInfo(r.Vdb)
+	vinf, ok := version.MakeInfoFromVdb(r.Vdb)
 	if ok && vinf.IsEqualOrNewer(version.ReIPAllowedWithUpNodesVersion) {
 		cmd = append(cmd, "--force")
 	}
@@ -565,7 +565,7 @@ func (r *RestartReconciler) genStartDBCommand(downPods []*PodFact) []string {
 	// In some versions, we can include a list of hosts to start.  This
 	// parameter becomes important for online upgrade as we use this to start
 	// the primaries while the secondary are in read-only.
-	vinf, ok := version.MakeInfo(r.Vdb)
+	vinf, ok := version.MakeInfoFromVdb(r.Vdb)
 	if ok && vinf.IsEqualOrNewer(version.StartDBAcceptsHostListVersion) {
 		hostNames := []string{}
 		for _, pod := range downPods {

@@ -127,7 +127,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// statefulsets and service objects.
 		MakeObjReconciler(r, log, vdb, &pfacts),
 		// Set version info in the annotations and check that it is the minimum
-		MakeVersionReconciler(r, log, vdb, prunner, &pfacts),
+		MakeVersionReconciler(r, log, vdb, prunner, &pfacts, false),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),

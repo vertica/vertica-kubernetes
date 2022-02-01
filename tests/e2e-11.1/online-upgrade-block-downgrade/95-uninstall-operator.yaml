@@ -14,5 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl wait --for=condition=OnlineImageChangeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
+  - command: sh -c "cd ../../.. && make undeploy-operator NAMESPACE=$NAMESPACE"

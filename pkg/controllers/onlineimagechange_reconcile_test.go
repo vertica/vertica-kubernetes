@@ -270,6 +270,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{SecScName, PriScName}
 		vdb.Spec.Image = OldImage
 		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		vdb.Spec.IgnoreUpgradePath = true
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)

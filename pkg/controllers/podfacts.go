@@ -351,7 +351,7 @@ func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.Ver
 	// The read-only state is a new state added in 11.0.2.  So we can only query
 	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
 	// disabled.
-	vinf, ok := version.MakeInfo(vdb)
+	vinf, ok := version.MakeInfoFromVdb(vdb)
 	if ok && vinf.IsEqualOrNewer(version.NodesHaveReadOnlyStateVersion) {
 		return p.queryNodeStatus(ctx, pf)
 	}

@@ -87,6 +87,8 @@ func (o *OfflineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.
 		o.deletePods,
 		// Check for the pods to be created by the sts controller with the new image
 		o.checkForNewPods,
+		// Check that the version is compatible
+		o.checkVersion,
 		// Start up vertica in each pod.
 		o.postRestartingClusterMsg,
 		o.restartCluster,
@@ -204,6 +206,19 @@ func (o *OfflineImageChangeReconciler) checkForNewPods(ctx context.Context) (ctr
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
+}
+
+// checkVersion will make sure the new version that we are upgrading to is a
+// valid version.  This makes sure we don't downgrade or skip a released
+// version.  This depends on the pod to be running with the new version.
+func (o *OfflineImageChangeReconciler) checkVersion(ctx context.Context) (ctrl.Result, error) {
+	if o.Vdb.Spec.IgnoreUpgradePath {
+		return ctrl.Result{}, nil
+	}
+
+	const EnforceUpgradePath = true
+	vr := MakeVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
+	return vr.Reconcile(ctx, &ctrl.Request{})
 }
 
 // postRestartingClusterMsg will update the status message to indicate the

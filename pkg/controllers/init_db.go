@@ -507,7 +507,7 @@ func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
 // to run with a Kerberos config.  If it doesn't the ctrl.Result will have the
 // requeue bool set.
 func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Result {
-	vinf, ok := version.MakeInfo(g.Vdb)
+	vinf, ok := version.MakeInfoFromVdb(g.Vdb)
 	const DefaultKerberosSupportedVersion = "v11.0.2"
 	if !ok || ok && vinf.IsEqualOrNewer(DefaultKerberosSupportedVersion) {
 		return ctrl.Result{}

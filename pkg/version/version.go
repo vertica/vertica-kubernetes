@@ -57,11 +57,10 @@ var UpgradePaths = map[Components]Info{
 	{11, 0, 2}: {"v11.1.0", Components{11, 1, 0}},
 }
 
-// MakeInfo will construct an Info struct by extracting the version from the
+// MakeInfoFromVdb will construct an Info struct by extracting the version from the
 // given vdb.  This returns false if it was unable to get the version from the
 // vdb.
-// SPILLY - rename to MakeInfoFromVdb
-func MakeInfo(vdb *vapi.VerticaDB) (*Info, bool) {
+func MakeInfoFromVdb(vdb *vapi.VerticaDB) (*Info, bool) {
 	vdbVer, ok := vdb.GetVerticaVersion()
 	// If the version annotation isn't present, we abort creation of Info
 	if !ok {
@@ -131,7 +130,9 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 	if t.VdbMajor < i.VdbMajor ||
 		(t.VdbMajor == i.VdbMajor && t.VdbMinor < i.VdbMinor) ||
 		(t.VdbMajor == i.VdbMajor && t.VdbMinor == i.VdbMinor && t.VdbPatch < i.VdbPatch) {
-		return false, "downgrade"
+		return false,
+			fmt.Sprintf("Version '%s' to '%s' is a downgrade and is not supported",
+				i.VdbVer, t.VdbVer)
 	}
 	// Check if the upgrade path is followed.  You can only go from one released
 	// version to the next released version.
@@ -145,7 +146,9 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 	if t.IsEqual(&nextVer) {
 		return true, ""
 	}
-	return false, fmt.Sprintf("unsupported upgrade path, next version is %s", nextVer.VdbVer)
+	return false,
+		fmt.Sprintf("Version '%s' to '%s' is invalid because it skips '%s'",
+			i.VdbVer, t.VdbVer, nextVer.VdbVer)
 }
 
 // parseVersion will extract out the portions of a verson into 3 components:
