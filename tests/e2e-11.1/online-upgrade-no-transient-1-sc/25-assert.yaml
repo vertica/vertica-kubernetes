@@ -24,9 +24,9 @@ status:
       status: "True"
     - type: ImageChangeInProgress
       status: "True"
-    - type: OfflineImageChangeInProgress
+    - type: OfflineUpgradeInProgress
       status: "False"
-    - type: OnlineImageChangeInProgress
+    - type: OnlineUpgradeInProgress
       status: "True"
   subclusterCount: 1
 ---

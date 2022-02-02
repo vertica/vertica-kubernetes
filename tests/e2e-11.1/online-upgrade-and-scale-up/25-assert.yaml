@@ -23,9 +23,9 @@ status:
       status: "True"
     - type: ImageChangeInProgress
       status: "False"
-    - type: OfflineImageChangeInProgress
+    - type: OfflineUpgradeInProgress
       status: "False"
-    - type: OnlineImageChangeInProgress
+    - type: OnlineUpgradeInProgress
       status: "False"
   subclusterCount: 2
   installCount: 1
