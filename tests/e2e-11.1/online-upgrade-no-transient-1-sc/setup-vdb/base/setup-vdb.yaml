@@ -22,7 +22,7 @@ spec:
   local:
     requestSize: 100Mi
   kSafety: "1"
-  imageChangePolicy: Online
+  upgradePolicy: Online
   subclusters:
     - name: pri
       size: 3

@@ -323,7 +323,7 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 	})
 
-	It("should allow imageChangePolicy to be changed when image change is not in progress", func() {
+	It("should allow upgradePolicy to be changed when upgrade is not in progress", func() {
 		vdbUpdate := createVDBHelper()
 		vdbOrig := createVDBHelper()
 		vdbOrig.Spec.UpgradePolicy = OfflineUpgrade
@@ -382,7 +382,7 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
-	It("should prevent change to temporarySubclusterRouting when image change in progress", func() {
+	It("should prevent change to temporarySubclusterRouting when upgrade is in progress", func() {
 		vdbUpdate := createVDBHelper()
 		vdbOrig := createVDBHelper()
 

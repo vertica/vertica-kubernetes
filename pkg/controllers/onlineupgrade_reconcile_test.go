@@ -29,7 +29,7 @@ import (
 	"yunion.io/x/pkg/tristate"
 )
 
-var _ = Describe("onlineimagechange_reconcile", func() {
+var _ = Describe("onlineupgrade_reconcile", func() {
 	ctx := context.Background()
 	const OldImage = "old-image"
 	const NewImageName = "different-image"

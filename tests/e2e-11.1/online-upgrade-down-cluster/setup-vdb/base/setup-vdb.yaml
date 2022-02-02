@@ -22,7 +22,7 @@ spec:
   local:
     requestSize: 100Mi
   kSafety: "0"
-  imageChangePolicy: Online
+  upgradePolicy: Online
   subclusters:
     - name: sc1
       size: 1

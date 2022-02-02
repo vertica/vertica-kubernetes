@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  imageChangeStatus: "Checking if new version is compatible"
+  upgradeStatus: "Checking if new version is compatible"
   conditions:
     - type: AutoRestartVertica
       status: "True"

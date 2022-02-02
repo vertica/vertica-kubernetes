@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  imageChangeStatus: "Creating transient secondary subcluster"
+  upgradeStatus: "Creating transient secondary subcluster"
   conditions:
     - type: AutoRestartVertica
       status: "True"

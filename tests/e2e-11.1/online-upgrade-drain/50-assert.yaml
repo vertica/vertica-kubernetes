@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  imageChangeStatus: "Restarting vertica in secondary subcluster 'sec1'"
+  upgradeStatus: "Restarting vertica in secondary subcluster 'sec1'"
 ---
 apiVersion: v1
 kind: Service

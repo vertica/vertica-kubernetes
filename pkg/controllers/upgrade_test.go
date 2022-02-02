@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("imagechange", func() {
+var _ = Describe("upgrade", func() {
 	ctx := context.Background()
 	const OldImage = "old-image"
 	const NewImage = "new-image-1"

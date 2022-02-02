@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("offlineimagechange_reconcile", func() {
+var _ = Describe("offlineupgrade_reconcile", func() {
 	ctx := context.Background()
 
 	It("should change image if image don't match between sts and vdb", func() {

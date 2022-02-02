@@ -244,7 +244,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			fmt.Sprintf("subcluster %s cannot have its isPrimary type change", v.Spec.Subclusters[inx].Name))
 		allErrs = append(allErrs, err)
 	}
-	allErrs = v.checkImmutableImageChangePolicy(oldObj, allErrs)
+	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
 	allErrs = v.checkImmutableTemporarySubclusterRouting(oldObj, allErrs)
 	return allErrs
 }
@@ -705,17 +705,17 @@ func (v *VerticaDB) isImageChangeInProgress() bool {
 		v.Status.Conditions[ImageChangeInProgressIndex].Status == v1.ConditionTrue
 }
 
-// checkImmutableImageChangePolicy will see if it unsafe to change the
-// imageChangePolicy.  It will log an error if it detects a change in that field
+// checkImmutableUpgradePolicy will see if it unsafe to change the
+// upgradePolicy.  It will log an error if it detects a change in that field
 // when it isn't allowed.
-func (v *VerticaDB) checkImmutableImageChangePolicy(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.UpgradePolicy == oldObj.Spec.UpgradePolicy ||
 		!oldObj.isImageChangeInProgress() {
 		return allErrs
 	}
-	err := field.Invalid(field.NewPath("spec").Child("imageChangePolicy"),
+	err := field.Invalid(field.NewPath("spec").Child("upgradePolicy"),
 		v.Spec.UpgradePolicy,
-		"imageChangePolicy cannot change because image change is in progress")
+		"upgradePolicy cannot change because upgrade is in progress")
 	allErrs = append(allErrs, err)
 	return allErrs
 }
@@ -731,13 +731,13 @@ func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, 
 	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Names, oldObj.Spec.TemporarySubclusterRouting.Names) {
 		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("names"),
 			v.Spec.TemporarySubclusterRouting.Names,
-			"subcluster names for temporasySubclusterRouting cannot change when an image change is in progress")
+			"subcluster names for temporasySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
 	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Template, oldObj.Spec.TemporarySubclusterRouting.Template) {
 		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("template"),
 			v.Spec.TemporarySubclusterRouting.Template,
-			"template for temporasySubclusterRouting cannot change when an image change is in progress")
+			"template for temporasySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

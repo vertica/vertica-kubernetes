@@ -16,4 +16,4 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  imageChangeStatus: "Draining secondary subcluster 'sec1'"
+  upgradeStatus: "Draining secondary subcluster 'sec1'"

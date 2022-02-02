@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  imageChangeStatus: "Draining primary subclusters"
+  upgradeStatus: "Draining primary subclusters"
   conditions:
     - type: AutoRestartVertica
       status: "True"

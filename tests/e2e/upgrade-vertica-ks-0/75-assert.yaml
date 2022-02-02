@@ -40,5 +40,5 @@ status:
         status: "False"
       - type: ImageChangeInProgress
         status: "False"
-      - type: OfflineImageChangeInProgress
+      - type: OfflineUpgradeInProgress
         status: "False"
