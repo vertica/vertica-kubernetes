@@ -1,0 +1,5 @@
+kind: Added
+body: Support for RedHat OpenShift 4.8+
+time: 2022-01-12T12:44:18.8725699+01:00
+custom:
+  Issue: "81"

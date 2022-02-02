@@ -15,8 +15,6 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: |
-      cd ../../.. && TF=$(mktemp /tmp/cabundle.pem.XXXXXX) \
-       && echo $TF \
-       && kubectl get secrets -n $NAMESPACE custom-cert -o json | jq -r '.data."ca.crt"' | tee $TF \
-       && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert --set webhook.caBundle=$(cat $TF) --set logging.filePath=/logs/try.log" \
-       && rm $TF
+      PN=$(kubectl get pods -n $NAMESPACE --no-headers  -o custom-columns=":metadata.name" | grep verticadb ) \
+      && kubectl patch deployment verticadb-operator-controller-manager -n $NAMESPACE --patch "$(cat test-logging-patch.yaml)" \
+      && kubectl wait --for=delete pod/$PN -n $NAMESPACE --timeout=180s
