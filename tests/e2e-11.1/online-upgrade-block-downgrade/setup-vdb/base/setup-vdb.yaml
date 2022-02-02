@@ -11,8 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl wait --for=condition=OnlineImageChangeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-base-upgrade
+spec:
+  image: kustomize-vertica-image
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+  kSafety: "0"
+  imageChangePolicy: Online
+  subclusters:
+    - name: sc1
+      size: 1
+      isPrimary: true
+  temporarySubclusterRouting:
+    template:
+      name: "temp"
+      size: 2
+  certSecrets: []

@@ -286,7 +286,7 @@ func onlineImageChangeAllowed(vdb *vapi.VerticaDB) bool {
 		if vdb.Spec.LicenseSecret == "" || vdb.Spec.KSafety == vapi.KSafety0 {
 			return false
 		}
-		vinf, ok := version.MakeInfo(vdb)
+		vinf, ok := version.MakeInfoFromVdb(vdb)
 		if ok && vinf.IsEqualOrNewer(version.OnlineImageChangeVersion) {
 			return true
 		}

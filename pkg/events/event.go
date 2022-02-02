@@ -61,4 +61,5 @@ const (
 	MissingSecretKeys               = "MissingSecretKeys"
 	KerberosAuthError               = "KerberosAuthError"
 	OperatorUpgrade                 = "OperatorUpgrade"
+	InvalidUpgradePath              = "InvalidUpgradePath"
 )

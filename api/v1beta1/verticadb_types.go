@@ -147,6 +147,15 @@ type VerticaDBSpec struct {
 	ImageChangePolicy ImageChangePolicyType `json:"imageChangePolicy"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// When set to False, this parameter will ensure that when changing the
+	// vertica version that we follow the upgrade path.  The Vertica upgrade
+	// path means you cannot downgrade a Vertica release, nor can you skip any
+	// released Vertica versions when upgrading.
+	IgnoreUpgradePath bool `json:"ignoreUpgradePath,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// This specifies the order of nodes when doing a revive.  Each entry
 	// contains an index to a subcluster, which is an index in Subclusters[],
