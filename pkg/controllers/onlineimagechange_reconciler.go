@@ -32,41 +32,41 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// OnlineImageChangeReconciler will handle the process when the vertica image
+// OnlineUpgradeReconciler will handle the process when the vertica image
 // changes.  It does this while keeping the database online.
-type OnlineImageChangeReconciler struct {
+type OnlineUpgradeReconciler struct {
 	VRec          *VerticaDBReconciler
 	Log           logr.Logger
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner       cmds.PodRunner
 	PFacts        *PodFacts
 	Finder        SubclusterFinder
-	Manager       ImageChangeManager
+	Manager       UpgradeManager
 	PrimaryImages []string // Known images in the primaries.  Should be of length 1 or 2.
 	StatusMsgs    []string // Precomputed status messages
 	MsgIndex      int      // Current index in StatusMsgs
 }
 
-// MakeOnlineImageChangeReconciler will build an OnlineImageChangeReconciler object
-func MakeOnlineImageChangeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+// MakeOnlineUpgradeReconciler will build an OnlineUpgradeReconciler object
+func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
-	return &OnlineImageChangeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
+	return &OnlineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
 		Finder:  MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeImageChangeManager(vdbrecon, log, vdb, vapi.OnlineImageChangeInProgress, onlineImageChangeAllowed),
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
 	}
 }
 
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
-func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	if ok, err := o.Manager.IsImageChangeNeeded(ctx); !ok || err != nil {
+func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	if ok, err := o.Manager.IsUpgradeNeeded(ctx); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
-		// Initiate an image change by setting condition and event recording
-		o.Manager.startImageChange,
+		// Initiate an upgrade by setting condition and event recording
+		o.Manager.startUpgrade,
 		// Load up state that is used for the subsequent steps
 		o.loadSubclusterState,
 		// Figure out all of the status messages that we will report
@@ -88,8 +88,8 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
-		// Cleanup up the condition and event recording for a completed image change
-		o.Manager.finishImageChange,
+		// Cleanup up the condition and event recording for a completed upgrade
+		o.Manager.finishUpgrade,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); res.Requeue || err != nil {
@@ -100,9 +100,9 @@ func (o *OnlineImageChangeReconciler) Reconcile(ctx context.Context, req *ctrl.R
 	return ctrl.Result{}, nil
 }
 
-// loadSubclusterState will load state into the OnlineImageChangeReconciler that
+// loadSubclusterState will load state into the OnlineUpgradeReconciler that
 // is used in subsequent steps.
-func (o *OnlineImageChangeReconciler) loadSubclusterState(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) loadSubclusterState(ctx context.Context) (ctrl.Result, error) {
 	var err error
 	err = o.PFacts.Collect(ctx, o.Vdb)
 	if err != nil {
@@ -114,8 +114,8 @@ func (o *OnlineImageChangeReconciler) loadSubclusterState(ctx context.Context) (
 }
 
 // precomputeStatusMsgs will figure out the status messages that we will use for
-// the entire image change process.
-func (o *OnlineImageChangeReconciler) precomputeStatusMsgs(ctx context.Context) (ctrl.Result, error) {
+// the entire upgrade process.
+func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctrl.Result, error) {
 	o.StatusMsgs = []string{
 		"Creating transient secondary subcluster",
 		"Draining primary subclusters",
@@ -142,8 +142,8 @@ func (o *OnlineImageChangeReconciler) precomputeStatusMsgs(ctx context.Context) 
 	return ctrl.Result{}, nil
 }
 
-// postNextStatusMsg will set the next status message for an online image change
-func (o *OnlineImageChangeReconciler) postNextStatusMsg(ctx context.Context) (ctrl.Result, error) {
+// postNextStatusMsg will set the next status message for an online upgrade
+func (o *OnlineUpgradeReconciler) postNextStatusMsg(ctx context.Context) (ctrl.Result, error) {
 	o.MsgIndex++
 	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, o.StatusMsgs, o.MsgIndex)
 }
@@ -152,14 +152,14 @@ func (o *OnlineImageChangeReconciler) postNextStatusMsg(ctx context.Context) (ct
 // change.  This version is meant to be called for a specific statefulset.  This
 // exists just to have the proper function signature.  We ignore the sts
 // entirely as the status message for the sts is already precomputed.
-func (o *OnlineImageChangeReconciler) postNextStatusMsgForSts(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) postNextStatusMsgForSts(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	return o.postNextStatusMsg(ctx)
 }
 
 // createTransientSts this will create a secondary subcluster to accept
 // traffic from subclusters when they are down.  This subcluster is called
-// the transient and only exist for the life of the image change.
-func (o *OnlineImageChangeReconciler) createTransientSts(ctx context.Context) (ctrl.Result, error) {
+// the transient and only exist for the life of the upgrade.
+func (o *OnlineUpgradeReconciler) createTransientSts(ctx context.Context) (ctrl.Result, error) {
 	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
@@ -180,7 +180,7 @@ func (o *OnlineImageChangeReconciler) createTransientSts(ctx context.Context) (c
 
 // installTransientNodes will ensure we have installed vertica on
 // each of the nodes in the transient subcluster.
-func (o *OnlineImageChangeReconciler) installTransientNodes(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) installTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
@@ -191,7 +191,7 @@ func (o *OnlineImageChangeReconciler) installTransientNodes(ctx context.Context)
 }
 
 // addTransientSubcluster will register a new transient subcluster with Vertica
-func (o *OnlineImageChangeReconciler) addTransientSubcluster(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) addTransientSubcluster(ctx context.Context) (ctrl.Result, error) {
 	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
@@ -207,7 +207,7 @@ func (o *OnlineImageChangeReconciler) addTransientSubcluster(ctx context.Context
 
 // addTransientNodes will ensure nodes on the transient have been added to the
 // cluster.
-func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
@@ -224,7 +224,7 @@ func (o *OnlineImageChangeReconciler) addTransientNodes(ctx context.Context) (ct
 // waitForReadyTransientPod will wait for one of the transient pods to be ready.
 // This is done so that when we direct traffic to the transient subcluster the
 // service object has a pod to route too.
-func (o *OnlineImageChangeReconciler) waitForReadyTransientPod(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) waitForReadyTransientPod(ctx context.Context) (ctrl.Result, error) {
 	pod := &corev1.Pod{}
 	sc := buildTransientSubcluster(o.Vdb, "")
 	// We only check the first pod is ready
@@ -249,14 +249,14 @@ func (o *OnlineImageChangeReconciler) waitForReadyTransientPod(ctx context.Conte
 		time.Sleep(AttemptSleepTime * time.Second)
 	}
 	// If we timeout, we still continue on.  The transient pod is not
-	// restartable, so we don't want to wait indefinitely.  The image change
+	// restartable, so we don't want to wait indefinitely.  The upgrade
 	// will proceed but any routing to the transient pods will fail.
 	return ctrl.Result{}, nil
 }
 
 // iterateSubclusterType will iterate over the subclusters, calling the
 // processFunc for each one that matches the given type.
-func (o *OnlineImageChangeReconciler) iterateSubclusterType(ctx context.Context, scType string,
+func (o *OnlineUpgradeReconciler) iterateSubclusterType(ctx context.Context, scType string,
 	processFunc func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error)) (ctrl.Result, error) {
 	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting|FindSorted)
 	if err != nil {
@@ -279,8 +279,8 @@ func (o *OnlineImageChangeReconciler) iterateSubclusterType(ctx context.Context,
 	return ctrl.Result{}, nil
 }
 
-// restartPrimaries will handle the image change on all of the primaries.
-func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
+// restartPrimaries will handle the upgrade on all of the primaries.
+func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("Starting the handling of primaries")
 
 	funcs := []func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error){
@@ -303,14 +303,14 @@ func (o *OnlineImageChangeReconciler) restartPrimaries(ctx context.Context) (ctr
 
 // restartSecondaries will restart all of the secondaries, temporarily
 // rerouting traffic to the transient while it does the restart.
-func (o *OnlineImageChangeReconciler) restartSecondaries(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) restartSecondaries(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("Starting the handling of secondaries")
 	res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubclusterType, o.processSecondary)
 	return res, err
 }
 
 // processSecondary will handle restart of a single secondary subcluster
-func (o *OnlineImageChangeReconciler) processSecondary(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	funcs := []func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error){
 		o.postNextStatusMsgForSts,
 		o.drainSubcluster,
@@ -329,7 +329,7 @@ func (o *OnlineImageChangeReconciler) processSecondary(ctx context.Context, sts 
 
 // isMatchingSubclusterType will return true if the subcluster type matches the
 // input string.  Always returns false for the transient subcluster.
-func (o *OnlineImageChangeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) (bool, error) {
+func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) (bool, error) {
 	isTransient, err := strconv.ParseBool(sts.Labels[SubclusterTransientLabel])
 	if err != nil {
 		return false, fmt.Errorf("could not parse label %s: %w", SubclusterTransientLabel, err)
@@ -339,7 +339,7 @@ func (o *OnlineImageChangeReconciler) isMatchingSubclusterType(sts *appsv1.State
 
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
 // This is a no-op if the image has already been updated for the subcluster.
-func (o *OnlineImageChangeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 
 	if img != o.Vdb.Spec.Image {
@@ -357,7 +357,7 @@ func (o *OnlineImageChangeReconciler) drainSubcluster(ctx context.Context, sts *
 
 // recreateSubclusterWithNewImage will recreate the subcluster so that it runs with the
 // new image.
-func (o *OnlineImageChangeReconciler) recreateSubclusterWithNewImage(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) recreateSubclusterWithNewImage(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	var err error
 
 	stsChanged, err := o.Manager.updateImageInStatefulSet(ctx, sts)
@@ -379,7 +379,7 @@ func (o *OnlineImageChangeReconciler) recreateSubclusterWithNewImage(ctx context
 	return ctrl.Result{}, nil
 }
 
-func (o *OnlineImageChangeReconciler) checkVersion(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	if o.Vdb.Spec.IgnoreUpgradePath {
 		return ctrl.Result{}, nil
 	}
@@ -403,7 +403,7 @@ func (o *OnlineImageChangeReconciler) checkVersion(ctx context.Context, sts *app
 }
 
 // bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.
-func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	const DoNotRestartReadOnly = false
 	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
 	o.traceActorReconcile(actor)
@@ -420,7 +420,7 @@ func (o *OnlineImageChangeReconciler) bringSubclusterOnline(ctx context.Context,
 }
 
 // removeTransientSubclusters will drive subcluster removal of the transient subcluster
-func (o *OnlineImageChangeReconciler) removeTransientSubclusters(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) removeTransientSubclusters(ctx context.Context) (ctrl.Result, error) {
 	if !o.Vdb.RequiresTransientSubcluster() {
 		return ctrl.Result{}, nil
 	}
@@ -430,7 +430,7 @@ func (o *OnlineImageChangeReconciler) removeTransientSubclusters(ctx context.Con
 }
 
 // uninstallTransientNodes will drive uninstall logic for any transient nodes.
-func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Context) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) uninstallTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	if !o.Vdb.RequiresTransientSubcluster() {
 		return ctrl.Result{}, nil
 	}
@@ -439,8 +439,8 @@ func (o *OnlineImageChangeReconciler) uninstallTransientNodes(ctx context.Contex
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// deleteTransientSts will delete the transient subcluster that was created for the image change.
-func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (ctrl.Result, error) {
+// deleteTransientSts will delete the transient subcluster that was created for the upgrade.
+func (o *OnlineUpgradeReconciler) deleteTransientSts(ctx context.Context) (ctrl.Result, error) {
 	if !o.Vdb.RequiresTransientSubcluster() {
 		return ctrl.Result{}, nil
 	}
@@ -451,7 +451,7 @@ func (o *OnlineImageChangeReconciler) deleteTransientSts(ctx context.Context) (c
 }
 
 // cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
-func (o *OnlineImageChangeReconciler) cachePrimaryImages(ctx context.Context) error {
+func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error {
 	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
 	if err != nil {
 		return err
@@ -478,7 +478,7 @@ func (o *OnlineImageChangeReconciler) cachePrimaryImages(ctx context.Context) er
 // fetchOldImage will return the old image that existed prior to the image
 // change process.  If we cannot determine the old image, then the bool return
 // value returns false.
-func (o *OnlineImageChangeReconciler) fetchOldImage() (string, bool) {
+func (o *OnlineUpgradeReconciler) fetchOldImage() (string, bool) {
 	for i := range o.PrimaryImages {
 		if o.PrimaryImages[i] != o.Vdb.Spec.Image {
 			return o.PrimaryImages[i], true
@@ -489,30 +489,30 @@ func (o *OnlineImageChangeReconciler) fetchOldImage() (string, bool) {
 
 // skipTransientSetup will return true if we can skip creation, install and
 // scale-out of the transient subcluster
-func (o *OnlineImageChangeReconciler) skipTransientSetup() bool {
+func (o *OnlineUpgradeReconciler) skipTransientSetup() bool {
 	// We can skip this entirely if all of the primary subclusters already have
 	// the new image.  This is an indication that we have already created the
-	// transient and done the image change.
+	// transient and did the image change.
 	if !o.Vdb.RequiresTransientSubcluster() || (len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image) {
 		return true
 	}
 
 	// We skip creating the transient if the cluster is down.  We cannot add the
 	// transient if everything is down.  And there is nothing "online" with this
-	// image change if we start with everything down.
+	// upgrade if we start with everything down.
 	_, found := o.PFacts.findPodToRunVsql(false, "")
 	return !found
 }
 
-func (o *OnlineImageChangeReconciler) traceActorReconcile(actor ReconcileActor) {
-	o.Log.Info("starting actor for online image change", "name", fmt.Sprintf("%T", actor))
+func (o *OnlineUpgradeReconciler) traceActorReconcile(actor ReconcileActor) {
+	o.Log.Info("starting actor for online upgrade", "name", fmt.Sprintf("%T", actor))
 }
 
 // routeClientTraffic will update service objects to route to either the primary
 // or transient.  The subcluster picked is determined by the scCheckFunc the
 // caller provides.  If it returns true for a given subcluster, traffic will be
 // routed to that.
-func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
+func (o *OnlineUpgradeReconciler) routeClientTraffic(ctx context.Context,
 	scName string, setTemporaryRouting bool) error {
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	objRec := actor.(*ObjReconciler)
@@ -556,7 +556,7 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 
 // getSubclusterForTemporaryRouting returns a pointer to a subcluster to use for
 // temporary routing.  If no routing decision could be made, this will return nil.
-func (o *OnlineImageChangeReconciler) getSubclusterForTemporaryRouting(ctx context.Context,
+func (o *OnlineUpgradeReconciler) getSubclusterForTemporaryRouting(ctx context.Context,
 	offlineSc *vapi.Subcluster, scMap map[string]*vapi.Subcluster) *vapi.Subcluster {
 	if o.Vdb.RequiresTransientSubcluster() {
 		// We are modifying a copy of sc, so we set the IsTransient flag to
@@ -609,7 +609,7 @@ func (o *OnlineImageChangeReconciler) getSubclusterForTemporaryRouting(ctx conte
 // pickDefaultSubclusterForTemporaryRouting will pick a suitable default for
 // temporary routing.  This is called when the temporarySubclusterRouting field
 // in the CR is empty.
-func (o *OnlineImageChangeReconciler) pickDefaultSubclusterForTemporaryRouting(offlineSc *vapi.Subcluster) *vapi.Subcluster {
+func (o *OnlineUpgradeReconciler) pickDefaultSubclusterForTemporaryRouting(offlineSc *vapi.Subcluster) *vapi.Subcluster {
 	// When we take down primaries, we take all of the primaries.  So we pick
 	// the first secondary we can find.  If there are no secondaries, then
 	// selecting the first subcluster will do.  The upgrade won't be online in
@@ -639,7 +639,7 @@ func (o *OnlineImageChangeReconciler) pickDefaultSubclusterForTemporaryRouting(o
 // isSubclusterIdle will run a query to see the number of connections
 // that are active for a given subcluster.  It returns a requeue error if there
 // are active connections still.
-func (o *OnlineImageChangeReconciler) isSubclusterIdle(ctx context.Context, scName string) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName string) (ctrl.Result, error) {
 	pf, ok := o.PFacts.findPodToRunVsql(true, scName)
 	if !ok {
 		o.Log.Info("No pod found to run vsql.  Skipping active connection check")
@@ -667,7 +667,7 @@ func (o *OnlineImageChangeReconciler) isSubclusterIdle(ctx context.Context, scNa
 // doesScHaveActiveConnections will parse the output from vsql to see if there
 // are any active connections.  Returns true if there is at least one
 // connection.
-func (o *OnlineImageChangeReconciler) doesScHaveActiveConnections(stdout string) bool {
+func (o *OnlineUpgradeReconciler) doesScHaveActiveConnections(stdout string) bool {
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
 	return res != "0"

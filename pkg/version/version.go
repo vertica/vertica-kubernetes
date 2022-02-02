@@ -40,8 +40,8 @@ const (
 	MinimumVersion = "v11.0.0"
 	// The version that added read-only state
 	NodesHaveReadOnlyStateVersion = "v11.0.2"
-	// The minimum version that allows for online image change.
-	OnlineImageChangeVersion = "v11.1.0"
+	// The minimum version that allows for online upgrade.
+	OnlineUpgradeVersion = "v11.1.0"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version that added support a for --host list to start_db command

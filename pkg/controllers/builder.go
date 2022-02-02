@@ -380,7 +380,7 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 // pickImage will pick the correct image for the subcluster to use
 func pickImage(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
 	// The ImageOverride exists to allow standby subclusters created for
-	// primaries to continue to use the old image during an online image change.
+	// primaries to continue to use the old image during an online upgrade.
 	if sc.ImageOverride != "" {
 		return sc.ImageOverride
 	}

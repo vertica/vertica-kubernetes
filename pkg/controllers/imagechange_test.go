@@ -33,49 +33,54 @@ var _ = Describe("imagechange", func() {
 	const OldImage = "old-image"
 	const NewImage = "new-image-1"
 
-	It("should correctly pick the image change type", func() {
+	It("should correctly pick the upgrade type", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
+			Name:      "t",
+			Size:      1,
+			IsPrimary: false,
+		}
 
-		vdb.Spec.ImageChangePolicy = vapi.OfflineImageChange
-		Expect(onlineImageChangeAllowed(vdb)).Should(Equal(false))
-		Expect(offlineImageChangeAllowed(vdb)).Should(Equal(true))
-		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
-		Expect(onlineImageChangeAllowed(vdb)).Should(Equal(true))
-		Expect(offlineImageChangeAllowed(vdb)).Should(Equal(false))
+		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
+		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(false))
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
+		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(false))
 
 		// No version -- offline
-		vdb.Spec.ImageChangePolicy = vapi.AutoImageChange
+		vdb.Spec.UpgradePolicy = vapi.AutoUpgrade
 		vdb.Spec.LicenseSecret = "license"
 		vdb.Spec.KSafety = vapi.KSafety1
 		delete(vdb.ObjectMeta.Annotations, vapi.VersionAnnotation)
-		Expect(offlineImageChangeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Older version
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v11.0.0"
-		Expect(offlineImageChangeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Correct version
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineImageChangeVersion
-		Expect(onlineImageChangeAllowed(vdb)).Should(Equal(true))
+		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
+		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Missing license
 		vdb.Spec.LicenseSecret = ""
-		Expect(offlineImageChangeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 		vdb.Spec.LicenseSecret = "license-again"
 
 		// k-safety 0
 		vdb.Spec.KSafety = vapi.KSafety0
-		Expect(offlineImageChangeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 	})
 
-	It("should not need an image change if images match in sts and vdb", func() {
+	It("should not need an upgrade if images match in sts and vdb", func() {
 		vdb := vapi.MakeVDB()
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OnlineImageChangeInProgress,
+		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OnlineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(false))
+		Expect(mgr.IsUpgradeNeeded(ctx)).Should(Equal(false))
 	})
 
 	It("should change the image of both primaries and secondaries", func() {
@@ -91,9 +96,9 @@ var _ = Describe("imagechange", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.IsImageChangeNeeded(ctx)).Should(Equal(true))
+		Expect(mgr.IsUpgradeNeeded(ctx)).Should(Equal(true))
 		stsChange, res, err := mgr.updateImageInStatefulSets(ctx)
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
@@ -116,7 +121,7 @@ var _ = Describe("imagechange", func() {
 		defer deletePods(ctx, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, "") // pods from primaries only
 		Expect(err).Should(Succeed())
@@ -137,7 +142,7 @@ var _ = Describe("imagechange", func() {
 		defer deletePods(ctx, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		numPodsDeleted, err := mgr.deletePodsRunningOldImage(ctx, vdb.Spec.Subclusters[1].Name)
 		Expect(err).Should(Succeed())
@@ -154,28 +159,28 @@ var _ = Describe("imagechange", func() {
 		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0), pod)).ShouldNot(Succeed())
 	})
 
-	It("should cleanup image change status", func() {
+	It("should cleanup upgrade status", func() {
 		vdb := vapi.MakeVDB()
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
-		Expect(mgr.startImageChange(ctx)).Should(Equal(ctrl.Result{}))
-		Expect(mgr.setImageChangeStatus(ctx, "doing the change")).Should(Succeed())
+		Expect(mgr.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.setUpgradeStatus(ctx, "doing the change")).Should(Succeed())
 
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.Conditions[vapi.ImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionTrue))
-		Expect(fetchedVdb.Status.Conditions[vapi.OfflineImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionTrue))
-		Expect(fetchedVdb.Status.ImageChangeStatus).ShouldNot(Equal(""))
+		Expect(fetchedVdb.Status.Conditions[vapi.OfflineUpgradeInProgressIndex].Status).Should(Equal(corev1.ConditionTrue))
+		Expect(fetchedVdb.Status.UpgradeStatus).ShouldNot(Equal(""))
 
-		Expect(mgr.finishImageChange(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(mgr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.Conditions[vapi.ImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionFalse))
-		Expect(fetchedVdb.Status.Conditions[vapi.OfflineImageChangeInProgressIndex].Status).Should(Equal(corev1.ConditionFalse))
-		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(""))
+		Expect(fetchedVdb.Status.Conditions[vapi.OfflineUpgradeInProgressIndex].Status).Should(Equal(corev1.ConditionFalse))
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(""))
 	})
 
 	It("should post next status message", func() {
@@ -186,29 +191,29 @@ var _ = Describe("imagechange", func() {
 
 		statusMsgs := []string{"msg1", "msg2", "msg3"}
 
-		mgr := MakeImageChangeManager(vrec, logger, vdb, vapi.OfflineImageChangeInProgress,
+		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1)).Should(Succeed()) // no-op
 
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(""))
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(""))
 
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 0)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[0]))
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[0]))
 
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed()) // no change
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[0]))
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[0]))
 
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[1]))
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[1]))
 
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.Status.ImageChangeStatus).Should(Equal(statusMsgs[2]))
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[2]))
 
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9)).ShouldNot(Succeed()) // fail - out of bounds
 	})

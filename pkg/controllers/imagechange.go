@@ -31,70 +31,70 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type ImageChangeManager struct {
-	VRec                  *VerticaDBReconciler
-	Vdb                   *vapi.VerticaDB
-	Log                   logr.Logger
-	Finder                SubclusterFinder
-	ContinuingImageChange bool // true if UpdateInProgress was already set upon entry
-	StatusCondition       vapi.VerticaDBConditionType
+type UpgradeManager struct {
+	VRec              *VerticaDBReconciler
+	Vdb               *vapi.VerticaDB
+	Log               logr.Logger
+	Finder            SubclusterFinder
+	ContinuingUpgrade bool // true if UpdateInProgress was already set upon entry
+	StatusCondition   vapi.VerticaDBConditionType
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
-	IsAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool
+	IsAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool
 }
 
-// MakeImageChangeManager will construct a ImageChangeManager object
-func MakeImageChangeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+// MakeUpgradeManager will construct a UpgradeManager object
+func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
 	statusCondition vapi.VerticaDBConditionType,
-	isAllowedForImageChangePolicyFunc func(vdb *vapi.VerticaDB) bool) *ImageChangeManager {
-	return &ImageChangeManager{
-		VRec:                              vdbrecon,
-		Vdb:                               vdb,
-		Log:                               log,
-		Finder:                            MakeSubclusterFinder(vdbrecon.Client, vdb),
-		StatusCondition:                   statusCondition,
-		IsAllowedForImageChangePolicyFunc: isAllowedForImageChangePolicyFunc,
+	isAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool) *UpgradeManager {
+	return &UpgradeManager{
+		VRec:                          vdbrecon,
+		Vdb:                           vdb,
+		Log:                           log,
+		Finder:                        MakeSubclusterFinder(vdbrecon.Client, vdb),
+		StatusCondition:               statusCondition,
+		IsAllowedForUpgradePolicyFunc: isAllowedForUpgradePolicyFunc,
 	}
 }
 
-// IsImageChangeNeeded checks whether an image change is needed and/or in
-// progress.  It will return true for the first parm if an image change should
+// IsUpgradeNeeded checks whether an upgrade is needed and/or in
+// progress.  It will return true for the first parm if an upgrade should
 // proceed.
-func (i *ImageChangeManager) IsImageChangeNeeded(ctx context.Context) (bool, error) {
+func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
 	// no-op for ScheduleOnly init policy
 	if i.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return false, nil
 	}
 
-	if ok, err := i.isImageChangeInProgress(); ok || err != nil {
+	if ok, err := i.isUpgradeInProgress(); ok || err != nil {
 		return ok, err
 	}
 
-	if ok := i.IsAllowedForImageChangePolicyFunc(i.Vdb); !ok {
+	if ok := i.IsAllowedForUpgradePolicyFunc(i.Vdb); !ok {
 		return ok, nil
 	}
 
 	return i.isVDBImageDifferent(ctx)
 }
 
-// isImageChangeInProgress returns true if state indicates that an image change
+// isUpgradeInProgress returns true if state indicates that an upgrade
 // is already occurring.
-func (i *ImageChangeManager) isImageChangeInProgress() (bool, error) {
-	// We first check if the status condition indicates the image change is in progress
+func (i *UpgradeManager) isUpgradeInProgress() (bool, error) {
+	// We first check if the status condition indicates the upgrade is in progress
 	inx, ok := vapi.VerticaDBConditionIndexMap[i.StatusCondition]
 	if !ok {
 		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", i.StatusCondition)
 	}
 	if inx < len(i.Vdb.Status.Conditions) && i.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
-		// Set a flag to indicate that we are continuing an image change.  This silences the ImageChangeStarted event.
-		i.ContinuingImageChange = true
+		// Set a flag to indicate that we are continuing an upgrade.  This silences the UpgradeStarted event.
+		i.ContinuingUpgrade = true
 		return true, nil
 	}
 	return false, nil
 }
 
-// isVDBImageDifferent will check if an image change is needed based on the
+// isVDBImageDifferent will check if an upgrade is needed based on the
 // image being different between the Vdb and any of the statefulset's.
-func (i *ImageChangeManager) isVDBImageDifferent(ctx context.Context) (bool, error) {
+func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) {
 	stss, err := i.Finder.FindStatefulSets(ctx, FindInVdb)
 	if err != nil {
 		return false, err
@@ -109,24 +109,24 @@ func (i *ImageChangeManager) isVDBImageDifferent(ctx context.Context) (bool, err
 	return false, nil
 }
 
-// startImageChange handles condition status and event recording for start of an image change
-func (i *ImageChangeManager) startImageChange(ctx context.Context) (ctrl.Result, error) {
-	i.Log.Info("Starting image change for reconciliation iteration", "ContinuingImageChange", i.ContinuingImageChange)
+// startUpgrade handles condition status and event recording for start of an upgrade
+func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	i.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", i.ContinuingUpgrade)
 	if err := i.toggleImageChangeInProgress(ctx, corev1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// We only log an event message the first time we begin an image change.
-	if !i.ContinuingImageChange {
-		i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.ImageChangeStart,
-			"Vertica server image change has started.  New image is '%s'", i.Vdb.Spec.Image)
+	// We only log an event message the first time we begin an upgrade.
+	if !i.ContinuingUpgrade {
+		i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeStart,
+			"Vertica server upgrade has started.  New image is '%s'", i.Vdb.Spec.Image)
 	}
 	return ctrl.Result{}, nil
 }
 
-// finishImageChange handles condition status and event recording for the end of an image change
-func (i *ImageChangeManager) finishImageChange(ctx context.Context) (ctrl.Result, error) {
-	if err := i.setImageChangeStatus(ctx, ""); err != nil {
+// finishUpgrade handles condition status and event recording for the end of an upgrade
+func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
+	if err := i.setUpgradeStatus(ctx, ""); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -134,8 +134,8 @@ func (i *ImageChangeManager) finishImageChange(ctx context.Context) (ctrl.Result
 		return ctrl.Result{}, err
 	}
 
-	i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.ImageChangeSucceeded,
-		"Vertica server image change has completed successfully")
+	i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
+		"Vertica server upgrade has completed successfully")
 
 	return ctrl.Result{}, nil
 }
@@ -143,7 +143,7 @@ func (i *ImageChangeManager) finishImageChange(ctx context.Context) (ctrl.Result
 // toggleImageChangeInProgress is a helper for updating the
 // ImageChangeInProgress condition's.  We set the ImageChangeInProgress plus the
 // one defined in i.StatusCondition.
-func (i *ImageChangeManager) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
+func (i *UpgradeManager) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
 	err := status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
 		vapi.VerticaDBCondition{Type: vapi.ImageChangeInProgress, Status: newVal},
 	)
@@ -155,20 +155,20 @@ func (i *ImageChangeManager) toggleImageChangeInProgress(ctx context.Context, ne
 	)
 }
 
-// setImageChangeStatus is a helper to set the imageChangeStatus message.
-func (i *ImageChangeManager) setImageChangeStatus(ctx context.Context, msg string) error {
-	return status.UpdateImageChangeStatus(ctx, i.VRec.Client, i.Vdb, msg)
+// setUpgradeStatus is a helper to set the upgradeStatus message.
+func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg string) error {
+	return status.UpdateUpgradeStatus(ctx, i.VRec.Client, i.Vdb, msg)
 }
 
 // updateImageInStatefulSets will change the image in each of the statefulsets.
 // This changes the images in all subclusters except any transient ones.
-func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context) (int, ctrl.Result, error) {
+func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, ctrl.Result, error) {
 	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
 
 	// We use FindExisting for the finder because we only want to work with sts
-	// that already exist.  This is necessary incase the image change was paired
+	// that already exist.  This is necessary incase the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
-	// doesn't take affect until after the image change.
+	// doesn't take affect until after the upgrade.
 	stss, err := i.Finder.FindStatefulSets(ctx, FindExisting)
 	if err != nil {
 		return numStsChanged, ctrl.Result{}, err
@@ -195,7 +195,7 @@ func (i *ImageChangeManager) updateImageInStatefulSets(ctx context.Context) (int
 
 // updateImageInStatefulSet will update the image in the given statefulset.  It
 // returns true if the image was changed.
-func (i *ImageChangeManager) updateImageInStatefulSet(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
+func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
 	stsUpdated := false
 	// Skip the statefulset if it already has the proper image.
 	if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
@@ -217,13 +217,13 @@ func (i *ImageChangeManager) updateImageInStatefulSet(ctx context.Context, sts *
 // deletePodsRunningOldImage will delete pods that have the old image.  It will return the
 // number of pods that were deleted.  Callers can control whether to delete pods
 // for a specific subcluster or all -- passing an empty string for scName will delete all.
-func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, scName string) (int, error) {
+func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName string) (int, error) {
 	numPodsDeleted := 0 // Tracks the number of pods that were deleted
 
 	// We use FindExisting for the finder because we only want to work with pods
-	// that already exist.  This is necessary in case the image change was paired
+	// that already exist.  This is necessary in case the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
-	// doesn't take affect until after the image change.
+	// doesn't take affect until after the upgrade.
 	pods, err := i.Finder.FindPods(ctx, FindExisting)
 	if err != nil {
 		return numPodsDeleted, err
@@ -255,39 +255,39 @@ func (i *ImageChangeManager) deletePodsRunningOldImage(ctx context.Context, scNa
 // postNextStatusMsg will set the next status message.  This will only
 // transition to a message, defined by msgIndex, if the current status equals
 // the previous one.
-func (i *ImageChangeManager) postNextStatusMsg(ctx context.Context, statusMsgs []string, msgIndex int) error {
+func (i *UpgradeManager) postNextStatusMsg(ctx context.Context, statusMsgs []string, msgIndex int) error {
 	if msgIndex >= len(statusMsgs) {
 		return fmt.Errorf("msgIndex out of bounds: %d must be between %d and %d", msgIndex, 0, len(statusMsgs)-1)
 	}
 
 	if msgIndex == 0 {
-		if i.Vdb.Status.ImageChangeStatus == "" {
-			return i.setImageChangeStatus(ctx, statusMsgs[msgIndex])
+		if i.Vdb.Status.UpgradeStatus == "" {
+			return i.setUpgradeStatus(ctx, statusMsgs[msgIndex])
 		}
 		return nil
 	}
 
-	if statusMsgs[msgIndex-1] == i.Vdb.Status.ImageChangeStatus {
-		return i.setImageChangeStatus(ctx, statusMsgs[msgIndex])
+	if statusMsgs[msgIndex-1] == i.Vdb.Status.UpgradeStatus {
+		return i.setUpgradeStatus(ctx, statusMsgs[msgIndex])
 	}
 	return nil
 }
 
-// onlineImageChangeAllowed returns true if image change must be done online
-func onlineImageChangeAllowed(vdb *vapi.VerticaDB) bool {
-	if vdb.Spec.ImageChangePolicy == vapi.OfflineImageChange {
+// onlineUpgradeAllowed returns true if upgrade must be done online
+func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
+	if vdb.Spec.UpgradePolicy == vapi.OfflineUpgrade {
 		return false
 	}
 	// If the field value is missing, we treat it as if Auto was selected.
-	if vdb.Spec.ImageChangePolicy == vapi.AutoImageChange || vdb.Spec.ImageChangePolicy == "" {
-		// Online image change works by scaling out new subclusters to handle
-		// the primaries as they come up with the new versions.  If we don't
-		// have a license, it isn't going to work.
-		if vdb.Spec.LicenseSecret == "" || vdb.Spec.KSafety == vapi.KSafety0 {
+	if vdb.Spec.UpgradePolicy == vapi.AutoUpgrade || vdb.Spec.UpgradePolicy == "" {
+		// Online upgrade with a transient subcluster works by scaling out new
+		// subclusters to handle the primaries as they come up with the new
+		// versions.  If we don't have a license, it isn't going to work.
+		if (vdb.RequiresTransientSubcluster() && vdb.Spec.LicenseSecret == "") || vdb.Spec.KSafety == vapi.KSafety0 {
 			return false
 		}
 		vinf, ok := version.MakeInfoFromVdb(vdb)
-		if ok && vinf.IsEqualOrNewer(version.OnlineImageChangeVersion) {
+		if ok && vinf.IsEqualOrNewer(version.OnlineUpgradeVersion) {
 			return true
 		}
 		return false
@@ -295,7 +295,7 @@ func onlineImageChangeAllowed(vdb *vapi.VerticaDB) bool {
 	return true
 }
 
-// offlineImageChangeAllowed returns true if image change must be done offline
-func offlineImageChangeAllowed(vdb *vapi.VerticaDB) bool {
-	return !onlineImageChangeAllowed(vdb)
+// offlineUpgradeAllowed returns true if upgrade must be done offline
+func offlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
+	return !onlineUpgradeAllowed(vdb)
 }

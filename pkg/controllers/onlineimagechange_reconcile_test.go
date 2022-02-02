@@ -40,7 +40,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.skipTransientSetup()).Should(BeTrue())
 		vdb.Spec.Image = NewImageName
@@ -63,7 +63,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		defer deleteSvcs(ctx, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))
 
@@ -97,7 +97,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		defer deletePods(ctx, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		oldImage, ok := r.fetchOldImage()
 		Expect(ok).Should(BeTrue())
@@ -130,7 +130,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
@@ -165,7 +165,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		defer deleteSvcs(ctx, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
@@ -189,7 +189,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		defer deleteSvcs(ctx, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.skipTransientSetup()).Should(BeTrue())
 	})
 
@@ -215,7 +215,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
 		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(PriScName))
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 
 		// Route for primary subcluster
 		Expect(r.routeClientTraffic(ctx, PriScName, true)).Should(Succeed())
@@ -253,7 +253,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		defer deletePods(ctx, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
@@ -279,7 +279,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		}
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{SecScName, PriScName}
 		vdb.Spec.Image = OldImage
-		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		vdb.Spec.IgnoreUpgradePath = true
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -289,7 +289,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		sts := &appsv1.StatefulSet{}
@@ -299,14 +299,14 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
 	})
 
-	It("should have an imageChangeStatus set when it fails during the drain", func() {
+	It("should have an upgradeStatus set when it fails during the drain", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "sc1", IsPrimary: true, Size: 1},
 		}
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
 		vdb.Spec.Image = OldImage
-		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
@@ -315,9 +315,9 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		Expect(vdb.Status.ImageChangeStatus).Should(Equal("Draining primary subclusters"))
+		Expect(vdb.Status.UpgradeStatus).Should(Equal("Draining primary subclusters"))
 	})
 
 	It("should requeue if there are active connections in the subcluster", func() {
@@ -327,7 +327,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		}
 		sc := &vdb.Spec.Subclusters[0]
 		vdb.Spec.Image = OldImage
-		vdb.Spec.ImageChangePolicy = vapi.OnlineImageChange
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
@@ -336,7 +336,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		pn := names.GenPodName(vdb, sc, 0)
 		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
 		r.PFacts.Detail[pn].upNode = true
@@ -352,7 +352,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
 	})
 
-	It("should return transient if doing online image change and transient isn't created yet", func() {
+	It("should return transient if doing online upgrade and transient isn't created yet", func() {
 		vdb := vapi.MakeVDB()
 		const ScName = "sc1"
 		const TransientScName = "a-transient"
@@ -375,8 +375,8 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
-		r := createOnlineImageChangeReconciler(vdb)
-		Expect(r.Manager.startImageChange(ctx)).Should(Equal(ctrl.Result{}))
+		r := createOnlineUpgradeReconciler(vdb)
+		Expect(r.Manager.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 
 		// Confirm transient doesn't exist
 		sts := &appsv1.StatefulSet{}
@@ -410,7 +410,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 			{Name: PriScName, IsPrimary: true, Size: 1},
 		}
 
-		r := createOnlineImageChangeReconciler(vdb)
+		r := createOnlineUpgradeReconciler(vdb)
 		scMap := vdb.GenSubclusterMap()
 		routingSc := r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[0], scMap)
 		Expect(routingSc.Name).Should(Equal(PriScName))
@@ -427,10 +427,10 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 	})
 })
 
-// createOnlineImageChangeReconciler is a helper to run the OnlineImageChangeReconciler.
-func createOnlineImageChangeReconciler(vdb *vapi.VerticaDB) *OnlineImageChangeReconciler {
+// createOnlineUpgradeReconciler is a helper to run the OnlineUpgradeReconciler.
+func createOnlineUpgradeReconciler(vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := MakePodFacts(k8sClient, fpr)
-	actor := MakeOnlineImageChangeReconciler(vrec, logger, vdb, fpr, &pfacts)
-	return actor.(*OnlineImageChangeReconciler)
+	actor := MakeOnlineUpgradeReconciler(vrec, logger, vdb, fpr, &pfacts)
+	return actor.(*OnlineUpgradeReconciler)
 }

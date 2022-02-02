@@ -109,8 +109,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// of the operator.
 		MakeUpgradeOperator120Reconciler(r, log, vdb),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
-		MakeOfflineImageChangeReconciler(r, log, vdb, prunner, &pfacts),
-		MakeOnlineImageChangeReconciler(r, log, vdb, prunner, &pfacts),
+		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, &pfacts),
+		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, &pfacts),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, &pfacts, true),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),

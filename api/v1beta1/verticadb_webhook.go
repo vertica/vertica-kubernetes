@@ -709,12 +709,12 @@ func (v *VerticaDB) isImageChangeInProgress() bool {
 // imageChangePolicy.  It will log an error if it detects a change in that field
 // when it isn't allowed.
 func (v *VerticaDB) checkImmutableImageChangePolicy(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.ImageChangePolicy == oldObj.Spec.ImageChangePolicy ||
+	if v.Spec.UpgradePolicy == oldObj.Spec.UpgradePolicy ||
 		!oldObj.isImageChangeInProgress() {
 		return allErrs
 	}
 	err := field.Invalid(field.NewPath("spec").Child("imageChangePolicy"),
-		v.Spec.ImageChangePolicy,
+		v.Spec.UpgradePolicy,
 		"imageChangePolicy cannot change because image change is in progress")
 	allErrs = append(allErrs, err)
 	return allErrs

@@ -132,19 +132,17 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
 	// +kubebuilder:default:=Auto
-	// Defines how image change will be managed.  Available values are: Offline,
+	// Defines how upgrade will be managed.  Available values are: Offline,
 	// Online and Auto.
 	// - Offline: means we take down the entire cluster then bring it back up
 	// with the new image.
-	// - Online: will keep the cluster up when the image change occurs.  The
+	// - Online: will keep the cluster up when the upgrade occurs.  The
 	// data will go into read-only mode until the Vertica nodes from the primary
-	// subcluster reform the cluster with the new image.  This policy requires
-	// that a Vertica license be used to allow the subcluster to expand
-	// temporarily to handle traffic for each subclusters.
+	// subcluster reform the cluster with the new image.
 	// - Auto: will pick between Offline or Online.  Online is only chosen if a
 	// license Secret exists, the k-Safety of the database is 1 and we are
 	// running with a Vertica version that supports read-only subclusters.
-	ImageChangePolicy ImageChangePolicyType `json:"imageChangePolicy"`
+	UpgradePolicy UpgradePolicyType `json:"upgradePolicy"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=false
@@ -202,11 +200,11 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// When doing an online image change, we designate a subcluster to
+	// When doing an online upgrade, we designate a subcluster to
 	// accept traffic while the other subclusters restart.  The designated
 	// subcluster is specified here.  The name of the subcluster can refer to an
 	// existing one or an entirely new subcluster.  If the subcluster is new, it
-	// will exist only for the duration of the image change.  If this struct is
+	// will exist only for the duration of the upgrade.  If this struct is
 	// left empty the operator will default to picking existing subclusters.
 	TemporarySubclusterRouting SubclusterSelection `json:"temporarySubclusterRouting,omitempty"`
 
@@ -304,7 +302,7 @@ type LocalObjectReference struct {
 // SubclusterSelection is used to select between existing subcluster by name
 // or provide a template for a new subcluster.  This is used to specify what
 // subcluster gets client routing for subcluster we are restarting during online
-// image change.
+// upgrade.
 type SubclusterSelection struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
@@ -315,7 +313,7 @@ type SubclusterSelection struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// A new subcluster will be created using this as a template.  This
-	// subcluster will only exist for the life of the online image change.  It
+	// subcluster will only exist for the life of the online upgrade.  It
 	// will accept client traffic for a subcluster that are in the process of
 	// being restarted.
 	Template Subcluster `json:"template,omitempty"`
@@ -345,23 +343,22 @@ const (
 	KSafety1 KSafetyType = "1"
 )
 
-type ImageChangePolicyType string
+type UpgradePolicyType string
 
 const (
-	// Image change is done fully offline.  This means the cluster is stopped,
+	// Upgrade is done fully offline.  This means the cluster is stopped,
 	// then restarted with the new image.
-	OfflineImageChange ImageChangePolicyType = "Offline"
-	// Image change is done online.  This scales out new secondary subcluster
-	// for each primary subcluster.  Then primary subclusters are then taken
-	// down, leaving the secondary subclusters in read-only mode.  When the
-	// primary subcluster comes back up, we restart/remove all of the secondary
+	OfflineUpgrade UpgradePolicyType = "Offline"
+	// Upgrade is done online.  The primary subclusters are taken down first,
+	// leaving the secondary subclusters in read-only mode.  When the primary
+	// subcluster comes back up, we restart/remove all of the secondary
 	// subclusters to take them out of read-only mode.
-	OnlineImageChange ImageChangePolicyType = "Online"
-	// This automatically picks between offline and online image change.  Online
-	// can only be used if (a) a license secret exists since we need to scale
+	OnlineUpgrade UpgradePolicyType = "Online"
+	// This automatically picks between offline and online upgrade.  Online
+	// can only be used if (a) a license secret exists since we may need to scale
 	// out, (b) we are already on a minimum Vertica engine version that supports
 	// read-only subclusters and (c) has a k-safety of 1.
-	AutoImageChange ImageChangePolicyType = "Auto"
+	AutoUpgrade UpgradePolicyType = "Auto"
 )
 
 // Defines a number of pods for a specific subcluster
@@ -530,7 +527,7 @@ type Subcluster struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// Internal state that indicates whether this is a transient read-only
-	// subcluster used for online image change.  A subcluster that exists
+	// subcluster used for online upgrade.  A subcluster that exists
 	// temporarily to serve traffic for subclusters that are restarting with the
 	// new image.
 	IsTransient bool `json:"isTransient,omitempty"`
@@ -661,9 +658,9 @@ type VerticaDBStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
-	// Status message for the current running image change.   If no image change
+	// Status message for the current running upgrade.   If no upgrade
 	// is occurring, this message remains blank.
-	ImageChangeStatus string `json:"imageChangeStatus"`
+	UpgradeStatus string `json:"upgradeStatus"`
 }
 
 // VerticaDBConditionType defines type for VerticaDBCondition
@@ -675,11 +672,11 @@ const (
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
 	// ImageChangeInProgress indicates if the vertica server is in the process
-	// of having its image change.  We have two additional conditions to
-	// distinguish between online and offline image change.
-	ImageChangeInProgress        VerticaDBConditionType = "ImageChangeInProgress"
-	OfflineImageChangeInProgress VerticaDBConditionType = "OfflineImageChangeInProgress"
-	OnlineImageChangeInProgress  VerticaDBConditionType = "OnlineImageChangeInProgress"
+	// of having its image change (aka upgrade).  We have two additional conditions to
+	// distinguish between online and offline upgrade.
+	ImageChangeInProgress    VerticaDBConditionType = "ImageChangeInProgress"
+	OfflineUpgradeInProgress VerticaDBConditionType = "OfflineUpgradeInProgress"
+	OnlineUpgradeInProgress  VerticaDBConditionType = "OnlineUpgradeInProgress"
 )
 
 // Fixed index entries for each condition.
@@ -687,28 +684,28 @@ const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
 	ImageChangeInProgressIndex
-	OfflineImageChangeInProgressIndex
-	OnlineImageChangeInProgressIndex
+	OfflineUpgradeInProgressIndex
+	OnlineUpgradeInProgressIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
 // index in the condition array
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica:           AutoRestartVerticaIndex,
-	DBInitialized:                DBInitializedIndex,
-	ImageChangeInProgress:        ImageChangeInProgressIndex,
-	OfflineImageChangeInProgress: OfflineImageChangeInProgressIndex,
-	OnlineImageChangeInProgress:  OnlineImageChangeInProgressIndex,
+	AutoRestartVertica:       AutoRestartVerticaIndex,
+	DBInitialized:            DBInitializedIndex,
+	ImageChangeInProgress:    ImageChangeInProgressIndex,
+	OfflineUpgradeInProgress: OfflineUpgradeInProgressIndex,
+	OnlineUpgradeInProgress:  OnlineUpgradeInProgressIndex,
 }
 
 // VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
 // maps an index to the condition name.
 var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
-	AutoRestartVerticaIndex:           AutoRestartVertica,
-	DBInitializedIndex:                DBInitialized,
-	ImageChangeInProgressIndex:        ImageChangeInProgress,
-	OfflineImageChangeInProgressIndex: OfflineImageChangeInProgress,
-	OnlineImageChangeInProgressIndex:  OnlineImageChangeInProgress,
+	AutoRestartVerticaIndex:       AutoRestartVertica,
+	DBInitializedIndex:            DBInitialized,
+	ImageChangeInProgressIndex:    ImageChangeInProgress,
+	OfflineUpgradeInProgressIndex: OfflineUpgradeInProgress,
+	OnlineUpgradeInProgressIndex:  OnlineUpgradeInProgress,
 }
 
 // VerticaDBCondition defines condition for VerticaDB
@@ -948,7 +945,7 @@ func (s *Subcluster) GetServiceName() string {
 	return s.ServiceName
 }
 
-// RequiresTransientSubcluster checks if an online image change requires a
+// RequiresTransientSubcluster checks if an online upgrade requires a
 // transient subcluster.  A transient subcluster exists if the template is
 // filled out.
 func (v *VerticaDB) RequiresTransientSubcluster() bool {
@@ -956,8 +953,8 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 		v.Spec.TemporarySubclusterRouting.Template.Size > 0
 }
 
-// IsOnlineImageChangeInProgress returns true if an online image change is in progress
-func (v *VerticaDB) IsOnlineImageChangeInProgress() bool {
-	inx := OnlineImageChangeInProgressIndex
+// IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
+func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
+	inx := OnlineUpgradeInProgressIndex
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
 }

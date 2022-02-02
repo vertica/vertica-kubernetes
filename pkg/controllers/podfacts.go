@@ -100,7 +100,7 @@ type PodFact struct {
 	// True if /opt/vertica/config/share exists
 	configShareExists bool
 
-	// True if this pod is for a transient subcluster created for online image change
+	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
 }
 

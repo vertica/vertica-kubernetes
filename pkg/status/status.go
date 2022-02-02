@@ -91,11 +91,11 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaD
 	return Update(ctx, clnt, vdb, refreshConditionInPlace)
 }
 
-// UpdateImageChangeStatus will update the image change status message.  The
+// UpdateUpgradeStatus will update the upgrade status message.  The
 // input vdb will be updated with the status message.
-func UpdateImageChangeStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, msg string) error {
+func UpdateUpgradeStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, msg string) error {
 	return Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
-		vdb.Status.ImageChangeStatus = msg
+		vdb.Status.UpgradeStatus = msg
 		return nil
 	})
 }

@@ -326,8 +326,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should allow imageChangePolicy to be changed when image change is not in progress", func() {
 		vdbUpdate := createVDBHelper()
 		vdbOrig := createVDBHelper()
-		vdbOrig.Spec.ImageChangePolicy = OfflineImageChange
-		vdbUpdate.Spec.ImageChangePolicy = OnlineImageChange
+		vdbOrig.Spec.UpgradePolicy = OfflineUpgrade
+		vdbUpdate.Spec.UpgradePolicy = OnlineUpgrade
 		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).Should(BeNil())
 
