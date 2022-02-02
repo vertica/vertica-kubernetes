@@ -632,6 +632,12 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 			allErrs = append(allErrs, err)
 		}
 	}
+	if len(v.Spec.TemporarySubclusterRouting.Names) > 0 && v.RequiresTransientSubcluster() {
+		err := field.Invalid(fieldPrefix,
+			v.Spec.TemporarySubclusterRouting,
+			"cannot use a template and a list of subcluster names at the same time")
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 

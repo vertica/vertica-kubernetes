@@ -29,8 +29,7 @@ import (
 )
 
 const (
-	SuperuserPasswordPath          = "superuser-passwd"
-	DefaultTransientSubclusterName = "transient"
+	SuperuserPasswordPath = "superuser-passwd"
 )
 
 // buildExtSvc creates desired spec for the external service.
@@ -589,8 +588,8 @@ func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 // existing subcluster
 func buildTransientSubcluster(vdb *vapi.VerticaDB, imageOverride string) *vapi.Subcluster {
 	return &vapi.Subcluster{
-		Name:              transientSubclusterName(vdb),
-		Size:              transientSubclusterSize(vdb),
+		Name:              vdb.Spec.TemporarySubclusterRouting.Template.Name,
+		Size:              vdb.Spec.TemporarySubclusterRouting.Template.Size,
 		IsTransient:       true,
 		ImageOverride:     imageOverride,
 		IsPrimary:         false,
@@ -603,20 +602,4 @@ func buildTransientSubcluster(vdb *vapi.VerticaDB, imageOverride string) *vapi.S
 		// object.  These are ignored since transient don't have their own
 		// service objects.
 	}
-}
-
-// transientSuclusterName returns the name of the transient subcluster
-func transientSubclusterName(vdb *vapi.VerticaDB) string {
-	if vdb.Spec.TemporarySubclusterRouting.Template.Name == "" {
-		return DefaultTransientSubclusterName
-	}
-	return vdb.Spec.TemporarySubclusterRouting.Template.Name
-}
-
-// transientSubclusterSize returns the size of the transient subcluster.
-func transientSubclusterSize(vdb *vapi.VerticaDB) int32 {
-	if vdb.Spec.TemporarySubclusterRouting.Template.Size > 0 {
-		return vdb.Spec.TemporarySubclusterRouting.Template.Size
-	}
-	return 1
 }

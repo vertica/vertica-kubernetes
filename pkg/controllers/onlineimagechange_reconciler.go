@@ -543,50 +543,97 @@ func (o *OnlineImageChangeReconciler) routeClientTraffic(ctx context.Context,
 	// to a transient subcluster (if one exists) or to a subcluster
 	// defined in the vdb.
 	if setTemporaryRouting {
-		foundRoutingSubcluster := false
-		for i := range o.Vdb.Spec.TemporarySubclusterRouting.Names {
-			routeName := o.Vdb.Spec.TemporarySubclusterRouting.Names[i]
-			routingSc, ok := scMap[routeName]
-			if !ok {
-				o.Log.Info("Temporary routing subcluster not found.  Skipping", "Name", routeName)
-				continue
-			}
+		routingSc := o.getSubclusterForTemporaryRouting(ctx, sc, scMap)
+		if routingSc != nil {
 			svc.Spec.Selector = makeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, routingSc)
-			foundRoutingSubcluster = true
-
-			// Keep searching if we are routing to the subcluster we are taking
-			// offline.  We may continue with this subcluster still if no other
-			// subclusters are defined -- this is why we updated the svc object
-			// with it.
-			if routeName == scName {
-				continue
-			}
-			break
-		}
-		if !foundRoutingSubcluster {
-			// We are modifying a copy of sc, so we set the IsTransient flag to
-			// know what subcluster we are going to route to.
-			transientSc := buildTransientSubcluster(o.Vdb, "")
-
-			// Only continue if the transient subcluster exists. It may not
-			// exist if the entire cluster was down when we attempted to create it.
-			transientSts := &appsv1.StatefulSet{}
-			stsName := names.GenStsName(o.Vdb, transientSc)
-			if err := o.VRec.Client.Get(ctx, stsName, transientSts); err != nil {
-				if errors.IsNotFound(err) {
-					o.Log.Info("Skipping routing to transient since it does not exist", "name", stsName)
-					return nil
-				}
-				return nil
-			}
-
-			svc.Spec.Selector = makeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, transientSc)
 		}
 	} else {
 		svc.Spec.Selector = makeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sc)
 	}
 	o.Log.Info("Updating svc", "selector", svc.Spec.Selector)
 	return objRec.reconcileExtSvc(ctx, svc, sc)
+}
+
+// getSubclusterForTemporaryRouting returns a pointer to a subcluster to use for
+// temporary routing.  If no routing decision could be made, this will return nil.
+func (o *OnlineImageChangeReconciler) getSubclusterForTemporaryRouting(ctx context.Context,
+	offlineSc *vapi.Subcluster, scMap map[string]*vapi.Subcluster) *vapi.Subcluster {
+	if o.Vdb.RequiresTransientSubcluster() {
+		// We are modifying a copy of sc, so we set the IsTransient flag to
+		// know what subcluster we are going to route to.
+		transientSc := buildTransientSubcluster(o.Vdb, "")
+
+		// Only continue if the transient subcluster exists. It may not
+		// exist if the entire cluster was down when we attempted to create it.
+		transientSts := &appsv1.StatefulSet{}
+		stsName := names.GenStsName(o.Vdb, transientSc)
+		if err := o.VRec.Client.Get(ctx, stsName, transientSts); err != nil {
+			if errors.IsNotFound(err) {
+				o.Log.Info("Skipping routing to transient since it does not exist", "name", stsName)
+				return nil
+			}
+			return nil
+		}
+		return transientSc
+	}
+
+	var routingSc *vapi.Subcluster
+
+	// If no subcluster routing is specified, we will pick existing subclusters.
+	if len(o.Vdb.Spec.TemporarySubclusterRouting.Names) == 0 {
+		return o.pickDefaultSubclusterForTemporaryRouting(offlineSc)
+	}
+
+	// Pick one of the subclusters defined in Names.  We pick the first one that
+	// isn't currently being taken offline.
+	for i := range o.Vdb.Spec.TemporarySubclusterRouting.Names {
+		routeName := o.Vdb.Spec.TemporarySubclusterRouting.Names[i]
+		sc, ok := scMap[routeName]
+		if !ok {
+			o.Log.Info("Temporary routing subcluster not found.  Skipping", "Name", routeName)
+			continue
+		}
+		routingSc = sc
+
+		// Keep searching if we are routing to the subcluster we are taking
+		// offline.  We may continue with this subcluster still if no other
+		// subclusters are defined -- this is why we updated the svc object
+		// with it.
+		if routeName != offlineSc.Name {
+			return routingSc
+		}
+	}
+	return routingSc
+}
+
+// pickDefaultSubclusterForTemporaryRouting will pick a suitable default for
+// temporary routing.  This is called when the temporarySubclusterRouting field
+// in the CR is empty.
+func (o *OnlineImageChangeReconciler) pickDefaultSubclusterForTemporaryRouting(offlineSc *vapi.Subcluster) *vapi.Subcluster {
+	// When we take down primaries, we take all of the primaries.  So we pick
+	// the first secondary we can find.  If there are no secondaries, then
+	// selecting the first subcluster will do.  The upgrade won't be online in
+	// this case, but there isn't anything we can do.
+	if offlineSc.IsPrimary {
+		for i := range o.Vdb.Spec.Subclusters {
+			sc := &o.Vdb.Spec.Subclusters[i]
+			if !sc.IsPrimary {
+				return sc
+			}
+		}
+		return &o.Vdb.Spec.Subclusters[0]
+	}
+
+	// If taking down a secondary, we pick the first non-matching subcluster.
+	// That subcluster we pick should be up, only the offlineSc subcluster will
+	// be down.
+	for i := range o.Vdb.Spec.Subclusters {
+		sc := &o.Vdb.Spec.Subclusters[i]
+		if sc.Name != offlineSc.Name {
+			return sc
+		}
+	}
+	return nil
 }
 
 // isSubclusterIdle will run a query to see the number of connections

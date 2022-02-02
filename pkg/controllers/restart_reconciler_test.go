@@ -548,6 +548,11 @@ var _ = Describe("restart_reconciler", func() {
 	It("should skip restart_node of transient nodes", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
+		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
+			Name:      "the-transient-sc",
+			Size:      1,
+			IsPrimary: false,
+		}
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)

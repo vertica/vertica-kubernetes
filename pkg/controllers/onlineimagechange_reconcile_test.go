@@ -36,6 +36,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 
 	It("should skip transient subcluster setup only when primaries have matching image", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{Name: "transient", Size: 1, IsPrimary: false}
 		createPods(ctx, vdb, AllPodsRunning)
 		defer deletePods(ctx, vdb)
 
@@ -54,6 +55,7 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 			{Name: "sc3-primary", IsPrimary: true, Size: 3},
 		}
 		vdb.Spec.Subclusters = scs
+		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{Name: "transient", Size: 1, IsPrimary: false}
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
@@ -110,7 +112,11 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 			{Name: ScName, IsPrimary: true},
 		}
 		sc := &vdb.Spec.Subclusters[0]
-		vdb.Spec.TemporarySubclusterRouting.Template.Name = TransientScName
+		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
+			Name:      TransientScName,
+			Size:      1,
+			IsPrimary: false,
+		}
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -145,7 +151,11 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 			{Name: ScName, IsPrimary: true},
 		}
 		sc := &vdb.Spec.Subclusters[0]
-		vdb.Spec.TemporarySubclusterRouting.Template.Name = "some-sc-not-to-be-created"
+		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
+			Name:      "some-sc-not-to-be-created",
+			Size:      1,
+			IsPrimary: false,
+		}
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -349,7 +359,11 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: ScName, IsPrimary: true, Size: 1},
 		}
-		vdb.Spec.TemporarySubclusterRouting.Template.Name = TransientScName
+		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
+			Name:      TransientScName,
+			Size:      1,
+			IsPrimary: false,
+		}
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -386,6 +400,30 @@ var _ = Describe("onlineimagechange_reconcile", func() {
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0].Name).Should(Equal(TransientScName))
 		Expect(scs[1].Name).Should(Equal(ScName))
+	})
+
+	It("should route to existing cluster if temporarySubclusterRouting isn't set", func() {
+		vdb := vapi.MakeVDB()
+		const PriScName = "pri1"
+		const SecScName = "sec2"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: PriScName, IsPrimary: true, Size: 1},
+		}
+
+		r := createOnlineImageChangeReconciler(vdb)
+		scMap := vdb.GenSubclusterMap()
+		routingSc := r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[0], scMap)
+		Expect(routingSc.Name).Should(Equal(PriScName))
+
+		r.Vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: PriScName, IsPrimary: true, Size: 1},
+			{Name: SecScName, IsPrimary: false, Size: 1},
+		}
+		scMap = vdb.GenSubclusterMap()
+		routingSc = r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[0], scMap)
+		Expect(routingSc.Name).Should(Equal(SecScName))
+		routingSc = r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[1], scMap)
+		Expect(routingSc.Name).Should(Equal(PriScName))
 	})
 })
 

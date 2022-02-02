@@ -358,6 +358,15 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
+	It("should fail setting template and names in temporary routing", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = "my-transient-sc"
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
 	It("should fail if temporary routing to a subcluster doesn't exist", func() {
 		vdb := createVDBHelper()
 		const ValidScName = "sc1"
