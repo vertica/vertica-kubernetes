@@ -27,7 +27,9 @@ spec:
     - name: pri
       size: 3
       isPrimary: true
-  temporarySubclusterRouting:
-    names:
-      - pri
+  # Intentionally leaving out temporarySubclusterRouting to test the
+  # default.  Leaving the default in as comments.
+  # temporarySubclusterRouting:
+  #   names:
+  #     - pri
   certSecrets: []
