@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -95,26 +96,41 @@ var _ = Describe("sc_finder", func() {
 		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
 	})
 
-	It("should only find statefulsets that exist in k8s", func() {
+	It("should only find statefulsets and subclusters that exist in k8s", func() {
 		vdb := vapi.MakeVDB()
+		const RunningImage = "the-running-image"
+		vdb.Spec.Image = RunningImage
 		scNames := []string{"first", "second"}
 		scSizes := []int32{2, 3}
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: scNames[0], Size: scSizes[0]},
-			{Name: scNames[1], Size: scSizes[1]},
+			{Name: scNames[0], Size: scSizes[0], IsPrimary: true},
+			{Name: scNames[1], Size: scSizes[1], IsPrimary: false},
 		}
 		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		vdbCopy := *vdb // Make a copy for cleanup since we will mutate vdb
+		defer deletePods(ctx, &vdbCopy)
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
 
-		// When use the finder, pass in a Vdb that is entirely different then
-		// the one we used above.  It will be ignored anyway when using
-		// FindExisting.
-		finder := MakeSubclusterFinder(k8sClient, vapi.MakeVDB())
+		// Add another subcluster, but since we didn't create any k8s objects
+		// for it, it won't be returned by the finder.
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{Name: "not there"})
+		// Change the image in the vdb spec to prove that we fill in the image
+		// from the statefulset
+		vdb.Spec.Image = "should-not-report-this-image"
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
 		sts, err := finder.FindStatefulSets(ctx, FindExisting)
 		Expect(err).Should(Succeed())
 		Expect(len(sts.Items)).Should(Equal(2))
 		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
 		Expect(sts.Items[1].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[1]).Name))
+
+		scs, err := finder.FindSubclusters(ctx, FindExisting)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(2))
+		Expect(scs[0].Name).Should(Equal(vdb.Spec.Subclusters[0].Name))
+		Expect(scs[1].Name).Should(Equal(vdb.Spec.Subclusters[1].Name))
 	})
 
 	It("should find all pods that exist in k8s for the VerticaDB", func() {
@@ -183,5 +199,61 @@ var _ = Describe("sc_finder", func() {
 		Expect(svcNames).Should(ContainElements(
 			names.GenExtSvcName(vdb, sc2).Name,
 		))
+	})
+
+	It("should return sorted svc if requested", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"zzend", "aafirst"}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0]},
+			{Name: scNames[1]},
+		}
+		createSvcs(ctx, vdb)
+		defer deleteSvcs(ctx, vdb)
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
+		svcs, err := finder.FindServices(ctx, FindExisting|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(svcs.Items[0].Name).Should(ContainSubstring(scNames[1]))
+		Expect(svcs.Items[1].Name).Should(ContainSubstring(scNames[0]))
+	})
+
+	It("should return sorted sts if requested", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"zzlast", "aaseemefirst"}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: 2},
+			{Name: scNames[1], Size: 1},
+		}
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
+		stss, err := finder.FindStatefulSets(ctx, FindExisting|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(stss.Items[0].Name).Should(ContainSubstring(scNames[1]))
+		Expect(stss.Items[1].Name).Should(ContainSubstring(scNames[0]))
+
+		pods, err := finder.FindPods(ctx, FindExisting|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(pods.Items[0].Name).Should(ContainSubstring(scNames[1]))
+		Expect(pods.Items[1].Name).Should(ContainSubstring(fmt.Sprintf("%s-0", scNames[0])))
+		Expect(pods.Items[2].Name).Should(ContainSubstring(fmt.Sprintf("%s-1", scNames[0])))
+	})
+
+	It("should return sorted subclusters if requested", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"zzlast", "aaseemefirst"}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: 2},
+			{Name: scNames[1], Size: 1},
+		}
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
+		subclusters, err := finder.FindSubclusters(ctx, FindInVdb|FindSorted)
+		Expect(err).Should(Succeed())
+		Expect(len(subclusters)).Should(Equal(2))
+		Expect(subclusters[0].Name).Should(ContainSubstring(scNames[1]))
+		Expect(subclusters[1].Name).Should(ContainSubstring(scNames[0]))
 	})
 })

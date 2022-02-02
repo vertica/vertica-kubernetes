@@ -178,6 +178,17 @@ replacements:
           - spec.image
         reject:
         - name: v-upgrade-vertica
+        - name: v-base-upgrade
+  - source:
+      kind: ConfigMap
+      name: e2e
+      fieldPath: data.baseVerticaImage
+    targets:
+      - select:
+          kind: VerticaDB
+          name: v-base-upgrade
+        fieldPaths:
+          - spec.image
   - source:
       kind: ConfigMap
       name: e2e
@@ -418,6 +429,7 @@ metadata:
 data:
   verticaImage: ${VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG}
+  baseVerticaImage: ${BASE_VERTICA_IMG:-"<not-set>"}
 EOF
 
     # If a cert was specified for communal endpoint access, include a datapoint
@@ -631,11 +643,11 @@ setup_creds_for_create_s3_bucket
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e/*/*/base e2e-extra/*/*/base
+for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-11.1/*/*/base e2e-operator-upgrade/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e/* e2e-extra/* e2e-disabled/*
+for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-11.1/* e2e-operator-upgrade/*
 do
     clean_communal_kustomization $tdir
 done

@@ -27,9 +27,9 @@ spec:
   containers:
     - image: vertica/vertica-k8s:11.0.1-0-minimal
 ---
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica-defsc
+  name: v-upgrade-vertica
 status:
-  readyReplicas: 2
+  upgradeStatus: "Restarting cluster with new image"

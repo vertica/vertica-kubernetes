@@ -105,10 +105,14 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	actors := []ReconcileActor{
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
+		// Handle upgrade actions for any k8s objects created in prior versions
+		// of the operator.
+		MakeUpgradeOperator120Reconciler(r, log, vdb),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
-		MakeImageChangeReconciler(r, log, vdb, prunner, &pfacts),
+		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, &pfacts),
+		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, &pfacts),
 		// Handles restart + re_ip of vertica
-		MakeRestartReconciler(r, log, vdb, prunner, &pfacts),
+		MakeRestartReconciler(r, log, vdb, prunner, &pfacts, true),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
 		// Handles calls to admintools -t db_remove_subcluster
 		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, &pfacts),
@@ -123,7 +127,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// statefulsets and service objects.
 		MakeObjReconciler(r, log, vdb, &pfacts),
 		// Set version info in the annotations and check that it is the minimum
-		MakeVersionReconciler(r, log, vdb, prunner, &pfacts),
+		MakeVersionReconciler(r, log, vdb, prunner, &pfacts, false),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),

@@ -108,6 +108,8 @@ EOF
   extraPortMappings:
     - containerPort: $PORT
       hostPort: $VSQL_PORT
+    - containerPort: $(( $PORT + 1 ))
+      hostPort: $(( $VSQL_PORT + 1 ))
 EOF
     fi
     cat $tmpfile

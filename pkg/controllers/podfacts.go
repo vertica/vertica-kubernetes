@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -98,6 +99,9 @@ type PodFact struct {
 
 	// True if /opt/vertica/config/share exists
 	configShareExists bool
+
+	// True if this pod is for a transient subcluster created for online upgrade
+	isTransient bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -153,15 +157,12 @@ func (p *PodFacts) Invalidate() {
 func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster) error {
 	sts := &appsv1.StatefulSet{}
 	maxStsSize := sc.Size
-	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil {
-		// If the statefulset doesn't exist, none of the pods within it exist.  So fine to skip.
-		if !errors.IsNotFound(err) {
-			return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
-		}
-	} else {
-		if *sts.Spec.Replicas > maxStsSize {
-			maxStsSize = *sts.Spec.Replicas
-		}
+	// Attempt to fetch the sts.  We continue even for 'not found' errors
+	// because we want to populate the missing pods into the pod facts.
+	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
+	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
+		maxStsSize = *sts.Spec.Replicas
 	}
 
 	for i := int32(0); i < maxStsSize; i++ {
@@ -197,6 +198,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
+	pf.isTransient, _ = strconv.ParseBool(pod.Labels[SubclusterTransientLabel])
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,
@@ -349,7 +351,7 @@ func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.Ver
 	// The read-only state is a new state added in 11.0.2.  So we can only query
 	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
 	// disabled.
-	vinf, ok := version.MakeInfo(vdb)
+	vinf, ok := version.MakeInfoFromVdb(vdb)
 	if ok && vinf.IsEqualOrNewer(version.NodesHaveReadOnlyStateVersion) {
 		return p.queryNodeStatus(ctx, pf)
 	}
@@ -447,24 +449,25 @@ func (p *PodFacts) doesDBExist() tristate.TriState {
 	return returnOnFail
 }
 
-// anyPodsMissingDB will check whether each pod is added to the database
-// It is a tristate return:
-// - we return True if at least one runable pod doesn't have a database
-// - we return False if all pods have a database
-// - we return None if at least one pod we couldn't determine its state
-func (p *PodFacts) anyPodsMissingDB(scName string) tristate.TriState {
-	returnOnFail := tristate.False
+// anyPodsMissingDB will check whether each pod is added to the database.
+// It returns two states:
+// - missingDB is true if at least one pod was running and had a missing DB
+// - unknownState is true if at least one pod we could not determine if the DB
+// was there or not -- due to the pod not running
+func (p *PodFacts) anyPodsMissingDB(scName string) (missingDB, unknownState bool) {
+	missingDB = false
+	unknownState = false
 	for _, v := range p.Detail {
 		if v.subcluster != scName {
 			continue
 		}
-		if v.dbExists.IsFalse() && v.isPodRunning {
-			return tristate.True
+		if v.dbExists.IsFalse() {
+			missingDB = true
 		} else if v.dbExists.IsNone() {
-			returnOnFail = tristate.None
+			unknownState = true
 		}
 	}
-	return returnOnFail
+	return
 }
 
 // findPodsWithMisstingDB will return a list of pods facts that have a missing DB
@@ -491,21 +494,31 @@ func (p *PodFacts) findPodsWithMissingDB(scName string) []*PodFact {
 // findPodToRunVsql returns the name of the pod we will exec into in
 // order to run vsql
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunVsql() (*PodFact, bool) {
+func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact, bool) {
 	for _, v := range p.Detail {
-		if v.upNode {
+		if scName != "" && v.subcluster != scName {
+			continue
+		}
+		if v.upNode && (allowReadOnly || !v.readOnly) {
 			return v, true
 		}
 	}
 	return &PodFact{}, false
 }
 
-// findPodToRunAdmintools returns the name of the pod we will exec into into
-// order to run admintools
+// findPodToRunAdmintoolsAny returns the name of the pod we will exec into into
+// order to run admintools.
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunAdmintools() (*PodFact, bool) {
-	// We prefer to pick a pod that is up.  But failing that, we will pick one
-	// with vertica installed.
+func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
+	// Our preference for the pod is as follows:
+	// - up and not read-only
+	// - up and read-only
+	// - has vertica installation
+	for _, v := range p.Detail {
+		if v.upNode && !v.readOnly {
+			return v, true
+		}
+	}
 	for _, v := range p.Detail {
 		if v.upNode {
 			return v, true
@@ -513,6 +526,17 @@ func (p *PodFacts) findPodToRunAdmintools() (*PodFact, bool) {
 	}
 	for _, v := range p.Detail {
 		if v.isInstalled.IsTrue() && v.isPodRunning {
+			return v, true
+		}
+	}
+	return &PodFact{}, false
+}
+
+// findPodToRunAdmintoolsOffline will return a pod to run an offline admintools
+// command.  If nothing is found, the second parameter returned will be false.
+func (p *PodFacts) findPodToRunAdmintoolsOffline() (*PodFact, bool) {
+	for _, v := range p.Detail {
+		if v.isInstalled.IsTrue() && v.isPodRunning && !v.upNode {
 			return v, true
 		}
 	}
@@ -532,11 +556,16 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 
 // findRestartablePods returns a list of pod facts that can be restarted.
 // An empty list implies there are no pods that need to be restarted.
-// We treat read-only nodes as being restartable because they are in the
-// read-only state due to losing of cluster quorum.
-func (p *PodFacts) findRestartablePods() []*PodFact {
+// We allow read-only nodes to be treated as being restartable because they are
+// in the read-only state due to losing of cluster quorum.  This is an option
+// for online upgrade, which want to keep the read-only up to keep the cluster
+// accessible.
+func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
-		return (!v.upNode || v.readOnly) && v.dbExists.IsTrue() && v.isPodRunning
+		if !restartTransient && v.isTransient {
+			return false
+		}
+		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists.IsTrue() && v.isPodRunning
 	})
 }
 

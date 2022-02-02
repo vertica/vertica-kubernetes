@@ -19,7 +19,7 @@ status:
   subclusters:
     - installCount: 1
       addedToDBCount: 1
-      upNodeCount: 1
+      upNodeCount: 0
     - installCount: 2
       addedToDBCount: 2
-      upNodeCount: 1
+      upNodeCount: 0

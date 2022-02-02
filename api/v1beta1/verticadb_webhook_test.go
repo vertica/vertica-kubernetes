@@ -219,6 +219,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.ShardCount = 10
 		validateImmutableFields(vdbUpdate)
 	})
+	It("should not change isPrimary after creation", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Spec.Subclusters[0].IsPrimary = !vdbUpdate.Spec.Subclusters[0].IsPrimary
+		validateImmutableFields(vdbUpdate)
+	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.AutoRestartVertica = false
@@ -316,6 +321,118 @@ var _ = Describe("verticadb_webhook", func() {
 			vdb.Spec.Communal.KerberosServiceName = vals[2]
 			validateSpecValuesHaveErr(vdb, true)
 		}
+	})
+
+	It("should allow upgradePolicy to be changed when upgrade is not in progress", func() {
+		vdbUpdate := createVDBHelper()
+		vdbOrig := createVDBHelper()
+		vdbOrig.Spec.UpgradePolicy = OfflineUpgrade
+		vdbUpdate.Spec.UpgradePolicy = OnlineUpgrade
+		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).Should(BeNil())
+
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[ImageChangeInProgressIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+	})
+
+	It("should fail for various issues with temporary subcluster routing template", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = vdb.Spec.Subclusters[0].Name
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = "transient"
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 0
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = true
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should fail setting template and names in temporary routing", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.TemporarySubclusterRouting.Template.Name = "my-transient-sc"
+		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
+		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should fail if temporary routing to a subcluster doesn't exist", func() {
+		vdb := createVDBHelper()
+		const ValidScName = "sc1"
+		const InvalidScName = "notexists"
+		vdb.Spec.Subclusters[0].Name = ValidScName
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{InvalidScName}
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{ValidScName, InvalidScName}
+		validateSpecValuesHaveErr(vdb, true)
+
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{ValidScName}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should prevent change to temporarySubclusterRouting when upgrade is in progress", func() {
+		vdbUpdate := createVDBHelper()
+		vdbOrig := createVDBHelper()
+
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[ImageChangeInProgressIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+
+		vdbUpdate.Spec.TemporarySubclusterRouting.Names = []string{"sc1", "sc2"}
+		vdbOrig.Spec.TemporarySubclusterRouting.Names = []string{"sc3", "sc4"}
+		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+
+		vdbUpdate.Spec.TemporarySubclusterRouting.Names = vdbOrig.Spec.TemporarySubclusterRouting.Names
+		vdbUpdate.Spec.TemporarySubclusterRouting.Template.Name = "transient-sc"
+		vdbOrig.Spec.TemporarySubclusterRouting.Template.Name = "another-name-transient-sc"
+		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+	})
+
+	It("should error out if service specific fields are different in subclusters with matching serviceNames", func() {
+		vdb := createVDBHelper()
+		const ServiceName = "main"
+		vdb.Spec.Subclusters = []Subcluster{
+			{
+				Name:        "sc1",
+				Size:        2,
+				IsPrimary:   true,
+				ServiceName: ServiceName,
+				ServiceType: "NodePort",
+				NodePort:    30008,
+				ExternalIPs: []string{"8.1.2.3", "8.2.4.6"},
+			},
+			{
+				Name:        "sc2",
+				Size:        1,
+				IsPrimary:   false,
+				ServiceName: ServiceName,
+				ServiceType: "ClusterIP",
+				NodePort:    30009,
+				ExternalIPs: []string{"8.1.2.3", "7.2.4.6"},
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].ServiceType = vdb.Spec.Subclusters[0].ServiceType
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].NodePort = vdb.Spec.Subclusters[0].NodePort
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].ExternalIPs[1] = vdb.Spec.Subclusters[0].ExternalIPs[1]
+		validateSpecValuesHaveErr(vdb, false)
 	})
 })
 

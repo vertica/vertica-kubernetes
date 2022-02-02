@@ -59,25 +59,25 @@ func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, req *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	atPod, ok := d.PFacts.findPodToRunAdmintools()
+	return d.addMissingSubclusters(ctx, d.Vdb.Spec.Subclusters)
+}
+
+// addMissingSubclusters will compare subclusters passed in and create any missing ones
+func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, scs []vapi.Subcluster) (ctrl.Result, error) {
+	atPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
 	if !ok || !atPod.upNode {
 		d.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	d.ATPod = atPod
 
-	return d.addMissingSubclusters(ctx)
-}
-
-// addMissingSubclusters will compare subclusters in vertica with vdb and create any missing ones
-func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context) (ctrl.Result, error) {
 	subclusters, res, err := d.fetchSubclusters(ctx)
 	if err != nil || res.Requeue {
 		return res, err
 	}
 
-	for i := range d.Vdb.Spec.Subclusters {
-		sc := &d.Vdb.Spec.Subclusters[i]
+	for i := range scs {
+		sc := &scs[i]
 		_, ok := subclusters[sc.Name]
 		if ok {
 			continue
@@ -131,7 +131,7 @@ func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *va
 	// In v11, when adding a subcluster it defaults to a secondary.  Prior
 	// versions default to a primary.  Use the correct switch, depending on what
 	// version we are using.
-	vinf, ok := version.MakeInfo(d.Vdb)
+	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
 	const DefaultSecondarySubclusterCreationVersion = "v11.0.0"
 	if ok && vinf.IsEqualOrNewer(DefaultSecondarySubclusterCreationVersion) {
 		if sc.IsPrimary {

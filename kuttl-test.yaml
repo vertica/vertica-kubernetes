@@ -17,8 +17,11 @@ kind: TestSuite
 testDirs:
   - tests/e2e
   - tests/e2e-extra
+  - tests/e2e-11.1
 parallel: 2
 timeout: 600
+suppress:
+  - events
 commands:
   # Create the kustomize overlay files to override the image, endpoint, etc.
   - command: scripts/setup-kustomize.sh

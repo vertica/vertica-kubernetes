@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -46,6 +47,8 @@ const (
 	// are already present in the vdb as well as ones that are scheduled for
 	// deletion.  This option is mutually exclusive with the other options.
 	FindExisting
+	// Find will return a list of objects that are sorted by their name
+	FindSorted
 	// Find all subclusters, both in the vdb and not in the vdb.
 	FindAll = FindInVdb | FindNotInVdb
 )
@@ -66,6 +69,11 @@ func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags
 	if err := m.buildObjList(ctx, sts, flags); err != nil {
 		return nil, err
 	}
+	if flags&FindSorted != 0 {
+		sort.Slice(sts.Items, func(i, j int) bool {
+			return sts.Items[i].Name < sts.Items[j].Name
+		})
+	}
 	return sts, nil
 }
 
@@ -74,6 +82,11 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 	svcs := &corev1.ServiceList{}
 	if err := m.buildObjList(ctx, svcs, flags); err != nil {
 		return nil, err
+	}
+	if flags&FindSorted != 0 {
+		sort.Slice(svcs.Items, func(i, j int) bool {
+			return svcs.Items[i].Name < svcs.Items[j].Name
+		})
 	}
 	return svcs, nil
 }
@@ -84,6 +97,11 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*core
 	pods := &corev1.PodList{}
 	if err := m.buildObjList(ctx, pods, flags); err != nil {
 		return nil, err
+	}
+	if flags&FindSorted != 0 {
+		sort.Slice(pods.Items, func(i, j int) bool {
+			return pods.Items[i].Name < pods.Items[j].Name
+		})
 	}
 	return pods, nil
 }
@@ -101,7 +119,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 	}
 
 	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
-		missingSts, err := m.FindStatefulSets(ctx, FindNotInVdb)
+		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb)
 		if err != nil {
 			return nil, err
 		}
@@ -109,9 +127,25 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		// We will convert each statefulset into a vapi.Subcluster stub object.  We
 		// only fill in the name.
 		for i := range missingSts.Items {
-			scName := missingSts.Items[i].Labels[SubclusterLabel]
+			scName := missingSts.Items[i].Labels[SubclusterNameLabel]
 			subclusters = append(subclusters, &vapi.Subcluster{Name: scName})
 		}
+	}
+
+	// We include the transient if it should exist based on online image in
+	// progress state.  This is added after we fetch any subcluster from the
+	// statefulset lookup.  This prevents us from including it twice.
+	if flags&FindInVdb != 0 && m.Vdb.RequiresTransientSubcluster() && m.Vdb.IsOnlineUpgradeInProgress() {
+		transient := buildTransientSubcluster(m.Vdb, "")
+		if !isSubclusterInSlice(transient, subclusters) {
+			subclusters = append(subclusters, transient)
+		}
+	}
+
+	if flags&FindSorted != 0 {
+		sort.Slice(subclusters, func(i, j int) bool {
+			return subclusters[i].Name < subclusters[j].Name
+		})
 	}
 	return subclusters, nil
 }
@@ -132,7 +166,7 @@ func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list 
 
 // hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
-	scName := objLabels[SubclusterLabel]
+	scName := objLabels[SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
 	return ok
 }
@@ -155,8 +189,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		}
 		// Skip if object is not subcluster specific.  This is necessary for objects like
 		// the headless service object that is cluster wide.
-		_, ok = l[SubclusterLabel]
-		if !ok {
+		if !hasSubclusterNameLabel(l) {
 			return nil
 		}
 		if flags&FindExisting != 0 {
@@ -178,6 +211,20 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	return meta.SetList(list, rawObjs)
 }
 
+// hasSubclusterNameLabel returns true if there exists a label that indicates
+// the object is for a subcluster
+func hasSubclusterNameLabel(l map[string]string) bool {
+	_, ok := l[SubclusterNameLabel]
+	if ok {
+		return true
+	}
+	// Prior to 1.3.0, we had a different name for the subcluster name.  We
+	// renamed it as we added additional subcluster attributes to the labele.
+	// Check for this one too.
+	_, ok = l[SubclusterLegacyNameLabel]
+	return ok
+}
+
 // getLabelsFromObject will extract the labels from a k8s object.
 // If labels were not found then false is return for bool output.
 // nolint:gocritic
@@ -190,4 +237,14 @@ func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 		return pod.Labels, true
 	}
 	return nil, false
+}
+
+// isSubclusterInSlice return true if the given subcluster is in the subcluster slice
+func isSubclusterInSlice(subcluster *vapi.Subcluster, subclusters []*vapi.Subcluster) bool {
+	for i := range subclusters {
+		if subclusters[i].Name == subcluster.Name {
+			return true
+		}
+	}
+	return false
 }
