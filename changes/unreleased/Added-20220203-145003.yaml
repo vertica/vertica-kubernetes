@@ -1,0 +1,5 @@
+kind: Added
+body: All annotations in the CR will be converted to environment variables in the containers.
+time: 2022-02-03T14:50:03.883738526-04:00
+custom:
+  Issue: "146"
