@@ -16,18 +16,10 @@ kind: VerticaDB
 metadata:
   name: v-multi-sc
 spec:
-  image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: false
-  local:
-    requestSize: 100Mi
   subclusters:
-    - name: sc1
+    - name: sc-1
       size: 1
       isPrimary: true
-    - name: sc2
+    - name: newsc3
       size: 1
-      isPrimary: false
-  kSafety: "0"
-  certSecrets: []
+      isPrimary: true

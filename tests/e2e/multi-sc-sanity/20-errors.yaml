@@ -14,31 +14,9 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-multi-sc-newsc3
-status:
-  replicas: 1
-  readyReplicas: 1
+  name: v-multi-sc-sc-2
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: v-multi-sc-newsc3
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-multi-sc
-status:
-  subclusterCount: 2
-  installCount: 2
-  addedToDBCount: 2
-  upNodeCount: 2
-  subclusters:
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 1
-      name: sc1
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 1
-      name: newsc3
+  name: v-multi-sc-sc-2

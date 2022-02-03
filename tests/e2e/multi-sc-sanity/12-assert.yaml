@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-multi-sc-sc1
+  name: v-multi-sc-sc-1
 status:
   currentReplicas: 1
   readyReplicas: 1
@@ -22,12 +22,12 @@ status:
 apiVersion: v1
 kind: Service
 metadata:
-  name: v-multi-sc-sc1
+  name: v-multi-sc-sc-1
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-multi-sc-sc2
+  name: v-multi-sc-sc-2
 status:
   currentReplicas: 1
   readyReplicas: 1
@@ -35,7 +35,7 @@ status:
 apiVersion: v1
 kind: Service
 metadata:
-  name: v-multi-sc-sc2
+  name: v-multi-sc-sc-2
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
