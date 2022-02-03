@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"regexp"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -26,22 +25,34 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // VersionReconciler will set the version as annotations in the vdb.
 type VersionReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	VRec               *VerticaDBReconciler
+	Log                logr.Logger
+	Vdb                *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner            cmds.PodRunner
+	PFacts             *PodFacts
+	EnforceUpgradePath bool                    // Fail the reconcile if we find incompatible version
+	FindPodFunc        func() (*PodFact, bool) // Function to call to find pod
 }
 
 // MakeVersionReconciler will build a VersinReconciler object
 func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
-	return &VersionReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	enforceUpgradePath bool) ReconcileActor {
+	return &VersionReconciler{
+		VRec:               vdbrecon,
+		Log:                log,
+		Vdb:                vdb,
+		PRunner:            prunner,
+		PFacts:             pfacts,
+		EnforceUpgradePath: enforceUpgradePath,
+		FindPodFunc:        pfacts.findRunningPod,
+	}
 }
 
 // Reconcile will update the annotation in the Vdb with Vertica version info
@@ -50,17 +61,17 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	pod, ok := v.PFacts.findRunningPod()
+	pod, ok := v.FindPodFunc()
 	if !ok {
 		v.Log.Info("Could not find any running pod, requeuing reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if err := v.reconcileVersion(ctx, pod); err != nil {
-		return ctrl.Result{}, err
+	if res, err := v.reconcileVersion(ctx, pod); res.Requeue || err != nil {
+		return res, err
 	}
 
-	vinf, ok := version.MakeInfo(v.Vdb)
+	vinf, ok := version.MakeInfoFromVdb(v.Vdb)
 	if !ok {
 		// Version info is not in the vdb.  Fine to skip.
 		return ctrl.Result{}, nil
@@ -77,73 +88,51 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 }
 
 // reconcileVersion will parse the version output and update any annotations.
-func (v *VersionReconciler) reconcileVersion(ctx context.Context, pod *PodFact) error {
-	versionAnnotations, err := v.buildVersionAnnotations(ctx, pod)
+func (v *VersionReconciler) reconcileVersion(ctx context.Context, pod *PodFact) (ctrl.Result, error) {
+	vver, err := v.getVersion(ctx, pod)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 
-	if v.mergeAnnotations(versionAnnotations) {
-		err = v.VRec.Client.Update(ctx, v.Vdb)
+	return v.updateVDBVersion(ctx, vver)
+}
+
+// getVersion will get the Vertica version from the running pod.
+func (v *VersionReconciler) getVersion(ctx context.Context, pod *PodFact) (string, error) {
+	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, "/opt/vertica/bin/vertica", "--version")
+	if err != nil {
+		return "", err
+	}
+
+	return stdout, nil
+}
+
+// updateVDBVersion will update the version that is stored in the vdb.  This may
+// fail if it detects an invalid upgrade path.
+func (v *VersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
+	versionAnnotations := version.ParseVersionOutput(newVersion)
+
+	if v.EnforceUpgradePath && !v.Vdb.Spec.IgnoreUpgradePath {
+		ok, failureReason := version.IsUpgradePathSupported(v.Vdb, versionAnnotations)
+		if !ok {
+			v.VRec.EVRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
+				"Invalid upgrade path detected.  %s", failureReason)
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+
+	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch to get latest Vdb incase this is a retry
+		err := v.VRec.Client.Get(ctx, v.Vdb.ExtractNamespacedName(), v.Vdb)
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// buildVersionAnnotations will build a map of annotations based on the --version output
-func (v *VersionReconciler) buildVersionAnnotations(ctx context.Context, pod *PodFact) (map[string]string, error) {
-	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, "/opt/vertica/bin/vertica", "--version")
-	if err != nil {
-		return nil, err
-	}
-
-	return v.parseVersionOutput(stdout), nil
-}
-
-// mergeAnnotations will merge new annotations with vdb.  It will return true if
-// any annotation changed.  Caller is responsible for updating the Vdb in the
-// API server.
-func (v *VersionReconciler) mergeAnnotations(newAnnotations map[string]string) bool {
-	changedAnnotations := false
-	for k, newValue := range newAnnotations {
-		oldValue, ok := v.Vdb.ObjectMeta.Annotations[k]
-		if !ok || oldValue != newValue {
-			if v.Vdb.ObjectMeta.Annotations == nil {
-				v.Vdb.ObjectMeta.Annotations = map[string]string{}
+		if version.MergeAnnotations(v.Vdb, versionAnnotations) {
+			err = v.VRec.Client.Update(ctx, v.Vdb)
+			if err != nil {
+				return err
 			}
-			v.Vdb.ObjectMeta.Annotations[k] = newValue
-			changedAnnotations = true
 		}
-	}
-	return changedAnnotations
-}
-
-// parseVersionOutput will parse the raw output from the --version call and
-// build an annotation map.
-// nolint:lll
-func (v *VersionReconciler) parseVersionOutput(op string) map[string]string {
-	// Sample output looks like this:
-	// Vertica Analytic Database v11.0.0-20210601
-	// vertica(v11.0.0-20210601) built by @re-docker2 from master@da8f0e93f1ee720d8e4f8e1366a26c0d9dd7f9e7 on 'Tue Jun  1 05:04:35 2021' $BuildId$
-	regMap := map[string]string{
-		vapi.VersionAnnotation:   `(v[0-9a-zA-Z.-]+)\n`,
-		vapi.BuildRefAnnotation:  `built by .* from .*@([^ ]+) `,
-		vapi.BuildDateAnnotation: `on '([A-Za-z0-9: ]+)'`,
-	}
-
-	// We build up this annotation map while we iterate through each regular
-	// expression
-	annotations := map[string]string{}
-
-	for annName, reStr := range regMap {
-		r := regexp.MustCompile(reStr)
-		parse := r.FindStringSubmatch(op)
-		const MinStringMatch = 2 // [0] is for the entire string, [1] is for the submatch
-		if len(parse) >= MinStringMatch {
-			annotations[annName] = parse[1]
-		}
-	}
-	return annotations
+		return nil
+	})
 }

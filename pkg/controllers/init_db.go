@@ -78,7 +78,7 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 // runInit will physically setup the database.
 // Depending on g.initializer, this will either do create_db or revive_db.
 func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, error) {
-	atPodFact, ok := g.PFacts.findPodToRunAdmintools()
+	atPodFact, ok := g.PFacts.findPodToRunAdmintoolsOffline()
 	if !ok {
 		// Could not find a runable pod to run from.
 		return ctrl.Result{Requeue: true}, nil
@@ -507,7 +507,7 @@ func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
 // to run with a Kerberos config.  If it doesn't the ctrl.Result will have the
 // requeue bool set.
 func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Result {
-	vinf, ok := version.MakeInfo(g.Vdb)
+	vinf, ok := version.MakeInfoFromVdb(g.Vdb)
 	const DefaultKerberosSupportedVersion = "v11.0.2"
 	if !ok || ok && vinf.IsEqualOrNewer(DefaultKerberosSupportedVersion) {
 		return ctrl.Result{}

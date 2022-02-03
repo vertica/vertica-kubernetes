@@ -64,15 +64,29 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 	}
 
 	for i := range d.Vdb.Spec.Subclusters {
-		sc := &d.Vdb.Spec.Subclusters[i]
-		if exists := d.PFacts.anyPodsMissingDB(sc.Name); exists.IsTrue() {
+		if res, err := d.reconcileSubcluster(ctx, &d.Vdb.Spec.Subclusters[i]); err != nil || res.Requeue {
+			return res, err
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// reconcileSubcluster will reconcile a single subcluster.  Add node will be
+// triggered if we determine that it hasn't been run.
+func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
+	if missingDB, unknownState := d.PFacts.anyPodsMissingDB(sc.Name); missingDB || unknownState {
+		if missingDB {
 			res, err := d.runAddNode(ctx, sc)
 			if err != nil || res.Requeue {
 				return res, err
 			}
 		}
+		if unknownState {
+			d.Log.Info("Requeue because some pods were not running")
+		}
+		return ctrl.Result{Requeue: unknownState}, nil
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -85,7 +99,7 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, sc *vapi.Subcluste
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	atPod, ok := d.PFacts.findPodToRunVsql()
+	atPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil

@@ -129,13 +129,21 @@ var _ = Describe("podfacts", func() {
 	It("should verify anyPodsMissingDB return codes", func() {
 		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: tristate.True, subcluster: "sc1"}
-		Expect(pf.anyPodsMissingDB("sc1")).Should(Equal(tristate.False))
+		missingDB, unknownState := pf.anyPodsMissingDB("sc1")
+		Expect(missingDB).Should(Equal(false))
+		Expect(unknownState).Should(Equal(false))
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: tristate.None, subcluster: "sc1"}
-		Expect(pf.anyPodsMissingDB("sc1")).Should(Equal(tristate.None))
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: tristate.False, isPodRunning: true, subcluster: "sc1"}
-		Expect(pf.anyPodsMissingDB("sc1")).Should(Equal(tristate.True))
-		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: tristate.True, isPodRunning: true, subcluster: "sc2"}
-		Expect(pf.anyPodsMissingDB("sc2")).Should(Equal(tristate.False))
+		missingDB, unknownState = pf.anyPodsMissingDB("sc1")
+		Expect(missingDB).Should(Equal(false))
+		Expect(unknownState).Should(Equal(true))
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: tristate.False, subcluster: "sc1"}
+		missingDB, unknownState = pf.anyPodsMissingDB("sc1")
+		Expect(missingDB).Should(Equal(true))
+		Expect(unknownState).Should(Equal(true))
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: tristate.False, subcluster: "sc2"}
+		missingDB, unknownState = pf.anyPodsMissingDB("sc2")
+		Expect(missingDB).Should(Equal(true))
+		Expect(unknownState).Should(Equal(false))
 	})
 
 	It("should verify return of findPodsWithMissingDB", func() {

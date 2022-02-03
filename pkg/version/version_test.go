@@ -39,7 +39,7 @@ var _ = Describe("version", func() {
 		vdb := vapi.MakeVDB()
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v10.0.0"
 
-		vinf, ok := MakeInfo(vdb)
+		vinf, ok := MakeInfoFromVdb(vdb)
 		Expect(ok).Should(BeTrue())
 		Expect(vinf.IsUnsupported()).Should(BeTrue())
 		Expect(vinf.IsSupported()).Should(BeFalse())
@@ -49,13 +49,13 @@ var _ = Describe("version", func() {
 		major, _ := strconv.Atoi(MinimumVersion[1:3])
 		vdb := vapi.MakeVDB()
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = fmt.Sprintf("v%d%s", major+1, MinimumVersion[3:])
-		vinf, ok := MakeInfo(vdb)
+		vinf, ok := MakeInfoFromVdb(vdb)
 		Expect(ok).Should(BeTrue())
 		Expect(vinf.IsUnsupported()).Should(BeFalse())
 		Expect(vinf.IsSupported()).Should(BeTrue())
 
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = fmt.Sprintf("%s-1", MinimumVersion)
-		vinf, ok = MakeInfo(vdb)
+		vinf, ok = MakeInfoFromVdb(vdb)
 		Expect(ok).Should(BeTrue())
 		Expect(vinf.IsUnsupported()).Should(BeFalse())
 		Expect(vinf.IsSupported()).Should(BeTrue())
@@ -63,16 +63,36 @@ var _ = Describe("version", func() {
 
 	It("should fail to create Info if version not in vdb", func() {
 		vdb := vapi.MakeVDB()
-		_, ok := MakeInfo(vdb)
+		_, ok := MakeInfoFromVdb(vdb)
 		Expect(ok).Should(BeFalse())
 	})
 
 	It("should support a hot fix version of the minimum release", func() {
 		vdb := vapi.MakeVDB()
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = MinimumVersion + "-8"
-		vinf, ok := MakeInfo(vdb)
+		vinf, ok := MakeInfoFromVdb(vdb)
 		Expect(ok).Should(BeTrue())
 		Expect(vinf.IsUnsupported()).Should(BeFalse())
 		Expect(vinf.IsSupported()).Should(BeTrue())
+	})
+
+	It("should block some version transitions", func() {
+		cur, ok := MakeInfoFromStr("v11.0.1")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v11.0.0")
+		Expect(ok).Should(BeFalse())
+		ok, _ = cur.IsValidUpgradePath("v10.1.1")
+		Expect(ok).Should(BeFalse())
+		ok, _ = cur.IsValidUpgradePath("v11.1.0")
+		Expect(ok).Should(BeFalse()) // We fail because we skip v11.0.2
+		ok, _ = cur.IsValidUpgradePath("v11.0.2")
+		Expect(ok).Should(BeTrue())
+
+		cur, ok = MakeInfoFromStr("v15.1.1")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v14.0.2")
+		Expect(ok).Should(BeFalse())
+		ok, _ = cur.IsValidUpgradePath("v16.1.3")
+		Expect(ok).Should(BeTrue())
 	})
 })

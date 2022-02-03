@@ -30,10 +30,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const SuperuserPasswordPath = "superuser-passwd"
+const (
+	SuperuserPasswordPath = "superuser-passwd"
+)
 
 // buildExtSvc creates desired spec for the external service.
-func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *corev1.Service {
+func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -42,7 +45,7 @@ func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: makeSvcSelectorLabels(vdb, sc),
+			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
@@ -63,7 +66,7 @@ func buildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			Annotations: makeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector:                 makeSvcSelectorLabels(vdb, nil),
+			Selector:                 makeBaseSvcSelectorLabels(vdb),
 			ClusterIP:                "None",
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
@@ -335,7 +338,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
 	}...)
 	return corev1.Container{
-		Image:           vdb.Spec.Image,
+		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ServerContainer,
 		Resources:       sc.Resources,
@@ -401,6 +404,16 @@ func translateAnnotationsToEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	return envVars
 }
 
+// pickImage will pick the correct image for the subcluster to use
+func pickImage(vdb *vapi.VerticaDB, sc *vapi.Subcluster) string {
+	// The ImageOverride exists to allow standby subclusters created for
+	// primaries to continue to use the old image during an online upgrade.
+	if sc.ImageOverride != "" {
+		return sc.ImageOverride
+	}
+	return vdb.Spec.Image
+}
+
 // getStorageClassName returns a  pointer to the StorageClass
 func getStorageClassName(vdb *vapi.VerticaDB) *string {
 	if vdb.Spec.Local.StorageClass == "" {
@@ -420,7 +433,7 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: makeSvcSelectorLabels(vdb, sc),
+				MatchLabels: makeSvcSelectorLabelsForSubclusterNameRouting(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
 			Replicas:    &sc.Size,
@@ -595,5 +608,25 @@ func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 		NodeAffinity:    a.NodeAffinity,
 		PodAffinity:     a.PodAffinity,
 		PodAntiAffinity: a.PodAntiAffinity,
+	}
+}
+
+// buildTransientSubcluster creates a temporary read-only subcluster based on an
+// existing subcluster
+func buildTransientSubcluster(vdb *vapi.VerticaDB, imageOverride string) *vapi.Subcluster {
+	return &vapi.Subcluster{
+		Name:              vdb.Spec.TemporarySubclusterRouting.Template.Name,
+		Size:              vdb.Spec.TemporarySubclusterRouting.Template.Size,
+		IsTransient:       true,
+		ImageOverride:     imageOverride,
+		IsPrimary:         false,
+		NodeSelector:      vdb.Spec.TemporarySubclusterRouting.Template.NodeSelector,
+		Affinity:          vdb.Spec.TemporarySubclusterRouting.Template.Affinity,
+		PriorityClassName: vdb.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
+		Tolerations:       vdb.Spec.TemporarySubclusterRouting.Template.Tolerations,
+		Resources:         vdb.Spec.TemporarySubclusterRouting.Template.Resources,
+		// We ignore any parameter that is specific to the subclusters service
+		// object.  These are ignored since transient don't have their own
+		// service objects.
 	}
 }

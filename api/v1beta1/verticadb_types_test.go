@@ -36,4 +36,22 @@ var _ = Describe("verticadb_types", func() {
 		vdb.Spec.Communal.IncludeUIDInPath = false
 		Expect(vdb.GetCommunalPath()).ShouldNot(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
+
+	It("should require a transient subcluster", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1"},
+			{Name: "sc2"},
+		}
+		// Transient is only required if specified
+		Expect(vdb.RequiresTransientSubcluster()).Should(BeFalse())
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{"sc1"}
+		Expect(vdb.RequiresTransientSubcluster()).Should(BeFalse())
+		vdb.Spec.TemporarySubclusterRouting.Template = Subcluster{
+			Name:      "the-transient-sc-name",
+			Size:      1,
+			IsPrimary: false,
+		}
+		Expect(vdb.RequiresTransientSubcluster()).Should(BeTrue())
+	})
 })

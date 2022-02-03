@@ -1,0 +1,35 @@
+name: e2e (operator-upgrade) tests
+
+on: 
+  push:
+     branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+
+  e2e-operator-upgrade:
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Set up e2e environment
+      uses: ./.github/actions/setup-e2e
+      
+    - name: Run e2e tests
+      run: |
+        # Parallelism must be 1.  The testcases will uninstall and install CRDs,
+        # which are cluster scoped items.
+        export E2E_PARALLELISM=1
+        export MINIMAL_VERTICA_IMG=YES
+        export E2E_TEST_DIRS=tests/e2e-operator-upgrade
+        scripts/run-k8s-int-tests.sh
+
+    - uses: actions/upload-artifact@v2
+      if: always()
+      with:
+        name: logs-e2e-operator-upgrade
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
+

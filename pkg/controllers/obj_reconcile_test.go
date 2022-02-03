@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"path/filepath"
+	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -180,7 +181,7 @@ var _ = Describe("obj_reconcile", func() {
 				Expect(objectMeta.Annotations["gitRef"]).Should(Equal("1234abc"))
 				Expect(objectMeta.Labels["vertica.com/database"]).Should(Equal(vdb.Spec.DBName))
 				if isScSpecific {
-					Expect(objectMeta.Labels["vertica.com/subcluster"]).Should(Equal(vdb.Spec.Subclusters[0].Name))
+					Expect(objectMeta.Labels[SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
 				}
 			}
 
@@ -552,6 +553,31 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 			curSize := *sts.Spec.Replicas
 			Expect(curSize).Should(Equal(newSize))
+		})
+
+		It("should update service object if labels are changing", func() {
+			vdb := vapi.MakeVDB()
+			sc := &vdb.Spec.Subclusters[0]
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			nm := names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])
+			svc1 := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, nm, svc1)).Should(Succeed())
+
+			standby := buildTransientSubcluster(vdb, "")
+			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+			actor := MakeObjReconciler(vrec, logger, vdb, &pfacts)
+			objr := actor.(*ObjReconciler)
+			// Force a label change to reconcile with the transient subcluster
+			svcName := names.GenExtSvcName(vdb, sc)
+			expSvc := buildExtSvc(svcName, vdb, sc, makeSvcSelectorLabelsForSubclusterNameRouting)
+			Expect(objr.reconcileExtSvc(ctx, expSvc, standby)).Should(Succeed())
+
+			// Fetch the service object again.  The selectors should be different.
+			svc2 := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, nm, svc2)).Should(Succeed())
+			Expect(reflect.DeepEqual(svc1.Spec.Selector, svc2.Spec.Selector)).Should(BeFalse())
 		})
 	})
 })
