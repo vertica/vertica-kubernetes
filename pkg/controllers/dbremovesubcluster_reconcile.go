@@ -164,7 +164,7 @@ func (d *DBRemoveSubclusterReconciler) getDefaultSubcluster(ctx context.Context)
 // changeDefaultSubcluster will change the current default subcluster to scName
 func (d *DBRemoveSubclusterReconciler) changeDefaultSubcluster(ctx context.Context, scName string) error {
 	cmd := []string{
-		"-c", fmt.Sprintf("alter subcluster %s set default", scName),
+		"-c", fmt.Sprintf(`alter subcluster "%s" set default`, scName),
 	}
 	_, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	return err

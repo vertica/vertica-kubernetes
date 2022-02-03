@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl delete pod v-multi-sc-newsc3-1
+  - command: kubectl delete pod v-multi-sc-new-sc3-1
     namespaced: true

@@ -17,6 +17,6 @@ metadata:
   name: v-multi-sc
 spec:
   subclusters:
-    - name: newsc3
+    - name: new-sc3
       size: 2
       isPrimary: true

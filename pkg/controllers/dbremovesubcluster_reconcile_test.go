@@ -63,7 +63,7 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 		// changing the default subcluster
 		cmds := fpr.FindCommands("admintools -t db_remove_subcluster")
 		Expect(len(cmds)).Should(Equal(1))
-		cmds = fpr.FindCommands(fmt.Sprintf("alter subcluster %s set default", scNames[0]))
+		cmds = fpr.FindCommands(fmt.Sprintf(`alter subcluster "%s" set default`, scNames[0]))
 		Expect(len(cmds)).Should(Equal(1))
 	})
 })

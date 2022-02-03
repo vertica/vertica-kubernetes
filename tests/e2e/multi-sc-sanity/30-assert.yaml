@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-multi-sc-newsc3
+  name: v-multi-sc-new-sc3
 status:
   replicas: 2
   readyReplicas: 2
@@ -36,4 +36,4 @@ status:
     - installCount: 2
       addedToDBCount: 2
       upNodeCount: 2
-      name: newsc3
+      name: new-sc3
