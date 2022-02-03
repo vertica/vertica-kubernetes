@@ -1,4 +1,4 @@
-# (c) Copyright [2021] Micro Focus or one of its affiliates.
+# (c) Copyright [2022] Micro Focus or one of its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,9 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-ks-1-update-strategy
-spec:
-  licenseSecret: ce-license
+# Verify the license exists in each of the pods
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl exec -t -n $NAMESPACE v-ks-1-update-strategy-sc1-0 -- sh -c 'test $VERTICA_COM_GIT_REF = 1fab313k'
+  - script: kubectl exec -t -n $NAMESPACE v-ks-1-update-strategy-sc1-1 -- sh -c 'test $VERTICA_COM_GIT_REF = 1fab313k'
+  - script: kubectl exec -t -n $NAMESPACE v-ks-1-update-strategy-sc1-2 -- sh -c 'test $VERTICA_COM_GIT_REF = 1fab313k'
