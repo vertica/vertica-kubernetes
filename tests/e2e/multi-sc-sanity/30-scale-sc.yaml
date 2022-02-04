@@ -11,8 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl delete pod v-multi-sc-newsc3-1
-    namespaced: true
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-multi-sc
+spec:
+  subclusters:
+    - name: sc-1
+      size: 1
+      isPrimary: true
+    - name: new-sc3
+      size: 2
+      isPrimary: true

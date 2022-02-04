@@ -14,7 +14,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verify-subcluster-type
+  name: script-verify-subcluster-vsql
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -25,12 +25,12 @@ data:
     SELECTOR=app.kubernetes.io/name=vertica,app.kubernetes.io/instance=$VDB_NAME
     POD_NAME=$(kubectl get pods --selector=$SELECTOR -o jsonpath="{.items[0].metadata.name}")
 
-    IS_PRIMARY=$(kubectl exec $POD_NAME -i -- vsql -w superuser -tAc "select distinct(is_primary) from subclusters where subcluster_name = 'sc1'")
+    IS_PRIMARY=$(kubectl exec $POD_NAME -i -- vsql -w superuser -tAc "select distinct(is_primary) from subclusters where subcluster_name = 'sc-1'")
     if [[ "$IS_PRIMARY" != "t" ]]; then
       exit 1
     fi
 
-    IS_PRIMARY=$(kubectl exec $POD_NAME -i -- vsql -w superuser -tAc "select distinct(is_primary) from subclusters where subcluster_name = 'sc2'")
+    IS_PRIMARY=$(kubectl exec $POD_NAME -i -- vsql -w superuser -tAc "select distinct(is_primary) from subclusters where subcluster_name = 'sc-2'")
     if [[ "$IS_PRIMARY" != "f" ]]; then
       exit 1
     fi
@@ -39,12 +39,26 @@ data:
     if [[ "$IS_PRIMARY" != "t" ]]; then
       exit 1
     fi
+
+    SC_NODE0001=$(kubectl exec $POD_NAME -i -- vsql -w superuser -tAc "select subcluster_name from subclusters where node_name = 'v_vertdb_node0001'")
+    SC_NODE0002=$(kubectl exec $POD_NAME -i -- vsql -w superuser -tAc "select subcluster_name from subclusters where node_name = 'v_vertdb_node0002'")
+    SC_NODE0003=$(kubectl exec $POD_NAME -i -- vsql -w superuser -tAc "select subcluster_name from subclusters where node_name = 'v_vertdb_node0003'")
+    if [[ "$SC_NODE0001" != "sc-1" ]]; then
+        exit 1
+    fi
+    if [[ "$SC_NODE0002" != "sc-2" ]]; then
+        exit 1
+    fi
+    if [[ "$SC_NODE0003" != "sc3" ]]; then
+        exit 1
+    fi
+
     exit 0
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-verify-subcluster-type
+  name: test-verify-subcluster-vsql
   labels:
     stern: include
 spec:
@@ -62,4 +76,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-verify-subcluster-type
+        name: script-verify-subcluster-vsql

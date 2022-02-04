@@ -155,7 +155,9 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
-	sql := "alter subcluster default_subcluster rename to " + c.Vdb.Spec.Subclusters[0].Name + ";\n"
+	sql := fmt.Sprintf(`
+     alter subcluster default_subcluster rename to "%s";
+	`, c.Vdb.Spec.Subclusters[0].Name)
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"
 	}

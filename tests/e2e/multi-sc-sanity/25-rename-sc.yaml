@@ -11,29 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-multi-sc-newsc3
-status:
-  replicas: 2
-  readyReplicas: 2
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-multi-sc
-status:
-  subclusterCount: 2
-  installCount: 3
-  addedToDBCount: 3
-  upNodeCount: 3
+spec:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 1
-      name: sc1
-    - installCount: 2
-      addedToDBCount: 2
-      upNodeCount: 2
-      name: newsc3
+    - name: sc-1
+      size: 1
+      isPrimary: true
+    - name: new-sc3
+      size: 1
+      isPrimary: true

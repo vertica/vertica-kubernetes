@@ -14,28 +14,15 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-multi-sc-sc1
+  name: v-multi-sc-new-sc3
 status:
-  currentReplicas: 1
+  replicas: 1
   readyReplicas: 1
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: v-multi-sc-sc1
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-multi-sc-sc2
-status:
-  currentReplicas: 1
-  readyReplicas: 1
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-multi-sc-sc2
+  name: v-multi-sc-new-sc3
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
@@ -50,16 +37,8 @@ status:
     - installCount: 1
       addedToDBCount: 1
       upNodeCount: 1
+      name: sc-1
     - installCount: 1
       addedToDBCount: 1
       upNodeCount: 1
----
-apiVersion: v1
-kind: Event
-reason: SubclusterAdded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-multi-sc
+      name: new-sc3

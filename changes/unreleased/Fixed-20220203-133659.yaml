@@ -1,0 +1,6 @@
+kind: Fixed
+body: Subcluster names with hyphens were prevented from being the default subcluster.  This
+  caused issues when creating the database and removal of subclusters.
+time: 2022-02-03T13:36:59.361039134-04:00
+custom:
+  Issue: "151"

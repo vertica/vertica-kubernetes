@@ -11,18 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 180
+---
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-multi-sc
-spec:
-  subclusters:
-    - name: sc1
-      size: 1
-      isPrimary: true
-    - name: sc2
-      size: 1
-      isPrimary: false
-    - name: sc3
-      size: 1
-      isPrimary: true
+  name: test-verify-subcluster-vsql
+status:
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0

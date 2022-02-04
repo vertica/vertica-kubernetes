@@ -15,19 +15,17 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-multi-sc
-spec:
-  image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: false
-  local:
-    requestSize: 100Mi
+status:
+  subclusterCount: 2
+  installCount: 3
+  addedToDBCount: 3
+  upNodeCount: 2
   subclusters:
-    - name: sc1
-      size: 1
-      isPrimary: true
-    - name: sc2
-      size: 1
-      isPrimary: false
-  kSafety: "0"
-  certSecrets: []
+    - installCount: 1
+      addedToDBCount: 1
+      upNodeCount: 1
+      name: sc-1
+    - installCount: 2
+      addedToDBCount: 2
+      upNodeCount: 1
+      name: new-sc3
