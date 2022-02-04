@@ -408,6 +408,10 @@ func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact) error {
 // parseNodeStateAndReadOnly will parse query output to determine if a node is
 // up and read-only.
 func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, err error) {
+	// For testing purposes we early out with no error if there is no output
+	if stdout == "" {
+		return
+	}
 	// The stdout comes in the form like this:
 	// UP|t
 	// This means upNode is true and readOnly is true.

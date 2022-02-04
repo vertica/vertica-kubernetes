@@ -280,7 +280,7 @@ var _ = Describe("podfacts", func() {
 		Expect(readOnly2).Should(BeFalse())
 
 		_, _, err = parseNodeStateAndReadOnly("")
-		Expect(err).ShouldNot(Succeed())
+		Expect(err).Should(Succeed())
 
 		_, _, err = parseNodeStateAndReadOnly("UP|z|garbage")
 		Expect(err).ShouldNot(Succeed())

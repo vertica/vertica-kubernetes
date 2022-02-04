@@ -286,13 +286,15 @@ func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 		if (vdb.RequiresTransientSubcluster() && vdb.Spec.LicenseSecret == "") || vdb.Spec.KSafety == vapi.KSafety0 {
 			return false
 		}
-		vinf, ok := version.MakeInfoFromVdb(vdb)
-		if ok && vinf.IsEqualOrNewer(version.OnlineUpgradeVersion) {
-			return true
-		}
-		return false
 	}
-	return true
+	// Online upgrade can only be done if we are already on a server version
+	// that supports it.  It we are on an older version, we will fallback to
+	// offline even though online may have been specified in the vdb.
+	vinf, ok := version.MakeInfoFromVdb(vdb)
+	if ok && vinf.IsEqualOrNewer(version.OnlineUpgradeVersion) {
+		return true
+	}
+	return false
 }
 
 // offlineUpgradeAllowed returns true if upgrade must be done offline

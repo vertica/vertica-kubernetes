@@ -41,14 +41,15 @@ var _ = Describe("upgrade", func() {
 			IsPrimary: false,
 		}
 
+		// No version -- always pick offline
 		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(false))
 		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(true))
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(false))
+		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(false))
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 
-		// No version -- offline
+		// auto will pick offline because of no version
 		vdb.Spec.UpgradePolicy = vapi.AutoUpgrade
 		vdb.Spec.LicenseSecret = "license"
 		vdb.Spec.KSafety = vapi.KSafety1
@@ -70,6 +71,11 @@ var _ = Describe("upgrade", func() {
 
 		// k-safety 0
 		vdb.Spec.KSafety = vapi.KSafety0
+		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
+
+		// Old version and online requested
+		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v11.0.2"
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 	})
 
