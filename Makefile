@@ -82,6 +82,16 @@ export OPERATOR_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= vertica-k8s:$(TAG)
 export VERTICA_IMG
+# This is the base image to use for some upgrade tests.  We will always
+# upgrade to VERTICA_IMG, so BASE_VERTICA_IMG must be some image from a
+# version earlier than VERTICA_IMG.
+# Note, not all upgrade tests use this.  Some upgrade between one of the
+# official vertica images and a bad-image.
+#
+# There is no default value for this image.  Any test will fail that requires
+# this but it isn't set.
+BASE_VERTICA_IMG ?= <not-set>
+export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
@@ -226,6 +236,16 @@ ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_TEST_DIRS)
 
+.PHONY: run-11.1-tests
+run-11.1-tests: install-kuttl-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
+ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
+	$(MAKE) setup-olm
+endif
+ifeq ($(BASE_VERTICA_IMG), <not-set>)
+	$(error $$BASE_VERTICA_IMG not set)
+endif
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) tests/e2e-11.1/
+
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
 	scripts/soak-runner.sh $(SOAK_CFG)
@@ -326,6 +346,7 @@ docker-push: docker-push-vertica docker-push-operator docker-push-vlogger docker
 echo-images:  ## Print the names of all of the images used
 	@echo "OPERATOR_IMG=$(OPERATOR_IMG)"
 	@echo "VERTICA_IMG=$(VERTICA_IMG)"
+	@echo "BASE_VERTICA_IMG=$(BASE_VERTICA_IMG)"
 	@echo "VLOGGER_IMG=$(VLOGGER_IMG)"
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"

@@ -74,7 +74,10 @@ then
 fi
 
 if [ -z "${VERTICA_IMG}" ]; then
-    VERTICA_IMG=$(cd $REPO_DIR && make echo-images | grep VERTICA_IMG | cut -d'=' -f2)
+    VERTICA_IMG=$(cd $REPO_DIR && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2)
+fi
+if [ -z "${BASE_VERTICA_IMG}" ]; then
+    BASE_VERTICA_IMG=$(cd $REPO_DIR && make echo-images | grep ^BASE_VERTICA_IMG= | cut -d'=' -f2)
 fi
 if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
@@ -429,7 +432,7 @@ metadata:
 data:
   verticaImage: ${VERTICA_IMG}
   vloggerImage: ${VLOGGER_IMG}
-  baseVerticaImage: ${BASE_VERTICA_IMG:-"<not-set>"}
+  baseVerticaImage: ${BASE_VERTICA_IMG}
 EOF
 
     # If a cert was specified for communal endpoint access, include a datapoint

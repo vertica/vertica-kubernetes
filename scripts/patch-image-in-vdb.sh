@@ -62,7 +62,7 @@ IMAGE=$2
 
 if [ -z "$IMAGE" ]
 then
-    IMAGE=$(cd $REPO_DIR && make echo-images | grep VERTICA_IMG | cut -d= -f2)
+    IMAGE=$(cd $REPO_DIR && make echo-images | grep ^VERTICA_IMG= | cut -d= -f2)
 fi
 
 tmpfile=$(mktemp /tmp/patch-XXXXXX.yaml)
