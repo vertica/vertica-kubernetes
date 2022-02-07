@@ -23,6 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -281,6 +282,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		vdb.Spec.IgnoreUpgradePath = true
+		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
@@ -299,7 +301,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
 	})
 
-	It("should have an upgradeStatus set when it fails during the drain", func() {
+	It("should have an upgradeStatus set when it fails part way through", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "sc1", IsPrimary: true, Size: 1},
@@ -307,6 +309,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
+		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		createPods(ctx, vdb, AllPodsRunning)
@@ -317,7 +320,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		Expect(vdb.Status.UpgradeStatus).Should(Equal("Draining primary subclusters"))
+		Expect(vdb.Status.UpgradeStatus).Should(Equal("Checking if new version is compatible"))
 	})
 
 	It("should requeue if there are active connections in the subcluster", func() {

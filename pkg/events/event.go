@@ -54,6 +54,7 @@ const (
 	AuthParmsCopyFailed             = "AuthParmsCopyFailed"
 	UpgradeStart                    = "UpgradeStart"
 	UpgradeSucceeded                = "UpgradeSucceeded"
+	IncompatibleOnlineUpgrade       = "IncompatibleOnlineUpgrade"
 	ClusterShutdownStarted          = "ClusterShutdownStarted"
 	ClusterShutdownFailed           = "ClusterShutdownFailed"
 	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
