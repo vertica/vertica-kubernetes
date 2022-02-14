@@ -14,7 +14,7 @@ To deploy the operator and a Kubernetes cluster in a local test environment that
 Vertica extends the Kubernetes API with its [Custom Resource Definition](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm). Install the `CustomResourceDefinition` with a YAML manifest:
 
 ```shell
-kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.2.0/verticadbs.vertica.com-crd.yaml
+kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.3.0/verticadbs.vertica.com-crd.yaml
 ```
 
 # Installing the VerticaDB Operator
@@ -23,7 +23,8 @@ The [VerticaDB operator](https://www.vertica.com/docs/latest/HTML/Content/Author
 - [OperatorHub.io](https://operatorhub.io/operator/verticadb-operator). OperatorHub.io is an operator registry for environments that use the Operator Lifecycle Manager (OLM). For installation instructions, click the **Install** button on the VerticaDB Operator page.
 - [Install the Vertica Helm chart](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/HelmChartParams.htm). The Helm chart includes the operator and the admission controller.
  When you install the operator with the Helm charts, you must configure TLS for the admission controller webhook.
- The Vertica Helm chart [installs the CRD](#installing-the-crd) if it is not currently installed.
+ The Vertica Helm chart [installs the CRD](#installing-the-crd) if it is not currently installed.  
+ Helm chart installations can use a [sidecar container](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm) to send logs to a file in the Vertica server container for log aggregation. In addition, you can set logging levels with [Helm chart parameters](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/HelmChartParams.htm).
  
 For complete installation instructions, see [Installing the VerticaDB Operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/InstallOperator.htm).
 
@@ -78,7 +79,7 @@ For complete instructions on scaling subclusters, see [Subclusters on Kubernetes
 
 # Client Connections
 
-External clients can target specific subclusters to handle their workload. Each subcluster has its own service object that you can configure to manage client connections.
+External clients can target specific subclusters to handle their workload. Each subcluster has its own service object that you can configure to manage client connections. Use the `subclusters[i].serviceName` parameter name a service object so that you can assign a single service object to one or more subclusters.
 
 By default, the subcluster service object is set to `ClusterIP`, which load balances internal traffic across the pods in the subcluster. To allow connections from outside of the Kubernetes cluster, set the `subclusters[i].serviceType` parameter to `NodePort` or `LoadBalancer`.
 
@@ -94,7 +95,6 @@ The operator can migrate an existing Eon Mode database into Kubernetes. The oper
 See [Generating a Custom Resource from an Existing Eon Mode Database](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/GeneratingCR.htm) for detailed steps.
 
 
-
 # Vertica License
 
 By default, the CR uses the [Community Edition (CE)](https://www.vertica.com/download/vertica/trial-download/?) license. The CE license limits the number pods in a cluster to 3, and the dataset size to 1TB.
@@ -104,6 +104,17 @@ Add your own license to extend your cluster past the CE limits. See [Creating a 
 # Upgrading your License
 
 Vertica recommends incremental upgrade paths. See [Upgrading Vertica on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/UpgradingWithOperator.htm) for details about Vertica server version upgrades for a custom resource.
+
+# Vertica on Red Hat OpenShift
+
+Vertica supports [Red Hat OpenShift](https://docs.openshift.com/container-platform/4.8/welcome/index.html), a hybrid cloud platform that adds security features and additional support to Kubernetes clusters.
+
+The VerticaDB operator is available for download from the OpenShift OperatorHub. It is compatible with OpenShift versions 4.8 and higher.
+
+OpenShift manages security with [Security Context Constraints](https://docs.openshift.com/container-platform/4.8/authentication/managing-security-context-constraints.html) (SCCs). Vertica provides the `anyuid-extra` SCC to manage Vertica security on OpenShift. In addition, Vertica is compatible with the default `privileged` SCC.
+
+
+For details about Vertica on OpenShift, see [Red Hat OpenShift Quick Start](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/OpenShiftK8s.htm).
 
 # Additional Details
 
