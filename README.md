@@ -79,7 +79,7 @@ For complete instructions on scaling subclusters, see [Subclusters on Kubernetes
 
 # Client Connections
 
-External clients can target specific subclusters to handle their workload. Each subcluster has its own service object that you can configure to manage client connections. Use the `subclusters[i].serviceName` parameter name a service object so that you can assign a single service object to one or more subclusters.
+External clients can target specific subclusters to handle their workload. Each subcluster has its own service object that you can configure to manage client connections. Use the `subclusters[i].serviceName` parameter to name a service object so that you can assign a single service object to one or more subclusters.
 
 By default, the subcluster service object is set to `ClusterIP`, which load balances internal traffic across the pods in the subcluster. To allow connections from outside of the Kubernetes cluster, set the `subclusters[i].serviceType` parameter to `NodePort` or `LoadBalancer`.
 
