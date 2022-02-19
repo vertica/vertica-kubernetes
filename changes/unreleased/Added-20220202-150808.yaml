@@ -1,5 +1,0 @@
-kind: Added
-body: Allow multiple subclusters to share the same Service object
-time: 2022-02-02T15:08:08.045385968-04:00
-custom:
-  Issue: "150"

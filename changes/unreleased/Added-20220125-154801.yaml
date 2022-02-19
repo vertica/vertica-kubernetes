@@ -1,6 +1,0 @@
-kind: Added
-body: New helm parameters to control the logging level and log path location for the
-  operator pod
-time: 2022-01-25T15:48:01.6005315+01:00
-custom:
-  Issue: "143"
