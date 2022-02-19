@@ -667,12 +667,12 @@ func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) f
 
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if _, ok := processedServiceName[sc.ServiceName]; ok {
+		if _, ok := processedServiceName[sc.GetServiceName()]; ok {
 			continue
 		}
 		for j := i + 1; j < len(v.Spec.Subclusters); j++ {
 			osc := &v.Spec.Subclusters[j]
-			if sc.ServiceName == osc.ServiceName {
+			if sc.GetServiceName() == osc.GetServiceName() {
 				fieldPrefix := field.NewPath("spec").Child("subclusters").Index(j)
 				if !reflect.DeepEqual(sc.ExternalIPs, osc.ExternalIPs) {
 					err := field.Invalid(fieldPrefix.Child("externalIPs").Index(i),
@@ -695,7 +695,7 @@ func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) f
 			}
 		}
 		// Set a flag so that we don't process this service name in another subcluster
-		processedServiceName[sc.ServiceName] = true
+		processedServiceName[sc.GetServiceName()] = true
 	}
 	return allErrs
 }

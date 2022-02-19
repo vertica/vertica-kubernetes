@@ -434,6 +434,27 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Subclusters[1].ExternalIPs[1] = vdb.Spec.Subclusters[0].ExternalIPs[1]
 		validateSpecValuesHaveErr(vdb, false)
 	})
+
+	It("should allow different serviceTypes if the serviceName isn't filled in", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Subclusters = []Subcluster{
+			{
+				Name:        "sc1",
+				Size:        2,
+				IsPrimary:   true,
+				ServiceType: "NodePort",
+				NodePort:    30008,
+			},
+			{
+				Name:        "sc2",
+				Size:        1,
+				IsPrimary:   false,
+				ServiceType: "ClusterIP",
+			},
+		}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 })
 
 func createVDBHelper() *VerticaDB {
