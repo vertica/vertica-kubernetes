@@ -206,7 +206,7 @@ var _ = Describe("init_db", func() {
 		Expect(getEndpointHostPort("http://hostname")).Should(Equal("hostname"))
 		Expect(getEndpointHostPort("https://tlsHost:3000")).Should(Equal("tlsHost:3000"))
 		Expect(getEndpointHostPort("account@myhost")).Should(Equal("account@myhost"))
-		Expect(getEndpointHostPort("azb://devopsvertica/vertica-fleeting/mspilchen/db/")).Should(Equal("devopsvertica/vertica-fleeting/mspilchen/db"))
+		Expect(getEndpointHostPort("azb://mspilchen/db/")).Should(Equal("mspilchen/db"))
 
 	})
 
