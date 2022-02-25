@@ -59,12 +59,19 @@ var _ = Describe("init_db", func() {
 		}
 
 		Expect(g.getCommunalEndpoint()).Should(Equal("192.168.0.1"))
+
 		Expect(g.getEnableHTTPS()).Should(Equal("1"))
 
 		vdb.Spec.Communal.Endpoint = "http://fqdn.example.com:8080"
 
 		Expect(g.getCommunalEndpoint()).Should(Equal("fqdn.example.com:8080"))
 		Expect(g.getEnableHTTPS()).Should(Equal("0"))
+
+		vdb.Spec.Communal.Endpoint = "https://minio/"
+		Expect(g.getCommunalEndpoint()).Should(Equal("minio"))
+
+		vdb.Spec.Communal.Endpoint = "https://minio:3000/"
+		Expect(g.getCommunalEndpoint()).Should(Equal("minio:3000"))
 	})
 
 	It("should fail to get host list if some pods not running", func() {
@@ -199,7 +206,10 @@ var _ = Describe("init_db", func() {
 		Expect(getEndpointHostPort("http://hostname")).Should(Equal("hostname"))
 		Expect(getEndpointHostPort("https://tlsHost:3000")).Should(Equal("tlsHost:3000"))
 		Expect(getEndpointHostPort("account@myhost")).Should(Equal("account@myhost"))
+		Expect(getEndpointHostPort("azb://account/container/db/")).Should(Equal("account/container/db"))
+
 	})
+
 })
 
 func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {

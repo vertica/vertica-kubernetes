@@ -439,7 +439,7 @@ func (g *GenericDatabaseInitializer) getCommunalEndpoint() string {
 	prefix := []string{"https://", "http://"}
 	for _, pref := range prefix {
 		if i := strings.Index(g.Vdb.Spec.Communal.Endpoint, pref); i == 0 {
-			return g.Vdb.Spec.Communal.Endpoint[len(pref):]
+			return strings.TrimSuffix(g.Vdb.Spec.Communal.Endpoint[len(pref):], "/")
 		}
 	}
 	return g.Vdb.Spec.Communal.Endpoint
@@ -491,7 +491,7 @@ func getEndpointHostPort(blobEndpoint string) string {
 	if len(m) == 0 || len(m[0]) < 3 {
 		return blobEndpoint
 	}
-	return m[0][2]
+	return strings.TrimSuffix(m[0][2], "/")
 }
 
 // getHadoopConfDir gets the string to include in the auth parms for
