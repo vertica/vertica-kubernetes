@@ -72,3 +72,12 @@ $KUSTOMIZE build config/overlays/csv | $OPERATOR_SDK generate bundle -q --overwr
 # Fill in the placeholders
 sed -i "s/CREATED_AT_PLACEHOLDER/$(date +"%FT%H:%M:%SZ")/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
 sed -i "s+OPERATOR_IMG_PLACEHOLDER+$(make echo-images | grep OPERATOR_IMG | cut -d'=' -f2)+g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
+
+# Add the supported versions at the end of annotations.yaml
+cat <<EOT >> bundle/metadata/annotations.yaml
+
+  # Annotation to specify the supported versions.
+  # This annotation has been added because for now, the operator does not work
+  # with versions lower than v4.8.
+  com.redhat.openshift.versions: "v4.8"
+EOT
