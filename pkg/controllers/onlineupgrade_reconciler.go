@@ -225,6 +225,10 @@ func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.R
 // This is done so that when we direct traffic to the transient subcluster the
 // service object has a pod to route too.
 func (o *OnlineUpgradeReconciler) waitForReadyTransientPod(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
+		return ctrl.Result{}, nil
+	}
+
 	pod := &corev1.Pod{}
 	sc := buildTransientSubcluster(o.Vdb, "")
 	// We only check the first pod is ready
