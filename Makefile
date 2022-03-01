@@ -429,9 +429,9 @@ kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
 
 SETUP_ENVTEST = $(shell pwd)/bin/setup-envtest
 setup-envtest: ## Download setup-envtest that that manages binaries for envtest.
-	$(call go-get-tool,$(SETUP_ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.11.1)
+	$(call go-get-tool,$(SETUP_ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
+# go-get-tool will 'go install' any package $2 to $1.
 PROJECT_DIR := $(abspath $(REPO_DIR))
 define go-get-tool
 @[ -f $(1) ] || { \
