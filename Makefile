@@ -204,7 +204,7 @@ test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-repor
 	mkdir -p ${KUBEBUILDER_ASSETS}
 	$(SETUP_ENVTEST) use --bin-dir $(ENVTEST_ASSETS_BIN_DIR)
 	find $(ENVTEST_ASSETS_BIN_DIR)/ -exec cp {} $(KUBEBUILDER_ASSETS)/ \;
-	rm -r $(ENVTEST_ASSETS_BIN_DIR)
+	sudo rm -r $(ENVTEST_ASSETS_BIN_DIR)
 ifdef INTERACTIVE
 	go test ./... -coverprofile cover.out
 else
