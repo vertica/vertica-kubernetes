@@ -417,7 +417,7 @@ kustomize: ## Download kustomize locally if necessary.
 
 GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
 get-go-junit-report: ## Download go-junit-report locally if necessary.
-	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report)
+	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report@latest)
 
 KIND = $(shell pwd)/bin/kind
 kind: ## Download kind locally if necessary
