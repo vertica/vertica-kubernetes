@@ -14,7 +14,7 @@ To deploy the operator and a Kubernetes cluster in a local test environment that
 Vertica extends the Kubernetes API with its [Custom Resource Definition](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm). Install the `CustomResourceDefinition` with a YAML manifest:
 
 ```shell
-kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.3.0/verticadbs.vertica.com-crd.yaml
+kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.3.1/verticadbs.vertica.com-crd.yaml
 ```
 
 # Installing the VerticaDB Operator
