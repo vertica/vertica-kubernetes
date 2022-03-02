@@ -19,3 +19,6 @@ spec:
   licenseSecret: ce-license
   annotations:
     vertica.com/git-ref: 1fab313k
+    TZ: CET
+    usage: e2e
+    testcase-name: v-ks-1-update-strategy

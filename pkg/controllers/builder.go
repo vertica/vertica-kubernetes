@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -401,6 +402,13 @@ func translateAnnotationsToEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			Value: v,
 		})
 	}
+	// We must always sort the list of envVars.  Failure to do this could cause
+	// the statefulset controller to think the container that has the envVars
+	// has changed.  But in reality, the containers are identical except for the
+	// order of the vars.
+	sort.Slice(envVars, func(i, j int) bool {
+		return envVars[i].Name < envVars[j].Name
+	})
 	return envVars
 }
 
