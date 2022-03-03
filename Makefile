@@ -107,6 +107,22 @@ else
 BUNDLE_IMG ?= verticadb-operator-bundle:$(VERSION)
 endif
 export BUNDLE_IMG
+
+# USE_IMAGE_DIGESTS_FLAG are the flag passed to the operator-sdk generate bundle command
+# to enable the use of SHA Digest for images
+USE_IMAGE_DIGESTS_FLAG=
+
+# USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
+# You can enable this value if you would like to use SHA Based Digests
+# To enable set flag to true
+USE_IMAGE_DIGESTS ?= false
+ifeq ($(USE_IMAGE_DIGESTS), true)
+	USE_IMAGE_DIGESTS_FLAG = -u
+endif
+
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION = 1.23
+
 # Image URL for the OLM catalog.  This is for testing purposes only.
 ifeq ($(shell $(KIND_CHECK)), 1)
 OLM_CATALOG_IMG ?= localhost:$(REG_PORT)/olm-catalog:$(TAG)
@@ -117,8 +133,6 @@ export OLM_CATALOG_IMG
 
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
-# Specify if any embedded ObjectMeta in the CRD should be generated
-CRD_OPTIONS ?= "crd:generateEmbeddedObjectMeta=true"
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
 # Can be used to specify additional overrides when doing the helm install.
@@ -182,7 +196,7 @@ help: ## Display this help.
 ##@ Development
 
 manifests: controller-gen ## Generate Role and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	sed -i '/WATCH_NAMESPACE/d' config/rbac/role.yaml ## delete any line with the dummy namespace WATCH_NAMESPACE
 
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -194,21 +208,12 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-ENVTEST_ASSETS_BIN_DIR=$(ENVTEST_ASSETS_DIR)/tmp
-export KUBEBUILDER_ASSETS=$(ENVTEST_ASSETS_DIR)/bin
-test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-report setup-envtest
-	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
-	mkdir -p ${ENVTEST_ASSETS_DIR}
-	mkdir -p ${ENVTEST_ASSETS_BIN_DIR}
-	mkdir -p ${KUBEBUILDER_ASSETS}
-	$(SETUP_ENVTEST) use --bin-dir $(ENVTEST_ASSETS_BIN_DIR)
-	find $(ENVTEST_ASSETS_BIN_DIR)/ -exec cp {} $(KUBEBUILDER_ASSETS)/ \;
-	sudo rm -r $(ENVTEST_ASSETS_BIN_DIR)
+.PHONY: test
+test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-report envtest ## Run tests.
 ifdef INTERACTIVE
-	go test ./... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 else
-	go test -v ./... -coverprofile cover.out 2>&1 | $(GO_JUNIT_REPORT) | tee ${LOGDIR}/unit-test-report.xml
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v ./... -coverprofile cover.out 2>&1 | $(GO_JUNIT_REPORT) | tee ${LOGDIR}/unit-test-report.xml
 endif	
 
 .PHONY: lint
@@ -327,7 +332,7 @@ endif
 
 .PHONY: bundle 
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
-	scripts/gen-csv.sh $(VERSION) $(BUNDLE_METADATA_OPTS)
+	scripts/gen-csv.sh $(USE_IMAGE_DIGESTS_FLAG)  $(VERSION) $(BUNDLE_METADATA_OPTS)
 	mv bundle.Dockerfile $(BUNDLE_DOCKERFILE)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
@@ -427,9 +432,10 @@ KUBERNETES_SPLIT_YAML = $(shell pwd)/bin/kubernetes-split-yaml
 kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
 	$(call go-get-tool,$(KUBERNETES_SPLIT_YAML),github.com/mogensen/kubernetes-split-yaml@v0.3.0)
 
-SETUP_ENVTEST = $(shell pwd)/bin/setup-envtest
-setup-envtest: ## Download setup-envtest that that manages binaries for envtest.
-	$(call go-get-tool,$(SETUP_ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+ENVTEST = $(shell pwd)/bin/setup-envtest
+.PHONY: envtest
+envtest: ## Download envtest-setup locally if necessary.
+	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
 # go-get-tool will 'go install' any package $2 to $1.
 PROJECT_DIR := $(abspath $(REPO_DIR))

@@ -22,21 +22,29 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 OPERATOR_SDK=$REPO_DIR/bin/operator-sdk
 KUSTOMIZE=$REPO_DIR/bin/kustomize
+USE_IMAGE_DIGESTS_FLAG=
 
 function usage {
-    echo "usage: $0 <version> <bundle_metadata_opts>"
+    echo "usage: $0 [options] <version> <bundle_metadata_opts>"
     echo
     echo "<version> is the version of the operator."
     echo
     echo "<bundle_metadata_opts> are extra options to pass to"
     echo "'operator-sdk generate bundle'"
     echo
+    echo "Options:"
+    echo "  -u    To enable the use of SHA Digest for image"
+    echo "  -h    help flag"
+    echo
     exit 1
 }
 
 OPTIND=1
-while getopts "h" opt; do
+while getopts "uh" opt; do
     case ${opt} in
+        u)
+            USE_IMAGE_DIGESTS_FLAG="--use-image-digests"
+            ;;
         h)
             usage
             ;;
@@ -54,6 +62,7 @@ fi
 
 VERSION=${@:$OPTIND:1}
 BUNDLE_METADATA_OPTS=${@:$OPTIND+1:1}
+BUNDLE_GEN_FLAGS="-q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS $USE_IMAGE_DIGESTS_FLAG"
 
 set -o xtrace
 
@@ -67,7 +76,7 @@ bases:
 EOF
 $KUSTOMIZE edit set image controller=$OPERATOR_IMG
 cd $REPO_DIR
-$KUSTOMIZE build config/overlays/csv | $OPERATOR_SDK generate bundle -q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS
+$KUSTOMIZE build config/overlays/csv | $OPERATOR_SDK generate bundle $BUNDLE_GEN_FLAGS
 
 # Fill in the placeholders
 sed -i "s/CREATED_AT_PLACEHOLDER/$(date +"%FT%H:%M:%SZ")/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
