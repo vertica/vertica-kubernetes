@@ -390,10 +390,8 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
 	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} --set logging.dev=${DEV_MODE} $(HELM_OVERRIDES)
-	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
-	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), random)
 ifeq ($(shell (( $$RANDOM % 2 )); echo $$?),0)
 	DEPLOY_WITH=helm $(MAKE) deploy-operator
