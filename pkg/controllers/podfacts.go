@@ -102,6 +102,9 @@ type PodFact struct {
 
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
+
+	// The number of shards this node has subscribed to
+	shardSubscriptions int
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -208,6 +211,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
 		p.checkThatConfigShareExists,
+		p.checkShardSubscriptions,
 	}
 
 	for _, fn := range fns {
@@ -311,6 +315,26 @@ func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.Ver
 		}
 	}
 	return nil
+}
+
+// checkShardSubscriptions will cound the number of shards that are subscribed
+// to the current node
+func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	if !pf.isPodRunning {
+		return nil
+	}
+	cmd := []string{
+		"-tAc",
+		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s'",
+			pf.vnodeName),
+	}
+	stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		if !strings.Contains(stderr, "vsql: could not connect to server:") {
+			return err
+		}
+	}
+	return setShardSubscription(stdout, pf)
 }
 
 // checkIsDBCreated will check for evidence of a database at the local node.
@@ -435,6 +459,23 @@ func parseVerticaNodeName(stdout string) string {
 		return match[0][1]
 	}
 	return ""
+}
+
+// setShardSubscription will set the pf.shardSubscriptions based on the query
+// output
+func setShardSubscription(op string, pf *PodFact) error {
+	// For testing purposes we early out with no error if there is no output
+	if op == "" {
+		return nil
+	}
+
+	lines := strings.Split(op, "\n")
+	subs, err := strconv.Atoi(lines[0])
+	if err != nil {
+		return err
+	}
+	pf.shardSubscriptions = subs
+	return nil
 }
 
 // doesDBExist will check if the database exists anywhere.

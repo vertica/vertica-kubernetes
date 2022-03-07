@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -86,16 +85,14 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if len(addNodePods) > 0 {
-		res, err := d.runAddNode(ctx, sc, addNodePods)
+		res, err := d.runAddNode(ctx, addNodePods)
 		return res, err
 	}
 	return ctrl.Result{}, nil
 }
 
 // runAddNode will add nodes to the given subcluster
-// SPILLY
-// nolint:unparam
-func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, sc *vapi.Subcluster, pods []*PodFact) (ctrl.Result, error) {
+func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	atPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
@@ -133,11 +130,6 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, sc *vapi.Subcluste
 	// Invalidate the cached pod facts now that some pods have a DB now.
 	d.PFacts.Invalidate()
 
-	// SPILLY create a separate reconciler for this.  Add to podfacts some query
-	// from node_subscriptions.  We need to do this for the node_name.
-
-	// SPILLY do this separately based on whether there are nodes without subscriptions
-	// err := d.rebalanceShards(ctx, atPod, sc.Name)
 	return ctrl.Result{}, nil
 }
 
@@ -169,24 +161,6 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodF
 // isLicenseLimitError returns true if the stdout contains the error about not enough licenses
 func isLicenseLimitError(stdout string) bool {
 	return strings.Contains(stdout, "Cannot create another node. The current license permits")
-}
-
-// rebalanceShards will execute the command to rebalance the shards
-// between all the nodes(old and new)
-// SPILLY
-// nolint:unused
-func (d *DBAddNodeReconciler) rebalanceShards(ctx context.Context, atPod *PodFact, scName string) error {
-	podName := atPod.name
-	selectCmd := fmt.Sprintf("select rebalance_shards('%s')", scName)
-	cmd := []string{
-		"-tAc", selectCmd,
-	}
-	_, _, err := d.PRunner.ExecVSQL(ctx, podName, names.ServerContainer, cmd...)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // genAddNodeCommand returns the command to run to add nodes to the cluster.

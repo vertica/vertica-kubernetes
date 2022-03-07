@@ -285,4 +285,10 @@ var _ = Describe("podfacts", func() {
 		_, _, err = parseNodeStateAndReadOnly("UP|z|garbage")
 		Expect(err).ShouldNot(Succeed())
 	})
+
+	It("should parse node subscriptions output", func() {
+		pf := &PodFact{}
+		Expect(setShardSubscription("3\n", pf)).Should(Succeed())
+		Expect(pf.shardSubscriptions).Should(Equal(3))
+	})
 })
