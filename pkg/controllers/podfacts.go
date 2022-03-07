@@ -453,46 +453,29 @@ func (p *PodFacts) doesDBExist() tristate.TriState {
 	return returnOnFail
 }
 
-// anyPodsMissingDB will check whether each pod is added to the database.
-// It returns two states:
-// - missingDB is true if at least one pod was running and had a missing DB
-// - unknownState is true if at least one pod we could not determine if the DB
-// was there or not -- due to the pod not running
-func (p *PodFacts) anyPodsMissingDB(scName string) (missingDB, unknownState bool) {
-	missingDB = false
-	unknownState = false
-	for _, v := range p.Detail {
-		if v.subcluster != scName {
-			continue
-		}
-		if v.dbExists.IsFalse() {
-			missingDB = true
-		} else if v.dbExists.IsNone() {
-			unknownState = true
-		}
-	}
-	return
-}
-
-// findPodsWithMisstingDB will return a list of pods facts that have a missing DB
+// findPodsWithMisstingDB will return a list of pods facts that have a missing DB.
 // It will only return pods that are running and that match the given
 // subcluster. If no pods are found an empty list is returned. The list will be
-// ordered by pod index.
-func (p *PodFacts) findPodsWithMissingDB(scName string) []*PodFact {
+// ordered by pod index.  We also return a bool indicating wether we couldn't
+// determine if DB was installed on any pods.
+func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
+	podsWithUnknownState := false
 	hostList := []*PodFact{}
 	for _, v := range p.Detail {
 		if v.subcluster != scName {
 			continue
 		}
-		if v.dbExists.IsFalse() && v.isPodRunning {
+		if v.dbExists.IsFalse() {
 			hostList = append(hostList, v)
+		} else if v.dbExists.IsNone() {
+			podsWithUnknownState = true
 		}
 	}
 	// Return an ordered list by pod index for easier debugging
 	sort.Slice(hostList, func(i, j int) bool {
 		return hostList[i].dnsName < hostList[j].dnsName
 	})
-	return hostList
+	return hostList, podsWithUnknownState
 }
 
 // findPodToRunVsql returns the name of the pod we will exec into in
