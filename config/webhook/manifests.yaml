@@ -1,5 +1,5 @@
 # Originally generated via:
-# bin/controller-gen crd:trivialVersions=true,preserveUnknownFields=false webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+# bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -9,7 +9,6 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta1
   clientConfig:
     service:
       name: webhook-service
@@ -33,7 +32,6 @@ webhooks:
     resources:
     - verticadbs
   sideEffects: None
-
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -43,7 +41,6 @@ metadata:
 webhooks:
 - admissionReviewVersions:
   - v1
-  - v1beta1
   clientConfig:
     service:
       name: webhook-service
