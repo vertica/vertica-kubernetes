@@ -317,7 +317,7 @@ func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.Ver
 	return nil
 }
 
-// checkShardSubscriptions will cound the number of shards that are subscribed
+// checkShardSubscriptions will count the number of shards that are subscribed
 // to the current node
 func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	// This check depends on the vnode, which is only present if the pod is
