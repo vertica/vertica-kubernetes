@@ -10,6 +10,7 @@ kubeconfig
 run.out
 local-soak.cfg
 local-kustomize*.cfg
+.envrc
 
 # Generated files from create-kustomize-overlay.sh
 overlay/

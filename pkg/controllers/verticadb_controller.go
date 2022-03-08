@@ -144,6 +144,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		// Handle calls to admintools -t db_add_node
 		MakeDBAddNodeReconciler(r, log, vdb, prunner, &pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
+		// Handle calls to rebalance_shards
+		MakeRebalanceShardsReconciler(r, log, vdb, prunner, &pfacts),
 	}
 
 	for _, act := range actors {

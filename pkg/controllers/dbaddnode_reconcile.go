@@ -17,7 +17,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -75,30 +74,25 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 // reconcileSubcluster will reconcile a single subcluster.  Add node will be
 // triggered if we determine that it hasn't been run.
 func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	if missingDB, unknownState := d.PFacts.anyPodsMissingDB(sc.Name); missingDB || unknownState {
-		if missingDB {
-			res, err := d.runAddNode(ctx, sc)
-			if err != nil || res.Requeue {
-				return res, err
-			}
-		}
-		if unknownState {
-			d.Log.Info("Requeue because some pods were not running")
-		}
-		return ctrl.Result{Requeue: unknownState}, nil
+	addNodePods, unknownState := d.PFacts.findPodsWithMissingDB(sc.Name)
+
+	// We want to group all of the add nodes in a single admintools call.
+	// Doing so limits the impact on any running queries.  So if there is at
+	// least one pod with unknown state, we requeue until that pod is
+	// running before we proceed with the admintools call.
+	if unknownState {
+		d.Log.Info("Requeue add node because some pods were not running")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if len(addNodePods) > 0 {
+		res, err := d.runAddNode(ctx, addNodePods)
+		return res, err
 	}
 	return ctrl.Result{}, nil
 }
 
 // runAddNode will add nodes to the given subcluster
-func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	pods := d.PFacts.findPodsWithMissingDB(sc.Name)
-	// The pods that are missing the db might not be running, so we requeue the
-	// reconciliation so we don't miss this pod
-	if len(pods) == 0 {
-		return ctrl.Result{Requeue: true}, nil
-	}
-
+func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	atPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
@@ -116,36 +110,37 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, sc *vapi.Subcluste
 		if err := cleanupLocalFiles(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
 			return ctrl.Result{}, err
 		}
-
-		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
-
-		if stdout, err := d.runAddNodeForPod(ctx, pod, atPod); err != nil {
-			// If we reached the node limit according to the license, end this
-			// reconcile successfully. We don't want to fail and requeue because
-			// this isn't going to get fixed until someone manually adds a new
-			// license.
-			if isLicenseLimitError(stdout) {
-				return ctrl.Result{}, nil
-			}
-			return ctrl.Result{}, err
-		}
-
-		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
-
-		// Invalidate the cached pod facts now that some pods have a DB now.
-		d.PFacts.Invalidate()
 	}
-	err := d.rebalanceShards(ctx, atPod, sc.Name)
-	return ctrl.Result{}, err
+
+	debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+
+	if stdout, err := d.runAddNodeForPod(ctx, pods, atPod); err != nil {
+		// If we reached the node limit according to the license, end this
+		// reconcile successfully. We don't want to fail and requeue because
+		// this isn't going to get fixed until someone manually adds a new
+		// license.
+		if isLicenseLimitError(stdout) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+
+	// Invalidate the cached pod facts now that some pods have a DB now.
+	d.PFacts.Invalidate()
+
+	return ctrl.Result{}, nil
 }
 
 // runAddNodeForPod will execute the command to add a single node to the cluster
 // Returns the stdout from the command.
-func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pod, atPod *PodFact) (string, error) {
+func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodFact, atPod *PodFact) (string, error) {
+	podNames := genPodNames(pods)
 	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
-		"Calling 'admintools -t db_add_node' for pod '%s'", pod.name.Name)
+		"Calling 'admintools -t db_add_node' for pod(s) '%s'", podNames)
 	start := time.Now()
-	cmd := d.genAddNodeCommand(pod)
+	cmd := d.genAddNodeCommand(pods)
 	stdout, _, err := d.PRunner.ExecAdmintools(ctx, atPod.name, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
@@ -154,7 +149,7 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pod, atPod *
 				"You cannot add more nodes to the database.  You have reached the limit allowed by your license.")
 		default:
 			d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.AddNodeFailed,
-				"Failed when calling 'admintools -t db_add_node' from pod %s", pod.name.Name)
+				"Failed when calling 'admintools -t db_add_node' for pod(s) '%s'", podNames)
 		}
 	} else {
 		d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
@@ -168,29 +163,18 @@ func isLicenseLimitError(stdout string) bool {
 	return strings.Contains(stdout, "Cannot create another node. The current license permits")
 }
 
-// rebalanceShards will execute the command to rebalance the shards
-// between all the nodes(old and new)
-func (d *DBAddNodeReconciler) rebalanceShards(ctx context.Context, atPod *PodFact, scName string) error {
-	podName := atPod.name
-	selectCmd := fmt.Sprintf("select rebalance_shards('%s')", scName)
-	cmd := []string{
-		"-tAc", selectCmd,
-	}
-	_, _, err := d.PRunner.ExecVSQL(ctx, podName, names.ServerContainer, cmd...)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // genAddNodeCommand returns the command to run to add nodes to the cluster.
-func (d *DBAddNodeReconciler) genAddNodeCommand(pod *PodFact) []string {
+func (d *DBAddNodeReconciler) genAddNodeCommand(pods []*PodFact) []string {
+	hostNames := make([]string, 0, len(pods))
+	for _, pod := range pods {
+		hostNames = append(hostNames, pod.dnsName)
+	}
+
 	return []string{
 		"-t", "db_add_node",
-		"--hosts", pod.podIP,
+		"--hosts", strings.Join(hostNames, ","),
 		"--database", d.Vdb.Spec.DBName,
-		"--subcluster", pod.subcluster,
+		"--subcluster", pods[0].subcluster,
 		"--noprompt",
 	}
 }

@@ -102,6 +102,9 @@ type PodFact struct {
 
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
+
+	// The number of shards this node has subscribed to
+	shardSubscriptions int
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -208,6 +211,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
 		p.checkThatConfigShareExists,
+		p.checkShardSubscriptions,
 	}
 
 	for _, fn := range fns {
@@ -311,6 +315,28 @@ func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.Ver
 		}
 	}
 	return nil
+}
+
+// checkShardSubscriptions will count the number of shards that are subscribed
+// to the current node
+func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	// This check depends on the vnode, which is only present if the pod is
+	// running and the database exists at the node.
+	if !pf.isPodRunning || pf.dbExists != tristate.True {
+		return nil
+	}
+	cmd := []string{
+		"-tAc",
+		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s'",
+			pf.vnodeName),
+	}
+	stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		if !strings.Contains(stderr, "vsql: could not connect to server:") {
+			return err
+		}
+	}
+	return setShardSubscription(stdout, pf)
 }
 
 // checkIsDBCreated will check for evidence of a database at the local node.
@@ -437,6 +463,23 @@ func parseVerticaNodeName(stdout string) string {
 	return ""
 }
 
+// setShardSubscription will set the pf.shardSubscriptions based on the query
+// output
+func setShardSubscription(op string, pf *PodFact) error {
+	// For testing purposes we early out with no error if there is no output
+	if op == "" {
+		return nil
+	}
+
+	lines := strings.Split(op, "\n")
+	subs, err := strconv.Atoi(lines[0])
+	if err != nil {
+		return err
+	}
+	pf.shardSubscriptions = subs
+	return nil
+}
+
 // doesDBExist will check if the database exists anywhere.
 // Returns tristate.False if we are 100% confident that the database doesn't
 // exist anywhere. If we did not find any existence of database and at least one
@@ -453,46 +496,29 @@ func (p *PodFacts) doesDBExist() tristate.TriState {
 	return returnOnFail
 }
 
-// anyPodsMissingDB will check whether each pod is added to the database.
-// It returns two states:
-// - missingDB is true if at least one pod was running and had a missing DB
-// - unknownState is true if at least one pod we could not determine if the DB
-// was there or not -- due to the pod not running
-func (p *PodFacts) anyPodsMissingDB(scName string) (missingDB, unknownState bool) {
-	missingDB = false
-	unknownState = false
-	for _, v := range p.Detail {
-		if v.subcluster != scName {
-			continue
-		}
-		if v.dbExists.IsFalse() {
-			missingDB = true
-		} else if v.dbExists.IsNone() {
-			unknownState = true
-		}
-	}
-	return
-}
-
-// findPodsWithMisstingDB will return a list of pods facts that have a missing DB
+// findPodsWithMisstingDB will return a list of pods facts that have a missing DB.
 // It will only return pods that are running and that match the given
 // subcluster. If no pods are found an empty list is returned. The list will be
-// ordered by pod index.
-func (p *PodFacts) findPodsWithMissingDB(scName string) []*PodFact {
+// ordered by pod index.  We also return a bool indicating wether we couldn't
+// determine if DB was installed on any pods.
+func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
+	podsWithUnknownState := false
 	hostList := []*PodFact{}
 	for _, v := range p.Detail {
 		if v.subcluster != scName {
 			continue
 		}
-		if v.dbExists.IsFalse() && v.isPodRunning {
+		if v.dbExists.IsFalse() {
 			hostList = append(hostList, v)
+		} else if v.dbExists.IsNone() {
+			podsWithUnknownState = true
 		}
 	}
 	// Return an ordered list by pod index for easier debugging
 	sort.Slice(hostList, func(i, j int) bool {
 		return hostList[i].dnsName < hostList[j].dnsName
 	})
-	return hostList
+	return hostList, podsWithUnknownState
 }
 
 // findPodToRunVsql returns the name of the pod we will exec into in

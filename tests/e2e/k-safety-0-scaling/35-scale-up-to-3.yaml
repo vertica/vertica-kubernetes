@@ -18,4 +18,8 @@ metadata:
 spec:
   subclusters:
     - name: sc1
+      size: 1
+      isPrimary: true
+    - name: sc2
       size: 2
+      isPrimary: false

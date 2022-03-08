@@ -116,7 +116,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		r := MakeDBAddNodeReconciler(vrec, logger, vdb, fpr, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("select rebalance_shards('defaultsubcluster')")
-		Expect(len(atCmd)).Should(Equal(1))
+		Expect(len(atCmd)).Should(Equal(0))
 	})
 
 	It("should not call select rebalance_shards() if no node has been added", func() {
@@ -135,7 +135,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		Expect(len(atCmd)).Should(Equal(0))
 	})
 
-	It("should add node and requeue if one pod is missing db and another pod isn't running", func() {
+	It("should not add node and requeue if one pod is missing db and another pod isn't running", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
 		createPods(ctx, vdb, AllPodsRunning)
@@ -153,6 +153,21 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		pfacts.Detail[podInUnknownState].dbExists = tristate.None
 		r := MakeDBAddNodeReconciler(vrec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
+		Expect(len(lastCall)).Should(Equal(0))
+	})
+
+	It("should have a single add node call if multi pods are missing db", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 3
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 2)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		r := MakeDBAddNodeReconciler(vrec, logger, vdb, fpr, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(1))
 	})

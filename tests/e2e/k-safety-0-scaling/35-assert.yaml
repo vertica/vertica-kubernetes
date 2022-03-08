@@ -16,6 +16,14 @@ kind: StatefulSet
 metadata:
   name: v-k-safety-0-scaling-sc1
 status:
+  currentReplicas: 1
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-k-safety-0-scaling-sc2
+status:
   currentReplicas: 2
   readyReplicas: 2
 ---
@@ -24,6 +32,5 @@ kind: VerticaDB
 metadata:
   name: v-k-safety-0-scaling
 status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 2
+  installCount: 3
+  addedToDBCount: 3
