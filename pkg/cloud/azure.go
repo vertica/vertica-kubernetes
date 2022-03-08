@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package cloud
 
 const (
 	// Key names in the communal credentials for Azure blob storage endpoints.

@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -83,12 +84,12 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 				r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
-		case isBucketNotExistError(stdout):
+		case cloud.IsBucketNotExistError(stdout):
 			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
 				"The bucket in the S3 path '%s' does not exist", r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
-		case isEndpointBadError(stdout):
+		case cloud.IsEndpointBadError(stdout):
 			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
 				"Unable to connect to S3 endpoint '%s'", r.Vdb.Spec.Communal.Endpoint)
 			return ctrl.Result{Requeue: true}, nil

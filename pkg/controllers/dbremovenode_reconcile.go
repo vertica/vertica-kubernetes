@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -80,8 +81,8 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 	// Use the finder so that we check only the subclusters that are in the vdb.
 	// Any nodes that are in subclusters that we are removing are handled by the
 	// DBRemoveSubcusterReconciler.
-	finder := MakeSubclusterFinder(d.VRec.Client, d.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, FindInVdb)
+	finder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindInVdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package cloud
 
 import "strings"
 
@@ -24,12 +24,12 @@ const (
 	CommunalSecretKeyName = "secretkey"
 )
 
-// isEndpointBadError returns true if the given message text has the message aboud a bad endpoint
-func isEndpointBadError(op string) bool {
+// IsEndpointBadError returns true if the given message text has the message aboud a bad endpoint
+func IsEndpointBadError(op string) bool {
 	return strings.Contains(op, "Unable to connect to endpoint")
 }
 
-// isBucketNotExistError returns true if the given message text has the message about a bad bucket
-func isBucketNotExistError(op string) bool {
+// IsBucketNotExistError returns true if the given message text has the message about a bad bucket
+func IsBucketNotExistError(op string) bool {
 	return strings.Contains(op, "The specified bucket does not exist")
 }

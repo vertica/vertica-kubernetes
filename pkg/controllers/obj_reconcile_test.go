@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -181,7 +182,7 @@ var _ = Describe("obj_reconcile", func() {
 				Expect(objectMeta.Annotations["gitRef"]).Should(Equal("1234abc"))
 				Expect(objectMeta.Labels["vertica.com/database"]).Should(Equal(vdb.Spec.DBName))
 				if isScSpecific {
-					Expect(objectMeta.Labels[SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
+					Expect(objectMeta.Labels[builder.SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
 				}
 			}
 
@@ -298,7 +299,7 @@ var _ = Describe("obj_reconcile", func() {
 			nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 			currAffinity := sts.Spec.Template.Spec.Affinity
-			Expect(*currAffinity).Should(Equal(*getK8sAffinity(desiredAffinity)))
+			Expect(*currAffinity).Should(Equal(*builder.GetK8sAffinity(desiredAffinity)))
 		})
 
 		It("should create a statefulset with a configured Tolerations", func() {
@@ -444,7 +445,7 @@ var _ = Describe("obj_reconcile", func() {
 			nm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 			Expect(len(sts.Spec.Template.Spec.ImagePullSecrets)).Should(Equal(1))
-			imagePullSecrets := getK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets)
+			imagePullSecrets := builder.GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets)
 			Expect(sts.Spec.Template.Spec.ImagePullSecrets).Should(ContainElement(imagePullSecrets[0]))
 		})
 
@@ -484,7 +485,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should succeed if the kerberos secret is setup correctly", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.KerberosSecret = "my-secret-v1"
-			secret := buildKerberosSecretBase(vdb)
+			secret := builder.BuildKerberosSecretBase(vdb)
 			secret.Data[filepath.Base(paths.Krb5Keytab)] = []byte("keytab")
 			secret.Data[filepath.Base(paths.Krb5Conf)] = []byte("conf")
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
@@ -498,7 +499,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should requeue if the kerberos secret has a missing keytab", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.KerberosSecret = "my-secret-v2"
-			secret := buildKerberosSecretBase(vdb)
+			secret := builder.BuildKerberosSecretBase(vdb)
 			secret.Data[filepath.Base(paths.Krb5Conf)] = []byte("conf") // Only the krb5.conf
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			defer deleteSecret(ctx, vdb, vdb.Spec.KerberosSecret)
@@ -512,7 +513,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.SSHSecret = "my-secret-v3"
 			nm := names.GenNamespacedName(vdb, vdb.Spec.SSHSecret)
-			secret := buildSecretBase(nm)
+			secret := builder.BuildSecretBase(nm)
 			secret.Data[paths.SSHKeyPaths[0]] = []byte("conf") // Only 1 of the keys
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 			defer deleteSecret(ctx, vdb, vdb.Spec.SSHSecret)
@@ -565,13 +566,13 @@ var _ = Describe("obj_reconcile", func() {
 			svc1 := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, nm, svc1)).Should(Succeed())
 
-			standby := buildTransientSubcluster(vdb, "")
+			standby := vdb.BuildTransientSubcluster("")
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 			actor := MakeObjReconciler(vrec, logger, vdb, &pfacts)
 			objr := actor.(*ObjReconciler)
 			// Force a label change to reconcile with the transient subcluster
 			svcName := names.GenExtSvcName(vdb, sc)
-			expSvc := buildExtSvc(svcName, vdb, sc, makeSvcSelectorLabelsForSubclusterNameRouting)
+			expSvc := builder.BuildExtSvc(svcName, vdb, sc, builder.MakeSvcSelectorLabelsForSubclusterNameRouting)
 			Expect(objr.reconcileExtSvc(ctx, expSvc, standby)).Should(Succeed())
 
 			// Fetch the service object again.  The selectors should be different.

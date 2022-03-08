@@ -21,8 +21,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -38,8 +41,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	It("should skip transient subcluster setup only when primaries have matching image", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{Name: "transient", Size: 1, IsPrimary: false}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
@@ -59,17 +62,17 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{Name: "transient", Size: 1, IsPrimary: false}
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))
 
-		transientSc := buildTransientSubcluster(vdb, "")
-		defer deleteSts(ctx, vdb, transientSc, 1) // Add to defer for pods in transient
+		transientSc := vdb.BuildTransientSubcluster("")
+		defer test.DeleteSts(ctx, k8sClient, vdb, transientSc, 1) // Add to defer for pods in transient
 
 		fetchedSts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), fetchedSts))
@@ -94,8 +97,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		r := createOnlineUpgradeReconciler(vdb)
@@ -121,13 +124,13 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
-		transientSc := buildTransientSubcluster(vdb, "")
-		createSts(ctx, vdb, transientSc, 1, 0, AllPodsNotRunning)
-		defer deleteSts(ctx, vdb, transientSc, 1)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
+		transientSc := vdb.BuildTransientSubcluster("")
+		test.CreateSts(ctx, k8sClient, vdb, transientSc, 1, 0, test.AllPodsNotRunning)
+		defer test.DeleteSts(ctx, k8sClient, vdb, transientSc, 1)
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
@@ -135,14 +138,14 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(TransientScName))
+		Expect(svc.Spec.Selector[builder.SubclusterSvcNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[builder.SubclusterNameLabel]).Should(Equal(TransientScName))
 
 		// Route back to original subcluster
 		Expect(r.routeClientTraffic(ctx, ScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(sc.GetServiceName()))
-		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[builder.SubclusterSvcNameLabel]).Should(Equal(sc.GetServiceName()))
+		Expect(svc.Spec.Selector[builder.SubclusterNameLabel]).Should(Equal(""))
 	})
 
 	It("should not route client traffic to transient subcluster since it doesn't exist", func() {
@@ -160,18 +163,18 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		r := createOnlineUpgradeReconciler(vdb)
 		Expect(r.routeClientTraffic(ctx, ScName, true)).Should(Succeed())
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(ScName))
-		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[builder.SubclusterSvcNameLabel]).Should(Equal(ScName))
+		Expect(svc.Spec.Selector[builder.SubclusterNameLabel]).Should(Equal(""))
 	})
 
 	It("should avoid creating transient if the cluster is down", func() {
@@ -184,10 +187,10 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		r := createOnlineUpgradeReconciler(vdb)
@@ -206,37 +209,37 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		svc := &corev1.Service{}
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(PriScName))
+		Expect(svc.Spec.Selector[builder.SubclusterSvcNameLabel]).Should(Equal(PriScName))
 
 		r := createOnlineUpgradeReconciler(vdb)
 
 		// Route for primary subcluster
 		Expect(r.routeClientTraffic(ctx, PriScName, true)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(SecScName))
+		Expect(svc.Spec.Selector[builder.SubclusterTransientLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[builder.SubclusterSvcNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[builder.SubclusterNameLabel]).Should(Equal(SecScName))
 		Expect(r.routeClientTraffic(ctx, PriScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterTransientLabel]).Should(Equal(""))
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].GetServiceName()))
-		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[builder.SubclusterTransientLabel]).Should(Equal(""))
+		Expect(svc.Spec.Selector[builder.SubclusterSvcNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].GetServiceName()))
+		Expect(svc.Spec.Selector[builder.SubclusterNameLabel]).Should(Equal(""))
 
 		// Route for secondary subcluster
 		Expect(r.routeClientTraffic(ctx, SecScName, true)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterNameLabel]).Should(Equal(PriScName))
+		Expect(svc.Spec.Selector[builder.SubclusterNameLabel]).Should(Equal(PriScName))
 		Expect(r.routeClientTraffic(ctx, SecScName, false)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1]), svc)).Should(Succeed())
-		Expect(svc.Spec.Selector[SubclusterSvcNameLabel]).Should(Equal(SecScName))
+		Expect(svc.Spec.Selector[builder.SubclusterSvcNameLabel]).Should(Equal(SecScName))
 	})
 
 	It("should not match transient subclusters", func() {
@@ -250,8 +253,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
 		r := createOnlineUpgradeReconciler(vdb)
@@ -265,7 +268,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeFalse())
 		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeTrue())
 
-		sts.Labels[SubclusterTypeLabel] = "true" // Fake a transient subcluster
+		sts.Labels[builder.SubclusterTypeLabel] = "true" // Fake a transient subcluster
 		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeFalse())
 		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
 	})
@@ -285,8 +288,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
@@ -312,8 +315,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
@@ -333,8 +336,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
@@ -370,11 +373,11 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
-		transientSc := buildTransientSubcluster(vdb, "")
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
+		transientSc := vdb.BuildTransientSubcluster("")
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
@@ -386,7 +389,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).ShouldNot(Succeed())
 
 		// Confirm it gets returned from the finder
-		scs, err := r.Finder.FindSubclusters(ctx, FindAll|FindSorted)
+		scs, err := r.Finder.FindSubclusters(ctx, iter.FindAll|iter.FindSorted)
 		Expect(err).Should(Succeed())
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0].Name).Should(Equal(TransientScName))
@@ -395,10 +398,10 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		// Create transient and make sure finder only returns one instance of
 		// the transient
-		createSts(ctx, vdb, transientSc, 1, 0, AllPodsRunning)
-		defer deleteSts(ctx, vdb, transientSc, 1)
+		test.CreateSts(ctx, k8sClient, vdb, transientSc, 1, 0, test.AllPodsRunning)
+		defer test.DeleteSts(ctx, k8sClient, vdb, transientSc, 1)
 
-		scs, err = r.Finder.FindSubclusters(ctx, FindAll|FindSorted)
+		scs, err = r.Finder.FindSubclusters(ctx, iter.FindAll|iter.FindSorted)
 		Expect(err).Should(Succeed())
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0].Name).Should(Equal(TransientScName))

@@ -24,7 +24,9 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
@@ -151,7 +153,7 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 	// reuse ones we have for other primary/secondary subclusters.
 	if !sc.IsTransient {
 		svcName := names.GenExtSvcName(o.Vdb, sc)
-		expSvc := buildExtSvc(svcName, o.Vdb, sc, makeSvcSelectorLabelsForServiceNameRouting)
+		expSvc := builder.BuildExtSvc(svcName, o.Vdb, sc, builder.MakeSvcSelectorLabelsForServiceNameRouting)
 		if err := o.reconcileExtSvc(ctx, expSvc, sc); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -163,10 +165,10 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 // checkForDeletedSubcluster will remove any objects that were created for
 // subclusters that don't exist anymore.
 func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Result, error) {
-	finder := MakeSubclusterFinder(o.VRec.Client, o.Vdb)
+	finder := iter.MakeSubclusterFinder(o.VRec.Client, o.Vdb)
 
 	// Find any statefulsets that need to be deleted
-	stss, err := finder.FindStatefulSets(ctx, FindNotInVdb)
+	stss, err := finder.FindStatefulSets(ctx, iter.FindNotInVdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -187,7 +189,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 	}
 
 	// Find any service objects that need to be deleted
-	svcs, err := finder.FindServices(ctx, FindNotInVdb)
+	svcs, err := finder.FindServices(ctx, iter.FindNotInVdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -257,7 +259,7 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 func (o ObjReconciler) reconcileHlSvc(ctx context.Context) error {
 	curSvc := &corev1.Service{}
 	svcName := names.GenHlSvcName(o.Vdb)
-	expSvc := buildHlSvc(svcName, o.Vdb)
+	expSvc := builder.BuildHlSvc(svcName, o.Vdb)
 	err := o.VRec.Client.Get(ctx, svcName, curSvc)
 	if err != nil && errors.IsNotFound(err) {
 		return o.createService(ctx, expSvc, svcName)
@@ -280,7 +282,7 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := buildStsSpec(nm, o.Vdb, sc)
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)

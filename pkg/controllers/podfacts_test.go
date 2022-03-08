@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,8 +48,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should detect that there is a stale admintools.conf", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		sc := &vdb.Spec.Subclusters[0]
 		installIndFn := vdb.GenInstallerIndicatorFileName()
@@ -82,8 +83,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should never indicate db exists if pods not running", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{}
@@ -97,8 +98,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should not indicate db exists if db directory is not there", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
@@ -251,8 +252,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should parse out the compat21 node name from install indicator file", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
