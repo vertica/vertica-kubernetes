@@ -230,6 +230,14 @@ type VerticaDBSpec struct {
 	// easily consume the logs.
 	RequeueTime int `json:"requeueTime,omitempty"`
 
+	// +kubebuilder:default:=120
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// If a reconciliation iteration during an operation such as Upgrade needs to be requeued, this controls the
+	// amount of time in seconds to delay adding the key to the reconcile queue.  If this is set to 0, then we rely on the requeue
+	// time set. If RequeueTime is not set either then we will use the exponential backoff algorithm.
+	UpgradeRequeueTime int `json:"upgradeRequeueTime,omitempty"`
+
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Optional sidecar containers that run along side the vertica server.  The
@@ -957,4 +965,14 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	inx := OnlineUpgradeInProgressIndex
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
+}
+
+const urTime = 120
+
+// GetUpgradeRequeueTime for the current
+func (v *VerticaDB) GetUpgradeRequeueTime() int {
+	if v.Spec.UpgradeRequeueTime == 0 {
+		return urTime
+	}
+	return v.Spec.UpgradeRequeueTime
 }

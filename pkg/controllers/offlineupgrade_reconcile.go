@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
@@ -98,7 +99,12 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		o.Manager.finishUpgrade,
 	}
 	for _, fn := range funcs {
-		if res, err := fn(ctx); res.Requeue || err != nil {
+		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
+			// If Reconcile was aborted with a requeue, set the RequeueAfter interval to prevent exponential backoff
+			if err == nil {
+				res.Requeue = false
+				res.RequeueAfter = time.Duration(o.Vdb.GetUpgradeRequeueTime())
+			}
 			return res, err
 		}
 	}
@@ -216,7 +222,7 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 	}
 	if !foundPodWithNewImage {
 		o.Log.Info("Requeue to wait until at least one pod exists with the new image")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Duration(o.Vdb.Spec.UpgradeRequeueTime)}, nil
 	}
 	return ctrl.Result{}, nil
 }

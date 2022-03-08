@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -92,7 +93,12 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 		o.Manager.finishUpgrade,
 	}
 	for _, fn := range funcs {
-		if res, err := fn(ctx); res.Requeue || err != nil {
+		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
+			// If Reconcile was aborted with a requeue, set the RequeueAfter interval to prevent exponential backoff
+			if err == nil {
+				res.Requeue = false
+				res.RequeueAfter = time.Duration(o.Vdb.GetUpgradeRequeueTime())
+			}
 			return res, err
 		}
 	}
@@ -134,7 +140,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		)
 		return ctrl.Result{}, nil
 	}
-	if res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubclusterType, procFunc); res.Requeue || err != nil {
+	if res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubclusterType, procFunc); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	o.StatusMsgs = append(o.StatusMsgs, "Destroying transient secondary subcluster")
@@ -275,7 +281,7 @@ func (o *OnlineUpgradeReconciler) iterateSubclusterType(ctx context.Context, scT
 			continue
 		}
 
-		if res, err := processFunc(ctx, sts); res.Requeue || err != nil {
+		if res, err := processFunc(ctx, sts); verrors.IsReconcileAborted(res, err) {
 			o.Log.Info("Error during subcluster iteration", "res", res, "err", err)
 			return res, err
 		}
@@ -294,10 +300,10 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		o.bringSubclusterOnline,
 	}
 	for i, fn := range funcs {
-		if res, err := o.postNextStatusMsg(ctx); res.Requeue || err != nil {
+		if res, err := o.postNextStatusMsg(ctx); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, fn); res.Requeue || err != nil {
+		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, fn); verrors.IsReconcileAborted(res, err) {
 			o.Log.Info("Error iterating subclusters over function", "i", i)
 			return res, err
 		}
@@ -324,7 +330,7 @@ func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *app
 		o.bringSubclusterOnline,
 	}
 	for _, fn := range funcs {
-		if res, err := fn(ctx, sts); res.Requeue || err != nil {
+		if res, err := fn(ctx, sts); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -412,7 +418,7 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
 	o.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
-	if res.Requeue || err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	o.PFacts.Invalidate() // Status of the pods may have changed
@@ -663,8 +669,7 @@ func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName s
 	}
 
 	// Parse the output.  We requeue if there is an active connection.  This
-	// will rely on the exponential backoff algorithm that is in implemented by
-	// the controller-runtime: start at 5ms, doubles until it gets to 16minutes.
+	// will rely on the UpgradeRequeueTime that is set at 2 minutes default
 	return ctrl.Result{Requeue: o.doesScHaveActiveConnections(stdout)}, nil
 }
 

@@ -34,6 +34,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	ctx := context.Background()
 	const OldImage = "old-image"
 	const NewImageName = "different-image"
+	const UpgradeRequeueTime = 100
 
 	It("should skip transient subcluster setup only when primaries have matching image", func() {
 		vdb := vapi.MakeVDB()
@@ -319,7 +320,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
 		Expect(vdb.Status.UpgradeStatus).Should(Equal("Checking if new version is compatible"))
 	})
 
@@ -353,6 +354,30 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 			{Stdout: "  0\n"},
 		}
 		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
+	})
+
+	It("should requeue after a specified UpgradeRequeueAfter time", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", IsPrimary: true, Size: 1},
+		}
+		vdb.Spec.Image = OldImage
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
+		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
+		vdb.Spec.UpgradeRequeueTime = UpgradeRequeueTime
+		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
+
+		createVdb(ctx, vdb)
+		defer deleteVdb(ctx, vdb)
+		createPods(ctx, vdb, AllPodsRunning)
+		defer deletePods(ctx, vdb)
+
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		r := createOnlineUpgradeReconciler(vdb)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 	})
 
 	It("should return transient if doing online upgrade and transient isn't created yet", func() {
