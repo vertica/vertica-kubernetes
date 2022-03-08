@@ -11,22 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-k-safety-0-scaling
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  subclusters:
-    - name: sc1
-      size: 1
-  kSafety: "0"
-  certSecrets: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: n=$(kubectl exec -n $NAMESPACE v-k-safety-0-scaling-sc1-0 -- vsql -tAc "select node_name from nodes where node_name not in (select distinct(node_name) from node_subscriptions)" | wc -l) && exit $n

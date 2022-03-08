@@ -320,7 +320,9 @@ func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.Ver
 // checkShardSubscriptions will cound the number of shards that are subscribed
 // to the current node
 func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if !pf.isPodRunning {
+	// This check depends on the vnode, which is only present if the pod is
+	// running and the database exists at the node.
+	if !pf.isPodRunning || pf.dbExists != tristate.True {
 		return nil
 	}
 	cmd := []string{
