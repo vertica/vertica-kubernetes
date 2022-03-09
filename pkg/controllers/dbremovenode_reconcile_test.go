@@ -21,8 +21,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"yunion.io/x/pkg/tristate"
@@ -44,10 +46,10 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		uninstallPod := buildPod(vdb, sc, 1)
+		uninstallPod := builder.BuildPod(vdb, sc, 1)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
@@ -69,8 +71,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 3
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdbCopy)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 		sc.Size = 1 // mimic a pending db_remove_node
 
 		uninstallPods := []types.NamespacedName{names.GenPodName(vdb, sc, 1), names.GenPodName(vdb, sc, 2)}
@@ -94,8 +96,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdbCopy)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 		sc.Size = sc.Size - 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
@@ -112,8 +114,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 3
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdbCopy)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 		sc.Size = 2 // Set to 2 to mimic a pending uninstall of the last pod
 
 		fpr := &cmds.FakePodRunner{}

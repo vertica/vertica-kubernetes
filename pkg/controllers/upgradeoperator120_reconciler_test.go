@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -35,9 +36,9 @@ var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		nm := names.GenStsName(vdb, sc)
-		sts := buildStsSpec(nm, vdb, sc)
+		sts := builder.BuildStsSpec(nm, vdb, sc)
 		// Set an old operator version to force the upgrade
-		sts.Labels[OperatorVersionLabel] = OperatorVersion110
+		sts.Labels[builder.OperatorVersionLabel] = builder.OperatorVersion110
 		Expect(k8sClient.Create(ctx, sts)).Should(Succeed())
 		defer func() {
 			delSts := &appsv1.StatefulSet{}

@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"yunion.io/x/pkg/tristate"
 )
@@ -46,8 +47,8 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
@@ -66,8 +67,8 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
 		vdbCopy := vdb.DeepCopy() // Take a copy so that cleanup with original size
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdbCopy)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 		sc.Size = 1 // Set to 1 to mimic a pending uninstall
 
 		fpr := &cmds.FakePodRunner{}
@@ -85,8 +86,8 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 3
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdbCopy)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 		sc.Size = 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
@@ -108,8 +109,8 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdbCopy)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 		sc.Size = 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}

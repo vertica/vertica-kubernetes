@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/lithammer/dedent"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -360,17 +361,17 @@ func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (strin
 		return "", res, err
 	}
 
-	accessKey, ok := secret.Data[CommunalAccessKeyName]
+	accessKey, ok := secret.Data[cloud.CommunalAccessKeyName]
 	if !ok {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalAccessKeyName)
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
-	secretKey, ok := secret.Data[CommunalSecretKeyName]
+	secretKey, ok := secret.Data[cloud.CommunalSecretKeyName]
 	if !ok {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, CommunalSecretKeyName)
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
@@ -380,20 +381,21 @@ func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (strin
 }
 
 // getAzureAuth gets the azure credentials from the communal auth secret
-func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCredential, AzureEndpointConfig, ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (
+	cloud.AzureCredential, cloud.AzureEndpointConfig, ctrl.Result, error) {
 	secret, res, err := g.getCommunalCredsSecret(ctx)
 	if res.Requeue || err != nil {
-		return AzureCredential{}, AzureEndpointConfig{}, res, err
+		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, res, err
 	}
 
-	accountName, hasAccountName := secret.Data[AzureAccountName]
-	blobEndpointRaw, hasBlobEndpoint := secret.Data[AzureBlobEndpoint]
+	accountName, hasAccountName := secret.Data[cloud.AzureAccountName]
+	blobEndpointRaw, hasBlobEndpoint := secret.Data[cloud.AzureBlobEndpoint]
 
 	if !hasAccountName && !hasBlobEndpoint {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
-			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountName, AzureBlobEndpoint)
-		return AzureCredential{}, AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
+			g.Vdb.Spec.Communal.CredentialSecret, cloud.AzureAccountName, cloud.AzureBlobEndpoint)
+		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
 	}
 
 	// The blob endpoint may have a protocol scheme as a prefix.  Strip that off
@@ -403,23 +405,23 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (AzureCre
 		blobEndpoint = getEndpointHostPort(string(blobEndpointRaw))
 	}
 
-	accountKey, hasAccountKey := secret.Data[AzureAccountKey]
-	sas, hasSAS := secret.Data[AzureSharedAccessSignature]
+	accountKey, hasAccountKey := secret.Data[cloud.AzureAccountKey]
+	sas, hasSAS := secret.Data[cloud.AzureSharedAccessSignature]
 
 	if (!hasAccountKey && !hasSAS) || (hasAccountKey && hasSAS) {
 		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
-			g.Vdb.Spec.Communal.CredentialSecret, AzureAccountKey, AzureSharedAccessSignature)
-		return AzureCredential{}, AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
+			g.Vdb.Spec.Communal.CredentialSecret, cloud.AzureAccountKey, cloud.AzureSharedAccessSignature)
+		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
 	}
 
-	return AzureCredential{
+	return cloud.AzureCredential{
 			AccountName:           string(accountName),
 			BlobEndpoint:          blobEndpoint,
 			AccountKey:            string(accountKey),
 			SharedAccessSignature: string(sas),
 		},
-		AzureEndpointConfig{
+		cloud.AzureEndpointConfig{
 			AccountName:  string(accountName),
 			BlobEndpoint: blobEndpoint,
 			Protocol:     getEndpointProtocol(string(blobEndpointRaw)),
@@ -474,12 +476,12 @@ func (g *GenericDatabaseInitializer) getRegion(parmName string) string {
 // getEndpointProtocol returns the protocol (HTTPS or HTTP) for the given endpoint
 func getEndpointProtocol(blobEndpoint string) string {
 	if blobEndpoint == "" {
-		return AzureDefaultProtocol
+		return cloud.AzureDefaultProtocol
 	}
 	re := regexp.MustCompile(`([a-z]+)://`)
 	m := re.FindAllStringSubmatch(blobEndpoint, 1)
 	if len(m) == 0 || len(m[0]) < 2 {
-		return AzureDefaultProtocol
+		return cloud.AzureDefaultProtocol
 	}
 	return strings.ToUpper(m[0][1])
 }

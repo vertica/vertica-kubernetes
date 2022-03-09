@@ -63,4 +63,5 @@ const (
 	KerberosAuthError               = "KerberosAuthError"
 	OperatorUpgrade                 = "OperatorUpgrade"
 	InvalidUpgradePath              = "InvalidUpgradePath"
+	RebalanceShards                 = "RebalanceShards"
 )

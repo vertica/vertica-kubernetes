@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package builder
 
 const (
 	// The name of the key in the superuser password secret that holds the password

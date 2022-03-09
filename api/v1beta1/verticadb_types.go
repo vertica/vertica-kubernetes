@@ -977,3 +977,22 @@ func (v *VerticaDB) GetUpgradeRequeueTime() int {
 	}
 	return v.Spec.UpgradeRequeueTime
 }
+
+// buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
+func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
+	return &Subcluster{
+		Name:              v.Spec.TemporarySubclusterRouting.Template.Name,
+		Size:              v.Spec.TemporarySubclusterRouting.Template.Size,
+		IsTransient:       true,
+		ImageOverride:     imageOverride,
+		IsPrimary:         false,
+		NodeSelector:      v.Spec.TemporarySubclusterRouting.Template.NodeSelector,
+		Affinity:          v.Spec.TemporarySubclusterRouting.Template.Affinity,
+		PriorityClassName: v.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
+		Tolerations:       v.Spec.TemporarySubclusterRouting.Template.Tolerations,
+		Resources:         v.Spec.TemporarySubclusterRouting.Template.Resources,
+		// We ignore any parameter that is specific to the subclusters service
+		// object.  These are ignored since transient don't have their own
+		// service objects.
+	}
+}

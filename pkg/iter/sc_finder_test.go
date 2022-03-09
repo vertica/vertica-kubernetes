@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package iter
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
 var _ = Describe("sc_finder", func() {
@@ -56,8 +57,8 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[0], Size: scSizes[0]},
 			{Name: scNames[1], Size: scSizes[1]},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		// We create a second vdb without one of the subclusters.  We then use
 		// the finder to discover this additional subcluster.
@@ -81,8 +82,8 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[0], Size: scSizes[0]},
 			{Name: scNames[1], Size: scSizes[1]},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		// We create a second vdb without one of the subclusters.  We then use
 		// the finder to discover this additional subcluster.
@@ -106,11 +107,11 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[0], Size: scSizes[0], IsPrimary: true},
 			{Name: scNames[1], Size: scSizes[1], IsPrimary: false},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		vdbCopy := *vdb // Make a copy for cleanup since we will mutate vdb
-		defer deletePods(ctx, &vdbCopy)
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		defer test.DeletePods(ctx, k8sClient, &vdbCopy)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
 		// Add another subcluster, but since we didn't create any k8s objects
 		// for it, it won't be returned by the finder.
@@ -141,8 +142,8 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[0], Size: scSizes[0]},
 			{Name: scNames[1], Size: scSizes[1]},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		// When use the finder, pass in a Vdb that is entirely different then
 		// the one we used above.  It will be ignored anyway when using
@@ -156,8 +157,8 @@ var _ = Describe("sc_finder", func() {
 	It("should find service objects that exist in the vdb", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
 		svcs, err := finder.FindServices(ctx, FindInVdb)
@@ -180,8 +181,8 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[1]},
 		}
 		sc2 := &vdb.Spec.Subclusters[1]
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
 		// Use a different vdb for the finder so that we can find the service
 		// objects missing from it.
@@ -208,8 +209,8 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[0]},
 			{Name: scNames[1]},
 		}
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
 		svcs, err := finder.FindServices(ctx, FindExisting|FindSorted)
@@ -225,8 +226,8 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[0], Size: 2},
 			{Name: scNames[1], Size: 1},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
 		stss, err := finder.FindStatefulSets(ctx, FindExisting|FindSorted)

@@ -22,9 +22,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -79,10 +81,11 @@ var _ = Describe("init_db", func() {
 		const ScIndex = 0
 		const ScSize = 2
 		vdb.Spec.Subclusters[ScIndex].Size = ScSize
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		const PodIndex = 0
-		setPodStatus(ctx, 1 /* funcOffset */, names.GenPodName(vdb, &vdb.Spec.Subclusters[ScIndex], PodIndex), ScIndex, PodIndex, AllPodsRunning)
+		test.SetPodStatus(ctx, k8sClient, 1 /* funcOffset */, names.GenPodName(vdb, &vdb.Spec.Subclusters[ScIndex], PodIndex),
+			ScIndex, PodIndex, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, ScSize)
@@ -106,8 +109,8 @@ var _ = Describe("init_db", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster1"
 		vdb.Spec.Communal.HadoopConfig = "hadoop-conf"
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		_ = contructAuthParmsHelper(ctx, vdb, "HadoopConf")
 	})
@@ -116,8 +119,8 @@ var _ = Describe("init_db", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster2"
 		vdb.Spec.Communal.HadoopConfig = ""
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		cmds := contructAuthParmsHelper(ctx, vdb, "cat")
 		Expect(len(cmds[0].Command)).Should(Equal(3))
@@ -141,8 +144,8 @@ var _ = Describe("init_db", func() {
 
 		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
 		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureAccountKey))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(AzureSharedAccessSignature))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(cloud.AzureAccountKey))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
 	})
 
 	It("should create an auth file with azure parms when using azb:// scheme and shared access signature", func() {
@@ -153,8 +156,8 @@ var _ = Describe("init_db", func() {
 
 		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
 		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(AzureAccountKey))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(AzureSharedAccessSignature))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
 	})
 
 	It("should include Kerberos parms if there are kerberos settings", func() {
@@ -192,10 +195,10 @@ var _ = Describe("init_db", func() {
 	})
 
 	It("should return correct protocol when calling getEndpointProtocol", func() {
-		Expect(getEndpointProtocol("")).Should(Equal(AzureDefaultProtocol))
-		Expect(getEndpointProtocol("192.168.0.1")).Should(Equal(AzureDefaultProtocol))
-		Expect(getEndpointProtocol("accountname.mcr.net")).Should(Equal(AzureDefaultProtocol))
-		Expect(getEndpointProtocol("https://accountname.mcr.net")).Should(Equal(AzureDefaultProtocol))
+		Expect(getEndpointProtocol("")).Should(Equal(cloud.AzureDefaultProtocol))
+		Expect(getEndpointProtocol("192.168.0.1")).Should(Equal(cloud.AzureDefaultProtocol))
+		Expect(getEndpointProtocol("accountname.mcr.net")).Should(Equal(cloud.AzureDefaultProtocol))
+		Expect(getEndpointProtocol("https://accountname.mcr.net")).Should(Equal(cloud.AzureDefaultProtocol))
 		Expect(getEndpointProtocol("http://accountname.mcr.net:300")).Should(Equal("HTTP"))
 		Expect(getEndpointProtocol("http://192.168.0.1")).Should(Equal("HTTP"))
 	})

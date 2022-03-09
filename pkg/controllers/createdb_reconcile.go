@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
@@ -85,12 +86,12 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
-		case isEndpointBadError(stdout):
+		case cloud.IsEndpointBadError(stdout):
 			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
 				"Unable to write to the bucket in the S3 endpoint '%s'", c.Vdb.Spec.Communal.Endpoint)
 			return ctrl.Result{Requeue: true}, nil
 
-		case isBucketNotExistError(stdout):
+		case cloud.IsBucketNotExistError(stdout):
 			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
 				"The bucket in the S3 path '%s' does not exist", c.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil

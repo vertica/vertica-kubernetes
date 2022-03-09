@@ -22,8 +22,10 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -62,9 +64,9 @@ func (d *DBRemoveSubclusterReconciler) Reconcile(ctx context.Context, req *ctrl.
 
 // removeExtraSubclusters will compare subclusters in vertica with vdb and remove any extra ones
 func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Context) (ctrl.Result, error) {
-	finder := MakeSubclusterFinder(d.VRec.Client, d.Vdb)
+	finder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
 	// Find all subclusters not in the vdb.  These are the ones we want to remove.
-	subclusters, err := finder.FindSubclusters(ctx, FindNotInVdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindNotInVdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -127,10 +129,10 @@ func (d *DBRemoveSubclusterReconciler) resetDefaultSubcluster(ctx context.Contex
 	scMap := d.Vdb.GenSubclusterMap()
 	_, ok := scMap[defSc]
 	if !ok {
-		scFinder := MakeSubclusterFinder(d.VRec.Client, d.Vdb)
+		scFinder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
 		// We use the FindServices() API to get subclusters that already exist.
 		// We can only change the default subcluster to one of those.
-		svcs, err := scFinder.FindServices(ctx, FindInVdb)
+		svcs, err := scFinder.FindServices(ctx, iter.FindInVdb)
 		if err != nil {
 			return err
 		}
@@ -138,7 +140,7 @@ func (d *DBRemoveSubclusterReconciler) resetDefaultSubcluster(ctx context.Contex
 		// remove the default subcluster that we do later will fail.  That
 		// provides a better error message than anything we do here.
 		if len(svcs.Items) > 0 {
-			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[SubclusterNameLabel])
+			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[builder.SubclusterNameLabel])
 		}
 	}
 	return nil

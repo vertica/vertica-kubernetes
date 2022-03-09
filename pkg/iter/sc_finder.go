@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package iter
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -127,7 +128,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		// We will convert each statefulset into a vapi.Subcluster stub object.  We
 		// only fill in the name.
 		for i := range missingSts.Items {
-			scName := missingSts.Items[i].Labels[SubclusterNameLabel]
+			scName := missingSts.Items[i].Labels[builder.SubclusterNameLabel]
 			subclusters = append(subclusters, &vapi.Subcluster{Name: scName})
 		}
 	}
@@ -136,7 +137,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 	// progress state.  This is added after we fetch any subcluster from the
 	// statefulset lookup.  This prevents us from including it twice.
 	if flags&FindInVdb != 0 && m.Vdb.RequiresTransientSubcluster() && m.Vdb.IsOnlineUpgradeInProgress() {
-		transient := buildTransientSubcluster(m.Vdb, "")
+		transient := m.Vdb.BuildTransientSubcluster("")
 		if !isSubclusterInSlice(transient, subclusters) {
 			subclusters = append(subclusters, transient)
 		}
@@ -156,7 +157,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 // We find objects the operator owns by using a set of labels that the operator
 // sets with each object it creates.
 func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list client.ObjectList) error {
-	labelSel := labels.SelectorFromSet(makeOperatorLabels(m.Vdb))
+	labelSel := labels.SelectorFromSet(builder.MakeOperatorLabels(m.Vdb))
 	listOpts := &client.ListOptions{
 		Namespace:     m.Vdb.Namespace,
 		LabelSelector: labelSel,
@@ -166,7 +167,7 @@ func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list 
 
 // hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
-	scName := objLabels[SubclusterNameLabel]
+	scName := objLabels[builder.SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
 	return ok
 }
@@ -214,14 +215,14 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 // hasSubclusterNameLabel returns true if there exists a label that indicates
 // the object is for a subcluster
 func hasSubclusterNameLabel(l map[string]string) bool {
-	_, ok := l[SubclusterNameLabel]
+	_, ok := l[builder.SubclusterNameLabel]
 	if ok {
 		return true
 	}
 	// Prior to 1.3.0, we had a different name for the subcluster name.  We
 	// renamed it as we added additional subcluster attributes to the labele.
 	// Check for this one too.
-	_, ok = l[SubclusterLegacyNameLabel]
+	_, ok = l[builder.SubclusterLegacyNameLabel]
 	return ok
 }
 

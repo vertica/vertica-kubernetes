@@ -22,7 +22,9 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -35,7 +37,7 @@ type UpgradeManager struct {
 	VRec              *VerticaDBReconciler
 	Vdb               *vapi.VerticaDB
 	Log               logr.Logger
-	Finder            SubclusterFinder
+	Finder            iter.SubclusterFinder
 	ContinuingUpgrade bool // true if UpdateInProgress was already set upon entry
 	StatusCondition   vapi.VerticaDBConditionType
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
@@ -50,7 +52,7 @@ func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vap
 		VRec:                          vdbrecon,
 		Vdb:                           vdb,
 		Log:                           log,
-		Finder:                        MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Finder:                        iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
 		StatusCondition:               statusCondition,
 		IsAllowedForUpgradePolicyFunc: isAllowedForUpgradePolicyFunc,
 	}
@@ -95,7 +97,7 @@ func (i *UpgradeManager) isUpgradeInProgress() (bool, error) {
 // isVDBImageDifferent will check if an upgrade is needed based on the
 // image being different between the Vdb and any of the statefulset's.
 func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) {
-	stss, err := i.Finder.FindStatefulSets(ctx, FindInVdb)
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindInVdb)
 	if err != nil {
 		return false, err
 	}
@@ -169,14 +171,14 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, ct
 	// that already exist.  This is necessary incase the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
 	// doesn't take affect until after the upgrade.
-	stss, err := i.Finder.FindStatefulSets(ctx, FindExisting)
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting)
 	if err != nil {
 		return numStsChanged, ctrl.Result{}, err
 	}
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		isTransient, err := strconv.ParseBool(sts.Labels[SubclusterTransientLabel])
+		isTransient, err := strconv.ParseBool(sts.Labels[builder.SubclusterTransientLabel])
 		if err != nil {
 			return numStsChanged, ctrl.Result{}, err
 		}
@@ -224,7 +226,7 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 	// that already exist.  This is necessary in case the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
 	// doesn't take affect until after the upgrade.
-	pods, err := i.Finder.FindPods(ctx, FindExisting)
+	pods, err := i.Finder.FindPods(ctx, iter.FindExisting)
 	if err != nil {
 		return numPodsDeleted, err
 	}
@@ -233,7 +235,7 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 
 		// If scName was passed in, we only delete for a specific subcluster
 		if scName != "" {
-			scNameFromLabel, ok := pod.Labels[SubclusterNameLabel]
+			scNameFromLabel, ok := pod.Labels[builder.SubclusterNameLabel]
 			if ok && scNameFromLabel != scName {
 				continue
 			}
