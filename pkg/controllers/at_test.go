@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
 
 var _ = Describe("at", func() {
@@ -35,8 +36,8 @@ var _ = Describe("at", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		const ScSize = 3
 		sc.Size = ScSize
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pf := createPodFactsWithInstallNeeded(ctx, vdb, fpr)

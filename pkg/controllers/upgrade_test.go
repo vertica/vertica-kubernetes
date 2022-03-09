@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -81,8 +82,8 @@ var _ = Describe("upgrade", func() {
 
 	It("should not need an upgrade if images match in sts and vdb", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OnlineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
@@ -96,8 +97,8 @@ var _ = Describe("upgrade", func() {
 			{Name: "sc1", Size: 2, IsPrimary: true},
 			{Name: "sc2", Size: 3, IsPrimary: false},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImage
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
@@ -123,8 +124,8 @@ var _ = Describe("upgrade", func() {
 			{Name: "sc1", Size: 1, IsPrimary: true},
 			{Name: "sc2", Size: 1, IsPrimary: false},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
 		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OfflineUpgradeInProgress,
@@ -144,8 +145,8 @@ var _ = Describe("upgrade", func() {
 			{Name: "sc1", Size: 1, IsPrimary: false},
 			{Name: "sc2", Size: 1, IsPrimary: false},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
 		mgr := MakeUpgradeManager(vrec, logger, vdb, vapi.OfflineUpgradeInProgress,

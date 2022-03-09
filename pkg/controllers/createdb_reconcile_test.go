@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -34,8 +35,8 @@ var _ = Describe("createdb_reconciler", func() {
 	It("should not call create_db if db already exists", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
@@ -52,8 +53,8 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 3
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
@@ -71,8 +72,8 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
 		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{Name: "secondary", Size: 2})
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
@@ -158,8 +159,8 @@ func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe vapi.KSafetyTyp
 	vdb.Spec.Subclusters[0].Size = firstScSize
 	vdb.Spec.KSafety = ksafe
 	vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{Name: "secondary", Size: 2})
-	createPods(ctx, vdb, AllPodsRunning)
-	defer deletePods(ctx, vdb)
+	test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+	defer test.DeletePods(ctx, k8sClient, vdb)
 
 	fpr := &cmds.FakePodRunner{}
 	pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)

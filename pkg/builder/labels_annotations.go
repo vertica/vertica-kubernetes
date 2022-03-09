@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package builder
 
 import (
 	"strconv"
@@ -40,8 +40,8 @@ const (
 	OperatorVersion131 = CurOperatorVersion
 )
 
-// makeSubclusterLabels returns the labels added for the subcluster
-func makeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
+// MakeSubclusterLabels returns the labels added for the subcluster
+func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	m := map[string]string{
 		SubclusterNameLabel:      sc.Name,
 		SubclusterTypeLabel:      sc.GetType(),
@@ -55,8 +55,8 @@ func makeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	return m
 }
 
-// makeOperatorLabels returns the labels that all objects created by this operator will have
-func makeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
+// MakeOperatorLabels returns the labels that all objects created by this operator will have
+func MakeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/managed-by": OperatorName,
 		"app.kubernetes.io/name":       "vertica",
@@ -66,9 +66,9 @@ func makeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 	}
 }
 
-// makeCommonLabels returns the labels that are common to all objects.
-func makeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	labels := makeOperatorLabels(vdb)
+// MakeCommonLabels returns the labels that are common to all objects.
+func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	labels := MakeOperatorLabels(vdb)
 	// Apply a label to indicate a version of the operator that created the
 	// object.  This is separate from makeOperatorLabels as we don't want to
 	// include that in any sort of label selector.
@@ -79,16 +79,16 @@ func makeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]strin
 		return labels
 	}
 
-	for k, v := range makeSubclusterLabels(sc) {
+	for k, v := range MakeSubclusterLabels(sc) {
 		labels[k] = v
 	}
 
 	return labels
 }
 
-// makeLabelsForObjects constructs the labels for a new k8s object
-func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	labels := makeCommonLabels(vdb, sc)
+// MakeLabelsForObjects constructs the labels for a new k8s object
+func MakeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	labels := MakeCommonLabels(vdb, sc)
 
 	// Add any custom labels that were in the spec.
 	for k, v := range vdb.Spec.Labels {
@@ -98,16 +98,16 @@ func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]st
 	return labels
 }
 
-// makeLabelsForSvcObject will create the set of labels for use with service objects
-func makeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType string) map[string]string {
-	labels := makeLabelsForObject(vdb, sc)
+// MakeLabelsForSvcObject will create the set of labels for use with service objects
+func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType string) map[string]string {
+	labels := MakeLabelsForObject(vdb, sc)
 	labels[SvcTypeLabel] = svcType
 	return labels
 }
 
-// makeAnnotationsForObjects builds the list of annotations that are to be
+// MakeAnnotationsForObjects builds the list of annotations that are to be
 // included on new objects.
-func makeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
+func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	annotations := make(map[string]string, len(vdb.Spec.Annotations))
 	for k, v := range vdb.Spec.Annotations {
 		annotations[k] = v
@@ -115,8 +115,8 @@ func makeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	return annotations
 }
 
-// makeSvcSelectorLabels returns the labels that are used for selectors in service objects.
-func makeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
+// MakeSvcSelectorLabels returns the labels that are used for selectors in service objects.
+func MakeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 	// We intentionally don't use the common labels because that includes things
 	// specific to the operator version.  To allow the selector to work with
 	// pods created from an older operator, we need to be more selective in the
@@ -126,19 +126,19 @@ func makeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 	}
 }
 
-// makeSvcSelectorLabelsForServiceNameRouting will create the labels for when we
+// MakeSvcSelectorLabelsForServiceNameRouting will create the labels for when we
 // want a service object to pick the pods based on the service name.  This
 // allows us to combine multiple subcluster under a single service object.
-func makeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	m := makeBaseSvcSelectorLabels(vdb)
+func MakeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	m := MakeBaseSvcSelectorLabels(vdb)
 	m[SubclusterSvcNameLabel] = sc.GetServiceName()
 	return m
 }
 
-// makeSvcSelectorLabelsForSubclusterNameRouting will create the labels for when
+// MakeSvcSelectorLabelsForSubclusterNameRouting will create the labels for when
 // we want a service object to pick the pods based on the subcluster name.
-func makeSvcSelectorLabelsForSubclusterNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	m := makeBaseSvcSelectorLabels(vdb)
+func MakeSvcSelectorLabelsForSubclusterNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	m := MakeBaseSvcSelectorLabels(vdb)
 	// Routing is done solely with the subcluster name.
 	m[SubclusterNameLabel] = sc.Name
 	return m

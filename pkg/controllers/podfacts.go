@@ -24,7 +24,9 @@ import (
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -134,8 +136,8 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	// Find all of the subclusters to collect facts for.  We want to include all
 	// subclusters, even ones that are scheduled to be deleted -- we keep
 	// collecting facts for those until the statefulsets are gone.
-	finder := MakeSubclusterFinder(p.Client, vdb)
-	subclusters, err := finder.FindSubclusters(ctx, FindAll)
+	finder := iter.MakeSubclusterFinder(p.Client, vdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
 	if err != nil {
 		return nil
 	}
@@ -201,7 +203,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
-	pf.isTransient, _ = strconv.ParseBool(pod.Labels[SubclusterTransientLabel])
+	pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,

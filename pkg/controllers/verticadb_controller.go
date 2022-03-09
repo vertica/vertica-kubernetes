@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -182,11 +183,11 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vap
 		}
 		return passwd, err
 	}
-	pwd, ok := secret.Data[SuperuserPasswordKey]
+	pwd, ok := secret.Data[builder.SuperuserPasswordKey]
 	if ok {
 		passwd = string(pwd)
 	} else {
-		log.Error(err, fmt.Sprintf("password not found, secret must have a key with name '%s'", SuperuserPasswordKey))
+		log.Error(err, fmt.Sprintf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey))
 	}
 	return passwd, nil
 }

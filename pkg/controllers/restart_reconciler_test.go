@@ -26,6 +26,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,8 +61,8 @@ var _ = Describe("restart_reconciler", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{1}, PodNotReadOnly)
@@ -88,8 +89,8 @@ var _ = Describe("restart_reconciler", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		nm := types.NamespacedName{
 			Name:      vdb.Name,
@@ -122,8 +123,8 @@ var _ = Describe("restart_reconciler", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{1, 4}, PodNotReadOnly)
@@ -174,8 +175,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 3
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1, 2}, PodNotReadOnly)
@@ -190,9 +191,9 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(ok).Should(BeTrue())
 		Expect(ipChanging).Should(BeTrue())
 		Expect(mapFileContents).Should(ContainElements(
-			fmt.Sprintf("%s %s", Node1OldIP, fakeIPForPod(0, 0)),
-			fmt.Sprintf("%s %s", Node2OldIP, fakeIPForPod(0, 1)),
-			fmt.Sprintf("%s %s", Node3OldIP, fakeIPForPod(0, 2)),
+			fmt.Sprintf("%s %s", Node1OldIP, test.FakeIPForPod(0, 0)),
+			fmt.Sprintf("%s %s", Node2OldIP, test.FakeIPForPod(0, 1)),
+			fmt.Sprintf("%s %s", Node3OldIP, test.FakeIPForPod(0, 2)),
 		))
 	})
 
@@ -201,8 +202,8 @@ var _ = Describe("restart_reconciler", func() {
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
@@ -220,8 +221,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
@@ -244,7 +245,7 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(ipChanging).Should(BeTrue())
 		Expect(len(mapFileContents)).Should(Equal(1))
 		Expect(mapFileContents).Should(ContainElement(
-			"10.10.2.1 " + fakeIPForPod(0, 0),
+			"10.10.2.1 " + test.FakeIPForPod(0, 0),
 		))
 	})
 
@@ -252,8 +253,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 3
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		atPod := names.GenPodName(vdb, sc, 0)
 		fpr := &cmds.FakePodRunner{}
@@ -272,9 +273,9 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(ok).Should(BeTrue())
 		Expect(ipChanging).Should(BeTrue())
 		Expect(mapFileContents).Should(ContainElements(
-			"10.10.2.1 "+fakeIPForPod(0, 0),
-			"10.10.2.2 "+fakeIPForPod(0, 1),
-			"10.10.2.3 "+fakeIPForPod(0, 2),
+			"10.10.2.1 "+test.FakeIPForPod(0, 0),
+			"10.10.2.2 "+test.FakeIPForPod(0, 1),
+			"10.10.2.3 "+test.FakeIPForPod(0, 2),
 		))
 	})
 
@@ -282,8 +283,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		atPod := names.GenPodName(vdb, sc, 0)
 		fpr := &cmds.FakePodRunner{}
@@ -293,7 +294,7 @@ var _ = Describe("restart_reconciler", func() {
 		r := act.(*RestartReconciler)
 		fpr.Results = cmds.CmdResults{
 			atPod: []cmds.CmdResult{
-				{Stdout: fmt.Sprintf("node0001 = %s,/d/d\nnode0002 = %s,/d,/d\n", fakeIPForPod(0, 0), fakeIPForPod(0, 1))},
+				{Stdout: fmt.Sprintf("node0001 = %s,/d/d\nnode0002 = %s,/d,/d\n", test.FakeIPForPod(0, 0), test.FakeIPForPod(0, 1))},
 			},
 		}
 		oldIPs, err := r.fetchOldIPsFromNode(ctx, atPod)
@@ -310,8 +311,8 @@ var _ = Describe("restart_reconciler", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
@@ -330,7 +331,7 @@ var _ = Describe("restart_reconciler", func() {
 		r.ATPod = atPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// Check the command history.
-		upload := fpr.FindCommands("4.4.4.4", fakeIPForPod(0, 0)) // Verify we upload the map file
+		upload := fpr.FindCommands("4.4.4.4", test.FakeIPForPod(0, 0)) // Verify we upload the map file
 		Expect(len(upload)).Should(Equal(1))
 		reip := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "re_ip")
 		Expect(len(reip)).Should(Equal(1))
@@ -368,8 +369,8 @@ var _ = Describe("restart_reconciler", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := MakePodFacts(k8sClient, fpr)
@@ -395,8 +396,8 @@ var _ = Describe("restart_reconciler", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		const DownPodIndex = 0
@@ -427,8 +428,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.RestartTimeout = 500
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
@@ -449,8 +450,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.RestartTimeout = 800
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0}, PodNotReadOnly)
@@ -470,8 +471,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc.Size = ScSize
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
@@ -507,11 +508,11 @@ var _ = Describe("restart_reconciler", func() {
 		sc.Size = ScSize
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		// Pod -0 is running and pod -1 is not running.
-		setPodStatusHelper(ctx, 1, names.GenPodName(vdb, sc, 0), 0, 0, AllPodsRunning, false)
+		test.SetPodStatus(ctx, k8sClient, 1, names.GenPodName(vdb, sc, 0), 0, 0, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		const DownPodIndex = 1
@@ -527,8 +528,8 @@ var _ = Describe("restart_reconciler", func() {
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		sc := &vdb.Spec.Subclusters[0]
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		const DownPodIndex = 0
@@ -555,11 +556,11 @@ var _ = Describe("restart_reconciler", func() {
 		}
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-		transientSc := buildTransientSubcluster(vdb, "")
-		createSts(ctx, vdb, transientSc, 1, 0, AllPodsRunning)
-		defer deleteSts(ctx, vdb, transientSc, 1)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		transientSc := vdb.BuildTransientSubcluster("")
+		test.CreateSts(ctx, k8sClient, vdb, transientSc, 1, 0, test.AllPodsRunning)
+		defer test.DeleteSts(ctx, k8sClient, vdb, transientSc, 1)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		const DownPodIndex = 0

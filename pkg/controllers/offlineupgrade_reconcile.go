@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,7 +39,7 @@ type OfflineUpgradeReconciler struct {
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
-	Finder  SubclusterFinder
+	Finder  iter.SubclusterFinder
 	Manager UpgradeManager
 }
 
@@ -58,7 +59,7 @@ var OfflineUpgradeStatusMsgs = []string{
 func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &OfflineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
-		Finder:  MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
 		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
 	}
 }
@@ -203,7 +204,7 @@ func (o *OfflineUpgradeReconciler) deletePods(ctx context.Context) (ctrl.Result,
 // only occur if there is at least one pod that exists.
 func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Result, error) {
 	foundPodWithNewImage := false
-	pods, err := o.Finder.FindPods(ctx, FindExisting)
+	pods, err := o.Finder.FindPods(ctx, iter.FindExisting)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

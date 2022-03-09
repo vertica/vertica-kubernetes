@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -46,8 +47,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
@@ -65,8 +66,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		sc.Size = ScSize
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
@@ -157,8 +158,8 @@ var _ = Describe("revivedb_reconcile", func() {
 			{SubclusterIndex: 2, PodCount: 2},
 			{SubclusterIndex: 0, PodCount: 1},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
@@ -185,8 +186,8 @@ var _ = Describe("revivedb_reconcile", func() {
 			{SubclusterIndex: 2, PodCount: 5}, // Will only pick 3 from this subcluster
 			{SubclusterIndex: 1, PodCount: 0}, // Will include entire subcluster
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
@@ -204,8 +205,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 	It("will fail to generate host list if reviveOrder is bad", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)

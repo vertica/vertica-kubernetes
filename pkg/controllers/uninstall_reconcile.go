@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -92,8 +93,8 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 	// We need to use the finder so that we include subclusters that don't exist
 	// in the vdb.  We need to call uninstall for each pod that is part of a
 	// deleted subcluster.
-	finder := MakeSubclusterFinder(s.VRec.Client, s.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, FindAll)
+	finder := iter.MakeSubclusterFinder(s.VRec.Client, s.Vdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
