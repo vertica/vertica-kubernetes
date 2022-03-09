@@ -26,6 +26,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -65,7 +66,7 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 
 	if exists := g.PFacts.doesDBExist(); exists.IsFalse() {
 		res, err := g.runInit(ctx)
-		if err != nil || res.Requeue {
+		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	} else if exists.IsNone() {
@@ -86,7 +87,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 	atPod := atPodFact.name
 
-	if res, err := g.ConstructAuthParms(ctx, atPod); err != nil || res.Requeue {
+	if res, err := g.ConstructAuthParms(ctx, atPod); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	if err := g.initializer.preCmdSetup(ctx, atPod); err != nil {
@@ -119,7 +120,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if res, err := g.initializer.execCmd(ctx, atPod, cmd); err != nil || res.Requeue {
+	if res, err := g.initializer.execCmd(ctx, atPod, cmd); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -196,7 +197,7 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 	}
 
 	content, res, err := contentGen(ctx)
-	if res.Requeue || err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -226,7 +227,7 @@ func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, atPod
 func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
 	// Extract the auth from the credential secret.
 	auth, res, err := g.getCommunalAuth(ctx)
-	if err != nil || res.Requeue {
+	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
 	}
 
@@ -272,7 +273,7 @@ func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
 func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
 	// Extract the auth from the credential secret.
 	auth, res, err := g.getCommunalAuth(ctx)
-	if err != nil || res.Requeue {
+	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
 	}
 
@@ -290,7 +291,7 @@ func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Conte
 // Azure Blob Storage
 func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
 	azureCreds, azureConfig, res, err := g.getAzureAuth(ctx)
-	if err != nil || res.Requeue {
+	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
 	}
 
@@ -357,7 +358,7 @@ func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod typ
 // Value is returned in the format: <accessKey>:<secretKey>
 func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (string, ctrl.Result, error) {
 	secret, res, err := g.getCommunalCredsSecret(ctx)
-	if res.Requeue || err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
 	}
 
@@ -384,7 +385,7 @@ func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (strin
 func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (
 	cloud.AzureCredential, cloud.AzureEndpointConfig, ctrl.Result, error) {
 	secret, res, err := g.getCommunalCredsSecret(ctx)
-	if res.Requeue || err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, res, err
 	}
 

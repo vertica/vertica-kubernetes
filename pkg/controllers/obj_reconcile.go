@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -66,7 +67,7 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	// Ensure any secrets/configMaps that we mount exist with the correct keys.
 	// We catch the errors here so that we can provide timely events.
-	if res, err := o.checkMountedObjs(ctx); res.Requeue || err != nil {
+	if res, err := o.checkMountedObjs(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -78,13 +79,13 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	for i := range o.Vdb.Spec.Subclusters {
-		if res, err := o.checkForCreatedSubcluster(ctx, &o.Vdb.Spec.Subclusters[i]); res.Requeue || err != nil {
+		if res, err := o.checkForCreatedSubcluster(ctx, &o.Vdb.Spec.Subclusters[i]); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
 	// Check to see if we need to remove any objects for deleted subclusters
-	if res, err := o.checkForDeletedSubcluster(ctx); res.Requeue || err != nil {
+	if res, err := o.checkForDeletedSubcluster(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -99,7 +100,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	if o.Vdb.Spec.LicenseSecret != "" {
 		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
 			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.LicenseSecret))
-		if res.Requeue || err != nil {
+		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -107,7 +108,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	if o.Vdb.Spec.Communal.HadoopConfig != "" {
 		_, res, err := getConfigMap(ctx, o.VRec, o.Vdb,
 			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.Communal.HadoopConfig))
-		if res.Requeue || err != nil {
+		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -116,13 +117,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 	if o.Vdb.Spec.KerberosSecret != "" {
 		keyNames := []string{filepath.Base(paths.Krb5Conf), filepath.Base(paths.Krb5Keytab)}
-		if res, err := o.checkSecretHasKeys(ctx, "Kerberos", o.Vdb.Spec.KerberosSecret, keyNames); res.Requeue || err != nil {
+		if res, err := o.checkSecretHasKeys(ctx, "Kerberos", o.Vdb.Spec.KerberosSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
 	if o.Vdb.Spec.SSHSecret != "" {
-		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); res.Requeue || err != nil {
+		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -133,7 +134,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 // checkSecretHasKeys is a helper to check that a secret has a set of keys in it
 func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secretName string, keyNames []string) (ctrl.Result, error) {
 	secret, res, err := getSecret(ctx, o.VRec, o.Vdb, names.GenNamespacedName(o.Vdb, secretName))
-	if res.Requeue || err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 

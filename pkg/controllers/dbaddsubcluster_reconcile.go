@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -72,7 +73,7 @@ func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, s
 	d.ATPod = atPod
 
 	subclusters, res, err := d.fetchSubclusters(ctx)
-	if err != nil || res.Requeue {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -67,7 +68,7 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if res, err := v.reconcileVersion(ctx, pod); res.Requeue || err != nil {
+	if res, err := v.reconcileVersion(ctx, pod); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
