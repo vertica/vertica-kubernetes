@@ -372,8 +372,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
 
