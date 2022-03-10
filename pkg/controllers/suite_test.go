@@ -25,12 +25,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,8 +78,8 @@ var _ = BeforeSuite(func() {
 		Log:                logger,
 		Scheme:             scheme.Scheme,
 		Cfg:                restCfg,
-		EVRec:              mgr.GetEventRecorderFor(OperatorName),
-		ServiceAccountName: ServiceAccountName,
+		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
+		ServiceAccountName: builder.ServiceAccountName,
 	}
 }, 60)
 
@@ -97,149 +95,6 @@ func TestAPIs(t *testing.T) {
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"K8s Suite",
 		[]Reporter{printer.NewlineReporter{}})
-}
-
-type PodRunningState bool
-
-const (
-	AllPodsRunning    PodRunningState = true
-	AllPodsNotRunning PodRunningState = false
-)
-
-func createPods(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
-	for i := range vdb.Spec.Subclusters {
-		sc := &vdb.Spec.Subclusters[i]
-		createSts(ctx, vdb, sc, 2, int32(i), podRunningState)
-	}
-}
-
-func createSts(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster, offset int, scIndex int32, podRunningState PodRunningState) {
-	sts := &appsv1.StatefulSet{}
-	if err := k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
-		sts = buildStsSpec(names.GenStsName(vdb, sc), vdb, sc, vrec.ServiceAccountName)
-		ExpectWithOffset(offset, k8sClient.Create(ctx, sts)).Should(Succeed())
-	}
-	for j := int32(0); j < sc.Size; j++ {
-		pod := &corev1.Pod{}
-		if err := k8sClient.Get(ctx, names.GenPodName(vdb, sc, j), pod); kerrors.IsNotFound(err) {
-			pod = buildPod(vdb, sc, j)
-			ExpectWithOffset(offset, k8sClient.Create(ctx, pod)).Should(Succeed())
-			setPodStatusHelper(ctx, offset+1, names.GenPodName(vdb, sc, j), scIndex, j, podRunningState, false)
-		}
-	}
-	// Update the status in the sts to reflect the number of pods we created
-	sts.Status.Replicas = sc.Size
-	sts.Status.ReadyReplicas = sc.Size
-	ExpectWithOffset(offset, k8sClient.Status().Update(ctx, sts))
-}
-
-func fakeIPv6ForPod(scIndex, podIndex int32) string {
-	return fmt.Sprintf("fdf8:f535:82e4::%x", scIndex*100+podIndex)
-}
-
-func fakeIPForPod(scIndex, podIndex int32) string {
-	return fmt.Sprintf("192.168.%d.%d", scIndex, podIndex)
-}
-
-func setPodStatusHelper(ctx context.Context, funcOffset int, podName types.NamespacedName,
-	scIndex, podIndex int32, podRunningState PodRunningState, ipv6 bool) {
-	pod := &corev1.Pod{}
-	ExpectWithOffset(funcOffset, k8sClient.Get(ctx, podName, pod)).Should(Succeed())
-
-	// Since we using a fake kubernetes cluster, none of the pods we
-	// create will actually be changed to run. Some testcases depend
-	// on that, so we will update the pod status to show that they
-	// are running.
-	if podRunningState {
-		pod.Status.Phase = corev1.PodRunning
-		pod.Status.ContainerStatuses = []corev1.ContainerStatus{{Ready: true}}
-	}
-	// We assign a fake IP that is deterministic so that it is easily
-	// identifiable in a test.
-	if ipv6 {
-		pod.Status.PodIP = fakeIPv6ForPod(scIndex, podIndex)
-	} else {
-		pod.Status.PodIP = fakeIPForPod(scIndex, podIndex)
-	}
-
-	ExpectWithOffset(funcOffset, k8sClient.Status().Update(ctx, pod))
-	if podRunningState {
-		ExpectWithOffset(funcOffset, k8sClient.Get(ctx, podName, pod)).Should(Succeed())
-		ExpectWithOffset(funcOffset, pod.Status.Phase).Should(Equal(corev1.PodRunning))
-	}
-}
-
-func setPodStatus(ctx context.Context, funcOffset int, podName types.NamespacedName,
-	scIndex, podIndex int32, podRunningState PodRunningState) {
-	setPodStatusHelper(ctx, funcOffset, podName, scIndex, podIndex, podRunningState, false)
-}
-
-func deletePods(ctx context.Context, vdb *vapi.VerticaDB) {
-	for i := range vdb.Spec.Subclusters {
-		sc := &vdb.Spec.Subclusters[i]
-		deleteSts(ctx, vdb, sc, 2)
-	}
-}
-
-func deleteSts(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster, offset int) {
-	for j := int32(0); j < sc.Size; j++ {
-		pod := &corev1.Pod{}
-		err := k8sClient.Get(ctx, names.GenPodName(vdb, sc, j), pod)
-		if !kerrors.IsNotFound(err) {
-			ExpectWithOffset(offset, k8sClient.Delete(ctx, pod)).Should(Succeed())
-		}
-	}
-	sts := &appsv1.StatefulSet{}
-	err := k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts)
-	if !kerrors.IsNotFound(err) {
-		ExpectWithOffset(offset, k8sClient.Delete(ctx, sts)).Should(Succeed())
-	}
-}
-
-func createSvcs(ctx context.Context, vdb *vapi.VerticaDB) {
-	svc := buildHlSvc(names.GenHlSvcName(vdb), vdb)
-	ExpectWithOffset(1, k8sClient.Create(ctx, svc)).Should(Succeed())
-	for i := range vdb.Spec.Subclusters {
-		sc := &vdb.Spec.Subclusters[i]
-		svc := buildExtSvc(names.GenExtSvcName(vdb, sc), vdb, sc, makeSvcSelectorLabelsForServiceNameRouting)
-		ExpectWithOffset(1, k8sClient.Create(ctx, svc)).Should(Succeed())
-	}
-}
-
-func deleteSvcs(ctx context.Context, vdb *vapi.VerticaDB) {
-	for i := range vdb.Spec.Subclusters {
-		sc := &vdb.Spec.Subclusters[i]
-		svc := &corev1.Service{}
-		err := k8sClient.Get(ctx, names.GenExtSvcName(vdb, sc), svc)
-		if !kerrors.IsNotFound(err) {
-			ExpectWithOffset(1, k8sClient.Delete(ctx, svc)).Should(Succeed())
-		}
-	}
-	svc := &corev1.Service{}
-	err := k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)
-	if !kerrors.IsNotFound(err) {
-		ExpectWithOffset(1, k8sClient.Delete(ctx, svc)).Should(Succeed())
-	}
-}
-
-func scaleDownSubcluster(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {
-	ExpectWithOffset(1, sc.Size).Should(BeNumerically(">=", newSize))
-	for i := newSize; i < sc.Size; i++ {
-		pod := &corev1.Pod{}
-		ExpectWithOffset(1, k8sClient.Get(ctx, names.GenPodName(vdb, sc, i), pod)).Should(Succeed())
-		ExpectWithOffset(1, k8sClient.Delete(ctx, pod)).Should(Succeed())
-	}
-
-	// Update the status field of the sts
-	sts := &appsv1.StatefulSet{}
-	ExpectWithOffset(1, k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts)).Should(Succeed())
-	sts.Status.Replicas = newSize
-	sts.Status.ReadyReplicas = newSize
-	ExpectWithOffset(1, k8sClient.Status().Update(ctx, sts))
-
-	// Update the subcluster size
-	sc.Size = newSize
-	ExpectWithOffset(1, k8sClient.Update(ctx, vdb)).Should(Succeed())
 }
 
 func createVdb(ctx context.Context, vdb *vapi.VerticaDB) {
@@ -304,17 +159,17 @@ const testAccessKey = "dummy"
 const testSecretKey = "dummy"
 
 func createS3CredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
-	secret := buildS3CommunalCredSecret(vdb, testAccessKey, testSecretKey)
+	secret := builder.BuildS3CommunalCredSecret(vdb, testAccessKey, testSecretKey)
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 
 func createAzureAccountKeyCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
-	secret := buildAzureAccountKeyCommunalCredSecret(vdb, "verticaAccountName", "secretKey")
+	secret := builder.BuildAzureAccountKeyCommunalCredSecret(vdb, "verticaAccountName", "secretKey")
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 
 func createAzureSASCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
-	secret := buildAzureSASCommunalCredSecret(vdb, "blob.microsoft.net", "sharedAccessKey")
+	secret := builder.BuildAzureSASCommunalCredSecret(vdb, "blob.microsoft.net", "sharedAccessKey")
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 

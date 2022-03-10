@@ -24,7 +24,9 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +42,7 @@ type OnlineUpgradeReconciler struct {
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner       cmds.PodRunner
 	PFacts        *PodFacts
-	Finder        SubclusterFinder
+	Finder        iter.SubclusterFinder
 	Manager       UpgradeManager
 	PrimaryImages []string // Known images in the primaries.  Should be of length 1 or 2.
 	StatusMsgs    []string // Precomputed status messages
@@ -51,7 +53,7 @@ type OnlineUpgradeReconciler struct {
 func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &OnlineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
-		Finder:  MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
 		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
 	}
 }
@@ -126,7 +128,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 
 	// Function we call for each secondary subcluster
 	procFunc := func(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-		scName := sts.Labels[SubclusterNameLabel]
+		scName := sts.Labels[builder.SubclusterNameLabel]
 		o.StatusMsgs = append(o.StatusMsgs,
 			fmt.Sprintf("Draining secondary subcluster '%s'", scName),
 			fmt.Sprintf("Recreating pods for secondary subcluster '%s'", scName),
@@ -174,7 +176,7 @@ func (o *OnlineUpgradeReconciler) createTransientSts(ctx context.Context) (ctrl.
 			"Only available image is %s", o.Vdb.Spec.Image)
 	}
 
-	sc := buildTransientSubcluster(o.Vdb, oldImage)
+	sc := o.Vdb.BuildTransientSubcluster(oldImage)
 	return or.reconcileSts(ctx, sc)
 }
 
@@ -202,7 +204,7 @@ func (o *OnlineUpgradeReconciler) addTransientSubcluster(ctx context.Context) (c
 		return ctrl.Result{}, err
 	}
 	d := actor.(*DBAddSubclusterReconciler)
-	return d.addMissingSubclusters(ctx, []vapi.Subcluster{*buildTransientSubcluster(o.Vdb, "")})
+	return d.addMissingSubclusters(ctx, []vapi.Subcluster{*o.Vdb.BuildTransientSubcluster("")})
 }
 
 // addTransientNodes will ensure nodes on the transient have been added to the
@@ -218,7 +220,7 @@ func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.R
 		return ctrl.Result{}, err
 	}
 	d := actor.(*DBAddNodeReconciler)
-	return d.reconcileSubcluster(ctx, buildTransientSubcluster(o.Vdb, ""))
+	return d.reconcileSubcluster(ctx, o.Vdb.BuildTransientSubcluster(""))
 }
 
 // waitForReadyTransientPod will wait for one of the transient pods to be ready.
@@ -230,7 +232,7 @@ func (o *OnlineUpgradeReconciler) waitForReadyTransientPod(ctx context.Context) 
 	}
 
 	pod := &corev1.Pod{}
-	sc := buildTransientSubcluster(o.Vdb, "")
+	sc := o.Vdb.BuildTransientSubcluster("")
 	// We only check the first pod is ready
 	pn := names.GenPodName(o.Vdb, sc, 0)
 
@@ -262,7 +264,7 @@ func (o *OnlineUpgradeReconciler) waitForReadyTransientPod(ctx context.Context) 
 // processFunc for each one that matches the given type.
 func (o *OnlineUpgradeReconciler) iterateSubclusterType(ctx context.Context, scType string,
 	processFunc func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error)) (ctrl.Result, error) {
-	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting|FindSorted)
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -334,11 +336,11 @@ func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *app
 // isMatchingSubclusterType will return true if the subcluster type matches the
 // input string.  Always returns false for the transient subcluster.
 func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) (bool, error) {
-	isTransient, err := strconv.ParseBool(sts.Labels[SubclusterTransientLabel])
+	isTransient, err := strconv.ParseBool(sts.Labels[builder.SubclusterTransientLabel])
 	if err != nil {
-		return false, fmt.Errorf("could not parse label %s: %w", SubclusterTransientLabel, err)
+		return false, fmt.Errorf("could not parse label %s: %w", builder.SubclusterTransientLabel, err)
 	}
-	return sts.Labels[SubclusterTypeLabel] == scType && !isTransient, nil
+	return sts.Labels[builder.SubclusterTypeLabel] == scType && !isTransient, nil
 }
 
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
@@ -347,7 +349,7 @@ func (o *OnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *apps
 	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 
 	if img != o.Vdb.Spec.Image {
-		scName := sts.Labels[SubclusterNameLabel]
+		scName := sts.Labels[builder.SubclusterNameLabel]
 		o.Log.Info("rerouting client traffic from subcluster", "name", scName)
 		if err := o.routeClientTraffic(ctx, scName, true); err != nil {
 			return ctrl.Result{}, err
@@ -372,7 +374,7 @@ func (o *OnlineUpgradeReconciler) recreateSubclusterWithNewImage(ctx context.Con
 		o.PFacts.Invalidate()
 	}
 
-	scName := sts.Labels[SubclusterNameLabel]
+	scName := sts.Labels[builder.SubclusterNameLabel]
 	podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, scName)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -394,7 +396,7 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	// We use a custom lookup function to only find pods for the subcluster we
 	// are working on.
 	vr := a.(*VersionReconciler)
-	scName := sts.Labels[SubclusterNameLabel]
+	scName := sts.Labels[builder.SubclusterNameLabel]
 	vr.FindPodFunc = func() (*PodFact, bool) {
 		for _, v := range o.PFacts.Detail {
 			if v.isPodRunning && v.subcluster == scName {
@@ -417,7 +419,7 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 	}
 	o.PFacts.Invalidate() // Status of the pods may have changed
 
-	scName := sts.Labels[SubclusterNameLabel]
+	scName := sts.Labels[builder.SubclusterNameLabel]
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
 	err = o.routeClientTraffic(ctx, scName, false)
 	return ctrl.Result{}, err
@@ -456,13 +458,13 @@ func (o *OnlineUpgradeReconciler) deleteTransientSts(ctx context.Context) (ctrl.
 
 // cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
 func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error {
-	stss, err := o.Finder.FindStatefulSets(ctx, FindExisting)
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting)
 	if err != nil {
 		return err
 	}
 	for i := range stss.Items {
 		sts := &stss.Items[i]
-		if sts.Labels[SubclusterTypeLabel] == vapi.PrimarySubclusterType {
+		if sts.Labels[builder.SubclusterTypeLabel] == vapi.PrimarySubclusterType {
 			img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 			imageFound := false
 			for j := range o.PrimaryImages {
@@ -549,10 +551,10 @@ func (o *OnlineUpgradeReconciler) routeClientTraffic(ctx context.Context,
 	if setTemporaryRouting {
 		routingSc := o.getSubclusterForTemporaryRouting(ctx, sc, scMap)
 		if routingSc != nil {
-			svc.Spec.Selector = makeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, routingSc)
+			svc.Spec.Selector = builder.MakeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, routingSc)
 		}
 	} else {
-		svc.Spec.Selector = makeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sc)
+		svc.Spec.Selector = builder.MakeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sc)
 	}
 	o.Log.Info("Updating svc", "selector", svc.Spec.Selector)
 	return objRec.reconcileExtSvc(ctx, svc, sc)
@@ -565,7 +567,7 @@ func (o *OnlineUpgradeReconciler) getSubclusterForTemporaryRouting(ctx context.C
 	if o.Vdb.RequiresTransientSubcluster() {
 		// We are modifying a copy of sc, so we set the IsTransient flag to
 		// know what subcluster we are going to route to.
-		transientSc := buildTransientSubcluster(o.Vdb, "")
+		transientSc := o.Vdb.BuildTransientSubcluster("")
 
 		// Only continue if the transient subcluster exists. It may not
 		// exist if the entire cluster was down when we attempted to create it.

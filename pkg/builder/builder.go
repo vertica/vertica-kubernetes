@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package builder
 
 import (
 	"fmt"
@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
@@ -36,15 +37,15 @@ const (
 	ServiceAccountName    = "verticadb-operator-controller-manager"
 )
 
-// buildExtSvc creates desired spec for the external service.
-func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+// BuildExtSvc creates desired spec for the external service.
+func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	selectorLabelCreator func(*vapi.VerticaDB, *vapi.Subcluster) map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForSvcObject(vdb, sc, "external"),
-			Annotations: makeAnnotationsForObject(vdb),
+			Labels:      MakeLabelsForSvcObject(vdb, sc, "external"),
+			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: selectorLabelCreator(vdb, sc),
@@ -58,17 +59,17 @@ func buildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 	}
 }
 
-// buildHlSvc creates the desired spec for the headless service.
-func buildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
+// BuildHlSvc creates the desired spec for the headless service.
+func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForSvcObject(vdb, nil, "headless"),
-			Annotations: makeAnnotationsForObject(vdb),
+			Labels:      MakeLabelsForSvcObject(vdb, nil, "headless"),
+			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
-			Selector:                 makeBaseSvcSelectorLabels(vdb),
+			Selector:                 MakeBaseSvcSelectorLabels(vdb),
 			ClusterIP:                "None",
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
@@ -319,9 +320,9 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) corev
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
-		Affinity:                      getK8sAffinity(sc.Affinity),
+		Affinity:                      GetK8sAffinity(sc.Affinity),
 		Tolerations:                   sc.Tolerations,
-		ImagePullSecrets:              getK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
+		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
@@ -431,25 +432,25 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 	return &vdb.Spec.Local.StorageClass
 }
 
-// buildStsSpec builds manifest for a subclusters statefulset
-func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) *appsv1.StatefulSet {
+// BuildStsSpec builds manifest for a subclusters statefulset
+func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForObject(vdb, sc),
-			Annotations: makeAnnotationsForObject(vdb),
+			Labels:      MakeLabelsForObject(vdb, sc),
+			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: makeSvcSelectorLabelsForSubclusterNameRouting(vdb, sc),
+				MatchLabels: MakeSvcSelectorLabelsForSubclusterNameRouting(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
 			Replicas:    &sc.Size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      makeLabelsForObject(vdb, sc),
-					Annotations: makeAnnotationsForObject(vdb),
+					Labels:      MakeLabelsForObject(vdb, sc),
+					Annotations: MakeAnnotationsForObject(vdb),
 				},
 				Spec: buildPodSpec(vdb, sc, saName),
 			},
@@ -478,14 +479,14 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 // buildPod will construct a spec for a pod.
 // This is only here for testing purposes when we need to construct the pods ourselves.  This
 // bit is typically handled by the statefulset controller.
-func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.Pod {
+func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.Pod {
 	nm := names.GenPodName(vdb, sc, podIndex)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForObject(vdb, sc),
-			Annotations: makeAnnotationsForObject(vdb),
+			Labels:      MakeLabelsForObject(vdb, sc),
+			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc, ServiceAccountName),
 	}
@@ -505,8 +506,8 @@ func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	return pod
 }
 
-// buildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
-func buildS3CommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
+// BuildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
+func BuildS3CommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
 	nm := names.GenCommunalCredSecretName(vdb)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -514,16 +515,16 @@ func buildS3CommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string)
 			Namespace: nm.Namespace,
 		},
 		Data: map[string][]byte{
-			CommunalAccessKeyName: []byte(accessKey),
-			CommunalSecretKeyName: []byte(secretKey),
+			cloud.CommunalAccessKeyName: []byte(accessKey),
+			cloud.CommunalSecretKeyName: []byte(secretKey),
 		},
 	}
 	return secret
 }
 
-// buildAzureAccountKeyCommunalCredSecret builds a secret that is setup for
+// BuildAzureAccountKeyCommunalCredSecret builds a secret that is setup for
 // Azure using an account key.
-func buildAzureAccountKeyCommunalCredSecret(vdb *vapi.VerticaDB, accountName, accountKey string) *corev1.Secret {
+func BuildAzureAccountKeyCommunalCredSecret(vdb *vapi.VerticaDB, accountName, accountKey string) *corev1.Secret {
 	nm := names.GenCommunalCredSecretName(vdb)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -531,16 +532,16 @@ func buildAzureAccountKeyCommunalCredSecret(vdb *vapi.VerticaDB, accountName, ac
 			Namespace: nm.Namespace,
 		},
 		Data: map[string][]byte{
-			AzureAccountName: []byte(accountName),
-			AzureAccountKey:  []byte(accountKey),
+			cloud.AzureAccountName: []byte(accountName),
+			cloud.AzureAccountKey:  []byte(accountKey),
 		},
 	}
 	return secret
 }
 
-// buildAzureSASCommunalCredSecret builds a secret that is setup for Azure using
+// BuildAzureSASCommunalCredSecret builds a secret that is setup for Azure using
 // shared access signature.
-func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas string) *corev1.Secret {
+func BuildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas string) *corev1.Secret {
 	nm := names.GenCommunalCredSecretName(vdb)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -548,23 +549,23 @@ func buildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 			Namespace: nm.Namespace,
 		},
 		Data: map[string][]byte{
-			AzureBlobEndpoint:          []byte(blobEndpoint),
-			AzureSharedAccessSignature: []byte(sas),
+			cloud.AzureBlobEndpoint:          []byte(blobEndpoint),
+			cloud.AzureSharedAccessSignature: []byte(sas),
 		},
 	}
 	return secret
 }
 
-// buildKerberosSecretBase is a test helper that creates the skeleton of a
+// BuildKerberosSecretBase is a test helper that creates the skeleton of a
 // Kerberos secret.  The caller's responsibility to add the necessary data.
-func buildKerberosSecretBase(vdb *vapi.VerticaDB) *corev1.Secret {
+func BuildKerberosSecretBase(vdb *vapi.VerticaDB) *corev1.Secret {
 	nm := names.GenNamespacedName(vdb, vdb.Spec.KerberosSecret)
-	return buildSecretBase(nm)
+	return BuildSecretBase(nm)
 }
 
-// buildSecretBase is a test helper that creates a Secret base with a specific
+// BuildSecretBase is a test helper that creates a Secret base with a specific
 // name.  The caller is responsible to add data elemets and create it.
-func buildSecretBase(nm types.NamespacedName) *corev1.Secret {
+func BuildSecretBase(nm types.NamespacedName) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nm.Name,
@@ -600,9 +601,9 @@ func buildReadinessProbeSQL(vdb *vapi.VerticaDB) string {
 	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
 }
 
-// getK8sLocalObjectReferenceArray returns a k8s LocalObjecReference array
+// GetK8sLocalObjectReferenceArray returns a k8s LocalObjecReference array
 // from a vapi.LocalObjectReference array
-func getK8sLocalObjectReferenceArray(lors []vapi.LocalObjectReference) []corev1.LocalObjectReference {
+func GetK8sLocalObjectReferenceArray(lors []vapi.LocalObjectReference) []corev1.LocalObjectReference {
 	localObjectReferences := []corev1.LocalObjectReference{}
 	for i := range lors {
 		l := corev1.LocalObjectReference{Name: lors[i].Name}
@@ -611,31 +612,11 @@ func getK8sLocalObjectReferenceArray(lors []vapi.LocalObjectReference) []corev1.
 	return localObjectReferences
 }
 
-// getK8sAffinity returns a K8s Affinity object from a vapi.Affinity object
-func getK8sAffinity(a vapi.Affinity) *corev1.Affinity {
+// GetK8sAffinity returns a K8s Affinity object from a vapi.Affinity object
+func GetK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 	return &corev1.Affinity{
 		NodeAffinity:    a.NodeAffinity,
 		PodAffinity:     a.PodAffinity,
 		PodAntiAffinity: a.PodAntiAffinity,
-	}
-}
-
-// buildTransientSubcluster creates a temporary read-only subcluster based on an
-// existing subcluster
-func buildTransientSubcluster(vdb *vapi.VerticaDB, imageOverride string) *vapi.Subcluster {
-	return &vapi.Subcluster{
-		Name:              vdb.Spec.TemporarySubclusterRouting.Template.Name,
-		Size:              vdb.Spec.TemporarySubclusterRouting.Template.Size,
-		IsTransient:       true,
-		ImageOverride:     imageOverride,
-		IsPrimary:         false,
-		NodeSelector:      vdb.Spec.TemporarySubclusterRouting.Template.NodeSelector,
-		Affinity:          vdb.Spec.TemporarySubclusterRouting.Template.Affinity,
-		PriorityClassName: vdb.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
-		Tolerations:       vdb.Spec.TemporarySubclusterRouting.Template.Tolerations,
-		Resources:         vdb.Spec.TemporarySubclusterRouting.Template.Resources,
-		// We ignore any parameter that is specific to the subclusters service
-		// object.  These are ignored since transient don't have their own
-		// service objects.
 	}
 }

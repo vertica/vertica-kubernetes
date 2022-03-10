@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -45,10 +46,10 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 			{Name: scNames[0], Size: scSizes[0]},
 			{Name: scNames[1], Size: scSizes[1]},
 		}
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
-		createSvcs(ctx, vdb)
-		defer deleteSvcs(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateSvcs(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
 		// We create a second vdb without one of the subclusters.  We then use
 		// the finder to discover this additional subcluster.

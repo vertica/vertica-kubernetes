@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,8 +48,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should detect that there is a stale admintools.conf", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		sc := &vdb.Spec.Subclusters[0]
 		installIndFn := vdb.GenInstallerIndicatorFileName()
@@ -82,8 +83,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should never indicate db exists if pods not running", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{}
@@ -97,8 +98,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should not indicate db exists if db directory is not there", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
@@ -126,23 +127,23 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.doesDBExist()).Should(Equal(tristate.True))
 	})
 
-	It("should verify anyPodsMissingDB return codes", func() {
+	It("should verify findPodsWithMissingDB return codes", func() {
 		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: tristate.True, subcluster: "sc1"}
-		missingDB, unknownState := pf.anyPodsMissingDB("sc1")
-		Expect(missingDB).Should(Equal(false))
+		pods, unknownState := pf.findPodsWithMissingDB("sc1")
+		Expect(len(pods)).Should(Equal(0))
 		Expect(unknownState).Should(Equal(false))
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: tristate.None, subcluster: "sc1"}
-		missingDB, unknownState = pf.anyPodsMissingDB("sc1")
-		Expect(missingDB).Should(Equal(false))
+		pods, unknownState = pf.findPodsWithMissingDB("sc1")
+		Expect(len(pods)).Should(Equal(0))
 		Expect(unknownState).Should(Equal(true))
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: tristate.False, subcluster: "sc1"}
-		missingDB, unknownState = pf.anyPodsMissingDB("sc1")
-		Expect(missingDB).Should(Equal(true))
+		pods, unknownState = pf.findPodsWithMissingDB("sc1")
+		Expect(len(pods)).Should(Equal(1))
 		Expect(unknownState).Should(Equal(true))
 		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: tristate.False, subcluster: "sc2"}
-		missingDB, unknownState = pf.anyPodsMissingDB("sc2")
-		Expect(missingDB).Should(Equal(true))
+		pods, unknownState = pf.findPodsWithMissingDB("sc2")
+		Expect(len(pods)).Should(Equal(1))
 		Expect(unknownState).Should(Equal(false))
 	})
 
@@ -152,21 +153,21 @@ var _ = Describe("podfacts", func() {
 			dnsName: "p1", subcluster: "sc1", dbExists: tristate.True,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
-			dnsName: "p2", subcluster: "sc1", dbExists: tristate.False, isPodRunning: true,
+			dnsName: "p2", subcluster: "sc1", dbExists: tristate.False,
 		}
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
-			dnsName: "p3", subcluster: "sc1", dbExists: tristate.False, isPodRunning: false,
+			dnsName: "p3", subcluster: "sc1", dbExists: tristate.False,
 		}
 		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
-			dnsName: "p4", subcluster: "sc2", dbExists: tristate.False, isPodRunning: true,
+			dnsName: "p4", subcluster: "sc2", dbExists: tristate.False,
 		}
 		pf.Detail[types.NamespacedName{Name: "p5"}] = &PodFact{
-			dnsName: "p5", subcluster: "sc2", dbExists: tristate.False, isPodRunning: true,
+			dnsName: "p5", subcluster: "sc2", dbExists: tristate.False,
 		}
-		pods := pf.findPodsWithMissingDB("sc1")
-		Expect(len(pods)).Should(Equal(1))
+		pods, _ := pf.findPodsWithMissingDB("sc1")
+		Expect(len(pods)).Should(Equal(2))
 		Expect(pods[0].dnsName).Should(Equal("p2"))
-		pods = pf.findPodsWithMissingDB("sc2")
+		pods, _ = pf.findPodsWithMissingDB("sc2")
 		Expect(len(pods)).Should(Equal(2))
 		Expect(pods[0].dnsName).Should(Equal("p4"))
 		Expect(pods[1].dnsName).Should(Equal("p5"))
@@ -251,8 +252,8 @@ var _ = Describe("podfacts", func() {
 
 	It("should parse out the compat21 node name from install indicator file", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
@@ -284,5 +285,11 @@ var _ = Describe("podfacts", func() {
 
 		_, _, err = parseNodeStateAndReadOnly("UP|z|garbage")
 		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should parse node subscriptions output", func() {
+		pf := &PodFact{}
+		Expect(setShardSubscription("3\n", pf)).Should(Succeed())
+		Expect(pf.shardSubscriptions).Should(Equal(3))
 	})
 })

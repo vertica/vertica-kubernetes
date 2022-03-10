@@ -33,7 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 )
 
@@ -246,7 +247,7 @@ func (d *DBGenerator) setCommunalEndpointAzure(ctx context.Context) error {
 	// Peek into the azure endpoint config (if it exists), to know if the
 	// endpoint is http or https.
 	blobEndpoint := cred.BlobEndpoint
-	epCfg := controllers.AzureEndpointConfig{}
+	epCfg := cloud.AzureEndpointConfig{}
 	configStr, ok := d.DBCfg[AzureConfigKey]
 	if ok {
 		epCfg, ok, err = d.extractAzureEndpointConfig(configStr)
@@ -260,16 +261,16 @@ func (d *DBGenerator) setCommunalEndpointAzure(ctx context.Context) error {
 
 	d.Objs.CredSecret.Data = map[string][]byte{}
 	if cred.AccountKey != "" {
-		d.Objs.CredSecret.Data[controllers.AzureAccountKey] = []byte(cred.AccountKey)
+		d.Objs.CredSecret.Data[cloud.AzureAccountKey] = []byte(cred.AccountKey)
 	}
 	if cred.AccountName != "" {
-		d.Objs.CredSecret.Data[controllers.AzureAccountName] = []byte(cred.AccountName)
+		d.Objs.CredSecret.Data[cloud.AzureAccountName] = []byte(cred.AccountName)
 	}
 	if cred.BlobEndpoint != "" {
-		d.Objs.CredSecret.Data[controllers.AzureBlobEndpoint] = []byte(blobEndpoint)
+		d.Objs.CredSecret.Data[cloud.AzureBlobEndpoint] = []byte(blobEndpoint)
 	}
 	if cred.SharedAccessSignature != "" {
-		d.Objs.CredSecret.Data[controllers.AzureSharedAccessSignature] = []byte(cred.SharedAccessSignature)
+		d.Objs.CredSecret.Data[cloud.AzureSharedAccessSignature] = []byte(cred.SharedAccessSignature)
 	}
 
 	return nil
@@ -279,7 +280,6 @@ func (d *DBGenerator) setCommunalEndpointAzure(ctx context.Context) error {
 // generic service.  All of the key names are passed in by the caller.
 func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey, regionKey string) error {
 	var protocol, endpoint string
-	var auth []string
 
 	// The db cfg is already loaded in fetchDatabaseConfig
 	value, ok := d.DBCfg[httpsKey]
@@ -305,7 +305,7 @@ func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey,
 	}
 	authRE := regexp.MustCompile(`:`)
 	const NumAuthComponents = 2
-	auth = authRE.Split(value, NumAuthComponents)
+	auth := authRE.Split(value, NumAuthComponents)
 
 	// The region may not be present if the default was never overridden.
 	value, ok = d.DBCfg[regionKey]
@@ -315,8 +315,8 @@ func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey,
 
 	d.Objs.Vdb.Spec.Communal.Endpoint = fmt.Sprintf("%s://%s", protocol, endpoint)
 	d.Objs.CredSecret.Data = map[string][]byte{
-		controllers.CommunalAccessKeyName: []byte(auth[0]),
-		controllers.CommunalSecretKeyName: []byte(auth[1]),
+		cloud.CommunalAccessKeyName: []byte(auth[0]),
+		cloud.CommunalSecretKeyName: []byte(auth[1]),
 	}
 
 	return nil
@@ -519,7 +519,7 @@ func (d *DBGenerator) setPasswordSecret(ctx context.Context) error {
 	d.Objs.SuperuserPasswordSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.SuperuserPasswordSecret.ObjectMeta.Name = fmt.Sprintf("%s-su-passwd", d.Opts.VdbName)
 	d.Objs.Vdb.Spec.SuperuserPasswordSecret = d.Objs.SuperuserPasswordSecret.ObjectMeta.Name
-	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{controllers.SuperuserPasswordKey: []byte(d.Opts.Password)}
+	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{builder.SuperuserPasswordKey: []byte(d.Opts.Password)}
 
 	return nil
 }
@@ -623,24 +623,24 @@ func (d *DBGenerator) setHadoopConfig(ctx context.Context) error {
 
 // extractAzureCredential will grab the Azure credential to be used for communal access.
 // nolint:dupl
-func (d *DBGenerator) extractAzureCredential(credsStr string) (controllers.AzureCredential, bool, error) {
+func (d *DBGenerator) extractAzureCredential(credsStr string) (cloud.AzureCredential, bool, error) {
 	// The azure credentials are stored in JSON format.  We should be able to
 	// take the string value stored in the database defaults and unmarhsal it
 	// into JSON.  If this fails, we will fail with an error.
-	creds := []controllers.AzureCredential{}
+	creds := []cloud.AzureCredential{}
 	if err := json.Unmarshal([]byte(credsStr), &creds); err != nil {
-		return controllers.AzureCredential{}, false, fmt.Errorf("unmarshal azure creds: %w", err)
+		return cloud.AzureCredential{}, false, fmt.Errorf("unmarshal azure creds: %w", err)
 	}
 
 	if len(creds) == 0 {
 		// No azure storage credentials setup.  Skip Azure endpoint setup.
-		return controllers.AzureCredential{}, false, nil
+		return cloud.AzureCredential{}, false, nil
 	}
 
 	// If there is more than one credential stored, then we require the
 	// command line option specified that tells what account to use.
 	if len(creds) > 1 && d.Opts.AzureAccountName == "" {
-		return controllers.AzureCredential{}, false,
+		return cloud.AzureCredential{}, false,
 			fmt.Errorf("%d azure credentials exist -- must specify the azure account name to use",
 				len(creds))
 	}
@@ -652,7 +652,7 @@ func (d *DBGenerator) extractAzureCredential(credsStr string) (controllers.Azure
 
 	cred, ok := d.getAzureCredential(creds)
 	if !ok {
-		return controllers.AzureCredential{}, false,
+		return cloud.AzureCredential{}, false,
 			fmt.Errorf("could not find a azure credential with matching account name '%s'",
 				d.Opts.AzureAccountName)
 	}
@@ -660,36 +660,36 @@ func (d *DBGenerator) extractAzureCredential(credsStr string) (controllers.Azure
 }
 
 // getAzureCredential will find the credential that matches the d.Opts.AzureAccountName
-func (d *DBGenerator) getAzureCredential(creds []controllers.AzureCredential) (controllers.AzureCredential, bool) {
+func (d *DBGenerator) getAzureCredential(creds []cloud.AzureCredential) (cloud.AzureCredential, bool) {
 	for i := range creds {
 		if creds[i].AccountName == d.Opts.AzureAccountName {
 			return creds[i], true
 		}
 	}
-	return controllers.AzureCredential{}, false
+	return cloud.AzureCredential{}, false
 }
 
 // extractAzureEndpointConfig will parse out the endpoint config for the correct
 // accountName.  If nothing is found, the bool return is set to false.
 // nolint:dupl
-func (d *DBGenerator) extractAzureEndpointConfig(configStr string) (controllers.AzureEndpointConfig, bool, error) {
+func (d *DBGenerator) extractAzureEndpointConfig(configStr string) (cloud.AzureEndpointConfig, bool, error) {
 	// The azure endpoint config is stored in JSON format.  We will be able to
 	// take the string value stored in the database defaults and unmarhsal it
 	// into JSON.  If this fails, we will fail with an error.
-	epCfgs := []controllers.AzureEndpointConfig{}
+	epCfgs := []cloud.AzureEndpointConfig{}
 	if err := json.Unmarshal([]byte(configStr), &epCfgs); err != nil {
-		return controllers.AzureEndpointConfig{}, false, fmt.Errorf("unmarshal azure endpoint config: %w", err)
+		return cloud.AzureEndpointConfig{}, false, fmt.Errorf("unmarshal azure endpoint config: %w", err)
 	}
 
 	if len(epCfgs) == 0 {
 		// No azure endpoint configs.
-		return controllers.AzureEndpointConfig{}, false, nil
+		return cloud.AzureEndpointConfig{}, false, nil
 	}
 
 	// If there is more than one credential stored, then we require the
 	// command line option specified that tells what account to use.
 	if len(epCfgs) > 1 && d.Opts.AzureAccountName == "" {
-		return controllers.AzureEndpointConfig{}, false,
+		return cloud.AzureEndpointConfig{}, false,
 			fmt.Errorf("%d azure endpoint configs exist -- must specify the azure account name to use",
 				len(epCfgs))
 	}
@@ -701,7 +701,7 @@ func (d *DBGenerator) extractAzureEndpointConfig(configStr string) (controllers.
 
 	cfg, ok := d.getAzureConfig(epCfgs)
 	if !ok {
-		return controllers.AzureEndpointConfig{}, false,
+		return cloud.AzureEndpointConfig{}, false,
 			fmt.Errorf("could not find a azure credential with matching account name '%s'",
 				d.Opts.AzureAccountName)
 	}
@@ -709,13 +709,13 @@ func (d *DBGenerator) extractAzureEndpointConfig(configStr string) (controllers.
 }
 
 // getAzureCredential will find the credential that matches the d.Opts.AzureAccountName
-func (d *DBGenerator) getAzureConfig(cfgs []controllers.AzureEndpointConfig) (controllers.AzureEndpointConfig, bool) {
+func (d *DBGenerator) getAzureConfig(cfgs []cloud.AzureEndpointConfig) (cloud.AzureEndpointConfig, bool) {
 	for i := range cfgs {
 		if cfgs[i].AccountName == d.Opts.AzureAccountName {
 			return cfgs[i], true
 		}
 	}
-	return controllers.AzureEndpointConfig{}, false
+	return cloud.AzureEndpointConfig{}, false
 }
 
 func (d *DBGenerator) readKrb5ConfFile(ctx context.Context) error {

@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
 	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	//+kubebuilder:scaffold:imports
 )
@@ -276,7 +277,7 @@ func main() {
 		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
 		Scheme:             mgr.GetScheme(),
 		Cfg:                restCfg,
-		EVRec:              mgr.GetEventRecorderFor(controllers.OperatorName),
+		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
 		ServiceAccountName: saName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")

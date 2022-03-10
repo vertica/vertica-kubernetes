@@ -17,37 +17,42 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("at", func() {
+var _ = Describe("rebalanceshards_reconcile", func() {
 	ctx := context.Background()
 
-	It("should copy to all pods if copying admintools.conf fails at one of the pods", func() {
+	It("should rebalance shards if one pod doesn't have any subscriptions", func() {
 		vdb := vapi.MakeVDB()
-		sc := &vdb.Spec.Subclusters[0]
-		const ScSize = 3
-		sc.Size = ScSize
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 1},
+			{Name: "sc2", Size: 1},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pf := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
-		fpr.Results = cmds.CmdResults{
-			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
-				{Err: fmt.Errorf("failed to copy file")},
-			},
-		}
-		Expect(distributeAdmintoolsConf(ctx, vdb, vrec, pf, fpr, "at.conf.tmp")).ShouldNot(Succeed())
-		cmds := fpr.FindCommands(fmt.Sprintf("sh -c cat > %s", paths.AdminToolsConf))
-		Expect(len(cmds)).Should(Equal(ScSize))
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		pfacts.Detail[pfn].upNode = true
+		pfacts.Detail[pfn].shardSubscriptions = 0
+		pfn = names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
+		pfacts.Detail[pfn].shardSubscriptions = 3
+		pfacts.Detail[pfn].upNode = true
+		r := MakeRebalanceShardsReconciler(vrec, logger, vdb, fpr, &pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		atCmd := fpr.FindCommands("select rebalance_shards('sc1')")
+		Expect(len(atCmd)).Should(Equal(1))
+		atCmd = fpr.FindCommands("select rebalance_shards('sc2')")
+		Expect(len(atCmd)).Should(Equal(0))
 	})
 })

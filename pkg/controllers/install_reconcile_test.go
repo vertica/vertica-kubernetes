@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"yunion.io/x/pkg/tristate"
 )
@@ -36,8 +37,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 	It("should detect no install is needed", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, true)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, true)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
@@ -52,8 +53,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 	It("should detect one pod that needs to be installed", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
@@ -87,8 +88,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 	It("should try install if a pod has not run the installer yet", func() {
 		vdb := vapi.MakeVDB()
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
@@ -132,8 +133,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should skip call exec on a pod if is not yet running", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 		pfact := MakePodFacts(k8sClient, fpr)
@@ -151,11 +152,11 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsNotRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		// Make only pod -1 runable.
 		const PodIndex = 1
-		setPodStatus(ctx, 1 /* funcOffset */, names.GenPodName(vdb, sc, 1), ScIndex, PodIndex, AllPodsRunning)
+		test.SetPodStatus(ctx, k8sClient, 1 /* funcOffset */, names.GenPodName(vdb, sc, 1), ScIndex, PodIndex, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(k8sClient, fpr)
@@ -171,8 +172,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
-		createPods(ctx, vdb, AllPodsRunning)
-		defer deletePods(ctx, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)

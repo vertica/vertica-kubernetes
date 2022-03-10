@@ -21,7 +21,9 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -42,8 +44,8 @@ func MakeUpgradeOperator120Reconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 
 // Reconcile will handle any upgrade actions for k8s objects created in 1.2.0 or prior.
 func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	finder := MakeSubclusterFinder(u.VRec.Client, u.Vdb)
-	stss, err := finder.FindStatefulSets(ctx, FindExisting)
+	finder := iter.MakeSubclusterFinder(u.VRec.Client, u.Vdb)
+	stss, err := finder.FindStatefulSets(ctx, iter.FindExisting)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -53,15 +55,15 @@ func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, req *ctrl.
 	// delete any sts created in prior releases.
 	for i := range stss.Items {
 		sts := &stss.Items[i]
-		opVer, ok := sts.ObjectMeta.Labels[OperatorVersionLabel]
+		opVer, ok := sts.ObjectMeta.Labels[builder.OperatorVersionLabel]
 		if !ok {
 			continue
 		}
 		switch opVer {
-		case OperatorVersion120, OperatorVersion110, OperatorVersion100:
+		case builder.OperatorVersion120, builder.OperatorVersion110, builder.OperatorVersion100:
 			u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeNormal, events.OperatorUpgrade,
 				fmt.Sprintf("Deleting statefulset '%s' because it was created by an old operator (pre-%s)",
-					sts.Name, OperatorVersion130))
+					sts.Name, builder.OperatorVersion130))
 			if err := u.VRec.Client.Delete(ctx, sts); err != nil {
 				u.Log.Info("Error deleting old statefulset", "opVer", opVer)
 				return ctrl.Result{}, err

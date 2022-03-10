@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/status"
 	appsv1 "k8s.io/api/apps/v1"
@@ -54,8 +55,8 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 
 	// Use all subclusters, even ones that are scheduled for removal.  We keep
 	// reporting status on the deleted ones until the statefulsets are gone.
-	finder := MakeSubclusterFinder(s.Client, s.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, FindAll)
+	finder := iter.MakeSubclusterFinder(s.Client, s.Vdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

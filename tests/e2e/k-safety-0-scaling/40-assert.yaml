@@ -11,22 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
+apiVersion: v1
+kind: Event
+reason: AddNodeStart
+message: Calling 'admintools -t db_add_node' for pod(s) 'v-k-safety-0-scaling-sc2-0, v-k-safety-0-scaling-sc2-1'
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
   name: v-k-safety-0-scaling
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  subclusters:
-    - name: sc1
-      size: 1
-  kSafety: "0"
-  certSecrets: []

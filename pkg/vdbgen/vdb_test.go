@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 )
 
 var (
@@ -103,8 +103,8 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
 		Expect(dbGen.setCommunalEndpointAWS(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("http://minio:30312"))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalAccessKeyName]).Should(Equal([]byte("minio")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.CommunalSecretKeyName]).Should(Equal([]byte("minio123")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.CommunalAccessKeyName]).Should(Equal([]byte("minio")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.CommunalSecretKeyName]).Should(Equal([]byte("minio123")))
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
@@ -153,8 +153,8 @@ var _ = Describe("vdb", func() {
 					`[{"accountName": "devopsvertica","accountKey": "secretKey"}]`))
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
 		Expect(dbGen.setCommunalEndpointAzure(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountName]).Should(Equal([]byte("devopsvertica")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountKey]).Should(Equal([]byte("secretKey")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureAccountName]).Should(Equal([]byte("devopsvertica")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureAccountKey]).Should(Equal([]byte("secretKey")))
 
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
@@ -181,10 +181,10 @@ var _ = Describe("vdb", func() {
 
 		dbGen.Opts.AzureAccountName = "devopsvertica"
 		Expect(dbGen.setCommunalEndpointAzure(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountName]).Should(Equal([]byte("devopsvertica")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureBlobEndpoint]).Should(Equal([]byte("custom.endpoint")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountKey]).Should(Equal([]byte("")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureSharedAccessSignature]).Should(Equal([]byte("secretSig")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureAccountName]).Should(Equal([]byte("devopsvertica")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureBlobEndpoint]).Should(Equal([]byte("custom.endpoint")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureAccountKey]).Should(Equal([]byte("")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureSharedAccessSignature]).Should(Equal([]byte("secretSig")))
 
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
@@ -205,9 +205,9 @@ var _ = Describe("vdb", func() {
 					`[{"accountName": "myacc","blobEndpoint": "azurite:10000","protocol": "http"}]`))
 		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
 		Expect(dbGen.setCommunalEndpointAzure(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountName]).Should(Equal([]byte("myacc")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureBlobEndpoint]).Should(Equal([]byte("http://azurite:10000")))
-		Expect(dbGen.Objs.CredSecret.Data[controllers.AzureAccountKey]).Should(Equal([]byte("key")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureAccountName]).Should(Equal([]byte("myacc")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureBlobEndpoint]).Should(Equal([]byte("http://azurite:10000")))
+		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureAccountKey]).Should(Equal([]byte("key")))
 
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
