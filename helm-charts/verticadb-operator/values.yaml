@@ -36,6 +36,10 @@ webhook:
   # webhook's server certificate.  If unspecified, system trust roots on the
   # apiserver are used.
   caBundle: ""
+  # enable controls the access to the webhook. It can be set to false when for instance 
+  # users do not have access to any cluster level resources and this will allow them
+  # to skip the webhook and install the operator.
+  enable: true
 
 logging:
   # filePath is the path to the log file. If omitted, all logging will be written to stdout.
@@ -68,3 +72,9 @@ resources:
   requests:
     cpu: 100m
     memory: 20Mi
+
+# serviceAccountName is the name of a preexisting service account. When specified,
+# it will be used to install the operator and new service account, roles and rolebindings 
+# will not be generated.
+# You should make sure it has been granted all the necessary permissions through a custom role and rolebinding.
+serviceAccountName: ""

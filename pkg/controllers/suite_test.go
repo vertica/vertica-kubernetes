@@ -76,11 +76,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	vrec = &VerticaDBReconciler{
-		Client: k8sClient,
-		Log:    logger,
-		Scheme: scheme.Scheme,
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(OperatorName),
+		Client:             k8sClient,
+		Log:                logger,
+		Scheme:             scheme.Scheme,
+		Cfg:                restCfg,
+		EVRec:              mgr.GetEventRecorderFor(OperatorName),
+		ServiceAccountName: ServiceAccountName,
 	}
 }, 60)
 
@@ -115,7 +116,7 @@ func createPods(ctx context.Context, vdb *vapi.VerticaDB, podRunningState PodRun
 func createSts(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster, offset int, scIndex int32, podRunningState PodRunningState) {
 	sts := &appsv1.StatefulSet{}
 	if err := k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
-		sts = buildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
+		sts = buildStsSpec(names.GenStsName(vdb, sc), vdb, sc, vrec.ServiceAccountName)
 		ExpectWithOffset(offset, k8sClient.Create(ctx, sts)).Should(Succeed())
 	}
 	for j := int32(0); j < sc.Size; j++ {

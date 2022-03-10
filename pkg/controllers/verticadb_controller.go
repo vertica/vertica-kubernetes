@@ -39,10 +39,11 @@ import (
 // VerticaDBReconciler reconciles a VerticaDB object
 type VerticaDBReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-	Cfg    *rest.Config
-	EVRec  record.EventRecorder
+	Log                logr.Logger
+	Scheme             *runtime.Scheme
+	Cfg                *rest.Config
+	EVRec              record.EventRecorder
+	ServiceAccountName string
 }
 
 //+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete

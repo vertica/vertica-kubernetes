@@ -33,6 +33,7 @@ import (
 
 const (
 	SuperuserPasswordPath = "superuser-passwd"
+	ServiceAccountName    = "verticadb-operator-controller-manager"
 )
 
 // buildExtSvc creates desired spec for the external service.
@@ -314,7 +315,7 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
-func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
+func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -324,7 +325,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
-		ServiceAccountName:            "verticadb-operator-controller-manager",
+		ServiceAccountName:            saName,
 	}
 }
 
@@ -431,7 +432,7 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // buildStsSpec builds manifest for a subclusters statefulset
-func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
+func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -450,7 +451,7 @@ func buildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Labels:      makeLabelsForObject(vdb, sc),
 					Annotations: makeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, sc),
+				Spec: buildPodSpec(vdb, sc, saName),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -486,7 +487,7 @@ func buildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			Labels:      makeLabelsForObject(vdb, sc),
 			Annotations: makeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc),
+		Spec: buildPodSpec(vdb, sc, ServiceAccountName),
 	}
 	// Set a few things in the spec that are normally done by the statefulset
 	// controller. Again, this is for testing purposes only as the statefulset
