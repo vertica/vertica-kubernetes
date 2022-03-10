@@ -1,0 +1,20 @@
+# permissions for end users to view verticaautoscalers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: verticaautoscaler-viewer-role
+rules:
+- apiGroups:
+  - vertica.com
+  resources:
+  - verticaautoscalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - vertica.com
+  resources:
+  - verticaautoscalers/status
+  verbs:
+  - get

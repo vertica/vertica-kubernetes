@@ -1,0 +1,24 @@
+# permissions for end users to edit verticaautoscalers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: verticaautoscaler-editor-role
+rules:
+- apiGroups:
+  - vertica.com
+  resources:
+  - verticaautoscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - vertica.com
+  resources:
+  - verticaautoscalers/status
+  verbs:
+  - get
