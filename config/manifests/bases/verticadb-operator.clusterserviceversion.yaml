@@ -47,7 +47,7 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'Secrets that will be mounted in the vertica container.  The
           purpose of this is to allow custom certs to be available.  The full path
-          is: /certs/<secretName>/<key_i> Where <secretName> is the name provided
+          is:   /certs/<secretName>/<key_i> Where <secretName> is the name provided
           in the secret and <key_i> is one of the keys in the secret.'
         displayName: Cert Secrets
         path: certSecrets
@@ -68,15 +68,15 @@ spec:
       - description: "The name of a secret that contains the credentials to connect
           to the communal endpoint (only applies to s3://, gs:// or azb://). Certain
           keys need to be set, depending on the endpoint type: - s3:// or gs:// -
-          It must have the following keys set: accessey and secretkey. When using
-          Google Cloud Storage, the IDs set in the secret are taken from the hash-based
+          It must have the following keys set: accessey and secretkey.     When using
+          Google Cloud Storage, the IDs set in the secret are taken     from the hash-based
           message authentication code (HMAC) keys. - azb:// - It must have the following
-          keys set: accountName - Name of the Azure account blobEndpoint - (Optional)
-          Set this to the location of the endpoint. If using an emulator like Azurite,
-          it can be set to something like 'http://<IP-addr>:<port>' accountKey - If
-          accessing with an account key set it here sharedAccessSignature - If accessing
-          with a shared access signature, set it here \n When initPolicy is Create
-          or Revive, and not using HDFS this field is required."
+          keys set:     accountName - Name of the Azure account     blobEndpoint -
+          (Optional) Set this to the location of the endpoint.       If using an emulator
+          like Azurite, it can be set to something like       'http://<IP-addr>:<port>'
+          \    accountKey - If accessing with an account key set it here     sharedAccessSignature
+          - If accessing with a shared access signature,     \t  set it here \n When
+          initPolicy is Create or Revive, and not using HDFS this field is required."
         displayName: Credential Secret
         path: communal.credentialSecret
         x-descriptors:

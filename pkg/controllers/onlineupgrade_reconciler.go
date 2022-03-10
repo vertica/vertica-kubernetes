@@ -99,7 +99,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 			// If Reconcile was aborted with a requeue, set the RequeueAfter interval to prevent exponential backoff
 			if err == nil {
 				res.Requeue = false
-				res.RequeueAfter = time.Duration(o.Vdb.GetUpgradeRequeueTime())
+				res.RequeueAfter = time.Second * time.Duration(o.Vdb.GetUpgradeRequeueTime())
 			}
 			return res, err
 		}
@@ -671,7 +671,7 @@ func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName s
 	}
 
 	// Parse the output.  We requeue if there is an active connection.  This
-	// will rely on the UpgradeRequeueTime that is set at 2 minutes default
+	// will rely on the UpgradeRequeueTime that is set to default
 	return ctrl.Result{Requeue: o.doesScHaveActiveConnections(stdout)}, nil
 }
 
