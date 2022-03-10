@@ -18,6 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		const NewImage = "vertica-k8s:newimage"
+		UpgradeRequeueTime := time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
@@ -49,7 +51,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		updateVdbToCauseUpgrade(ctx, vdb, NewImage)
 
 		r, _, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image).Should(Equal(NewImage))
@@ -57,15 +59,17 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 	It("should stop cluster during an upgrade", func() {
 		vdb := vapi.MakeVDB()
+
 		createVdb(ctx, vdb)
 		defer deleteVdb(ctx, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container1:newimage")
+		UpgradeRequeueTime := time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 
 		r, fpr, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(1))
 	})
@@ -78,15 +82,16 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
+		UpgradeRequeueTime := time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 
 		r, _, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 		// Delete the sts in preparation of recrating everything with the new
 		// image.  Pods will come up not running to force a requeue by the
 		// restart reconciler.
 		test.DeletePods(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 	})
 
 	It("should delete pods during an upgrade", func() {
@@ -97,9 +102,10 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
+		UpgradeRequeueTime := time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 
 		r, _, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 
 		finder := iter.MakeSubclusterFinder(k8sClient, vdb)
 		pods, err := finder.FindPods(ctx, iter.FindExisting)
@@ -116,10 +122,11 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
+		UpgradeRequeueTime := time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 		r, fpr, pfacts := createOfflineUpgradeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].upNode = false
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(0))
 	})
@@ -134,6 +141,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container3:newimage")
+		UpgradeRequeueTime := time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 		r, fpr, pfacts := createOfflineUpgradeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
@@ -148,7 +156,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		// Read the latest vdb to get status conditions, etc.
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), vdb)).Should(Succeed())
 
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 		Expect(r.Manager.ContinuingUpgrade).Should(Equal(true))
 	})
 })

@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -320,10 +321,11 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		UpgradeRequeueTime := time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 120}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
 		Expect(vdb.Status.UpgradeStatus).Should(Equal("Checking if new version is compatible"))
 	})
 
@@ -367,7 +369,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
-		vdb.Spec.UpgradeRequeueTime = UpgradeRequeueTime
+		vdb.Spec.UpgradeRequeueTime = 100 // Set a non-default UpgradeRequeueTime for the test
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
 
 		createVdb(ctx, vdb)
@@ -380,7 +382,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: UpgradeRequeueTime}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: (time.Second * 100)}))
 	})
 
 	It("should return transient if doing online upgrade and transient isn't created yet", func() {

@@ -19,7 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// Checks if the reconcile function returned an error,
+// IsReconcileAborted checks if the reconcile function returned an error,
 // or if a requeue is necessary
 // or if the requeueAfter is set
 func IsReconcileAborted(res ctrl.Result, err error) bool {
