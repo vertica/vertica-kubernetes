@@ -223,7 +223,7 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 	}
 	if !foundPodWithNewImage {
 		o.Log.Info("Requeue to wait until at least one pod exists with the new image")
-		return ctrl.Result{Requeue: true, RequeueAfter: time.Duration(o.Vdb.Spec.UpgradeRequeueTime)}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }
