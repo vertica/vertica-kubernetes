@@ -36,6 +36,9 @@ import (
 const VerticaDBKind = "VerticaDB"
 const VerticaDBAPIVersion = "vertica.com/v1beta1"
 
+// Set constant Upgrade Requeue Time
+const URTime = 30
+
 // VerticaDBSpec defines the desired state of VerticaDB
 type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
@@ -229,6 +232,14 @@ type VerticaDBSpec struct {
 	// This should be reserved for test environments as an error scenario could
 	// easily consume the logs.
 	RequeueTime int `json:"requeueTime,omitempty"`
+
+	// +kubebuilder:default:=30
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// If a reconciliation iteration during an operation such as Upgrade needs to be requeued, this controls the
+	// amount of time in seconds to delay adding the key to the reconcile queue.  If RequeueTime is set, it overrides this value.
+	//  If RequeueTime is not set either, then we set the default value only for upgrades. For other reconciles we use the exponential backoff algorithm.
+	UpgradeRequeueTime int `json:"upgradeRequeueTime,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
@@ -959,8 +970,15 @@ func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
 }
 
-// buildTransientSubcluster creates a temporary read-only subcluster based on an
-// existing subcluster
+// GetUpgradeRequeueTime returns default if not set in the CRD
+func (v *VerticaDB) GetUpgradeRequeueTime() int {
+	if v.Spec.UpgradeRequeueTime == 0 {
+		return URTime
+	}
+	return v.Spec.UpgradeRequeueTime
+}
+
+// buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
 func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
 	return &Subcluster{
 		Name:              v.Spec.TemporarySubclusterRouting.Template.Name,

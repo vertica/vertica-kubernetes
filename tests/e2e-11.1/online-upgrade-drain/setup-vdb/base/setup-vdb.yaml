@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# We double duty this test to inject default upgradeRequeueTime by not setting RequeueTime
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
@@ -23,7 +24,6 @@ spec:
     requestSize: 100Mi
   kSafety: "0"
   upgradePolicy: Online
-  requeueTime: 10
   subclusters:
     - name: pri1
       size: 1

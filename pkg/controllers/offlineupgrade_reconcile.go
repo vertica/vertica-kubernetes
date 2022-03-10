@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -99,7 +100,12 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		o.Manager.finishUpgrade,
 	}
 	for _, fn := range funcs {
-		if res, err := fn(ctx); res.Requeue || err != nil {
+		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
+			// If Reconcile was aborted with a requeue, set the RequeueAfter interval to prevent exponential backoff
+			if err == nil {
+				res.Requeue = false
+				res.RequeueAfter = time.Second * time.Duration(o.Vdb.GetUpgradeRequeueTime())
+			}
 			return res, err
 		}
 	}

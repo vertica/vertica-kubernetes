@@ -33,6 +33,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 )
@@ -149,12 +150,17 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		MakeRebalanceShardsReconciler(r, log, vdb, prunner, &pfacts),
 	}
 
+	// Iterate over each actor
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
 		// Error or a request to requeue will stop the reconciliation.
-		if err != nil || res.Requeue {
-			if res.Requeue && vdb.Spec.RequeueTime > 0 {
+		if verrors.IsReconcileAborted(res, err) {
+			// Handle requeue time priority.
+			// If any function needs a requeue and we have a RequeueTime set,
+			// then overwrite RequeueAfter.
+			// Functions such as Upgrade may already set RequeueAfter and Requeue to false
+			if (res.Requeue || res.RequeueAfter > 0) && vdb.Spec.RequeueTime > 0 {
 				res.Requeue = false
 				res.RequeueAfter = time.Second * time.Duration(vdb.Spec.RequeueTime)
 			}
