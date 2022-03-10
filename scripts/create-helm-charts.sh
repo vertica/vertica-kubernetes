@@ -83,6 +83,3 @@ echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 # Delete openshift clusterRole and clusterRoleBinding files
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-rolebinding-crb.yaml
-
-# Delete the crd manifest as it will be installed just once in the cluster
-rm $CRD_DIR/verticadbs.vertica.com-crd.yaml
