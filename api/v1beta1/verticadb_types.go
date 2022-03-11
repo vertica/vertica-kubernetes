@@ -315,6 +315,8 @@ type LocalObjectReference struct {
 // subcluster gets client routing for subcluster we are restarting during online
 // upgrade.
 type SubclusterSelection struct {
+	// SPILLY - if we do end up using this for the autoscaler, lets update the
+	// comments so that it isn't specific to online upgrade
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// Names of existing subclusters to use for temporary routing of client

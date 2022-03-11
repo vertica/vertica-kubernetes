@@ -28,9 +28,37 @@ type VerticaAutoscalerSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of VerticaAutoscaler. Edit verticaautoscaler_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// The name of the VerticaDB CR that this autoscaler is defined for.  The
+	// VerticaDB object must exist in the same namespaec as this object.
+	VerticaDBName string `json:"vdbName,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:default:="Pod"
+	// +kubebuilder:validation:Optional
+	// This defines how the scaling will happen.  This can be one of the following:
+	// - Pod: Only increase or decrease the size of an existing subcluster.
+	//   This cannot be used if more than one subcluster is defined in subclusters.
+	// - Subcluster: Scaling will be achieved by creating or deleting entire subclusters.
+	//   New subclusters are created using subclusterTemplate as a template.
+	//   Sizes of existing subclusters will remain the same.
+	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// A list of subclusters, as defined in the VerticaDB, that this
+	// autoscaler will manage.  If scalingGranularity of Subcluster, this is
+	// also where you define the template of new subclusters that the autoscaler
+	// may create.
+	Subclusters SubclusterSelection `json:"subclusters"`
 }
+
+type ScalingGranularityType string
+
+const (
+	PodScalingGranularity        = "Pod"
+	SubclusterScalingGranularity = "Subcluster"
+)
 
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {

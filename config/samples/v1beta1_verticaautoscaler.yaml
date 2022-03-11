@@ -3,4 +3,8 @@ kind: VerticaAutoscaler
 metadata:
   name: verticaautoscaler-sample
 spec:
-  # SPILLY: Add fields here
+  verticaDBName: verticadb-sample
+  subclusters:
+    names:
+    - defaultsubcluster
+  scalePolicy: ResizeSubcluster
