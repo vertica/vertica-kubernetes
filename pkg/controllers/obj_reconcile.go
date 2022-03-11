@@ -179,7 +179,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		// all pods in the subcluster.  If that isn't the case, we requeue to
 		// give those reconcilers a chance to do those actions.  Failure to do
 		// this will result in corruption of admintools.conf.
-		if r, e := o.checkForOrphanAdmintoolsConfEntries(0, &stss.Items[i]); r.Requeue || e != nil {
+		if r, e := o.checkForOrphanAdmintoolsConfEntries(0, &stss.Items[i]); verrors.IsReconcileAborted(r, e) {
 			return r, e
 		}
 
@@ -300,7 +300,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// and done the uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
-	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); r.Requeue || e != nil {
+	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
 		return r, e
 	}
 

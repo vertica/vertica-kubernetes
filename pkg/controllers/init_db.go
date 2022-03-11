@@ -202,7 +202,7 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 	}
 
 	if g.Vdb.HasKerberosConfig() {
-		if res = g.hasCompatibleVersionForKerberos(); res.Requeue {
+		if res = g.hasCompatibleVersionForKerberos(); verrors.IsReconcileAborted(res, nil) {
 			return res, nil
 		}
 		content = dedent.Dedent(fmt.Sprintf(`

@@ -38,7 +38,6 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	ctx := context.Background()
 	const OldImage = "old-image"
 	const NewImageName = "different-image"
-	const UpgradeRequeueTime = 100
 
 	It("should skip transient subcluster setup only when primaries have matching image", func() {
 		vdb := vapi.MakeVDB()

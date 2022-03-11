@@ -162,7 +162,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// Functions such as Upgrade may already set RequeueAfter and Requeue to false
 			if (res.Requeue || res.RequeueAfter > 0) && vdb.Spec.RequeueTime > 0 {
 				res.Requeue = false
-				res.RequeueAfter = time.Duration(vdb.Spec.RequeueTime)
+				res.RequeueAfter = time.Second * time.Duration(vdb.Spec.RequeueTime)
 			}
 			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err

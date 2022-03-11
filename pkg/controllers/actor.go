@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -68,7 +69,7 @@ func scaledownSubcluster(ctx context.Context, act ScaledownActor, sc *vapi.Subcl
 		if err != nil {
 			return res, fmt.Errorf("failed to scale down nodes in subcluster %s: %w", sc.Name, err)
 		}
-		if res.Requeue {
+		if verrors.IsReconcileAborted(res, err) {
 			return res, nil
 		}
 	}
