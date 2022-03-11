@@ -210,6 +210,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-report envtest ## Run tests.
+	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
 ifdef INTERACTIVE
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 else
