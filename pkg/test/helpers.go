@@ -18,6 +18,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/gomega" // nolint:revive,stylecheck
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -174,4 +175,9 @@ func DeleteSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	if !kerrors.IsNotFound(err) {
 		ExpectWithOffset(1, c.Delete(ctx, svc)).Should(Succeed())
 	}
+}
+
+// GetURTime is a helper function that returns the upgrade requeue time for the test to assert.
+func GetURTime(vdb *vapi.VerticaDB) time.Duration {
+	return time.Second * time.Duration(vdb.GetUpgradeRequeueTime())
 }
