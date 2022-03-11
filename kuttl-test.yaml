@@ -27,7 +27,7 @@ commands:
   - command: scripts/setup-kustomize.sh
 
   # make dependencies
-  - command: make create-helm-charts vdb-gen install-cert-manager
+  - command: make create-helm-charts vdb-gen install-cert-manager create-default-rbac
 
   # We do a pre-pull of the vertica-k8s image to avoid timeouts
   # during the test run.

@@ -14,7 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: |
-      cd ../../.. && kubectl apply -f config/samples/custom-sa.yaml -n $NAMESPACE \
-       && kubectl apply -f config/samples/custom-role.yaml -n $NAMESPACE \
-       && kubectl apply -f config/samples/custom-rb.yaml -n $NAMESPACE 
+  - command: bash -c "kustomize build custom-rbac | kubectl -n $NAMESPACE apply -f - "

@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../../../config/samples/rbac
+
+patches:
+- patch: |-
+    - op: replace
+      path: /metadata/name
+      value: custom-sa
+  target:
+    kind: ServiceAccount
+    version: v1
+- patch: |-
+    - op: replace
+      path: /metadata/name
+      value: custom-manager-role
+  target:
+    kind: Role
+    version: v1
+    name: verticadb-operator-manager-role
+- patch: |-
+    - op: replace
+      path: /metadata/name
+      value: custom-leader-election-role
+  target:
+    kind: Role
+    version: v1
+    name: verticadb-operator-leader-election-role
+- patch: |-
+    - op: replace
+      path: /metadata/name
+      value: custom-leader-election-rolebinding
+    - op: replace
+      path: /subjects/0/name
+      value: custom-sa
+    - op: replace
+      path: /roleRef/name
+      value: custom-leader-election-role
+  target:
+    kind: RoleBinding
+    version: v1
+    name: verticadb-operator-leader-election-rolebinding
+- patch: |-
+    - op: replace
+      path: /metadata/name
+      value: custom-manager-rolebinding
+    - op: replace
+      path: /subjects/0/name
+      value: custom-sa
+    - op: replace
+      path: /roleRef/name
+      value: custom-manager-role
+  target:
+    kind: RoleBinding
+    version: v1
+    name: verticadb-operator-manager-rolebinding

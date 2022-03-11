@@ -36,9 +36,11 @@ webhook:
   # webhook's server certificate.  If unspecified, system trust roots on the
   # apiserver are used.
   caBundle: ""
-  # enable controls the access to the webhook. It can be set to false when for instance 
-  # users do not have access to any cluster level resources and this will allow them
-  # to skip the webhook and install the operator.
+  # If true, the webhook will be enabled and its configuration is setup by the helm chart. 
+  # Setting this to false will disable the webhook. The webhook setup needs privileges to add 
+  # validatingwebhookconfiguration and mutatingwebhookconfiguration, both are cluster scoped. 
+  # If you do not have necessary privileges to add these configurations, then this option 
+  # can be used to skip that and still deploy the operator.
   enable: true
 
 logging:
@@ -73,8 +75,9 @@ resources:
     cpu: 100m
     memory: 20Mi
 
-# serviceAccountName is the name of a preexisting service account. When specified,
-# it will be used to install the operator and new service account, roles and rolebindings 
-# will not be generated.
-# You should make sure it has been granted all the necessary permissions through a custom role and rolebinding.
-serviceAccountName: ""
+# If set, this will be the name of an existing service account that will be used to run
+# any of the pods related to this operator. This includes the pod for the operator itself, 
+# as well as any pods created for our custom resource. The necessary roles and role bindings
+# must be already setup for this service account. If unset, we will use the default service account name
+# and create the necessary roles and role bindings to allow the pods to interact with the apiserver.
+serviceAccountNameOverride: ""

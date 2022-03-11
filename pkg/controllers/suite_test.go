@@ -79,7 +79,7 @@ var _ = BeforeSuite(func() {
 		Scheme:             scheme.Scheme,
 		Cfg:                restCfg,
 		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
-		ServiceAccountName: builder.ServiceAccountName,
+		ServiceAccountName: builder.DefaultServiceAccountName,
 	}
 }, 60)
 

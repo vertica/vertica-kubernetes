@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	SuperuserPasswordPath = "superuser-passwd"
-	ServiceAccountName    = "verticadb-operator-controller-manager"
+	SuperuserPasswordPath     = "superuser-passwd"
+	DefaultServiceAccountName = "verticadb-operator-controller-manager"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -488,7 +488,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			Labels:      MakeLabelsForObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc, ServiceAccountName),
+		Spec: buildPodSpec(vdb, sc, DefaultServiceAccountName),
 	}
 	// Set a few things in the spec that are normally done by the statefulset
 	// controller. Again, this is for testing purposes only as the statefulset

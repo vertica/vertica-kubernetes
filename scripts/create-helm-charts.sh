@@ -59,17 +59,17 @@ sed -i "s/--level=.*/--level={{ .Values.logging.level }}/" $TEMPLATE_DIR/vertica
 sed -i "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 7.  Template the serviceaccount, roles and rolebindings
-sed -i 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ default "verticadb-operator-controller-manager" .Values.serviceAccountName }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i 's/--service-account-name=.*/--service-account-name={{ default "verticadb-operator-controller-manager" .Values.serviceAccountName }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountName -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-sa.yaml
+sed -i 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ default "verticadb-operator-controller-manager" .Values.serviceAccountNameOverride }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i 's/--service-account-name=.*/--service-account-name={{ default "verticadb-operator-controller-manager" .Values.serviceAccountNameOverride }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-sa.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-sa.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountName -}}\n/' $TEMPLATE_DIR/verticadb-operator-manager-role-role.yaml
+sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-manager-role-role.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-manager-role-role.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountName -}}\n/' $TEMPLATE_DIR/verticadb-operator-manager-rolebinding-rb.yaml
+sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-manager-rolebinding-rb.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-manager-rolebinding-rb.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountName -}}\n/' $TEMPLATE_DIR/verticadb-operator-leader-election-role-role.yaml
+sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-leader-election-role-role.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-leader-election-role-role.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountName -}}\n/' $TEMPLATE_DIR/verticadb-operator-leader-election-rolebinding-rb.yaml
+sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-leader-election-rolebinding-rb.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-leader-election-rolebinding-rb.yaml
 
 # 8.  Template the webhook access enablement

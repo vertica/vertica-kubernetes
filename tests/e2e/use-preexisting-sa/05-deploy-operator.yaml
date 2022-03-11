@@ -15,4 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: |
-      cd ../../.. && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set serviceAccountName=custom-sa"
+      cd ../../.. && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set serviceAccountNameOverride=custom-sa"
