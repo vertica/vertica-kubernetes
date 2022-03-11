@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -127,14 +128,14 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// nodes.
 	// Include transient nodes since we may need to run re-ip against them.
 	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, true)
-	if res, err := r.killOldProcesses(ctx, downPods); res.Requeue || err != nil {
+	if res, err := r.killOldProcesses(ctx, downPods); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	// re_ip/start_db require all pods to be running that have run the
 	// installation.  This check is done when we generate the map file
 	// (genMapFile).
-	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); err != nil || res.Requeue {
+	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -162,7 +163,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		if res, err := r.restartPods(ctx, downPods); res.Requeue || res.RequeueAfter > 0 || err != nil {
+		if res, err := r.restartPods(ctx, downPods); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -183,7 +184,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
-		if res, err := r.reipNodes(ctx, reIPPods); res.Requeue || err != nil {
+		if res, err := r.reipNodes(ctx, reIPPods); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -205,7 +206,7 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 	vnodeList := genRestartVNodeList(downPods)
 	ipList := genRestartIPList(downPods)
 
-	if res, err := r.killOldProcesses(ctx, downPods); res.Requeue || err != nil {
+	if res, err := r.killOldProcesses(ctx, downPods); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 

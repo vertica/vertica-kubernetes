@@ -368,7 +368,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
-		vdb.Spec.UpgradeRequeueTime = 100
+		vdb.Spec.UpgradeRequeueTime = 100 // Set a non-default UpgradeRequeueTime for the test
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
 
 		createVdb(ctx, vdb)
