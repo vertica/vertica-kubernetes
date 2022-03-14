@@ -23,7 +23,6 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 KUSTOMIZE=$REPO_DIR/bin/kustomize
 SAMPLE_DIR="$REPO_DIR/config/samples"
 RBAC_DIR="$SAMPLE_DIR/rbac"
-KUBERNETES_SPLIT_YAML=$REPO_DIR/bin/kubernetes-split-yaml
 
 mkdir -p config/overlays/rbac
 cd config/overlays/rbac
@@ -38,19 +37,17 @@ EOF
 mkdir -p $RBAC_DIR
 
 cd $REPO_DIR
-$KUSTOMIZE build config/overlays/rbac | $KUBERNETES_SPLIT_YAML --outdir $RBAC_DIR -
+$KUSTOMIZE build config/overlays/rbac > $RBAC_DIR/default-rbac.yaml 
 
 cd $RBAC_DIR
 
+# We create this kustomization.yaml so that we can adjust the names of 
+# all the resources defined inside default-rbac.yaml for our e2e tests
 cat <<- EOF > kustomization.yaml
 resources:
-- verticadb-operator-controller-manager-sa.yaml
-- verticadb-operator-manager-role-role.yaml
-- verticadb-operator-manager-rolebinding-rb.yaml
-- verticadb-operator-leader-election-role-role.yaml
-- verticadb-operator-leader-election-rolebinding-rb.yaml
+- default-rbac.yaml
 EOF
 
-sed -i '$d' $RBAC_DIR/verticadb-operator-controller-manager-sa.yaml
-sed -i '$d' $RBAC_DIR/verticadb-operator-manager-rolebinding-rb.yaml
-sed -i '$d' $RBAC_DIR/verticadb-operator-leader-election-rolebinding-rb.yaml
+# This deletes all the lines specifying the namespace inside default-rbac.yaml
+sed -i '/namespace: system/d' default-rbac.yaml
+
