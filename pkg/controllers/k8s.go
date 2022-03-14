@@ -72,3 +72,20 @@ func getConfigMapOrSecret(ctx context.Context, vrec *VerticaDBReconciler, vdb *v
 	}
 	return ctrl.Result{}, nil
 }
+
+// fetchVDB will fetch the VerticaDB that is referenced in a VerticaAutoscaler.
+// This will log an event if the VerticaDB is not found.
+func fetchVDB(ctx context.Context, vrec *VerticaAutoscalerReconciler,
+	vas *vapi.VerticaAutoscaler, vdb *vapi.VerticaDB) (ctrl.Result, error) {
+	nm := types.NamespacedName{
+		Namespace: vas.Namespace,
+		Name:      vas.Spec.VerticaDBName,
+	}
+	err := vrec.Client.Get(ctx, nm, vdb)
+	if err != nil && errors.IsNotFound(err) {
+		vrec.EVRec.Eventf(vas, corev1.EventTypeWarning, events.VerticaDBNotFound,
+			"The VerticaDB named '%s' was not found", vas.Spec.VerticaDBName)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, err
+}

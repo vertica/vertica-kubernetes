@@ -289,6 +289,8 @@ func main() {
 	if err = (&controllers.VerticaAutoscalerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		Log:    ctrl.Log.WithName("controllers").WithName("VerticaAutoscaler"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaAutoscaler")
 		os.Exit(1)

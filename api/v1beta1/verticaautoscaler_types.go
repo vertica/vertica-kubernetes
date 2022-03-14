@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// nolint:lll
 package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
-
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // VerticaAutoscalerSpec defines the desired state of VerticaAutoscaler
 type VerticaAutoscalerSpec struct {
@@ -32,25 +31,41 @@ type VerticaAutoscalerSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
 	// VerticaDB object must exist in the same namespaec as this object.
-	VerticaDBName string `json:"vdbName,omitempty"`
+	VerticaDBName string `json:"verticaDBName,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:default:="Pod"
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
 	// This defines how the scaling will happen.  This can be one of the following:
 	// - Pod: Only increase or decrease the size of an existing subcluster.
-	//   This cannot be used if more than one subcluster is defined in subclusters.
+	//   This cannot be used if more than one subcluster is selected with
+	//   subclusterServiceName.
 	// - Subcluster: Scaling will be achieved by creating or deleting entire subclusters.
 	//   New subclusters are created using subclusterTemplate as a template.
 	//   Sizes of existing subclusters will remain the same.
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// A list of subclusters, as defined in the VerticaDB, that this
-	// autoscaler will manage.  If scalingGranularity of Subcluster, this is
-	// also where you define the template of new subclusters that the autoscaler
-	// may create.
-	Subclusters SubclusterSelection `json:"subclusters"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// This acts as a selector for the subclusters that being scaled together.
+	// The name refers to the service name as defined in the subcluster section
+	// of the VerticaDB, which is typically the same name as the subcluster name.
+	SubclusterServiceName string `json:"subclusterServiceName"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
+	// This is the total pod count for all subclusters that match the
+	// subclusterServiceName.  Changing this value may trigger a change in the
+	// VerticaDB that is associated with this object.  This value is generally
+	// left as the default and modified by the horizontal autoscaler through the
+	// /scale subresource.
+	TargetSize int32 `json:"targetSize,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	Selector metav1.LabelSelector `json:"selector"`
 }
 
 type ScalingGranularityType string
@@ -62,13 +77,16 @@ const (
 
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Size     int32  `json:"size"`
+	Selector string `json:"selector"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:shortName=vas
 //+kubebuilder:subresource:status
+//+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.size,selectorpath=.status.selector
+//+kubebuilder:printcolumn:name="Size",type="integer",JSONPath=".status.size"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // VerticaAutoscaler is the Schema for the verticaautoscalers API
 type VerticaAutoscaler struct {
@@ -90,4 +108,33 @@ type VerticaAutoscalerList struct {
 
 func init() {
 	SchemeBuilder.Register(&VerticaAutoscaler{}, &VerticaAutoscalerList{})
+}
+
+// MakeVASName is a helper that creates a sample name for test purposes
+func MakeVASName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-vas-sample", Namespace: "default"}
+}
+
+// MakeVAS is a helper that constructs a fully formed VerticaAutoscaler struct using the sample name.
+// This is intended for test purposes.
+func MakeVAS() *VerticaAutoscaler {
+	vasNm := MakeVASName()
+	vdbNm := MakeVDBName()
+	return &VerticaAutoscaler{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "vertica.com/v1beta1",
+			Kind:       "VerticaAutoscaler",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        vasNm.Name,
+			Namespace:   vasNm.Namespace,
+			UID:         "abcdef-ghi",
+			Annotations: make(map[string]string),
+		},
+		Spec: VerticaAutoscalerSpec{
+			VerticaDBName:         vdbNm.Name,
+			ScalingGranularity:    "Pod",
+			SubclusterServiceName: "sc1",
+		},
+	}
 }

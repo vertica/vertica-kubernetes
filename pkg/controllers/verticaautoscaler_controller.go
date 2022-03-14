@@ -18,45 +18,81 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/go-logr/logr"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 )
 
 // VerticaAutoscalerReconciler reconciles a VerticaAutoscaler object
 type VerticaAutoscalerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
+	EVRec  record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=verticaautoscalers/finalizers,verbs=update
+//nolint:lll
+//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticaautoscalers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticaautoscalers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticaautoscalers/finalizers,verbs=update
+//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticadbs,verbs=get;list;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the VerticaAutoscaler object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := r.Log.WithValues("verticaautoscaler", req.NamespacedName)
+	log.Info("starting reconcile of VerticaAutoscaler")
 
-	// TODO(user): your logic here
+	var res ctrl.Result
+	vas := &vapi.VerticaAutoscaler{}
+	err := r.Get(ctx, req.NamespacedName, vas)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("VerticaAutoscaler resource not found.  Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		log.Error(err, "failed to get VerticaAutoscaler")
+		return ctrl.Result{}, nil
+	}
 
-	return ctrl.Result{}, nil
+	// The actors that will be applied, in sequence, to reconcile a vas.
+	actors := []ReconcileActor{
+		// If scaling granularity is Pod, this will resize existing subclusters
+		// depending on the targetSize.
+		MakeSubclusterResizeReconciler(r, vas),
+		// Update the status portion of the VerticaAutoscaler
+		MakeVASStatusReconciler(r, vas),
+	}
+
+	// Iterate over each actor
+	for _, act := range actors {
+		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
+		res, err = act.Reconcile(ctx, &req)
+		// Error or a request to requeue will stop the reconciliation.
+		if verrors.IsReconcileAborted(res, err) {
+			log.Info("aborting reconcile of VerticaAutoscaler", "result", res, "err", err)
+			return res, err
+		}
+	}
+
+	log.Info("ending reconcile of VerticaAutoscaler", "result", res, "err", err)
+	return res, err
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&verticacomv1beta1.VerticaAutoscaler{}).
+		For(&vapi.VerticaAutoscaler{}).
 		Complete(r)
 }

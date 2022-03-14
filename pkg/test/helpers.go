@@ -175,3 +175,20 @@ func DeleteSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 		ExpectWithOffset(1, c.Delete(ctx, svc)).Should(Succeed())
 	}
 }
+
+func CreateVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+	ExpectWithOffset(1, c.Create(ctx, vas)).Should(Succeed())
+}
+
+func DeleteVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+	ExpectWithOffset(1, c.Delete(ctx, vas)).Should(Succeed())
+}
+
+// SPILLY - remove similar functions in suite_test.go
+func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
+	ExpectWithOffset(1, c.Create(ctx, vdb)).Should(Succeed())
+}
+
+func DeleteVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
+	ExpectWithOffset(1, c.Delete(ctx, vdb)).Should(Succeed())
+}
