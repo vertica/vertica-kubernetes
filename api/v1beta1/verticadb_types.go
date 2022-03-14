@@ -20,6 +20,7 @@ package v1beta1
 import (
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
@@ -970,12 +971,12 @@ func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
 }
 
-// GetUpgradeRequeueTime returns default if not set in the CRD
-func (v *VerticaDB) GetUpgradeRequeueTime() int {
+// GetUpgradeRequeueTime returns default upgrade requeue time if not set in the CRD
+func (v *VerticaDB) GetUpgradeRequeueTime() time.Duration {
 	if v.Spec.UpgradeRequeueTime == 0 {
-		return URTime
+		return time.Second * time.Duration(URTime)
 	}
-	return v.Spec.UpgradeRequeueTime
+	return time.Second * time.Duration(v.Spec.UpgradeRequeueTime)
 }
 
 // buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster

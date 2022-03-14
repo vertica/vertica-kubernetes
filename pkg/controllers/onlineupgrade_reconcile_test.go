@@ -324,7 +324,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: test.GetURTime(vdb)}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
 		Expect(vdb.Status.UpgradeStatus).Should(Equal("Checking if new version is compatible"))
 	})
 
