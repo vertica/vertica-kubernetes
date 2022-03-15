@@ -51,7 +51,7 @@ var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
 		fetchedSts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, nm, fetchedSts)).Should(Succeed())
 
-		r := MakeUpgradeOperator120Reconciler(vrec, logger, vdb)
+		r := MakeUpgradeOperator120Reconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		// Reconcile should have deleted the sts because it was created by an

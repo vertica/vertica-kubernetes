@@ -38,7 +38,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		recon := MakeDBRemoveNodeReconciler(vrec, logger, vdb, fpr, &pfacts)
+		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -53,7 +53,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		actor := MakeDBRemoveNodeReconciler(vrec, logger, vdb, fpr, &pfacts)
+		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		recon := actor.(*DBRemoveNodeReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		fpr.Histories = make([]cmds.CmdHistory, 0) // reset the calls so the first one is admintools
@@ -79,7 +79,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		r := MakeDBRemoveNodeReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())
@@ -102,7 +102,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		r := MakeDBRemoveNodeReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeTrue())
@@ -123,7 +123,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		removePod := names.GenPodName(vdb, sc, 2)
 		pfacts.Detail[removePod].dbExists = tristate.False
-		r := MakeDBRemoveNodeReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())

@@ -40,7 +40,7 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vrec,
+			VRec:    vdbRec,
 			Log:     logger,
 			Vdb:     vdb,
 			PRunner: fpr,
@@ -54,7 +54,7 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vrec,
+			VRec:    vdbRec,
 			Log:     logger,
 			Vdb:     vdb,
 			PRunner: fpr,
@@ -91,7 +91,7 @@ var _ = Describe("init_db", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, ScSize)
 
 		g := GenericDatabaseInitializer{
-			VRec:    vrec,
+			VRec:    vdbRec,
 			Log:     logger,
 			Vdb:     vdb,
 			PRunner: fpr,
@@ -182,7 +182,7 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vrec,
+			VRec:    vdbRec,
 			Log:     logger,
 			Vdb:     vdb,
 			PRunner: fpr,
@@ -218,7 +218,7 @@ var _ = Describe("init_db", func() {
 func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {
 	fpr := &cmds.FakePodRunner{}
 	g := GenericDatabaseInitializer{
-		VRec:    vrec,
+		VRec:    vdbRec,
 		Log:     logger,
 		Vdb:     vdb,
 		PRunner: fpr,

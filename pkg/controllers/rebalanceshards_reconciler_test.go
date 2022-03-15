@@ -48,7 +48,7 @@ var _ = Describe("rebalanceshards_reconcile", func() {
 		pfn = names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
 		pfacts.Detail[pfn].shardSubscriptions = 3
 		pfacts.Detail[pfn].upNode = true
-		r := MakeRebalanceShardsReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := MakeRebalanceShardsReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("select rebalance_shards('sc1')")
 		Expect(len(atCmd)).Should(Equal(1))

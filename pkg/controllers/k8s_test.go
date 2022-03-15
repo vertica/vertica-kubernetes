@@ -45,7 +45,7 @@ var _ = Describe("k8s", func() {
 		Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
 		defer deleteSecret(ctx, vdb, nm.Name)
 
-		fetchSecret, res, err := getSecret(ctx, vrec, vdb, nm)
+		fetchSecret, res, err := getSecret(ctx, vdbRec, vdb, nm)
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(fetchSecret.Data["Data1"]).Should(Equal([]byte("secret")))
@@ -67,7 +67,7 @@ var _ = Describe("k8s", func() {
 		Expect(k8sClient.Create(ctx, &cm)).Should(Succeed())
 		defer deleteConfigMap(ctx, vdb, nm.Name)
 
-		fetchCm, res, err := getConfigMap(ctx, vrec, vdb, nm)
+		fetchCm, res, err := getConfigMap(ctx, vdbRec, vdb, nm)
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(fetchCm.Data["cmData1"]).Should(Equal("stuff"))
