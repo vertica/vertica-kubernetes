@@ -84,9 +84,11 @@ var _ = Describe("version", func() {
 		ok, _ = cur.IsValidUpgradePath("v10.1.1")
 		Expect(ok).Should(BeFalse())
 		ok, _ = cur.IsValidUpgradePath("v11.1.0")
-		Expect(ok).Should(BeFalse()) // We fail because we skip v11.0.2
+		Expect(ok).Should(BeTrue())
 		ok, _ = cur.IsValidUpgradePath("v11.0.2")
 		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v11.2.2")
+		Expect(ok).Should(BeFalse()) // Fail because it skips v11.1.x
 
 		cur, ok = MakeInfoFromStr("v15.1.1")
 		Expect(ok).Should(BeTrue())
