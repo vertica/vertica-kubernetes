@@ -175,3 +175,11 @@ func DeleteSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 		ExpectWithOffset(1, c.Delete(ctx, svc)).Should(Succeed())
 	}
 }
+
+func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
+	ExpectWithOffset(1, c.Create(ctx, vdb)).Should(Succeed())
+}
+
+func DeleteVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
+	ExpectWithOffset(1, c.Delete(ctx, vdb)).Should(Succeed())
+}

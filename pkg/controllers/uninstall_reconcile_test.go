@@ -39,7 +39,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		recon := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		recon := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -53,7 +53,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
 		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
-		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		recon := actor.(*UninstallReconciler)
 		recon.ATWriter = &atconf.FakeWriter{}
 		_, err := recon.uninstallPodsInSubcluster(ctx, sc, 1, 1)
@@ -74,7 +74,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
 		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
-		r := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeTrue())
@@ -94,7 +94,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		pfacts := MakePodFacts(k8sClient, fpr)
 		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 2)
 
-		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := actor.(*UninstallReconciler)
 		r.ATWriter = &atconf.FakeWriter{}
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -119,7 +119,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		pn := names.GenPodName(vdb, sc, 1)
 		Expect(pfacts.Detail[pn].dbExists).Should(Equal(tristate.True))
 
-		actor := MakeUninstallReconciler(vrec, logger, vdb, fpr, &pfacts)
+		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := actor.(*UninstallReconciler)
 		r.ATWriter = &atconf.FakeWriter{}
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))

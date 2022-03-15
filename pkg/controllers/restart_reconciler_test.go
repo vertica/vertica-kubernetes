@@ -46,20 +46,20 @@ var _ = Describe("restart_reconciler", func() {
 
 	It("restartReconciler should not return an error if the sts doesn't exist", func() {
 		vdb := vapi.MakeVDB()
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		recon := MakeRestartReconciler(vrec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
+		recon := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should call restart_node on one pod", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -71,7 +71,7 @@ var _ = Describe("restart_reconciler", func() {
 		downPodNm := names.GenPodName(vdb, sc, 1)
 		Expect(k8sClient.Get(ctx, downPodNm, downPod)).Should(Succeed())
 
-		r := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restartCmd := fpr.FindCommands("restart_node")
 		Expect(len(restartCmd)).Should(Equal(1))
@@ -86,8 +86,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.AutoRestartVertica = false
 		vdb.Spec.Subclusters[0].Size = 2
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -100,7 +100,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{1}, PodNotReadOnly)
 
-		r := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		Expect(k8sClient.Get(ctx, nm, vdb)).Should(Succeed())
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restartCmd := fpr.FindCommands("restart_node")
@@ -120,8 +120,8 @@ var _ = Describe("restart_reconciler", func() {
 	It("failure to restart will cause a requeue", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 5
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -140,7 +140,7 @@ var _ = Describe("restart_reconciler", func() {
 			},
 		}
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{
@@ -181,7 +181,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1, 2}, PodNotReadOnly)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		oldIPs := make(verticaIPLookup)
 		oldIPs["node0001"] = Node1OldIP
@@ -208,7 +208,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		oldIPs := make(verticaIPLookup)
 		oldIPs["node0001"] = Node1OldIP
@@ -230,7 +230,7 @@ var _ = Describe("restart_reconciler", func() {
 		// Mark one of the pods as uninstalled.  This pod won't be included in the map file
 		uninstallPod := names.GenPodName(vdb, sc, 1)
 		pfacts.Detail[uninstallPod].isInstalled = tristate.False
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		atPod := names.GenPodName(vdb, sc, 0)
 		fpr.Results = cmds.CmdResults{
@@ -260,7 +260,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1, 2}, PodNotReadOnly)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		fpr.Results = cmds.CmdResults{
 			atPod: []cmds.CmdResult{
@@ -290,7 +290,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		fpr.Results = cmds.CmdResults{
 			atPod: []cmds.CmdResult{
@@ -308,8 +308,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
 		vdb.Spec.DBName = "vertdb"
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -326,7 +326,7 @@ var _ = Describe("restart_reconciler", func() {
 			},
 		}
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -345,7 +345,7 @@ var _ = Describe("restart_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		stateMap := r.parseClusterNodeStatus(
 			" Node          | Host       | State | Version                 | DB \n" +
@@ -366,8 +366,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
 		vdb.Spec.DBName = "db"
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -383,7 +383,7 @@ var _ = Describe("restart_reconciler", func() {
 			pfacts.Detail[downPodNm].isInstalled = tristate.True
 		}
 
-		r := MakeRestartReconciler(vrec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		listCmd := fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(1))
@@ -393,8 +393,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
 		vdb.Spec.DBName = "b"
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -414,7 +414,7 @@ var _ = Describe("restart_reconciler", func() {
 			},
 		}
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -435,7 +435,7 @@ var _ = Describe("restart_reconciler", func() {
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
 		atPod := names.GenPodName(vdb, sc, 0)
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
 		Expect(r.restartCluster(ctx, []*PodFact{})).Should(Equal(ctrl.Result{}))
@@ -456,7 +456,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0}, PodNotReadOnly)
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
@@ -469,8 +469,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		const ScSize = 2
 		sc.Size = ScSize
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -492,7 +492,7 @@ var _ = Describe("restart_reconciler", func() {
 			},
 		}
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -506,8 +506,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		const ScSize = 2
 		sc.Size = ScSize
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -518,15 +518,15 @@ var _ = Describe("restart_reconciler", func() {
 		const DownPodIndex = 1
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{DownPodIndex}, PodNotReadOnly)
 
-		r := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
 	It("should avoid restart_node of read-only nodes when that setting is used", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -535,12 +535,12 @@ var _ = Describe("restart_reconciler", func() {
 		const DownPodIndex = 0
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{DownPodIndex}, PodReadOnly)
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartSkipReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartSkipReadOnly)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
 
-		act = MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act = MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(1))
@@ -554,8 +554,8 @@ var _ = Describe("restart_reconciler", func() {
 			Size:      1,
 			IsPrimary: false,
 		}
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		transientSc := vdb.BuildTransientSubcluster("")
@@ -566,7 +566,7 @@ var _ = Describe("restart_reconciler", func() {
 		const DownPodIndex = 0
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, transientSc, fpr, []int32{DownPodIndex}, PodReadOnly)
 
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
@@ -575,7 +575,7 @@ var _ = Describe("restart_reconciler", func() {
 	It("should use --force option in reip if on version that supports it", func() {
 		vdb := vapi.MakeVDB()
 		fpr := &cmds.FakePodRunner{}
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		vdb.Annotations[vapi.VersionAnnotation] = version.MinimumVersion
 		Expect(r.genReIPCommand()).ShouldNot(ContainElement("--force"))
@@ -586,7 +586,7 @@ var _ = Describe("restart_reconciler", func() {
 	It("should use --hosts option in start_db if on version that supports it", func() {
 		vdb := vapi.MakeVDB()
 		fpr := &cmds.FakePodRunner{}
-		act := MakeRestartReconciler(vrec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		downPods := []*PodFact{
 			{podIP: "9.10.1.1"},

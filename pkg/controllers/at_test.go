@@ -46,7 +46,7 @@ var _ = Describe("at", func() {
 				{Err: fmt.Errorf("failed to copy file")},
 			},
 		}
-		Expect(distributeAdmintoolsConf(ctx, vdb, vrec, pf, fpr, "at.conf.tmp")).ShouldNot(Succeed())
+		Expect(distributeAdmintoolsConf(ctx, vdb, vdbRec, pf, fpr, "at.conf.tmp")).ShouldNot(Succeed())
 		cmds := fpr.FindCommands(fmt.Sprintf("sh -c cat > %s", paths.AdminToolsConf))
 		Expect(len(cmds)).Should(Equal(ScSize))
 	})

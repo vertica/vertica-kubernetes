@@ -61,8 +61,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		}
 		vdb.Spec.Subclusters = scs
 		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{Name: "transient", Size: 1, IsPrimary: false}
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		defer test.DeleteSvcs(ctx, k8sClient, vdb)
@@ -96,8 +96,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	It("should be able to figure out what the old image was", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Image = OldImage
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
@@ -123,8 +123,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 			IsPrimary: false,
 		}
 		vdb.Spec.Image = OldImage
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateSvcs(ctx, k8sClient, vdb)
@@ -162,8 +162,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 			IsPrimary: false,
 		}
 		vdb.Spec.Image = OldImage
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateSvcs(ctx, k8sClient, vdb)
@@ -186,8 +186,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		}
 		vdb.Spec.TemporarySubclusterRouting.Template.Name = "wont-be-created"
 		vdb.Spec.Image = OldImage
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateSvcs(ctx, k8sClient, vdb)
@@ -208,8 +208,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		}
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{"dummy-non-existent", SecScName, PriScName}
 		vdb.Spec.Image = OldImage
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateSvcs(ctx, k8sClient, vdb)
@@ -252,8 +252,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 			{Name: SecScName, IsPrimary: false},
 		}
 		vdb.Spec.Image = OldImage
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImageName // Trigger an upgrade
@@ -287,8 +287,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		vdb.Spec.IgnoreUpgradePath = true
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -314,8 +314,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -336,8 +336,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -371,8 +371,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.UpgradeRequeueTime = 100 // Set a non-default UpgradeRequeueTime for the test
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
 
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -397,8 +397,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 			IsPrimary: false,
 		}
 		vdb.Spec.Image = OldImage
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateSvcs(ctx, k8sClient, vdb)
@@ -463,6 +463,6 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 func createOnlineUpgradeReconciler(vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := MakePodFacts(k8sClient, fpr)
-	actor := MakeOnlineUpgradeReconciler(vrec, logger, vdb, fpr, &pfacts)
+	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 	return actor.(*OnlineUpgradeReconciler)
 }
