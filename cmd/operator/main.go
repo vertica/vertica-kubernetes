@@ -66,6 +66,7 @@ type FlagConfig struct {
 	EnableLeaderElection bool
 	ProbeAddr            string
 	EnableProfiler       bool
+	ServiceAccountName   string
 	LogArgs              *Logging
 }
 
@@ -112,6 +113,8 @@ func (fc *FlagConfig) setFlagArgs() {
 	flag.BoolVar(&fc.EnableProfiler, "enable-profiler", false,
 		"Enables runtime profiling collection.  The profiling data can be inspected by connecting to port 6060 "+
 			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
+	flag.StringVar(&fc.ServiceAccountName, "service-account-name", "verticadb-operator-controller-manager",
+		"The name of the serviceAccount to use.")
 	fc.LogArgs = &Logging{}
 	fc.LogArgs.setLoggingFlagArgs()
 }
@@ -227,6 +230,7 @@ func main() {
 	enableLeaderElection := flagArgs.EnableLeaderElection
 	probeAddr := flagArgs.ProbeAddr
 	enableProfiler := flagArgs.EnableProfiler
+	saName := flagArgs.ServiceAccountName
 	logArgs := flagArgs.LogArgs
 
 	logger := getLogger(*logArgs)
@@ -269,11 +273,12 @@ func main() {
 	}
 
 	if err = (&controllers.VerticaDBReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
-		Scheme: mgr.GetScheme(),
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
+		Scheme:             mgr.GetScheme(),
+		Cfg:                restCfg,
+		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
+		ServiceAccountName: saName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)

@@ -49,7 +49,7 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	scIndex int32, podRunningState PodRunningState) {
 	sts := &appsv1.StatefulSet{}
 	if err := c.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
-		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
+		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc, builder.DefaultServiceAccountName)
 		ExpectWithOffset(offset, c.Create(ctx, sts)).Should(Succeed())
 	}
 	for j := int32(0); j < sc.Size; j++ {

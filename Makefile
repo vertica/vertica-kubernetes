@@ -381,6 +381,9 @@ uninstall-cert-manager: ## Uninstall the cert-manager
 create-helm-charts: manifests kustomize kubernetes-split-yaml ## Generate the helm charts
 	scripts/create-helm-charts.sh
 
+create-default-rbac: manifests kustomize kubernetes-split-yaml ## Generate the default rbac manifests
+	scripts/gen-rbac.sh
+
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
