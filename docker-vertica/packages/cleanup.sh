@@ -34,11 +34,17 @@ rm -r -f \
    /opt/vertica/examples \
    /opt/vertica/sdk \
    /opt/vertica/packages/*/examples \
-   /opt/vertica/oss/python3/lib/python3.7/test \
-   /opt/vertica/oss/python3/lib/python3.7/pip \
-   /opt/vertica/oss/python3/lib/python3.7/site-packages/pip \
-   /opt/vertica/oss/python3/lib/python3.7/config-3.7*
+   /opt/vertica/packages/kafka \
+   /opt/vertica/oss/python3/lib/python3.9/test \
+   /opt/vertica/oss/python3/lib/python3.9/unittest/test \
+   /opt/vertica/oss/python3/lib/python3.9/pip \
+   /opt/vertica/oss/python3/lib/python3.9/site-packages/pip \
+   /opt/vertica/oss/python3/lib/python3.9/config-3.9* \
+   /opt/vertica/oss/python3/lib/python3.9/tkinter \
+   /opt/vertica/oss/python3/lib/python3.9/idlelib 
 
+# cleanup many of the __pycache__ directories 
+find /opt/vertica/oss/python3/lib/python3.9/  -type d -name "__pycache__" -exec rm -rf {} +
    
 # many of these directories contain things that aren't binaries
 # thus divert error output to /dev/null
