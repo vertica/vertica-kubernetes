@@ -52,6 +52,9 @@ type PodFact struct {
 	// Name of the subcluster the pod is part of
 	subcluster string
 
+	// The image that is currently running in the pod
+	image string
+
 	// true means the pod exists in k8s.  false means it hasn't been created yet.
 	exists bool
 
@@ -204,6 +207,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
 	pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
+	pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,
@@ -673,6 +677,19 @@ func (p *PodFacts) countNotRunning() int {
 		// We don't count non-running pods that aren't yet managed by the parent
 		// sts.  The sts needs to be created or sized first.
 		if !v.isPodRunning && v.managedByParent {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countNotReadOnlyWithOldImage will return a count of the number of pods that
+// are not read-only and are running an image different then newImage.  This is
+// used in online upgrade to wait until pods running the old image have gone
+// into read-only mode.
+func (p *PodFacts) countNotReadOnlyWithOldImage(newImage string) int {
+	return p.countPods(func(v *PodFact) int {
+		if v.isPodRunning && v.upNode && !v.readOnly && v.image != newImage {
 			return 1
 		}
 		return 0

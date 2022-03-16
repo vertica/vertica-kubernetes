@@ -136,6 +136,7 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
+	i.Log.Info("The upgrade has completed successfully")
 	i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
 		"Vertica server upgrade has completed successfully")
 
