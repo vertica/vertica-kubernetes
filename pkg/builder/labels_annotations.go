@@ -38,7 +38,7 @@ const (
 	// a query request.
 	// - before we remove a node.  It allows us to drain out pods that are going
 	// to be removed by a pending node removal.
-	ClientRoutingLabel = "vertica.com/client-rounting"
+	ClientRoutingLabel = "vertica.com/client-routing"
 	ClientRoutingVal   = "true"
 
 	VDBInstanceLabel     = "app.kubernetes.io/instance"

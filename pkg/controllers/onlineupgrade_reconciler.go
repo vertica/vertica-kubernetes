@@ -451,7 +451,7 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 	return ctrl.Result{}, err
 }
 
-// removeClientRountingLabelFromTransientNodes will remove the special routing
+// removeClientRoutingLabelFromTransientNodes will remove the special routing
 // label since we are about to remove that subcluster
 func (o *OnlineUpgradeReconciler) removeClientRoutingLabelFromTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	if !o.Vdb.RequiresTransientSubcluster() {

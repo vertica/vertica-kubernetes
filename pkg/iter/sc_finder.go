@@ -126,10 +126,11 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		}
 
 		// We will convert each statefulset into a vapi.Subcluster stub object.  We
-		// only fill in the name.
+		// only fill in the name.  Size is intentionally left zero as this is an
+		// indication the subcluster is being removed.
 		for i := range missingSts.Items {
 			scName := missingSts.Items[i].Labels[builder.SubclusterNameLabel]
-			subclusters = append(subclusters, &vapi.Subcluster{Name: scName})
+			subclusters = append(subclusters, &vapi.Subcluster{Name: scName, Size: 0})
 		}
 	}
 

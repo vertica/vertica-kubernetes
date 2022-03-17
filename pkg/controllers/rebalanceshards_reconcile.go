@@ -72,6 +72,7 @@ func (s *RebalanceShardsReconciler) Reconcile(ctx context.Context, req *ctrl.Req
 		if err := s.rebalanceShards(ctx, atPod, scToRebalance[i]); err != nil {
 			return ctrl.Result{}, err
 		}
+		s.PFacts.Invalidate() // Refresh due to shard subscriptions have changed
 	}
 
 	return ctrl.Result{}, nil
