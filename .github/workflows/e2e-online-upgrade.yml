@@ -27,8 +27,7 @@ jobs:
         # which are cluster scoped items.
         export E2E_PARALLELISM=1
         export MINIMAL_VERTICA_IMG=YES
-        export BASE_VERTICA_IMG=vertica/vertica-k8s:11.1.0-0
-        export VERTICA_IMG=vertica-k8s:11.1.0-0-minimal
+        export BASE_VERTICA_IMG=vertica/vertica-k8s:11.1.0-0-minimal
         export E2E_TEST_DIRS=tests/e2e-online-upgrade
         scripts/run-k8s-int-tests.sh
 
