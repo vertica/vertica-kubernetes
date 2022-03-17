@@ -173,6 +173,33 @@ var _ = Describe("podfacts", func() {
 		Expect(pods[1].dnsName).Should(Equal("p5"))
 	})
 
+	It("should verify return of countNotReadOnlyWithOldImage", func() {
+		const OldImage = "image:v1"
+		const NewImage = "image:v2"
+		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			isPodRunning: true,
+			upNode:       true,
+			readOnly:     false,
+			image:        OldImage,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			isPodRunning: true,
+			upNode:       true,
+			readOnly:     true,
+			image:        OldImage,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			isPodRunning: true,
+			upNode:       true,
+			readOnly:     false,
+			image:        NewImage,
+		}
+		Expect(pf.countNotReadOnlyWithOldImage(NewImage)).Should(Equal(1))
+		pf.Detail[types.NamespacedName{Name: "p1"}].readOnly = true
+		Expect(pf.countNotReadOnlyWithOldImage(NewImage)).Should(Equal(0))
+	})
+
 	It("should parse the vertica node name from the directory listing", func() {
 		Expect(parseVerticaNodeName("data/1b532ad7-42bf-4777-a6d1-fdae69fb94de/vertdb/v_vertdb_node0001_data/")).Should(
 			Equal("v_vertdb_node0001"))
