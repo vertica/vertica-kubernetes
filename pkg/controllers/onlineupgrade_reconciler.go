@@ -129,6 +129,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		"Draining primary subclusters",
 		"Recreating pods for primary subclusters",
 		"Checking if new version is compatible",
+		"Waiting for secondary nodes to become read-only",
 		"Restarting vertica in primary subclusters",
 	}
 
@@ -299,6 +300,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		o.drainSubcluster,
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
+		o.waitForReadOnly,
 		o.bringSubclusterOnline,
 	}
 	for i, fn := range funcs {
@@ -414,6 +416,27 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	return vr.Reconcile(ctx, &ctrl.Request{})
 }
 
+// waitForReadOnly will only succeed if all of the up pods running the old image
+// are in read-only state.  This wait is necessary so that we don't try to do a
+// 'AT -t restart_node' for the primary nodes when the cluster is in read-only.
+// We should always start those with 'AT -t start_db'.
+func (o *OnlineUpgradeReconciler) waitForReadOnly(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	// Early out if the primaries have restarted.  This wait is only meant to be
+	// done after we take down the primaries and are waiting for spread to move
+	// the remaining up nodes into read-only.
+	if o.PFacts.countUpPrimaryNodes() != 0 {
+		return ctrl.Result{}, nil
+	}
+	newImage := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+	// If all the pods that are running the old image are read-only we are done
+	// our wait.
+	if o.PFacts.countNotReadOnlyWithOldImage(newImage) == 0 {
+		return ctrl.Result{}, nil
+	}
+	o.Log.Info("Requeueing because at least 1 pod running the old image is still up and isn't considered read-only yet")
+	return ctrl.Result{Requeue: true}, nil
+}
+
 // bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.
 func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	const DoNotRestartReadOnly = false
@@ -423,7 +446,6 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	o.PFacts.Invalidate() // Status of the pods may have changed
 
 	scName := sts.Labels[builder.SubclusterNameLabel]
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
