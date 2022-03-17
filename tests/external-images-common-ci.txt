@@ -6,6 +6,7 @@
 #    scripts/push-to-kind.sh -f tests/external-images-common-ci.txt
 #
 vertica/vertica-k8s:11.1.0-0-minimal
+vertica/vertica-k8s:11.1.0-0
 minio/minio:RELEASE.2021-09-03T03-56-13Z
 amazon/aws-cli:2.2.24
 quay.io/helmpack/chart-testing:v3.3.1
