@@ -23,14 +23,6 @@
 #
 # wander around in the image looking for things you can remove
 rm -r -f \
-   /anaconda-post.log \
-   /usr/lib64/python2.7 \
-   /usr/lib/python2.7 \
-   /usr/bin/python2.7 \
-   /usr/include/python2.7 \
-   /usr/include/python2.7/pyconfig-64.h \
-   /usr/lib64/libpython2.7.so.1.0 \
-   /usr/share/systemtap/tapset/libpython2.7-64.stp \
    /opt/vertica/examples \
    /opt/vertica/sdk \
    /opt/vertica/packages/*/examples \
