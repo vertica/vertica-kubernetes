@@ -34,6 +34,6 @@ jobs:
     - uses: actions/upload-artifact@v2
       if: always()
       with:
-        name: logs-e2e-onlibe-upgrade
+        name: logs-e2e-online-upgrade
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
 
