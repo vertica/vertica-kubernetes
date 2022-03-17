@@ -443,7 +443,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: MakeSvcSelectorLabelsForSubclusterNameRouting(vdb, sc),
+				MatchLabels: MakeStsSelectorLabels(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
 			Replicas:    &sc.Size,

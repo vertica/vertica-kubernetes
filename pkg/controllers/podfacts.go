@@ -65,6 +65,13 @@ type PodFact struct {
 	// (b) statefulset exists but it isn't sized to include this pod yet.
 	managedByParent bool
 
+	// true means the pod is scheduled for deletion.  This can happen if the
+	// size of the subcluster has shrunk in the VerticaDB but the pod still
+	// exists and is managed by a statefulset.  The pod is pending delete in
+	// that once the statefulset is sized according to the subcluster the pod
+	// will get deleted.
+	pendingDelete bool
+
 	// Have we run install for this pod? None means we are unable to determine
 	// whether it is run.
 	isInstalled tristate.TriState
@@ -105,7 +112,8 @@ type PodFact struct {
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
 
-	// The number of shards this node has subscribed to
+	// The number of shards this node has subscribed to, not including the
+	// special replica shard that has unsegmented projections.
 	shardSubscriptions int
 }
 
@@ -204,6 +212,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
 	pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
+	pf.pendingDelete = podIndex >= sc.Size
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,
@@ -329,7 +338,7 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 	}
 	cmd := []string{
 		"-tAc",
-		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s'",
+		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s' and shard_name != 'replica'",
 			pf.vnodeName),
 	}
 	stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)

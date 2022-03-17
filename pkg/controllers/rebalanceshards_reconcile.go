@@ -35,12 +35,20 @@ type RebalanceShardsReconciler struct {
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
+	ScName  string // Name of the subcluster to rebalance.  Leave this blank if you want to handle all subclusters.
 }
 
 // MakeRebalanceShardsReconciler will build a RebalanceShardsReconciler object
 func MakeRebalanceShardsReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
-	return &RebalanceShardsReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, scName string) ReconcileActor {
+	return &RebalanceShardsReconciler{
+		VRec:    vdbrecon,
+		Log:     log,
+		Vdb:     vdb,
+		PRunner: prunner,
+		PFacts:  pfacts,
+		ScName:  scName,
+	}
 }
 
 // Reconcile will ensure each node has at least one shard subscription
@@ -76,7 +84,7 @@ func (s *RebalanceShardsReconciler) findShardsToRebalance() []string {
 	scToRebalance := []string{}
 
 	for _, pf := range s.PFacts.Detail {
-		if pf.isPodRunning && pf.upNode && pf.shardSubscriptions == 0 {
+		if (s.ScName == "" || s.ScName == pf.subcluster) && pf.isPodRunning && pf.upNode && pf.shardSubscriptions == 0 {
 			_, ok := scRebalanceMap[pf.subcluster]
 			if !ok {
 				scToRebalance = append(scToRebalance, pf.subcluster)

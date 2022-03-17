@@ -53,7 +53,7 @@ type VerticaDBReconciler struct {
 //+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticadbs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,namespace=WATCH_NAMESPACE,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,namespace=WATCH_NAMESPACE,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/exec,verbs=create
 // +kubebuilder:rbac:groups=core,namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch
 
@@ -102,56 +102,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	pfacts := MakePodFacts(r.Client, prunner)
 	var res ctrl.Result
 
-	// The actors that will be applied, in sequence, to reconcile a vdb.
-	// Note, we run the StatusReconciler multiple times. This allows us to
-	// refresh the status of the vdb as we do operations that affect it.
-	actors := []ReconcileActor{
-		// Always start with a status reconcile in case the prior reconcile failed.
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handle upgrade actions for any k8s objects created in prior versions
-		// of the operator.
-		MakeUpgradeOperator120Reconciler(r, log, vdb),
-		// Handles vertica server upgrade (i.e., when spec.image changes)
-		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, &pfacts),
-		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, &pfacts),
-		// Handles restart + re_ip of vertica
-		MakeRestartReconciler(r, log, vdb, prunner, &pfacts, true),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handles calls to admintools -t db_remove_subcluster
-		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, &pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handles calls to admintools -t db_remove_node
-		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, &pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handle calls to remove hosts from admintools.conf
-		MakeUninstallReconciler(r, log, vdb, prunner, &pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Creates or updates any k8s objects the CRD creates. This includes any
-		// statefulsets and service objects.
-		MakeObjReconciler(r, log, vdb, &pfacts),
-		// Set version info in the annotations and check that it is the minimum
-		MakeVersionReconciler(r, log, vdb, prunner, &pfacts, false),
-		// Handle calls to add hosts to admintools.conf
-		MakeInstallReconciler(r, log, vdb, prunner, &pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handle calls to admintools -t create_db
-		MakeCreateDBReconciler(r, log, vdb, prunner, &pfacts),
-		// Handle calls to admintools -t revive_db
-		MakeReviveDBReconciler(r, log, vdb, prunner, &pfacts),
-		// Create and revive are mutually exclusive exclusive, so this handles
-		// status updates after both of them.
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handle calls to admintools -t db_add_subcluster
-		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, &pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handle calls to admintools -t db_add_node
-		MakeDBAddNodeReconciler(r, log, vdb, prunner, &pfacts),
-		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, &pfacts),
-		// Handle calls to rebalance_shards
-		MakeRebalanceShardsReconciler(r, log, vdb, prunner, &pfacts),
-	}
-
 	// Iterate over each actor
+	actors := r.constructActors(log, vdb, prunner, &pfacts)
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
@@ -163,7 +115,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// Functions such as Upgrade may already set RequeueAfter and Requeue to false
 			if (res.Requeue || res.RequeueAfter > 0) && vdb.Spec.RequeueTime > 0 {
 				res.Requeue = false
-				res.RequeueAfter = time.Second * time.Duration(vdb.Spec.RequeueTime)
+				res.RequeueAfter = time.Duration(vdb.Spec.RequeueTime)
 			}
 			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err
@@ -172,6 +124,72 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	log.Info("ending reconcile of VerticaDB", "result", res, "err", err)
 	return res, err
+}
+
+// constructActors will a list of actors that should be run for the reconcile.
+// Order matters in that some actors depend on the successeful execution of
+// earlier ones.
+func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner *cmds.ClusterPodRunner,
+	pfacts *PodFacts) []ReconcileActor {
+	// SPILLY - we need to add new reconciler to online upgrade
+	// The actors that will be applied, in sequence, to reconcile a vdb.
+	// Note, we run the StatusReconciler multiple times. This allows us to
+	// refresh the status of the vdb as we do operations that affect it.
+	return []ReconcileActor{
+		// Always start with a status reconcile in case the prior reconcile failed.
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Handle upgrade actions for any k8s objects created in prior versions
+		// of the operator.
+		MakeUpgradeOperator120Reconciler(r, log, vdb),
+		// Handles vertica server upgrade (i.e., when spec.image changes)
+		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts),
+		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts),
+		// Handles restart + re_ip of vertica
+		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true),
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// SPILLY - name
+		// Ensure the pod is added to any pod that may have been rescheduled.
+		MakeSubscriptionLabelReconciler(r, vdb, pfacts, PodRescheduleApplyMethod, ""),
+		// Remove Service label for any pods that are pending delete.  This will
+		// cause the Service object to stop routing traffic to them.
+		MakeSubscriptionLabelReconciler(r, vdb, pfacts, DelNodeApplyMethod, ""),
+		// Handles calls to admintools -t db_remove_subcluster
+		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts),
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Handles calls to admintools -t db_remove_node
+		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts),
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Handle calls to remove hosts from admintools.conf
+		MakeUninstallReconciler(r, log, vdb, prunner, pfacts),
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Creates or updates any k8s objects the CRD creates. This includes any
+		// statefulsets and service objects.
+		MakeObjReconciler(r, log, vdb, pfacts),
+		// Set version info in the annotations and check that it is the minimum
+		MakeVersionReconciler(r, log, vdb, prunner, pfacts, false),
+		// Handle calls to add hosts to admintools.conf
+		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Handle calls to admintools -t create_db
+		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts),
+		// Handle calls to admintools -t revive_db
+		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts),
+		// Create and revive are mutually exclusive exclusive, so this handles
+		// status updates after both of them.
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Update the label in pods to signify they have proper shard ownership
+		MakeSubscriptionLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Handle calls to admintools -t db_add_subcluster
+		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts),
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Handle calls to admintools -t db_add_node
+		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts),
+		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		// Handle calls to rebalance_shards
+		MakeRebalanceShardsReconciler(r, log, vdb, prunner, pfacts, "" /* all subclusters */),
+		// Update the label in pods to signify they have proper shard ownership
+		MakeSubscriptionLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
+	}
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided

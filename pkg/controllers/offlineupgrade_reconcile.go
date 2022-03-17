@@ -61,7 +61,7 @@ func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &OfflineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
 		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, pfacts, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
 	}
 }
 
@@ -96,6 +96,8 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		// Start up vertica in each pod.
 		o.postRestartingClusterMsg,
 		o.restartCluster,
+		// Apply labels so svc objects can route to the new pods that came up
+		o.addAcceptClientConnectionLabel,
 		// Cleanup up the condition and event recording for a completed upgrade
 		o.Manager.finishUpgrade,
 	}
@@ -255,6 +257,15 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
 	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true)
+	return r.Reconcile(ctx, &ctrl.Request{})
+}
+
+// addAcceptClientConnectionLabel will add the special label we use so that pods
+// can accept client connections.  This is done after the pods have been
+// reschedulde and vertica restarted.
+func (o *OfflineUpgradeReconciler) addAcceptClientConnectionLabel(ctx context.Context) (ctrl.Result, error) {
+	r := MakeSubscriptionLabelReconciler(o.VRec, o.Vdb, o.PFacts,
+		PodRescheduleApplyMethod, "" /* all subclusters */)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -55,7 +54,7 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &OnlineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
 		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, pfacts, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
 	}
 }
 
@@ -81,7 +80,8 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 		o.installTransientNodes,
 		o.addTransientSubcluster,
 		o.addTransientNodes,
-		o.waitForReadyTransientPod,
+		o.rebalanceTransientNodes,
+		o.addAcceptClientConnectionLabelToTransientNodes,
 		// Handle restart of the primary subclusters
 		o.restartPrimaries,
 		// Handle restart of secondary subclusters
@@ -229,41 +229,31 @@ func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.R
 	return d.reconcileSubcluster(ctx, o.Vdb.BuildTransientSubcluster(""))
 }
 
-// waitForReadyTransientPod will wait for one of the transient pods to be ready.
-// This is done so that when we direct traffic to the transient subcluster the
-// service object has a pod to route too.
-func (o *OnlineUpgradeReconciler) waitForReadyTransientPod(ctx context.Context) (ctrl.Result, error) {
+// rebalanceTransientNodes will run a rebalance against the transient subcluster
+func (o *OnlineUpgradeReconciler) rebalanceTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
-	pod := &corev1.Pod{}
-	sc := o.Vdb.BuildTransientSubcluster("")
-	// We only check the first pod is ready
-	pn := names.GenPodName(o.Vdb, sc, 0)
+	tsc := o.Vdb.BuildTransientSubcluster("")
+	actor := MakeRebalanceShardsReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, tsc.Name)
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
 
-	const MaxAttempts = 30 // Retry for roughly 30 seconds
-	for i := 0; i < MaxAttempts; i++ {
-		if err := o.VRec.Client.Get(ctx, pn, pod); err != nil {
-			// Any error, including not found, aborts the retry.  The pod should
-			// have already existed because we call this after db add node.  The
-			// transient pod is not restartable, so if the pod isn't running,
-			// then it won't ever be ready.
-			o.Log.Info("Error while fetching transient pod", "err", err)
-			return ctrl.Result{}, nil
-		}
-		if pod.Status.ContainerStatuses[ServerContainerIndex].Ready {
-			o.Log.Info("Transient pod is in ready state",
-				"containerStatuses", pod.Status.ContainerStatuses[ServerContainerIndex])
-			return ctrl.Result{}, nil
-		}
-		const AttemptSleepTime = 1
-		time.Sleep(AttemptSleepTime * time.Second)
+// addAcceptClientConnectionLabelToTransientNodes will add the
+// accept-client-connection label to nodes added for the transient subcluster.
+func (o *OnlineUpgradeReconciler) addAcceptClientConnectionLabelToTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
+		return ctrl.Result{}, nil
 	}
-	// If we timeout, we still continue on.  The transient pod is not
-	// restartable, so we don't want to wait indefinitely.  The upgrade
-	// will proceed but any routing to the transient pods will fail.
-	return ctrl.Result{}, nil
+
+	tsc := o.Vdb.BuildTransientSubcluster("")
+	actor := MakeSubscriptionLabelReconciler(o.VRec, o.Vdb, o.PFacts, AddNodeApplyMethod, tsc.Name)
+	o.traceActorReconcile(actor)
+	// Add the labels.  If there is a node that still has missing subscriptions
+	// that will fail with requeue error.
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // iterateSubclusterType will iterate over the subclusters, calling the
@@ -426,6 +416,13 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 	o.PFacts.Invalidate() // Status of the pods may have changed
 
 	scName := sts.Labels[builder.SubclusterNameLabel]
+
+	actor = MakeSubscriptionLabelReconciler(o.VRec, o.Vdb, o.PFacts, PodRescheduleApplyMethod, scName)
+	res, err = actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
 	err = o.routeClientTraffic(ctx, scName, false)
 	return ctrl.Result{}, err
