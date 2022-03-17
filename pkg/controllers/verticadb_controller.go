@@ -131,7 +131,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // earlier ones.
 func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner *cmds.ClusterPodRunner,
 	pfacts *PodFacts) []ReconcileActor {
-	// SPILLY - we need to add new reconciler to online upgrade
 	// The actors that will be applied, in sequence, to reconcile a vdb.
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
@@ -147,12 +146,11 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// SPILLY - name
-		// Ensure the pod is added to any pod that may have been rescheduled.
-		MakeSubscriptionLabelReconciler(r, vdb, pfacts, PodRescheduleApplyMethod, ""),
+		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
+		MakeClientRoutingLabelReconciler(r, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Remove Service label for any pods that are pending delete.  This will
 		// cause the Service object to stop routing traffic to them.
-		MakeSubscriptionLabelReconciler(r, vdb, pfacts, DelNodeApplyMethod, ""),
+		MakeClientRoutingLabelReconciler(r, vdb, pfacts, DelNodeApplyMethod, ""),
 		// Handles calls to admintools -t db_remove_subcluster
 		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -177,8 +175,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Update the label in pods to signify they have proper shard ownership
-		MakeSubscriptionLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Update the labels in pods so that Services route to nodes to them.
+		MakeClientRoutingLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to admintools -t db_add_subcluster
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -187,8 +185,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to rebalance_shards
 		MakeRebalanceShardsReconciler(r, log, vdb, prunner, pfacts, "" /* all subclusters */),
-		// Update the label in pods to signify they have proper shard ownership
-		MakeSubscriptionLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Update the label in pods so that Service routing uses them if they
+		// have finished being rebalanced.
+		MakeClientRoutingLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
 	}
 }
 

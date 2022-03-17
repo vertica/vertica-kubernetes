@@ -81,13 +81,14 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 		o.addTransientSubcluster,
 		o.addTransientNodes,
 		o.rebalanceTransientNodes,
-		o.addAcceptClientConnectionLabelToTransientNodes,
+		o.addClientRoutingLabelToTransientNodes,
 		// Handle restart of the primary subclusters
 		o.restartPrimaries,
 		// Handle restart of secondary subclusters
 		o.restartSecondaries,
 		// Will cleanup the transient subcluster now that the primaries are back up.
 		o.postNextStatusMsg,
+		o.removeClientRoutingLabelFromTransientNodes,
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
@@ -241,15 +242,15 @@ func (o *OnlineUpgradeReconciler) rebalanceTransientNodes(ctx context.Context) (
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// addAcceptClientConnectionLabelToTransientNodes will add the
-// accept-client-connection label to nodes added for the transient subcluster.
-func (o *OnlineUpgradeReconciler) addAcceptClientConnectionLabelToTransientNodes(ctx context.Context) (ctrl.Result, error) {
+// addClientRoutingLabelToTransientNodes will add the special routing label so
+// that Service objects can use the transient subcluster.
+func (o *OnlineUpgradeReconciler) addClientRoutingLabelToTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
 	tsc := o.Vdb.BuildTransientSubcluster("")
-	actor := MakeSubscriptionLabelReconciler(o.VRec, o.Vdb, o.PFacts, AddNodeApplyMethod, tsc.Name)
+	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, AddNodeApplyMethod, tsc.Name)
 	o.traceActorReconcile(actor)
 	// Add the labels.  If there is a node that still has missing subscriptions
 	// that will fail with requeue error.
@@ -417,7 +418,7 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 
 	scName := sts.Labels[builder.SubclusterNameLabel]
 
-	actor = MakeSubscriptionLabelReconciler(o.VRec, o.Vdb, o.PFacts, PodRescheduleApplyMethod, scName)
+	actor = MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, PodRescheduleApplyMethod, scName)
 	res, err = actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -426,6 +427,19 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
 	err = o.routeClientTraffic(ctx, scName, false)
 	return ctrl.Result{}, err
+}
+
+// removeClientRountingLabelFromTransientNodes will remove the special routing
+// label since we are about to remove that subcluster
+func (o *OnlineUpgradeReconciler) removeClientRoutingLabelFromTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
+
+	tsc := o.Vdb.BuildTransientSubcluster("")
+	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, DelSubclusterApplyMethod, tsc.Name)
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // removeTransientSubclusters will drive subcluster removal of the transient subcluster

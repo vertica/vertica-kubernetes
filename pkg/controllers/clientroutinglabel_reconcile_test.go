@@ -50,17 +50,17 @@ var _ = Describe("subscriptionlabel_reconcile", func() {
 		pfn2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
 		pfacts.Detail[pfn2].shardSubscriptions = 3
 		pfacts.Detail[pfn2].upNode = true
-		r := MakeSubscriptionLabelReconciler(vdbRec, vdb, &pfacts, PodRescheduleApplyMethod, "")
+		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, PodRescheduleApplyMethod, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pfn1, pod)).Should(Succeed())
-		_, ok := pod.Labels[builder.AcceptClientConnectionsLabel]
+		_, ok := pod.Labels[builder.ClientRoutingLabel]
 		Expect(ok).Should(BeFalse())
 		Expect(k8sClient.Get(ctx, pfn2, pod)).Should(Succeed())
-		v, ok := pod.Labels[builder.AcceptClientConnectionsLabel]
+		v, ok := pod.Labels[builder.ClientRoutingLabel]
 		Expect(ok).Should(BeTrue())
-		Expect(v).Should(Equal(builder.AcceptClientConnectionsVal))
+		Expect(v).Should(Equal(builder.ClientRoutingVal))
 	})
 
 	It("should ignore second subcluster when sc filter is used", func() {
@@ -81,16 +81,16 @@ var _ = Describe("subscriptionlabel_reconcile", func() {
 		pfn2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
 		pfacts.Detail[pfn2].shardSubscriptions = 3
 		pfacts.Detail[pfn2].upNode = true
-		r := MakeSubscriptionLabelReconciler(vdbRec, vdb, &pfacts, PodRescheduleApplyMethod, vdb.Spec.Subclusters[0].Name)
+		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, PodRescheduleApplyMethod, vdb.Spec.Subclusters[0].Name)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pfn1, pod)).Should(Succeed())
-		v, ok := pod.Labels[builder.AcceptClientConnectionsLabel]
+		v, ok := pod.Labels[builder.ClientRoutingLabel]
 		Expect(ok).Should(BeTrue())
-		Expect(v).Should(Equal(builder.AcceptClientConnectionsVal))
+		Expect(v).Should(Equal(builder.ClientRoutingVal))
 		Expect(k8sClient.Get(ctx, pfn2, pod)).Should(Succeed())
-		_, ok = pod.Labels[builder.AcceptClientConnectionsLabel]
+		_, ok = pod.Labels[builder.ClientRoutingLabel]
 		Expect(ok).Should(BeFalse())
 	})
 
@@ -111,19 +111,19 @@ var _ = Describe("subscriptionlabel_reconcile", func() {
 			pfacts.Detail[pn].upNode = true
 			pfacts.Detail[pn].shardSubscriptions = int(i) // Ensures that only one pod will not have subscriptions
 		}
-		r := MakeSubscriptionLabelReconciler(vdbRec, vdb, &pfacts, AddNodeApplyMethod, "")
+		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, AddNodeApplyMethod, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		pod := &corev1.Pod{}
 		for i := int32(0); i < sc.Size; i++ {
 			pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], i)
 			Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-			v, ok := pod.Labels[builder.AcceptClientConnectionsLabel]
+			v, ok := pod.Labels[builder.ClientRoutingLabel]
 			if i == 0 {
 				Expect(ok).Should(BeFalse())
 			} else {
 				Expect(ok).Should(BeTrue())
-				Expect(v).Should(Equal(builder.AcceptClientConnectionsVal))
+				Expect(v).Should(Equal(builder.ClientRoutingVal))
 			}
 		}
 	})
@@ -142,22 +142,76 @@ var _ = Describe("subscriptionlabel_reconcile", func() {
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pn].upNode = true
 		pfacts.Detail[pn].shardSubscriptions = 10
-		act := MakeSubscriptionLabelReconciler(vdbRec, vdb, &pfacts, AddNodeApplyMethod, "")
-		r := act.(*SubscriptionLabelReconciler)
+		act := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, AddNodeApplyMethod, "")
+		r := act.(*ClientRoutingLabelReconciler)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		v, ok := pod.Labels[builder.AcceptClientConnectionsLabel]
+		v, ok := pod.Labels[builder.ClientRoutingLabel]
 		Expect(ok).Should(BeTrue())
-		Expect(v).Should(Equal(builder.AcceptClientConnectionsVal))
+		Expect(v).Should(Equal(builder.ClientRoutingVal))
 
 		pfacts.Detail[pn].pendingDelete = true
 		r.ApplyMethod = DelNodeApplyMethod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		_, ok = pod.Labels[builder.AcceptClientConnectionsLabel]
+		_, ok = pod.Labels[builder.ClientRoutingLabel]
 		Expect(ok).Should(BeFalse())
+	})
+
+	It("should fail if we are removing a subcluster but didn't specify subcluster name", func() {
+		vdb := vapi.MakeVDB()
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, DelSubclusterApplyMethod, "")
+		_, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should remove label on all nodes if removing a subcluster", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 5},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		sc := &vdb.Spec.Subclusters[0]
+		for i := int32(0); i < sc.Size; i++ {
+			pn := names.GenPodName(vdb, sc, i)
+			pfacts.Detail[pn].upNode = true
+			pfacts.Detail[pn].shardSubscriptions = 3
+		}
+		// Add all of the labels
+		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, AddNodeApplyMethod, "")
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		pod := &corev1.Pod{}
+		for i := int32(0); i < sc.Size; i++ {
+			pn := names.GenPodName(vdb, sc, i)
+			Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+			v, ok := pod.Labels[builder.ClientRoutingLabel]
+			Expect(ok).Should(BeTrue())
+			Expect(v).Should(Equal(builder.ClientRoutingVal))
+		}
+
+		// Remove all of the labels that match subcluster
+		r = MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, DelSubclusterApplyMethod, sc.Name)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		for i := int32(0); i < sc.Size; i++ {
+			pn := names.GenPodName(vdb, sc, i)
+			Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+			_, ok := pod.Labels[builder.ClientRoutingLabel]
+			Expect(ok).Should(BeFalse())
+		}
 	})
 })

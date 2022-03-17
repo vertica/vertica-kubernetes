@@ -97,7 +97,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		o.postRestartingClusterMsg,
 		o.restartCluster,
 		// Apply labels so svc objects can route to the new pods that came up
-		o.addAcceptClientConnectionLabel,
+		o.addClientRoutingLabel,
 		// Cleanup up the condition and event recording for a completed upgrade
 		o.Manager.finishUpgrade,
 	}
@@ -260,11 +260,11 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
-// addAcceptClientConnectionLabel will add the special label we use so that pods
-// can accept client connections.  This is done after the pods have been
+// addClientRoutingLabel will add the special label we use so that Service
+// objects will route to the pods.  This is done after the pods have been
 // reschedulde and vertica restarted.
-func (o *OfflineUpgradeReconciler) addAcceptClientConnectionLabel(ctx context.Context) (ctrl.Result, error) {
-	r := MakeSubscriptionLabelReconciler(o.VRec, o.Vdb, o.PFacts,
+func (o *OfflineUpgradeReconciler) addClientRoutingLabel(ctx context.Context) (ctrl.Result, error) {
+	r := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts,
 		PodRescheduleApplyMethod, "" /* all subclusters */)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
