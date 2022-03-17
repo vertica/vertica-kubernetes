@@ -13,7 +13,6 @@ copy_config_files() {
     mkdir -p /opt/vertica/config/licensing
 
     mv /home/dbadmin/logrotate/* /opt/vertica/config/ 2>/dev/null || true
-    rm -rf /home/dbadmin/logrotate
 
     cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing 2>/dev/null || true
     chmod -R ugo+r,u+rw /opt/vertica/config/licensing
