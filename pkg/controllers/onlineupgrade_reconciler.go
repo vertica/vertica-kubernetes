@@ -421,6 +421,12 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 // 'AT -t restart_node' for the primary nodes when the cluster is in read-only.
 // We should always start those with 'AT -t start_db'.
 func (o *OnlineUpgradeReconciler) waitForReadOnly(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	// Early out if the primaries have restarted.  This wait is only meant to be
+	// done after we take down the primaries and are waiting for spread to move
+	// the remaining up nodes into read-only.
+	if o.PFacts.countUpPrimaryNodes() != 0 {
+		return ctrl.Result{}, nil
+	}
 	newImage := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 	// If all the pods that are running the old image are read-only we are done
 	// our wait.

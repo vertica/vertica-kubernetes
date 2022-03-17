@@ -52,6 +52,9 @@ type PodFact struct {
 	// Name of the subcluster the pod is part of
 	subcluster string
 
+	// true if this node is part of a primary subcluster
+	isPrimary bool
+
 	// The image that is currently running in the pod
 	image string
 
@@ -187,6 +190,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:       names.GenPodName(vdb, sc, podIndex),
 		subcluster: sc.Name,
+		isPrimary:  sc.IsPrimary,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -677,6 +681,16 @@ func (p *PodFacts) countNotRunning() int {
 		// We don't count non-running pods that aren't yet managed by the parent
 		// sts.  The sts needs to be created or sized first.
 		if !v.isPodRunning && v.managedByParent {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countUpPrimaryNodes returns the number of primary nodes that are UP
+func (p *PodFacts) countUpPrimaryNodes() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.upNode && v.isPrimary {
 			return 1
 		}
 		return 0
