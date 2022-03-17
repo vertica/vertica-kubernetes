@@ -34,30 +34,30 @@ rm -r -f \
    /opt/vertica/examples \
    /opt/vertica/sdk \
    /opt/vertica/packages/*/examples \
-   /opt/vertica/packages/kafka \
-   /opt/vertica/oss/python3/lib/python3.9/test \
-   /opt/vertica/oss/python3/lib/python3.9/unittest/test \
-   /opt/vertica/oss/python3/lib/python3.9/pip \
-   /opt/vertica/oss/python3/lib/python3.9/site-packages/pip \
-   /opt/vertica/oss/python3/lib/python3.9/config-3.9* \
-   /opt/vertica/oss/python3/lib/python3.9/tkinter \
-   /opt/vertica/oss/python3/lib/python3.9/idlelib 
+   /opt/vertica/packages/kafka `# Removing kafka because we don't have a java runtime installed ` \
+   /opt/vertica/oss/python*/lib/python*/test \
+   /opt/vertica/oss/python*/lib/python*/unittest/test \
+   /opt/vertica/oss/python*/lib/python*/pip \
+   /opt/vertica/oss/python*/lib/python*/site-packages/pip \
+   /opt/vertica/oss/python*/lib/python*/config-[0-9]* \
+   /opt/vertica/oss/python*/lib/python*/tkinter \
+   /opt/vertica/oss/python*/lib/python*/idlelib 
 
 # cleanup many of the __pycache__ directories 
-find /opt/vertica/oss/python3/lib/python3.9/  -type d -name "__pycache__" -exec rm -rf {} +
+find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +
    
 # many of these directories contain things that aren't binaries
 # thus divert error output to /dev/null
 strip /opt/vertica/bin/* 2> /dev/null
 strip /opt/vertica/lib/*.so*
-strip /opt/vertica/oss/python3/bin/* 2> /dev/null
-strip /opt/vertica/oss/python3/lib/libpython*.a
-strip /opt/vertica/oss/python3/lib/python3.7/lib-dynload/*.so*
+strip /opt/vertica/oss/python*/bin/* 2> /dev/null
+strip /opt/vertica/oss/python*/lib/libpython*.a
+strip /opt/vertica/oss/python*/lib/python*/lib-dynload/*.so*
 
 # stripping the packages directory saves about 900MB, but...
 strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
 # it changes the checksums used to verify the libraries when loaded
-/opt/vertica/oss/python3/bin/python3 \
+/opt/vertica/oss/python*/bin/python[0-9] \
     /tmp/package-checksum-patcher.py /opt/vertica/packages/*
 
 # (optional) minimal images remove packages that aren't auto installed
