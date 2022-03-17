@@ -113,7 +113,8 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 
 // startUpgrade handles condition status and event recording for start of an upgrade
 func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) {
-	i.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", i.ContinuingUpgrade)
+	i.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", i.ContinuingUpgrade,
+		"New Image", i.Vdb.Spec.Image)
 	if err := i.toggleImageChangeInProgress(ctx, corev1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -121,7 +122,7 @@ func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) 
 	// We only log an event message the first time we begin an upgrade.
 	if !i.ContinuingUpgrade {
 		i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeStart,
-			"Vertica server upgrade has started.  New image is '%s'", i.Vdb.Spec.Image)
+			"Vertica server upgrade has started.")
 	}
 	return ctrl.Result{}, nil
 }
@@ -136,8 +137,9 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
+	i.Log.Info("The upgrade has completed successfully")
 	i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
-		"Vertica server upgrade has completed successfully")
+		"Vertica server upgrade has completed successfully.  New image is '%s'", i.Vdb.Spec.Image)
 
 	return ctrl.Result{}, nil
 }

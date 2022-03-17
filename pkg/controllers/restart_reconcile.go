@@ -144,7 +144,14 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, nil
 	}
 
-	return r.restartCluster(ctx, downPods)
+	if res, err := r.restartCluster(ctx, downPods); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	// Invalidate the cached pod facts now that some pods have restarted.
+	r.PFacts.Invalidate()
+
+	return ctrl.Result{}, nil
 }
 
 // reconcileNodes will handle a subset of the pods.  It will try to restart any
