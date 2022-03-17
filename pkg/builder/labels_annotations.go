@@ -145,7 +145,8 @@ func MakeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 func MakeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
 	m[SubclusterSvcNameLabel] = sc.GetServiceName()
-	// Only route to nodes that have verified they own at least one shard
+	// Only route to nodes that have verified they own at least one shard and
+	// aren't pending delete
 	m[ClientRoutingLabel] = ClientRoutingVal
 	return m
 }
@@ -154,7 +155,7 @@ func MakeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Su
 // we want a service object to pick the pods based on the subcluster name.
 func MakeSvcSelectorLabelsForSubclusterNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
-	// Routing is done solely with the subcluster name.
+	// Routing is done using the subcluster name rather than the service name.
 	m[SubclusterNameLabel] = sc.Name
 	m[ClientRoutingLabel] = ClientRoutingVal
 

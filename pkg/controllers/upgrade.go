@@ -37,7 +37,6 @@ type UpgradeManager struct {
 	VRec              *VerticaDBReconciler
 	Vdb               *vapi.VerticaDB
 	Log               logr.Logger
-	PFacts            *PodFacts
 	Finder            iter.SubclusterFinder
 	ContinuingUpgrade bool // true if UpdateInProgress was already set upon entry
 	StatusCondition   vapi.VerticaDBConditionType
@@ -47,13 +46,12 @@ type UpgradeManager struct {
 
 // MakeUpgradeManager will construct a UpgradeManager object
 func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	pfacts *PodFacts, statusCondition vapi.VerticaDBConditionType,
+	statusCondition vapi.VerticaDBConditionType,
 	isAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool) *UpgradeManager {
 	return &UpgradeManager{
 		VRec:                          vdbrecon,
 		Vdb:                           vdb,
 		Log:                           log,
-		PFacts:                        pfacts,
 		Finder:                        iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
 		StatusCondition:               statusCondition,
 		IsAllowedForUpgradePolicyFunc: isAllowedForUpgradePolicyFunc,

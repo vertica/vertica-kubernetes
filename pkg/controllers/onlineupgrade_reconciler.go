@@ -54,7 +54,7 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) ReconcileActor {
 	return &OnlineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
 		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, pfacts, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
 	}
 }
 
