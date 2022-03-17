@@ -256,7 +256,7 @@ endif
 ifeq ($(BASE_VERTICA_IMG), <not-set>)
 	$(error $$BASE_VERTICA_IMG not set)
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) tests/e2e-11.1/
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) tests/e2e-online-upgrade/
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
