@@ -24,8 +24,6 @@ data:
     set +o errexit  # We have our own error checking
     set -o xtrace
 
-    kubectl get pods -A --selector app.kubernetes.io/instance=v-base-upgrade,vertica.com/subcluster-svc=pri,vertica.com/client-routing=true
-
     # Access to both pri and sec subclusters should be okay.  One of them will
     # connect with node0003, which is the node for the transient subcluster.
     PRI_CONNECTION_NODE=$(vsql -h v-base-upgrade-pri -tAc "select node_name from current_session")
@@ -38,9 +36,6 @@ data:
     then
       exit 0
     fi
-    # One more time
-    sleep 5
-    vsql -h v-base-upgrade-pri -tAc "select node_name from current_session"
     exit 1  # Incorrect value
 
 ---

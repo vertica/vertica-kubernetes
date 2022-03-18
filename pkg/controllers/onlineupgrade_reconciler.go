@@ -173,7 +173,7 @@ func (o *OnlineUpgradeReconciler) postNextStatusMsgForSts(ctx context.Context, s
 }
 
 // addTransientToVdb will add the transient subcluster to the VerticaDB.  This
-// is stored in the api server.  It will get removed when at the end of the
+// is stored in the api server.  It will get removed at the end of the
 // upgrade.
 func (o *OnlineUpgradeReconciler) addTransientToVdb(ctx context.Context) (ctrl.Result, error) {
 	if o.TransientSc != nil {
