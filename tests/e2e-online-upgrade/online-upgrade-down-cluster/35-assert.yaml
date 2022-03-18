@@ -28,4 +28,4 @@ status:
       status: "False"
     - type: OnlineUpgradeInProgress
       status: "True"
-  subclusterCount: 2
+  subclusterCount: 1
