@@ -33,10 +33,9 @@ import (
 type ApplyMethodType string
 
 const (
-	AddNodeApplyMethod       ApplyMethodType = "Add"              // Called after a db_add_node
-	PodRescheduleApplyMethod ApplyMethodType = "PodReschedule"    // Called after pod was rescheduled and vertica restarted
-	DelNodeApplyMethod       ApplyMethodType = "RemoveNode"       // Called before a db_remove_node
-	DelSubclusterApplyMethod ApplyMethodType = "RemoveSubcluster" // Called before a removal of an entire subcluster
+	AddNodeApplyMethod       ApplyMethodType = "Add"           // Called after a db_add_node
+	PodRescheduleApplyMethod ApplyMethodType = "PodReschedule" // Called after pod was rescheduled and vertica restarted
+	DelNodeApplyMethod       ApplyMethodType = "RemoveNode"    // Called before a db_remove_node
 )
 
 type ClientRoutingLabelReconciler struct {
@@ -63,12 +62,7 @@ func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler,
 // so that it receives traffic.  For pods that don't own a shard or about to be
 // scaled down will have the label removed so that traffic isn't routed to it.
 func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// Sanity check that we don't use remove subcluster without specifying a
-	// subcluster.  That would cause us to remove the label from all pods.
-	if c.ApplyMethod == DelSubclusterApplyMethod && c.ScName == "" {
-		return ctrl.Result{},
-			fmt.Errorf("cannot remove client routing labels for a subcluster removal without specifying the subcluster")
-	}
+	c.VRec.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
 
 	if err := c.PFacts.Collect(ctx, c.Vdb); err != nil {
 		return ctrl.Result{}, err
@@ -79,6 +73,7 @@ func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, req *ctrl.
 		if c.ScName != "" && pf.subcluster != c.ScName {
 			continue
 		}
+		c.VRec.Log.Info("Considering changing routing label for pod", "name", pf.name)
 		if res, err := c.reconcilePod(ctx, pn, c.PFacts.Detail[pn]); verrors.IsReconcileAborted(res, err) {
 			if err == nil {
 				// If we fail due to a requeue, we will attempt to reconcile other pods before ultimately bailing out.
@@ -106,37 +101,8 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 			return e
 		}
 
-		// There are 4 cases this reconciler is used:
-		// 1) Called after add node
-		// 2) Called after pod reschedule + restart
-		// 3) Called before remove node
-		// 4) Called before removal of a subcluster
-		//
-		// For 1) and 2), we are going to add labels to qualify pods.  For 2),
-		// we will reschedule as this reconciler is usually paired with a
-		// rebalance_shards() call.
-		//
-		// For 3), we are going to remove labels so that client connections
-		// stopped getting routed there.  This only applies to pods that are
-		// pending delete.
-		//
-		// For 4), like 3) we are going to remove labels.  This applies to the
-		// entire subcluster, so pending delete isn't checked.
 		patch := client.MergeFrom(pod.DeepCopy())
-		switch c.ApplyMethod {
-		case AddNodeApplyMethod, PodRescheduleApplyMethod:
-			if pf.upNode && pf.shardSubscriptions > 0 && !pf.pendingDelete {
-				pod.Labels[builder.ClientRoutingLabel] = builder.ClientRoutingVal
-			}
-		case DelNodeApplyMethod:
-			if pf.pendingDelete {
-				delete(pod.Labels, builder.ClientRoutingLabel)
-			}
-
-		case DelSubclusterApplyMethod:
-			delete(pod.Labels, builder.ClientRoutingLabel)
-		}
-
+		c.manipulateRoutingLabelInPod(pod, pf)
 		err := c.VRec.Client.Patch(ctx, pod, patch)
 		if err != nil {
 			return err
@@ -149,4 +115,39 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 		return nil
 	})
 	return res, err
+}
+
+func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.Pod, pf *PodFact) {
+	_, labelExists := pod.Labels[builder.ClientRoutingLabel]
+
+	// There are 4 cases this reconciler is used:
+	// 1) Called after add node
+	// 2) Called after pod reschedule + restart
+	// 3) Called before remove node
+	// 4) Called before removal of a subcluster
+	//
+	// For 1) and 2), we are going to add labels to qualify pods.  For 2),
+	// we will reschedule as this reconciler is usually paired with a
+	// rebalance_shards() call.
+	//
+	// For 3), we are going to remove labels so that client connections
+	// stopped getting routed there.  This only applies to pods that are
+	// pending delete.
+	//
+	// For 4), like 3) we are going to remove labels.  This applies to the
+	// entire subcluster, so pending delete isn't checked.
+	switch c.ApplyMethod {
+	case AddNodeApplyMethod, PodRescheduleApplyMethod:
+		if !labelExists && pf.upNode && pf.shardSubscriptions > 0 && !pf.pendingDelete {
+			pod.Labels[builder.ClientRoutingLabel] = builder.ClientRoutingVal
+			c.VRec.Log.Info("Adding client routing label", "pod",
+				pod.Name, "label", fmt.Sprintf("%s=%s", builder.ClientRoutingLabel, builder.ClientRoutingVal))
+		}
+	case DelNodeApplyMethod:
+		if labelExists && pf.pendingDelete {
+			delete(pod.Labels, builder.ClientRoutingLabel)
+			c.VRec.Log.Info("Removing client routing label", "pod",
+				pod.Name, "label", fmt.Sprintf("%s=%s", builder.ClientRoutingLabel, builder.ClientRoutingVal))
+		}
+	}
 }

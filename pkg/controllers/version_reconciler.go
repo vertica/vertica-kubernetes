@@ -41,7 +41,7 @@ type VersionReconciler struct {
 	FindPodFunc        func() (*PodFact, bool) // Function to call to find pod
 }
 
-// MakeVersionReconciler will build a VersinReconciler object
+// MakeVersionReconciler will build a VersionReconciler object
 func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	enforceUpgradePath bool) ReconcileActor {

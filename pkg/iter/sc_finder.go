@@ -134,16 +134,6 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		}
 	}
 
-	// We include the transient if it should exist based on online image in
-	// progress state.  This is added after we fetch any subcluster from the
-	// statefulset lookup.  This prevents us from including it twice.
-	if flags&FindInVdb != 0 && m.Vdb.RequiresTransientSubcluster() && m.Vdb.IsOnlineUpgradeInProgress() {
-		transient := m.Vdb.BuildTransientSubcluster("")
-		if !isSubclusterInSlice(transient, subclusters) {
-			subclusters = append(subclusters, transient)
-		}
-	}
-
 	if flags&FindSorted != 0 {
 		sort.Slice(subclusters, func(i, j int) bool {
 			return subclusters[i].Name < subclusters[j].Name
@@ -239,14 +229,4 @@ func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 		return pod.Labels, true
 	}
 	return nil, false
-}
-
-// isSubclusterInSlice return true if the given subcluster is in the subcluster slice
-func isSubclusterInSlice(subcluster *vapi.Subcluster, subclusters []*vapi.Subcluster) bool {
-	for i := range subclusters {
-		if subclusters[i].Name == subcluster.Name {
-			return true
-		}
-	}
-	return false
 }

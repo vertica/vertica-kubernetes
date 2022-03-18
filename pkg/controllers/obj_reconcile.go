@@ -65,6 +65,10 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 // Reconcile is the main driver for reconciliation of Kubernetes objects.
 // This will ensure the desired svc and sts objects exist and are in the correct state.
 func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Ensure any secrets/configMaps that we mount exist with the correct keys.
 	// We catch the errors here so that we can provide timely events.
 	if res, err := o.checkMountedObjs(ctx); verrors.IsReconcileAborted(res, err) {

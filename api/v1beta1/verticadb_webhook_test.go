@@ -455,6 +455,19 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
+	It("prevent transient subcluster having a different name then the template", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Size: 1, IsPrimary: true},
+			{Name: "sc2", Size: 1, IsPrimary: false, IsTransient: true},
+		}
+		vdb.Spec.TemporarySubclusterRouting.Template = Subcluster{
+			Name:      "transient",
+			Size:      1,
+			IsPrimary: false,
+		}
+		validateSpecValuesHaveErr(vdb, true)
+	})
 })
 
 func createVDBHelper() *VerticaDB {
