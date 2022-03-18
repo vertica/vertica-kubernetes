@@ -111,7 +111,7 @@ def patch_file(fname, old_checksum, new_checksum):
     except FileNotFoundError:
         # the first time through, the file won't be found
         pass
-    os.rename(fname, file_backup)
+    os.remove(fname)
     os.rename(file_new, fname)
 
 def patch_dir(dir, old_checksum):
