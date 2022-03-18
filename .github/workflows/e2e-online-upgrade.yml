@@ -24,9 +24,8 @@ jobs:
       
     - name: Run e2e tests
       run: |
-        # Parallelism must be 1.  The testcases will uninstall and install CRDs,
-        # which are cluster scoped items.
-        export E2E_PARALLELISM=1
+        E2E_PARALLELISM=${{ github.event.inputs.parallel }}
+        [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         export MINIMAL_VERTICA_IMG=YES
         export BASE_VERTICA_IMG=vertica/vertica-k8s:11.1.0-0-minimal
         export E2E_TEST_DIRS=tests/e2e-online-upgrade

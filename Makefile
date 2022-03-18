@@ -248,8 +248,8 @@ ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_TEST_DIRS)
 
-.PHONY: run-11.1-tests
-run-11.1-tests: install-kuttl-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
+.PHONY: run-online-upgrade-tests
+run-online-upgrade-tests: install-kuttl-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
