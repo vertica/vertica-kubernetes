@@ -18,4 +18,4 @@
 OP=${INT_TEST_OUTPUT_DIR:-int-tests-output}/vertica.log
 mkdir -p $(dirname $OP)
 echo "Saving vertica logs to $OP"
-stern --selector app.kubernetes.io/name=vertica --all-namespaces --timestamps > $OP 2>&1
+kubectl stern --selector app.kubernetes.io/name=vertica --all-namespaces --timestamps > $OP 2>&1
