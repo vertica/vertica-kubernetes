@@ -50,11 +50,6 @@ else
 	NAMESPACE?=$(shell ${GET_NAMESPACE_SH})
 endif
 
-LOCAL_SOAK_CFG=./local-soak.cfg
-ifneq (,$(wildcard $(LOCAL_SOAK_CFG)))
-	SOAK_CFG?=-c $(LOCAL_SOAK_CFG)
-endif
-
 GOLANGCI_LINT_VER=1.41.1
 LOGDIR?=$(shell pwd)
 
@@ -167,6 +162,7 @@ GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_PLUGIN_INSTALLED:=$(shell helm plugin list | grep -c '^unittest')
 KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^kuttl')
+STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^stern')
 INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
@@ -243,15 +239,21 @@ ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 	kubectl krew install kuttl
 endif
 
+.PHONY: install-stern-plugin
+install-stern-plugin: krew
+ifeq ($(STERN_PLUGIN_INSTALLED), 0)
+	kubectl krew install stern
+endif
+
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin vdb-gen setup-e2e-communal ## Run the integration tests
+run-int-tests: install-kuttl-plugin install-stern-plugin vdb-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) $(E2E_TEST_DIRS)
 
 .PHONY: run-online-upgrade-tests
-run-online-upgrade-tests: install-kuttl-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
+run-online-upgrade-tests: install-kuttl-plugin install-stern-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
@@ -259,10 +261,6 @@ ifeq ($(BASE_VERTICA_IMG), <not-set>)
 	$(error $$BASE_VERTICA_IMG not set)
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) tests/e2e-online-upgrade/
-
-.PHONY: run-soak-tests
-run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
-	scripts/soak-runner.sh $(SOAK_CFG)
 
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)
@@ -364,9 +362,6 @@ echo-images:  ## Print the names of all of the images used
 	@echo "VLOGGER_IMG=$(VLOGGER_IMG)"
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
-
-kuttl-step-gen: ## Builds the kuttl-step-gen tool
-	go build -o bin/$@ ./cmd/$@
 
 vdb-gen: ## Builds the vdb-gen tool
 	go build -o bin/$@ ./cmd/$@

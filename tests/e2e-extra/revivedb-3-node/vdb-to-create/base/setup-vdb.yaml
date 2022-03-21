@@ -25,6 +25,7 @@ spec:
     depotPath: /home/dbadmin/depot
     requestSize: 100Mi
   dbName: vertdb
+  requeueTime: 5
   subclusters:
     - name: main
       size: 3
