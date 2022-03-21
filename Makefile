@@ -148,6 +148,8 @@ E2E_TEST_DIRS?=tests/e2e
 else
 E2E_TEST_DIRS?=tests/e2e tests/e2e-extra
 endif
+# Additional arguments to pass to 'kubectl kuttl'
+E2E_ADDITIONAL_ARGS?=
 
 # Specify how to deploy the operator.  Allowable values are 'helm', 'olm' or 'random'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
@@ -248,7 +250,7 @@ run-int-tests: install-kuttl-plugin install-stern-plugin vdb-gen setup-e2e-commu
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_TEST_DIRS)
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) $(E2E_TEST_DIRS)
 
 .PHONY: run-online-upgrade-tests
 run-online-upgrade-tests: install-kuttl-plugin install-stern-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
@@ -258,7 +260,7 @@ endif
 ifeq ($(BASE_VERTICA_IMG), <not-set>)
 	$(error $$BASE_VERTICA_IMG not set)
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) tests/e2e-online-upgrade/
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) tests/e2e-online-upgrade/
 
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)

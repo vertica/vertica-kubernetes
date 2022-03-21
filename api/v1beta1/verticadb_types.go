@@ -839,6 +839,16 @@ func MakeVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-sample", Namespace: "default"}
 }
 
+// FindTransientSubcluster will return a pointer to the transient subcluster if one exists
+func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
+	for i := range v.Spec.Subclusters {
+		if v.Spec.Subclusters[i].IsTransient {
+			return &v.Spec.Subclusters[i]
+		}
+	}
+	return nil
+}
+
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
