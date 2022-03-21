@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -11,11 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies access to the external service through port 5433.  It does this
-# by connecting using vsql
+set -o errexit
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "kustomize build long-running-connection-primary/overlay | kubectl -n $NAMESPACE apply -f - "
-  - command: ../../../scripts/wait-for-long-running-connection.sh $NAMESPACE test-long-running-connection-primary
+# Some e2e tests run long running vsql connections.  This is a helper script to
+# wait for that connection to be established.
+
+NAMESPACE=$1
+POD=$2
+
+while ! kubectl get pod -n $NAMESPACE $POD 2> /dev/null; do sleep 0.1; done
+echo "Waiting for pod to be in ready state..."
+kubectl wait -n $NAMESPACE --for=condition=Ready=True pod $POD --timeout 600s
+echo "Waiting for vsql connection..."
+kubectl exec -i -n $NAMESPACE $POD -- bash -c "while [ ! -f /tmp/connected ]; do sleep 3; done"

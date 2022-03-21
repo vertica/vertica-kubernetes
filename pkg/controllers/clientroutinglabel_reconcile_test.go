@@ -29,7 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("subscriptionlabel_reconcile", func() {
+var _ = Describe("clientroutinglabel_reconcile", func() {
 	ctx := context.Background()
 
 	It("should add label to pods that have at least one shard subscription", func() {
