@@ -10,6 +10,7 @@ spec:
     spec:
       containers:
       - name: kube-rbac-proxy
+        # Update scripts/create-helm-charts.sh with changes to image
         image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
         args:
         - "--secure-listen-address=0.0.0.0:8443"
