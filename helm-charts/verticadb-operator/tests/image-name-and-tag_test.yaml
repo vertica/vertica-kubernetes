@@ -1,4 +1,4 @@
-suite: test image:tag creation
+suite: image tests
 templates:
   - verticadb-operator-controller-manager-deployment.yaml
 tests:
@@ -12,3 +12,24 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].image
           value: something:tag
+  - it: allows a custom image repo and image pull secrets to be set
+    set:
+      image:
+        repo: first-private-repo:5000
+        name: vertica/verticadb-operator:latest
+      rbac_proxy_image:
+        repo: second-private-repo:5000
+        name: my-rbac-proxy:v1
+      imagePullSecrets:
+        - name: image-pull-secrets
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: first-private-repo:5000/vertica/verticadb-operator:latest
+      - equal:
+          path: spec.template.spec.containers[1].image
+          value: second-private-repo:5000/my-rbac-proxy:v1
+      - equal:
+          path: spec.template.spec.imagePullSecrets[0].name
+          value: image-pull-secrets
+
