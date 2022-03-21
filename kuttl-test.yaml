@@ -37,6 +37,8 @@ commands:
   - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
 
+  - command: kubectl stern --version
+
   # We use stern to collect the pod output of any test that creates a pod with
   # the 'stern=include' label.  By default, the output of this is stored in a
   # file in int-tests-output/
