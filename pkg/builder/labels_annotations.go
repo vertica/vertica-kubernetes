@@ -28,9 +28,22 @@ const (
 	SubclusterTypeLabel       = "vertica.com/subcluster-type"
 	SubclusterSvcNameLabel    = "vertica.com/subcluster-svc"
 	SubclusterTransientLabel  = "vertica.com/subcluster-transient"
-	VDBInstanceLabel          = "app.kubernetes.io/instance"
-	OperatorVersionLabel      = "app.kubernetes.io/version"
-	OperatorName              = "verticadb-operator" // The name of the operator
+
+	// ClientRoutingLabel is a label that must exist on the pod in
+	// order for Service objects to route to the pod.  This label isn't part of
+	// the template in the StatefulSet.  This label is added after the pod is
+	// scheduled.  There are a couple of uses for it:
+	// - after an add node, we only add the labels once the node has at least
+	// one shard subscription.  This saves routing to a pod that cannot fulfill
+	// a query request.
+	// - before we remove a node.  It allows us to drain out pods that are going
+	// to be removed by a pending node removal.
+	ClientRoutingLabel = "vertica.com/client-routing"
+	ClientRoutingVal   = "true"
+
+	VDBInstanceLabel     = "app.kubernetes.io/instance"
+	OperatorVersionLabel = "app.kubernetes.io/version"
+	OperatorName         = "verticadb-operator" // The name of the operator
 
 	CurOperatorVersion = "1.3.1" // The version number of the operator
 	OperatorVersion100 = "1.0.0"
@@ -132,6 +145,9 @@ func MakeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 func MakeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
 	m[SubclusterSvcNameLabel] = sc.GetServiceName()
+	// Only route to nodes that have verified they own at least one shard and
+	// aren't pending delete
+	m[ClientRoutingLabel] = ClientRoutingVal
 	return m
 }
 
@@ -139,7 +155,16 @@ func MakeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Su
 // we want a service object to pick the pods based on the subcluster name.
 func MakeSvcSelectorLabelsForSubclusterNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
-	// Routing is done solely with the subcluster name.
+	// Routing is done using the subcluster name rather than the service name.
+	m[SubclusterNameLabel] = sc.Name
+	m[ClientRoutingLabel] = ClientRoutingVal
+
+	return m
+}
+
+// MakeStsSelectorLabels will create the selector labels for use within a StatefulSet
+func MakeStsSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	m := MakeBaseSvcSelectorLabels(vdb)
 	m[SubclusterNameLabel] = sc.Name
 	return m
 }

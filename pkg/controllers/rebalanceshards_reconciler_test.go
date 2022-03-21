@@ -48,11 +48,36 @@ var _ = Describe("rebalanceshards_reconcile", func() {
 		pfn = names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
 		pfacts.Detail[pfn].shardSubscriptions = 3
 		pfacts.Detail[pfn].upNode = true
-		r := MakeRebalanceShardsReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		r := MakeRebalanceShardsReconciler(vdbRec, logger, vdb, fpr, &pfacts, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("select rebalance_shards('sc1')")
 		Expect(len(atCmd)).Should(Equal(1))
 		atCmd = fpr.FindCommands("select rebalance_shards('sc2')")
 		Expect(len(atCmd)).Should(Equal(0))
+	})
+
+	It("should only run rebalance shards against specified subcluster ", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 1},
+			{Name: "sc2", Size: 1},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		for i := range vdb.Spec.Subclusters {
+			pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[i], 0)
+			pfacts.Detail[pn].upNode = true
+			pfacts.Detail[pn].shardSubscriptions = 0
+		}
+		r := MakeRebalanceShardsReconciler(vdbRec, logger, vdb, fpr, &pfacts, vdb.Spec.Subclusters[1].Name)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		atCmd := fpr.FindCommands("select rebalance_shards('sc1')")
+		Expect(len(atCmd)).Should(Equal(0))
+		atCmd = fpr.FindCommands("select rebalance_shards('sc2')")
+		Expect(len(atCmd)).Should(Equal(1))
 	})
 })

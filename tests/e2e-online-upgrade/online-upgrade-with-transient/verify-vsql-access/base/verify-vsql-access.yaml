@@ -26,8 +26,6 @@ data:
 
     # Access to both pri and sec subclusters should be okay.  One of them will
     # connect with node0003, which is the node for the transient subcluster.
-    # If any of the connections can't connect, the command will fail and we bail
-    # out because errexit is set.
     PRI_CONNECTION_NODE=$(vsql -h v-base-upgrade-pri -tAc "select node_name from current_session")
     SEC_CONNECTION_NODE=$(vsql -h v-base-upgrade-sec -tAc "select node_name from current_session")
 

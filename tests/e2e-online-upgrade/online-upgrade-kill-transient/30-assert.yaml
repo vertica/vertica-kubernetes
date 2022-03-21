@@ -25,6 +25,7 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/instance: v-base-upgrade
+    vertica.com/client-routing: "true"
     vertica.com/subcluster-name: transient
 ---
 apiVersion: v1
@@ -34,4 +35,5 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/instance: v-base-upgrade
+    vertica.com/client-routing: "true"
     vertica.com/subcluster-svc: sec
