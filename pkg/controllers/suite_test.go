@@ -44,8 +44,12 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var logger logr.Logger
 var restCfg *rest.Config
+<<<<<<< HEAD
 var vrec *VerticaDBReconciler
 var vasRec *VerticaAutoscalerReconciler
+=======
+var vdbRec *VerticaDBReconciler
+>>>>>>> main
 
 var _ = BeforeSuite(func() {
 	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
@@ -74,13 +78,13 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	// SPILLY - rename vrec
-	vrec = &VerticaDBReconciler{
-		Client: k8sClient,
-		Log:    logger,
-		Scheme: scheme.Scheme,
-		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+	vdbRec = &VerticaDBReconciler{
+		Client:             k8sClient,
+		Log:                logger,
+		Scheme:             scheme.Scheme,
+		Cfg:                restCfg,
+		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
+		ServiceAccountName: builder.DefaultServiceAccountName,
 	}
 
 	vasRec = &VerticaAutoscalerReconciler{
@@ -103,14 +107,6 @@ func TestAPIs(t *testing.T) {
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"K8s Suite",
 		[]Reporter{printer.NewlineReporter{}})
-}
-
-func createVdb(ctx context.Context, vdb *vapi.VerticaDB) {
-	ExpectWithOffset(1, k8sClient.Create(ctx, vdb)).Should(Succeed())
-}
-
-func deleteVdb(ctx context.Context, vdb *vapi.VerticaDB) {
-	ExpectWithOffset(1, k8sClient.Delete(ctx, vdb)).Should(Succeed())
 }
 
 func setVerticaNodeNameInPodFacts(vdb *vapi.VerticaDB, sc *vapi.Subcluster, pf *PodFacts) {

@@ -17,17 +17,15 @@ kind: TestSuite
 testDirs:
   - tests/e2e
   - tests/e2e-extra
-  - tests/e2e-11.1
+  - tests/e2e-online-upgrade
 parallel: 2
 timeout: 600
-suppress:
-  - events
 commands:
   # Create the kustomize overlay files to override the image, endpoint, etc.
   - command: scripts/setup-kustomize.sh
 
   # make dependencies
-  - command: make create-helm-charts vdb-gen install-cert-manager
+  - command: make create-helm-charts vdb-gen install-cert-manager create-default-rbac
 
   # We do a pre-pull of the vertica-k8s image to avoid timeouts
   # during the test run.
@@ -38,6 +36,8 @@ commands:
     namespaced: true
   - command: kubectl delete pod vertica-k8s-image-pull
     namespaced: true
+
+  - command: kubectl stern --version
 
   # We use stern to collect the pod output of any test that creates a pod with
   # the 'stern=include' label.  By default, the output of this is stored in a

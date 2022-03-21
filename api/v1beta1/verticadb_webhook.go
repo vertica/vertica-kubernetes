@@ -268,6 +268,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidKerberosSetup(allErrs)
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
 	allErrs = v.matchingServiceNamesAreConsistent(allErrs)
+	allErrs = v.transientSubclusterMustMatchTemplate(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -617,7 +618,7 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 				"size of subcluster template must be greater than zero")
 			allErrs = append(allErrs, err)
 		}
-		if _, ok := scMap[v.Spec.TemporarySubclusterRouting.Template.Name]; ok {
+		if sc, ok := scMap[v.Spec.TemporarySubclusterRouting.Template.Name]; ok && !sc.IsTransient {
 			err := field.Invalid(templateFieldPrefix.Child("name"),
 				v.Spec.TemporarySubclusterRouting.Template.Name,
 				"cannot choose a name of an existing subcluster")
@@ -696,6 +697,27 @@ func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) f
 		}
 		// Set a flag so that we don't process this service name in another subcluster
 		processedServiceName[sc.GetServiceName()] = true
+	}
+	return allErrs
+}
+
+// transientSubclusterMustMatchTemplate is a check to make sure the IsTransient
+// isn't being set for subcluster.  It must only be used for the temporary
+// subcluster template.
+func (v *VerticaDB) transientSubclusterMustMatchTemplate(allErrs field.ErrorList) field.ErrorList {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if !sc.IsTransient {
+			continue
+		}
+
+		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
+		if sc.Name != v.Spec.TemporarySubclusterRouting.Template.Name {
+			err := field.Invalid(fieldPrefix.Child("Name").Index(i),
+				sc.Name,
+				"Transient subcluster name doesn't match template")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

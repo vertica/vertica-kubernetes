@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -64,9 +65,13 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 // Reconcile is the main driver for reconciliation of Kubernetes objects.
 // This will ensure the desired svc and sts objects exist and are in the correct state.
 func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Ensure any secrets/configMaps that we mount exist with the correct keys.
 	// We catch the errors here so that we can provide timely events.
-	if res, err := o.checkMountedObjs(ctx); res.Requeue || err != nil {
+	if res, err := o.checkMountedObjs(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -78,13 +83,13 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
 	for i := range o.Vdb.Spec.Subclusters {
-		if res, err := o.checkForCreatedSubcluster(ctx, &o.Vdb.Spec.Subclusters[i]); res.Requeue || err != nil {
+		if res, err := o.checkForCreatedSubcluster(ctx, &o.Vdb.Spec.Subclusters[i]); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
 	// Check to see if we need to remove any objects for deleted subclusters
-	if res, err := o.checkForDeletedSubcluster(ctx); res.Requeue || err != nil {
+	if res, err := o.checkForDeletedSubcluster(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -99,7 +104,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	if o.Vdb.Spec.LicenseSecret != "" {
 		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
 			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.LicenseSecret))
-		if res.Requeue || err != nil {
+		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -107,7 +112,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	if o.Vdb.Spec.Communal.HadoopConfig != "" {
 		_, res, err := getConfigMap(ctx, o.VRec, o.Vdb,
 			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.Communal.HadoopConfig))
-		if res.Requeue || err != nil {
+		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -116,13 +121,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 	if o.Vdb.Spec.KerberosSecret != "" {
 		keyNames := []string{filepath.Base(paths.Krb5Conf), filepath.Base(paths.Krb5Keytab)}
-		if res, err := o.checkSecretHasKeys(ctx, "Kerberos", o.Vdb.Spec.KerberosSecret, keyNames); res.Requeue || err != nil {
+		if res, err := o.checkSecretHasKeys(ctx, "Kerberos", o.Vdb.Spec.KerberosSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
 	if o.Vdb.Spec.SSHSecret != "" {
-		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); res.Requeue || err != nil {
+		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -133,7 +138,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 // checkSecretHasKeys is a helper to check that a secret has a set of keys in it
 func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secretName string, keyNames []string) (ctrl.Result, error) {
 	secret, res, err := getSecret(ctx, o.VRec, o.Vdb, names.GenNamespacedName(o.Vdb, secretName))
-	if res.Requeue || err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -178,7 +183,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		// all pods in the subcluster.  If that isn't the case, we requeue to
 		// give those reconcilers a chance to do those actions.  Failure to do
 		// this will result in corruption of admintools.conf.
-		if r, e := o.checkForOrphanAdmintoolsConfEntries(0, &stss.Items[i]); r.Requeue || e != nil {
+		if r, e := o.checkForOrphanAdmintoolsConfEntries(0, &stss.Items[i]); verrors.IsReconcileAborted(r, e) {
 			return r, e
 		}
 
@@ -282,7 +287,7 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, o.VRec.ServiceAccountName)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
@@ -299,7 +304,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// and done the uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
-	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); r.Requeue || e != nil {
+	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
 		return r, e
 	}
 

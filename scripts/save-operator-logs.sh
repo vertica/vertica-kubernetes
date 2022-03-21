@@ -20,4 +20,4 @@
 OP=${INT_TEST_OUTPUT_DIR:-int-tests-output}/verticadb-operator.log
 mkdir -p $(dirname $OP)
 echo "Saving operator logs to $OP"
-stern --selector app.kubernetes.io/name=verticadb-operator --all-namespaces > $OP 2>&1
+kubectl stern --selector app.kubernetes.io/name=verticadb-operator --all-namespaces > $OP 2>&1

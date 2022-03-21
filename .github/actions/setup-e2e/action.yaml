@@ -13,13 +13,9 @@ runs:
         sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
         kubectl version --client
     
-    - name: Install stern and Download vertica RPM package
+    - name: Download vertica RPM package
       shell: bash
       env:
-          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-11.0.0-0.x86_64.RHEL6.rpm"
-          STERN_URL: "https://github.com/stern/stern/releases/download/v1.19.0/stern_1.19.0_linux_amd64.tar.gz"
+          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-11.1.0-0.x86_64.RHEL6.rpm"
       run: |
-        curl -fsSLO $STERN_URL 
-        tar zxvf stern_1.19.0_linux_amd64.tar.gz
-        sudo cp stern_1.19.0_linux_amd64/stern /usr/local/bin/
         curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-x86_64.RHEL6.latest.rpm

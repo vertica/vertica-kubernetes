@@ -43,7 +43,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(k8sClient, fpr)
-		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		for i := int32(0); i < 3; i++ {
@@ -77,7 +77,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 		}
-		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -119,7 +119,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}
-		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -138,7 +138,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 		pfact := MakePodFacts(k8sClient, fpr)
-		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
@@ -160,7 +160,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(k8sClient, fpr)
-		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, &pfact)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -177,7 +177,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
-		actor := MakeInstallReconciler(vrec, logger, vdb, fpr, pfact)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())

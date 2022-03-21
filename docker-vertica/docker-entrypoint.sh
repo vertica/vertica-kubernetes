@@ -10,12 +10,12 @@ start_cron(){
 # because we have a Persistent Volume that backs /opt/vertica/config, so
 # it starts up empty and must be populated
 copy_config_files() {
-    cp -r /home/dbadmin/logrotate/* /opt/vertica/config/
-    rm -rf /home/dbadmin/logrotate
-
     mkdir -p /opt/vertica/config/licensing
-    cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing
-    chmod -R 0755 /opt/vertica/config/licensing
+
+    mv /home/dbadmin/logrotate/* /opt/vertica/config/ 2>/dev/null || true
+
+    cp -r /home/dbadmin/licensing/ce/* /opt/vertica/config/licensing 2>/dev/null || true
+    chmod -R ugo+r,u+rw /opt/vertica/config/licensing
 }
 
 # Ensure all PV paths are owned by dbadmin.  This is done for some PVs that

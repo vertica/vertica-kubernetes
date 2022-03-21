@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -40,7 +41,7 @@ type VersionReconciler struct {
 	FindPodFunc        func() (*PodFact, bool) // Function to call to find pod
 }
 
-// MakeVersionReconciler will build a VersinReconciler object
+// MakeVersionReconciler will build a VersionReconciler object
 func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	enforceUpgradePath bool) ReconcileActor {
@@ -67,7 +68,7 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if res, err := v.reconcileVersion(ctx, pod); res.Requeue || err != nil {
+	if res, err := v.reconcileVersion(ctx, pod); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 

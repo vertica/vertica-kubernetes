@@ -52,9 +52,9 @@ const (
 // each release, the next release that must be upgrade too.  Use this map to
 // know if a new version is the next supported version by Vertica.
 var UpgradePaths = map[Components]Info{
-	{11, 0, 0}: {"v11.0.1", Components{11, 0, 1}},
-	{11, 0, 1}: {"v11.0.2", Components{11, 0, 2}},
-	{11, 0, 2}: {"v11.1.0", Components{11, 1, 0}},
+	{11, 0, 0}: {"v11.1.x", Components{11, 1, 0}},
+	{11, 0, 1}: {"v11.1.x", Components{11, 1, 0}},
+	{11, 0, 2}: {"v11.1.x", Components{11, 1, 0}},
 }
 
 // MakeInfoFromVdb will construct an Info struct by extracting the version from the
@@ -112,7 +112,13 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 
 // IsEqual compares two versions to see if they are equal
 func (i *Info) IsEqual(other *Info) bool {
-	return other.VdbMajor == i.VdbMajor && other.VdbMinor == i.VdbMinor && other.VdbPatch == i.VdbPatch
+	return i.IsEqualExceptPatch(other) && other.VdbPatch == i.VdbPatch
+}
+
+// IsEqualExceptPatch compares two versions major/minor versions to see if they
+// are equal
+func (i *Info) IsEqualExceptPatch(other *Info) bool {
+	return other.VdbMajor == i.VdbMajor && other.VdbMinor == i.VdbMinor
 }
 
 // IsValidUpgradePath will return true if the current version is allowed to
@@ -134,8 +140,14 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 			fmt.Sprintf("Version '%s' to '%s' is a downgrade and is not supported",
 				i.VdbVer, t.VdbVer)
 	}
+	// Check if the major/minor versions are identical.  It is okay to skip
+	// patch versions.
+	if i.IsEqualExceptPatch(t) {
+		return true, ""
+	}
+
 	// Check if the upgrade path is followed.  You can only go from one released
-	// version to the next released version.
+	// version to the next released version, but patches are allowed to be skipped.
 	nextVer, ok := UpgradePaths[i.Components]
 	if !ok {
 		// The version isn't found in the upgrade path.  This path may be
@@ -143,7 +155,7 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 		// version vertica that came out after the version of this operator.
 		return true, ""
 	}
-	if t.IsEqual(&nextVer) {
+	if t.IsEqualExceptPatch(&nextVer) {
 		return true, ""
 	}
 	return false,

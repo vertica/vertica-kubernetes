@@ -36,7 +36,7 @@ var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		nm := names.GenStsName(vdb, sc)
-		sts := builder.BuildStsSpec(nm, vdb, sc)
+		sts := builder.BuildStsSpec(nm, vdb, sc, builder.DefaultServiceAccountName)
 		// Set an old operator version to force the upgrade
 		sts.Labels[builder.OperatorVersionLabel] = builder.OperatorVersion110
 		Expect(k8sClient.Create(ctx, sts)).Should(Succeed())
@@ -51,7 +51,7 @@ var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
 		fetchedSts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, nm, fetchedSts)).Should(Succeed())
 
-		r := MakeUpgradeOperator120Reconciler(vrec, logger, vdb)
+		r := MakeUpgradeOperator120Reconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		// Reconcile should have deleted the sts because it was created by an

@@ -104,9 +104,6 @@ fi
 
 echo "Vertica server image name: $VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
-if [ -n "$LICENSE_SECRET" ]; then
-    echo "License name: $LICENSE_SECRET"
-fi
 echo "Endpoint: $ENDPOINT"
 echo "Protocol: $PATH_PROTOCOL"
 echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
@@ -237,19 +234,6 @@ EOF
 EOF
         $KUSTOMIZE edit add patch --path $COMMUNAL_EP_CERT_SECRET_PATCH --kind VerticaDB
     fi
-
-    # If license was specified we create a patch file to set that.
-    if [[ -n "$LICENSE_SECRET" ]]
-    then
-        LICENSE_PATCH_FILE="license-patch.yaml"
-        cat <<EOF > $LICENSE_PATCH_FILE
-        - op: add
-          path: /spec/licenseSecret
-          value: $LICENSE_SECRET
-EOF
-        $KUSTOMIZE edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
-    fi
-
 }
 
 function create_vdb_pod_kustomization {
@@ -646,11 +630,11 @@ setup_creds_for_create_s3_bucket
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-11.1/*/*/base e2e-operator-upgrade/*/*/base
+for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-online-upgrade/*/*/base e2e-operator-upgrade/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-11.1/* e2e-operator-upgrade/*
+for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-online-upgrade/* e2e-operator-upgrade/*
 do
     clean_communal_kustomization $tdir
 done

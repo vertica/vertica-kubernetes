@@ -28,4 +28,5 @@ spec:
     - name: sc1
       size: 1
   kSafety: "0"
+  requeueTime: 5
   certSecrets: []

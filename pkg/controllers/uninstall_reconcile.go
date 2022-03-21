@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -100,7 +101,7 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 	}
 
 	for i := range subclusters {
-		if res, err := s.reconcileSubcluster(ctx, subclusters[i]); err != nil || res.Requeue {
+		if res, err := s.reconcileSubcluster(ctx, subclusters[i]); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}

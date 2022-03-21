@@ -38,7 +38,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		a := MakeDBAddSubclusterReconciler(vrec, logger, vdb, fpr, &pfacts)
+		a := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := a.(*DBAddSubclusterReconciler)
 		subclusters := r.parseFetchSubclusterVsql(
 			" sc1\n" +
@@ -76,7 +76,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 				{Stdout: " sc1\n"},
 			},
 		}
-		r := MakeDBAddSubclusterReconciler(vrec, logger, vdb, fpr, &pfacts)
+		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// Last command should be AT -t db_add_subcluster
 		atCmdHistory := fpr.Histories[len(fpr.Histories)-1]
@@ -93,7 +93,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
-		act := MakeDBAddSubclusterReconciler(vrec, logger, vdb, fpr, &pfacts)
+		act := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*DBAddSubclusterReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		r.ATPod = pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)]

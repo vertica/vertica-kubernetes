@@ -52,6 +52,12 @@ type PodFact struct {
 	// Name of the subcluster the pod is part of
 	subcluster string
 
+	// true if this node is part of a primary subcluster
+	isPrimary bool
+
+	// The image that is currently running in the pod
+	image string
+
 	// true means the pod exists in k8s.  false means it hasn't been created yet.
 	exists bool
 
@@ -64,6 +70,13 @@ type PodFact struct {
 	// cases where this would be false are (a) statefulset doesn't yet exist or
 	// (b) statefulset exists but it isn't sized to include this pod yet.
 	managedByParent bool
+
+	// true means the pod is scheduled for deletion.  This can happen if the
+	// size of the subcluster has shrunk in the VerticaDB but the pod still
+	// exists and is managed by a statefulset.  The pod is pending delete in
+	// that once the statefulset is sized according to the subcluster the pod
+	// will get deleted.
+	pendingDelete bool
 
 	// Have we run install for this pod? None means we are unable to determine
 	// whether it is run.
@@ -105,7 +118,8 @@ type PodFact struct {
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
 
-	// The number of shards this node has subscribed to
+	// The number of shards this node has subscribed to, not including the
+	// special replica shard that has unsegmented projections.
 	shardSubscriptions int
 }
 
@@ -184,6 +198,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:       names.GenPodName(vdb, sc, podIndex),
 		subcluster: sc.Name,
+		isPrimary:  sc.IsPrimary,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -204,6 +219,8 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 	pf.podIP = pod.Status.PodIP
 	pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
+	pf.pendingDelete = podIndex >= sc.Size
+	pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,
@@ -329,7 +346,7 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 	}
 	cmd := []string{
 		"-tAc",
-		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s'",
+		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s' and shard_name != 'replica'",
 			pf.vnodeName),
 	}
 	stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
@@ -673,6 +690,29 @@ func (p *PodFacts) countNotRunning() int {
 		// We don't count non-running pods that aren't yet managed by the parent
 		// sts.  The sts needs to be created or sized first.
 		if !v.isPodRunning && v.managedByParent {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countUpPrimaryNodes returns the number of primary nodes that are UP
+func (p *PodFacts) countUpPrimaryNodes() int {
+	return p.countPods(func(v *PodFact) int {
+		if v.upNode && v.isPrimary {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countNotReadOnlyWithOldImage will return a count of the number of pods that
+// are not read-only and are running an image different then newImage.  This is
+// used in online upgrade to wait until pods running the old image have gone
+// into read-only mode.
+func (p *PodFacts) countNotReadOnlyWithOldImage(newImage string) int {
+	return p.countPods(func(v *PodFact) int {
+		if v.isPodRunning && v.upNode && !v.readOnly && v.image != newImage {
 			return 1
 		}
 		return 0

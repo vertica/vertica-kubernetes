@@ -49,7 +49,7 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	scIndex int32, podRunningState PodRunningState) {
 	sts := &appsv1.StatefulSet{}
 	if err := c.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
-		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
+		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc, builder.DefaultServiceAccountName)
 		ExpectWithOffset(offset, c.Create(ctx, sts)).Should(Succeed())
 	}
 	for j := int32(0); j < sc.Size; j++ {
@@ -176,15 +176,6 @@ func DeleteSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	}
 }
 
-func CreateVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
-	ExpectWithOffset(1, c.Create(ctx, vas)).Should(Succeed())
-}
-
-func DeleteVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
-	ExpectWithOffset(1, c.Delete(ctx, vas)).Should(Succeed())
-}
-
-// SPILLY - remove similar functions in suite_test.go
 func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	ExpectWithOffset(1, c.Create(ctx, vdb)).Should(Succeed())
 }

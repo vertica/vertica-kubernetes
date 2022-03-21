@@ -24,6 +24,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -88,7 +89,7 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 	}
 
 	for i := range subclusters {
-		if res, err := d.reconcileSubcluster(ctx, subclusters[i]); err != nil || res.Requeue {
+		if res, err := d.reconcileSubcluster(ctx, subclusters[i]); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}

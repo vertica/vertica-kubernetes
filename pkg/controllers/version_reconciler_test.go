@@ -33,8 +33,8 @@ var _ = Describe("k8s/version_reconcile", func() {
 	It("should update annotations in vdb since they differ", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -51,7 +51,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 				},
 			},
 		}
-		r := MakeVersionReconciler(vrec, logger, vdb, fpr, &pfacts, false)
+		r := MakeVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		fetchVdb := &vapi.VerticaDB{}
@@ -69,8 +69,8 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 			vapi.VersionAnnotation: OrigVersion,
 		}
 		vdb.Spec.Subclusters[0].Size = 1
-		createVdb(ctx, vdb)
-		defer deleteVdb(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -87,7 +87,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 				},
 			},
 		}
-		r := MakeVersionReconciler(vrec, logger, vdb, fpr, &pfacts, true)
+		r := MakeVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		// Ensure we didn't update the vdb

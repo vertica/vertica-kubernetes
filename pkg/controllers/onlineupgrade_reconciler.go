@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -32,6 +31,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -40,7 +40,8 @@ import (
 type OnlineUpgradeReconciler struct {
 	VRec          *VerticaDBReconciler
 	Log           logr.Logger
-	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Vdb           *vapi.VerticaDB  // Vdb is the CRD we are acting on.
+	TransientSc   *vapi.Subcluster // Set to the transient subcluster if applicable
 	PRunner       cmds.PodRunner
 	PFacts        *PodFacts
 	Finder        iter.SubclusterFinder
@@ -77,17 +78,21 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 		// Setup a transient subcluster to accept traffic when other subclusters
 		// are down
 		o.postNextStatusMsg,
+		o.addTransientToVdb,
 		o.createTransientSts,
 		o.installTransientNodes,
 		o.addTransientSubcluster,
 		o.addTransientNodes,
-		o.waitForReadyTransientPod,
+		o.rebalanceTransientNodes,
+		o.addClientRoutingLabelToTransientNodes,
 		// Handle restart of the primary subclusters
 		o.restartPrimaries,
 		// Handle restart of secondary subclusters
 		o.restartSecondaries,
 		// Will cleanup the transient subcluster now that the primaries are back up.
 		o.postNextStatusMsg,
+		o.removeTransientFromVdb,
+		o.removeClientRoutingLabelFromTransientNodes,
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
@@ -99,7 +104,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 			// If Reconcile was aborted with a requeue, set the RequeueAfter interval to prevent exponential backoff
 			if err == nil {
 				res.Requeue = false
-				res.RequeueAfter = time.Second * time.Duration(o.Vdb.GetUpgradeRequeueTime())
+				res.RequeueAfter = o.Vdb.GetUpgradeRequeueTime()
 			}
 			return res, err
 		}
@@ -117,6 +122,8 @@ func (o *OnlineUpgradeReconciler) loadSubclusterState(ctx context.Context) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	o.TransientSc = o.Vdb.FindTransientSubcluster()
+
 	err = o.cachePrimaryImages(ctx)
 	return ctrl.Result{}, err
 }
@@ -129,6 +136,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		"Draining primary subclusters",
 		"Recreating pods for primary subclusters",
 		"Checking if new version is compatible",
+		"Waiting for secondary nodes to become read-only",
 		"Restarting vertica in primary subclusters",
 	}
 
@@ -164,6 +172,56 @@ func (o *OnlineUpgradeReconciler) postNextStatusMsgForSts(ctx context.Context, s
 	return o.postNextStatusMsg(ctx)
 }
 
+// addTransientToVdb will add the transient subcluster to the VerticaDB.  This
+// is stored in the api server.  It will get removed at the end of the
+// upgrade.
+func (o *OnlineUpgradeReconciler) addTransientToVdb(ctx context.Context) (ctrl.Result, error) {
+	if o.TransientSc != nil {
+		return ctrl.Result{}, nil
+	}
+
+	if o.skipTransientSetup() {
+		return ctrl.Result{}, nil
+	}
+
+	oldImage, ok := o.fetchOldImage()
+	if !ok {
+		return ctrl.Result{}, fmt.Errorf("could not determine the old image name.  "+
+			"Only available image is %s", o.Vdb.Spec.Image)
+	}
+
+	transientSc := o.Vdb.BuildTransientSubcluster(oldImage)
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest to minimize the chance of getting a conflict error.
+		nm := o.Vdb.ExtractNamespacedName()
+		if err := o.VRec.Client.Get(ctx, nm, o.Vdb); err != nil {
+			return err
+		}
+
+		// Ensure we only have at most one transient subcluster
+		if otherSc := o.Vdb.FindTransientSubcluster(); otherSc != nil {
+			o.Log.Info("Transient subcluster already exists.  Skip adding another one",
+				"name", otherSc.Name)
+			o.TransientSc = otherSc // Ensure we cache the one we found
+			return nil
+		}
+
+		o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters, *transientSc)
+		o.TransientSc = &o.Vdb.Spec.Subclusters[len(o.Vdb.Spec.Subclusters)-1]
+		err := o.VRec.Client.Update(ctx, o.Vdb)
+		if err != nil {
+			return err
+		}
+
+		// Refresh things now that vdb has changed
+		o.PFacts.Invalidate()
+		o.Finder = iter.MakeSubclusterFinder(o.VRec.Client, o.Vdb)
+		return nil
+	})
+	return ctrl.Result{}, err
+}
+
 // createTransientSts this will create a secondary subcluster to accept
 // traffic from subclusters when they are down.  This subcluster is called
 // the transient and only exist for the life of the upgrade.
@@ -176,14 +234,7 @@ func (o *OnlineUpgradeReconciler) createTransientSts(ctx context.Context) (ctrl.
 	o.traceActorReconcile(actor)
 	or := actor.(*ObjReconciler)
 
-	oldImage, ok := o.fetchOldImage()
-	if !ok {
-		return ctrl.Result{}, fmt.Errorf("could not determine the old image name.  "+
-			"Only available image is %s", o.Vdb.Spec.Image)
-	}
-
-	sc := o.Vdb.BuildTransientSubcluster(oldImage)
-	return or.reconcileSts(ctx, sc)
+	return or.reconcileSts(ctx, o.TransientSc)
 }
 
 // installTransientNodes will ensure we have installed vertica on
@@ -210,7 +261,7 @@ func (o *OnlineUpgradeReconciler) addTransientSubcluster(ctx context.Context) (c
 		return ctrl.Result{}, err
 	}
 	d := actor.(*DBAddSubclusterReconciler)
-	return d.addMissingSubclusters(ctx, []vapi.Subcluster{*o.Vdb.BuildTransientSubcluster("")})
+	return d.addMissingSubclusters(ctx, []vapi.Subcluster{*o.TransientSc})
 }
 
 // addTransientNodes will ensure nodes on the transient have been added to the
@@ -226,44 +277,32 @@ func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.R
 		return ctrl.Result{}, err
 	}
 	d := actor.(*DBAddNodeReconciler)
-	return d.reconcileSubcluster(ctx, o.Vdb.BuildTransientSubcluster(""))
+	return d.reconcileSubcluster(ctx, o.TransientSc)
 }
 
-// waitForReadyTransientPod will wait for one of the transient pods to be ready.
-// This is done so that when we direct traffic to the transient subcluster the
-// service object has a pod to route too.
-func (o *OnlineUpgradeReconciler) waitForReadyTransientPod(ctx context.Context) (ctrl.Result, error) {
+// rebalanceTransientNodes will run a rebalance against the transient subcluster
+func (o *OnlineUpgradeReconciler) rebalanceTransientNodes(ctx context.Context) (ctrl.Result, error) {
 	if o.skipTransientSetup() {
 		return ctrl.Result{}, nil
 	}
 
-	pod := &corev1.Pod{}
-	sc := o.Vdb.BuildTransientSubcluster("")
-	// We only check the first pod is ready
-	pn := names.GenPodName(o.Vdb, sc, 0)
+	actor := MakeRebalanceShardsReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.TransientSc.Name)
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
 
-	const MaxAttempts = 30 // Retry for roughly 30 seconds
-	for i := 0; i < MaxAttempts; i++ {
-		if err := o.VRec.Client.Get(ctx, pn, pod); err != nil {
-			// Any error, including not found, aborts the retry.  The pod should
-			// have already existed because we call this after db add node.  The
-			// transient pod is not restartable, so if the pod isn't running,
-			// then it won't ever be ready.
-			o.Log.Info("Error while fetching transient pod", "err", err)
-			return ctrl.Result{}, nil
-		}
-		if pod.Status.ContainerStatuses[ServerContainerIndex].Ready {
-			o.Log.Info("Transient pod is in ready state",
-				"containerStatuses", pod.Status.ContainerStatuses[ServerContainerIndex])
-			return ctrl.Result{}, nil
-		}
-		const AttemptSleepTime = 1
-		time.Sleep(AttemptSleepTime * time.Second)
+// addClientRoutingLabelToTransientNodes will add the special routing label so
+// that Service objects can use the transient subcluster.
+func (o *OnlineUpgradeReconciler) addClientRoutingLabelToTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if o.skipTransientSetup() {
+		return ctrl.Result{}, nil
 	}
-	// If we timeout, we still continue on.  The transient pod is not
-	// restartable, so we don't want to wait indefinitely.  The upgrade
-	// will proceed but any routing to the transient pods will fail.
-	return ctrl.Result{}, nil
+
+	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, AddNodeApplyMethod, o.TransientSc.Name)
+	o.traceActorReconcile(actor)
+	// Add the labels.  If there is a node that still has missing subscriptions
+	// that will fail with requeue error.
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
 // iterateSubclusterType will iterate over the subclusters, calling the
@@ -299,6 +338,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		o.drainSubcluster,
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
+		o.waitForReadOnly,
 		o.bringSubclusterOnline,
 	}
 	for i, fn := range funcs {
@@ -414,6 +454,27 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	return vr.Reconcile(ctx, &ctrl.Request{})
 }
 
+// waitForReadOnly will only succeed if all of the up pods running the old image
+// are in read-only state.  This wait is necessary so that we don't try to do a
+// 'AT -t restart_node' for the primary nodes when the cluster is in read-only.
+// We should always start those with 'AT -t start_db'.
+func (o *OnlineUpgradeReconciler) waitForReadOnly(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	// Early out if the primaries have restarted.  This wait is only meant to be
+	// done after we take down the primaries and are waiting for spread to move
+	// the remaining up nodes into read-only.
+	if o.PFacts.countUpPrimaryNodes() != 0 {
+		return ctrl.Result{}, nil
+	}
+	newImage := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+	// If all the pods that are running the old image are read-only we are done
+	// our wait.
+	if o.PFacts.countNotReadOnlyWithOldImage(newImage) == 0 {
+		return ctrl.Result{}, nil
+	}
+	o.Log.Info("Requeueing because at least 1 pod running the old image is still up and isn't considered read-only yet")
+	return ctrl.Result{Requeue: true}, nil
+}
+
 // bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.
 func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	const DoNotRestartReadOnly = false
@@ -423,19 +484,71 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	o.PFacts.Invalidate() // Status of the pods may have changed
 
 	scName := sts.Labels[builder.SubclusterNameLabel]
+
+	actor = MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, PodRescheduleApplyMethod, scName)
+	res, err = actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	o.Log.Info("starting client traffic routing back to subcluster", "name", scName)
 	err = o.routeClientTraffic(ctx, scName, false)
 	return ctrl.Result{}, err
 }
 
-// removeTransientSubclusters will drive subcluster removal of the transient subcluster
+// removeTransientFromVdb will remove the transient subcluster that is in the VerticaDB stored in the apiserver
+func (o *OnlineUpgradeReconciler) removeTransientFromVdb(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
+
+	o.Log.Info("starting removal of transient from VerticaDB")
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch the latest to minimize the chance of getting a conflict error.
+		nm := o.Vdb.ExtractNamespacedName()
+		if err := o.VRec.Client.Get(ctx, nm, o.Vdb); err != nil {
+			return err
+		}
+
+		// Remove the transient.
+		removedTransient := false
+		for i := len(o.Vdb.Spec.Subclusters) - 1; i >= 0; i-- {
+			if o.Vdb.Spec.Subclusters[i].IsTransient {
+				o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters[:i], o.Vdb.Spec.Subclusters[i+1:]...)
+				removedTransient = true
+			}
+		}
+		if !removedTransient {
+			return nil
+		}
+		o.PFacts.Invalidate() // Force refresh due to transient being removed
+		o.TransientSc = nil
+		return o.VRec.Client.Update(ctx, o.Vdb)
+	})
+	return ctrl.Result{}, err
+}
+
+// removeClientRoutingLabelFromTransientNodes will remove the special routing
+// label since we are about to remove that subcluster
+func (o *OnlineUpgradeReconciler) removeClientRoutingLabelFromTransientNodes(ctx context.Context) (ctrl.Result, error) {
+	if !o.Vdb.RequiresTransientSubcluster() {
+		return ctrl.Result{}, nil
+	}
+
+	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, DelNodeApplyMethod, "")
+	o.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// removeTransientSubclusters will drive subcluster removal of the transient subcluster.
 func (o *OnlineUpgradeReconciler) removeTransientSubclusters(ctx context.Context) (ctrl.Result, error) {
 	if !o.Vdb.RequiresTransientSubcluster() {
 		return ctrl.Result{}, nil
 	}
+
 	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
@@ -570,10 +683,8 @@ func (o *OnlineUpgradeReconciler) routeClientTraffic(ctx context.Context,
 // temporary routing.  If no routing decision could be made, this will return nil.
 func (o *OnlineUpgradeReconciler) getSubclusterForTemporaryRouting(ctx context.Context,
 	offlineSc *vapi.Subcluster, scMap map[string]*vapi.Subcluster) *vapi.Subcluster {
-	if o.Vdb.RequiresTransientSubcluster() {
-		// We are modifying a copy of sc, so we set the IsTransient flag to
-		// know what subcluster we are going to route to.
-		transientSc := o.Vdb.BuildTransientSubcluster("")
+	if o.TransientSc != nil {
+		transientSc := o.TransientSc
 
 		// Only continue if the transient subcluster exists. It may not
 		// exist if the entire cluster was down when we attempted to create it.
@@ -681,5 +792,7 @@ func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName s
 func (o *OnlineUpgradeReconciler) doesScHaveActiveConnections(stdout string) bool {
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
-	return res != "0"
+	// As a convience for test, allow empty string to be treated as having no
+	// active connections.
+	return res != "" && res != "0"
 }

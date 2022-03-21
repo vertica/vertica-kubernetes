@@ -50,11 +50,6 @@ else
 	NAMESPACE?=$(shell ${GET_NAMESPACE_SH})
 endif
 
-LOCAL_SOAK_CFG=./local-soak.cfg
-ifneq (,$(wildcard $(LOCAL_SOAK_CFG)))
-	SOAK_CFG?=-c $(LOCAL_SOAK_CFG)
-endif
-
 GOLANGCI_LINT_VER=1.41.1
 LOGDIR?=$(shell pwd)
 
@@ -153,6 +148,8 @@ E2E_TEST_DIRS?=tests/e2e
 else
 E2E_TEST_DIRS?=tests/e2e tests/e2e-extra
 endif
+# Additional arguments to pass to 'kubectl kuttl'
+E2E_ADDITIONAL_ARGS?=
 
 # Specify how to deploy the operator.  Allowable values are 'helm', 'olm' or 'random'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
@@ -165,6 +162,7 @@ GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_PLUGIN_INSTALLED:=$(shell helm plugin list | grep -c '^unittest')
 KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^kuttl')
+STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^stern')
 INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
@@ -210,6 +208,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-report envtest ## Run tests.
+	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
 ifdef INTERACTIVE
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 else
@@ -240,26 +239,28 @@ ifeq ($(KUTTL_PLUGIN_INSTALLED), 0)
 	kubectl krew install kuttl
 endif
 
+.PHONY: install-stern-plugin
+install-stern-plugin: krew
+ifeq ($(STERN_PLUGIN_INSTALLED), 0)
+	kubectl krew install stern
+endif
+
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin vdb-gen setup-e2e-communal ## Run the integration tests
+run-int-tests: install-kuttl-plugin install-stern-plugin vdb-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_TEST_DIRS)
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) $(E2E_TEST_DIRS)
 
-.PHONY: run-11.1-tests
-run-11.1-tests: install-kuttl-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
+.PHONY: run-online-upgrade-tests
+run-online-upgrade-tests: install-kuttl-plugin install-stern-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
 ifeq ($(BASE_VERTICA_IMG), <not-set>)
 	$(error $$BASE_VERTICA_IMG not set)
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) tests/e2e-11.1/
-
-.PHONY: run-soak-tests
-run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
-	scripts/soak-runner.sh $(SOAK_CFG)
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) tests/e2e-online-upgrade/
 
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)
@@ -362,9 +363,6 @@ echo-images:  ## Print the names of all of the images used
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 
-kuttl-step-gen: ## Builds the kuttl-step-gen tool
-	go build -o bin/$@ ./cmd/$@
-
 vdb-gen: ## Builds the vdb-gen tool
 	go build -o bin/$@ ./cmd/$@
 
@@ -379,6 +377,9 @@ uninstall-cert-manager: ## Uninstall the cert-manager
 
 create-helm-charts: manifests kustomize kubernetes-split-yaml ## Generate the helm charts
 	scripts/create-helm-charts.sh
+
+create-default-rbac: manifests kustomize kubernetes-split-yaml ## Generate the default rbac manifests
+	scripts/gen-rbac.sh
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -

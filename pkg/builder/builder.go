@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	SuperuserPasswordPath = "superuser-passwd"
+	SuperuserPasswordPath     = "superuser-passwd"
+	DefaultServiceAccountName = "verticadb-operator-controller-manager"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -315,7 +316,7 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
-func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
+func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -325,7 +326,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
-		ServiceAccountName:            "verticadb-operator-controller-manager",
+		ServiceAccountName:            saName,
 	}
 }
 
@@ -432,7 +433,7 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // BuildStsSpec builds manifest for a subclusters statefulset
-func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
+func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -442,7 +443,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: MakeSvcSelectorLabelsForSubclusterNameRouting(vdb, sc),
+				MatchLabels: MakeStsSelectorLabels(vdb, sc),
 			},
 			ServiceName: names.GenHlSvcName(vdb).Name,
 			Replicas:    &sc.Size,
@@ -451,7 +452,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Labels:      MakeLabelsForObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, sc),
+				Spec: buildPodSpec(vdb, sc, saName),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -487,7 +488,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			Labels:      MakeLabelsForObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc),
+		Spec: buildPodSpec(vdb, sc, DefaultServiceAccountName),
 	}
 	// Set a few things in the spec that are normally done by the statefulset
 	// controller. Again, this is for testing purposes only as the statefulset
