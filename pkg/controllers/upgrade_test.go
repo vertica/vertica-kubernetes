@@ -196,7 +196,7 @@ var _ = Describe("upgrade", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vdb.Spec.Image = NewImage // Change image to force pod deletion
 
-		statusMsgs := []string{"msg1", "msg2", "msg3"}
+		statusMsgs := []string{"msg1", "msg2", "msg3", "msg4"}
 
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
@@ -210,17 +210,18 @@ var _ = Describe("upgrade", func() {
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[0]))
 
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed()) // no change
-		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[0]))
-
-		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 1)).Should(Succeed())
-		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[1]))
-
+		// Skip msg2
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[2]))
+
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 2)).Should(Succeed()) // no change
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[2]))
+
+		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 3)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(statusMsgs[3]))
 
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9)).ShouldNot(Succeed()) // fail - out of bounds
 	})
