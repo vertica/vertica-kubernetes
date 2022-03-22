@@ -44,12 +44,8 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var logger logr.Logger
 var restCfg *rest.Config
-<<<<<<< HEAD
-var vrec *VerticaDBReconciler
-var vasRec *VerticaAutoscalerReconciler
-=======
 var vdbRec *VerticaDBReconciler
->>>>>>> main
+var vasRec *VerticaAutoscalerReconciler
 
 var _ = BeforeSuite(func() {
 	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
