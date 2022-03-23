@@ -183,6 +183,11 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 // checkForDeletedSubcluster will remove any objects that were created for
 // subclusters that don't exist anymore.
 func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Result, error) {
+	if o.Mode == ObjReconcileModeIfNotFound {
+		// Bypass this check since we won't be doing any scale down with this reconcile
+		return ctrl.Result{}, nil
+	}
+
 	finder := iter.MakeSubclusterFinder(o.VRec.Client, o.Vdb)
 
 	// Find any statefulsets that need to be deleted
