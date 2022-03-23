@@ -31,6 +31,6 @@ jobs:
       if: always()
       continue-on-error: true
       with:
-        name: logs-e2e-operator-upgrade
+        name: logs-e2e-operator-upgrade-${{ github.job_id }}
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
 
