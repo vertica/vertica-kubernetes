@@ -73,7 +73,6 @@ func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, req *ctrl.
 		if c.ScName != "" && pf.subcluster != c.ScName {
 			continue
 		}
-		c.VRec.Log.Info("Considering changing routing label for pod", "name", pf.name)
 		if res, err := c.reconcilePod(ctx, pn, c.PFacts.Detail[pn]); verrors.IsReconcileAborted(res, err) {
 			if err == nil {
 				// If we fail due to a requeue, we will attempt to reconcile other pods before ultimately bailing out.

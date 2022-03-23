@@ -100,6 +100,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 
 // reconcileCluster will handle restart when the entire cluster is down
 func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, error) {
+	r.Log.Info("Restart of entire cluster is needed")
 	if r.PFacts.areAllPodsRunningAndZeroInstalled() {
 		// Restart has nothing to do if nothing is installed
 		r.Log.Info("All pods are running and none of them have an installation.  Nothing to restart.")
@@ -158,6 +159,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 // pods that are down.  And it will try to reip any pods that have been
 // rescheduled since their install.
 func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, error) {
+	r.Log.Info("Restart of individual nodes is needed")
 	// Find any pods that need to be restarted. These only include running pods.
 	// If there is a pod that is not yet running, we leave them off for now.
 	// When it does start running there will be another reconciliation cycle.
