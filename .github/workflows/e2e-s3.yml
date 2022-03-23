@@ -31,6 +31,7 @@ jobs:
 
     - uses: actions/upload-artifact@v2
       if: always()
+      continue-on-error: true
       with:
         name: logs-e2e-s3
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
