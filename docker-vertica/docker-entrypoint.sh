@@ -3,7 +3,7 @@ set -e
 
 start_cron(){
     # daemonizes, no need for &
-    sudo /usr/sbin/crond
+    sudo /usr/sbin/cron
 }
 
 # We copy back the files normally stored in /opt/vertica/config/.  We do this

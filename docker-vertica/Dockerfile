@@ -74,7 +74,6 @@ RUN set -x \
   && chmod a+x /opt/vertica/bin/docker-entrypoint.sh \
   && chown dbadmin:verticadba /home/dbadmin/.bash_profile \
   && chmod 600 /home/dbadmin/.bash_profile \
-  && ssh-keygen -q -A \
   && mkdir -p /root/.ssh \
   && cp -r /home/dbadmin/.ssh /root \
   && chmod 700 /root/.ssh \
@@ -101,12 +100,13 @@ COPY --from=builder /var/spool/cron /var/spool/cron
 ENV LANG en_US.utf8
 ENV TZ UTC
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
+ENV DEBIAN_FRONTEND noninteractive
 
 ADD ./packages/init.d.functions /etc/rc.d/init.d/functions
 
 
 # make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
-RUN apt update && apt install -y locales && rm -rf /var/lib/apt/lists/* \
+RUN apt-get update && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
 	&& localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
 
@@ -120,20 +120,31 @@ RUN set -x \
   && apt-get -y update \
   && apt-get install -y \
   cron \
+  sysstat \
+  ca-certificates \
+  ntp \
   dialog \
   iproute2 \
+  libkeyutils1\
+  procps \
   krb5-user \
   logrotate \
   openssh-client \
   openssh-server \
   openssl \
   sudo \
+  && ssh-keygen -q -A \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
+  && /etc/init.d/ssh start \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
+  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
   # Permit ssh connections
-  && rm -rf /run/nologin
+  && rm -rf /run/nologin \
+  # Moving this because on Ubuntu crontab files are in /var/spool/cron/crontabs/
+  && mv /var/spool/cron/dbadmin /var/spool/cron/crontabs/ \
+  && apt remove --purge -y libpython2.7
   
 ENTRYPOINT ["/opt/vertica/bin/docker-entrypoint.sh"]
 
