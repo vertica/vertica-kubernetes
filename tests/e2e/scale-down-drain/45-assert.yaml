@@ -11,11 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies access to the external service through port 5433.  It does this
-# by connecting using vsql
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "kustomize build long-running-connection-primary/overlay | kubectl -n $NAMESPACE apply -f - "
-  - command: ../../../scripts/wait-for-long-running-connection.sh $NAMESPACE test-long-running-connection-primary
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-scale-down-drain
+status:
+  subclusterCount: 2
+  upNodeCount: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-scale-down-drain-sec1
+status:
+  replicas: 0

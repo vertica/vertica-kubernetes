@@ -14,36 +14,33 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
+  name: v-scale-down-drain
 status:
   subclusters:
     - installCount: 1
       addedToDBCount: 1
       upNodeCount: 1
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 1
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 1
+    - installCount: 2
+      addedToDBCount: 2
+      upNodeCount: 2
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-base-upgrade-sec1-0
+  name: v-scale-down-drain-pri1-0
   labels:
     vertica.com/client-routing: "true"
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-base-upgrade-pri1-0
+  name: v-scale-down-drain-sec1-0
   labels:
     vertica.com/client-routing: "true"
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-base-upgrade-pri2-0
+  name: v-scale-down-drain-sec1-1
   labels:
     vertica.com/client-routing: "true"

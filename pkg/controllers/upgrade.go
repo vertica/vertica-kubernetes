@@ -271,8 +271,15 @@ func (i *UpgradeManager) postNextStatusMsg(ctx context.Context, statusMsgs []str
 		return nil
 	}
 
-	if statusMsgs[msgIndex-1] == i.Vdb.Status.UpgradeStatus {
-		return i.setUpgradeStatus(ctx, statusMsgs[msgIndex])
+	// Compare with all status messages prior to msgIndex.  The current status
+	// in the vdb might not be the proceeding one if the vdb is stale.
+	for j := 0; j <= msgIndex-1; j++ {
+		if statusMsgs[j] == i.Vdb.Status.UpgradeStatus {
+			err := i.setUpgradeStatus(ctx, statusMsgs[msgIndex])
+			i.Log.Info("Status message after update", "msgIndex", msgIndex, "statusMsgs[msgIndex]", statusMsgs[msgIndex],
+				"UpgradeStatus", i.Vdb.Status.UpgradeStatus, "err", err)
+			return err
+		}
 	}
 	return nil
 }

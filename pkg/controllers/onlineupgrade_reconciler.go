@@ -783,13 +783,13 @@ func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName s
 
 	// Parse the output.  We requeue if there is an active connection.  This
 	// will rely on the UpgradeRequeueTime that is set to default
-	return ctrl.Result{Requeue: o.doesScHaveActiveConnections(stdout)}, nil
+	return ctrl.Result{Requeue: anyActiveConnections(stdout)}, nil
 }
 
-// doesScHaveActiveConnections will parse the output from vsql to see if there
+// anyActiveConnections will parse the output from vsql to see if there
 // are any active connections.  Returns true if there is at least one
 // connection.
-func (o *OnlineUpgradeReconciler) doesScHaveActiveConnections(stdout string) bool {
+func anyActiveConnections(stdout string) bool {
 	lines := strings.Split(stdout, "\n")
 	res := strings.Trim(lines[0], " ")
 	// As a convience for test, allow empty string to be treated as having no

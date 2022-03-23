@@ -65,6 +65,7 @@ const (
 	OperatorUpgrade                 = "OperatorUpgrade"
 	InvalidUpgradePath              = "InvalidUpgradePath"
 	RebalanceShards                 = "RebalanceShards"
+	DrainNodeRetry                  = "DrainNodeRetry"
 )
 
 // Constants for VerticaAutoscaler reconciler
