@@ -17,5 +17,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: bash -c "kustomize build long-running-connection-primary/overlay | kubectl -n $NAMESPACE apply -f - "
-  - command: ../../../scripts/wait-for-long-running-connection.sh $NAMESPACE test-long-running-connection-primary
+  - command: bash -c "kustomize build long-running-connection/overlay | kubectl -n $NAMESPACE apply -f - "
+  - command: ../../../scripts/wait-for-long-running-connection.sh $NAMESPACE test-long-running-connection

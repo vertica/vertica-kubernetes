@@ -64,4 +64,5 @@ const (
 	OperatorUpgrade                 = "OperatorUpgrade"
 	InvalidUpgradePath              = "InvalidUpgradePath"
 	RebalanceShards                 = "RebalanceShards"
+	DrainNodeRetry                  = "DrainNodeRetry"
 )

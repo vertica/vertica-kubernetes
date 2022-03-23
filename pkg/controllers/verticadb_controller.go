@@ -151,6 +151,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Remove Service label for any pods that are pending delete.  This will
 		// cause the Service object to stop routing traffic to them.
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, DelNodeApplyMethod, ""),
+		// Wait for any nodes that are pending delete with active connections to leave.
+		MakeDrainNodeReconciler(r, vdb, prunner, pfacts),
 		// Handles calls to admintools -t db_remove_subcluster
 		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),

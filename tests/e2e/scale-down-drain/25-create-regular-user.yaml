@@ -11,11 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies access to the external service through port 5433.  It does this
-# by connecting using vsql
+# Creates a user in the database that we will connect with to create a
+# long-running connection.
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: bash -c "kustomize build long-running-connection-primary/overlay | kubectl -n $NAMESPACE apply -f - "
-  - command: ../../../scripts/wait-for-long-running-connection.sh $NAMESPACE test-long-running-connection-primary
+  - command: kubectl exec -i -n $NAMESPACE v-scale-down-drain-pri1-0 -- vsql -c "create user joeuser; grant usage on schema public to joeuser;"
