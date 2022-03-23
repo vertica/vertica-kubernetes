@@ -230,7 +230,7 @@ func (o *OnlineUpgradeReconciler) createTransientSts(ctx context.Context) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
 	o.traceActorReconcile(actor)
 	or := actor.(*ObjReconciler)
 
@@ -570,7 +570,7 @@ func (o *OnlineUpgradeReconciler) deleteTransientSts(ctx context.Context) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
@@ -639,7 +639,7 @@ func (o *OnlineUpgradeReconciler) traceActorReconcile(actor ReconcileActor) {
 // routed to that.
 func (o *OnlineUpgradeReconciler) routeClientTraffic(ctx context.Context,
 	scName string, setTemporaryRouting bool) error {
-	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
 	objRec := actor.(*ObjReconciler)
 
 	scMap := o.Vdb.GenSubclusterMap()
