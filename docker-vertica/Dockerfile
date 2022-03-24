@@ -20,11 +20,8 @@ ADD ./packages/package-checksum-patcher.py /tmp/
 
 RUN set -x \
   # Update is needed to be confident that we're picking up
-  # fixed libraries.  We depend on malware check of container afterwards 
+  # fixed libraries.
   && yum -q -y update \
-  && yum -y update --security \
-  # CentOS 8 - enable powertools to fix locales issue
-  && bash -c "if [ \"$(rpm -E %{rhel})\" == '8' ]; then yum install -q -y dnf-plugins-core glibc-locale-source; yum -q config-manager --set-enabled powertools; fi" \
   && yum install -y \
   cronie \
   dialog \
@@ -35,8 +32,6 @@ RUN set -x \
   openssl \
   sudo \
   which \
-  # CentOS 8 - fixes - Unsupported locale character encoding: use a utf8 locale, not a ANSI_X3.4-1968 locale
-  && bash -c "if [ \"$(rpm -E %{rhel})\" == '8' ]; then localedef -i en_US -f UTF-8 en_US.UTF-8; fi" \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   && yum localinstall -q -y /tmp/${VERTICA_RPM} \
@@ -95,7 +90,7 @@ ARG DBADMIN_UID=5000
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
 COPY --from=builder /root/.ssh /root/.ssh
-COPY --from=builder /var/spool/cron /var/spool/cron
+COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 
 ENV LANG en_US.utf8
 ENV TZ UTC
@@ -104,21 +99,16 @@ ENV DEBIAN_FRONTEND noninteractive
 
 ADD ./packages/init.d.functions /etc/rc.d/init.d/functions
 
-
-# make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
-RUN apt-get update && apt-get install -y locales && rm -rf /var/lib/apt/lists/* \
-	&& localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
-
-
 RUN set -x \
   # COPY may not preserve file permissions on older docker versions.  This is a
   # workaround for that.  This will cause the image to increase a bit, but there
   # isn't much we copy over for this directory.
   && chown -R $DBADMIN_UID:$DBADMIN_GID /home/dbadmin \
   # Update is needed to be confident that we're picking up
-  # fixed libraries.  We depend on malware check of container afterwards 
+  # fixed libraries. 
   && apt-get -y update \
   && apt-get install -y \
+  locales \
   cron \
   sysstat \
   ca-certificates \
@@ -133,18 +123,16 @@ RUN set -x \
   openssh-server \
   openssl \
   sudo \
+  && rm -rf /var/lib/apt/lists/* \
+  # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
+  && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
+  && mkdir -p /run/sshd \
   && ssh-keygen -q -A \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
-  && /etc/init.d/ssh start \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
-  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
-  # Permit ssh connections
-  && rm -rf /run/nologin \
-  # Moving this because on Ubuntu crontab files are in /var/spool/cron/crontabs/
-  && mv /var/spool/cron/dbadmin /var/spool/cron/crontabs/ \
-  && apt remove --purge -y libpython2.7
+  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf 
   
 ENTRYPOINT ["/opt/vertica/bin/docker-entrypoint.sh"]
 
