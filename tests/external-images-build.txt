@@ -7,6 +7,7 @@ centos:centos7.9.2009
 golang:1.17
 gcr.io/distroless/static:nonroot
 alpine:3.15
+ubuntu:focal-20220316
 
 # Images needed for setting up the kind cluster for e2e testing
 kindest/node:v1.21.1
