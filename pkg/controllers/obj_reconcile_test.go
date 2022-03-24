@@ -130,14 +130,18 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Ports[0].Port).Should(Equal(int32(22)))
 		})
 
-		It("should have custom type, nodePort, and externalIPs and update them in ext service", func() {
+		It("should have custom type, nodePort, externalIPs, loadBalancerIP, serviceAnnotations and update them in ext service", func() {
 			vdb := vapi.MakeVDB()
 			desiredType := corev1.ServiceTypeNodePort
 			desiredNodePort := int32(30046)
 			desiredExternalIPs := []string{"80.10.11.12"}
+			desiredLoadBalancerIP := "80.20.21.22"
+			desiredServiceAnnotations := map[string]string{"foo": "bar", "dib": "dab"}
 			vdb.Spec.Subclusters[0].ServiceType = desiredType
 			vdb.Spec.Subclusters[0].NodePort = desiredNodePort
 			vdb.Spec.Subclusters[0].ExternalIPs = desiredExternalIPs
+			vdb.Spec.Subclusters[0].LoadBalancerIP = desiredLoadBalancerIP
+			vdb.Spec.Subclusters[0].ServiceAnnotations = desiredServiceAnnotations
 
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
@@ -148,14 +152,20 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Type).Should(Equal(desiredType))
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(desiredNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(desiredExternalIPs))
+			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(desiredLoadBalancerIP))
+			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(desiredServiceAnnotations))
 
 			// Update crd
 			newType := corev1.ServiceTypeLoadBalancer
 			newNodePort := int32(30047)
 			newExternalIPs := []string{"80.10.11.10"}
+			newLoadBalancerIP := "80.20.21.20"
+			newServiceAnnotations := map[string]string{"foo": "bar", "dib": "baz"}
 			vdb.Spec.Subclusters[0].ServiceType = newType
 			vdb.Spec.Subclusters[0].NodePort = newNodePort
 			vdb.Spec.Subclusters[0].ExternalIPs = newExternalIPs
+			vdb.Spec.Subclusters[0].LoadBalancerIP = newLoadBalancerIP
+			vdb.Spec.Subclusters[0].ServiceAnnotations = newServiceAnnotations
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			// Refresh any dependent objects
@@ -168,6 +178,8 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Type).Should(Equal(newType))
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(newNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(newExternalIPs))
+			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(newLoadBalancerIP))
+			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(newServiceAnnotations))
 		})
 
 		It("should have custom labels and annotations in service objects and statefulsets", func() {

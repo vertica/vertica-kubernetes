@@ -619,6 +619,18 @@ type Subcluster struct {
 	// specify. If not set, the external IP list is left empty in the service object.
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
 	ExternalIPs []string `json:"externalIPs,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// Specify IP address of LoadBalancer service for this subcluster.
+	// This field is ignored when serviceType != "LoadBalancer".
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// A map of key/value pairs appended to service metadata.annotations.
+	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
 }
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
