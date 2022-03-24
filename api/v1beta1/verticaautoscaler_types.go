@@ -55,6 +55,15 @@ type VerticaAutoscalerSpec struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
+	// When the scaling granularity is Subcluster, this field defines a template
+	// to use for when a new subcluster needs to be created.  The service name
+	// must match the subclusterServiceName parameter.  The name of the
+	// subcluster will be auto generated when the subcluster is added to the
+	// VerticaDB.
+	Template Subcluster `json:"template"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
 	// This is the total pod count for all subclusters that match the
 	// subclusterServiceName.  Changing this value may trigger a change in the
@@ -62,10 +71,6 @@ type VerticaAutoscalerSpec struct {
 	// left as the default and modified by the horizontal autoscaler through the
 	// /scale subresource.
 	TargetSize int32 `json:"targetSize,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:validation:Optional
-	Selector metav1.LabelSelector `json:"selector"`
 }
 
 type ScalingGranularityType string

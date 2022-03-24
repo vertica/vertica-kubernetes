@@ -968,14 +968,16 @@ func (s *Subcluster) GetServiceName() string {
 }
 
 // FindSubclusterForServiceName will find any subclusters that match the given service name
-func (v *VerticaDB) FindSubclusterForServiceName(svcName string) []*Subcluster {
-	scs := []*Subcluster{}
+func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
+	totalSize = int32(0)
+	scs = []*Subcluster{}
 	for i := range v.Spec.Subclusters {
 		if v.Spec.Subclusters[i].GetServiceName() == svcName {
 			scs = append(scs, &v.Spec.Subclusters[i])
+			totalSize += v.Spec.Subclusters[i].Size
 		}
 	}
-	return scs
+	return scs, totalSize
 }
 
 // RequiresTransientSubcluster checks if an online upgrade requires a

@@ -56,11 +56,8 @@ func (v *VASStatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 
 		v.Vas.Status.Selector = fmt.Sprintf("%s=%s", builder.SubclusterSvcNameLabel, v.Vas.Spec.SubclusterServiceName)
 
-		subclusters := vdb.FindSubclusterForServiceName(v.Vas.Spec.SubclusterServiceName)
-		v.Vas.Status.Size = 0
-		for i := range subclusters {
-			v.Vas.Status.Size += subclusters[i].Size
-		}
+		_, totSize := vdb.FindSubclusterForServiceName(v.Vas.Spec.SubclusterServiceName)
+		v.Vas.Status.Size = totSize
 
 		if !reflect.DeepEqual(vasOrig, v.Vas.Status) {
 			if err := v.VRec.Client.Status().Update(ctx, v.Vas); err != nil {
