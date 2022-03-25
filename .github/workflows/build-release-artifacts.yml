@@ -92,7 +92,7 @@ jobs:
       continue-on-error: false
       with:
         name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bundle
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bundle/
     
 
     
