@@ -15,13 +15,13 @@ jobs:
       uses: ./.github/actions/setup-rel-env
     
     - name: Install krew
-      run: make krew
+      run: make krew && export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
 
-    - name: Lint the charts
-      run: make lint
-      
     - name: Build CRD yaml
       run: make generate manifests
+    
+    - name: Lint the charts
+      run: make lint
 
     - name: Build vdb-gen
       run: make vdb-gen
