@@ -31,22 +31,20 @@ jobs:
         mkdir -p bin
         make vdb-gen
         pwd
-        ls bin/
+        ls -lhrt bin/
 
     - name: Build RBAC yaml
       run: |
         mkdir -p config/samples/rbac
         make create-default-rbac
-        pwd
-        ls config/samples/rbac/
+        ls -lhrt config/samples/rbac/
 
     - name: Build helm charts
       run: | 
         make create-helm-charts
         cd helm-charts
         helm package verticadb-operator
-        pwd
-        ls
+        ls -lhrt
     
     - name: Upload CRD
       uses: actions/upload-artifact@v2
@@ -70,7 +68,7 @@ jobs:
       continue-on-error: false
       with:
         name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
 
     - name: Upload Helm Charts
       uses: actions/upload-artifact@v2
@@ -78,7 +76,7 @@ jobs:
       continue-on-error: false
       with:
         name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/helm-charts/*.tgz
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
 
     - name: Upload vdb-gen
       uses: actions/upload-artifact@v2
@@ -86,7 +84,7 @@ jobs:
       continue-on-error: false
       with:
         name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/bin/vdb-gen
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
 
     - name: Upload Bundle
       uses: actions/upload-artifact@v2
@@ -94,7 +92,7 @@ jobs:
       continue-on-error: false
       with:
         name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/bundle
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bundle
     
 
     
