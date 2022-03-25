@@ -8,6 +8,7 @@ on:
 jobs:
   release-artifacts:
     runs-on: ubuntu-latest
+      
     steps:
     - uses: actions/checkout@v2
 
@@ -17,8 +18,8 @@ jobs:
     - name: Install krew
       run: | 
         make krew
-        export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
-
+        echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
+      
     - name: Build CRD yaml
       run: make generate manifests
     
