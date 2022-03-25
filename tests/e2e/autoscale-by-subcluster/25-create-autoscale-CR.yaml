@@ -14,15 +14,13 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-autoscale-by-pod-sc1
-status:
-  selector: vertica.com/subcluster-svc=sc1
-  size: 2
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale-by-pod-sc2
-status:
-  selector: vertica.com/subcluster-svc=sc2
-  size: 1
+  name: v-autoscale
+spec:
+  verticaDBName: v-autoscale-by-subcluster
+  subclusterServiceName: as
+  scalingGranularity: Subcluster
+  template:
+    name: as
+    size: 2
+    serviceName: as
+    isPrimary: false

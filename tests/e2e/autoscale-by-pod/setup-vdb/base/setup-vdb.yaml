@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-autoscale-sanity
+  name: v-autoscale-by-pod
 spec:
   image: kustomize-vertica-image
   communal:

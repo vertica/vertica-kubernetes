@@ -12,17 +12,26 @@
 # limitations under the License.
 
 apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
+kind: VerticaDB
 metadata:
-  name: v-autoscale-by-pod-sc1
-status:
-  selector: vertica.com/subcluster-svc=sc1
-  size: 2
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale-by-pod-sc2
-status:
-  selector: vertica.com/subcluster-svc=sc2
-  size: 1
+  name: v-autoscale-by-subcluster
+spec:
+  subclusters:
+    - name: pri
+      size: 3
+      isPrimary: true
+    - name: as-0
+      size: 2
+      isPrimary: false
+      serviceName: as
+    - name: as-1
+      size: 2
+      isPrimary: false
+      serviceName: as
+    - name: manual
+      size: 1
+      isPrimary: false
+    - name: as-2
+      size: 2
+      isPrimary: false
+      serviceName: as

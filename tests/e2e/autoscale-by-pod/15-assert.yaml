@@ -14,6 +14,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-autoscale-sanity-sc1
+  name: v-autoscale-by-pod-sc1
 status:
   replicas: 2

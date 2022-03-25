@@ -11,18 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-autoscale-by-pod-sc1
+  name: v-autoscale-by-subcluster-manual
 status:
-  selector: vertica.com/subcluster-svc=sc1
-  size: 2
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale-by-pod-sc2
-status:
-  selector: vertica.com/subcluster-svc=sc2
-  size: 1
+  replicas: 1

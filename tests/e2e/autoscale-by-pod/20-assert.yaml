@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-autoscale-sanity-sc1
+  name: v-autoscale-by-pod-sc1
 status:
   replicas: 2
   readyReplicas: 2
@@ -22,7 +22,7 @@ status:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-autoscale-sanity-sc2
+  name: v-autoscale-by-pod-sc2
 status:
   replicas: 1
   readyReplicas: 1
@@ -30,7 +30,7 @@ status:
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-autoscale-sanity
+  name: v-autoscale-by-pod
 status:
   subclusters:
     - installCount: 2

@@ -14,17 +14,17 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-autoscale-sanity-sc1
+  name: v-autoscale-by-pod-sc1
 spec:
-  verticaDBName: v-autoscale-sanity
+  verticaDBName: v-autoscale-by-pod
   subclusterServiceName: sc1
   scalingGranularity: Pod
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
-  name: v-autoscale-sanity-sc2
+  name: v-autoscale-by-pod-sc2
 spec:
-  verticaDBName: v-autoscale-sanity
+  verticaDBName: v-autoscale-by-pod
   subclusterServiceName: sc2
   scalingGranularity: Pod

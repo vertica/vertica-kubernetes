@@ -18,9 +18,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"github.com/docker/docker/pkg/namesgenerator"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"k8s.io/client-go/util/retry"
@@ -121,16 +119,15 @@ func (s *SubclusterScaleReconciler) considerAddingSubclusters(nowPodsNeeded int3
 
 // genNextSubclusterName will come up with a unique name to give a new subcluster
 func (s *SubclusterScaleReconciler) genNextSubclusterName(scMap map[string]*vapi.Subcluster) string {
-	name := ""
+	i := 0
 	for {
 		// Generate a name by using the docker naming convention.  Replacing '_'
 		// with '-' so that the name is valid.
-		name = fmt.Sprintf("%s-%s",
-			s.Vas.Spec.Template.Name,
-			strings.Replace(namesgenerator.GetRandomName(0), "_", "-", -1))
+		name := fmt.Sprintf("%s-%d", s.Vas.Spec.Template.Name, i)
 		_, ok := scMap[name]
 		if !ok {
 			return name
 		}
+		i++
 	}
 }

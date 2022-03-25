@@ -53,9 +53,9 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(3))
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
 		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vas.Spec.Template.Size))
+		Expect(fetchVdb.Spec.Subclusters[1].Name).Should(Equal("blah-0"))
 		Expect(fetchVdb.Spec.Subclusters[2].Size).Should(Equal(vas.Spec.Template.Size))
-		Expect(fetchVdb.Spec.Subclusters[1].Name).ShouldNot(Equal(fetchVdb.Spec.Subclusters[2]))
-		Expect(fetchVdb.Spec.Subclusters[1].Name).Should(HavePrefix(vas.Spec.Template.Name))
+		Expect(fetchVdb.Spec.Subclusters[2].Name).Should(Equal("blah-1"))
 	})
 
 	It("should shrink only when delta from targetPod is an entire subcluster", func() {

@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl scale -n $NAMESPACE verticaautoscaler/v-autoscale-sanity-sc1 --replicas 3
+  - script: kubectl scale -n $NAMESPACE verticaautoscaler/v-autoscale-by-pod-sc1 --replicas 3

@@ -5,7 +5,6 @@ go 1.17
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/bigkevmcd/go-configparser v0.0.0-20210106142102-909504547ead
-	github.com/docker/docker v20.10.14+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.0
 	github.com/go-logr/zapr v1.2.0
