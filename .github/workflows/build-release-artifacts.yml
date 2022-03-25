@@ -41,7 +41,6 @@ jobs:
         cd helm-charts
         helm package verticadb-operator
        
-    - name: Upload CRD
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
@@ -49,7 +48,6 @@ jobs:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
 
-    - name: Upload Custom SCC
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
@@ -57,7 +55,6 @@ jobs:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
     
-    - name: Upload Default RBAC
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
@@ -65,7 +62,6 @@ jobs:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
 
-    - name: Upload Helm Charts
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
@@ -73,7 +69,6 @@ jobs:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/helm-charts/*.tgz
 
-    - name: Upload vdb-gen
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
@@ -81,7 +76,6 @@ jobs:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/bin/vdb-gen
 
-    - name: Upload bundle
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
