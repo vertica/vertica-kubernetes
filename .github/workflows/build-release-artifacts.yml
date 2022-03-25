@@ -28,12 +28,12 @@ jobs:
 
     - name: Build vdb-gen
       run: | 
-        mkdir bin
+        mkdir -p bin
         make vdb-gen
 
     - name: Build RBAC yaml
       run: |
-        mkdir config/samples/rbac
+        mkdir -p config/samples/rbac
         make create-default-rbac
 
     - name: Build helm charts
