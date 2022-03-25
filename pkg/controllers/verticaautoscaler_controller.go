@@ -70,6 +70,8 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	actors := []ReconcileActor{
 		// Sanity check to make sure the VerticaDB referenced in vas actually exists.
 		MakeVDBVerifyReconciler(r, vas),
+		// Update the status portion of the VerticaAutoscaler
+		MakeVASStatusReconciler(r, vas),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),
@@ -99,5 +101,9 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&vapi.VerticaAutoscaler{}).
+		// Not a strict ownership, but this is used so that the operator will
+		// reconcile the VerticaAutoscaler for any change in the VerticaDB.
+		// This ensures the status fields are kept up to date.
+		Owns(&vapi.VerticaDB{}).
 		Complete(r)
 }

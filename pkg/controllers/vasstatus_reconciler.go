@@ -60,6 +60,7 @@ func (v *VASStatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 		v.Vas.Status.Size = totSize
 
 		if !reflect.DeepEqual(vasOrig, v.Vas.Status) {
+			v.VRec.Log.Info("Updating vas status", "status", v.Vas.Status)
 			if err := v.VRec.Client.Status().Update(ctx, v.Vas); err != nil {
 				return err
 			}

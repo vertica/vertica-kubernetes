@@ -92,7 +92,6 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		))
 	})
 
-	// SPILLY - add a bool, which controls whether you can scale down to 0.
 	It("should skip remove node and requeue because there aren't any pods running", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]

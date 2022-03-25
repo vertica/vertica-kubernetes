@@ -42,8 +42,9 @@ func (s *SubclusterScaleReconciler) Reconcile(ctx context.Context, req *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	if s.Vas.Spec.TargetSize == 0 {
-		s.VRec.Log.Info("Target not set yet in VerticaAutoscaler")
+	if !s.Vas.IsScalingAllowed() {
+		s.VRec.Log.Info("Scaling isn't allowed yet", "targetSize", s.Vas.Spec.TargetSize,
+			"allowScaleToZero", s.Vas.Spec.AllowScaleToZero)
 		return ctrl.Result{}, nil
 	}
 
@@ -89,9 +90,9 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 		sc := &s.Vdb.Spec.Subclusters[j]
 		if sc.GetServiceName() == s.Vas.Spec.SubclusterServiceName {
 			if podsToRemove > 0 && sc.Size <= podsToRemove {
-				s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters[:j], s.Vdb.Spec.Subclusters[j+1:]...)
 				podsToRemove -= sc.Size
-				s.VRec.Log.Info("Removing subcluster to VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", sc.Name)
+				s.VRec.Log.Info("Removing subcluster in VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", sc.Name)
+				s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters[:j], s.Vdb.Spec.Subclusters[j+1:]...)
 				continue
 			} else {
 				return origNumSubclusters != len(s.Vdb.Spec.Subclusters)
@@ -103,15 +104,15 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 
 // considerAddingSubclusters will grow the Vdb by adding new subclusters.
 // Changes are made in-place in s.Vdb
-func (s *SubclusterScaleReconciler) considerAddingSubclusters(nowPodsNeeded int32) bool {
+func (s *SubclusterScaleReconciler) considerAddingSubclusters(newPodsNeeded int32) bool {
 	origSize := len(s.Vdb.Spec.Subclusters)
 	scMap := s.Vdb.GenSubclusterMap()
-	for nowPodsNeeded >= s.Vas.Spec.Template.Size {
+	for newPodsNeeded >= s.Vas.Spec.Template.Size {
 		s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters, s.Vas.Spec.Template)
 		sc := &s.Vdb.Spec.Subclusters[len(s.Vdb.Spec.Subclusters)-1]
 		sc.Name = s.genNextSubclusterName(scMap)
 		scMap[sc.Name] = sc
-		nowPodsNeeded -= sc.Size
+		newPodsNeeded -= sc.Size
 		s.VRec.Log.Info("Adding subcluster to VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", sc.Name, "Size", sc.Size)
 	}
 	return origSize != len(s.Vdb.Spec.Subclusters)
