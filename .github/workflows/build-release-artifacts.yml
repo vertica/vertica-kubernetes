@@ -1,8 +1,8 @@
 name: Build Release Artifacts
 
-on:
-push:
-     branches: [release-artifacts]
+on: 
+  push:
+    branches: [release-artifacts]
   workflow_dispatch:
 
 jobs:
