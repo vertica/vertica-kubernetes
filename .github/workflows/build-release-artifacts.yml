@@ -30,12 +30,14 @@ jobs:
       run: | 
         mkdir -p bin
         make vdb-gen
+        pwd
         ls bin/
 
     - name: Build RBAC yaml
       run: |
         mkdir -p config/samples/rbac
         make create-default-rbac
+        pwd
         ls config/samples/rbac/
 
     - name: Build helm charts
@@ -43,44 +45,51 @@ jobs:
         make create-helm-charts
         cd helm-charts
         helm package verticadb-operator
+        pwd
         ls
-        
-    - uses: actions/upload-artifact@v2
+    
+    - name: Upload CRD
+      uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
 
-    - uses: actions/upload-artifact@v2
+    - name: Upload Custom SCC
+      uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
     
-    - uses: actions/upload-artifact@v2
+    - name: Upload RBAC
+      uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
 
-    - uses: actions/upload-artifact@v2
+    - name: Upload Helm Charts
+      uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/helm-charts/*.tgz
 
-    - uses: actions/upload-artifact@v2
+    - name: Upload vdb-gen
+      uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/bin/vdb-gen
 
-    - uses: actions/upload-artifact@v2
+    - name: Upload Bundle
+      uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
