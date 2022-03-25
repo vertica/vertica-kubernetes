@@ -90,7 +90,12 @@ const (
 
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {
-	Size     int32  `json:"size"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The total number of pods across all subclusters that share the service name.
+	Size int32 `json:"size"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The selector used to find all of the pods for this autoscaler.
 	Selector string `json:"selector"`
 }
 
@@ -100,6 +105,7 @@ type VerticaAutoscalerStatus struct {
 //+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.size,selectorpath=.status.selector
 //+kubebuilder:printcolumn:name="Size",type="integer",JSONPath=".status.size"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+//+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
 
 // VerticaAutoscaler is the Schema for the verticaautoscalers API
 type VerticaAutoscaler struct {
