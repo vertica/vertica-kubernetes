@@ -1,0 +1,32 @@
+name: 'Setup environment for release build'
+description: 'Will setup the environment with Docker, Go, kubectl, helm, krew, kuttl'
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17.3
+    
+    - name: Install kubectl
+      shell: bash
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+    - name: Install Docker
+      shell: bash
+      run: |
+        sudo apt-get remove docker docker-engine docker.io containerd runc
+        sudo apt-get install ca-certificates curl gnupg lsb-release -y
+        sudo apt-get install docker-ce docker-ce-cli containerd.io -y
+
+    - name: Install Helm
+      shell: bash
+      run: |
+        curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        chmod 700 get_helm.sh
+        ./get_helm.sh
+
+
+        
