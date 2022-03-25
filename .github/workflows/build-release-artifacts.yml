@@ -6,72 +6,69 @@ on:
   workflow_dispatch:
 
 jobs:
-
   release-artifacts:
     runs-on: ubuntu-latest
-      steps:
-
+    steps:
     - uses: actions/checkout@v2
 
     - name: Set up environment
       uses: ./.github/actions/setup-rel-env
       
     - name: Build vdb-gen
-        run: make vdb-gen
+      run: make vdb-gen
 
     - name: Build CRD yaml
-        run: make generate manifests create-helm-charts
+      run: make generate manifests create-helm-charts
 
     - name: Build RBAC yaml
-        run: make create-default-rbac
+      run: make create-default-rbac
 
     - name: Build helm charts
       run: | 
         make generate manifests create-helm-charts
         cd helm-charts && helm package verticadb-operator
        
+    - uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
 
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
-          path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
-
-    - uses: actions/upload-artifact@v2
-      if: always()
-      continue-on-error: false
-      with:
-        name: release-artifacts
-          path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
     
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
-          path: /home/runner/work/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
+        path: /home/runner/work/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
 
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
-          path: /home/runner/work/vertica-kubernetes/helm-charts
+        path: /home/runner/work/vertica-kubernetes/helm-charts
 
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
-          path: /home/runner/work/vertica-kubernetes/bin/vdb-gen
+        path: /home/runner/work/vertica-kubernetes/bin/vdb-gen
 
     - uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
         name: release-artifacts
-          path: /home/runner/work/vertica-kubernetes/bundle
+        path: /home/runner/work/vertica-kubernetes/bundle
     
 
     
