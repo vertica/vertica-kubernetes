@@ -71,11 +71,13 @@ else
   TAG?=latest 
 endif
 
+# Image Repo to use when pushing/pulling any image
+IMG_REPO?=
 # Image URL to use for building/pushing of the operator
-OPERATOR_IMG ?= verticadb-operator:$(TAG)
+OPERATOR_IMG ?= $(IMG_REPO)verticadb-operator:$(VERSION)
 export OPERATOR_IMG
 # Image URL to use for building/pushing of the vertica server
-VERTICA_IMG ?= vertica-k8s:$(TAG)
+VERTICA_IMG ?= $(IMG_REPO)vertica-k8s:$(TAG)
 export VERTICA_IMG
 # This is the base image to use for some upgrade tests.  We will always
 # upgrade to VERTICA_IMG, so BASE_VERTICA_IMG must be some image from a
@@ -88,7 +90,7 @@ export VERTICA_IMG
 BASE_VERTICA_IMG ?= <not-set>
 export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
-VLOGGER_IMG ?= vertica-logger:$(VLOGGER_VERSION)
+VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # The port number for the local registry
 REG_PORT ?= 5000
@@ -97,9 +99,9 @@ REG_PORT ?= 5000
 ifeq ($(shell $(KIND_CHECK)), 1)
 BUNDLE_IMG ?= localhost:$(REG_PORT)/verticadb-operator-bundle:$(TAG)
 else
-# BUNDLE_IMG defines the image:tag used for the bundle. 
-# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= verticadb-operator-bundle:$(VERSION)
+# BUNDLE_IMG defines the repo/image:tag used for the bundle. 
+# You can use it as an arg. (E.g make docker-build-bundle BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
+BUNDLE_IMG ?= $(IMG_REPO)verticadb-operator-bundle:$(VERSION)
 endif
 export BUNDLE_IMG
 
