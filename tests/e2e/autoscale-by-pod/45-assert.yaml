@@ -24,3 +24,10 @@ metadata:
   name: v-autoscale-by-pod-sc2
 status:
   replicas: 1
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-autoscale-by-pod-sc2
+status:
+  scalingCount: 2

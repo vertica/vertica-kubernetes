@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package status
+package vdbstatus
 
 import (
 	"context"

@@ -29,7 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/status"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -70,13 +70,13 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 // On success, each node will have a running vertica process.
 func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.Spec.AutoRestartVertica {
-		err := status.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
+		err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
 			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},
 		)
 		return ctrl.Result{}, err
 	}
 
-	err := status.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
+	err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
 		vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
 	)
 	if err != nil {

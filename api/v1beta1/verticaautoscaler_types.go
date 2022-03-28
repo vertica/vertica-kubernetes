@@ -91,8 +91,8 @@ const (
 // VerticaAutoscalerStatus defines the observed state of VerticaAutoscaler
 type VerticaAutoscalerStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The total number of pods across all subclusters that share the service name.
-	Size int32 `json:"size"`
+	// The total number of times the operator has scaled up/down the VerticaDB.
+	ScalingCount int `json:"scalingCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The selector used to find all of the pods for this autoscaler.
@@ -102,8 +102,8 @@ type VerticaAutoscalerStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:shortName=vas
 //+kubebuilder:subresource:status
-//+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.size,selectorpath=.status.selector
-//+kubebuilder:printcolumn:name="Size",type="integer",JSONPath=".status.size"
+//+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.scalingCount,selectorpath=.status.selector
+//+kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
 

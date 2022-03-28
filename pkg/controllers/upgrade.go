@@ -26,7 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/status"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -148,20 +148,20 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 // ImageChangeInProgress condition's.  We set the ImageChangeInProgress plus the
 // one defined in i.StatusCondition.
 func (i *UpgradeManager) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
-	err := status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
+	err := vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
 		vapi.VerticaDBCondition{Type: vapi.ImageChangeInProgress, Status: newVal},
 	)
 	if err != nil {
 		return err
 	}
-	return status.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
+	return vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
 		vapi.VerticaDBCondition{Type: i.StatusCondition, Status: newVal},
 	)
 }
 
 // setUpgradeStatus is a helper to set the upgradeStatus message.
 func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg string) error {
-	return status.UpdateUpgradeStatus(ctx, i.VRec.Client, i.Vdb, msg)
+	return vdbstatus.UpdateUpgradeStatus(ctx, i.VRec.Client, i.Vdb, msg)
 }
 
 // updateImageInStatefulSets will change the image in each of the statefulsets.

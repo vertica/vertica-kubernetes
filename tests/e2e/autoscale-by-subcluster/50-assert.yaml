@@ -24,3 +24,10 @@ metadata:
   name: v-autoscale-by-subcluster-manual
 status:
   replicas: 1
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-autoscale
+status:
+  scalingCount: 4

@@ -63,7 +63,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			return ctrl.Result{}, nil
 		}
 		log.Error(err, "failed to get VerticaAutoscaler")
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	// The actors that will be applied, in sequence, to reconcile a vas.
@@ -71,15 +71,13 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		// Sanity check to make sure the VerticaDB referenced in vas actually exists.
 		MakeVDBVerifyReconciler(r, vas),
 		// Update the status portion of the VerticaAutoscaler
-		MakeVASStatusReconciler(r, vas),
+		MakeSelectorReconciler(r, vas),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),
 		// If scaling granulariyt is Subcluster, this will create or delete
 		// entire subcluster to match the targetSize.
 		MakeSubclusterScaleReconciler(r, vas),
-		// Update the status portion of the VerticaAutoscaler
-		MakeVASStatusReconciler(r, vas),
 	}
 
 	// Iterate over each actor

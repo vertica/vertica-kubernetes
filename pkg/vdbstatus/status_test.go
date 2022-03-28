@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package status
+package vdbstatus
 
 import (
 	"context"
@@ -74,7 +74,7 @@ func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
-		"conditions Suite",
+		"vdbstatus Suite",
 		[]Reporter{printer.NewlineReporter{}})
 }
 

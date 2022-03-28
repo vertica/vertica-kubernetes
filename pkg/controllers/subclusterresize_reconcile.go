@@ -21,6 +21,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,13 +51,14 @@ func (s *SubclusterResizeReconciler) Reconcile(ctx context.Context, req *ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
-	return s.resizeSubcluster(ctx)
+	return s.resizeSubcluster(ctx, req)
 }
 
 // resizeSubcluster will change the size of a subcluster given the target pod count
-func (s *SubclusterResizeReconciler) resizeSubcluster(ctx context.Context) (ctrl.Result, error) {
+func (s *SubclusterResizeReconciler) resizeSubcluster(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	var res ctrl.Result
-	// Update the VerticaAutoscaler with a retry mechanism for any conflict updates
+	scalingDone := false
+	// Update the VerticaDB with a retry mechanism for any conflict updates
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if r, e := fetchVDB(ctx, s.VRec, s.Vas, s.Vdb); verrors.IsReconcileAborted(r, e) {
 			res = r
@@ -95,8 +97,20 @@ func (s *SubclusterResizeReconciler) resizeSubcluster(ctx context.Context) (ctrl
 			}
 		}
 
-		return s.VRec.Client.Update(ctx, s.Vdb)
+		err := s.VRec.Client.Update(ctx, s.Vdb)
+		if err == nil {
+			scalingDone = true
+		}
+		return err
 	})
+
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	if scalingDone {
+		err = vasstatus.IncrScalingCount(ctx, s.VRec.Client, s.VRec.Log, req)
+	}
 
 	return res, err
 }

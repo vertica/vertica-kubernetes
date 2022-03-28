@@ -17,4 +17,3 @@ metadata:
   name: v-autoscale
 status:
   selector: vertica.com/subcluster-svc=as
-  size: 0

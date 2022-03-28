@@ -23,7 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/status"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,7 +75,7 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 		return nil
 	}
 
-	if err := status.Update(ctx, s.Client, s.Vdb, refreshStatus); err != nil {
+	if err := vdbstatus.Update(ctx, s.Client, s.Vdb, refreshStatus); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
