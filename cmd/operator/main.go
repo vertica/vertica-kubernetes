@@ -285,6 +285,15 @@ func main() {
 	}
 
 	if getIsWebhookEnabled() {
+		// Set the minimum TLS version for the webhook.  By default it will use
+		// TLS 1.0, which has a lot of security flaws.  This is a hacky way to
+		// set this and should be removed once there is a supported way.
+		// There are numerous proposals to allow this to be configured from
+		// Manager -- based on most recent activity this one looks promising:
+		// https://github.com/kubernetes-sigs/controller-runtime/issues/852
+		webhookServer := mgr.GetWebhookServer()
+		webhookServer.TLSMinVersion = "1.3"
+
 		if err = (&verticacomv1beta1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
 			os.Exit(1)
