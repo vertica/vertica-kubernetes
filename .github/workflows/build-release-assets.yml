@@ -40,7 +40,7 @@ jobs:
 
     - name: Build Bundle
       run: | 
-        make bundle
+        IMG_REPO=vertica/ make bundle
         ls -lhrt
 
     - name: Build helm charts
@@ -50,19 +50,46 @@ jobs:
         helm package verticadb-operator
         ls -lhrt
     
-    - name: Upload Artifacts
+    - name: Upload CRD
       uses: actions/upload-artifact@v2
       if: always()
       continue-on-error: false
       with:
-        name: github-release-assets
-        path: | 
-          /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
-          /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
-          /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
-          /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
-          /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
 
+    - name: Upload Custom SCC
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
+    
+    - name: Upload RBAC
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
+
+    - name: Upload Helm Charts
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
+
+    - name: Upload vdb-gen
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
+        
     - name: Upload Bundle
       uses: actions/upload-artifact@v2
       if: always()
