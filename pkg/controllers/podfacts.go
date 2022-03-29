@@ -369,7 +369,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	cmd := []string{
 		"bash",
 		"-c",
-		fmt.Sprintf("ls -d %s/v_%s_node????_data", vdb.GetDBDataPath(), vdb.Spec.DBName),
+		fmt.Sprintf("ls -d %s/v_%s_node????_data", vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName)),
 	}
 	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		if !strings.Contains(stderr, "No such file or directory") {
