@@ -182,7 +182,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// didn't originate the install.  So we will skip the rest if running in
 	// that mode.
 	if r.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
-		return ctrl.Result{Requeue: r.shouldRequeueIfPodsNotRunning()}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Find any pods that need to have their IP updated.  These are nodes that
@@ -198,7 +198,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 		}
 	}
 
-	return ctrl.Result{Requeue: r.shouldRequeueIfPodsNotRunning()}, nil
+	return ctrl.Result{}, nil
 }
 
 // restartPods restart the down pods using admintools
@@ -600,15 +600,4 @@ func (r *RestartReconciler) setATPod(findFunc func() (*PodFact, bool)) bool {
 		r.ATPod = atPod.name
 	}
 	return true
-}
-
-// shouldRequeueIfPodsNotRunning is a helper function that will determine
-// whether a requeue of the reconcile is necessary because some pods are not yet
-// running.
-func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
-	if r.PFacts.countNotRunning() > 0 {
-		r.Log.Info("Requeue.  Some pods are not yet running.")
-		return true
-	}
-	return false
 }

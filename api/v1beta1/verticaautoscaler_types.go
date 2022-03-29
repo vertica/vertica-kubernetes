@@ -100,9 +100,13 @@ type VerticaAutoscalerStatus struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:resource:shortName=vas
+//+kubebuilder:resource:categories=all;verticaautoscalers,shortName=vas
 //+kubebuilder:subresource:status
+// SPILLY - statusPath needs to a replica count.  It needs to count the number
+// of pods in the vdb.  We will need to account for missing values.  Perhaps we
+// always requeue if the count doesn't equal expected.
 //+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.scalingCount,selectorpath=.status.selector
+//+kubebuilder:printcolumn:name="Granularity",type="string",JSONPath=".spec.scalingGranularity"
 //+kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}

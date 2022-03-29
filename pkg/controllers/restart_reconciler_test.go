@@ -500,7 +500,7 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(len(reip)).Should(Equal(1))
 	})
 
-	It("should requeue if one pod is not running", func() {
+	It("should not requeue if one pod is not running", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyScheduleOnly
 		sc := &vdb.Spec.Subclusters[0]
@@ -519,7 +519,7 @@ var _ = Describe("restart_reconciler", func() {
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{DownPodIndex}, PodNotReadOnly)
 
 		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should avoid restart_node of read-only nodes when that setting is used", func() {

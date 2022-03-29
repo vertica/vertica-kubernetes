@@ -221,6 +221,8 @@ func getLogger(logArgs Logging) *zap.Logger {
 	return zap.New(core, opts...)
 }
 
+// SPILLY - address this
+// nolint:funlen
 func main() {
 	flagArgs := &FlagConfig{}
 	flagArgs.setFlagArgs()
