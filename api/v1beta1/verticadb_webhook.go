@@ -681,6 +681,18 @@ func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) f
 						"externalIPs don't match other subcluster(s) sharing the same serviceName")
 					allErrs = append(allErrs, err)
 				}
+				if sc.LoadBalancerIP != osc.LoadBalancerIP {
+					err := field.Invalid(fieldPrefix.Child("loadBalancerIP").Index(i),
+						sc.LoadBalancerIP,
+						"loadBalancerIP doesn't match other subcluster(s) sharing the same serviceName")
+					allErrs = append(allErrs, err)
+				}
+				if !reflect.DeepEqual(sc.ServiceAnnotations, osc.ServiceAnnotations) {
+					err := field.Invalid(fieldPrefix.Child("serviceAnnotations").Index(i),
+						sc.ServiceAnnotations,
+						"serviceAnnotations don't match other subcluster(s) sharing the same serviceName")
+					allErrs = append(allErrs, err)
+				}
 				if sc.NodePort != osc.NodePort {
 					err := field.Invalid(fieldPrefix.Child("nodePort").Index(i),
 						sc.NodePort,

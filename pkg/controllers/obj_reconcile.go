@@ -239,8 +239,28 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 	if o.Mode == ObjReconcileModeIfNotFound {
 		return nil
 	}
+
+	newSvc := o.reconcileExtSvcFields(curSvc, expSvc, sc)
+
+	if newSvc != nil {
+		o.Log.Info("updating svc", "Name", svcName)
+		return o.VRec.Client.Update(ctx, newSvc)
+	}
+	return nil
+}
+
+// reconcileExtSvcFields merges relevant expSvc fields into curSvc, and
+// returns an updated curSvc if one or more fields changed. Returns nil
+// if nothing changed.
+func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
 	updated := false
 	const verticaPortIndex = 0
+
+	if !reflect.DeepEqual(expSvc.ObjectMeta.Annotations, curSvc.ObjectMeta.Annotations) {
+		updated = true
+		curSvc.ObjectMeta.Annotations = expSvc.ObjectMeta.Annotations
+	}
+
 	// Update the svc according to fields that changed w.r.t  expSvc
 	if expSvc.Spec.Type != curSvc.Spec.Type {
 		updated = true
@@ -270,6 +290,11 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 		curSvc.Spec.ExternalIPs = expSvc.Spec.ExternalIPs
 	}
 
+	if expSvc.Spec.LoadBalancerIP != curSvc.Spec.LoadBalancerIP {
+		updated = true
+		curSvc.Spec.LoadBalancerIP = expSvc.Spec.LoadBalancerIP
+	}
+
 	// Check if the selectors are changing
 	if !reflect.DeepEqual(expSvc.Spec.Selector, curSvc.Spec.Selector) {
 		curSvc.Spec.Selector = expSvc.Spec.Selector
@@ -277,8 +302,7 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 	}
 
 	if updated {
-		o.Log.Info("updating svc", "Name", svcName)
-		return o.VRec.Client.Update(ctx, curSvc)
+		return curSvc
 	}
 	return nil
 }
