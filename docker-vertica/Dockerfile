@@ -3,8 +3,9 @@
 # Copyright (c) 2021 Vertica
 #
 
-ARG OS_VERSION="7.9.2009"
-FROM centos:centos${OS_VERSION} as builder
+ARG BASE_OS_VERSION="focal-20220316"
+ARG BUILDER_OS_VERSION="7.9.2009"
+FROM centos:centos${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL=""
@@ -19,11 +20,8 @@ ADD ./packages/package-checksum-patcher.py /tmp/
 
 RUN set -x \
   # Update is needed to be confident that we're picking up
-  # fixed libraries.  We depend on malware check of container afterwards 
+  # fixed libraries.
   && yum -q -y update \
-  && yum -y update --security \
-  # CentOS 8 - enable powertools to fix locales issue
-  && bash -c "if [ \"$(rpm -E %{rhel})\" == '8' ]; then yum install -q -y dnf-plugins-core glibc-locale-source; yum -q config-manager --set-enabled powertools; fi" \
   && yum install -y \
   cronie \
   dialog \
@@ -34,8 +32,6 @@ RUN set -x \
   openssl \
   sudo \
   which \
-  # CentOS 8 - fixes - Unsupported locale character encoding: use a utf8 locale, not a ANSI_X3.4-1968 locale
-  && bash -c "if [ \"$(rpm -E %{rhel})\" == '8' ]; then localedef -i en_US -f UTF-8 en_US.UTF-8; fi" \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   && yum localinstall -q -y /tmp/${VERTICA_RPM} \
@@ -73,7 +69,6 @@ RUN set -x \
   && chmod a+x /opt/vertica/bin/docker-entrypoint.sh \
   && chown dbadmin:verticadba /home/dbadmin/.bash_profile \
   && chmod 600 /home/dbadmin/.bash_profile \
-  && ssh-keygen -q -A \
   && mkdir -p /root/.ssh \
   && cp -r /home/dbadmin/.ssh /root \
   && chmod 700 /root/.ssh \
@@ -87,7 +82,7 @@ RUN set -x \
   && chmod 777 -R /opt/vertica
 
 ##############################################################################################
-FROM centos:centos${OS_VERSION}
+FROM ubuntu:${BASE_OS_VERSION}
 
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
@@ -95,12 +90,12 @@ ARG DBADMIN_UID=5000
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
 COPY --from=builder /root/.ssh /root/.ssh
-COPY --from=builder /etc/ssh /etc/ssh
-COPY --from=builder /var/spool/cron /var/spool/cron
+COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 
 ENV LANG en_US.utf8
 ENV TZ UTC
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
+ENV DEBIAN_FRONTEND noninteractive
 
 ADD ./packages/init.d.functions /etc/rc.d/init.d/functions
 
@@ -110,36 +105,35 @@ RUN set -x \
   # isn't much we copy over for this directory.
   && chown -R $DBADMIN_UID:$DBADMIN_GID /home/dbadmin \
   # Update is needed to be confident that we're picking up
-  # fixed libraries.  We depend on malware check of container afterwards 
-  && yum -q -y update \
-  && yum -y update --security \
-  # CentOS 8 - enable powertools to fix locales issue
-  && bash -c "if [ \"$(rpm -E %{rhel})\" == '8' ]; then yum install -q -y dnf-plugins-core glibc-locale-source; yum -q config-manager --set-enabled powertools; fi" \
-  && yum install -y \
-  cronie \
+  # fixed libraries. 
+  && apt-get -y update \
+  && apt-get install -y \
+  locales \
+  cron \
+  sysstat \
+  ca-certificates \
+  ntp \
   dialog \
-  iproute \
-  krb5-workstation \
-  mcelog \
+  iproute2 \
+  libkeyutils1\
+  procps \
+  krb5-user \
   logrotate \
+  openssh-client \
   openssh-server \
-  openssh-clients \
   openssl \
   sudo \
-  which \
-  # CentOS 8 - fixes - Unsupported locale character encoding: use a utf8 locale, not a ANSI_X3.4-1968 locale
-  && bash -c "if [ \"$(rpm -E %{rhel})\" == '8' ]; then localedef -i en_US -f UTF-8 en_US.UTF-8; fi" \
+  && rm -rf /var/lib/apt/lists/* \
+  # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
+  && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
+  && mkdir -p /run/sshd \
+  && ssh-keygen -q -A \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
-  && yum clean all \
-  && /bin/rm -rf /var/cache/yum \
-  # Used by the agent to see if networking is enabled.  Empty file is okay
-  && touch /etc/sysconfig/network \
-  # Permit ssh connections
-  && rm -rf /run/nologin
-
+  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf 
+  
 ENTRYPOINT ["/opt/vertica/bin/docker-entrypoint.sh"]
 
 # vertica port
@@ -147,6 +141,6 @@ EXPOSE 5433
 # agent port
 EXPOSE 5444
 USER dbadmin
-LABEL os_family="centos"
+LABEL os_family="ubuntu"
 LABEL image_name="vertica_k8s"
 LABEL maintainer="K8 Team"
