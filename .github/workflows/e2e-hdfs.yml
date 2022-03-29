@@ -31,8 +31,7 @@ jobs:
         scripts/run-k8s-int-tests.sh -e tests/external-images-hdfs-ci.txt
 
     - uses: actions/upload-artifact@v2
-      if: always()
-      continue-on-error: true
+      if: failure()
       with:
         name: logs-e2e-hdfs
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*

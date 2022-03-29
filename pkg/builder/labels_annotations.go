@@ -168,3 +168,13 @@ func MakeStsSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]
 	m[SubclusterNameLabel] = sc.Name
 	return m
 }
+
+// MakeAnnotationsForSubclusterService returns a map of annotations
+// for Subcluster sc's service under VerticaDB vdb.
+func MakeAnnotationsForSubclusterService(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	annotations := MakeAnnotationsForObject(vdb)
+	for k, v := range sc.ServiceAnnotations {
+		annotations[k] = v
+	}
+	return annotations
+}

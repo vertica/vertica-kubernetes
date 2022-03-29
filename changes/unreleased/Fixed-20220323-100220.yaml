@@ -1,0 +1,6 @@
+kind: Fixed
+body: Handle the scenario when restart is needed because the StatefulSets were deleted.  We
+  ensure the necessary k8s objects are created before driving restart.
+time: 2022-03-23T10:02:20.221254417-03:00
+custom:
+  Issue: "186"

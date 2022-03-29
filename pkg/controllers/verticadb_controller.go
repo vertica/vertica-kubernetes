@@ -143,6 +143,11 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts),
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts),
+		// Creates any missing k8s objects.  This doesn't update existing
+		// objects.  It is a special case for when restart is needed but the
+		// pods are missing.  We don't want to apply all updates as we may need
+		// to go through necessary admintools commands to handle a scale down.
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -164,7 +169,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Creates or updates any k8s objects the CRD creates. This includes any
 		// statefulsets and service objects.
-		MakeObjReconciler(r, log, vdb, pfacts),
+		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Set version info in the annotations and check that it is the minimum
 		MakeVersionReconciler(r, log, vdb, prunner, pfacts, false),
 		// Handle calls to add hosts to admintools.conf

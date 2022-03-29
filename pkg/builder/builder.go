@@ -45,7 +45,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
 			Labels:      MakeLabelsForSvcObject(vdb, sc, "external"),
-			Annotations: MakeAnnotationsForObject(vdb),
+			Annotations: MakeAnnotationsForSubclusterService(vdb, sc),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: selectorLabelCreator(vdb, sc),
@@ -54,7 +54,8 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
 				{Port: 5444, Name: "agent"},
 			},
-			ExternalIPs: sc.ExternalIPs,
+			ExternalIPs:    sc.ExternalIPs,
+			LoadBalancerIP: sc.LoadBalancerIP,
 		},
 	}
 }

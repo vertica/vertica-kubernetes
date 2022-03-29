@@ -43,6 +43,15 @@ const (
 	ServerContainerIndex = 0
 )
 
+type ObjReconcileModeType string
+
+const (
+	// Consider all ways to reconcile - add, delete, modify k8s objects
+	ObjReconcileModeAll ObjReconcileModeType = "All"
+	// Only reconcile objects that are missing.
+	ObjReconcileModeIfNotFound ObjReconcileModeType = "IfNotFound"
+)
+
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is
 // used for a single reconcile iteration.
 type ObjReconciler struct {
@@ -51,15 +60,19 @@ type ObjReconciler struct {
 	Vdb               *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts            *PodFacts
 	PatchImageAllowed bool // a patch can only change the image when this is set to true
+	Mode              ObjReconcileModeType
 }
 
 // MakeObjReconciler will build an ObjReconciler object
-func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, pfacts *PodFacts) ReconcileActor {
+func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, pfacts *PodFacts,
+	mode ObjReconcileModeType) ReconcileActor {
 	return &ObjReconciler{
 		VRec:   vdbrecon,
 		Log:    log,
 		Vdb:    vdb,
-		PFacts: pfacts}
+		PFacts: pfacts,
+		Mode:   mode,
+	}
 }
 
 // Reconcile is the main driver for reconciliation of Kubernetes objects.
@@ -170,6 +183,11 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 // checkForDeletedSubcluster will remove any objects that were created for
 // subclusters that don't exist anymore.
 func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Result, error) {
+	if o.Mode == ObjReconcileModeIfNotFound {
+		// Bypass this check since we won't be doing any scale down with this reconcile
+		return ctrl.Result{}, nil
+	}
+
 	finder := iter.MakeSubclusterFinder(o.VRec.Client, o.Vdb)
 
 	// Find any statefulsets that need to be deleted
@@ -216,8 +234,33 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 	if err != nil && errors.IsNotFound(err) {
 		return o.createService(ctx, expSvc, svcName)
 	}
+	// Early out if the mode is set such that we only create objects if they are
+	// missing.  The rest of the logic will attempt to update an existing object.
+	if o.Mode == ObjReconcileModeIfNotFound {
+		return nil
+	}
+
+	newSvc := o.reconcileExtSvcFields(curSvc, expSvc, sc)
+
+	if newSvc != nil {
+		o.Log.Info("updating svc", "Name", svcName)
+		return o.VRec.Client.Update(ctx, newSvc)
+	}
+	return nil
+}
+
+// reconcileExtSvcFields merges relevant expSvc fields into curSvc, and
+// returns an updated curSvc if one or more fields changed. Returns nil
+// if nothing changed.
+func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
 	updated := false
 	const verticaPortIndex = 0
+
+	if !reflect.DeepEqual(expSvc.ObjectMeta.Annotations, curSvc.ObjectMeta.Annotations) {
+		updated = true
+		curSvc.ObjectMeta.Annotations = expSvc.ObjectMeta.Annotations
+	}
+
 	// Update the svc according to fields that changed w.r.t  expSvc
 	if expSvc.Spec.Type != curSvc.Spec.Type {
 		updated = true
@@ -247,6 +290,11 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 		curSvc.Spec.ExternalIPs = expSvc.Spec.ExternalIPs
 	}
 
+	if expSvc.Spec.LoadBalancerIP != curSvc.Spec.LoadBalancerIP {
+		updated = true
+		curSvc.Spec.LoadBalancerIP = expSvc.Spec.LoadBalancerIP
+	}
+
 	// Check if the selectors are changing
 	if !reflect.DeepEqual(expSvc.Spec.Selector, curSvc.Spec.Selector) {
 		curSvc.Spec.Selector = expSvc.Spec.Selector
@@ -254,8 +302,7 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 	}
 
 	if updated {
-		o.Log.Info("updating svc", "Name", svcName)
-		return o.VRec.Client.Update(ctx, curSvc)
+		return curSvc
 	}
 	return nil
 }
@@ -298,6 +345,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		// Invalidate the pod facts cache since we are creating a new sts
 		o.PFacts.Invalidate()
 		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
+	}
+	// The rest of the logic deals with updating an existing object.  We do an
+	// early out if the mode is set such that we only create objects if they are
+	// missing.
+	if o.Mode == ObjReconcileModeIfNotFound {
+		return ctrl.Result{}, nil
 	}
 
 	// We can only remove pods if we have called 'admintools -t db_remove_node'

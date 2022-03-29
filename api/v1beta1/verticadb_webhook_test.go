@@ -408,22 +408,26 @@ var _ = Describe("verticadb_webhook", func() {
 		const ServiceName = "main"
 		vdb.Spec.Subclusters = []Subcluster{
 			{
-				Name:        "sc1",
-				Size:        2,
-				IsPrimary:   true,
-				ServiceName: ServiceName,
-				ServiceType: "NodePort",
-				NodePort:    30008,
-				ExternalIPs: []string{"8.1.2.3", "8.2.4.6"},
+				Name:               "sc1",
+				Size:               2,
+				IsPrimary:          true,
+				ServiceName:        ServiceName,
+				ServiceType:        "NodePort",
+				NodePort:           30008,
+				ExternalIPs:        []string{"8.1.2.3", "8.2.4.6"},
+				LoadBalancerIP:     "9.0.1.2",
+				ServiceAnnotations: map[string]string{"foo": "bar", "dib": "dab"},
 			},
 			{
-				Name:        "sc2",
-				Size:        1,
-				IsPrimary:   false,
-				ServiceName: ServiceName,
-				ServiceType: "ClusterIP",
-				NodePort:    30009,
-				ExternalIPs: []string{"8.1.2.3", "7.2.4.6"},
+				Name:               "sc2",
+				Size:               1,
+				IsPrimary:          false,
+				ServiceName:        ServiceName,
+				ServiceType:        "ClusterIP",
+				NodePort:           30009,
+				ExternalIPs:        []string{"8.1.2.3", "7.2.4.6"},
+				LoadBalancerIP:     "9.3.4.5",
+				ServiceAnnotations: map[string]string{"foo": "bar", "dib": "baz"},
 			},
 		}
 		validateSpecValuesHaveErr(vdb, true)
@@ -432,6 +436,10 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Subclusters[1].NodePort = vdb.Spec.Subclusters[0].NodePort
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Subclusters[1].ExternalIPs[1] = vdb.Spec.Subclusters[0].ExternalIPs[1]
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].LoadBalancerIP = vdb.Spec.Subclusters[0].LoadBalancerIP
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[1].ServiceAnnotations = vdb.Spec.Subclusters[0].ServiceAnnotations
 		validateSpecValuesHaveErr(vdb, false)
 	})
 

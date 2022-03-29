@@ -43,10 +43,10 @@ import (
 var _ = Describe("obj_reconcile", func() {
 	ctx := context.Background()
 
-	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result) {
+	runReconciler := func(vdb *vapi.VerticaDB, expResult ctrl.Result, mode ObjReconcileModeType) {
 		// Create any dependent objects for the CRD.
 		pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-		objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+		objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, mode)
 		Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(expResult))
 	}
 
@@ -58,7 +58,7 @@ var _ = Describe("obj_reconcile", func() {
 		Expect(k8sClient.Get(ctx, nameLookup, createdVdb)).Should(Succeed())
 
 		if doReconcile {
-			runReconciler(vdb, ctrl.Result{})
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
 		}
 	}
 
@@ -130,14 +130,18 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Ports[0].Port).Should(Equal(int32(22)))
 		})
 
-		It("should have custom type, nodePort, and externalIPs and update them in ext service", func() {
+		It("should have custom type, nodePort, externalIPs, loadBalancerIP, serviceAnnotations and update them in ext service", func() {
 			vdb := vapi.MakeVDB()
 			desiredType := corev1.ServiceTypeNodePort
 			desiredNodePort := int32(30046)
 			desiredExternalIPs := []string{"80.10.11.12"}
+			desiredLoadBalancerIP := "80.20.21.22"
+			desiredServiceAnnotations := map[string]string{"foo": "bar", "dib": "dab"}
 			vdb.Spec.Subclusters[0].ServiceType = desiredType
 			vdb.Spec.Subclusters[0].NodePort = desiredNodePort
 			vdb.Spec.Subclusters[0].ExternalIPs = desiredExternalIPs
+			vdb.Spec.Subclusters[0].LoadBalancerIP = desiredLoadBalancerIP
+			vdb.Spec.Subclusters[0].ServiceAnnotations = desiredServiceAnnotations
 
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
@@ -148,19 +152,25 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Type).Should(Equal(desiredType))
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(desiredNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(desiredExternalIPs))
+			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(desiredLoadBalancerIP))
+			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(desiredServiceAnnotations))
 
 			// Update crd
 			newType := corev1.ServiceTypeLoadBalancer
 			newNodePort := int32(30047)
 			newExternalIPs := []string{"80.10.11.10"}
+			newLoadBalancerIP := "80.20.21.20"
+			newServiceAnnotations := map[string]string{"foo": "bar", "dib": "baz"}
 			vdb.Spec.Subclusters[0].ServiceType = newType
 			vdb.Spec.Subclusters[0].NodePort = newNodePort
 			vdb.Spec.Subclusters[0].ExternalIPs = newExternalIPs
+			vdb.Spec.Subclusters[0].LoadBalancerIP = newLoadBalancerIP
+			vdb.Spec.Subclusters[0].ServiceAnnotations = newServiceAnnotations
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 			// Refresh any dependent objects
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
 
@@ -168,6 +178,8 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Type).Should(Equal(newType))
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(newNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(newExternalIPs))
+			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(newLoadBalancerIP))
+			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(newServiceAnnotations))
 		})
 
 		It("should have custom labels and annotations in service objects and statefulsets", func() {
@@ -379,7 +391,7 @@ var _ = Describe("obj_reconcile", func() {
 
 			// Refresh any dependent objects
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			_, err := objr.Reconcile(ctx, &ctrl.Request{})
 			Expect(err).Should(Succeed())
 
@@ -456,7 +468,7 @@ var _ = Describe("obj_reconcile", func() {
 			defer deleteCrd(vdb)
 
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
 
@@ -467,7 +479,7 @@ var _ = Describe("obj_reconcile", func() {
 			defer deleteCrd(vdb)
 
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
 
@@ -478,7 +490,7 @@ var _ = Describe("obj_reconcile", func() {
 			defer deleteCrd(vdb)
 
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		})
 
@@ -493,7 +505,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			runReconciler(vdb, ctrl.Result{})
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
 		})
 
 		It("should requeue if the kerberos secret has a missing keytab", func() {
@@ -506,7 +518,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			runReconciler(vdb, ctrl.Result{Requeue: true})
+			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
 		It("should requeue if the ssh secret has a missing keys", func() {
@@ -520,7 +532,7 @@ var _ = Describe("obj_reconcile", func() {
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
-			runReconciler(vdb, ctrl.Result{Requeue: true})
+			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
 		It("should not proceed with the scale down if uninstall or db_remove_node hasn't happened", func() {
@@ -542,7 +554,7 @@ var _ = Describe("obj_reconcile", func() {
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.True, dbExists: tristate.False}
 
-			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.False, dbExists: tristate.True}
@@ -568,7 +580,7 @@ var _ = Describe("obj_reconcile", func() {
 
 			standby := vdb.BuildTransientSubcluster("")
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			actor := MakeObjReconciler(vdbRec, logger, vdb, &pfacts)
+			actor := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			objr := actor.(*ObjReconciler)
 			// Force a label change to reconcile with the transient subcluster
 			svcName := names.GenExtSvcName(vdb, sc)
@@ -579,6 +591,34 @@ var _ = Describe("obj_reconcile", func() {
 			svc2 := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, nm, svc2)).Should(Succeed())
 			Expect(reflect.DeepEqual(svc1.Spec.Selector, svc2.Spec.Selector)).Should(BeFalse())
+		})
+
+		It("should only create new objects and not update existin if ObjReconcileModeIfNotExists is used", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters = []vapi.Subcluster{
+				{Name: "sc1", Size: 1},
+				{Name: "sc2", Size: 1},
+			}
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			// Delete a statefulset and make a change that should cause a change
+			// in the other statefulset.  If we run with ObjReconcileModeIfNotExists
+			// we won't make the second change.  We'll only recreate the first sts.
+			sc1 := &vdb.Spec.Subclusters[0]
+			sc1StsName := names.GenStsName(vdb, sc1)
+			sts := &appsv1.StatefulSet{}
+			Expect(k8sClient.Get(ctx, sc1StsName, sts)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, sts)).Should(Succeed())
+			sc2 := &vdb.Spec.Subclusters[1]
+			sc2.Size = 2
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeIfNotFound)
+
+			Expect(k8sClient.Get(ctx, sc1StsName, sts)).Should(Succeed())
+			sc2StsName := names.GenStsName(vdb, sc2)
+			Expect(k8sClient.Get(ctx, sc2StsName, sts)).Should(Succeed())
+			Expect(*sts.Spec.Replicas).Should(Equal(int32(1)))
 		})
 	})
 })
