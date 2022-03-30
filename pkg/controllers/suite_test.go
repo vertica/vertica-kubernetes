@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -100,7 +101,7 @@ func TestAPIs(t *testing.T) {
 func setVerticaNodeNameInPodFacts(vdb *vapi.VerticaDB, sc *vapi.Subcluster, pf *PodFacts) {
 	for podIndex := int32(0); podIndex < sc.Size; podIndex++ {
 		podNm := names.GenPodName(vdb, sc, podIndex)
-		pf.Detail[podNm].vnodeName = fmt.Sprintf("v_%s_node%04d", vdb.Spec.DBName, podIndex+1)
+		pf.Detail[podNm].vnodeName = fmt.Sprintf("v_%s_node%04d", strings.ToLower(vdb.Spec.DBName), podIndex+1)
 		pf.Detail[podNm].compat21NodeName = fmt.Sprintf("node%04d", podIndex+1)
 	}
 }

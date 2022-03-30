@@ -21,6 +21,7 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   sshSecret: ssh-keys
+  dbName: MYDB
   communal:
     includeUIDInPath: true
   local:

@@ -1,0 +1,5 @@
+kind: Fixed
+body: Allow database names with uppercase characters
+time: 2022-03-30T08:39:58.008481538-03:00
+custom:
+  Issue: "191"
