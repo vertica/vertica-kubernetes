@@ -46,9 +46,9 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:Create
         - urn:alm:descriptor:com.tectonic.ui:select:Pod
         - urn:alm:descriptor:com.tectonic.ui:select:Subcluster
-      - description: This acts as a selector for the subclusters that being scaled
+      - description: This acts as a selector for the subclusters that are being scaled
           together. The name refers to the service name as defined in the subcluster
-          section of the VerticaDB, which is typically the same name as the subcluster
+          section of the VerticaDB, which if omitted is the same name as the subcluster
           name.
         displayName: Subcluster Service Name
         path: subclusterServiceName
@@ -64,9 +64,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: When the scaling granularity is Subcluster, this field defines
-          a template to use for when a new subcluster needs to be created.  The service
-          name must match the subclusterServiceName parameter.  The name of the subcluster
-          will be auto generated when the subcluster is added to the VerticaDB.
+          a template to use for when a new subcluster needs to be created.  If size
+          is 0, then the operator will use an existing subcluster to use as the template.  If
+          size is > 0, the service name must match the subclusterServiceName parameter.  The
+          name of the new subcluster is always auto generated.  If the name is set
+          here it will be used as a prefix for the new subcluster. Otherwise, we use
+          the name of this VerticaAutoscaler object as a prefix for all subclusters.
         displayName: Template
         path: template
       - description: 'Like nodeSelector this allows you to constrain the pod only
@@ -116,6 +119,10 @@ spec:
         path: template.isTransient
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'Specify IP address of LoadBalancer service for this subcluster.
+          This field is ignored when serviceType != "LoadBalancer". More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer'
+        displayName: Load Balancer IP
+        path: template.loadBalancerIP
       - description: The name of the subcluster. This is a required parameter. This
           cannot change after CRD creation.
         displayName: Name
@@ -145,6 +152,9 @@ spec:
         path: template.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: A map of key/value pairs appended to service metadata.annotations.
+        displayName: Service Annotations
+        path: template.serviceAnnotations
       - description: Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then they
           all share the same service object.  This allows for a single service object
@@ -184,19 +194,19 @@ spec:
         displayName: Tolerations
         path: template.tolerations
       - description: The name of the VerticaDB CR that this autoscaler is defined
-          for.  The VerticaDB object must exist in the same namespaec as this object.
+          for.  The VerticaDB object must exist in the same namespace as this object.
         displayName: Vertica DBName
         path: verticaDBName
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       statusDescriptors:
+      - description: The total number of times the operator has scaled up/down the
+          VerticaDB.
+        displayName: Scaling Count
+        path: scalingCount
       - description: The selector used to find all of the pods for this autoscaler.
         displayName: Selector
         path: selector
-      - description: The total number of pods across all subclusters that share the
-          service name.
-        displayName: Size
-        path: size
       version: v1beta1
     - description: VerticaDB is the CR that defines a Vertica Eon mode cluster that
         is managed by the verticadb-operator.
@@ -541,6 +551,10 @@ spec:
         path: subclusters[0].isTransient
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'Specify IP address of LoadBalancer service for this subcluster.
+          This field is ignored when serviceType != "LoadBalancer". More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer'
+        displayName: Load Balancer IP
+        path: subclusters[0].loadBalancerIP
       - description: The name of the subcluster. This is a required parameter. This
           cannot change after CRD creation.
         displayName: Name
@@ -570,6 +584,9 @@ spec:
         path: subclusters[0].resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: A map of key/value pairs appended to service metadata.annotations.
+        displayName: Service Annotations
+        path: subclusters[0].serviceAnnotations
       - description: Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then they
           all share the same service object.  This allows for a single service object
@@ -682,6 +699,10 @@ spec:
         path: temporarySubclusterRouting.template.isTransient
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'Specify IP address of LoadBalancer service for this subcluster.
+          This field is ignored when serviceType != "LoadBalancer". More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer'
+        displayName: Load Balancer IP
+        path: temporarySubclusterRouting.template.loadBalancerIP
       - description: The name of the subcluster. This is a required parameter. This
           cannot change after CRD creation.
         displayName: Name
@@ -711,6 +732,9 @@ spec:
         path: temporarySubclusterRouting.template.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: A map of key/value pairs appended to service metadata.annotations.
+        displayName: Service Annotations
+        path: temporarySubclusterRouting.template.serviceAnnotations
       - description: Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then they
           all share the same service object.  This allows for a single service object

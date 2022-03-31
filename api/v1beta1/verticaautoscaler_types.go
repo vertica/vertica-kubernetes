@@ -29,11 +29,11 @@ type VerticaAutoscalerSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
-	// VerticaDB object must exist in the same namespaec as this object.
+	// VerticaDB object must exist in the same namespace as this object.
 	VerticaDBName string `json:"verticaDBName,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:default:="Pod"
+	// +kubebuilder:default:="Subcluster"
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
 	// This defines how the scaling will happen.  This can be one of the following:
@@ -47,18 +47,24 @@ type VerticaAutoscalerSpec struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
-	// This acts as a selector for the subclusters that being scaled together.
+	// This acts as a selector for the subclusters that are being scaled together.
 	// The name refers to the service name as defined in the subcluster section
-	// of the VerticaDB, which is typically the same name as the subcluster name.
+	// of the VerticaDB, which if omitted is the same name as the subcluster name.
 	SubclusterServiceName string `json:"subclusterServiceName"`
+
+	// SPILLY - add logic to pick an existing subcluster as a template
+	// SPILLY - add logic to handle an empty name in the template
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// When the scaling granularity is Subcluster, this field defines a template
-	// to use for when a new subcluster needs to be created.  The service name
-	// must match the subclusterServiceName parameter.  The name of the
-	// subcluster will be auto generated when the subcluster is added to the
-	// VerticaDB.
+	// to use for when a new subcluster needs to be created.  If size is 0, then
+	// the operator will use an existing subcluster to use as the template.  If
+	// size is > 0, the service name must match the subclusterServiceName
+	// parameter.  The name of the new subcluster is always auto generated.  If
+	// the name is set here it will be used as a prefix for the new subcluster.
+	// Otherwise, we use the name of this VerticaAutoscaler object as a prefix
+	// for all subclusters.
 	Template Subcluster `json:"template"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -145,8 +151,8 @@ func MakeVAS() *VerticaAutoscaler {
 	vdbNm := MakeVDBName()
 	return &VerticaAutoscaler{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "vertica.com/v1beta1",
-			Kind:       "VerticaAutoscaler",
+			APIVersion: GroupVersion.String(),
+			Kind:       VerticaAutoscalerKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vasNm.Name,

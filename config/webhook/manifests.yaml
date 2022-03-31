@@ -32,6 +32,31 @@ webhooks:
     resources:
     - verticadbs
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-vertica-com-v1beta1-verticaautoscaler
+  failurePolicy: Fail
+  name: mverticaautoscaler.kb.io
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: "In"
+        values: [verticadb-operator-system]
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticaautoscalers
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -39,6 +64,31 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-vertica-com-v1beta1-verticaautoscaler
+  failurePolicy: Fail
+  name: vverticaautoscaler.kb.io
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: "In"
+        values: [verticadb-operator-system]
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticaautoscalers
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:

@@ -286,6 +286,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.VerticaAutoscalerReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		Log:    ctrl.Log.WithName("controllers").WithName("VerticaAutoscaler"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VerticaAutoscaler")
+		os.Exit(1)
+	}
+	//+kubebuilder:scaffold:builder
+
 	if getIsWebhookEnabled() {
 		// Set the minimum TLS version for the webhook.  By default it will use
 		// TLS 1.0, which has a lot of security flaws.  This is a hacky way to
@@ -300,18 +311,11 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
 			os.Exit(1)
 		}
+		if err = (&verticacomv1beta1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler")
+			os.Exit(1)
+		}
 	}
-
-	if err = (&controllers.VerticaAutoscalerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
-		Log:    ctrl.Log.WithName("controllers").WithName("VerticaAutoscaler"),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VerticaAutoscaler")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

@@ -27,4 +27,7 @@ resources:
   kind: VerticaAutoscaler
   path: github.com/vertica/vertica-kubernetes/api/v1beta1
   version: v1beta1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"

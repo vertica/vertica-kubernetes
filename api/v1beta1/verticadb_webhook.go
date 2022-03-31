@@ -134,7 +134,7 @@ func (v *VerticaDB) ValidateCreate() error {
 	if allErrs == nil {
 		return nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: "vertica.com", Kind: "VerticaDB"}, v.Name, allErrs)
+	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -145,7 +145,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	if allErrs == nil {
 		return nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: "vertica.com", Kind: "VerticaDB"}, v.Name, allErrs)
+	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type

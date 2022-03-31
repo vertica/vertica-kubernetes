@@ -34,9 +34,6 @@ import (
 
 // Important: Run "make" to regenerate code after modifying this file
 
-const VerticaDBKind = "VerticaDB"
-const VerticaDBAPIVersion = "vertica.com/v1beta1"
-
 // Set constant Upgrade Requeue Time
 const URTime = 30
 
@@ -867,8 +864,8 @@ func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
 	return &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "vertica.com/v1beta1",
-			Kind:       "VerticaDB",
+			APIVersion: GroupVersion.String(),
+			Kind:       VerticaDBKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
