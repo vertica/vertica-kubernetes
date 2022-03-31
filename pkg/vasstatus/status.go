@@ -31,7 +31,7 @@ import (
 
 func SetSelector(ctx context.Context, c client.Client, log logr.Logger, req *ctrl.Request) error {
 	return vasStatusUpdater(ctx, c, log, req, func(vas *vapi.VerticaAutoscaler) {
-		vas.Status.Selector = fmt.Sprintf("%s=%s", builder.SubclusterSvcNameLabel, vas.Spec.SubclusterServiceName)
+		vas.Status.Selector = getLabelSelector(vas)
 	})
 }
 
@@ -73,4 +73,16 @@ func vasStatusUpdater(ctx context.Context, c client.Client, log logr.Logger,
 		}
 		return nil
 	})
+}
+
+// getLabelSelector will generate the label for use in the vas status field
+func getLabelSelector(vas *vapi.VerticaAutoscaler) string {
+	return fmt.Sprintf("%s=%s,%s=%s,%s=%s",
+		builder.SubclusterSvcNameLabel,
+		vas.Spec.SubclusterServiceName,
+		builder.VDBInstanceLabel,
+		vas.Spec.VerticaDBName,
+		builder.ManagedByLabel,
+		builder.OperatorName,
+	)
 }

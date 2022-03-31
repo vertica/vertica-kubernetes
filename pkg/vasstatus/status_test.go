@@ -17,7 +17,6 @@ package vasstatus
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -25,7 +24,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,7 +83,7 @@ var _ = Describe("status", func() {
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
 
-		expectedSelector := fmt.Sprintf("%s=%s", builder.SubclusterSvcNameLabel, vas.Spec.SubclusterServiceName)
+		expectedSelector := getLabelSelector(vas)
 
 		nm := vapi.MakeVASName()
 		req := ctrl.Request{NamespacedName: nm}

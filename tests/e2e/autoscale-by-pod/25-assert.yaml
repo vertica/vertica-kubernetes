@@ -16,11 +16,11 @@ kind: VerticaAutoscaler
 metadata:
   name: v-autoscale-by-pod-sc1
 status:
-  selector: vertica.com/subcluster-svc=sc1
+  selector: vertica.com/subcluster-svc=sc1,app.kubernetes.io/instance=v-autoscale-by-pod,app.kubernetes.io/managed-by=verticadb-operator
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaAutoscaler
 metadata:
   name: v-autoscale-by-pod-sc2
 status:
-  selector: vertica.com/subcluster-svc=sc2
+  selector: vertica.com/subcluster-svc=sc2,app.kubernetes.io/instance=v-autoscale-by-pod,app.kubernetes.io/managed-by=verticadb-operator
