@@ -100,7 +100,7 @@ type VerticaAutoscalerStatus struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:resource:categories=all;verticaautoscalers,shortName=vas
+//+kubebuilder:resource:categories=all;vertica,shortName=vas
 //+kubebuilder:subresource:status
 // SPILLY - statusPath needs to a replica count.  It needs to count the number
 // of pods in the vdb.  We will need to account for missing values.  Perhaps we

@@ -797,7 +797,7 @@ type VerticaDBPodStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:categories=all;verticadbs,shortName=vdb
+//+kubebuilder:resource:categories=all;vertica,shortName=vdb
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
 //+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
