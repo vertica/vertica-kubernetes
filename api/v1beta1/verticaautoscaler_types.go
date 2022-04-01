@@ -52,9 +52,6 @@ type VerticaAutoscalerSpec struct {
 	// of the VerticaDB, which if omitted is the same name as the subcluster name.
 	SubclusterServiceName string `json:"subclusterServiceName"`
 
-	// SPILLY - add logic to pick an existing subcluster as a template
-	// SPILLY - add logic to handle an empty name in the template
-
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// When the scaling granularity is Subcluster, this field defines a template
@@ -171,4 +168,9 @@ func MakeVAS() *VerticaAutoscaler {
 // IsScalingAllowed returns true if scaling should proceed based on the targetSize
 func (v *VerticaAutoscaler) IsScalingAllowed() bool {
 	return v.Spec.TargetSize > 0 || v.Spec.AllowScaleToZero
+}
+
+// CanUseTemplate returns true if we can use the template provided in the spec
+func (v *VerticaAutoscaler) CanUseTemplate() bool {
+	return v.Spec.Template.Size > 0
 }

@@ -17,6 +17,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -155,5 +156,66 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(2))
 		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[1].Size))
 		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vdb.Spec.Subclusters[3].Size))
+	})
+
+	It("should use an existing subcluster as base if scaling out", func() {
+		vdb := vapi.MakeVDB()
+		const ServiceName = "as"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "base", Size: 5, ServiceName: ServiceName},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		vas := vapi.MakeVAS()
+		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
+		vas.Spec.SubclusterServiceName = ServiceName
+		vas.Spec.Template.Size = 0
+		vas.Spec.TargetSize = 8
+		test.CreateVAS(ctx, k8sClient, vas)
+		defer test.DeleteVAS(ctx, k8sClient, vas)
+
+		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
+		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &vapi.VerticaDB{}
+		vdbName := vdb.ExtractNamespacedName()
+		Expect(k8sClient.Get(ctx, vdbName, fetchVdb)).Should(Succeed())
+		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(1))
+
+		vasName := vapi.MakeVASName()
+		Expect(k8sClient.Get(ctx, vasName, vas)).Should(Succeed())
+		vas.Spec.TargetSize = 13
+		Expect(k8sClient.Update(ctx, vas)).Should(Succeed())
+
+		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
+		Expect(k8sClient.Get(ctx, vdbName, fetchVdb)).Should(Succeed())
+		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(2))
+		Expect(fetchVdb.Spec.Subclusters[0].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
+		Expect(fetchVdb.Spec.Subclusters[1].Size).Should(Equal(vdb.Spec.Subclusters[0].Size))
+		Expect(fetchVdb.Spec.Subclusters[1].Name).Should(Equal(fmt.Sprintf("%s-0", vas.Name)))
+		Expect(fetchVdb.Spec.Subclusters[1].ServiceName).Should(Equal(ServiceName))
+	})
+
+	It("should not scale out if no template or existing subcluster can be used", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		vas := vapi.MakeVAS()
+		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
+		vas.Spec.SubclusterServiceName = "BrandNewServiceName"
+		vas.Spec.Template.Size = 0
+		vas.Spec.TargetSize = 50
+		test.CreateVAS(ctx, k8sClient, vas)
+		defer test.DeleteVAS(ctx, k8sClient, vas)
+
+		req := ctrl.Request{NamespacedName: vapi.MakeVASName()}
+		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &vapi.VerticaDB{}
+		vdbName := vdb.ExtractNamespacedName()
+		Expect(k8sClient.Get(ctx, vdbName, fetchVdb)).Should(Succeed())
+		Expect(len(fetchVdb.Spec.Subclusters)).Should(Equal(1))
 	})
 })

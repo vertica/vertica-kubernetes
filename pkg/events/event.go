@@ -72,4 +72,5 @@ const (
 const (
 	SubclusterServiceNameNotFound = "SubclusterServiceNameNotFound"
 	VerticaDBNotFound             = "VerticaDBNotFound"
+	NoSubclusterTemplate          = "NoSubclusterTemplate"
 )

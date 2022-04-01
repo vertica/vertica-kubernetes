@@ -21,7 +21,9 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -121,28 +123,67 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 func (s *SubclusterScaleReconciler) considerAddingSubclusters(newPodsNeeded int32) bool {
 	origSize := len(s.Vdb.Spec.Subclusters)
 	scMap := s.Vdb.GenSubclusterMap()
-	for newPodsNeeded >= s.Vas.Spec.Template.Size {
-		s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters, s.Vas.Spec.Template)
-		sc := &s.Vdb.Spec.Subclusters[len(s.Vdb.Spec.Subclusters)-1]
-		sc.Name = s.genNextSubclusterName(scMap)
-		scMap[sc.Name] = sc
-		newPodsNeeded -= sc.Size
-		s.VRec.Log.Info("Adding subcluster to VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", sc.Name, "Size", sc.Size)
+	newScSize, ok := s.calcNextSubclusterSize(scMap)
+	if !ok {
+		return false
+	}
+	for newPodsNeeded >= newScSize {
+		newSc, _ := s.calcNextSubcluster(scMap)
+		s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters, *newSc)
+		scMap[newSc.Name] = &s.Vdb.Spec.Subclusters[len(s.Vdb.Spec.Subclusters)-1]
+		newPodsNeeded -= newSc.Size
+		s.VRec.Log.Info("Adding subcluster to VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", newSc.Name, "Size", newSc.Size)
 	}
 	return origSize != len(s.Vdb.Spec.Subclusters)
 }
 
 // genNextSubclusterName will come up with a unique name to give a new subcluster
 func (s *SubclusterScaleReconciler) genNextSubclusterName(scMap map[string]*vapi.Subcluster) string {
+	baseName := s.Vas.Spec.Template.Name
+	if baseName == "" {
+		baseName = s.Vas.Name
+	}
 	i := 0
 	for {
-		// Generate a name by using the docker naming convention.  Replacing '_'
-		// with '-' so that the name is valid.
-		name := fmt.Sprintf("%s-%d", s.Vas.Spec.Template.Name, i)
+		name := fmt.Sprintf("%s-%d", baseName, i)
 		_, ok := scMap[name]
 		if !ok {
 			return name
 		}
 		i++
 	}
+}
+
+// calcNextSubclusterSize returns the size of the next subcluster
+func (s *SubclusterScaleReconciler) calcNextSubclusterSize(scMap map[string]*vapi.Subcluster) (int32, bool) {
+	newSc, ok := s.calcNextSubcluster(scMap)
+	if !ok {
+		return 0, false
+	}
+	return newSc.Size, true
+}
+
+// calcNextSubcluster build the next subcluster that we want to add to the vdb.
+// Returns false for second parameter if unable to construct one.  An event will
+// be logged if this happens.
+func (s *SubclusterScaleReconciler) calcNextSubcluster(scMap map[string]*vapi.Subcluster) (*vapi.Subcluster, bool) {
+	// If the template is set, we will use that.  Otherwise, we try to use an
+	// existing subcluster (last one added) as a base.
+	if s.Vas.CanUseTemplate() {
+		sc := s.Vas.Spec.Template.DeepCopy()
+		sc.Name = s.genNextSubclusterName(scMap)
+		return sc, true
+	}
+	scs, _ := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.SubclusterServiceName)
+	if len(scs) == 0 {
+		msg := "Could not determine size of the next subcluster.  Template in VerticaAutoscaler "
+		msg += "is empty and no existing subcluster can be used as a base"
+		s.VRec.Log.Info(msg)
+		s.VRec.EVRec.Event(s.Vas, corev1.EventTypeWarning, events.NoSubclusterTemplate, msg)
+		return nil, false
+	}
+	newSc := scs[len(scs)-1].DeepCopy()
+	newSc.ServiceName = s.Vas.Spec.SubclusterServiceName
+	newSc.Name = s.genNextSubclusterName(scMap)
+	return newSc, true
 }
