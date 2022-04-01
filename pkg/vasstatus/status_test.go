@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,21 +102,41 @@ var _ = Describe("status", func() {
 
 		nm := vapi.MakeVASName()
 		req := ctrl.Request{NamespacedName: nm}
-		Expect(IncrScalingCount(ctx, k8sClient, logger, &req)).Should(Succeed())
+		Expect(ReportScalingOperation(ctx, k8sClient, logger, &req, int32(5))).Should(Succeed())
 
 		Expect(k8sClient.Get(ctx, nm, vas)).Should(Succeed())
 		Expect(vas.Status.ScalingCount).Should(Equal(1))
+		Expect(vas.Status.CurrentSize).Should(Equal(int32(5)))
 
-		Expect(IncrScalingCount(ctx, k8sClient, logger, &req)).Should(Succeed())
+		Expect(ReportScalingOperation(ctx, k8sClient, logger, &req, int32(10))).Should(Succeed())
 
 		Expect(k8sClient.Get(ctx, nm, vas)).Should(Succeed())
 		Expect(vas.Status.ScalingCount).Should(Equal(2))
+		Expect(vas.Status.CurrentSize).Should(Equal(int32(10)))
 	})
 
 	It("should tolerate a non-existent vas", func() {
 		nm := vapi.MakeVASName()
 		req := ctrl.Request{NamespacedName: nm}
-		Expect(IncrScalingCount(ctx, k8sClient, logger, &req)).Should(Succeed())
+		Expect(ReportScalingOperation(ctx, k8sClient, logger, &req, 0)).Should(Succeed())
 		Expect(SetSelector(ctx, k8sClient, logger, &req)).Should(Succeed())
+	})
+
+	It("should update the status condition", func() {
+		vas := vapi.MakeVAS()
+		test.CreateVAS(ctx, k8sClient, vas)
+		defer test.DeleteVAS(ctx, k8sClient, vas)
+
+		nm := vapi.MakeVASName()
+		req := ctrl.Request{NamespacedName: nm}
+		cond := vapi.VerticaAutoscalerCondition{
+			Type:   vapi.TargetSizeInitialized,
+			Status: corev1.ConditionTrue,
+		}
+		Expect(UpdateCondition(ctx, k8sClient, logger, &req, cond)).Should(Succeed())
+
+		Expect(k8sClient.Get(ctx, nm, vas)).Should(Succeed())
+		Expect(len(vas.Status.Conditions)).Should(Equal(1))
+		Expect(vas.Status.Conditions[vapi.TargetSizeInitializedIndex].Status).Should(Equal(cond.Status))
 	})
 })

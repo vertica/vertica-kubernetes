@@ -18,6 +18,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -26,6 +27,7 @@ import (
 type VerticaAutoscalerSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// SPILLY - maybe rename to VerticaDB
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
@@ -45,6 +47,7 @@ type VerticaAutoscalerSpec struct {
 	//   Sizes of existing subclusters will remain the same.
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
+	// SPILLY - maybe rename to ServiceName?
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
@@ -70,9 +73,9 @@ type VerticaAutoscalerSpec struct {
 	// This is the total pod count for all subclusters that match the
 	// subclusterServiceName.  Changing this value may trigger a change in the
 	// VerticaDB that is associated with this object.  This value is generally
-	// left as the default and modified by the horizontal autoscaler through the
-	// /scale subresource.
-	TargetSize int32 `json:"targetSize,omitempty"`
+	// left as zero.  It will get initialized in the operator and then modified
+	// via the /scale subresource by the horizontal autoscaler.
+	TargetSize int32 `json:"targetSize"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
@@ -98,18 +101,54 @@ type VerticaAutoscalerStatus struct {
 	ScalingCount int `json:"scalingCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The observed size of all pods that are routed through the service name.
+	CurrentSize int32 `json:"currentSize"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The selector used to find all of the pods for this autoscaler.
 	Selector string `json:"selector"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Conditions for VerticaAutoscaler
+	Conditions []VerticaAutoscalerCondition `json:"conditions,omitempty"`
 }
+
+// VerticaAutoscalerCondition defines condition for VerticaAutoscaler
+type VerticaAutoscalerCondition struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Type is the type of the condition
+	Type VerticaAutoscalerConditionType `json:"type"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Status is the status of the condition
+	// can be True, False or Unknown
+	Status corev1.ConditionStatus `json:"status"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+}
+
+type VerticaAutoscalerConditionType string
+
+const (
+	// TargetSizeInitialized indicates whether the operator has initialized targetSize in the spec
+	TargetSizeInitialized VerticaAutoscalerConditionType = "TargetSizeInitialized"
+)
+
+// Fixed index entries for each condition.
+const (
+	TargetSizeInitializedIndex = iota
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:categories=all;vertica,shortName=vas
 //+kubebuilder:subresource:status
-// SPILLY - statusPath needs to a replica count.  It needs to count the number
-// of pods in the vdb.  We will need to account for missing values.  Perhaps we
-// always requeue if the count doesn't equal expected.
-//+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.scalingCount,selectorpath=.status.selector
+//+kubebuilder:subresource:scale:specpath=.spec.targetSize,statuspath=.status.currentSize,selectorpath=.status.selector
 //+kubebuilder:printcolumn:name="Granularity",type="string",JSONPath=".spec.scalingGranularity"
+//+kubebuilder:printcolumn:name="Current Size",type="integer",JSONPath=".status.currentSize"
+//+kubebuilder:printcolumn:name="Target Size",type="integer",JSONPath=".spec.targetSize"
 //+kubebuilder:printcolumn:name="Scaling Count",type="integer",JSONPath=".status.scalingCount"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}

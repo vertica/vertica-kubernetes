@@ -31,3 +31,4 @@ metadata:
   name: v-autoscale
 status:
   scalingCount: 4
+  currentSize: 0

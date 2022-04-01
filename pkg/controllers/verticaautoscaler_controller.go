@@ -70,6 +70,10 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	actors := []ReconcileActor{
 		// Sanity check to make sure the VerticaDB referenced in vas actually exists.
 		MakeVDBVerifyReconciler(r, vas),
+		// Initialize targetSize in new VerticaAutoscaler objects
+		MakeTargetSizeInitializerReconciler(r, vas),
+		// Update the currentSize in the status
+		MakeVASStatusReconciler(r, vas),
 		// Update the status portion of the VerticaAutoscaler
 		MakeSelectorReconciler(r, vas),
 		// If scaling granularity is Pod, this will resize existing subclusters

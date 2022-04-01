@@ -109,7 +109,8 @@ func (s *SubclusterResizeReconciler) resizeSubcluster(ctx context.Context, req *
 	}
 
 	if scalingDone {
-		err = vasstatus.IncrScalingCount(ctx, s.VRec.Client, s.VRec.Log, req)
+		_, totSize := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.SubclusterServiceName)
+		err = vasstatus.ReportScalingOperation(ctx, s.VRec.Client, s.VRec.Log, req, totSize)
 	}
 
 	return res, err

@@ -17,3 +17,10 @@ metadata:
   name: v-autoscale-by-subcluster-v-autoscale-0
 status:
   replicas: 3
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-autoscale
+status:
+  currentSize: 6

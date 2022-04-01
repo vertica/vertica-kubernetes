@@ -93,13 +93,14 @@ func (s *SubclusterScaleReconciler) scaleSubcluster(ctx context.Context, req *ct
 	}
 
 	if scalingDone {
-		err = vasstatus.IncrScalingCount(ctx, s.VRec.Client, s.VRec.Log, req)
+		_, totSize := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.SubclusterServiceName)
+		err = vasstatus.ReportScalingOperation(ctx, s.VRec.Client, s.VRec.Log, req, totSize)
 	}
 	return res, err
 }
 
-// considerRemovingSubclusters will shrink the Vdb by removing new subclusters.
-// Changes are made in-place in s.Vdb
+// considerRemovingSubclusters will shrink the Vdb by removing subclusters --
+// picking the last one first.  Changes are made in-place in s.Vdb
 func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int32) bool {
 	origNumSubclusters := len(s.Vdb.Spec.Subclusters)
 	for j := len(s.Vdb.Spec.Subclusters) - 1; j >= 0; j-- {

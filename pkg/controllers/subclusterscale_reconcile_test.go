@@ -148,6 +148,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 		vasName := vapi.MakeVASName()
 		Expect(k8sClient.Get(ctx, vasName, vas)).Should(Succeed())
 		vas.Spec.AllowScaleToZero = true
+		vas.Spec.TargetSize = 0
 		Expect(k8sClient.Update(ctx, vas)).Should(Succeed())
 
 		Expect(vasRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{}))

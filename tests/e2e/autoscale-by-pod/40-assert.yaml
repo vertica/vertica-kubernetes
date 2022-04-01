@@ -31,3 +31,4 @@ metadata:
   name: v-autoscale-by-pod-sc2
 status:
   scalingCount: 1
+  currentSize: 3
