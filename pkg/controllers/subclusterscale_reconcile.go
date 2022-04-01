@@ -66,7 +66,7 @@ func (s *SubclusterScaleReconciler) scaleSubcluster(ctx context.Context, req *ct
 			return e
 		}
 
-		_, totSize := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.SubclusterServiceName)
+		_, totSize := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.ServiceName)
 		delta := s.Vas.Spec.TargetSize - totSize
 		switch {
 		case delta < 0:
@@ -93,7 +93,7 @@ func (s *SubclusterScaleReconciler) scaleSubcluster(ctx context.Context, req *ct
 	}
 
 	if scalingDone {
-		_, totSize := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.SubclusterServiceName)
+		_, totSize := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.ServiceName)
 		err = vasstatus.ReportScalingOperation(ctx, s.VRec.Client, s.VRec.Log, req, totSize)
 	}
 	return res, err
@@ -105,7 +105,7 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 	origNumSubclusters := len(s.Vdb.Spec.Subclusters)
 	for j := len(s.Vdb.Spec.Subclusters) - 1; j >= 0; j-- {
 		sc := &s.Vdb.Spec.Subclusters[j]
-		if sc.GetServiceName() == s.Vas.Spec.SubclusterServiceName {
+		if sc.GetServiceName() == s.Vas.Spec.ServiceName {
 			if podsToRemove > 0 && sc.Size <= podsToRemove {
 				podsToRemove -= sc.Size
 				s.VRec.Log.Info("Removing subcluster in VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", sc.Name)
@@ -175,7 +175,7 @@ func (s *SubclusterScaleReconciler) calcNextSubcluster(scMap map[string]*vapi.Su
 		sc.Name = s.genNextSubclusterName(scMap)
 		return sc, true
 	}
-	scs, _ := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.SubclusterServiceName)
+	scs, _ := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.ServiceName)
 	if len(scs) == 0 {
 		msg := "Could not determine size of the next subcluster.  Template in VerticaAutoscaler "
 		msg += "is empty and no existing subcluster can be used as a base"
@@ -184,7 +184,7 @@ func (s *SubclusterScaleReconciler) calcNextSubcluster(scMap map[string]*vapi.Su
 		return nil, false
 	}
 	newSc := scs[len(scs)-1].DeepCopy()
-	newSc.ServiceName = s.Vas.Spec.SubclusterServiceName
+	newSc.ServiceName = s.Vas.Spec.ServiceName
 	newSc.Name = s.genNextSubclusterName(scMap)
 	return newSc, true
 }

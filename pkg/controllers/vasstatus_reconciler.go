@@ -39,6 +39,6 @@ func (v *VASStatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 	if res, err := fetchVDB(ctx, v.VRec, v.Vas, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	_, totSize := vdb.FindSubclusterForServiceName(v.Vas.Spec.SubclusterServiceName)
+	_, totSize := vdb.FindSubclusterForServiceName(v.Vas.Spec.ServiceName)
 	return ctrl.Result{}, vasstatus.RefreshCurrentSize(ctx, v.VRec.Client, v.VRec.Log, req, totSize)
 }

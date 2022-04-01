@@ -61,7 +61,7 @@ func (v *TargetSizeInitializerReconciler) initTargetSize(ctx context.Context) (c
 		if res, e = fetchVDB(ctx, v.VRec, v.Vas, vdb); verrors.IsReconcileAborted(res, e) {
 			return e
 		}
-		_, totSize := vdb.FindSubclusterForServiceName(v.Vas.Spec.SubclusterServiceName)
+		_, totSize := vdb.FindSubclusterForServiceName(v.Vas.Spec.ServiceName)
 
 		if v.Vas.Spec.TargetSize != totSize {
 			v.VRec.Log.Info("Updating targetSize in vas", "targetSize", totSize)

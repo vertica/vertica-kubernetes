@@ -75,7 +75,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 
 		vas := vapi.MakeVAS()
 		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
-		vas.Spec.SubclusterServiceName = ServiceName
+		vas.Spec.ServiceName = ServiceName
 		vas.Spec.Template = vapi.Subcluster{
 			Name:        "blah",
 			ServiceName: ServiceName,
@@ -126,7 +126,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 
 		vas := vapi.MakeVAS()
 		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
-		vas.Spec.SubclusterServiceName = ServiceName
+		vas.Spec.ServiceName = ServiceName
 		vas.Spec.Template = vapi.Subcluster{
 			Name:        "blah",
 			ServiceName: ServiceName,
@@ -170,7 +170,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 
 		vas := vapi.MakeVAS()
 		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
-		vas.Spec.SubclusterServiceName = ServiceName
+		vas.Spec.ServiceName = ServiceName
 		vas.Spec.Template.Size = 0
 		vas.Spec.TargetSize = 8
 		test.CreateVAS(ctx, k8sClient, vas)
@@ -205,7 +205,7 @@ var _ = Describe("subclusterscale_reconcile", func() {
 
 		vas := vapi.MakeVAS()
 		vas.Spec.ScalingGranularity = vapi.SubclusterScalingGranularity
-		vas.Spec.SubclusterServiceName = "BrandNewServiceName"
+		vas.Spec.ServiceName = "BrandNewServiceName"
 		vas.Spec.Template.Size = 0
 		vas.Spec.TargetSize = 50
 		test.CreateVAS(ctx, k8sClient, vas)

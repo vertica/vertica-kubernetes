@@ -36,7 +36,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas := MakeVAS()
 		vas.Spec.Template.ServiceName = ""
 		vas.Default()
-		Expect(vas.Spec.Template.ServiceName).Should(Equal(vas.Spec.SubclusterServiceName))
+		Expect(vas.Spec.Template.ServiceName).Should(Equal(vas.Spec.ServiceName))
 	})
 
 	It("should fail if the service name differs", func() {
@@ -46,7 +46,7 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		vas.Spec.Template.ServiceName = ""
 		Expect(vas.ValidateCreate()).Should(Succeed())
 		Expect(vas.ValidateUpdate(MakeVAS())).ShouldNot(Succeed())
-		vas.Spec.Template.ServiceName = vas.Spec.SubclusterServiceName
+		vas.Spec.Template.ServiceName = vas.Spec.ServiceName
 		Expect(vas.ValidateUpdate(MakeVAS())).Should(Succeed())
 	})
 })

@@ -43,7 +43,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		vas := vapi.MakeVAS()
-		vas.Spec.SubclusterServiceName = "not-there"
+		vas.Spec.ServiceName = "not-there"
 		vas.Spec.TargetSize = 5
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
@@ -64,7 +64,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 
 		vas := vapi.MakeVAS()
 		vas.Spec.TargetSize = TargetSize
-		vas.Spec.SubclusterServiceName = ScName
+		vas.Spec.ServiceName = ScName
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -84,7 +84,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 
 		vas := vapi.MakeVAS()
 		vas.Spec.TargetSize = 0
-		vas.Spec.SubclusterServiceName = vdb.Spec.Subclusters[0].GetServiceName()
+		vas.Spec.ServiceName = vdb.Spec.Subclusters[0].GetServiceName()
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -104,7 +104,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 
 		vas := vapi.MakeVAS()
 		vas.Spec.TargetSize = vdb.Spec.Subclusters[0].Size
-		vas.Spec.SubclusterServiceName = vdb.Spec.Subclusters[0].GetServiceName()
+		vas.Spec.ServiceName = vdb.Spec.Subclusters[0].GetServiceName()
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -131,7 +131,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		vas := vapi.MakeVAS()
 		const NumPodsToAdd = 5
 		vas.Spec.TargetSize = vdb.Spec.Subclusters[0].Size + vdb.Spec.Subclusters[1].Size + NumPodsToAdd
-		vas.Spec.SubclusterServiceName = TargetSvcName
+		vas.Spec.ServiceName = TargetSvcName
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
 
@@ -160,7 +160,7 @@ var _ = Describe("subclusterresize_reconcile", func() {
 		vas := vapi.MakeVAS()
 		const NumPodsToRemove = 3
 		vas.Spec.TargetSize = vdb.Spec.Subclusters[0].Size + vdb.Spec.Subclusters[2].Size - NumPodsToRemove
-		vas.Spec.SubclusterServiceName = TargetSvcName
+		vas.Spec.ServiceName = TargetSvcName
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
 

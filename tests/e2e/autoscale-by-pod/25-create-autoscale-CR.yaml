@@ -17,7 +17,7 @@ metadata:
   name: v-autoscale-by-pod-sc1
 spec:
   verticaDBName: v-autoscale-by-pod
-  subclusterServiceName: sc1
+  serviceName: sc1
   scalingGranularity: Pod
 ---
 apiVersion: vertica.com/v1beta1
@@ -26,5 +26,5 @@ metadata:
   name: v-autoscale-by-pod-sc2
 spec:
   verticaDBName: v-autoscale-by-pod
-  subclusterServiceName: sc2
+  serviceName: sc2
   scalingGranularity: Pod

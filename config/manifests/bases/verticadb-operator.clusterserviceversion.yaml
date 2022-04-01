@@ -35,11 +35,11 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: 'This defines how the scaling will happen.  This can be one of
           the following: - Pod: Only increase or decrease the size of an existing
-          subcluster.   This cannot be used if more than one subcluster is selected
-          with   subclusterServiceName. - Subcluster: Scaling will be achieved by
-          creating or deleting entire subclusters.   New subclusters are created using
-          subclusterTemplate as a template.   Sizes of existing subclusters will remain
-          the same.'
+          subcluster.   If multiple subclusters are selected by the serviceName, this
+          will grow   the last subcluster only. - Subcluster: Scaling will be achieved
+          by creating or deleting entire subclusters.   The template for new subclusters
+          are either the template if filled out   or an existing subcluster that matches
+          the service name.'
         displayName: Scaling Granularity
         path: scalingGranularity
         x-descriptors:
@@ -47,18 +47,18 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:Pod
         - urn:alm:descriptor:com.tectonic.ui:select:Subcluster
       - description: This acts as a selector for the subclusters that are being scaled
-          together. The name refers to the service name as defined in the subcluster
-          section of the VerticaDB, which if omitted is the same name as the subcluster
-          name.
-        displayName: Subcluster Service Name
-        path: subclusterServiceName
+          together. Each subcluster has a service name field, which if omitted is
+          the same name as the subcluster name.  Multiple subclusters that have the
+          same service name use the same service object.
+        displayName: Service Name
+        path: serviceName
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       - description: This is the total pod count for all subclusters that match the
-          subclusterServiceName.  Changing this value may trigger a change in the
-          VerticaDB that is associated with this object.  This value is generally
-          left as the default and modified by the horizontal autoscaler through the
-          /scale subresource.
+          serviceName.  Changing this value may trigger a change in the VerticaDB
+          that is associated with this object.  This value is generally left as zero.  It
+          will get initialized in the operator and then modified via the /scale subresource
+          by the horizontal autoscaler.
         displayName: Target Size
         path: targetSize
         x-descriptors:
@@ -66,10 +66,10 @@ spec:
       - description: When the scaling granularity is Subcluster, this field defines
           a template to use for when a new subcluster needs to be created.  If size
           is 0, then the operator will use an existing subcluster to use as the template.  If
-          size is > 0, the service name must match the subclusterServiceName parameter.  The
+          size is > 0, the service name must match the serviceName parameter.  The
           name of the new subcluster is always auto generated.  If the name is set
-          here it will be used as a prefix for the new subcluster. Otherwise, we use
-          the name of this VerticaAutoscaler object as a prefix for all subclusters.
+          here it will be used as a prefix for the new subcluster.  Otherwise, we
+          use the name of this VerticaAutoscaler object as a prefix for all subclusters.
         displayName: Template
         path: template
       - description: 'Like nodeSelector this allows you to constrain the pod only
@@ -200,6 +200,22 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       statusDescriptors:
+      - description: Conditions for VerticaAutoscaler
+        displayName: Conditions
+        path: conditions
+      - description: Last time the condition transitioned from one status to another.
+        displayName: Last Transition Time
+        path: conditions[0].lastTransitionTime
+      - description: Status is the status of the condition can be True, False or Unknown
+        displayName: Status
+        path: conditions[0].status
+      - description: Type is the type of the condition
+        displayName: Type
+        path: conditions[0].type
+      - description: The observed size of all pods that are routed through the service
+          name.
+        displayName: Current Size
+        path: currentSize
       - description: The total number of times the operator has scaled up/down the
           VerticaDB.
         displayName: Scaling Count

@@ -80,7 +80,7 @@ var _ = Describe("status", func() {
 
 	It("should set the selector in the status field", func() {
 		vas := vapi.MakeVAS()
-		vas.Spec.SubclusterServiceName = "my-svc"
+		vas.Spec.ServiceName = "my-svc"
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
 

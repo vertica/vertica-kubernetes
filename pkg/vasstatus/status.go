@@ -111,7 +111,7 @@ func vasStatusUpdater(ctx context.Context, c client.Client, log logr.Logger,
 func getLabelSelector(vas *vapi.VerticaAutoscaler) string {
 	return fmt.Sprintf("%s=%s,%s=%s,%s=%s",
 		builder.SubclusterSvcNameLabel,
-		vas.Spec.SubclusterServiceName,
+		vas.Spec.ServiceName,
 		builder.VDBInstanceLabel,
 		vas.Spec.VerticaDBName,
 		builder.ManagedByLabel,

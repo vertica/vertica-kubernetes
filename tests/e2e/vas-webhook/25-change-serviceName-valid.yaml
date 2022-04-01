@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl -n $NAMESPACE get vas vas-webhook -o json | jq '.spec.subclusterServiceName="NewValue2"' | jq '.spec.template.serviceName="NewValue2"' | kubectl -n $NAMESPACE replace -f -
+  - script: kubectl -n $NAMESPACE get vas vas-webhook -o json | jq '.spec.serviceName="NewValue2"' | jq '.spec.template.serviceName="NewValue2"' | kubectl -n $NAMESPACE replace -f -

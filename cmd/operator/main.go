@@ -221,28 +221,19 @@ func getLogger(logArgs Logging) *zap.Logger {
 	return zap.New(core, opts...)
 }
 
-// SPILLY - address this
-// nolint:funlen
 func main() {
 	flagArgs := &FlagConfig{}
 	flagArgs.setFlagArgs()
 	flag.Parse()
 
-	metricsAddr := flagArgs.MetricsAddr
-	enableLeaderElection := flagArgs.EnableLeaderElection
-	probeAddr := flagArgs.ProbeAddr
-	enableProfiler := flagArgs.EnableProfiler
-	saName := flagArgs.ServiceAccountName
-	logArgs := flagArgs.LogArgs
-
-	logger := getLogger(*logArgs)
-	if logArgs.FilePath != "" {
-		log.Println(fmt.Sprintf("Now logging in file %s", logArgs.FilePath))
+	logger := getLogger(*flagArgs.LogArgs)
+	if flagArgs.LogArgs.FilePath != "" {
+		log.Println(fmt.Sprintf("Now logging in file %s", flagArgs.LogArgs.FilePath))
 	}
 
 	ctrl.SetLogger(zapr.NewLogger(logger))
 
-	if enableProfiler {
+	if flagArgs.EnableProfiler {
 		go func() {
 			addr := "localhost:6060"
 			setupLog.Info("Opening profiling port", "addr", addr)
@@ -262,10 +253,10 @@ func main() {
 
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		MetricsBindAddress:     flagArgs.MetricsAddr,
 		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
+		HealthProbeBindAddress: flagArgs.ProbeAddr,
+		LeaderElection:         flagArgs.EnableLeaderElection,
 		LeaderElectionID:       "5c1e6227.vertica.com",
 		Namespace:              watchNamespace,
 	})
@@ -280,7 +271,7 @@ func main() {
 		Scheme:             mgr.GetScheme(),
 		Cfg:                restCfg,
 		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
-		ServiceAccountName: saName,
+		ServiceAccountName: flagArgs.ServiceAccountName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)

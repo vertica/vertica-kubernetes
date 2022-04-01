@@ -46,7 +46,7 @@ func (v *VerticaAutoscaler) Default() {
 	verticaautoscalerlog.Info("default", "name", v.Name)
 
 	if v.Spec.Template.ServiceName == "" {
-		v.Spec.Template.ServiceName = v.Spec.SubclusterServiceName
+		v.Spec.Template.ServiceName = v.Spec.ServiceName
 	}
 }
 
@@ -109,13 +109,13 @@ func (v *VerticaAutoscaler) validateScalingGranularity(allErrs field.ErrorList) 
 func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList, isCreate bool) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("template")
 	// We have a defaulter that sets the service name in template to match
-	// spec.subclusterServiceName.  So we only need to check for differences if
-	// this is an update or a create but we set something.
+	// spec.serviceName.  So we only need to check for differences if this is an
+	// update or a create but we set something.
 	if (!isCreate || v.Spec.Template.ServiceName != "") &&
-		v.Spec.Template.ServiceName != v.Spec.SubclusterServiceName {
+		v.Spec.Template.ServiceName != v.Spec.ServiceName {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,
-			"The serviceName in the subcluster template must match spec.subclusterServiceName")
+			"The serviceName in the subcluster template must match spec.serviceName")
 		allErrs = append(allErrs, err)
 	}
 

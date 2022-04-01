@@ -27,7 +27,6 @@ import (
 type VerticaAutoscalerSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// SPILLY - maybe rename to VerticaDB
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
@@ -40,38 +39,38 @@ type VerticaAutoscalerSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
 	// This defines how the scaling will happen.  This can be one of the following:
 	// - Pod: Only increase or decrease the size of an existing subcluster.
-	//   This cannot be used if more than one subcluster is selected with
-	//   subclusterServiceName.
+	//   If multiple subclusters are selected by the serviceName, this will grow
+	//   the last subcluster only.
 	// - Subcluster: Scaling will be achieved by creating or deleting entire subclusters.
-	//   New subclusters are created using subclusterTemplate as a template.
-	//   Sizes of existing subclusters will remain the same.
+	//   The template for new subclusters are either the template if filled out
+	//   or an existing subcluster that matches the service name.
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
-	// SPILLY - maybe rename to ServiceName?
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
-	// The name refers to the service name as defined in the subcluster section
-	// of the VerticaDB, which if omitted is the same name as the subcluster name.
-	SubclusterServiceName string `json:"subclusterServiceName"`
+	// Each subcluster has a service name field, which if omitted is the same
+	// name as the subcluster name.  Multiple subclusters that have the same
+	// service name use the same service object.
+	ServiceName string `json:"serviceName"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// When the scaling granularity is Subcluster, this field defines a template
 	// to use for when a new subcluster needs to be created.  If size is 0, then
 	// the operator will use an existing subcluster to use as the template.  If
-	// size is > 0, the service name must match the subclusterServiceName
-	// parameter.  The name of the new subcluster is always auto generated.  If
-	// the name is set here it will be used as a prefix for the new subcluster.
-	// Otherwise, we use the name of this VerticaAutoscaler object as a prefix
-	// for all subclusters.
+	// size is > 0, the service name must match the serviceName parameter.  The
+	// name of the new subcluster is always auto generated.  If the name is set
+	// here it will be used as a prefix for the new subcluster.  Otherwise, we
+	// use the name of this VerticaAutoscaler object as a prefix for all
+	// subclusters.
 	Template Subcluster `json:"template"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podCount"
 	// This is the total pod count for all subclusters that match the
-	// subclusterServiceName.  Changing this value may trigger a change in the
+	// serviceName.  Changing this value may trigger a change in the
 	// VerticaDB that is associated with this object.  This value is generally
 	// left as zero.  It will get initialized in the operator and then modified
 	// via the /scale subresource by the horizontal autoscaler.
@@ -197,9 +196,9 @@ func MakeVAS() *VerticaAutoscaler {
 			Annotations: make(map[string]string),
 		},
 		Spec: VerticaAutoscalerSpec{
-			VerticaDBName:         vdbNm.Name,
-			ScalingGranularity:    "Pod",
-			SubclusterServiceName: "sc1",
+			VerticaDBName:      vdbNm.Name,
+			ScalingGranularity: "Pod",
+			ServiceName:        "sc1",
 		},
 	}
 }

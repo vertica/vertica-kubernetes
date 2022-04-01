@@ -4,5 +4,4 @@ metadata:
   name: verticaautoscaler-sample
 spec:
   verticaDBName: verticadb-sample
-  subclusterServiceName: defaultsubcluster
-  scalingGranularity: Pod
+  serviceName: defaultsubcluster

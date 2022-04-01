@@ -40,7 +40,7 @@ var _ = Describe("targetsizeinitializer_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		vas := vapi.MakeVAS()
-		vas.Spec.SubclusterServiceName = ServiceName
+		vas.Spec.ServiceName = ServiceName
 		vas.Spec.TargetSize = 0
 		test.CreateVAS(ctx, k8sClient, vas)
 		defer test.DeleteVAS(ctx, k8sClient, vas)
