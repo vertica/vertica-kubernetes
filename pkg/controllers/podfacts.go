@@ -629,8 +629,8 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 // An empty list implies there are no pods that match the criteria.
 func (p *PodFacts) findReIPPods(onlyPodsWithoutDBs bool) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
-		// Only consider running pods that have an installation
-		if !pod.exists || !pod.isPodRunning || pod.isInstalled.IsFalse() {
+		// Only consider pods that exist and have an installation
+		if !pod.exists || pod.isInstalled.IsFalse() {
 			return false
 		}
 		// If requested don't return pods that have a DB
@@ -678,6 +678,18 @@ func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
 func (p *PodFacts) countRunningAndInstalled() int {
 	return p.countPods(func(v *PodFact) int {
 		if v.isPodRunning && v.isInstalled.IsTrue() {
+			return 1
+		}
+		return 0
+	})
+}
+
+// countNotRunning returns number of pods that aren't running yet
+func (p *PodFacts) countNotRunning() int {
+	return p.countPods(func(v *PodFact) int {
+		// We don't count non-running pods that aren't yet managed by the parent
+		// sts.  The sts needs to be created or sized first.
+		if !v.isPodRunning && v.managedByParent {
 			return 1
 		}
 		return 0
