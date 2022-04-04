@@ -36,7 +36,9 @@ sed -i 's/verticadb-operator-.*-webhook-configuration/{{ .Release.Namespace }}-&
 # 2. Template image names
 sed -i "s|image: controller|image: '{{ with .Values.image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 sed -i "s|image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0|image: '{{ with .Values.rbac_proxy_image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-# 3. Append imagePullSecrets
+# 3. Template imagePullPolicy
+sed -i 's/imagePullPolicy: policy/imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+# 4. Append imagePullSecrets
 cat >>$TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml << END
 {{ if .Values.imagePullSecrets }}
       imagePullSecrets:
