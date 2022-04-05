@@ -35,4 +35,3 @@ jobs:
       with:
         name: logs-e2e-azb
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
-        

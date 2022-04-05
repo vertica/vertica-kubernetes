@@ -1,0 +1,104 @@
+name: Build Release Artifacts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release-artifacts:
+    runs-on: ubuntu-latest
+      
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up environment
+      uses: ./.github/actions/setup-go-kctx
+    
+    - name: Install krew
+      run: | 
+        make krew
+        echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
+      
+    - name: Build CRD yaml
+      run: make generate manifests
+    
+    - name: Lint the charts
+      run: make lint
+
+    - name: Build vdb-gen
+      run: | 
+        mkdir -p bin
+        make vdb-gen
+        ls -lhrt bin/
+
+    - name: Build RBAC yaml
+      run: |
+        mkdir -p config/samples/rbac
+        make create-default-rbac
+        ls -lhrt config/samples/rbac/
+
+    - name: Build Bundle
+      run: | 
+        IMG_REPO=vertica/ make bundle
+        ls -lhrt
+
+    - name: Build helm charts
+      run: | 
+        make create-helm-charts
+        cd helm-charts
+        helm package verticadb-operator
+        ls -lhrt
+    
+    - name: Upload CRD
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
+
+    - name: Upload Custom SCC
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
+    
+    - name: Upload RBAC
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/rbac/default-rbac.yaml
+
+    - name: Upload Helm Charts
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
+
+    - name: Upload vdb-gen
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
+        
+    - name: Upload Bundle
+      uses: actions/upload-artifact@v2
+      if: always()
+      continue-on-error: false
+      with:
+        name: olm-bundle
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bundle
+    
+
+    
+
+
+
+        

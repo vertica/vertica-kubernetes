@@ -26,6 +26,7 @@ spec:
         args:
         - --leader-elect
         image: controller
+        imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
