@@ -14,5 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: helm repo add vertica-charts https://vertica.github.io/charts
-  - command: helm repo update
+  - command: helm install --wait -n $NAMESPACE vdb-op vertica-charts/verticadb-operator --version 1.3.1
