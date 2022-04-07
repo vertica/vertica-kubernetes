@@ -11,23 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-from-120-pri1
-status:
-  replicas: 2
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-from-120-sec1
-status:
-  replicas: 1
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-from-120
-status:
-  installCount: 3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: helm repo add vertica-charts https://vertica.github.io/charts
+  - command: helm repo update vertica-charts

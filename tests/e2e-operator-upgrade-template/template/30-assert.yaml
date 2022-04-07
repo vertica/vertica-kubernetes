@@ -14,20 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-from-120
-spec:
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vertdb
-  subclusters:
-    - name: pri1
-      size: 2
-      isPrimary: true
-    - name: sec1
-      size: 1
-      isPrimary: false
-  kSafety: "0"
-  certSecrets: []
+  name: v-from-x
+status:
+  installCount: 3
+  upNodeCount: 3

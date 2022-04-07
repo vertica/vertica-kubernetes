@@ -11,31 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-from-120-pri1
-status:
-  replicas: 2
-  readyReplicas: 2
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-from-120-sec1
-status:
-  replicas: 1
-  readyReplicas: 1
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-from-120
-status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 2
-      upNodeCount: 2
-    - installCount: 1
-      addedToDBCount: 1
-      upNodeCount: 1
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: helm install --wait -n $NAMESPACE vdb-op vertica-charts/verticadb-operator --version 1.3.1
