@@ -29,7 +29,7 @@ set -o xtrace
 
 TEMPLATE_DIR=$REPO_DIR/tests/e2e-operator-upgrade-template/
 OVERLAY_DIR=$REPO_DIR/tests/e2e-operator-upgrade-overlays/
-GLOBIGNORE=".gitkeep" rm -rf $OVERLAY_DIR/*
+git clean -d --force -x $OVERLAY_DIR
 
 cd $TEMPLATE_DIR
 for tdir in *
