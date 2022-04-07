@@ -77,8 +77,8 @@ for f in verticadb-operator-controller-manager-sa.yaml \
     verticadb-operator-manager-rolebinding-rb.yaml \
     verticadb-operator-leader-election-role-role.yaml \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
-    verticadb-operator-proxy-rolebinding-rb.yaml \
-    verticadb-operator-proxy-role-role.yaml
+    verticadb-operator-proxy-rolebinding-crb.yaml \
+    verticadb-operator-proxy-role-cr.yaml
 do
     sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
@@ -95,8 +95,8 @@ echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 # 11.  Template the prometheus metrics service
 sed -i '1s/^/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
-for f in verticadb-operator-proxy-rolebinding-rb.yaml \
-    verticadb-operator-proxy-role-role.yaml
+for f in verticadb-operator-proxy-rolebinding-crb.yaml \
+    verticadb-operator-proxy-role-cr.yaml
 do
     sed -i '1s/^/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" -}}\n/' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
