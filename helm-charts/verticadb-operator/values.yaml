@@ -87,3 +87,18 @@ resources:
 # must be already setup for this service account. If unset, we will use the default service account name
 # and create the necessary roles and role bindings to allow the pods to interact with the apiserver.
 serviceAccountNameOverride: ""
+
+prometheus:
+  # Option to control exposing of the prometheus metrics endpoint.  Valid
+  # options are:
+  #
+  # EnableWithAuthProxy: A new service object will be created that exposes the
+  #    metrics endpoint.  Access to the metrics are controlled by rbac rules
+  #    using the proxy (see https://github.com/brancz/kube-rbac-proxy).
+  # Disable: Prometheus metrics are not exposed at all.
+  expose: EnableWithAuthProxy
+
+  # Set this to true if you want to create a ServiceMonitor.  This object is a
+  # CR provided by the prometheus operator to allow for easy service discovery.
+  # https://github.com/prometheus-operator/prometheus-operator
+  serviceMonitorCreate: false

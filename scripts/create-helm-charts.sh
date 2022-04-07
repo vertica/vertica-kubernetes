@@ -26,6 +26,7 @@ OPERATOR_CHART="$REPO_DIR/helm-charts/verticadb-operator"
 TEMPLATE_DIR=$OPERATOR_CHART/templates
 CRD_DIR=$OPERATOR_CHART/crds
 
+rm $TEMPLATE_DIR/*yaml 2>/dev/null || true
 $KUSTOMIZE build $REPO_DIR/config/default | $KUBERNETES_SPLIT_YAML --outdir $TEMPLATE_DIR -
 mv $TEMPLATE_DIR/verticadbs.vertica.com-crd.yaml $CRD_DIR
 
@@ -71,16 +72,17 @@ sed -i "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/verticadb-ope
 # 9.  Template the serviceaccount, roles and rolebindings
 sed -i 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ default "verticadb-operator-controller-manager" .Values.serviceAccountNameOverride }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 sed -i 's/--service-account-name=.*/--service-account-name={{ default "verticadb-operator-controller-manager" .Values.serviceAccountNameOverride }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-sa.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-sa.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-manager-role-role.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-manager-role-role.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-manager-rolebinding-rb.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-manager-rolebinding-rb.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-leader-election-role-role.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-leader-election-role-role.yaml
-sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/verticadb-operator-leader-election-rolebinding-rb.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-leader-election-rolebinding-rb.yaml
+for f in verticadb-operator-controller-manager-sa.yaml \
+    verticadb-operator-manager-role-role.yaml \
+    verticadb-operator-manager-rolebinding-rb.yaml \
+    verticadb-operator-leader-election-role-role.yaml \
+    verticadb-operator-leader-election-rolebinding-rb.yaml \
+    verticadb-operator-proxy-rolebinding-rb.yaml \
+    verticadb-operator-proxy-role-role.yaml
+do
+    sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/$f
+    echo "{{- end }}" >> $TEMPLATE_DIR/$f
+done
 
 # 10.  Template the webhook access enablement
 sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-validating-webhook-configuration-validatingwebhookconfiguration.yaml 
@@ -89,6 +91,20 @@ sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-opera
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-mutating-webhook-configuration-mutatingwebhookconfiguration.yaml
 sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
+
+# 11.  Template the prometheus metrics service
+sed -i '1s/^/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
+for f in verticadb-operator-proxy-rolebinding-rb.yaml \
+    verticadb-operator-proxy-role-role.yaml
+do
+    sed -i '1s/^/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" -}}\n/' $TEMPLATE_DIR/$f
+    echo "{{- end }}" >> $TEMPLATE_DIR/$f
+done
+
+# 12.  Template the ServiceMonitor object for Promtheus operator
+sed -i '1s/^/{{- if .Values.prometheus.serviceMonitorCreate -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
 
 # Delete openshift clusterRole and clusterRoleBinding files
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 

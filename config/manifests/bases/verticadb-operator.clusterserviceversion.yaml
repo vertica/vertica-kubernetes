@@ -359,6 +359,10 @@ spec:
         path: subclusters[0].isTransient
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'Specify IP address of LoadBalancer service for this subcluster.
+          This field is ignored when serviceType != "LoadBalancer". More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer'
+        displayName: Load Balancer IP
+        path: subclusters[0].loadBalancerIP
       - description: The name of the subcluster. This is a required parameter. This
           cannot change after CRD creation.
         displayName: Name
@@ -388,6 +392,9 @@ spec:
         path: subclusters[0].resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: A map of key/value pairs appended to service metadata.annotations.
+        displayName: Service Annotations
+        path: subclusters[0].serviceAnnotations
       - description: Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then they
           all share the same service object.  This allows for a single service object
@@ -500,6 +507,10 @@ spec:
         path: temporarySubclusterRouting.template.isTransient
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'Specify IP address of LoadBalancer service for this subcluster.
+          This field is ignored when serviceType != "LoadBalancer". More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer'
+        displayName: Load Balancer IP
+        path: temporarySubclusterRouting.template.loadBalancerIP
       - description: The name of the subcluster. This is a required parameter. This
           cannot change after CRD creation.
         displayName: Name
@@ -529,6 +540,9 @@ spec:
         path: temporarySubclusterRouting.template.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: A map of key/value pairs appended to service metadata.annotations.
+        displayName: Service Annotations
+        path: temporarySubclusterRouting.template.serviceAnnotations
       - description: Identifies the name of the service object that will serve this
           subcluster.  If multiple subclusters share the same service name then they
           all share the same service object.  This allows for a single service object

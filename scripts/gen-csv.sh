@@ -67,6 +67,7 @@ BUNDLE_GEN_FLAGS="-q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS $USE_I
 set -o xtrace
 
 cd $REPO_DIR
+rm -rf bundle/ 2>/dev/null || true
 $OPERATOR_SDK generate kustomize manifests -q
 mkdir -p config/overlays/csv
 cd config/overlays/csv
@@ -81,6 +82,12 @@ $KUSTOMIZE build config/overlays/csv | $OPERATOR_SDK generate bundle $BUNDLE_GEN
 # Fill in the placeholders
 sed -i "s/CREATED_AT_PLACEHOLDER/$(date +"%FT%H:%M:%SZ")/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
 sed -i "s+OPERATOR_IMG_PLACEHOLDER+$(make echo-images | grep OPERATOR_IMG | cut -d'=' -f2)+g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
+
+# Delete the ServiceMonitor object from the bundle.  This puts a
+# requirement on having the Prometheus Operator installed.  We are only
+# optionally install this.  We will include the manifest in our GitHub
+# artifacts and have it as an optional helm parameter.
+rm bundle/manifests/*servicemonitor.yaml
 
 # Add the supported versions at the end of annotations.yaml
 cat <<EOT >> bundle/metadata/annotations.yaml
