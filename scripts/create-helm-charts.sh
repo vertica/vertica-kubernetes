@@ -95,15 +95,17 @@ echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 # 11.  Template the prometheus metrics service
 sed -i '1s/^/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
+
+# 12.  Template the roles/rolebindings for access to the rbac proxy
 for f in verticadb-operator-proxy-rolebinding-crb.yaml \
     verticadb-operator-proxy-role-cr.yaml
 do
-    sed -i '1s/^/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" -}}\n/' $TEMPLATE_DIR/$f
+    sed -i '1s/^/{{- if .Values.prometheus.createProxyRBAC -}}\n/' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
 done
 
-# 12.  Template the ServiceMonitor object for Promtheus operator
-sed -i '1s/^/{{- if .Values.prometheus.serviceMonitorCreate -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
+# 13.  Template the ServiceMonitor object for Promtheus operator
+sed -i '1s/^/{{- if .Values.prometheus.createServiceMonitor -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
 
 # Delete openshift clusterRole and clusterRoleBinding files

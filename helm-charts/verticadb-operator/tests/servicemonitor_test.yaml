@@ -5,14 +5,14 @@ tests:
   - it: should not include ServiceMonitor by default
     set:
       prometheus:
-        serviceMonitorCreate: false
+        createServiceMonitor: false
     asserts:
       - hasDocuments:
           count: 0
   - it: should include ServiceMonitor if value is set
     set:
       prometheus:
-        serviceMonitorCreate: true
+        createServiceMonitor: true
     asserts:
       - hasDocuments:
           count: 1

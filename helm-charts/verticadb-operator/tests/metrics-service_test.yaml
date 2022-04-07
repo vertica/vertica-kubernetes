@@ -1,8 +1,6 @@
-suite: Prometheus tests
+suite: Metrics service tests
 templates:
   - verticadb-operator-controller-manager-metrics-service-svc.yaml
-  - verticadb-operator-proxy-rolebinding-crb.yaml
-  - verticadb-operator-proxy-role-cr.yaml
 tests:
   - it: should not include any object if expose is disabled
     set:
@@ -18,6 +16,8 @@ tests:
     asserts:
       - hasDocuments:
           count: 1
+      - isKind:
+          of: Service
 
 
 

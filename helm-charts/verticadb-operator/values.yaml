@@ -101,4 +101,10 @@ prometheus:
   # Set this to true if you want to create a ServiceMonitor.  This object is a
   # CR provided by the prometheus operator to allow for easy service discovery.
   # https://github.com/prometheus-operator/prometheus-operator
-  serviceMonitorCreate: false
+  createServiceMonitor: false
+
+  # Set this to true if you want the helm install to create the rbac rules for
+  # accessing the metrics endpoint when it is protected by the rbac auth proxy.
+  # Note: setting this to true for multiple operator installs on the same
+  # system will fail due to the cluster scoped nature of the rbac rules.
+  createProxyRBAC: false
