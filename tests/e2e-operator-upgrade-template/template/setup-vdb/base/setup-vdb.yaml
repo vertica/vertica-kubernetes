@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-from-120
+  name: v-from-x
 spec:
   image: kustomize-vertica-image
   communal:

@@ -14,20 +14,20 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-from-120-pri1
+  name: v-from-x-pri1
 status:
   replicas: 2
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-from-120-sec1
+  name: v-from-x-sec1
 status:
   replicas: 1
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-from-120
+  name: v-from-x
 status:
   installCount: 3
