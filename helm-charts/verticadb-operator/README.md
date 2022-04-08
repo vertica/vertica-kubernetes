@@ -4,6 +4,7 @@ This helm chart will install the operator and an admission controller webhook.  
 |----------------|-------------|---------------|
 | image.name | The name of image that runs the operator. | vertica/verticadb-operator:1.0.0 |
 | image.repo | Repo server hosting image.name | null (DockerHub) |
+| image.pullPolicy | The pull policy for the image that runs the operator  | IfNotPresent |
 | rbac_proxy_image.name | Image name of Kubernetes RBAC proxy. | kubebuilder/kube-rbac-proxy:v0.8.0 |
 | rbac_proxy_image.repo | Repo server hosting rbac_proxy_image.name | gcr.io |
 | imagePullSecrets | List of Secret names containing login credentials for above repos | null (pull images anonymously) |

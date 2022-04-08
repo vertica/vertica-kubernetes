@@ -1,0 +1,5 @@
+kind: Changed
+body: Change server container base image to ubuntu
+time: 2022-03-29T13:18:17.2081545+02:00
+custom:
+  Issue: "187"

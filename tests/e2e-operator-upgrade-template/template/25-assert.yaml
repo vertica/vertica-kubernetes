@@ -11,23 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-from-x-pri1
+status:
+  replicas: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-from-x-sec1
+status:
+  replicas: 1
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-k-safety-0-scaling
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  sshSecret: ssh-keys
-  dbName: MYDB
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  subclusters:
-    - name: sc1
-      size: 1
-  kSafety: "0"
-  certSecrets: []
+  name: v-from-x
+status:
+  installCount: 3

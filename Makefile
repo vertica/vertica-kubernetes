@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.3.1
+VERSION ?= 1.4.0
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
 # (see docker-vlogger).  This version is separate from VERSION above in
@@ -56,26 +56,33 @@ LOGDIR?=$(shell pwd)
 # Command we run to see if we are running in a kind environment
 KIND_CHECK:=kubectl get node -o=jsonpath='{.items[0].spec.providerID}' 2> /dev/null | grep 'kind://' -c
 
+# By default, we set the version of our operator as the TAG
+
+TAG ?= $(VERSION)
+
 # We pick an image tag based on the environment we are in.  We special case kind
 # environments because we need to use a different imagePullPolicy -- kind
 # environments load the images through 'kind load docker-image' so must use IfNotPresent.
 # Note, the imagePullPolicy is the default picked by kubernetes that depends on the tag.
 #
-# Env     Tag      imagePullPolicy
-# ---     ---      ---------------
-# kind    kind     IfNotPresent
-# other   latest   Always
+# Env      imagePullPolicy
+# ---      ---------------
+# kind       IfNotPresent
+# other      Always
+
 ifeq ($(shell $(KIND_CHECK)), 1)
-  TAG?=kind
+  HELM_IMAGE_PULL_POLICY ?= IfNotPresent
 else
-  TAG?=latest 
+  HELM_IMAGE_PULL_POLICY ?= Always 
 endif
 
+# Image Repo to use when pushing/pulling any image
+IMG_REPO?=
 # Image URL to use for building/pushing of the operator
-OPERATOR_IMG ?= verticadb-operator:$(TAG)
+OPERATOR_IMG ?= $(IMG_REPO)verticadb-operator:$(TAG)
 export OPERATOR_IMG
 # Image URL to use for building/pushing of the vertica server
-VERTICA_IMG ?= vertica-k8s:$(TAG)
+VERTICA_IMG ?= $(IMG_REPO)vertica-k8s:$(TAG)
 export VERTICA_IMG
 # This is the base image to use for some upgrade tests.  We will always
 # upgrade to VERTICA_IMG, so BASE_VERTICA_IMG must be some image from a
@@ -88,7 +95,7 @@ export VERTICA_IMG
 BASE_VERTICA_IMG ?= <not-set>
 export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
-VLOGGER_IMG ?= vertica-logger:$(VLOGGER_VERSION)
+VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
 # The port number for the local registry
 REG_PORT ?= 5000
@@ -97,9 +104,9 @@ REG_PORT ?= 5000
 ifeq ($(shell $(KIND_CHECK)), 1)
 BUNDLE_IMG ?= localhost:$(REG_PORT)/verticadb-operator-bundle:$(TAG)
 else
-# BUNDLE_IMG defines the image:tag used for the bundle. 
-# You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= verticadb-operator-bundle:$(VERSION)
+# BUNDLE_IMG defines the repo/image:tag used for the bundle. 
+# You can use it as an arg. (E.g make docker-build-bundle BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
+BUNDLE_IMG ?= $(IMG_REPO)verticadb-operator-bundle:$(TAG)
 endif
 export BUNDLE_IMG
 
@@ -390,7 +397,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} --set logging.dev=${DEV_MODE} $(HELM_OVERRIDES)
+	helm install --wait -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.name=${OPERATOR_IMG} --set logging.dev=${DEV_MODE} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
