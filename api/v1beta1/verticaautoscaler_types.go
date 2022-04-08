@@ -36,14 +36,14 @@ type VerticaAutoscalerSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:default:="Subcluster"
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Pod","urn:alm:descriptor:com.tectonic.ui:select:Subcluster"}
 	// This defines how the scaling will happen.  This can be one of the following:
-	// - Pod: Only increase or decrease the size of an existing subcluster.
-	//   If multiple subclusters are selected by the serviceName, this will grow
-	//   the last subcluster only.
 	// - Subcluster: Scaling will be achieved by creating or deleting entire subclusters.
 	//   The template for new subclusters are either the template if filled out
 	//   or an existing subcluster that matches the service name.
+	// - Pod: Only increase or decrease the size of an existing subcluster.
+	//   If multiple subclusters are selected by the serviceName, this will grow
+	//   the last subcluster only.
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -73,7 +73,7 @@ type VerticaAutoscalerSpec struct {
 	// serviceName.  Changing this value may trigger a change in the
 	// VerticaDB that is associated with this object.  This value is generally
 	// left as zero.  It will get initialized in the operator and then modified
-	// via the /scale subresource by the horizontal autoscaler.
+	// via the /scale subresource.
 	TargetSize int32 `json:"targetSize"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

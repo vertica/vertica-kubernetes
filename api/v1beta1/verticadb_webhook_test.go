@@ -476,6 +476,13 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		validateSpecValuesHaveErr(vdb, true)
 	})
+
+	It("should fill in the default serviceName if omitted", func() {
+		vdb := MakeVDB()
+		Expect(vdb.Spec.Subclusters[0].ServiceName).Should(Equal(""))
+		vdb.Default()
+		Expect(vdb.Spec.Subclusters[0].ServiceName).Should(Equal(vdb.Spec.Subclusters[0].Name))
+	})
 })
 
 func createVDBHelper() *VerticaDB {

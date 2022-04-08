@@ -67,7 +67,7 @@ func (s *SubclusterResizeReconciler) resizeSubcluster(ctx context.Context, req *
 
 		subclusters, totSize := s.Vdb.FindSubclusterForServiceName(s.Vas.Spec.ServiceName)
 		if len(subclusters) == 0 {
-			s.VRec.EVRec.Eventf(s.Vas, corev1.EventTypeWarning, events.VerticaDBNotFound,
+			s.VRec.EVRec.Eventf(s.Vas, corev1.EventTypeWarning, events.SubclusterServiceNameNotFound,
 				"Could not find any subclusters with service name '%s'", s.Vas.Spec.ServiceName)
 			res.Requeue = true
 			return nil
