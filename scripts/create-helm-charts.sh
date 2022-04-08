@@ -93,7 +93,7 @@ sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-opera
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 
 # 11.  Template the prometheus metrics service
-sed -i '1s/^/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
+sed -i '1s/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-service-svc.yaml
 
 # 12.  Template the roles/rolebindings for access to the rbac proxy
@@ -107,6 +107,15 @@ done
 # 13.  Template the ServiceMonitor object for Promtheus operator
 sed -i '1s/^/{{- if .Values.prometheus.createServiceMonitor -}}\n/' $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
+
+# 14.  Template the metrics bind address
+sed -i 's/- --metrics-bind-address=.*/- --metrics-bind-address={{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe 's/(.*metrics-bind-address.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+
+# 15.  Template the rbac container
+perl -i -0777 -pe 's/(.*- args:.*\n.*secure)/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" }}\n$1/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+# We need to put the matching end at the end of the container spec.
+perl -i -0777 -pe 's/(memory: 64Mi)/$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # Delete openshift clusterRole and clusterRoleBinding files
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 

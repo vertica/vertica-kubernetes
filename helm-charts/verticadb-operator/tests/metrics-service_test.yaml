@@ -18,6 +18,15 @@ tests:
           count: 1
       - isKind:
           of: Service
+  - it: should include object if EnableWithoutAuth is set
+    set:
+      prometheus:
+        expose: EnableWithoutAuth
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Service
 
 
 
