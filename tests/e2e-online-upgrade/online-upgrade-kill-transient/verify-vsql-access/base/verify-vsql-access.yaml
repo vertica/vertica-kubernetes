@@ -34,28 +34,30 @@ data:
       echo "*** Did not connect to node 1 through primary subcluster: $PRI_CONNECTION_NODE"
       exit 1
     fi
-    exit 0 
+    exit 0
 
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: test-verify-accessing-primary-node
   labels:
     stern: include
 spec:
-  restartPolicy: Never
-  containers:
-    - name: test
-      image: kustomize-vertica-image
-      command: ["/home/dbadmin/test.sh"]
-      volumeMounts:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: test
+          image: kustomize-vertica-image
+          command: ["/home/dbadmin/test.sh"]
+          volumeMounts:
+            - name: test-script
+              mountPath: /home/dbadmin/test.sh
+              readOnly: true
+              subPath: test.sh
+      volumes:
         - name: test-script
-          mountPath: /home/dbadmin/test.sh
-          readOnly: true
-          subPath: test.sh
-  volumes:
-    - name: test-script
-      configMap:
-        defaultMode: 0777
-        name: script-verify-accessing-primary-node
+          configMap:
+            defaultMode: 0777
+            name: script-verify-accessing-primary-node
