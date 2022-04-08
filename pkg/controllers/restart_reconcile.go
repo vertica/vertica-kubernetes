@@ -70,7 +70,6 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 // On success, each node will have a running vertica process.
 func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.Spec.AutoRestartVertica {
-		// SPILLY - rename vdbstatus back to status?
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
 			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},
 		)
