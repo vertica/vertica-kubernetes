@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package controllers
+package vascontroller
 
 import (
 	"context"

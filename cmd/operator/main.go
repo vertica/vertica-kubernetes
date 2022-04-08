@@ -42,6 +42,7 @@ import (
 	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/vascontroller"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -277,7 +278,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.VerticaAutoscalerReconciler{
+	if err = (&vascontroller.VerticaAutoscalerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),

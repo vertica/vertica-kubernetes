@@ -13,30 +13,27 @@
  limitations under the License.
 */
 
-package controllers
+package vascontroller
 
 import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// VDBVerifyReconciler will verify the VerticaDB in the VAS CR exists
-type VDBVerifyReconciler struct {
+type SelectorReconciler struct {
 	VRec *VerticaAutoscalerReconciler
 	Vas  *vapi.VerticaAutoscaler
-	Vdb  *vapi.VerticaDB
 }
 
-func MakeVDBVerifyReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) ReconcileActor {
-	return &VDBVerifyReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
+// MakeSelectorReconciler will create a SelectorReconciler object and return it
+func MakeSelectorReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) ReconcileActor {
+	return &SelectorReconciler{VRec: v, Vas: vas}
 }
 
-// Reconcile will verify the VerticaDB in the VAS CR exists
-func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// This reconciler is intended to be the first thing we run.  We want early
-	// feedback if the VerticaDB that is referenced in the vas doesn't exist.
-	// This will print out an event if the VerticaDB cannot be found.
-	return fetchVDB(ctx, s.VRec, s.Vas, s.Vdb)
+// Reconcile will handle updating the selector in the status portion of a VerticaAutoscaler
+func (v *SelectorReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	return ctrl.Result{}, vasstatus.SetSelector(ctx, v.VRec.Client, v.VRec.Log, req)
 }

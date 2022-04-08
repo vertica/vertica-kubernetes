@@ -45,7 +45,6 @@ var testEnv *envtest.Environment
 var logger logr.Logger
 var restCfg *rest.Config
 var vdbRec *VerticaDBReconciler
-var vasRec *VerticaAutoscalerReconciler
 
 var _ = BeforeSuite(func() {
 	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
@@ -81,13 +80,6 @@ var _ = BeforeSuite(func() {
 		Cfg:                restCfg,
 		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
 		ServiceAccountName: builder.DefaultServiceAccountName,
-	}
-
-	vasRec = &VerticaAutoscalerReconciler{
-		Client: k8sClient,
-		Log:    logger,
-		Scheme: scheme.Scheme,
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
 	}
 }, 60)
 
