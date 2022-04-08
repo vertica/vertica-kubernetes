@@ -89,8 +89,7 @@ resources:
 serviceAccountNameOverride: ""
 
 prometheus:
-  # Option to control exposing of the prometheus metrics endpoint.  Valid
-  # options are:
+  # Controls exposing of the prometheus metrics endpoint.  Valid options are:
   #
   # EnableWithAuthProxy: A new service object will be created that exposes the
   #    metrics endpoint.  Access to the metrics are controlled by rbac rules
