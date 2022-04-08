@@ -117,6 +117,11 @@ perl -i -0777 -pe 's/(.*- args:.*\n.*secure)/{{- if eq .Values.prometheus.expose
 # We need to put the matching end at the end of the container spec.
 perl -i -0777 -pe 's/(memory: 64Mi)/$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
+# SPILLY - when using authproxy, the port name is https.  We can't use that no if not using authprox.  Maybe we just rename the port?  Not sure.  It needs some attention.
+# SPILLY - the service name is a bit of a mouth ful.  Suggest calling it: verticadb-operator-metrics-service
+# SPILLY - we need to update the github workflow that updates release artifacts to include all of the new ones we are adding in this pr
+# SPILLY - for the CRs that we publish, we need to take out any templating.  See the ServiceMonitor as an example
+
 # Delete openshift clusterRole and clusterRoleBinding files
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-rolebinding-crb.yaml
