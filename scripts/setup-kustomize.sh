@@ -201,6 +201,15 @@ replacements:
   - source:
       kind: ConfigMap
       name: e2e
+      fieldPath: data.verticaImage
+    targets:
+      - select:
+          kind: Job
+        fieldPaths:
+          - spec.template.spec.containers.0.image
+  - source:
+      kind: ConfigMap
+      name: e2e
       fieldPath: data.vloggerImage
     targets:
       - select:
