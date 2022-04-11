@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vascontroller
+package vas
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// RefreshCurrentSizeReconciler will refresh the currentSize status field in the CR.
 type RefreshCurrentSizeReconciler struct {
 	VRec *VerticaAutoscalerReconciler
 	Vas  *vapi.VerticaAutoscaler

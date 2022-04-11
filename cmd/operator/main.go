@@ -43,8 +43,8 @@ import (
 
 	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
-	vas "github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
-	vdb "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	//+kubebuilder:scaffold:imports
 )
 

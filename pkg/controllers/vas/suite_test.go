@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vascontroller
+package vas
 
 import (
 	"path/filepath"

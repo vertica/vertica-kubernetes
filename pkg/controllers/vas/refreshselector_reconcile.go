@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vascontroller
+package vas
 
 import (
 	"context"
@@ -24,6 +24,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// RefreshSelectorReconciler is a reconciler to update the pod selector in the
+// status field
 type RefreshSelectorReconciler struct {
 	VRec *VerticaAutoscalerReconciler
 	Vas  *vapi.VerticaAutoscaler

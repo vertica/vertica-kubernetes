@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vascontroller
+package vas
 
 import (
 	"context"
@@ -54,6 +54,7 @@ func (s *SubclusterResizeReconciler) resizeSubcluster(ctx context.Context, req *
 	var res ctrl.Result
 	scalingDone := false
 	// Update the VerticaDB with a retry mechanism for any conflict updates
+	// (i.e. if someone updated the vdb since we last fetched it)
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if r, e := fetchVDB(ctx, s.VRec, s.Vas, s.Vdb); verrors.IsReconcileAborted(r, e) {
 			res = r

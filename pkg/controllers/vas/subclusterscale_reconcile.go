@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vascontroller
+package vas
 
 import (
 	"context"
@@ -55,6 +55,7 @@ func (s *SubclusterScaleReconciler) scaleSubcluster(ctx context.Context, req *ct
 	var res ctrl.Result
 	scalingDone := false
 	// Update the VerticaDB with a retry mechanism for any conflict updates
+	// (i.e. if someone updated the vdb since we last fetched it)
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if r, e := fetchVDB(ctx, s.VRec, s.Vas, s.Vdb); verrors.IsReconcileAborted(r, e) {
 			res = r
@@ -117,7 +118,7 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 // considerAddingSubclusters will grow the Vdb by adding new subclusters.
 // Changes are made in-place in s.Vdb
 func (s *SubclusterScaleReconciler) considerAddingSubclusters(newPodsNeeded int32) bool {
-	origSize := len(s.Vdb.Spec.Subclusters)
+	origNumSubclusters := len(s.Vdb.Spec.Subclusters)
 	scMap := s.Vdb.GenSubclusterMap()
 	newScSize, ok := s.calcNextSubclusterSize(scMap)
 	if !ok {
@@ -130,7 +131,7 @@ func (s *SubclusterScaleReconciler) considerAddingSubclusters(newPodsNeeded int3
 		newPodsNeeded -= newSc.Size
 		s.VRec.Log.Info("Adding subcluster to VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", newSc.Name, "Size", newSc.Size)
 	}
-	return origSize != len(s.Vdb.Spec.Subclusters)
+	return origNumSubclusters != len(s.Vdb.Spec.Subclusters)
 }
 
 // genNextSubclusterName will come up with a unique name to give a new subcluster
