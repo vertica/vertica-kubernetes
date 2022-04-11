@@ -44,7 +44,7 @@ import (
 	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/vascontroller"
+	vas "github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -239,7 +239,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, flagArgs
 		os.Exit(1)
 	}
 
-	if err := (&vascontroller.VerticaAutoscalerReconciler{
+	if err := (&vas.VerticaAutoscalerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
