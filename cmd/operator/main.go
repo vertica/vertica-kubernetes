@@ -43,8 +43,8 @@ import (
 
 	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
-	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vas "github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
+	vdb "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -227,7 +227,7 @@ func getLogger(logArgs Logging) *zap.Logger {
 // addReconcilersToManager will add a controller for each CR that this operator
 // handles.  If any failure occurs, if will exit the program.
 func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, flagArgs *FlagConfig) {
-	if err := (&controllers.VerticaDBReconciler{
+	if err := (&vdb.VerticaDBReconciler{
 		Client:             mgr.GetClient(),
 		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
 		Scheme:             mgr.GetScheme(),

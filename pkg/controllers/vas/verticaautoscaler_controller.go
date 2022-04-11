@@ -28,6 +28,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 )
 
@@ -67,7 +68,7 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	// The actors that will be applied, in sequence, to reconcile a vas.
-	actors := []ReconcileActor{
+	actors := []controllers.ReconcileActor{
 		// Sanity check to make sure the VerticaDB referenced in vas actually exists.
 		MakeVDBVerifyReconciler(r, vas),
 		// Initialize targetSize in new VerticaAutoscaler objects

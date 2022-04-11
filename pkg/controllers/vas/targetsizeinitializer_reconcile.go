@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +32,7 @@ type TargetSizeInitializerReconciler struct {
 	Vas  *vapi.VerticaAutoscaler
 }
 
-func MakeTargetSizeInitializerReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) ReconcileActor {
+func MakeTargetSizeInitializerReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &TargetSizeInitializerReconciler{VRec: v, Vas: vas}
 }
 

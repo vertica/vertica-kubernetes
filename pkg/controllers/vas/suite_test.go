@@ -85,6 +85,6 @@ func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
-		"vascontroller Suite",
+		"vas Suite",
 		[]Reporter{printer.NewlineReporter{}})
 }

@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -29,7 +30,7 @@ type VDBVerifyReconciler struct {
 	Vdb  *vapi.VerticaDB
 }
 
-func MakeVDBVerifyReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) ReconcileActor {
+func MakeVDBVerifyReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &VDBVerifyReconciler{VRec: r, Vas: vas, Vdb: &vapi.VerticaDB{}}
 }
 

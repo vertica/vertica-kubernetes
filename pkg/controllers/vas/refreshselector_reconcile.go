@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -28,7 +29,7 @@ type RefreshSelectorReconciler struct {
 	Vas  *vapi.VerticaAutoscaler
 }
 
-func MakeRefreshSelectorReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) ReconcileActor {
+func MakeRefreshSelectorReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) controllers.ReconcileActor {
 	return &RefreshSelectorReconciler{VRec: v, Vas: vas}
 }
 
