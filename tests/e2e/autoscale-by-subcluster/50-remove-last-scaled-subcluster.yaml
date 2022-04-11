@@ -11,13 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaAutoscaler
-metadata:
-  name: v-autoscale
-spec:
-  allowScaleToZero: true
----
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:

@@ -36,8 +36,10 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
@@ -222,6 +224,55 @@ func getLogger(logArgs Logging) *zap.Logger {
 	return zap.New(core, opts...)
 }
 
+// addReconcilersToManager will add a controller for each CR that this operator
+// handles.  If any failure occurs, if will exit the program.
+func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, flagArgs *FlagConfig) {
+	if err := (&controllers.VerticaDBReconciler{
+		Client:             mgr.GetClient(),
+		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
+		Scheme:             mgr.GetScheme(),
+		Cfg:                restCfg,
+		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
+		ServiceAccountName: flagArgs.ServiceAccountName,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
+		os.Exit(1)
+	}
+
+	if err := (&vascontroller.VerticaAutoscalerReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		Log:    ctrl.Log.WithName("controllers").WithName("VerticaAutoscaler"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VerticaAutoscaler")
+		os.Exit(1)
+	}
+	//+kubebuilder:scaffold:builder
+}
+
+// addWebhooktsToManager will add any webhooks to the manager.  If any failure
+// occurs, it will exit the program.
+func addWebhooksToManager(mgr manager.Manager) {
+	// Set the minimum TLS version for the webhook.  By default it will use
+	// TLS 1.0, which has a lot of security flaws.  This is a hacky way to
+	// set this and should be removed once there is a supported way.
+	// There are numerous proposals to allow this to be configured from
+	// Manager -- based on most recent activity this one looks promising:
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/852
+	webhookServer := mgr.GetWebhookServer()
+	webhookServer.TLSMinVersion = "1.3"
+
+	if err := (&verticacomv1beta1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
+		os.Exit(1)
+	}
+	if err := (&verticacomv1beta1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler")
+		os.Exit(1)
+	}
+}
+
 func main() {
 	flagArgs := &FlagConfig{}
 	flagArgs.setFlagArgs()
@@ -266,47 +317,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.VerticaDBReconciler{
-		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
-		Scheme:             mgr.GetScheme(),
-		Cfg:                restCfg,
-		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
-		ServiceAccountName: flagArgs.ServiceAccountName,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
-		os.Exit(1)
-	}
-
-	if err = (&vascontroller.VerticaAutoscalerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
-		Log:    ctrl.Log.WithName("controllers").WithName("VerticaAutoscaler"),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VerticaAutoscaler")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
-
+	addReconcilersToManager(mgr, restCfg, flagArgs)
 	if getIsWebhookEnabled() {
-		// Set the minimum TLS version for the webhook.  By default it will use
-		// TLS 1.0, which has a lot of security flaws.  This is a hacky way to
-		// set this and should be removed once there is a supported way.
-		// There are numerous proposals to allow this to be configured from
-		// Manager -- based on most recent activity this one looks promising:
-		// https://github.com/kubernetes-sigs/controller-runtime/issues/852
-		webhookServer := mgr.GetWebhookServer()
-		webhookServer.TLSMinVersion = "1.3"
-
-		if err = (&verticacomv1beta1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
-			os.Exit(1)
-		}
-		if err = (&verticacomv1beta1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler")
-			os.Exit(1)
-		}
+		addWebhooksToManager(mgr)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

@@ -19,21 +19,26 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/vasstatus"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type SelectorReconciler struct {
+type RefreshCurrentSizeReconciler struct {
 	VRec *VerticaAutoscalerReconciler
 	Vas  *vapi.VerticaAutoscaler
 }
 
-// MakeSelectorReconciler will create a SelectorReconciler object and return it
-func MakeSelectorReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) ReconcileActor {
-	return &SelectorReconciler{VRec: v, Vas: vas}
+func MakeRefreshCurrentSizeReconciler(v *VerticaAutoscalerReconciler, vas *vapi.VerticaAutoscaler) ReconcileActor {
+	return &RefreshCurrentSizeReconciler{VRec: v, Vas: vas}
 }
 
-// Reconcile will handle updating the selector in the status portion of a VerticaAutoscaler
-func (v *SelectorReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	return ctrl.Result{}, vasstatus.SetSelector(ctx, v.VRec.Client, v.VRec.Log, req)
+// Reconcile will handle updating the currentSize in the status field
+func (v *RefreshCurrentSizeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	vdb := &vapi.VerticaDB{}
+	if res, err := fetchVDB(ctx, v.VRec, v.Vas, vdb); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	_, totSize := vdb.FindSubclusterForServiceName(v.Vas.Spec.ServiceName)
+	return ctrl.Result{}, vasstatus.RefreshCurrentSize(ctx, v.VRec.Client, v.VRec.Log, req, totSize)
 }

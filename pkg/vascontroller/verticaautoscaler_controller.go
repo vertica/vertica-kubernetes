@@ -73,13 +73,13 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		// Initialize targetSize in new VerticaAutoscaler objects
 		MakeTargetSizeInitializerReconciler(r, vas),
 		// Update the currentSize in the status
-		MakeVASStatusReconciler(r, vas),
-		// Update the status portion of the VerticaAutoscaler
-		MakeSelectorReconciler(r, vas),
+		MakeRefreshCurrentSizeReconciler(r, vas),
+		// Update the selector in the status
+		MakeRefreshSelectorReconciler(r, vas),
 		// If scaling granularity is Pod, this will resize existing subclusters
 		// depending on the targetSize.
 		MakeSubclusterResizeReconciler(r, vas),
-		// If scaling granulariyt is Subcluster, this will create or delete
+		// If scaling granularity is Subcluster, this will create or delete
 		// entire subcluster to match the targetSize.
 		MakeSubclusterScaleReconciler(r, vas),
 	}

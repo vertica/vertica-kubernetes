@@ -45,12 +45,6 @@ func (s *SubclusterScaleReconciler) Reconcile(ctx context.Context, req *ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	if !s.Vas.IsScalingAllowed() {
-		s.VRec.Log.Info("Scaling isn't allowed yet", "targetSize", s.Vas.Spec.TargetSize,
-			"allowScaleToZero", s.Vas.Spec.AllowScaleToZero)
-		return ctrl.Result{}, nil
-	}
-
 	return s.scaleSubcluster(ctx, req)
 }
 

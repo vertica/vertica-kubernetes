@@ -75,15 +75,6 @@ type VerticaAutoscalerSpec struct {
 	// left as zero.  It will get initialized in the operator and then modified
 	// via the /scale subresource.
 	TargetSize int32 `json:"targetSize"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// If true, this will cause the operator to scale down to zero pods if the
-	// targetSize is zero.  If scaling by subcluster this will remove all
-	// subclusters that match the service name.  If false, the operator will
-	// ignore a targetSize of zero.
-	AllowScaleToZero bool `json:"allowScaleToZero,omitempty"`
 }
 
 type ScalingGranularityType string
@@ -201,11 +192,6 @@ func MakeVAS() *VerticaAutoscaler {
 			ServiceName:        "sc1",
 		},
 	}
-}
-
-// IsScalingAllowed returns true if scaling should proceed based on the targetSize
-func (v *VerticaAutoscaler) IsScalingAllowed() bool {
-	return v.Spec.TargetSize > 0 || v.Spec.AllowScaleToZero
 }
 
 // CanUseTemplate returns true if we can use the template provided in the spec
