@@ -23,3 +23,10 @@ spec:
     credentialSecret: s3-auth
   subclusters:
     - name: defaultsubcluster
+      # The CPU resource setting is here is a sample.  We set it so that this
+      # will work with the sample VerticaAutoscaler resource.  The actual amount
+      # should be sized according to:
+      # https://www.vertica.com/kb/Recommendations-for-Sizing-Vertica-Nodes-and-Clusters/Content/Hardware/Recommendations-for-Sizing-Vertica-Nodes-and-Clusters.htm
+      resources:
+        requests:
+          cpu: 500m

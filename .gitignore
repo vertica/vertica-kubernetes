@@ -48,7 +48,7 @@ testbin/*
 *~
 
 # Omit some fully generated files
-config/crd/bases/vertica.com_verticadbs.yaml
+config/crd/bases/*.yaml
 config/rbac/role.yaml
 api/v1beta1/zz_generated.deepcopy.go
 

@@ -127,7 +127,7 @@ func (d *DBGenerator) connect(ctx context.Context) error {
 // setParmsFromOptions will set values in the vdb that are obtained from the
 // command line options.
 func (d *DBGenerator) setParmsFromOptions() {
-	d.Objs.Vdb.TypeMeta.APIVersion = vapi.VerticaDBAPIVersion
+	d.Objs.Vdb.TypeMeta.APIVersion = vapi.GroupVersion.String()
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName

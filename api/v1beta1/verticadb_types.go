@@ -34,9 +34,6 @@ import (
 
 // Important: Run "make" to regenerate code after modifying this file
 
-const VerticaDBKind = "VerticaDB"
-const VerticaDBAPIVersion = "vertica.com/v1beta1"
-
 // Set constant Upgrade Requeue Time
 const URTime = 30
 
@@ -797,7 +794,7 @@ type VerticaDBPodStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:categories=all;verticadbs,shortName=vdb
+//+kubebuilder:resource:categories=all;vertica,shortName=vdb
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
 //+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
@@ -867,8 +864,8 @@ func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
 	return &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "vertica.com/v1beta1",
-			Kind:       "VerticaDB",
+			APIVersion: GroupVersion.String(),
+			Kind:       VerticaDBKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -977,6 +974,19 @@ func (s *Subcluster) GetServiceName() string {
 		return s.Name
 	}
 	return s.ServiceName
+}
+
+// FindSubclusterForServiceName will find any subclusters that match the given service name
+func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
+	totalSize = int32(0)
+	scs = []*Subcluster{}
+	for i := range v.Spec.Subclusters {
+		if v.Spec.Subclusters[i].GetServiceName() == svcName {
+			scs = append(scs, &v.Spec.Subclusters[i])
+			totalSize += v.Spec.Subclusters[i].Size
+		}
+	}
+	return scs, totalSize
 }
 
 // RequiresTransientSubcluster checks if an online upgrade requires a

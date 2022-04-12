@@ -28,6 +28,7 @@ CRD_DIR=$OPERATOR_CHART/crds
 
 $KUSTOMIZE build $REPO_DIR/config/default | $KUBERNETES_SPLIT_YAML --outdir $TEMPLATE_DIR -
 mv $TEMPLATE_DIR/verticadbs.vertica.com-crd.yaml $CRD_DIR
+mv $TEMPLATE_DIR/verticaautoscalers.vertica.com-crd.yaml $CRD_DIR
 
 # Add in the templating
 # 1. Template the namespace

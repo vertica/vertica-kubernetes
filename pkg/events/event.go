@@ -15,6 +15,7 @@
 
 package events
 
+// Constants for VerticaDB reconciler
 const (
 	AddNodeStart                    = "AddNodeStart"
 	AddNodeSucceeded                = "AddNodeSucceeded"
@@ -65,4 +66,11 @@ const (
 	InvalidUpgradePath              = "InvalidUpgradePath"
 	RebalanceShards                 = "RebalanceShards"
 	DrainNodeRetry                  = "DrainNodeRetry"
+)
+
+// Constants for VerticaAutoscaler reconciler
+const (
+	SubclusterServiceNameNotFound = "SubclusterServiceNameNotFound"
+	VerticaDBNotFound             = "VerticaDBNotFound"
+	NoSubclusterTemplate          = "NoSubclusterTemplate"
 )
