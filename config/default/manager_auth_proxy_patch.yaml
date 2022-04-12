@@ -10,7 +10,7 @@ spec:
     spec:
       containers:
       - name: kube-rbac-proxy
-        # Update scripts/create-helm-charts.sh with changes to image
+        # Update scripts/template-helm-chart.sh with changes to image
         image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
         args:
         - "--secure-listen-address=0.0.0.0:8443"
@@ -28,7 +28,7 @@ spec:
           requests:
             cpu: 5m
             # Note, if changing this memory request, be sure to update the
-            # pattern matcher in create-helm-charts.sh.  We look for this to
+            # pattern matcher in template-helm-chart.sh.  We look for this to
             # know where the end of the rbac proxy container spec is.
             memory: 64Mi
       - name: manager

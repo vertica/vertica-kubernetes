@@ -199,7 +199,7 @@ When installing with olm, you need to have olm setup.
 To deploy helm and all of its prereqs, use the following command:
 
 ```shell
-DEPLOY_WITH=helm make install-cert-manager create-helm-charts deploy
+DEPLOY_WITH=helm make install-cert-manager config-transformer deploy
 ```
 
 To deploy olm all of its prereqs, use the following command:
