@@ -1,6 +1,6 @@
 suite: Metrics service tests
 templates:
-  - verticadb-operator-controller-manager-metrics-service-svc.yaml
+  - verticadb-operator-metrics-service-svc.yaml
 tests:
   - it: should not include any object if expose is disabled
     set:

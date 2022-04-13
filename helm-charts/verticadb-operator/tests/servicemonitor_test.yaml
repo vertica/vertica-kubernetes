@@ -1,6 +1,6 @@
 suite: ServiceMonitor tests
 templates:
-  - verticadb-operator-controller-manager-metrics-monitor-servicemonitor.yaml
+  - verticadb-operator-metrics-monitor-servicemonitor.yaml
 tests:
   - it: should not include ServiceMonitor by default
     set:
