@@ -119,6 +119,7 @@ perl -i -0777 -pe 's/(.*insecureSkipVerify:.*)/$1\n{{- else }}\n  - path: \/metr
 # 14.  Template the metrics bind address
 sed -i 's/- --metrics-bind-address=.*/- --metrics-bind-address={{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 perl -i -0777 -pe 's/(.*metrics-bind-address.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe 's/(.*ports:\n.*containerPort: 9443\n.*webhook-server.*\n.*)/$1\n{{- if hasPrefix "EnableWithoutAuth" .Values.prometheus.expose }}\n        - name: metrics\n          containerPort: 8443\n          protocol: TCP\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 15.  Template the rbac container
 perl -i -0777 -pe 's/(.*- args:.*\n.*secure)/{{- if eq .Values.prometheus.expose "EnableWithAuthProxy" }}\n$1/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
