@@ -32,7 +32,7 @@ The Vertica [Helm chart](https://www.vertica.com/docs/latest/HTML/Content/Author
 The Helm chart provides the following customization options:
 - Choose how you want to manage TLS for the admission controller webhook. You can use [cert-manager](https://cert-manager.io/docs/) to manage your certificates, or define custom certificates.
 - Leverage [Kubernetes RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) to grant install privileges to service accounts. By default, installing the Helm chart requires cluster administrator privileges.
-- Install the operator without the admission controller webhook. 
+- Install the operator without the admission controller webhook. Note that not deploying the admission controller might result in invalid state transistions.
 - Use a [sidecar container](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm) to send logs to a file in the Vertica server container for log aggregation. In addition, you can set logging levels with [Helm chart parameters](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/HelmChartParams.htm).
  
 For complete installation instructions, see [Installing the VerticaDB Operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/InstallOperator.htm).
