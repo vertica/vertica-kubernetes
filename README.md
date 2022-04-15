@@ -23,7 +23,7 @@ The [VerticaDB operator](https://www.vertica.com/docs/latest/HTML/Content/Author
 
 ## OperatorHub.io
 
-[OperatorHub.io](https://operatorhub.io/) is an operator registry for environments that use the Operator Lifecycle Manager (OLM). For installation instructions, click the **Install** button on the [VerticaDB Operator page](https://operatorhub.io/operator/verticadb-operator).
+[OperatorHub.io](https://operatorhub.io/) is an operator registry for environments that use the Operator Lifecycle Manager (OLM). For installation instructions, go to the [VerticaDB Operator page](https://operatorhub.io/operator/verticadb-operator) and click the **Install** button.
 
 ## Helm Charts
 
