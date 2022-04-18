@@ -70,7 +70,7 @@ EOF
 fi
 
 set +o errexit
-kubectl create clusterrolebinding metrics-reader --clusterrole=metrics-reader --serviceaccount=$ACCESS_NAMESPACE:$ACCESS_SA
+kubectl create clusterrolebinding verticadb-operator-metrics-reader --clusterrole=verticadb-operator-metrics-reader --serviceaccount=$ACCESS_NAMESPACE:$ACCESS_SA
 RES=$?
 set -o errexit
 
@@ -87,6 +87,6 @@ then
        "namespace": "$ACCESS_NAMESPACE"}
   }]
 EOF
-  kubectl patch clusterrolebinding metrics-reader --type='json' --patch-file $tmpfile
+  kubectl patch clusterrolebinding verticadb-operator-metrics-reader --type='json' --patch-file $tmpfile
   rm $tmpfile
 fi
