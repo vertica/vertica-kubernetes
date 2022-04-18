@@ -27,10 +27,11 @@ data:
     set -o xtrace
 
     SVC_NAME=verticadb-operator-metrics-service
-    curl --insecure https://$SVC_NAME:8443/metrics
+    BEARER_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+    curl --insecure -H "Authorization: Bearer ${BEARER_TOKEN}" https://$SVC_NAME:8443/metrics
     for metric in go_threads controller_runtime_webhook_requests_total
     do
-      curl --insecure https://$SVC_NAME:8443/metrics | grep $metric
+      curl --insecure -H "Authorization: Bearer ${BEARER_TOKEN}" https://$SVC_NAME:8443/metrics | grep $metric
     done
 ---
 apiVersion: v1
@@ -41,7 +42,7 @@ metadata:
     stern: include
 spec:
   restartPolicy: Never
-  serviceAccountName: verticadb-operator-controller-manager
+  serviceAccountName: default
   containers:
     - name: test
       image: bitnami/kubectl:1.20.4

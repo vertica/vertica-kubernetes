@@ -11,7 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# We aren't going to install prometheus.  We will just install the CRD for it.
+# This will allow the helm install to succeed as it creates an instance of
+# ServiceMonitor.
+
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: ../../../scripts/authorize-metrics.sh $NAMESPACE $NAMESPACE default
+  - command: kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/crds/crd-servicemonitors.yaml

@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: ../../../scripts/authorize-metrics.sh $NAMESPACE $NAMESPACE default
+  - command: sh -c "cd ../../.. && make undeploy-operator NAMESPACE=$NAMESPACE"

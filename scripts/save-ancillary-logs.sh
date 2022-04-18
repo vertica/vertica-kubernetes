@@ -18,4 +18,4 @@
 OP=${INT_TEST_OUTPUT_DIR:-int-tests-output}/ancillary.log
 mkdir -p $(dirname $OP)
 echo "Saving ancillary logs to $OP"
-kubectl stern --selector stern=include --all-namespaces --timestamps > $OP 2>&1
+kubectl stern --selector stern=include --all-namespaces --timestamps --container-state terminated > $OP 2>&1
