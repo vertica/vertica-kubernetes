@@ -54,7 +54,7 @@ do
 done
 
 # Generate a single manifest that all of the rbac rules to run the operator.
-# This is a release artifact to, so it must be free of any templating.
+# This is a release artifact too, so it must be free of any templating.
 OPERATOR_RBAC=$RELEASE_ARTIFACT_TARGET_DIR/operator-rbac.yaml
 rm $OPERATOR_RBAC 2>/dev/null || :
 touch $OPERATOR_RBAC

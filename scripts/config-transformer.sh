@@ -35,7 +35,7 @@ mv $TEMPLATE_DIR/verticadbs.vertica.com-crd.yaml $CRD_DIR
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-rolebinding-crb.yaml
 
-# Generate release artifacts from the splity yaml's just generated.  This is
+# Generate release artifacts from the split yaml's just generated.  This is
 # done before templating the helm charts so that the yaml's can be used
 # directly with a 'kubectl apply' command.
 $SCRIPT_DIR/gen-release-artifacts.sh $TEMPLATE_DIR

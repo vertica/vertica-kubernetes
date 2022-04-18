@@ -96,7 +96,7 @@ prometheus:
   #    using the proxy (see https://github.com/brancz/kube-rbac-proxy).  The
   #    metrics endpoint will use the https scheme.
   # EnableWithoutAuth: Like EnableWithAuthProxy, this will create a service
-  #    object to expose the metrics endpoind.  However, there is no authority
+  #    object to expose the metrics endpoint.  However, there is no authority
   #    checking when using the endpoint.  Anyone who had network access
   #    endpoint (i.e. any pod in k8s) will be able to read the metrics.  The
   #    metrics endpoint will use the http scheme.

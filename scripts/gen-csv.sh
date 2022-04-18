@@ -85,7 +85,7 @@ sed -i "s+OPERATOR_IMG_PLACEHOLDER+$(make echo-images | grep OPERATOR_IMG | cut 
 
 # Delete the ServiceMonitor object from the bundle.  This puts a
 # requirement on having the Prometheus Operator installed.  We are only
-# optionally install this.  We will include the manifest in our GitHub
+# optionally installing this.  We will include the manifest in our GitHub
 # artifacts and have it as an optional helm parameter.
 rm bundle/manifests/*servicemonitor.yaml
 
