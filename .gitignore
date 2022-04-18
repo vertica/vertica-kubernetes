@@ -12,12 +12,15 @@ local-soak.cfg
 local-kustomize*.cfg
 .envrc
 
-# Generated files from create-kustomize-overlay.sh
+# Generated files from setup-kustomize.sh
 overlay/
 create-s3-bucket-overlay/
 e2e.yaml
 communal-ep-cert.json
 hadoop-conf.json
+
+# Generate files from setup-operator-upgrade-testsuite.sh
+tests/e2e-operator-upgrade-overlays/*/
 
 # Binaries for programs and plugins
 *.exe
@@ -45,7 +48,7 @@ testbin/*
 *~
 
 # Omit some fully generated files
-config/crd/bases/vertica.com_verticadbs.yaml
+config/crd/bases/*.yaml
 config/rbac/role.yaml
 api/v1beta1/zz_generated.deepcopy.go
 

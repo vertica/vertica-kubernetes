@@ -201,6 +201,15 @@ replacements:
   - source:
       kind: ConfigMap
       name: e2e
+      fieldPath: data.verticaImage
+    targets:
+      - select:
+          kind: Job
+        fieldPaths:
+          - spec.template.spec.containers.0.image
+  - source:
+      kind: ConfigMap
+      name: e2e
       fieldPath: data.vloggerImage
     targets:
       - select:
@@ -630,11 +639,11 @@ setup_creds_for_create_s3_bucket
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-online-upgrade/*/*/base e2e-operator-upgrade/*/*/base
+for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-online-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-online-upgrade/* e2e-operator-upgrade/*
+for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-online-upgrade/* e2e-operator-upgrade-overlays/*
 do
     clean_communal_kustomization $tdir
 done

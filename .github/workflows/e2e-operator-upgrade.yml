@@ -24,7 +24,8 @@ jobs:
         # which are cluster scoped items.
         export E2E_PARALLELISM=1
         export MINIMAL_VERTICA_IMG=YES
-        export E2E_TEST_DIRS=tests/e2e-operator-upgrade
+        export E2E_TEST_DIRS=tests/e2e-operator-upgrade-overlays
+        scripts/setup-operator-upgrade-testsuite.sh
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2

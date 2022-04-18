@@ -18,6 +18,7 @@ testDirs:
   - tests/e2e
   - tests/e2e-extra
   - tests/e2e-online-upgrade
+  - tests/e2e-operator-upgrade-overlays
 parallel: 2
 timeout: 600
 commands:

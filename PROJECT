@@ -19,4 +19,15 @@ resources:
     defaulting: true
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: vertica.com
+  kind: VerticaAutoscaler
+  path: github.com/vertica/vertica-kubernetes/api/v1beta1
+  version: v1beta1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"

@@ -1,0 +1,7 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: verticaautoscaler-sample
+spec:
+  verticaDBName: verticadb-sample
+  serviceName: defaultsubcluster
