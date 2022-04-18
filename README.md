@@ -14,17 +14,26 @@ To deploy the operator and a Kubernetes cluster in a local test environment that
 Vertica extends the Kubernetes API with its [Custom Resource Definition](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm). Install the `CustomResourceDefinition` with a YAML manifest:
 
 ```shell
-kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.3.1/verticadbs.vertica.com-crd.yaml
+kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/download/v1.4.0/verticadbs.vertica.com-crd.yaml
 ```
 
 # Installing the VerticaDB Operator
 
-The [VerticaDB operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/Operator.htm) automates tasks and monitors the state of your Vertica on Kubernetes deployment. Vertica provides the following installation options:
-- [OperatorHub.io](https://operatorhub.io/operator/verticadb-operator). OperatorHub.io is an operator registry for environments that use the Operator Lifecycle Manager (OLM). For installation instructions, click the **Install** button on the VerticaDB Operator page.
-- [Install the Vertica Helm chart](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/HelmChartParams.htm). The Helm chart includes the operator and the admission controller.
- When you install the operator with the Helm charts, you must configure TLS for the admission controller webhook.
- The Vertica Helm chart [installs the CRD](#installing-the-crd) if it is not currently installed.  
- Helm chart installations can use a [sidecar container](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm) to send logs to a file in the Vertica server container for log aggregation. In addition, you can set logging levels with [Helm chart parameters](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/HelmChartParams.htm).
+The [VerticaDB operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/Operator.htm) automates tasks and monitors the state of your Vertica on Kubernetes deployment. It uses an admission controller webhook to verify any state changes to resource objects. Install the operator with [OperatorHub.io](#operatorhubio) or [Helm charts](#helm-charts).
+
+## OperatorHub.io
+
+[OperatorHub.io](https://operatorhub.io/) is an operator registry for environments that use the Operator Lifecycle Manager (OLM). For installation instructions, go to the [VerticaDB Operator page](https://operatorhub.io/operator/verticadb-operator) and click the **Install** button.
+
+## Helm Charts
+
+The Vertica [Helm chart](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/InstallOperator.htm) includes the operator and the admission controller. Additionally, the Helm chart [installs the CRD](#installing-the-crd) if it is not currently installed.  
+
+The Helm chart provides the following customization options:
+- Choose how you want to manage TLS for the admission controller webhook. You can use [cert-manager](https://cert-manager.io/docs/) to manage your certificates, or define custom certificates.
+- Leverage [Kubernetes RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) to grant install privileges to service accounts. By default, installing the Helm chart requires cluster administrator privileges.
+- Install the operator without the admission controller webhook. Note that not deploying the admission controller might result in invalid state transistions.
+- Use a [sidecar container](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm) to send logs to a file in the Vertica server container for log aggregation. In addition, you can set logging levels with [Helm chart parameters](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/HelmChartParams.htm).
  
 For complete installation instructions, see [Installing the VerticaDB Operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/InstallOperator.htm).
 
@@ -83,7 +92,7 @@ External clients can target specific subclusters to handle their workload. Each 
 
 By default, the subcluster service object is set to `ClusterIP`, which load balances internal traffic across the pods in the subcluster. To allow connections from outside of the Kubernetes cluster, set the `subclusters[i].serviceType` parameter to `NodePort` or `LoadBalancer`.
 
-For an overview about Vertica on Kubernetes and Service Objects, see [Containerized Vertica on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm).. 
+For an overview about Vertica on Kubernetes and Service Objects, see [Containerized Vertica on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm). 
 
 For a detailed implementation example, see [Creating a Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CreatingCustomResource.htm).
 
