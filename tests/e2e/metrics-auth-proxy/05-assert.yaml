@@ -19,17 +19,6 @@ metadata:
 spec:
   containers:
   - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --metrics-bind-address=127.0.0.1:8080
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=true
   - name: kube-rbac-proxy
 status:
   phase: Running

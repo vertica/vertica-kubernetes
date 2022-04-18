@@ -29,7 +29,7 @@ spec:
     - --maxfileage=7
     - --maxfilerotation=3
     - --level=info
-    - --dev=true
+    - --dev=false
 status:
   phase: Running
 ---

@@ -14,4 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: bash -c "kustomize build custom-rbac | kubectl -n $NAMESPACE apply -f - "
+  - command: mkdir -p custom-rbac-overlay/
+  - command: cp ../../../config/release-manifests/operator-rbac.yaml custom-rbac-overlay
+  - command: cp ../../manifests/custom-rbac/kustomization.yaml custom-rbac-overlay
+  - command: bash -c "kustomize build custom-rbac-overlay | kubectl -n $NAMESPACE apply -f - "
