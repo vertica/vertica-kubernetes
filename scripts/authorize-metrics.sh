@@ -24,7 +24,10 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 OP_SA=verticadb-operator-controller-manager
 
 function usage() {
-    echo "usage: $0 [<op_namespace>] [<access_namespace>] [<access_serviceaccount>]"
+    echo "usage: $0 [-s <op_serviceaccount>] [<op_namespace>] [<access_namespace>] [<access_serviceaccount>]"
+    echo
+    echo "Optional Arguments:"
+    echo " -s <op_serviceaccount>   Name of the service account used by the operator [Default: $OP_SA]"
     echo
     echo "Positional Arguments:"
     echo " <op_namespace>           The namespace that runs the operator"
@@ -33,14 +36,22 @@ function usage() {
     exit 1
 }
 
+while getopts "hs:" opt
+do
+    case $opt in
+      h) usage;;
+      s) OP_SA=$OPTARG;;
+    esac
+done
+
 if [ $(( $# - $OPTIND )) -lt 2 ]
 then
     usage
 fi
 
-OP_NAMESPACE=$1
-ACCESS_NAMESPACE=$2
-ACCESS_SA=$3
+OP_NAMESPACE=${@:$OPTIND:1}
+ACCESS_NAMESPACE=${@:$OPTIND+1:1}
+ACCESS_SA=${@:$OPTIND+2:1}
 
 set -o xtrace
 
