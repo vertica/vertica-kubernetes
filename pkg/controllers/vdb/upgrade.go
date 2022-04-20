@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -119,10 +120,11 @@ func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) 
 		return ctrl.Result{}, err
 	}
 
-	// We only log an event message the first time we begin an upgrade.
+	// We only log an event message and bump a counter the first time we begin an upgrade.
 	if !i.ContinuingUpgrade {
 		i.VRec.EVRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeStart,
 			"Vertica server upgrade has started.")
+		metrics.UpgradeCount.With(metrics.MakeVDBLabels(i.Vdb)).Inc()
 	}
 	return ctrl.Result{}, nil
 }

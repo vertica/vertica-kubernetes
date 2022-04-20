@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -86,6 +87,9 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 	}
 
 	for i := range subclusters {
+		// Clear out any metrics for the subcluster we are about to delete
+		metrics.HandleSubclusterDelete(d.Vdb, subclusters[i].Name, d.Log)
+
 		if err := d.removeSubcluster(ctx, subclusters[i].Name); err != nil {
 			return ctrl.Result{}, err
 		}

@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 )
 
@@ -84,6 +85,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	err := r.Get(ctx, req.NamespacedName, vdb)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			// Remove any metrics for the vdb that we found to be deleted
+			metrics.HandleVDBDelete(req.NamespacedName.Name, log)
 			// Request object not found, cound have been deleted after reconcile request.
 			log.Info("VerticaDB resource not found.  Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
@@ -138,6 +141,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	return []controllers.ReconcileActor{
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
+		MakeMetricReconciler(r, vdb, pfacts),
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperator120Reconciler(r, log, vdb),
@@ -151,6 +155,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true),
+		MakeMetricReconciler(r, vdb, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, PodRescheduleApplyMethod, ""),
@@ -164,6 +169,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handles calls to admintools -t db_remove_node
 		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts),
+		MakeMetricReconciler(r, vdb, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to remove hosts from admintools.conf
 		MakeUninstallReconciler(r, log, vdb, prunner, pfacts),
@@ -180,6 +186,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts),
 		// Handle calls to admintools -t revive_db
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts),
+		MakeMetricReconciler(r, vdb, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -187,6 +194,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to admintools -t db_add_subcluster
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts),
+		MakeMetricReconciler(r, vdb, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to admintools -t db_add_node
 		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts),

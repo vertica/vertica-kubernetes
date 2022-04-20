@@ -1,0 +1,66 @@
+# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verifies external access through the service to the agent port 5444.  It
+# does this by invoking the REST API and doing basic sanity on what it
+# received.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-no-vdb-metrics
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    SVC_NAME=verticadb-operator-metrics-service
+    curl --silent http://$SVC_NAME:8443/metrics
+    OLD_METRICS=$(curl --silent http://$SVC_NAME:8443/metrics | grep --count 'v-operator-metrics') || :
+    echo $OLD_METRICS
+    # There are 3 subcluster metrics that we don't cleanup yet because we don't
+    # know the subcluster names when we do the cleanup.  There is a PR
+    # (https://github.com/prometheus/client_golang/pull/1013) that will allow
+    # this cleanup.  When we do have that fix, we can check for 0 here.  In the
+    # meantime, we allow 3.
+    if [ "$OLD_METRICS" -eq "3" ]
+    then
+      exit 0
+    fi
+    echo "*** Unexpected, metrics for removed vdb still exist"
+    exit 1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-no-vdb-metrics
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verify-no-vdb-metrics
