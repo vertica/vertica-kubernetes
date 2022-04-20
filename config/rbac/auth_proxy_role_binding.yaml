@@ -4,7 +4,7 @@ metadata:
   name: proxy-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: ClusterRole 
   name: proxy-role
 subjects:
 - kind: ServiceAccount

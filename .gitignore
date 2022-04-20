@@ -11,6 +11,7 @@ run.out
 local-soak.cfg
 local-kustomize*.cfg
 .envrc
+custom-rbac-overlay/
 
 # Generated files from setup-kustomize.sh
 overlay/
@@ -61,8 +62,8 @@ helm-charts/verticadb-webhook/crds/*
 # Omit overlays files
 config/overlays/
 
-# Omit generated default rbac manifests
-config/samples/rbac
+# Omit generated files we include in release artifacts
+config/release-manifests
 
 # bundle files are all auto generated, so omit them
 docker-bundle/Dockerfile

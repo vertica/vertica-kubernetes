@@ -223,7 +223,7 @@ else
 endif	
 
 .PHONY: lint
-lint: create-helm-charts  ## Lint the helm charts and the Go operator
+lint: config-transformer  ## Lint the helm charts and the Go operator
 	helm lint $(OPERATOR_CHART)
 ifneq (${GOLANGCI_LINT_VER}, $(shell ./bin/golangci-lint version --format short 2>&1))
 	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
@@ -382,11 +382,8 @@ install-cert-manager: ## Install the cert-manager
 uninstall-cert-manager: ## Uninstall the cert-manager
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml 
 
-create-helm-charts: manifests kustomize kubernetes-split-yaml ## Generate the helm charts
-	scripts/create-helm-charts.sh
-
-create-default-rbac: manifests kustomize kubernetes-split-yaml ## Generate the default rbac manifests
-	scripts/gen-rbac.sh
+config-transformer: manifests kustomize kubernetes-split-yaml ## Generate release artifacts and helm charts from config/
+	scripts/config-transformer.sh
 
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -

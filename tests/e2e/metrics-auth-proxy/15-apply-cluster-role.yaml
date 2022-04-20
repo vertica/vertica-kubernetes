@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -13,9 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This saves the log of any pod with the label stern=include.
-
-OP=${INT_TEST_OUTPUT_DIR:-int-tests-output}/ancillary.log
-mkdir -p $(dirname $OP)
-echo "Saving ancillary logs to $OP"
-kubectl stern --selector stern=include --all-namespaces --timestamps --container-state terminated > $OP 2>&1
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: ../../../scripts/authorize-metrics.sh $NAMESPACE $NAMESPACE default

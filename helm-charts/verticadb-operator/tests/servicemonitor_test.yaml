@@ -1,0 +1,22 @@
+suite: ServiceMonitor tests
+templates:
+  - verticadb-operator-metrics-monitor-servicemonitor.yaml
+tests:
+  - it: should not include ServiceMonitor by default
+    set:
+      prometheus:
+        createServiceMonitor: false
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: should include ServiceMonitor if value is set
+    set:
+      prometheus:
+        createServiceMonitor: true
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ServiceMonitor
+
+
