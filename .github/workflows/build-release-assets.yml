@@ -30,20 +30,18 @@ jobs:
         make vdb-gen
         ls -lhrt bin/
 
-    - name: Build RBAC yaml
+    - name: Build Release yaml
       run: |
-        mkdir -p config/samples/rbac
-        make create-default-rbac
-        ls -lhrt config/samples/rbac/
+        make config-transformer
+        ls -lhrt config/release-manifests
 
     - name: Build Bundle
       run: | 
         IMG_REPO=vertica/ make bundle
         ls -lhrt
 
-    - name: Build helm charts
+    - name: Package helm charts
       run: | 
-        make create-helm-charts
         cd helm-charts
         helm package verticadb-operator
         ls -lhrt
