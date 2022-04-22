@@ -330,7 +330,7 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 		return stdout, err
 	}
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
-		"Successfully called 'admintools -t restart_node' and it took %s", time.Since(start))
+		"Successfully called 'admintools -t restart_node' and it took %ss", elapsedTimeInSeconds)
 	return stdout, nil
 }
 
@@ -387,15 +387,15 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Calling 'admintools -t start_db' to restart the cluster")
 	start := time.Now()
-	plabels := metrics.MakeVDBLabels(r.Vdb)
+	labels := metrics.MakeVDBLabels(r.Vdb)
 	_, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
 	elapsedTimeInSeconds := time.Since(start).Seconds()
-	metrics.ClusterRestartDuration.With(plabels).Observe(elapsedTimeInSeconds)
-	metrics.ClusterRestartAttempt.With(plabels).Inc()
+	metrics.ClusterRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
+	metrics.ClusterRestartAttempt.With(labels).Inc()
 	if err != nil {
 		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ClusterRestartFailed,
 			"Failed while calling 'admintools -t start_db'")
-		metrics.ClusterRestartFailure.With(plabels).Inc()
+		metrics.ClusterRestartFailure.With(labels).Inc()
 		return ctrl.Result{}, err
 	}
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
