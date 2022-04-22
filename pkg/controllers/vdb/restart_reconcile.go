@@ -330,7 +330,7 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 		return stdout, err
 	}
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
-		"Successfully called 'admintools -t restart_node' and it took %ss", elapsedTimeInSeconds)
+		"Successfully called 'admintools -t restart_node' and it took %ds", int(elapsedTimeInSeconds))
 	return stdout, nil
 }
 
@@ -399,7 +399,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		return ctrl.Result{}, err
 	}
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
-		"Successfully called 'admintools -t start_db' and it took %ss", elapsedTimeInSeconds)
+		"Successfully called 'admintools -t start_db' and it took %ds", int(elapsedTimeInSeconds))
 	return ctrl.Result{}, err
 }
 
