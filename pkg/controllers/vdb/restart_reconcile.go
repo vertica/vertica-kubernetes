@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -317,14 +318,19 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartStarted,
 		"Calling 'admintools -t restart_node' to restart the following pods: %s", strings.Join(podNames, ", "))
 	start := time.Now()
+	labels := metrics.MakeVDBLabels(r.Vdb)
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
+	elapsedTimeInSeconds := time.Since(start).Seconds()
+	metrics.NodesRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
+	metrics.NodesRestartAttempt.With(labels).Inc()
 	if err != nil {
 		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.NodeRestartFailed,
 			"Failed while calling 'admintools -t restart_node'")
+		metrics.NodesRestartFailed.With(labels).Inc()
 		return stdout, err
 	}
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
-		"Successfully called 'admintools -t restart_node' and it took %s", time.Since(start))
+		"Successfully called 'admintools -t restart_node' and it took %ds", int(elapsedTimeInSeconds))
 	return stdout, nil
 }
 
@@ -381,14 +387,19 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Calling 'admintools -t start_db' to restart the cluster")
 	start := time.Now()
+	labels := metrics.MakeVDBLabels(r.Vdb)
 	_, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
+	elapsedTimeInSeconds := time.Since(start).Seconds()
+	metrics.ClusterRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
+	metrics.ClusterRestartAttempt.With(labels).Inc()
 	if err != nil {
 		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ClusterRestartFailed,
 			"Failed while calling 'admintools -t start_db'")
+		metrics.ClusterRestartFailure.With(labels).Inc()
 		return ctrl.Result{}, err
 	}
 	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
-		"Successfully called 'admintools -t start_db' and it took %s", time.Since(start))
+		"Successfully called 'admintools -t start_db' and it took %ds", int(elapsedTimeInSeconds))
 	return ctrl.Result{}, err
 }
 
