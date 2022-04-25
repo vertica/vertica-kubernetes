@@ -511,6 +511,13 @@ var _ = Describe("restart_reconciler", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
+		// Update the status to indicate install count includes both pods
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: ScSize, Detail: []vapi.VerticaDBPodStatus{}},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+
 		// Pod -0 is running and pod -1 is not running.
 		test.SetPodStatus(ctx, k8sClient, 1, names.GenPodName(vdb, sc, 0), 0, 0, test.AllPodsRunning)
 

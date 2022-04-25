@@ -618,8 +618,8 @@ func (r *RestartReconciler) setATPod(findFunc func() (*PodFact, bool)) bool {
 // whether a requeue of the reconcile is necessary because some pods are not yet
 // running.
 func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
-	if r.PFacts.countNotRunning() > 0 {
-		r.Log.Info("Requeue.  Some pods are not yet running.")
+	if r.PFacts.countInstalledAndNotRunning() > 0 {
+		r.Log.Info("Requeue.  Some installed pods are not yet running.")
 		return true
 	}
 	return false

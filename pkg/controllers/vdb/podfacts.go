@@ -43,6 +43,9 @@ type PodFact struct {
 	// Name of the pod
 	name types.NamespacedName
 
+	// Index of the pod within the subcluster.  0 means it is the first pod.
+	podIndex int32
+
 	// dns name resolution of the pod
 	dnsName string
 
@@ -199,6 +202,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		name:       names.GenPodName(vdb, sc, podIndex),
 		subcluster: sc.Name,
 		isPrimary:  sc.IsPrimary,
+		podIndex:   podIndex,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -245,8 +249,22 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 
 // checkIsInstalled will check a single pod to see if the installation has happened.
 func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	pf.isInstalled = tristate.False
+
+	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
+	if ok {
+		// SPILLY - change to bool
+		// Set the install indicator first based on the install count in the status
+		// field.  There are a couple of cases where this will give us the wrong state:
+		// 1.  We have done the install, but haven't yet updated the status field.
+		// 2.  We have done the install, but the admintools.conf was deleted after the fact.
+		// So, we continue after this to further refine the actual install state.
+		if scs.InstallCount > pf.podIndex {
+			pf.isInstalled = tristate.True
+		}
+	}
+	// Nothing else can be gathered if the pod isn't running.
 	if !pf.isPodRunning {
-		pf.isInstalled = tristate.None
 		return nil
 	}
 
@@ -254,10 +272,10 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 	// operator didn't initiate it.  We are going to do based on the existence
 	// of admintools.conf.
 	if vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-f", paths.AdminToolsConf); err != nil {
-			pf.isInstalled = tristate.False
-		} else {
-			pf.isInstalled = tristate.True
+		if pf.isInstalled.IsFalse() {
+			if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-f", paths.AdminToolsConf); err == nil {
+				pf.isInstalled = tristate.True
+			}
 		}
 
 		// We can't reliably set compat21NodeName because the operator didn't
@@ -629,8 +647,8 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 // An empty list implies there are no pods that match the criteria.
 func (p *PodFacts) findReIPPods(onlyPodsWithoutDBs bool) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
-		// Only consider pods that exist and have an installation
-		if !pod.exists || pod.isInstalled.IsFalse() {
+		// Only consider running pods that exist and have an installation
+		if !pod.exists || !pod.isPodRunning || pod.isInstalled.IsFalse() {
 			return false
 		}
 		// If requested don't return pods that have a DB
@@ -684,12 +702,12 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
-// countNotRunning returns number of pods that aren't running yet
-func (p *PodFacts) countNotRunning() int {
+// countInstalledAndNotRunning returns number of installed pods that aren't running yet
+func (p *PodFacts) countInstalledAndNotRunning() int {
 	return p.countPods(func(v *PodFact) int {
 		// We don't count non-running pods that aren't yet managed by the parent
 		// sts.  The sts needs to be created or sized first.
-		if !v.isPodRunning && v.managedByParent {
+		if !v.isPodRunning && v.isInstalled.IsTrue() && v.managedByParent {
 			return 1
 		}
 		return 0

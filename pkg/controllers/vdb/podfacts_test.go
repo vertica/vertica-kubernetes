@@ -92,8 +92,25 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.None))
+		Expect(pf.isInstalled).Should(Equal(tristate.False))
 		Expect(pf.dbExists).Should(Equal(tristate.None))
+	})
+
+	It("should indicate installation if pod not running but status has been updated", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: 1},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pf, ok := pfacts.Detail[nm]
+		Expect(ok).Should(BeTrue())
+		Expect(pf.isInstalled).Should(Equal(tristate.True))
 	})
 
 	It("should not indicate db exists if db directory is not there", func() {
