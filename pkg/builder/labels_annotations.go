@@ -46,13 +46,14 @@ const (
 	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	OperatorName         = "verticadb-operator" // The name of the operator
 
-	CurOperatorVersion = "1.4.0" // The version number of the operator
+	CurOperatorVersion = "1.5.0" // The version number of the operator
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion110 = "1.1.0"
 	OperatorVersion120 = "1.2.0"
 	OperatorVersion130 = "1.3.0"
 	OperatorVersion131 = "1.3.1"
-	OperatorVersion140 = CurOperatorVersion
+	OperatorVersion140 = "1.4.0"
+	OperatorVersion150 = CurOperatorVersion
 )
 
 // MakeSubclusterLabels returns the labels added for the subcluster
