@@ -47,7 +47,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		drecon := actor.(*InstallReconciler)
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		for i := int32(0); i < 3; i++ {
-			Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, i)].isInstalled.IsTrue()).Should(BeTrue(), fmt.Sprintf("Pod index %d", i))
+			Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, i)].isInstalled).Should(BeTrue(), fmt.Sprintf("Pod index %d", i))
 		}
 	})
 
@@ -81,7 +81,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, 1)].isInstalled.IsFalse()).Should(BeTrue())
+		Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, 1)].isInstalled).Should(BeFalse())
 		Expect(fpr.Histories[len(fpr.Histories)-1]).Should(Equal(
 			cmds.CmdHistory{Pod: names.GenPodName(vdb, sc, 1), Command: drecon.genCmdCreateInstallIndicator("node0003")}))
 	})

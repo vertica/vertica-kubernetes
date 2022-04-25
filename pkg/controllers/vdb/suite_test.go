@@ -127,7 +127,7 @@ func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, f
 	pfacts := MakePodFacts(k8sClient, fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, pfact := range pfacts.Detail {
-		pfact.isInstalled = tristate.False
+		pfact.isInstalled = false
 		pfact.eulaAccepted = tristate.False
 		pfact.configShareExists = false
 		pfact.upNode = false

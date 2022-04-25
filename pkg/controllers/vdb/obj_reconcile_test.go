@@ -552,15 +552,15 @@ var _ = Describe("obj_reconcile", func() {
 
 			pn := names.GenPodNameFromSts(vdb, sts, origSize-1)
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.True, dbExists: tristate.False}
+			pfacts.Detail[pn] = &PodFact{isInstalled: true, dbExists: tristate.False}
 
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
-			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.False, dbExists: tristate.True}
+			pfacts.Detail[pn] = &PodFact{isInstalled: false, dbExists: tristate.True}
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
-			pfacts.Detail[pn] = &PodFact{isInstalled: tristate.False, dbExists: tristate.False}
+			pfacts.Detail[pn] = &PodFact{isInstalled: false, dbExists: tristate.False}
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())

@@ -173,7 +173,7 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 			continue
 		}
 		// Fine to skip if installer hasn't even been run for this pod
-		if podFact.isInstalled.IsFalse() {
+		if !podFact.isInstalled {
 			continue
 		}
 		if !podFact.dbExists.IsFalse() {

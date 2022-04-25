@@ -187,7 +187,7 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, error) {
 	podList := make([]*PodFact, 0, len(d.PFacts.Detail))
 	for _, v := range d.PFacts.Detail {
-		if v.isInstalled.IsFalse() && v.dbExists.IsFalse() {
+		if !v.isInstalled && v.dbExists.IsFalse() {
 			podList = append(podList, v)
 
 			if v.hasStaleAdmintoolsConf {

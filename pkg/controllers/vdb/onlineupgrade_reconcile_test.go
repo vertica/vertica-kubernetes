@@ -90,7 +90,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		// install and db doesn't exist.  This is needed to allow the sts
 		// deletion to occur.
 		pn := names.GenPodName(vdb, transientSc, 0)
-		r.PFacts.Detail[pn].isInstalled = tristate.False
+		r.PFacts.Detail[pn].isInstalled = false
 		r.PFacts.Detail[pn].dbExists = tristate.False
 
 		Expect(r.deleteTransientSts(ctx)).Should(Equal(ctrl.Result{}))

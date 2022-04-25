@@ -83,7 +83,7 @@ func findATBasePod(vdb *vapi.VerticaDB, pf *PodFacts) (types.NamespacedName, err
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
 		pn := names.GenPodName(vdb, sc, 0)
-		if pf.Detail[pn].isInstalled.IsTrue() {
+		if pf.Detail[pn].isInstalled {
 			return pn, nil
 		}
 	}

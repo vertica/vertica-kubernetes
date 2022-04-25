@@ -70,14 +70,14 @@ var _ = Describe("podfacts", func() {
 		f, ok := (pfacts.Detail[pod0])
 		Expect(ok).Should(BeTrue())
 		Expect(f.isPodRunning).Should(BeTrue())
-		Expect(f.isInstalled.IsFalse()).Should(BeTrue())
+		Expect(f.isInstalled).Should(BeFalse())
 		Expect(f.hasStaleAdmintoolsConf).Should(BeTrue())
 		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, sts, 1)).Should(Succeed())
 		pod1 := names.GenPodName(vdb, sc, 1)
 		f, ok = (pfacts.Detail[pod1])
 		Expect(ok).Should(BeTrue())
 		Expect(f.isPodRunning).Should(BeTrue())
-		Expect(f.isInstalled.IsFalse()).Should(BeTrue())
+		Expect(f.isInstalled).Should(BeFalse())
 		Expect(f.hasStaleAdmintoolsConf).Should(BeFalse())
 	})
 
@@ -92,7 +92,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.False))
+		Expect(pf.isInstalled).Should(BeFalse())
 		Expect(pf.dbExists).Should(Equal(tristate.None))
 	})
 
@@ -110,7 +110,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.True))
+		Expect(pf.isInstalled).Should(BeTrue())
 	})
 
 	It("should not indicate db exists if db directory is not there", func() {
@@ -129,7 +129,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.True))
+		Expect(pf.isInstalled).Should(BeTrue())
 		Expect(pf.dbExists).Should(Equal(tristate.False))
 		Expect(pfacts.doesDBExist()).Should(Equal(tristate.True))
 	})
@@ -309,7 +309,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.True))
+		Expect(pf.isInstalled).Should(BeTrue())
 		Expect(pf.compat21NodeName).Should(Equal("node0010"))
 	})
 

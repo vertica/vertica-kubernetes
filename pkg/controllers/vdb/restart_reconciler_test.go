@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("restart_reconciler", func() {
@@ -229,7 +228,7 @@ var _ = Describe("restart_reconciler", func() {
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		// Mark one of the pods as uninstalled.  This pod won't be included in the map file
 		uninstallPod := names.GenPodName(vdb, sc, 1)
-		pfacts.Detail[uninstallPod].isInstalled = tristate.False
+		pfacts.Detail[uninstallPod].isInstalled = false
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		atPod := names.GenPodName(vdb, sc, 0)
@@ -380,7 +379,7 @@ var _ = Describe("restart_reconciler", func() {
 			// At least one pod needs to be totally offline.  Cannot have all of them read-only.
 			pfacts.Detail[downPodNm].upNode = podIndex != 0
 			pfacts.Detail[downPodNm].readOnly = podIndex != 0
-			pfacts.Detail[downPodNm].isInstalled = tristate.True
+			pfacts.Detail[downPodNm].isInstalled = true
 		}
 
 		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
