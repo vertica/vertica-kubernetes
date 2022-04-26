@@ -132,7 +132,11 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 	It("should skip call exec on a pod if is not yet running", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 1
+		const ScSize = 2
+		vdb.Spec.Subclusters[0].Size = ScSize
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: ScSize - 1, Detail: []vapi.VerticaDBPodStatus{}},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -152,6 +156,9 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: sc.Size - 1, Detail: []vapi.VerticaDBPodStatus{}},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		// Make only pod -1 runable.

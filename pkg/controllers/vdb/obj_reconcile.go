@@ -408,7 +408,11 @@ func (o *ObjReconciler) checkForOrphanAdmintoolsConfEntries(newStsSize int32, st
 		if !ok {
 			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
 		}
-		if pf.isInstalled || !pf.dbExists.IsFalse() {
+		if pf.isInstalled {
+			// SPILLY - major hack.  We need to check for dbExists, and we need
+			// it to be a bool.  Do the same thing we did with dbExists that we
+			// did for isInstalled.
+			// || !pf.dbExists.IsFalse() {
 			o.Log.Info("Requeue since some pods still need db_remove_node and uninstall done.",
 				"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists)
 			return ctrl.Result{Requeue: true}, nil

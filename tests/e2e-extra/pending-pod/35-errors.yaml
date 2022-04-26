@@ -15,12 +15,3 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: v-pending-pod-high-resource-req-0
-status:
-  phase: Pending
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-pending-pod-high-resource-req-1
-status:
-  phase: Pending

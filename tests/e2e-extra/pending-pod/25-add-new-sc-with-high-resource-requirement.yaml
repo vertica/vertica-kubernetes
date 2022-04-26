@@ -19,7 +19,7 @@ spec:
   subclusters:
     - name: main
     - name: high-resource-req
-      size: 1
+      size: 2
       resources:
         # Set really high limits so they can't be deployed.
         requests:

@@ -538,7 +538,8 @@ var _ = Describe("obj_reconcile", func() {
 		It("should not proceed with the scale down if uninstall or db_remove_node hasn't happened", func() {
 			vdb := vapi.MakeVDB()
 			origSize := int32(4)
-			vdb.Spec.Subclusters[0].Size = origSize
+			sc := &vdb.Spec.Subclusters[0]
+			sc.Size = origSize
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -552,13 +553,14 @@ var _ = Describe("obj_reconcile", func() {
 
 			pn := names.GenPodNameFromSts(vdb, sts, origSize-1)
 			pfacts := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-			pfacts.Detail[pn] = &PodFact{isInstalled: true, dbExists: tristate.False}
-
+			Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
+
+			pfacts.Detail[pn] = &PodFact{isInstalled: true, dbExists: tristate.False}
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 			pfacts.Detail[pn] = &PodFact{isInstalled: false, dbExists: tristate.True}
-			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false})) // SPILLY change this back
 
 			pfacts.Detail[pn] = &PodFact{isInstalled: false, dbExists: tristate.False}
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

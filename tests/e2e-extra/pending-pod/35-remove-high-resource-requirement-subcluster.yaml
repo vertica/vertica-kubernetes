@@ -11,16 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: v-pending-pod-high-resource-req-0
-status:
-  phase: Pending
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-pending-pod-high-resource-req-1
-status:
-  phase: Pending
+  name: v-pending-pod
+spec:
+  subclusters:
+    - name: main

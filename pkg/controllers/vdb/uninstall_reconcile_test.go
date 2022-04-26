@@ -66,6 +66,9 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{}},
+		}
 		vdbCopy := vdb.DeepCopy() // Take a copy so that cleanup with original size
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdbCopy)

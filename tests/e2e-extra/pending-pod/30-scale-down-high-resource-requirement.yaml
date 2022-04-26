@@ -18,3 +18,5 @@ metadata:
 spec:
   subclusters:
     - name: main
+    - name: high-resource-req
+      size: 1
