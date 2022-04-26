@@ -29,7 +29,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 // DBAddNodeReconciler will ensure each pod is added to the database.
@@ -60,7 +59,8 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 
 	// If no db exists, then we cannot do an db_add_node. Requeue as an earlier
 	// reconciler should have created the db for us.
-	if d.PFacts.doesDBExist() == tristate.False {
+	if !d.PFacts.doesDBExist() {
+		d.Log.Info("Database doesn't exist in db add node.  Requeue as it should have been created already")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -76,13 +76,13 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 // reconcileSubcluster will reconcile a single subcluster.  Add node will be
 // triggered if we determine that it hasn't been run.
 func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	addNodePods, unknownState := d.PFacts.findPodsWithMissingDB(sc.Name)
+	addNodePods, somePodsNotRunning := d.PFacts.findPodsWithMissingDB(sc.Name)
 
 	// We want to group all of the add nodes in a single admintools call.
 	// Doing so limits the impact on any running queries.  So if there is at
 	// least one pod with unknown state, we requeue until that pod is
 	// running before we proceed with the admintools call.
-	if unknownState {
+	if somePodsNotRunning {
 		d.Log.Info("Requeue add node because some pods were not running")
 		return ctrl.Result{Requeue: true}, nil
 	}

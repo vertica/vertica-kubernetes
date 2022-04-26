@@ -143,7 +143,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	}
 
 	// If no db, there is nothing to restart so we can exit.
-	if !r.PFacts.doesDBExist().IsTrue() {
+	if !r.PFacts.doesDBExist() {
 		return ctrl.Result{}, nil
 	}
 

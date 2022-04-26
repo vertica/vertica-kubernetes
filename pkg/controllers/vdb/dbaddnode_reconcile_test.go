@@ -135,7 +135,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		Expect(len(atCmd)).Should(Equal(0))
 	})
 
-	It("should not add node and requeue if one pod is missing db and another pod isn't running", func() {
+	It("should not add node and requeue if one pod with a missing db isn't running", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -144,18 +144,21 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := MakePodFacts(k8sClient, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		// Make a specific pod as not having a db.
+		// Make a specific pod as not having a db and not running
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		pfacts.Detail[podWithNoDB].dbExists = false
 		pfacts.Detail[podWithNoDB].upNode = false
-		// Make a specific pod as not running
-		podInUnknownState := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 2)
-		pfacts.Detail[podInUnknownState].isPodRunning = false
+		pfacts.Detail[podWithNoDB].isPodRunning = false
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false}))
-		// SPILLY - need to rethink this test as it isn't possible to get an unknown state
-		// lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
-		// Expect(len(lastCall)).Should(Equal(0))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
+		Expect(len(lastCall)).Should(Equal(0))
+
+		// Retry reconcile but make pod running
+		pfacts.Detail[podWithNoDB].isPodRunning = true
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		lastCall = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
+		Expect(len(lastCall)).Should(Equal(1))
 	})
 
 	It("should have a single add node call if multi pods are missing db", func() {

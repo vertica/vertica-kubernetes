@@ -559,7 +559,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 			pfacts.Detail[pn] = &PodFact{isInstalled: false, dbExists: true}
-			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false})) // SPILLY change this back
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 			pfacts.Detail[pn] = &PodFact{isInstalled: false, dbExists: false}
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

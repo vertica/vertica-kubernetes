@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("podfacts", func() {
@@ -145,33 +144,33 @@ var _ = Describe("podfacts", func() {
 		Expect(ok).Should(BeTrue())
 		Expect(pf.isInstalled).Should(BeTrue())
 		Expect(pf.dbExists).Should(BeFalse())
-		Expect(pfacts.doesDBExist()).Should(Equal(tristate.True))
+		Expect(pfacts.doesDBExist()).Should(BeTrue())
 	})
 
 	It("should verify all doesDBExist return codes", func() {
 		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: false, isPodRunning: true}
-		Expect(pf.doesDBExist()).Should(Equal(tristate.False))
+		Expect(pf.doesDBExist()).Should(BeFalse())
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: false, isPodRunning: false}
-		Expect(pf.doesDBExist()).Should(Equal(tristate.None))
+		Expect(pf.doesDBExist()).Should(BeFalse())
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: true, isPodRunning: true}
-		Expect(pf.doesDBExist()).Should(Equal(tristate.True))
+		Expect(pf.doesDBExist()).Should(BeTrue())
 	})
 
 	It("should verify findPodsWithMissingDB return codes", func() {
 		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: true, subcluster: "sc1"}
-		pods, unknownState := pf.findPodsWithMissingDB("sc1")
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: true, subcluster: "sc1", isPodRunning: true}
+		pods, somePodsNotRunning := pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(0))
-		Expect(unknownState).Should(Equal(false))
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: false, subcluster: "sc1"}
-		pods, unknownState = pf.findPodsWithMissingDB("sc1")
+		Expect(somePodsNotRunning).Should(Equal(false))
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: false, subcluster: "sc1", isPodRunning: true}
+		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(1))
-		Expect(unknownState).Should(Equal(false))
-		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: false, subcluster: "sc2"}
-		pods, unknownState = pf.findPodsWithMissingDB("sc2")
+		Expect(somePodsNotRunning).Should(Equal(false))
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: false, subcluster: "sc2", isPodRunning: false}
+		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc2")
 		Expect(len(pods)).Should(Equal(1))
-		Expect(unknownState).Should(Equal(false))
+		Expect(somePodsNotRunning).Should(Equal(true))
 	})
 
 	It("should verify return of findPodsWithMissingDB", func() {

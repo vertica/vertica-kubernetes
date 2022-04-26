@@ -385,6 +385,10 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 		// field.  We continue to check the path as we do that to figure out the
 		// vnode.
 		pf.dbExists = scs.AddedToDBCount > pf.podIndex
+		// Inherit the vnode name if present
+		if int(pf.podIndex) < len(scs.Detail) {
+			pf.vnodeName = scs.Detail[pf.podIndex].VNodeName
+		}
 	}
 	// Nothing else can be gathered if the pod isn't running.
 	if !pf.isPodRunning {
@@ -525,37 +529,33 @@ func setShardSubscription(op string, pf *PodFact) error {
 }
 
 // doesDBExist will check if the database exists anywhere.
-// Returns tristate.False if we are 100% confident that the database doesn't
-// exist anywhere. If we did not find any existence of database and at least one
-// pod could not determine if db existed, the we return tristate.None.
-func (p *PodFacts) doesDBExist() tristate.TriState {
-	returnOnFail := tristate.False
+// Returns false if we are 100% confident that the database doesn't
+// exist anywhere.
+func (p *PodFacts) doesDBExist() bool {
 	for _, v := range p.Detail {
-		if v.dbExists && v.isPodRunning {
-			return tristate.True
-		} else if !v.isPodRunning {
-			// SPILLY - revisit this function.  We have a better idea if the db exists or not
-			returnOnFail = tristate.None
+		if v.dbExists {
+			return true
 		}
 	}
-	return returnOnFail
+	return false
 }
 
 // findPodsWithMisstingDB will return a list of pods facts that have a missing DB.
 // It will only return pods that are running and that match the given
 // subcluster. If no pods are found an empty list is returned. The list will be
-// ordered by pod index.  We also return a bool indicating wether we couldn't
-// determine if DB was installed on any pods.
+// ordered by pod index.  We also return a bool indicating if at least one pod
+// that has a missing DB wasn't running.
 func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
-	// SPILLY - we don't set podsWithUnknownState anymore since dbExists is a
-	// bool.  Check the callers of this to see if that makes sense.
-	podsWithUnknownState := false
+	podsHaveMissingDBAndNotRunning := false
 	hostList := []*PodFact{}
 	for _, v := range p.Detail {
 		if v.subcluster != scName {
 			continue
 		}
 		if !v.dbExists {
+			if !v.isPodRunning {
+				podsHaveMissingDBAndNotRunning = true
+			}
 			hostList = append(hostList, v)
 		}
 	}
@@ -563,7 +563,7 @@ func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
 	sort.Slice(hostList, func(i, j int) bool {
 		return hostList[i].dnsName < hostList[j].dnsName
 	})
-	return hostList, podsWithUnknownState
+	return hostList, podsHaveMissingDBAndNotRunning
 }
 
 // findPodToRunVsql returns the name of the pod we will exec into in

@@ -64,14 +64,11 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	if exists := g.PFacts.doesDBExist(); exists.IsFalse() {
+	if !g.PFacts.doesDBExist() {
 		res, err := g.runInit(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-	} else if exists.IsNone() {
-		// Could not determine if DB didn't exist.  Missing state with some of the pods.
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil
