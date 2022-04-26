@@ -158,7 +158,7 @@ func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secr
 
 	for _, key := range keyNames {
 		if _, ok := secret.Data[key]; !ok {
-			o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
+			o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
 				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
 			return ctrl.Result{Requeue: true}, nil
 		}

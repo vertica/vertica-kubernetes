@@ -239,7 +239,6 @@ func (r *VerticaDBReconciler) Event(vdb *vapi.VerticaDB, eventtype, reason, mess
 }
 
 // Eventf is a wrapper for Eventf() that also writes a log entry
-// SPILLY - convert everyone to use this new function
 func (r *VerticaDBReconciler) Eventf(vdb *vapi.VerticaDB, eventtype, reason, messageFmt string, args ...interface{}) {
 	r.Log.Info("Event logging", "eventtype", eventtype, "reason", reason, "message", fmt.Sprintf(messageFmt, args...))
 	r.EVRec.Eventf(vdb, eventtype, reason, messageFmt, args...)

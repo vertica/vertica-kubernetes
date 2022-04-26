@@ -62,7 +62,7 @@ func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, req *ctrl.
 		}
 		switch opVer {
 		case builder.OperatorVersion120, builder.OperatorVersion110, builder.OperatorVersion100:
-			u.VRec.EVRec.Event(u.Vdb, corev1.EventTypeNormal, events.OperatorUpgrade,
+			u.VRec.Event(u.Vdb, corev1.EventTypeNormal, events.OperatorUpgrade,
 				fmt.Sprintf("Deleting statefulset '%s' because it was created by an old operator (pre-%s)",
 					sts.Name, builder.OperatorVersion130))
 			if err := u.VRec.Client.Delete(ctx, sts); err != nil {

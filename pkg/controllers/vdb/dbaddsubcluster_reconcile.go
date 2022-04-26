@@ -146,7 +146,7 @@ func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *va
 	}
 
 	_, _, err := d.PRunner.ExecAdmintools(ctx, d.ATPod.name, names.ServerContainer, cmd...)
-	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterAdded,
+	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterAdded,
 		"Added new subcluster '%s'", sc.Name)
 	return err
 }

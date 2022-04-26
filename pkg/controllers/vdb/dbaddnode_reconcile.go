@@ -139,7 +139,7 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 // Returns the stdout from the command.
 func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodFact, atPod *PodFact) (string, error) {
 	podNames := genPodNames(pods)
-	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
+	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
 		"Calling 'admintools -t db_add_node' for pod(s) '%s'", podNames)
 	start := time.Now()
 	cmd := d.genAddNodeCommand(pods)
@@ -147,14 +147,14 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodF
 	if err != nil {
 		switch {
 		case isLicenseLimitError(stdout):
-			d.VRec.EVRec.Event(d.Vdb, corev1.EventTypeWarning, events.AddNodeLicenseFail,
+			d.VRec.Event(d.Vdb, corev1.EventTypeWarning, events.AddNodeLicenseFail,
 				"You cannot add more nodes to the database.  You have reached the limit allowed by your license.")
 		default:
-			d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.AddNodeFailed,
+			d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.AddNodeFailed,
 				"Failed when calling 'admintools -t db_add_node' for pod(s) '%s'", podNames)
 		}
 	} else {
-		d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
+		d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
 			"Successfully called 'admintools -t db_add_node' and it took %s", time.Since(start))
 	}
 	return stdout, err

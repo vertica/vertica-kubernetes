@@ -73,58 +73,58 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 // execCmd will do the actual execution of admintools -t revive_db.
 // This handles logging of necessary events.
 func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error) {
-	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart,
+	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart,
 		"Calling 'admintools -t revive_db'")
 	start := time.Now()
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
 		case isClusterLeaseNotExpired(stdout):
-			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
+			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
 				"revive_db failed because the cluster lease has not expired for '%s'",
 				r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case cloud.IsBucketNotExistError(stdout):
-			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
+			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
 				"The bucket in the S3 path '%s' does not exist", r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case cloud.IsEndpointBadError(stdout):
-			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
+			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
 				"Unable to connect to S3 endpoint '%s'", r.Vdb.Spec.Communal.Endpoint)
 			return ctrl.Result{Requeue: true}, nil
 
 		case isDatabaseNotFound(stdout):
-			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBNotFound,
+			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBNotFound,
 				"revive_db failed because the database '%s' could not be found in the communal path '%s'",
 				r.Vdb.Spec.DBName, r.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isPermissionDeniedError(stdout):
-			r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBPermissionDenied,
+			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBPermissionDenied,
 				"revive_db failed because of a permission denied error.  Verify these paths match the "+
 					"ones used by the database: %s, %s",
 				r.Vdb.Spec.Local.DataPath, r.Vdb.Spec.Local.DepotPath)
 			return ctrl.Result{Requeue: true}, nil
 
 		case isNodeCountMismatch(stdout):
-			r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBNodeCountMismatch,
+			r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBNodeCountMismatch,
 				"revive_db failed because of a node count mismatch")
 			return ctrl.Result{Requeue: true}, nil
 
 		case isKerberosAuthError(stdout):
-			r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
+			r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
 				"Error during keberos authentication")
 			return ctrl.Result{Requeue: true}, nil
 
 		default:
-			r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBFailed,
+			r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBFailed,
 				"Failed to revive the database")
 			return ctrl.Result{}, err
 		}
 	}
-	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,
+	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,
 		"Successfully revived database. It took %s", time.Since(start))
 	return ctrl.Result{}, nil
 }
@@ -173,7 +173,7 @@ func (r *ReviveDBReconciler) getPodList() ([]*PodFact, bool) {
 
 	// Helper to log an event when reviveOrder is found to be bad
 	logBadReviveOrder := func(reason string) {
-		r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveOrderBad,
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveOrderBad,
 			"revive_db failed because the reviveOrder specified is bad: %s", reason)
 	}
 

@@ -108,7 +108,7 @@ func (s *RebalanceShardsReconciler) rebalanceShards(ctx context.Context, atPod *
 	if err != nil {
 		return err
 	}
-	s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.RebalanceShards,
+	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.RebalanceShards,
 		"Successfully called 'rebalance_shards' for '%s'", scName)
 
 	return nil

@@ -710,6 +710,18 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
+// anyPrimaryNodesWithInstallNotRunning returns true if there are any primary
+// pods that we need to wait for
+func (p *PodFacts) anyPrimaryNodesWithInstallNotRunning() bool {
+	cnt := p.countPods(func(v *PodFact) int {
+		if v.isPrimary && v.isInstalled && !v.isPodRunning {
+			return 1
+		}
+		return 0
+	})
+	return cnt != 0
+}
+
 // countInstalledAndNotRunning returns number of installed pods that aren't running yet
 func (p *PodFacts) countInstalledAndNotRunning() int {
 	return p.countPods(func(v *PodFact) int {

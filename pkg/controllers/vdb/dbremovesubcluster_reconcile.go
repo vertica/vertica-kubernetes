@@ -115,7 +115,7 @@ func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scN
 		}
 		return err
 	}
-	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterRemoved,
+	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterRemoved,
 		"Removed subcluster '%s'", scName)
 	return nil
 }
