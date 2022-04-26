@@ -29,7 +29,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("k8s/install_reconcile_test", func() {
@@ -68,7 +67,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		pfact := MakePodFacts(k8sClient, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = tristate.False
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
@@ -104,8 +103,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		pfact := MakePodFacts(k8sClient, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = tristate.False
-		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = tristate.False
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
+		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = false
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{

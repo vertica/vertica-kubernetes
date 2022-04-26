@@ -31,7 +31,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("onlineupgrade_reconcile", func() {
@@ -91,7 +90,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		// deletion to occur.
 		pn := names.GenPodName(vdb, transientSc, 0)
 		r.PFacts.Detail[pn].isInstalled = false
-		r.PFacts.Detail[pn].dbExists = tristate.False
+		r.PFacts.Detail[pn].dbExists = false
 
 		Expect(r.deleteTransientSts(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), fetchedSts)).ShouldNot(Succeed())

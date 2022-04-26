@@ -89,7 +89,7 @@ type PodFact struct {
 
 	// Does the database exist at this pod? This is true iff the database was
 	// created and this pod has been added to the vertica cluster.
-	dbExists tristate.TriState
+	dbExists bool
 
 	// true means the pod has a running vertica process accepting connections on
 	// port 5433.
@@ -355,7 +355,7 @@ func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.Ver
 func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	// This check depends on the vnode, which is only present if the pod is
 	// running and the database exists at the node.
-	if !pf.isPodRunning || pf.dbExists != tristate.True {
+	if !pf.isPodRunning || !pf.dbExists {
 		return nil
 	}
 	cmd := []string{
@@ -375,8 +375,18 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 // checkIsDBCreated will check for evidence of a database at the local node.
 // If a db is found, we will set the vertica node name.
 func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	pf.dbExists = false
+
+	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
+	if ok {
+		// SPILLY - we depend on installing and adding the db in order.
+		// Set the db exists indicator first based on the count in the status
+		// field.  We continue to check the path as we do that to figure out the
+		// vnode.
+		pf.dbExists = scs.AddedToDBCount > pf.podIndex
+	}
+	// Nothing else can be gathered if the pod isn't running.
 	if !pf.isPodRunning {
-		pf.dbExists = tristate.None
 		return nil
 	}
 
@@ -389,9 +399,9 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 		if !strings.Contains(stderr, "No such file or directory") {
 			return err
 		}
-		pf.dbExists = tristate.False
+		pf.dbExists = false
 	} else {
-		pf.dbExists = tristate.True
+		pf.dbExists = true
 		pf.vnodeName = parseVerticaNodeName(stdout)
 	}
 
@@ -401,7 +411,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 // checkIfNodeIsUpAndReadOnly will determine whether Vertica process is running
 // in the pod and whether it is in read-only mode.
 func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if pf.dbExists.IsFalse() || !pf.isPodRunning {
+	if !pf.dbExists || !pf.isPodRunning {
 		pf.upNode = false
 		pf.readOnly = false
 		return nil
@@ -520,9 +530,10 @@ func setShardSubscription(op string, pf *PodFact) error {
 func (p *PodFacts) doesDBExist() tristate.TriState {
 	returnOnFail := tristate.False
 	for _, v := range p.Detail {
-		if v.dbExists.IsTrue() && v.isPodRunning {
+		if v.dbExists && v.isPodRunning {
 			return tristate.True
-		} else if v.dbExists.IsNone() || !v.isPodRunning {
+		} else if !v.isPodRunning {
+			// SPILLY - revisit this function.  We have a better idea if the db exists or not
 			returnOnFail = tristate.None
 		}
 	}
@@ -535,16 +546,16 @@ func (p *PodFacts) doesDBExist() tristate.TriState {
 // ordered by pod index.  We also return a bool indicating wether we couldn't
 // determine if DB was installed on any pods.
 func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
+	// SPILLY - we don't set podsWithUnknownState anymore since dbExists is a
+	// bool.  Check the callers of this to see if that makes sense.
 	podsWithUnknownState := false
 	hostList := []*PodFact{}
 	for _, v := range p.Detail {
 		if v.subcluster != scName {
 			continue
 		}
-		if v.dbExists.IsFalse() {
+		if !v.dbExists {
 			hostList = append(hostList, v)
-		} else if v.dbExists.IsNone() {
-			podsWithUnknownState = true
 		}
 	}
 	// Return an ordered list by pod index for easier debugging
@@ -628,7 +639,7 @@ func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) [
 		if !restartTransient && v.isTransient {
 			return false
 		}
-		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists.IsTrue() && v.isPodRunning
+		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists && v.isPodRunning
 	})
 }
 
@@ -648,7 +659,7 @@ func (p *PodFacts) findReIPPods(onlyPodsWithoutDBs bool) []*PodFact {
 			return false
 		}
 		// If requested don't return pods that have a DB
-		if onlyPodsWithoutDBs && pod.dbExists.IsTrue() {
+		if onlyPodsWithoutDBs && pod.dbExists {
 			return false
 		}
 		return true

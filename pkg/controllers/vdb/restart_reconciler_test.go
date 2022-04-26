@@ -480,7 +480,7 @@ var _ = Describe("restart_reconciler", func() {
 		atPod := types.NamespacedName{}
 		for i := 0; i < ScSize; i++ {
 			nm := names.GenPodName(vdb, sc, int32(i))
-			if pfacts.Detail[nm].dbExists.IsTrue() {
+			if pfacts.Detail[nm].dbExists {
 				atPod = nm
 				break
 			}

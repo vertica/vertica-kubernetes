@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("k8s/uninstall_reconcile", func() {
@@ -120,7 +119,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		pfacts := MakePodFacts(k8sClient, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pn := names.GenPodName(vdb, sc, 1)
-		Expect(pfacts.Detail[pn].dbExists).Should(Equal(tristate.True))
+		Expect(pfacts.Detail[pn].dbExists).Should(BeTrue())
 
 		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := actor.(*UninstallReconciler)
@@ -137,6 +136,6 @@ func updatePodFactsForUninstall(ctx context.Context, pf *PodFacts, vdb *vapi.Ver
 	ExpectWithOffset(1, pf.Collect(ctx, vdb)).Should(Succeed())
 	for i := firstUninstallPod; i <= lastUninstallPod; i++ {
 		pn := names.GenPodName(vdb, sc, i)
-		pf.Detail[pn].dbExists = tristate.False
+		pf.Detail[pn].dbExists = false
 	}
 }

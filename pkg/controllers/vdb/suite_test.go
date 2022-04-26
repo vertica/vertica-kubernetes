@@ -116,7 +116,7 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 		if podsChanged == numPodsToChange {
 			break
 		}
-		pfact.dbExists = tristate.False
+		pfact.dbExists = false
 		pfact.upNode = false
 		podsChanged++
 	}

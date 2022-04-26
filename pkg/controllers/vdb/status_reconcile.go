@@ -113,10 +113,9 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		curStat.Detail[podIndex].UpNode = pf.upNode
 		curStat.Detail[podIndex].ReadOnly = pf.readOnly
 		curStat.Detail[podIndex].Installed = pf.isInstalled
-		// We can only reliably update the status for non-running pods. Skip those
-		// that we couldn't figure out to preserve their state.
-		if !pf.dbExists.IsNone() {
-			curStat.Detail[podIndex].AddedToDB = pf.dbExists.IsTrue()
+		curStat.Detail[podIndex].AddedToDB = pf.dbExists
+		// SPILLY - we can get the vnode name from the status in podfacts
+		if pf.vnodeName != "" {
 			curStat.Detail[podIndex].VNodeName = pf.vnodeName
 		}
 	}

@@ -158,13 +158,18 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 	for podIndex := startPodIndex; podIndex <= endPodIndex; podIndex++ {
 		removeNodePod := names.GenPodName(d.Vdb, sc, podIndex)
 		podFact, ok := d.PFacts.Detail[removeNodePod]
-		if !ok || podFact.dbExists.IsNone() {
-			d.Log.Info("Pod may require scale down but not able to scale down now", "pod", removeNodePod)
+		if !ok {
+			d.Log.Info("Not able to get pod facts for pod.  Requeue iteration.", "pod", removeNodePod)
+			requeueNeeded = true
+			continue
+		}
+		if podFact.dbExists && !podFact.isPodRunning {
+			d.Log.Info("Pod requires scale down but isn't running yet", "pod", removeNodePod)
 			requeueNeeded = true
 			continue
 		}
 		// Fine to skip if we never added a database to this pod
-		if podFact.dbExists.IsFalse() {
+		if !podFact.dbExists {
 			continue
 		}
 		pods = append(pods, podFact)
