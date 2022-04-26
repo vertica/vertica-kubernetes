@@ -252,6 +252,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
 	if ok {
+		// SPILLY - we have to make sure we clear the status on subcluster delete
 		// Set the install indicator first based on the install count in the status
 		// field.  There are a couple of cases where this will give us the wrong state:
 		// 1.  We have done the install, but haven't yet updated the status field.
@@ -781,6 +782,17 @@ func genPodNames(pods []*PodFact) string {
 func (p *PodFacts) anyInstalledPodsNotRunning() (bool, types.NamespacedName) {
 	for _, v := range p.Detail {
 		if !v.isPodRunning && v.isInstalled {
+			return true, v.name
+		}
+	}
+	return false, types.NamespacedName{}
+}
+
+// anyUninstalledTransientPodsNotRunning will return true if it finds at least
+// one transient pod that doesn't have an installation and isn't running.
+func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.NamespacedName) {
+	for _, v := range p.Detail {
+		if v.isTransient && !v.isPodRunning && !v.isInstalled {
 			return true, v.name
 		}
 	}

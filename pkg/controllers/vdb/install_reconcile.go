@@ -77,10 +77,15 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 	// We can only proceed with install if all of the installed pods are
 	// running.  This ensures we can properly sync admintools.conf.
 	if ok, podNotRunning := d.PFacts.anyInstalledPodsNotRunning(); ok {
-		d.Log.Info("At least one pod isn't running.  Aborting the install.", "pod", podNotRunning)
+		d.Log.Info("At least one installed pod isn't running.  Aborting the install.", "pod", podNotRunning)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if ok, podNotRunning := d.PFacts.anyUninstalledTransientPodsNotRunning(); ok {
+		d.Log.Info("At least one transient pod isn't running and doesn't have an install", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// SPILLY - add an upgrade test where the transient stays in pending.  How can we handle that case?
 	fns := []func(context.Context) error{
 		d.acceptEulaIfMissing,
 		d.checkConfigDir,
@@ -187,7 +192,7 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, error) {
 	podList := make([]*PodFact, 0, len(d.PFacts.Detail))
 	for _, v := range d.PFacts.Detail {
-		if !v.isInstalled && !v.dbExists {
+		if !v.isInstalled && !v.dbExists && v.isPodRunning {
 			podList = append(podList, v)
 
 			if v.hasStaleAdmintoolsConf {
