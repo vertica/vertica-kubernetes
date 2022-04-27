@@ -380,7 +380,6 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
 	if ok {
-		// SPILLY - we depend on installing and adding the db in order.
 		// Set the db exists indicator first based on the count in the status
 		// field.  We continue to check the path as we do that to figure out the
 		// vnode.

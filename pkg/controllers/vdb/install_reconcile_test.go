@@ -185,10 +185,30 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
-		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
+		err := drecon.acceptEulaIfMissing(ctx)
 		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
 		cmds := fpr.FindCommands(paths.EulaAcceptanceScript)
 		Expect(len(cmds)).Should(Equal(4)) // 2 for each pod; 1 to copy and 1 to execute the script
+	})
+
+	It("should install pods in pod-index order", func() {
+		vdb := vapi.MakeVDB()
+		const ScIndex = 0
+		sc := &vdb.Spec.Subclusters[ScIndex]
+		sc.Size = 3
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
+		// Make pod-1 not running.  This will prevent install of pod-1 and pod-2
+		pn := names.GenPodName(vdb, sc, 1)
+		pfact.Detail[pn].isPodRunning = false
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
+		drecon := actor.(*InstallReconciler)
+		podList, err := drecon.getInstallTargets(ctx)
+		Expect(err).Should(Succeed())
+		Expect(len(podList)).Should(Equal(1))
+		Expect(podList[0].name).Should(Equal(names.GenPodName(vdb, sc, 0)))
 	})
 })
