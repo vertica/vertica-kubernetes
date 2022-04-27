@@ -1,5 +1,0 @@
-kind: Fixed
-body: Upgrade path detection should allow skipping service packs
-time: 2022-03-15T11:03:24.512411223-03:00
-custom:
-  Issue: "176"

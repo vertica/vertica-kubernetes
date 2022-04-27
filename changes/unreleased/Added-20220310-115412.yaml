@@ -1,7 +1,0 @@
-kind: Added
-body: Added ability to configure RequeueAfter for upgrade reconciles. This delay can
-  be specified through '.spec.upgradeRequeueTime' parameter. Prior to this, an online
-  upgrade could wait upto 20 minutes before retrying.
-time: 2022-03-10T11:54:12.544668821-05:00
-custom:
-  Issue: "168"

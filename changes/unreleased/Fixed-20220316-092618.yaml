@@ -1,6 +1,0 @@
-kind: Fixed
-body: Avoid a second cluster restart after offline upgrade has completed
-  successfully.
-time: 2022-03-16T09:26:18.133664698-03:00
-custom:
-  Issue: "178"

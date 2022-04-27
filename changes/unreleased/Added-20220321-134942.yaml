@@ -1,5 +1,0 @@
-kind: Added
-body: Scale down will drain active connections before removing pod
-time: 2022-03-21T13:49:42.627023537-03:00
-custom:
-  Issue: "183"

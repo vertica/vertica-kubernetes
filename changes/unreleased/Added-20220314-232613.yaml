@@ -1,5 +1,0 @@
-kind: Added
-body: Allow existing serviceaccount to be used
-time: 2022-03-14T23:26:13.0460311+01:00
-custom:
-  Issue: "171"

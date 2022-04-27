@@ -1,5 +1,0 @@
-kind: Added
-body: Helm parameters to allow deployment of the operator from private registries
-time: 2022-03-21T14:28:06.364713612-03:00
-custom:
-  Issue: "170"
