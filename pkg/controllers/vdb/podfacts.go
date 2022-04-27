@@ -252,7 +252,6 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
 	if ok {
-		// SPILLY - we have to make sure we clear the status on subcluster delete
 		// Set the install indicator first based on the install count in the status
 		// field.  There are a couple of cases where this will give us the wrong state:
 		// 1.  We have done the install, but haven't yet updated the status field.
