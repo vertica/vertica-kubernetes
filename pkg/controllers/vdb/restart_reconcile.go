@@ -115,14 +115,6 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	// SPILLY - as a temp hack, if there are any primary nodes with an
-	// installation that aren't running, we will requeue
-	if r.PFacts.anyPrimaryNodesWithInstallNotRunning() {
-		r.Log.Info("Waiting for all primary nodes to come online to have proper cluster quorum")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	// SPILLY - we need a check here that will requeue if a quorum of nodes are
-	// running (if ks 1).  If ks-0, all nodes from the primaries are needed.
 
 	// Find an AT pod.  You must run with a pod that has no vertica process running.
 	// This is needed to be able to start the primaries when secondary read-only
