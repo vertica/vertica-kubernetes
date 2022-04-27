@@ -85,7 +85,6 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// SPILLY - add an upgrade test where the transient stays in pending.  How can we handle that case?
 	fns := []func(context.Context) error{
 		d.acceptEulaIfMissing,
 		d.checkConfigDir,
