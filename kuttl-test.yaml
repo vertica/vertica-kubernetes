@@ -22,9 +22,6 @@ testDirs:
 parallel: 2
 timeout: 600
 commands:
-  # Cleanup stern from a prior run
-  - command: pkill kubectl-stern
-
   # Create the kustomize overlay files to override the image, endpoint, etc.
   - command: scripts/setup-kustomize.sh
 
@@ -43,18 +40,19 @@ commands:
 
   - command: kubectl stern --version
 
+  # Ensure the log output directory exists
+  - command: mkdir -p int-tests-output
+
   # We use stern to collect the pod output of any test that creates a pod with
   # the 'stern=include' label.  By default, the output of this is stored in a
   # file in int-tests-output/
-  - command: scripts/save-ancillary-logs.sh
+  - command: kubectl stern --selector stern=include --all-namespaces --timestamps --container-state terminated > int-tests-output/ancillary.log 2>&1
     background: true
 
-  # We have another stern to collect the output for all of the operators.  By
-  # default, the output of this is stored in a file in int-tests-output/
-  - script: scripts/save-operator-logs.sh
+  # We have another stern to collect the output for all of the operators.
+  - command: kubectl stern --selector app.kubernetes.io/name=verticadb-operator --all-namespaces > int-tests-output/verticadb-operator.log 2>&1
     background: true
 
-  # And another stern to collect the output from any vertica pods.  By default,
-  # this stores it in a file in int-tests-output/
-  - script: scripts/save-vertica-logs.sh
+  # And another stern to collect the output from any vertica pods.
+  - command: kubectl stern --selector app.kubernetes.io/name=vertica --all-namespaces --timestamps > int-tests-output/vertica.log 2>&1
     background: true
