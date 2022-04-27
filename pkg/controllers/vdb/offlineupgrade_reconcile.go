@@ -121,7 +121,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 // version of Vertica that doesn't support online upgrade.
 func (o *OfflineUpgradeReconciler) logEventIfOnlineUpgradeRequested(ctx context.Context) (ctrl.Result, error) {
 	if !o.Manager.ContinuingUpgrade && o.Vdb.Spec.UpgradePolicy == vapi.OnlineUpgrade {
-		o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.IncompatibleOnlineUpgrade,
+		o.VRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.IncompatibleOnlineUpgrade,
 			"Online upgrade was requested but it is incompatible with the Vertica server.  Falling back to offline upgrade.")
 	}
 	return ctrl.Result{}, nil
@@ -160,18 +160,18 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 	}
 
 	start := time.Now()
-	o.VRec.EVRec.Event(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
+	o.VRec.Event(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
 		"Calling 'admintools -t stop_db'")
 
 	_, _, err := o.PRunner.ExecAdmintools(ctx, pf.name, names.ServerContainer,
 		"-t", "stop_db", "-F", "-d", o.Vdb.Spec.DBName)
 	if err != nil {
-		o.VRec.EVRec.Event(o.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
+		o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
 			"Failed to shutdown the cluster")
 		return ctrl.Result{}, err
 	}
 
-	o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
+	o.VRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
 		"Successfully called 'admintools -t stop_db' and it took %s", time.Since(start))
 	return ctrl.Result{}, nil
 }

@@ -116,7 +116,7 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 		if podsChanged == numPodsToChange {
 			break
 		}
-		pfact.dbExists = tristate.False
+		pfact.dbExists = false
 		pfact.upNode = false
 		podsChanged++
 	}
@@ -127,7 +127,8 @@ func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, f
 	pfacts := MakePodFacts(k8sClient, fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, pfact := range pfacts.Detail {
-		pfact.isInstalled = tristate.False
+		pfact.isInstalled = false
+		pfact.dbExists = false
 		pfact.eulaAccepted = tristate.False
 		pfact.configShareExists = false
 		pfact.upNode = false

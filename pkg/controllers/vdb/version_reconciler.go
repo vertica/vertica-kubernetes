@@ -80,7 +80,7 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	}
 
 	if vinf.IsUnsupported() {
-		v.VRec.EVRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version %s is unsupported with this operator.  The minimum version supported is %s.",
 			vinf.VdbVer, version.MinimumVersion)
 		return ctrl.Result{Requeue: true}, nil
@@ -117,7 +117,7 @@ func (v *VersionReconciler) updateVDBVersion(ctx context.Context, newVersion str
 	if v.EnforceUpgradePath && !v.Vdb.Spec.IgnoreUpgradePath {
 		ok, failureReason := version.IsUpgradePathSupported(v.Vdb, versionAnnotations)
 		if !ok {
-			v.VRec.EVRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
 				"Invalid upgrade path detected.  %s", failureReason)
 			return ctrl.Result{Requeue: true}, nil
 		}
