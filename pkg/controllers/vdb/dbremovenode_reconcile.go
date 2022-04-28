@@ -127,6 +127,9 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 		// We successfully called db_remove_node, invalidate the pod facts cache
 		// so that it is refreshed the next time we need it.
 		d.PFacts.Invalidate()
+
+		// Log an event if the shard/node ratio gets to high
+		d.VRec.checkShardToNodeRatio(d.Vdb, sc)
 	}
 
 	return ctrl.Result{Requeue: requeueNeeded}, nil

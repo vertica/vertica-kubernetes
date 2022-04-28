@@ -101,7 +101,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 	ok = g.checkPodList(podList)
 	if !ok {
-		g.Log.Info("Aborting reconiliation as not all of required pods are running")
+		g.Log.Info("Aborting reconciliation as not all required pods are running")
 		return ctrl.Result{Requeue: true}, nil
 	}
 

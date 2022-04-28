@@ -25,6 +25,7 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertdb
+  shardCount: 12
   subclusters:
     - name: sc1
       size: 1

@@ -231,3 +231,21 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vap
 	}
 	return passwd, nil
 }
+
+// checkShardToNodeRatio will check the subclusters ratio of shards to node.  If
+// it is outside the bounds of optimal value then an event is written to inform
+// the user.
+func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vapi.Subcluster) {
+	// If ksafety is 0, this is a toy database since we cannot grow beyond 3
+	// nodes.  Don't bother logging anything in that case.
+	if vdb.Spec.KSafety == vapi.KSafety0 {
+		return
+	}
+	ratio := float32(vdb.Spec.ShardCount) / float32(sc.Size)
+	const SuboptimalRatio = float32(3.0)
+	if ratio > SuboptimalRatio {
+		r.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.SuboptimalNodeCount,
+			"Subcluster '%s' has a suboptimal node count.  Consider increasing its size so that the shard to node ratio is %d:1 or less.",
+			sc.Name, int(SuboptimalRatio))
+	}
+}

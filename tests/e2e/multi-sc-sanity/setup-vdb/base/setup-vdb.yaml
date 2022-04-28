@@ -19,15 +19,15 @@ spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   communal:
-    includeUIDInPath: false
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   subclusters:
-    - name: sc-1
-      size: 1
-      isPrimary: true
     - name: sc-2
       size: 1
       isPrimary: false
+    - name: sc-1
+      size: 1
+      isPrimary: true
   kSafety: "0"
   certSecrets: []

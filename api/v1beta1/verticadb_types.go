@@ -88,11 +88,13 @@ type VerticaDBSpec struct {
 	// The name of the database.  This cannot be updated once the CRD is created.
 	DBName string `json:"dbName"`
 
-	// +kubebuilder:default:=12
+	// +kubebuilder:default:=6
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The number of shards to create in the database. This cannot be updated
-	// once the CRD is created.
+	// once the CRD is created.  Refer to this page to determine an optimal size:
+	// https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/SizingEonCluster.htm
+	// The default was chosen using this link and the default subcluster size of 3.
 	ShardCount int `json:"shardCount"`
 
 	// +kubebuilder:validation:Optional
