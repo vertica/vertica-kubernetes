@@ -81,44 +81,44 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 // execCmd will do the actual execution of admintools -t create_db.
 // This handles logging of necessary events.
 func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error) {
-	c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart,
+	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart,
 		"Calling 'admintools -t create_db'")
 	start := time.Now()
 	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		switch {
 		case cloud.IsEndpointBadError(stdout):
-			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
+			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
 				"Unable to write to the bucket in the S3 endpoint '%s'", c.Vdb.Spec.Communal.Endpoint)
 			return ctrl.Result{Requeue: true}, nil
 
 		case cloud.IsBucketNotExistError(stdout):
-			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
+			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
 				"The bucket in the S3 path '%s' does not exist", c.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isCommunalPathNotEmpty(stdout):
-			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalPathIsNotEmpty,
+			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalPathIsNotEmpty,
 				"The communal path '%s' is not empty", c.Vdb.GetCommunalPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isWrongRegion(stdout):
-			c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3WrongRegion,
+			c.VRec.Event(c.Vdb, corev1.EventTypeWarning, events.S3WrongRegion,
 				"You are trying to access your S3 bucket using the wrong region")
 			return ctrl.Result{Requeue: true}, nil
 
 		case isKerberosAuthError(stdout):
-			c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
+			c.VRec.Event(c.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
 				"Error during keberos authentication")
 			return ctrl.Result{Requeue: true}, nil
 
 		default:
-			c.VRec.EVRec.Event(c.Vdb, corev1.EventTypeWarning, events.CreateDBFailed,
+			c.VRec.Event(c.Vdb, corev1.EventTypeWarning, events.CreateDBFailed,
 				"Failed to create the database")
 			return ctrl.Result{}, err
 		}
 	}
-	c.VRec.EVRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
+	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
 		"Successfully created database with subcluster '%s'. It took %s", c.Vdb.Spec.Subclusters[0].Name, time.Since(start))
 	return ctrl.Result{}, nil
 }

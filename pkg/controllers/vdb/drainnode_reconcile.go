@@ -85,7 +85,7 @@ func (s *DrainNodeReconciler) reconcilePod(ctx context.Context, pf *PodFact) (ct
 	// the exponential backoff algorithm.
 	activeConnections := anyActiveConnections(stdout)
 	if activeConnections {
-		s.VRec.EVRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.DrainNodeRetry,
+		s.VRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.DrainNodeRetry,
 			"Pod '%s' has active connections preventing the drain from succeeding", pf.name.Name)
 	}
 	return ctrl.Result{Requeue: activeConnections}, nil

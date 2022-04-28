@@ -112,15 +112,9 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		}
 		curStat.Detail[podIndex].UpNode = pf.upNode
 		curStat.Detail[podIndex].ReadOnly = pf.readOnly
-		// We can only reliably update the status for running pods. Skip those
-		// that we couldn't figure out to preserve their state.
-		if !pf.isInstalled.IsNone() {
-			curStat.Detail[podIndex].Installed = pf.isInstalled.IsTrue()
-		}
-		// Similar comment about db existence and vertica node name. Skip pods
-		// that we couldn't figure out the state for.
-		if !pf.dbExists.IsNone() {
-			curStat.Detail[podIndex].AddedToDB = pf.dbExists.IsTrue()
+		curStat.Detail[podIndex].Installed = pf.isInstalled
+		curStat.Detail[podIndex].AddedToDB = pf.dbExists
+		if pf.vnodeName != "" {
 			curStat.Detail[podIndex].VNodeName = pf.vnodeName
 		}
 	}

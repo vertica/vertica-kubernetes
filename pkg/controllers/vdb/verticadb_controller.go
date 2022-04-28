@@ -231,3 +231,15 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vap
 	}
 	return passwd, nil
 }
+
+// Event a wrapper for Event() that also writes a log entry
+func (r *VerticaDBReconciler) Event(vdb *vapi.VerticaDB, eventtype, reason, message string) {
+	r.Log.Info("Event logging", "eventtype", eventtype, "reason", reason, "message", message)
+	r.EVRec.Event(vdb, eventtype, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (r *VerticaDBReconciler) Eventf(vdb *vapi.VerticaDB, eventtype, reason, messageFmt string, args ...interface{}) {
+	r.Log.Info("Event logging", "eventtype", eventtype, "reason", reason, "message", fmt.Sprintf(messageFmt, args...))
+	r.EVRec.Eventf(vdb, eventtype, reason, messageFmt, args...)
+}

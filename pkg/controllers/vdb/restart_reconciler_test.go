@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("restart_reconciler", func() {
@@ -229,7 +228,7 @@ var _ = Describe("restart_reconciler", func() {
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		// Mark one of the pods as uninstalled.  This pod won't be included in the map file
 		uninstallPod := names.GenPodName(vdb, sc, 1)
-		pfacts.Detail[uninstallPod].isInstalled = tristate.False
+		pfacts.Detail[uninstallPod].isInstalled = false
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		atPod := names.GenPodName(vdb, sc, 0)
@@ -380,7 +379,7 @@ var _ = Describe("restart_reconciler", func() {
 			// At least one pod needs to be totally offline.  Cannot have all of them read-only.
 			pfacts.Detail[downPodNm].upNode = podIndex != 0
 			pfacts.Detail[downPodNm].readOnly = podIndex != 0
-			pfacts.Detail[downPodNm].isInstalled = tristate.True
+			pfacts.Detail[downPodNm].isInstalled = true
 		}
 
 		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
@@ -481,7 +480,7 @@ var _ = Describe("restart_reconciler", func() {
 		atPod := types.NamespacedName{}
 		for i := 0; i < ScSize; i++ {
 			nm := names.GenPodName(vdb, sc, int32(i))
-			if pfacts.Detail[nm].dbExists.IsTrue() {
+			if pfacts.Detail[nm].dbExists {
 				atPod = nm
 				break
 			}
@@ -510,6 +509,13 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		// Update the status to indicate install count includes both pods
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: ScSize, Detail: []vapi.VerticaDBPodStatus{}},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		// Pod -0 is running and pod -1 is not running.
 		test.SetPodStatus(ctx, k8sClient, 1, names.GenPodName(vdb, sc, 0), 0, 0, test.AllPodsRunning)

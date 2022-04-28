@@ -47,6 +47,9 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 

@@ -143,7 +143,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	}
 
 	// If no db, there is nothing to restart so we can exit.
-	if !r.PFacts.doesDBExist().IsTrue() {
+	if !r.PFacts.doesDBExist() {
 		return ctrl.Result{}, nil
 	}
 
@@ -315,7 +315,7 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 		podNames = append(podNames, pods.name.Name)
 	}
 
-	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartStarted,
+	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartStarted,
 		"Calling 'admintools -t restart_node' to restart the following pods: %s", strings.Join(podNames, ", "))
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
@@ -324,12 +324,12 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 	metrics.NodesRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
 	metrics.NodesRestartAttempt.With(labels).Inc()
 	if err != nil {
-		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.NodeRestartFailed,
+		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.NodeRestartFailed,
 			"Failed while calling 'admintools -t restart_node'")
 		metrics.NodesRestartFailed.With(labels).Inc()
 		return stdout, err
 	}
-	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
+	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
 		"Successfully called 'admintools -t restart_node' and it took %ds", int(elapsedTimeInSeconds))
 	return stdout, nil
 }
@@ -369,7 +369,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	cmd = r.genReIPCommand()
 	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...); err != nil {
 		// Log an event as failure to re_ip means we won't be able to bring up the database.
-		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReipFailed,
+		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReipFailed,
 			"Attempt to run 'admintools -t re_ip' failed")
 		return ctrl.Result{}, err
 	}
@@ -384,7 +384,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 // It is assumed that the cluster has already run re_ip.
 func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
 	cmd := r.genStartDBCommand(downPods)
-	r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
+	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Calling 'admintools -t start_db' to restart the cluster")
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
@@ -393,12 +393,12 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 	metrics.ClusterRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
 	metrics.ClusterRestartAttempt.With(labels).Inc()
 	if err != nil {
-		r.VRec.EVRec.Event(r.Vdb, corev1.EventTypeWarning, events.ClusterRestartFailed,
+		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ClusterRestartFailed,
 			"Failed while calling 'admintools -t start_db'")
 		metrics.ClusterRestartFailure.With(labels).Inc()
 		return ctrl.Result{}, err
 	}
-	r.VRec.EVRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
+	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
 		"Successfully called 'admintools -t start_db' and it took %ds", int(elapsedTimeInSeconds))
 	return ctrl.Result{}, err
 }
@@ -618,8 +618,8 @@ func (r *RestartReconciler) setATPod(findFunc func() (*PodFact, bool)) bool {
 // whether a requeue of the reconcile is necessary because some pods are not yet
 // running.
 func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
-	if r.PFacts.countNotRunning() > 0 {
-		r.Log.Info("Requeue.  Some pods are not yet running.")
+	if r.PFacts.countInstalledAndNotRunning() > 0 {
+		r.Log.Info("Requeue.  Some installed pods are not yet running.")
 		return true
 	}
 	return false

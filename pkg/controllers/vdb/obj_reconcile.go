@@ -158,7 +158,7 @@ func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secr
 
 	for _, key := range keyNames {
 		if _, ok := secret.Data[key]; !ok {
-			o.VRec.EVRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
+			o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
 				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -408,7 +408,7 @@ func (o *ObjReconciler) checkForOrphanAdmintoolsConfEntries(newStsSize int32, st
 		if !ok {
 			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
 		}
-		if !pf.isInstalled.IsFalse() || !pf.dbExists.IsFalse() {
+		if pf.isInstalled || pf.dbExists {
 			o.Log.Info("Requeue since some pods still need db_remove_node and uninstall done.",
 				"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists)
 			return ctrl.Result{Requeue: true}, nil
