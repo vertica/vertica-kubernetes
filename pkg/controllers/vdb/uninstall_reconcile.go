@@ -85,9 +85,9 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	// We can only proceed with install if all of the pods are running.  This
-	// ensures we can properly sync admintools.conf.
-	if ok, podNotRunning := s.PFacts.anyPodsNotRunning(); ok {
+	// We can only proceed with uninstall if all of the installed pods are
+	// running.  This ensures we can properly sync admintools.conf.
+	if ok, podNotRunning := s.PFacts.anyInstalledPodsNotRunning(); ok {
 		s.Log.Info("At least one pod isn't running.  Aborting the uninstall.", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -166,17 +166,22 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 	for podIndex := startPodIndex; podIndex <= endPodIndex; podIndex++ {
 		uninstallPod := names.GenPodName(s.Vdb, sc, podIndex)
 		podFact, ok := s.PFacts.Detail[uninstallPod]
-		if !ok || !podFact.isPodRunning {
+		if !ok {
+			s.Log.Info("Could not find any information for the pod", "pod", uninstallPod)
+			requeueNeeded = true
+			continue
+		}
+		// Fine to skip if installer hasn't even been run for this pod
+		if !podFact.isInstalled {
+			continue
+		}
+		if !podFact.isPodRunning {
 			// Requeue since we need the pod running to remove the installer indicator file
 			s.Log.Info("Pod may require uninstall but not able to do so now", "pod", uninstallPod)
 			requeueNeeded = true
 			continue
 		}
-		// Fine to skip if installer hasn't even been run for this pod
-		if podFact.isInstalled.IsFalse() {
-			continue
-		}
-		if !podFact.dbExists.IsFalse() {
+		if podFact.dbExists {
 			s.Log.Info("DB exists at the pod, which needs to be removed first", "pod", uninstallPod)
 			requeueNeeded = true
 			continue

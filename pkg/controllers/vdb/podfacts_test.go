@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("podfacts", func() {
@@ -70,19 +69,51 @@ var _ = Describe("podfacts", func() {
 		f, ok := (pfacts.Detail[pod0])
 		Expect(ok).Should(BeTrue())
 		Expect(f.isPodRunning).Should(BeTrue())
-		Expect(f.isInstalled.IsFalse()).Should(BeTrue())
+		Expect(f.isInstalled).Should(BeFalse())
 		Expect(f.hasStaleAdmintoolsConf).Should(BeTrue())
 		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, sts, 1)).Should(Succeed())
 		pod1 := names.GenPodName(vdb, sc, 1)
 		f, ok = (pfacts.Detail[pod1])
 		Expect(ok).Should(BeTrue())
 		Expect(f.isPodRunning).Should(BeTrue())
-		Expect(f.isInstalled.IsFalse()).Should(BeTrue())
+		Expect(f.isInstalled).Should(BeFalse())
 		Expect(f.hasStaleAdmintoolsConf).Should(BeFalse())
 	})
 
-	It("should never indicate db exists if pods not running", func() {
+	It("should use status fields to check if db exists when pods aren't running", func() {
 		vdb := vapi.MakeVDB()
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		nm := names.GenPodName(vdb, sc, 0)
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
+		}
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pf, ok := pfacts.Detail[nm]
+		Expect(ok).Should(BeTrue())
+		Expect(pf.isInstalled).Should(BeTrue())
+		Expect(pf.dbExists).Should(BeTrue())
+
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: sc.Name, InstallCount: 0, AddedToDBCount: 0},
+		}
+		pfacts.Invalidate()
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pf, ok = pfacts.Detail[nm]
+		Expect(ok).Should(BeTrue())
+		Expect(pf.isInstalled).Should(BeFalse())
+		Expect(pf.dbExists).Should(BeFalse())
+	})
+
+	It("should indicate installation if pod not running but status has been updated", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: 1},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -92,8 +123,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.None))
-		Expect(pf.dbExists).Should(Equal(tristate.None))
+		Expect(pf.isInstalled).Should(BeTrue())
 	})
 
 	It("should not indicate db exists if db directory is not there", func() {
@@ -112,57 +142,53 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.True))
-		Expect(pf.dbExists).Should(Equal(tristate.False))
-		Expect(pfacts.doesDBExist()).Should(Equal(tristate.True))
+		Expect(pf.isInstalled).Should(BeTrue())
+		Expect(pf.dbExists).Should(BeFalse())
+		Expect(pfacts.doesDBExist()).Should(BeTrue())
 	})
 
 	It("should verify all doesDBExist return codes", func() {
 		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: tristate.False, isPodRunning: true}
-		Expect(pf.doesDBExist()).Should(Equal(tristate.False))
-		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: tristate.False, isPodRunning: false}
-		Expect(pf.doesDBExist()).Should(Equal(tristate.None))
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: tristate.True, isPodRunning: true}
-		Expect(pf.doesDBExist()).Should(Equal(tristate.True))
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: false, isPodRunning: true}
+		Expect(pf.doesDBExist()).Should(BeFalse())
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: false, isPodRunning: false}
+		Expect(pf.doesDBExist()).Should(BeFalse())
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: true, isPodRunning: true}
+		Expect(pf.doesDBExist()).Should(BeTrue())
 	})
 
 	It("should verify findPodsWithMissingDB return codes", func() {
 		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
-		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: tristate.True, subcluster: "sc1"}
-		pods, unknownState := pf.findPodsWithMissingDB("sc1")
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: true, subcluster: "sc1", isPodRunning: true}
+		pods, somePodsNotRunning := pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(0))
-		Expect(unknownState).Should(Equal(false))
-		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: tristate.None, subcluster: "sc1"}
-		pods, unknownState = pf.findPodsWithMissingDB("sc1")
-		Expect(len(pods)).Should(Equal(0))
-		Expect(unknownState).Should(Equal(true))
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: tristate.False, subcluster: "sc1"}
-		pods, unknownState = pf.findPodsWithMissingDB("sc1")
+		Expect(somePodsNotRunning).Should(Equal(false))
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: false, subcluster: "sc1", isPodRunning: true}
+		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(1))
-		Expect(unknownState).Should(Equal(true))
-		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: tristate.False, subcluster: "sc2"}
-		pods, unknownState = pf.findPodsWithMissingDB("sc2")
+		Expect(somePodsNotRunning).Should(Equal(false))
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: false, subcluster: "sc2", isPodRunning: false}
+		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc2")
 		Expect(len(pods)).Should(Equal(1))
-		Expect(unknownState).Should(Equal(false))
+		Expect(somePodsNotRunning).Should(Equal(true))
 	})
 
 	It("should verify return of findPodsWithMissingDB", func() {
 		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-			dnsName: "p1", subcluster: "sc1", dbExists: tristate.True,
+			dnsName: "p1", subcluster: "sc1", dbExists: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
-			dnsName: "p2", subcluster: "sc1", dbExists: tristate.False,
+			dnsName: "p2", subcluster: "sc1", dbExists: false,
 		}
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
-			dnsName: "p3", subcluster: "sc1", dbExists: tristate.False,
+			dnsName: "p3", subcluster: "sc1", dbExists: false,
 		}
 		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
-			dnsName: "p4", subcluster: "sc2", dbExists: tristate.False,
+			dnsName: "p4", subcluster: "sc2", dbExists: false,
 		}
 		pf.Detail[types.NamespacedName{Name: "p5"}] = &PodFact{
-			dnsName: "p5", subcluster: "sc2", dbExists: tristate.False,
+			dnsName: "p5", subcluster: "sc2", dbExists: false,
 		}
 		pods, _ := pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(2))
@@ -234,7 +260,7 @@ var _ = Describe("podfacts", func() {
 			},
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
-		pf := &PodFact{name: pn, isPodRunning: true}
+		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
@@ -250,7 +276,7 @@ var _ = Describe("podfacts", func() {
 			},
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
-		pf := &PodFact{name: pn, isPodRunning: true}
+		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		// Run with no annotation
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).ShouldNot(Succeed())
 		// Run with 11.0.2 annotation
@@ -271,7 +297,7 @@ var _ = Describe("podfacts", func() {
 			},
 		}
 		pfs := MakePodFacts(k8sClient, fpr)
-		pf := &PodFact{name: pn, isPodRunning: true}
+		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
@@ -292,7 +318,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(Equal(tristate.True))
+		Expect(pf.isInstalled).Should(BeTrue())
 		Expect(pf.compat21NodeName).Should(Equal("node0010"))
 	})
 

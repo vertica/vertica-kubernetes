@@ -1031,3 +1031,14 @@ func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
 		// service objects.
 	}
 }
+
+// FindSubclusterStatus will find a SubclusterStatus entry for the given
+// subcluster name.  Returns false if none can be found.
+func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool) {
+	for i := range v.Status.Subclusters {
+		if v.Status.Subclusters[i].Name == scName {
+			return v.Status.Subclusters[i], true
+		}
+	}
+	return SubclusterStatus{}, false
+}

@@ -65,7 +65,7 @@ func distributeAdmintoolsConf(ctx context.Context, vdb *vapi.VerticaDB, vrec *Ve
 	}
 	// If at least one error occurred, log an event and return the first error.
 	if len(errs) > 0 {
-		vrec.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.ATConfPartiallyCopied,
+		vrec.Eventf(vdb, corev1.EventTypeWarning, events.ATConfPartiallyCopied,
 			"Distributing new admintools.conf was successful only at some of the pods.  "+
 				"There was an error copying to %d of the pod(s).", len(errs))
 		return errs[0]
@@ -83,7 +83,7 @@ func findATBasePod(vdb *vapi.VerticaDB, pf *PodFacts) (types.NamespacedName, err
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]
 		pn := names.GenPodName(vdb, sc, 0)
-		if pf.Detail[pn].isInstalled.IsTrue() {
+		if pf.Detail[pn].isInstalled {
 			return pn, nil
 		}
 	}

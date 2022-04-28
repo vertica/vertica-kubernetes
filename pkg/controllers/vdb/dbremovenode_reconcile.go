@@ -138,15 +138,15 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 // execATCmd will run the admintools command to remove the node
 // This handles recording of the events.
 func (d *DBRemoveNodeReconciler) execATCmd(ctx context.Context, atPod types.NamespacedName, podNames string, cmd []string) error {
-	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesStart,
+	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesStart,
 		"Calling 'admintools -t db_remove_node' for pods '%s'", podNames)
 	start := time.Now()
 	if _, _, err := d.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...); err != nil {
-		d.VRec.EVRec.Event(d.Vdb, corev1.EventTypeWarning, events.RemoveNodesFailed,
+		d.VRec.Event(d.Vdb, corev1.EventTypeWarning, events.RemoveNodesFailed,
 			"Failed when calling 'admintools -t db_remove_node'")
 		return err
 	}
-	d.VRec.EVRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesSucceeded,
+	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesSucceeded,
 		"Successfully called 'admintools -t db_remove_node' and it took %s", time.Since(start))
 	return nil
 }
@@ -161,13 +161,18 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 	for podIndex := startPodIndex; podIndex <= endPodIndex; podIndex++ {
 		removeNodePod := names.GenPodName(d.Vdb, sc, podIndex)
 		podFact, ok := d.PFacts.Detail[removeNodePod]
-		if !ok || podFact.dbExists.IsNone() {
-			d.Log.Info("Pod may require scale down but not able to scale down now", "pod", removeNodePod)
+		if !ok {
+			d.Log.Info("Not able to get pod facts for pod.  Requeue iteration.", "pod", removeNodePod)
+			requeueNeeded = true
+			continue
+		}
+		if podFact.dbExists && !podFact.isPodRunning {
+			d.Log.Info("Pod requires scale down but isn't running yet", "pod", removeNodePod)
 			requeueNeeded = true
 			continue
 		}
 		// Fine to skip if we never added a database to this pod
-		if podFact.dbExists.IsFalse() {
+		if !podFact.dbExists {
 			continue
 		}
 		pods = append(pods, podFact)

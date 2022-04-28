@@ -55,6 +55,10 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 		// the finder to discover this additional subcluster.
 		lookupVdb := vapi.MakeVDB()
 		lookupVdb.Spec.Subclusters[0] = vapi.Subcluster{Name: scNames[0], Size: scSizes[0]}
+		lookupVdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: scNames[0], InstallCount: scSizes[0], AddedToDBCount: scSizes[0]},
+			{Name: scNames[1], InstallCount: scSizes[1], AddedToDBCount: scSizes[1]},
+		}
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)

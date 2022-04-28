@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("dbremovenode_reconcile", func() {
@@ -92,9 +91,12 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		))
 	})
 
-	It("should skip remove node and requeue because there aren't any pods running", func() {
+	It("should skip remove node and requeue because pod we need to remove node from isn't running", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
+		}
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdbCopy)
@@ -122,7 +124,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		pfacts := MakePodFacts(k8sClient, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		removePod := names.GenPodName(vdb, sc, 2)
-		pfacts.Detail[removePod].dbExists = tristate.False
+		pfacts.Detail[removePod].dbExists = false
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())

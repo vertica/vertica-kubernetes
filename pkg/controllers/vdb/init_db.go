@@ -64,14 +64,11 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	if exists := g.PFacts.doesDBExist(); exists.IsFalse() {
+	if !g.PFacts.doesDBExist() {
 		res, err := g.runInit(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-	} else if exists.IsNone() {
-		// Could not determine if DB didn't exist.  Missing state with some of the pods.
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -348,7 +345,7 @@ func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod typ
 	// in the creds.  If the value we get out of the secret has undisplayable
 	// characters then we won't even be able to copy the file.
 	if err != nil {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
 			"Failed to copy auth parms to the pod '%s'", atPod)
 	}
 	return err
@@ -364,14 +361,14 @@ func (g *GenericDatabaseInitializer) getCommunalAuth(ctx context.Context) (strin
 
 	accessKey, ok := secret.Data[cloud.CommunalAccessKeyName]
 	if !ok {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
 	secretKey, ok := secret.Data[cloud.CommunalSecretKeyName]
 	if !ok {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
@@ -393,7 +390,7 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (
 	blobEndpointRaw, hasBlobEndpoint := secret.Data[cloud.AzureBlobEndpoint]
 
 	if !hasAccountName && !hasBlobEndpoint {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
 			g.Vdb.Spec.Communal.CredentialSecret, cloud.AzureAccountName, cloud.AzureBlobEndpoint)
 		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
@@ -410,7 +407,7 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (
 	sas, hasSAS := secret.Data[cloud.AzureSharedAccessSignature]
 
 	if (!hasAccountKey && !hasSAS) || (hasAccountKey && hasSAS) {
-		g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
 			g.Vdb.Spec.Communal.CredentialSecret, cloud.AzureAccountKey, cloud.AzureSharedAccessSignature)
 		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
@@ -515,7 +512,7 @@ func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Resu
 	if !ok || ok && vinf.IsEqualOrNewer(DefaultKerberosSupportedVersion) {
 		return ctrl.Result{}
 	}
-	g.VRec.EVRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+	g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 		"The engine (%s) doesn't have the required change to setup Kerberos in "+
 			"the container.  You must be on version %s or greater",
 		vinf.VdbVer, DefaultKerberosSupportedVersion)

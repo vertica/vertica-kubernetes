@@ -29,7 +29,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"yunion.io/x/pkg/tristate"
 )
 
 var _ = Describe("k8s/install_reconcile_test", func() {
@@ -47,7 +46,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		drecon := actor.(*InstallReconciler)
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		for i := int32(0); i < 3; i++ {
-			Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, i)].isInstalled.IsTrue()).Should(BeTrue(), fmt.Sprintf("Pod index %d", i))
+			Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, i)].isInstalled).Should(BeTrue(), fmt.Sprintf("Pod index %d", i))
 		}
 	})
 
@@ -68,7 +67,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		pfact := MakePodFacts(k8sClient, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = tristate.False
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
@@ -81,7 +80,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, 1)].isInstalled.IsFalse()).Should(BeTrue())
+		Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, 1)].isInstalled).Should(BeFalse())
 		Expect(fpr.Histories[len(fpr.Histories)-1]).Should(Equal(
 			cmds.CmdHistory{Pod: names.GenPodName(vdb, sc, 1), Command: drecon.genCmdCreateInstallIndicator("node0003")}))
 	})
@@ -104,8 +103,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		pfact := MakePodFacts(k8sClient, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = tristate.False
-		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = tristate.False
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
+		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = false
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
@@ -132,7 +131,11 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 	It("should skip call exec on a pod if is not yet running", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 1
+		const ScSize = 2
+		vdb.Spec.Subclusters[0].Size = ScSize
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: ScSize - 1, Detail: []vapi.VerticaDBPodStatus{}},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -152,6 +155,9 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: sc.Size - 1, Detail: []vapi.VerticaDBPodStatus{}},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		// Make only pod -1 runable.
@@ -179,10 +185,30 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
-		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
+		err := drecon.acceptEulaIfMissing(ctx)
 		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
 		cmds := fpr.FindCommands(paths.EulaAcceptanceScript)
 		Expect(len(cmds)).Should(Equal(4)) // 2 for each pod; 1 to copy and 1 to execute the script
+	})
+
+	It("should install pods in pod-index order", func() {
+		vdb := vapi.MakeVDB()
+		const ScIndex = 0
+		sc := &vdb.Spec.Subclusters[ScIndex]
+		sc.Size = 3
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
+		// Make pod-1 not running.  This will prevent install of pod-1 and pod-2
+		pn := names.GenPodName(vdb, sc, 1)
+		pfact.Detail[pn].isPodRunning = false
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
+		drecon := actor.(*InstallReconciler)
+		podList, err := drecon.getInstallTargets(ctx)
+		Expect(err).Should(Succeed())
+		Expect(len(podList)).Should(Equal(1))
+		Expect(podList[0].name).Should(Equal(names.GenPodName(vdb, sc, 0)))
 	})
 })

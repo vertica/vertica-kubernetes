@@ -63,7 +63,7 @@ func getConfigMapOrSecret(ctx context.Context, vrec *VerticaDBReconciler, vdb *v
 			case *corev1.ConfigMap:
 				objType = "ConfigMap"
 			}
-			vrec.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.ObjectNotFound,
+			vrec.Eventf(vdb, corev1.EventTypeWarning, events.ObjectNotFound,
 				"Could not find the %s '%s'", objType, nm)
 			return ctrl.Result{Requeue: true}, nil
 		}

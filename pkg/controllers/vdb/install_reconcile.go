@@ -74,10 +74,14 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 
 // analyzeFacts will look at the collected facts and determine the course of action
 func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, error) {
-	// We can only proceed with install if all of the pods are running.  This
-	// ensures we can properly sync admintools.conf.
-	if ok, podNotRunning := d.PFacts.anyPodsNotRunning(); ok {
-		d.Log.Info("At least one pod isn't running.  Aborting the install.", "pod", podNotRunning)
+	// We can only proceed with install if all of the installed pods are
+	// running.  This ensures we can properly sync admintools.conf.
+	if ok, podNotRunning := d.PFacts.anyInstalledPodsNotRunning(); ok {
+		d.Log.Info("At least one installed pod isn't running.  Aborting the install.", "pod", podNotRunning)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if ok, podNotRunning := d.PFacts.anyUninstalledTransientPodsNotRunning(); ok {
+		d.Log.Info("At least one transient pod isn't running and doesn't have an install", "pod", podNotRunning)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -186,8 +190,32 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 // getInstallTargets finds the list of hosts/pods that we need to initialize the config for
 func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, error) {
 	podList := make([]*PodFact, 0, len(d.PFacts.Detail))
-	for _, v := range d.PFacts.Detail {
-		if v.isInstalled.IsFalse() && v.dbExists.IsFalse() {
+	// We need to install pods in pod index order.  We do this because we can
+	// determine if a pod has an installation by looking at the install count
+	// for the subcluster.  For instance, if a subcluster of size 3 has no
+	// installation, and pod-1 isn't running, we can only install pod-0.  Pod-2
+	// needs to wait for the installation of pod-1.
+	scMap := d.Vdb.GenSubclusterMap()
+	for _, sc := range scMap {
+		startPodIndex := int32(0)
+		scStatus, ok := d.Vdb.FindSubclusterStatus(sc.Name)
+		if ok {
+			startPodIndex += scStatus.InstallCount
+		}
+		for i := startPodIndex; i < sc.Size; i++ {
+			pn := names.GenPodName(d.Vdb, sc, i)
+			v, ok := d.PFacts.Detail[pn]
+			if !ok {
+				break
+			}
+			if v.isInstalled || v.dbExists {
+				continue
+			}
+			// To ensure we only install pods in pod-index order, we stop the
+			// install target search when we find a pod isn't running.
+			if !v.isPodRunning {
+				break
+			}
 			podList = append(podList, v)
 
 			if v.hasStaleAdmintoolsConf {

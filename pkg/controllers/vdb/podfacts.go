@@ -43,6 +43,9 @@ type PodFact struct {
 	// Name of the pod
 	name types.NamespacedName
 
+	// Index of the pod within the subcluster.  0 means it is the first pod.
+	podIndex int32
+
 	// dns name resolution of the pod
 	dnsName string
 
@@ -78,16 +81,15 @@ type PodFact struct {
 	// will get deleted.
 	pendingDelete bool
 
-	// Have we run install for this pod? None means we are unable to determine
-	// whether it is run.
-	isInstalled tristate.TriState
+	// Have we run install for this pod?
+	isInstalled bool
 
 	// Does admintools.conf exist but is for an old vdb?
 	hasStaleAdmintoolsConf bool
 
 	// Does the database exist at this pod? This is true iff the database was
 	// created and this pod has been added to the vertica cluster.
-	dbExists tristate.TriState
+	dbExists bool
 
 	// true means the pod has a running vertica process accepting connections on
 	// port 5433.
@@ -199,6 +201,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		name:       names.GenPodName(vdb, sc, podIndex),
 		subcluster: sc.Name,
 		isPrimary:  sc.IsPrimary,
+		podIndex:   podIndex,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -245,8 +248,19 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 
 // checkIsInstalled will check a single pod to see if the installation has happened.
 func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	pf.isInstalled = false
+
+	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
+	if ok {
+		// Set the install indicator first based on the install count in the status
+		// field.  There are a couple of cases where this will give us the wrong state:
+		// 1.  We have done the install, but haven't yet updated the status field.
+		// 2.  We have done the install, but the admintools.conf was deleted after the fact.
+		// So, we continue after this to further refine the actual install state.
+		pf.isInstalled = scs.InstallCount > pf.podIndex
+	}
+	// Nothing else can be gathered if the pod isn't running.
 	if !pf.isPodRunning {
-		pf.isInstalled = tristate.None
 		return nil
 	}
 
@@ -254,10 +268,10 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 	// operator didn't initiate it.  We are going to do based on the existence
 	// of admintools.conf.
 	if vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-f", paths.AdminToolsConf); err != nil {
-			pf.isInstalled = tristate.False
-		} else {
-			pf.isInstalled = tristate.True
+		if !pf.isInstalled {
+			if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-f", paths.AdminToolsConf); err == nil {
+				pf.isInstalled = true
+			}
 		}
 
 		// We can't reliably set compat21NodeName because the operator didn't
@@ -272,7 +286,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 		if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
 			return err
 		}
-		pf.isInstalled = tristate.False
+		pf.isInstalled = false
 
 		// Check if there is a stale admintools.conf
 		cmd := []string{"ls", paths.AdminToolsConf}
@@ -285,7 +299,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 			pf.hasStaleAdmintoolsConf = true
 		}
 	} else {
-		pf.isInstalled = tristate.True
+		pf.isInstalled = true
 		pf.compat21NodeName = strings.TrimSuffix(stdout, "\n")
 	}
 	return nil
@@ -341,7 +355,7 @@ func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.Ver
 func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
 	// This check depends on the vnode, which is only present if the pod is
 	// running and the database exists at the node.
-	if !pf.isPodRunning || pf.dbExists != tristate.True {
+	if !pf.isPodRunning || !pf.dbExists {
 		return nil
 	}
 	cmd := []string{
@@ -361,8 +375,21 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 // checkIsDBCreated will check for evidence of a database at the local node.
 // If a db is found, we will set the vertica node name.
 func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	pf.dbExists = false
+
+	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
+	if ok {
+		// Set the db exists indicator first based on the count in the status
+		// field.  We continue to check the path as we do that to figure out the
+		// vnode.
+		pf.dbExists = scs.AddedToDBCount > pf.podIndex
+		// Inherit the vnode name if present
+		if int(pf.podIndex) < len(scs.Detail) {
+			pf.vnodeName = scs.Detail[pf.podIndex].VNodeName
+		}
+	}
+	// Nothing else can be gathered if the pod isn't running.
 	if !pf.isPodRunning {
-		pf.dbExists = tristate.None
 		return nil
 	}
 
@@ -375,9 +402,9 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 		if !strings.Contains(stderr, "No such file or directory") {
 			return err
 		}
-		pf.dbExists = tristate.False
+		pf.dbExists = false
 	} else {
-		pf.dbExists = tristate.True
+		pf.dbExists = true
 		pf.vnodeName = parseVerticaNodeName(stdout)
 	}
 
@@ -387,7 +414,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 // checkIfNodeIsUpAndReadOnly will determine whether Vertica process is running
 // in the pod and whether it is in read-only mode.
 func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if pf.dbExists.IsFalse() || !pf.isPodRunning {
+	if !pf.dbExists || !pf.isPodRunning {
 		pf.upNode = false
 		pf.readOnly = false
 		return nil
@@ -500,44 +527,41 @@ func setShardSubscription(op string, pf *PodFact) error {
 }
 
 // doesDBExist will check if the database exists anywhere.
-// Returns tristate.False if we are 100% confident that the database doesn't
-// exist anywhere. If we did not find any existence of database and at least one
-// pod could not determine if db existed, the we return tristate.None.
-func (p *PodFacts) doesDBExist() tristate.TriState {
-	returnOnFail := tristate.False
+// Returns false if we are 100% confident that the database doesn't
+// exist anywhere.
+func (p *PodFacts) doesDBExist() bool {
 	for _, v := range p.Detail {
-		if v.dbExists.IsTrue() && v.isPodRunning {
-			return tristate.True
-		} else if v.dbExists.IsNone() || !v.isPodRunning {
-			returnOnFail = tristate.None
+		if v.dbExists {
+			return true
 		}
 	}
-	return returnOnFail
+	return false
 }
 
 // findPodsWithMisstingDB will return a list of pods facts that have a missing DB.
 // It will only return pods that are running and that match the given
 // subcluster. If no pods are found an empty list is returned. The list will be
-// ordered by pod index.  We also return a bool indicating wether we couldn't
-// determine if DB was installed on any pods.
+// ordered by pod index.  We also return a bool indicating if at least one pod
+// that has a missing DB wasn't running.
 func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
-	podsWithUnknownState := false
+	podsHaveMissingDBAndNotRunning := false
 	hostList := []*PodFact{}
 	for _, v := range p.Detail {
 		if v.subcluster != scName {
 			continue
 		}
-		if v.dbExists.IsFalse() {
+		if !v.dbExists {
+			if !v.isPodRunning {
+				podsHaveMissingDBAndNotRunning = true
+			}
 			hostList = append(hostList, v)
-		} else if v.dbExists.IsNone() {
-			podsWithUnknownState = true
 		}
 	}
 	// Return an ordered list by pod index for easier debugging
 	sort.Slice(hostList, func(i, j int) bool {
 		return hostList[i].dnsName < hostList[j].dnsName
 	})
-	return hostList, podsWithUnknownState
+	return hostList, podsHaveMissingDBAndNotRunning
 }
 
 // findPodToRunVsql returns the name of the pod we will exec into in
@@ -574,7 +598,7 @@ func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
 		}
 	}
 	for _, v := range p.Detail {
-		if v.isInstalled.IsTrue() && v.isPodRunning {
+		if v.isInstalled && v.isPodRunning {
 			return v, true
 		}
 	}
@@ -585,7 +609,7 @@ func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
 // command.  If nothing is found, the second parameter returned will be false.
 func (p *PodFacts) findPodToRunAdmintoolsOffline() (*PodFact, bool) {
 	for _, v := range p.Detail {
-		if v.isInstalled.IsTrue() && v.isPodRunning && !v.upNode {
+		if v.isInstalled && v.isPodRunning && !v.upNode {
 			return v, true
 		}
 	}
@@ -614,14 +638,14 @@ func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) [
 		if !restartTransient && v.isTransient {
 			return false
 		}
-		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists.IsTrue() && v.isPodRunning
+		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists && v.isPodRunning
 	})
 }
 
 // findInstalledPods returns a list of pods that have had the installer run
 func (p *PodFacts) findInstalledPods() []*PodFact {
 	return p.filterPods((func(v *PodFact) bool {
-		return v.isInstalled.IsTrue() && v.isPodRunning
+		return v.isInstalled && v.isPodRunning
 	}))
 }
 
@@ -629,12 +653,12 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 // An empty list implies there are no pods that match the criteria.
 func (p *PodFacts) findReIPPods(onlyPodsWithoutDBs bool) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
-		// Only consider pods that exist and have an installation
-		if !pod.exists || pod.isInstalled.IsFalse() {
+		// Only consider running pods that exist and have an installation
+		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
 			return false
 		}
 		// If requested don't return pods that have a DB
-		if onlyPodsWithoutDBs && pod.dbExists.IsTrue() {
+		if onlyPodsWithoutDBs && pod.dbExists {
 			return false
 		}
 		return true
@@ -658,7 +682,7 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 // and none of the pods have an installation.
 func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
 	for _, v := range p.Detail {
-		if ((!v.exists || !v.isPodRunning) && v.managedByParent) || v.isInstalled.IsTrue() {
+		if ((!v.exists || !v.isPodRunning) && v.managedByParent) || v.isInstalled {
 			return false
 		}
 	}
@@ -677,19 +701,19 @@ func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
 // countRunningAndInstalled returns number of pods that are running and have an install
 func (p *PodFacts) countRunningAndInstalled() int {
 	return p.countPods(func(v *PodFact) int {
-		if v.isPodRunning && v.isInstalled.IsTrue() {
+		if v.isPodRunning && v.isInstalled {
 			return 1
 		}
 		return 0
 	})
 }
 
-// countNotRunning returns number of pods that aren't running yet
-func (p *PodFacts) countNotRunning() int {
+// countInstalledAndNotRunning returns number of installed pods that aren't running yet
+func (p *PodFacts) countInstalledAndNotRunning() int {
 	return p.countPods(func(v *PodFact) int {
 		// We don't count non-running pods that aren't yet managed by the parent
 		// sts.  The sts needs to be created or sized first.
-		if !v.isPodRunning && v.managedByParent {
+		if !v.isPodRunning && v.isInstalled && v.managedByParent {
 			return 1
 		}
 		return 0
@@ -751,12 +775,22 @@ func genPodNames(pods []*PodFact) string {
 	return strings.Join(podNames, ", ")
 }
 
-// anyPodsNotRunning returns true if any pod exists but isn't running.  It will
-// return the name of the first pod that isn't running.  This skips pods that
-// haven't yet been created by Kubernetes -- only pods that exist will be checked.
-func (p *PodFacts) anyPodsNotRunning() (bool, types.NamespacedName) {
+// anyInstalledPodsNotRunning returns true if any installed pod isn't running.  It will
+// return the name of the first pod that isn't running.
+func (p *PodFacts) anyInstalledPodsNotRunning() (bool, types.NamespacedName) {
 	for _, v := range p.Detail {
-		if v.exists && !v.isPodRunning {
+		if !v.isPodRunning && v.isInstalled {
+			return true, v.name
+		}
+	}
+	return false, types.NamespacedName{}
+}
+
+// anyUninstalledTransientPodsNotRunning will return true if it finds at least
+// one transient pod that doesn't have an installation and isn't running.
+func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.NamespacedName) {
+	for _, v := range p.Detail {
+		if v.isTransient && !v.isPodRunning && !v.isInstalled {
 			return true, v.name
 		}
 	}
