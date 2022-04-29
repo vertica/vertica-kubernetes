@@ -66,6 +66,7 @@ const (
 	InvalidUpgradePath              = "InvalidUpgradePath"
 	RebalanceShards                 = "RebalanceShards"
 	DrainNodeRetry                  = "DrainNodeRetry"
+	DrainSubclusterRetry            = "DrainSubclusterRetry"
 	SuboptimalNodeCount             = "SuboptimalNodeCount"
 )
 
