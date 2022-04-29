@@ -363,11 +363,10 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s' and shard_name != 'replica'",
 			pf.vnodeName),
 	}
-	stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
 	if err != nil {
-		if !strings.Contains(stderr, "vsql: could not connect to server:") {
-			return err
-		}
+		// An error implies the server is down, so skipping this check.
+		return nil
 	}
 	return setShardSubscription(stdout, pf)
 }
@@ -464,10 +463,7 @@ func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact) error {
 			"from nodes " +
 			"where node_name in (select node_name from current_session)",
 	}
-	if stdout, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-		if !strings.Contains(stderr, "vsql: could not connect to server:") {
-			return err
-		}
+	if stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		pf.upNode = false
 		pf.readOnly = false
 	} else if pf.upNode, pf.readOnly, err = parseNodeStateAndReadOnly(stdout); err != nil {

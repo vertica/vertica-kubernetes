@@ -88,6 +88,8 @@ func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, s
 		if err := d.createSubcluster(ctx, sc); err != nil {
 			return ctrl.Result{}, err
 		}
+		// Log an event if the shard/node ratio is too high for this subcluster
+		d.VRec.checkShardToNodeRatio(d.Vdb, sc)
 	}
 	return ctrl.Result{}, nil
 }

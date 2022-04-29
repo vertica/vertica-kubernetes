@@ -25,14 +25,6 @@ spec:
         name: ""
         version: vertica.com/v1beta1
       specDescriptors:
-      - description: If true, this will cause the operator to scale down to zero pods
-          if the targetSize is zero.  If scaling by subcluster this will remove all
-          subclusters that match the service name.  If false, the operator will ignore
-          a targetSize of zero.
-        displayName: Allow Scale To Zero
-        path: allowScaleToZero
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: 'This defines how the scaling will happen.  This can be one of
           the following: - Subcluster: Scaling will be achieved by creating or deleting
           entire subclusters.   The template for new subclusters are either the template

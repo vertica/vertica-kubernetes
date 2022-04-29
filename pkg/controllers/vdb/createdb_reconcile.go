@@ -118,8 +118,9 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 			return ctrl.Result{}, err
 		}
 	}
+	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
-		"Successfully created database with subcluster '%s'. It took %s", c.Vdb.Spec.Subclusters[0].Name, time.Since(start))
+		"Successfully created database with subcluster '%s'. It took %s", sc.Name, time.Since(start))
 	return ctrl.Result{}, nil
 }
 
@@ -157,9 +158,10 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
+	sc := c.getFirstPrimarySubcluster()
 	sql := fmt.Sprintf(`
      alter subcluster default_subcluster rename to "%s";
-	`, c.Vdb.Spec.Subclusters[0].Name)
+	`, sc.Name)
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"
 	}
@@ -173,9 +175,9 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 // If any pod is not found in the pod facts, it return false for the bool
 // return value.
 func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
-	// We grab all pods from the first subcluster.  Pods for additional
+	// We grab all pods from the first primary subcluster.  Pods for additional
 	// subcluster are added through db_add_node.
-	sc := &c.Vdb.Spec.Subclusters[0]
+	sc := c.getFirstPrimarySubcluster()
 	podList := make([]*PodFact, 0, sc.Size)
 	for i := int32(0); i < sc.Size; i++ {
 		pn := names.GenPodName(c.Vdb, sc, i)
@@ -193,13 +195,28 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 		return podList[i].compat21NodeName < podList[j].compat21NodeName
 	})
 
-	// In case that kSafety == 0 (KSafety0), we only pick one pod from the first subcluster
-	// The remaining pods would be added with db_add_node.
+	// Check if the shard/node ratio of the first subcluster is good
+	c.VRec.checkShardToNodeRatio(c.Vdb, sc)
+
+	// In case that kSafety == 0 (KSafety0), we only pick one pod from the first
+	// primary subcluster. The remaining pods would be added with db_add_node.
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		return podList[0:1], true
 	}
-	// Otherwise, we pick all pods from the first subcluster
 	return podList, true
+}
+
+// getFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
+func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
+	for i := range c.Vdb.Spec.Subclusters {
+		sc := &c.Vdb.Spec.Subclusters[i]
+		if sc.IsPrimary {
+			c.Log.Info("First primary subcluster selected for create_db", "sc", sc.Name)
+			return sc
+		}
+	}
+	// We should never get here because the webhook prevents a vdb with no primary.
+	return &c.Vdb.Spec.Subclusters[0]
 }
 
 // genCmd will return the command to run in the pod to create the database
