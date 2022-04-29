@@ -265,26 +265,6 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.upNode).Should(BeTrue())
 	})
 
-	It("should fail if checkIfNodeIsUpAndReadOnly gets an unexpected error", func() {
-		vdb := vapi.MakeVDB()
-		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		fpr := &cmds.FakePodRunner{
-			Results: cmds.CmdResults{
-				pn: []cmds.CmdResult{
-					{Err: errors.New("unexpected error"), Stderr: "unknown error"},
-				},
-			},
-		}
-		pfs := MakePodFacts(k8sClient, fpr)
-		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		// Run with no annotation
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).ShouldNot(Succeed())
-		// Run with 11.0.2 annotation
-		vdb.Annotations[vapi.VersionAnnotation] = version.NodesHaveReadOnlyStateVersion
-		fpr.Results[pn] = []cmds.CmdResult{{Err: errors.New("unexpected error"), Stderr: "unknown error"}}
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).ShouldNot(Succeed())
-	})
-
 	It("checkIfNodeIsUpAndReadOnly should check for read-only on 11.0.2 servers", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vapi.VersionAnnotation] = version.NodesHaveReadOnlyStateVersion
