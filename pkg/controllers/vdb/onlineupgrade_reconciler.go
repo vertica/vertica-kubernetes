@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
@@ -784,7 +785,12 @@ func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName s
 
 	// Parse the output.  We requeue if there is an active connection.  This
 	// will rely on the UpgradeRequeueTime that is set to default
-	return ctrl.Result{Requeue: anyActiveConnections(stdout)}, nil
+	res := ctrl.Result{Requeue: anyActiveConnections(stdout)}
+	if res.Requeue {
+		o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.DrainSubclusterRetry,
+			"Subcluster '%s' has active connections preventing the drain from succeeding", scName)
+	}
+	return res, nil
 }
 
 // anyActiveConnections will parse the output from vsql to see if there

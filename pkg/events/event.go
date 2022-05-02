@@ -66,6 +66,8 @@ const (
 	InvalidUpgradePath              = "InvalidUpgradePath"
 	RebalanceShards                 = "RebalanceShards"
 	DrainNodeRetry                  = "DrainNodeRetry"
+	DrainSubclusterRetry            = "DrainSubclusterRetry"
+	SuboptimalNodeCount             = "SuboptimalNodeCount"
 )
 
 // Constants for VerticaAutoscaler reconciler

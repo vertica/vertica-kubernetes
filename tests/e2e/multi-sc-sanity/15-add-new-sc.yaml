@@ -17,12 +17,12 @@ metadata:
   name: v-multi-sc
 spec:
   subclusters:
-    - name: sc-1
-      size: 1
-      isPrimary: true
     - name: sc-2
       size: 1
       isPrimary: false
+    - name: sc-1
+      size: 1
+      isPrimary: true
     - name: sc3
       size: 1
       isPrimary: true
