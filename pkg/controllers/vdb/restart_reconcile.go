@@ -115,6 +115,12 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
+	if r.Vdb.Spec.KSafety == vapi.KSafety0 && r.PFacts.countInstalledAndNotRunning() > 0 {
+		// For k-safety 0, to start the cluster we need to include all the pods.
+		// Absence of one will cause us not to have enough pods for cluster quorum.
+		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
+		return ctrl.Result{Requeue: true}, nil
+	}
 
 	// Find an AT pod.  You must run with a pod that has no vertica process running.
 	// This is needed to be able to start the primaries when secondary read-only

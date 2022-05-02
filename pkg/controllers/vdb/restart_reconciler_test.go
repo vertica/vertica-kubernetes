@@ -603,4 +603,39 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Annotations[vapi.VersionAnnotation] = version.StartDBAcceptsHostListVersion
 		Expect(r.genStartDBCommand(downPods)).Should(ContainElements("--hosts", "9.10.1.1,9.10.1.2"))
 	})
+
+	It("should requeue if k-safety is 0, there are no UP nodes and some pods aren't running", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 3
+		vdb.Spec.KSafety = vapi.KSafety0
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := MakePodFacts(k8sClient, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
+			downPodNm := names.GenPodName(vdb, sc, podIndex)
+			pfacts.Detail[downPodNm].upNode = false
+			pfacts.Detail[downPodNm].readOnly = false
+			pfacts.Detail[downPodNm].isInstalled = true
+			// At least one pod needs to not be running.
+			pfacts.Detail[downPodNm].isPodRunning = podIndex != 0
+		}
+
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		listCmd := fpr.FindCommands("start_db")
+		Expect(len(listCmd)).Should(Equal(0))
+
+		// Start the one pod that isn't running.  This should all start_db to initiated
+		downPodNm := names.GenPodName(vdb, sc, 0)
+		pfacts.Detail[downPodNm].isPodRunning = true
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		listCmd = fpr.FindCommands("start_db")
+		Expect(len(listCmd)).Should(Equal(1))
+	})
 })
