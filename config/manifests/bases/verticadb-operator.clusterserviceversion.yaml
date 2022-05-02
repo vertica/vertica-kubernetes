@@ -485,8 +485,11 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
-      - description: The number of shards to create in the database. This cannot be
-          updated once the CRD is created.
+      - description: 'The number of shards to create in the database. This cannot
+          be updated once the CRD is created.  Refer to this page to determine an
+          optimal size: https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/SizingEonCluster.htm
+          The default was chosen using this link and the default subcluster size of
+          3.'
         displayName: Shard Count
         path: shardCount
         x-descriptors:

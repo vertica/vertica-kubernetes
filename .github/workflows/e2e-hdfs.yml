@@ -2,7 +2,7 @@ name: e2e (hdfs) tests
 
 on: 
   push:
-     branches: [main]
+     branches: [main, vnext]
   pull_request:
   workflow_dispatch:
     inputs:
