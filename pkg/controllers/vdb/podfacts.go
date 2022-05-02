@@ -210,20 +210,24 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	}
 
 	pod := &corev1.Pod{}
-	if err := p.Client.Get(ctx, pf.name, pod); errors.IsNotFound(err) {
-		// Treat not found errors as if the pod is not running
-		p.Detail[pf.name] = &pf
-		return nil
-	} else if err != nil {
+	if err := p.Client.Get(ctx, pf.name, pod); err != nil && !errors.IsNotFound(err) {
 		return err
+	} else if err == nil {
+		// Treat not found errors as if the pod is not running.  We continue
+		// checking other elements.  There are certain states, such as
+		// isInstalled or dbExists, that can be determined when the pod isn't
+		// running.
+		//
+		// The remaining fields we set in this block only make sense when the
+		// pod exists.
+		pf.exists = true // Success from the Get() implies pod exists in API server
+		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
+		pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
+		pf.podIP = pod.Status.PodIP
+		pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
+		pf.pendingDelete = podIndex >= sc.Size
+		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 	}
-	pf.exists = true // Success from the Get() implies pod exists in API server
-	pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
-	pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
-	pf.podIP = pod.Status.PodIP
-	pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
-	pf.pendingDelete = podIndex >= sc.Size
-	pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
 		p.checkIsInstalled,

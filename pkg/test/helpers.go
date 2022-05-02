@@ -84,6 +84,15 @@ func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.Vertica
 	// Update the subcluster size
 	sc.Size = newSize
 	ExpectWithOffset(1, c.Update(ctx, vdb)).Should(Succeed())
+	for i := range vdb.Status.Subclusters {
+		scs := &vdb.Status.Subclusters[i]
+		if scs.Name == sc.Name {
+			scs.InstallCount = newSize
+			scs.AddedToDBCount = newSize
+			break
+		}
+	}
+	ExpectWithOffset(1, c.Status().Update(ctx, vdb)).Should(Succeed())
 }
 
 func FakeIPv6ForPod(scIndex, podIndex int32) string {
