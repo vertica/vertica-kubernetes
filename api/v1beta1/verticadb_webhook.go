@@ -270,6 +270,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
 	allErrs = v.matchingServiceNamesAreConsistent(allErrs)
 	allErrs = v.transientSubclusterMustMatchTemplate(allErrs)
+	allErrs = v.validateRequeueTimes(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -731,6 +732,24 @@ func (v *VerticaDB) transientSubclusterMustMatchTemplate(allErrs field.ErrorList
 				"Transient subcluster name doesn't match template")
 			allErrs = append(allErrs, err)
 		}
+	}
+	return allErrs
+}
+
+// validateRequeueTimes is a check for the various requeue times in the CR.
+func (v *VerticaDB) validateRequeueTimes(allErrs field.ErrorList) field.ErrorList {
+	prefix := field.NewPath("spec")
+	if v.Spec.RequeueTime < 0 {
+		err := field.Invalid(prefix.Child("requeueTime"),
+			v.Spec.RequeueTime,
+			"requeueTime cannot be negative")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.UpgradeRequeueTime < 0 {
+		err := field.Invalid(prefix.Child("upgradeRequeueTime"),
+			v.Spec.UpgradeRequeueTime,
+			"upgradeRequeueTime cannot be negative")
+		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }

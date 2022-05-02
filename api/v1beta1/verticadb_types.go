@@ -890,6 +890,7 @@ func MakeVDB() *VerticaDB {
 				DataPath:  "/data",
 				DepotPath: "/depot",
 			},
+			KSafety:    KSafety1,
 			DBName:     "db",
 			ShardCount: 12,
 			Subclusters: []Subcluster{
