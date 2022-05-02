@@ -1,0 +1,5 @@
+kind: Fixed
+body: Don't clear out installed/dbadded state for pods when they are pending
+time: 2022-05-02T14:00:15.96138694-03:00
+custom:
+  Issue: "203"

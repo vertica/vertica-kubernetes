@@ -129,6 +129,11 @@ var _ = Describe("status_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size, Detail: make([]vapi.VerticaDBPodStatus, 0)},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)

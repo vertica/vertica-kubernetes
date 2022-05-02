@@ -29,3 +29,30 @@ status:
       addedToDBCount: 2
       upNodeCount: 2
       name: new-sc3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-multi-sc-sc-1-0
+status:
+  phase: Running
+  containerStatuses:
+  - ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-multi-sc-new-sc3-0
+status:
+  phase: Running
+  containerStatuses:
+  - ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-multi-sc-new-sc3-1
+status:
+  phase: Running
+  containerStatuses:
+  - ready: true
