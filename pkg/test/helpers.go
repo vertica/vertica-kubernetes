@@ -84,6 +84,15 @@ func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.Vertica
 	// Update the subcluster size
 	sc.Size = newSize
 	ExpectWithOffset(1, c.Update(ctx, vdb)).Should(Succeed())
+	for i := range vdb.Status.Subclusters {
+		scs := &vdb.Status.Subclusters[i]
+		if scs.Name == sc.Name {
+			scs.InstallCount = newSize
+			scs.AddedToDBCount = newSize
+			break
+		}
+	}
+	ExpectWithOffset(1, c.Status().Update(ctx, vdb)).Should(Succeed())
 }
 
 func FakeIPv6ForPod(scIndex, podIndex int32) string {
@@ -174,6 +183,14 @@ func DeleteSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	if !kerrors.IsNotFound(err) {
 		ExpectWithOffset(1, c.Delete(ctx, svc)).Should(Succeed())
 	}
+}
+
+func CreateVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+	ExpectWithOffset(1, c.Create(ctx, vas)).Should(Succeed())
+}
+
+func DeleteVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
+	ExpectWithOffset(1, c.Delete(ctx, vas)).Should(Succeed())
 }
 
 func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {

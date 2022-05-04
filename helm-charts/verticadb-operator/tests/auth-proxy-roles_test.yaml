@@ -1,0 +1,19 @@
+suite: Auth proxy roles
+templates:
+  - verticadb-operator-proxy-rolebinding-crb.yaml
+  - verticadb-operator-proxy-role-cr.yaml
+tests:
+  - it: should not include any object by default
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: should include object if createProxyRBAC is set
+    set:
+      prometheus:
+        createProxyRBAC: true
+    asserts:
+      - hasDocuments:
+          count: 1
+
+
+

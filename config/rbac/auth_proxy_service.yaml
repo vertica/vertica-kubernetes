@@ -3,13 +3,13 @@ kind: Service
 metadata:
   labels:
     control-plane: controller-manager
-  name: controller-manager-metrics-service
+  name: metrics-service
   namespace: system
 spec:
   ports:
-  - name: https
+  - name: metrics
     port: 8443
     protocol: TCP
-    targetPort: https
+    targetPort: metrics
   selector:
     control-plane: controller-manager

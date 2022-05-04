@@ -43,15 +43,17 @@ const (
 
 	VDBInstanceLabel     = "app.kubernetes.io/instance"
 	OperatorVersionLabel = "app.kubernetes.io/version"
+	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	OperatorName         = "verticadb-operator" // The name of the operator
 
-	CurOperatorVersion = "1.4.0" // The version number of the operator
+	CurOperatorVersion = "1.5.0" // The version number of the operator
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion110 = "1.1.0"
 	OperatorVersion120 = "1.2.0"
 	OperatorVersion130 = "1.3.0"
 	OperatorVersion131 = "1.3.1"
-	OperatorVersion140 = CurOperatorVersion
+	OperatorVersion140 = "1.4.0"
+	OperatorVersion150 = CurOperatorVersion
 )
 
 // MakeSubclusterLabels returns the labels added for the subcluster
@@ -72,11 +74,11 @@ func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 // MakeOperatorLabels returns the labels that all objects created by this operator will have
 func MakeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/managed-by": OperatorName,
-		"app.kubernetes.io/name":       "vertica",
-		VDBInstanceLabel:               vdb.Name,
-		"app.kubernetes.io/component":  "database",
-		"vertica.com/database":         vdb.Spec.DBName,
+		ManagedByLabel:                OperatorName,
+		"app.kubernetes.io/name":      "vertica",
+		VDBInstanceLabel:              vdb.Name,
+		"app.kubernetes.io/component": "database",
+		"vertica.com/database":        vdb.Spec.DBName,
 	}
 }
 

@@ -1,0 +1,5 @@
+kind: Fixed
+body: Improved handling for pending pods
+time: 2022-04-27T12:26:47.749537768-03:00
+custom:
+  Issue: "201"

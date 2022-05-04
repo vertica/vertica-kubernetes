@@ -476,6 +476,24 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		validateSpecValuesHaveErr(vdb, true)
 	})
+
+	It("should fill in the default serviceName if omitted", func() {
+		vdb := MakeVDB()
+		Expect(vdb.Spec.Subclusters[0].ServiceName).Should(Equal(""))
+		vdb.Default()
+		Expect(vdb.Spec.Subclusters[0].ServiceName).Should(Equal(vdb.Spec.Subclusters[0].Name))
+	})
+
+	It("should prevent negative values for requeueTime", func() {
+		vdb := MakeVDB()
+		vdb.Spec.RequeueTime = -30
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.RequeueTime = 0
+		vdb.Spec.UpgradeRequeueTime = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.UpgradeRequeueTime = 0
+		validateSpecValuesHaveErr(vdb, false)
+	})
 })
 
 func createVDBHelper() *VerticaDB {

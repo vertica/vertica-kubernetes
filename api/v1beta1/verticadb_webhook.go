@@ -120,6 +120,7 @@ func (v *VerticaDB) Default() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
 	v.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+	v.setDefaultServiceName()
 }
 
 //+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions=v1
@@ -134,7 +135,7 @@ func (v *VerticaDB) ValidateCreate() error {
 	if allErrs == nil {
 		return nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: "vertica.com", Kind: "VerticaDB"}, v.Name, allErrs)
+	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -145,7 +146,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	if allErrs == nil {
 		return nil
 	}
-	return apierrors.NewInvalid(schema.GroupKind{Group: "vertica.com", Kind: "VerticaDB"}, v.Name, allErrs)
+	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: VerticaDBKind}, v.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -269,6 +270,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidTemporarySubclusterRouting(allErrs)
 	allErrs = v.matchingServiceNamesAreConsistent(allErrs)
 	allErrs = v.transientSubclusterMustMatchTemplate(allErrs)
+	allErrs = v.validateRequeueTimes(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -734,6 +736,24 @@ func (v *VerticaDB) transientSubclusterMustMatchTemplate(allErrs field.ErrorList
 	return allErrs
 }
 
+// validateRequeueTimes is a check for the various requeue times in the CR.
+func (v *VerticaDB) validateRequeueTimes(allErrs field.ErrorList) field.ErrorList {
+	prefix := field.NewPath("spec")
+	if v.Spec.RequeueTime < 0 {
+		err := field.Invalid(prefix.Child("requeueTime"),
+			v.Spec.RequeueTime,
+			"requeueTime cannot be negative")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.UpgradeRequeueTime < 0 {
+		err := field.Invalid(prefix.Child("upgradeRequeueTime"),
+			v.Spec.UpgradeRequeueTime,
+			"upgradeRequeueTime cannot be negative")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
 func (v *VerticaDB) isImageChangeInProgress() bool {
 	return len(v.Status.Conditions) > ImageChangeInProgressIndex &&
 		v.Status.Conditions[ImageChangeInProgressIndex].Status == v1.ConditionTrue
@@ -775,4 +795,15 @@ func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, 
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
+}
+
+// setDefaultServiceName will explicitly set the serviceName in any subcluster
+// that omitted it
+func (v *VerticaDB) setDefaultServiceName() {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.ServiceName == "" {
+			sc.ServiceName = sc.GetServiceName()
+		}
+	}
 }

@@ -1,4 +1,5 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
 - v1beta1_verticadb.yaml
+- v1beta1_verticaautoscaler.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

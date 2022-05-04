@@ -34,9 +34,6 @@ import (
 
 // Important: Run "make" to regenerate code after modifying this file
 
-const VerticaDBKind = "VerticaDB"
-const VerticaDBAPIVersion = "vertica.com/v1beta1"
-
 // Set constant Upgrade Requeue Time
 const URTime = 30
 
@@ -91,11 +88,13 @@ type VerticaDBSpec struct {
 	// The name of the database.  This cannot be updated once the CRD is created.
 	DBName string `json:"dbName"`
 
-	// +kubebuilder:default:=12
+	// +kubebuilder:default:=6
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// The number of shards to create in the database. This cannot be updated
-	// once the CRD is created.
+	// once the CRD is created.  Refer to this page to determine an optimal size:
+	// https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/SizingEonCluster.htm
+	// The default was chosen using this link and the default subcluster size of 3.
 	ShardCount int `json:"shardCount"`
 
 	// +kubebuilder:validation:Optional
@@ -797,7 +796,7 @@ type VerticaDBPodStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:categories=all;verticadbs,shortName=vdb
+//+kubebuilder:resource:categories=all;vertica,shortName=vdb
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
 //+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
@@ -867,8 +866,8 @@ func MakeVDB() *VerticaDB {
 	nm := MakeVDBName()
 	return &VerticaDB{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "vertica.com/v1beta1",
-			Kind:       "VerticaDB",
+			APIVersion: GroupVersion.String(),
+			Kind:       VerticaDBKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -891,6 +890,7 @@ func MakeVDB() *VerticaDB {
 				DataPath:  "/data",
 				DepotPath: "/depot",
 			},
+			KSafety:    KSafety1,
 			DBName:     "db",
 			ShardCount: 12,
 			Subclusters: []Subcluster{
@@ -979,6 +979,19 @@ func (s *Subcluster) GetServiceName() string {
 	return s.ServiceName
 }
 
+// FindSubclusterForServiceName will find any subclusters that match the given service name
+func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subcluster, totalSize int32) {
+	totalSize = int32(0)
+	scs = []*Subcluster{}
+	for i := range v.Spec.Subclusters {
+		if v.Spec.Subclusters[i].GetServiceName() == svcName {
+			scs = append(scs, &v.Spec.Subclusters[i])
+			totalSize += v.Spec.Subclusters[i].Size
+		}
+	}
+	return scs, totalSize
+}
+
 // RequiresTransientSubcluster checks if an online upgrade requires a
 // transient subcluster.  A transient subcluster exists if the template is
 // filled out.
@@ -1018,4 +1031,15 @@ func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
 		// object.  These are ignored since transient don't have their own
 		// service objects.
 	}
+}
+
+// FindSubclusterStatus will find a SubclusterStatus entry for the given
+// subcluster name.  Returns false if none can be found.
+func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool) {
+	for i := range v.Status.Subclusters {
+		if v.Status.Subclusters[i].Name == scName {
+			return v.Status.Subclusters[i], true
+		}
+	}
+	return SubclusterStatus{}, false
 }
