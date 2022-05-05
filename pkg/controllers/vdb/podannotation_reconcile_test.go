@@ -37,13 +37,19 @@ var _ = Describe("podannotation_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
+		// The pod we created will already have the annotatons we want to add.
+		// We remove them to test having the reconciler add them.
+		pod := &corev1.Pod{}
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+		pod.SetAnnotations(map[string]string{})
+
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(k8sClient, fpr)
 		act := MakePodAnnotationReconciler(vdbRec, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
-		pod := &corev1.Pod{}
-		Expect(k8sClient.Get(ctx, names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0), pod)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
 		Expect(pod.Annotations[builder.KubernetesBuildDateAnnotation]).ShouldNot(Equal(""))
 		Expect(pod.Annotations[builder.KubernetesGitCommitAnnotation]).ShouldNot(Equal(""))
 		Expect(pod.Annotations[builder.KubernetesVersionAnnotation]).ShouldNot(Equal(""))

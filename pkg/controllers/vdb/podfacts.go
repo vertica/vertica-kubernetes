@@ -123,6 +123,10 @@ type PodFact struct {
 	// The number of shards this node has subscribed to, not including the
 	// special replica shard that has unsegmented projections.
 	shardSubscriptions int
+
+	// We add annotations to the pod for the k8s DC table.  This is an
+	// indication that the pod already has them.
+	hasDCTableAnnotations bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -227,6 +231,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
 		pf.pendingDelete = podIndex >= sc.Size
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
+		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 	}
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
@@ -373,6 +378,14 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 		return nil
 	}
 	return setShardSubscription(stdout, pf)
+}
+
+// checkDCTableAnnotations will check if the pod has the necessary annotations
+// to populate the DC tables that we log at vertica start.
+func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
+	// We just look for one annotation.  This works because they are always added together.
+	_, ok := pod.Annotations[builder.KubernetesVersionAnnotation]
+	return ok
 }
 
 // checkIsDBCreated will check for evidence of a database at the local node.
@@ -638,7 +651,7 @@ func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) [
 		if !restartTransient && v.isTransient {
 			return false
 		}
-		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists && v.isPodRunning
+		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists && v.isPodRunning && v.hasDCTableAnnotations
 	})
 }
 
@@ -708,12 +721,14 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
-// countInstalledAndNotRunning returns number of installed pods that aren't running yet
-func (p *PodFacts) countInstalledAndNotRunning() int {
+// countInstalledAndNotRestartable returns number of installed pods that aren't yet restartable
+func (p *PodFacts) countInstalledAndNotRestartable() int {
 	return p.countPods(func(v *PodFact) int {
 		// We don't count non-running pods that aren't yet managed by the parent
 		// sts.  The sts needs to be created or sized first.
-		if !v.isPodRunning && v.isInstalled && v.managedByParent {
+		// We need the pod to have the DC table annotations since the DC
+		// collection is done at start, so these need to set prior to starting.
+		if !v.isPodRunning && v.isInstalled && v.managedByParent && v.hasDCTableAnnotations {
 			return 1
 		}
 		return 0

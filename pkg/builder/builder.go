@@ -255,6 +255,24 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 							FieldPath: "metadata.namespace",
 						},
 					},
+					{
+						Path: "k8s-version",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesVersionAnnotation),
+						},
+					},
+					{
+						Path: "k8s-git-commit",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesGitCommitAnnotation),
+						},
+					},
+					{
+						Path: "k8s-build-date",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesBuildDateAnnotation),
+						},
+					},
 				},
 			},
 		},
@@ -509,6 +527,13 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		},
 		Spec: buildPodSpec(vdb, sc, DefaultServiceAccountName),
 	}
+	// Setup default values for the DC table annotations.  These are normally
+	// added by the PodAnnotationReconciler.  However, this function is for test
+	// purposes, and we have a few dependencies on these annotations.  Rather
+	// than having many tests run the reconciler, we will add in sample values.
+	pod.Annotations[KubernetesBuildDateAnnotation] = "2022-03-16T15:58:47Z"
+	pod.Annotations[KubernetesGitCommitAnnotation] = "c285e781331a3785a7f436042c65c5641ce8a9e9"
+	pod.Annotations[KubernetesVersionAnnotation] = "v1.23.5"
 	// Set a few things in the spec that are normally done by the statefulset
 	// controller. Again, this is for testing purposes only as the statefulset
 	// controller handles adding of the PVC to the volume list.

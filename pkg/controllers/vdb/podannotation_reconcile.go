@@ -118,7 +118,13 @@ func (s *PodAnnotationReconciler) applyAnnotations(ctx context.Context, podName 
 			}
 		}
 		if annotationsChanged {
-			return s.VRec.Client.Update(ctx, pod)
+			err := s.VRec.Client.Update(ctx, pod)
+			if err == nil {
+				// We have added/updated the annotations.  Refresh the podfacts.
+				// This saves having to invalidate the entire thing.
+				s.PFacts.Detail[podName].hasDCTableAnnotations = true
+			}
+			return err
 		}
 		return nil
 	})

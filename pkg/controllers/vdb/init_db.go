@@ -154,8 +154,9 @@ func getHostList(podList []*PodFact) []string {
 // checkPodList ensures all of the pods that we will use for the init call are running
 func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 	for _, pod := range podList {
-		// Bail if find one of the pods isn't running
-		if !pod.isPodRunning {
+		// Bail if find one of the pods isn't running or doesn't have the
+		// annotations that we use in the k8s Vertica DC table.
+		if !pod.isPodRunning || !pod.hasDCTableAnnotations {
 			return false
 		}
 	}

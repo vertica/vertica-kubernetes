@@ -115,7 +115,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if r.Vdb.Spec.KSafety == vapi.KSafety0 && r.PFacts.countInstalledAndNotRunning() > 0 {
+	if r.Vdb.Spec.KSafety == vapi.KSafety0 && r.PFacts.countInstalledAndNotRestartable() > 0 {
 		// For k-safety 0, to start the cluster we need to include all the pods.
 		// Absence of one will cause us not to have enough pods for cluster quorum.
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
@@ -624,7 +624,7 @@ func (r *RestartReconciler) setATPod(findFunc func() (*PodFact, bool)) bool {
 // whether a requeue of the reconcile is necessary because some pods are not yet
 // running.
 func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
-	if r.PFacts.countInstalledAndNotRunning() > 0 {
+	if r.PFacts.countInstalledAndNotRestartable() > 0 {
 		r.Log.Info("Requeue.  Some installed pods are not yet running.")
 		return true
 	}

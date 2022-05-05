@@ -13,8 +13,10 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-delete:
-  - apiVersion: vertica.com/v1beta1
-    kind: VerticaDB
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
+commands:
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/k8s-version
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/k8s-git-commit
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/k8s-build-date
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/k8s-version ]"
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/k8s-git-commit ]"
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/k8s-build-date ]"
