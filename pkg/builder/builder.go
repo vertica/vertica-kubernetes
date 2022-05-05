@@ -205,7 +205,6 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		// If these is a superuser password, include that in the projection
 		{Secret: buildSuperuserPasswordProjection(vdb)},
 	}
-	// SPILLY - add an operator upgrade test
 
 	return corev1.Volume{
 		Name: vapi.PodInfoMountName,

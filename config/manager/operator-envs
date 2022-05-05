@@ -1,3 +1,4 @@
-# These are environment variables that are included in the operator config map
+# These are environment variables that are included in the operator config map.
+# These are exported in the Makefile.
 DEPLOY_WITH
 VERSION
