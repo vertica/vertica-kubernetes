@@ -238,9 +238,21 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 						},
 					},
 					{
+						Path: "annotations",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.annotations",
+						},
+					},
+					{
 						Path: "name",
 						FieldRef: &corev1.ObjectFieldSelector{
 							FieldPath: "metadata.name",
+						},
+					},
+					{
+						Path: "namespace",
+						FieldRef: &corev1.ObjectFieldSelector{
+							FieldPath: "metadata.namespace",
 						},
 					},
 				},
@@ -337,6 +349,12 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	envVars = append(envVars, []corev1.EnvVar{
 		{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
+		},
+		{Name: "HOST_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}},
+		},
+		{Name: "HOST_NODENAME", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}},
 		},
 		{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
 		{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
