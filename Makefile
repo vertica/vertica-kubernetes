@@ -342,7 +342,7 @@ endif
 
 .PHONY: bundle 
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
-ifneq ($(DEPLOY_WITH), olm)
+ifneq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(error Bundle can only be generated when deploying with OLM.  Current deployment method: $(DEPLOY_WITH))
 endif
 	scripts/gen-csv.sh $(USE_IMAGE_DIGESTS_FLAG)  $(VERSION) $(BUNDLE_METADATA_OPTS)
