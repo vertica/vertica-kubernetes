@@ -16,7 +16,7 @@
 
 * [Vertica-Kubernetes GitHub repository](https://github.com/vertica/vertica-kubernetes)
 * [Vertica Helm chart repository](https://github.com/vertica/charts)
-* [Vertica Documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Home.htm)
+* [Vertica Documentation](https://www.vertica.com/docs/latest/HTML/Content/Home.htm)
 * Supported architectures: `amd64`
 
 # What is Vertica?
@@ -29,7 +29,7 @@ https://www.vertica.com/
 
 # How to Use This Image
 
-This image is used to deploy the VerticaDB operator. The operator manages a Vertica [Eon Mode](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes, and automates the following administrative tasks:
+This image is used to deploy the VerticaDB operator. The operator manages a Vertica [Eon Mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes, and automates the following administrative tasks:
 - Installing Vertica
 - Upgrading Vertica
 - Creating and reviving a Vertica database
@@ -40,7 +40,7 @@ This image is used to deploy the VerticaDB operator. The operator manages a Vert
 
 The VerticaDB operator image includes an [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The admission controller uses a webhook to verify changes to mutable states in a custom resource instance.
 
-For a brief overview on how to install and configure the operator and admission controller, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
+For a brief overview on how to install and configure the operator and admission controller, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
 
 # License
 
