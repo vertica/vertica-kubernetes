@@ -200,94 +200,12 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 // buildPodInfoVolume constructs the volume that has the /etc/podinfo files.
 func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	projSources := []corev1.VolumeProjection{
-		{
-			DownwardAPI: &corev1.DownwardAPIProjection{
-				Items: []corev1.DownwardAPIVolumeFile{
-					{
-						Path: "memory-limit",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "limits.memory",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "memory-request",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "requests.memory",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "cpu-limit",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "limits.cpu",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "cpu-request",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "requests.cpu",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "labels",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.labels",
-						},
-					},
-					{
-						Path: "annotations",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.annotations",
-						},
-					},
-					{
-						Path: "name",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.name",
-						},
-					},
-					{
-						Path: "namespace",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.namespace",
-						},
-					},
-					{
-						Path: "k8s-version",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesVersionAnnotation),
-						},
-					},
-					{
-						Path: "k8s-git-commit",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesGitCommitAnnotation),
-						},
-					},
-					{
-						Path: "k8s-build-date",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesBuildDateAnnotation),
-						},
-					},
-				},
-			},
-		},
+		{DownwardAPI: buildDownwardAPIProjection()},
+		{ConfigMap: buildOperatorConfigMapProjection()},
+		// If these is a superuser password, include that in the projection
+		{Secret: buildSuperuserPasswordProjection(vdb)},
 	}
-
-	// If these is a superuser password, include that in the projection
-	if vdb.Spec.SuperuserPasswordSecret != "" {
-		secretProj := &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
-			Items: []corev1.KeyToPath{
-				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
-			},
-		}
-		projSources = append(projSources, corev1.VolumeProjection{Secret: secretProj})
-	}
+	// SPILLY - add an operator upgrade test
 
 	return corev1.Volume{
 		Name: vapi.PodInfoMountName,
@@ -297,6 +215,109 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 			},
 		},
 	}
+}
+
+// buildDownwardAPIProjection creates a projection from the downwardAPI for
+// inclusion in /etc/podinfo
+func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
+	return &corev1.DownwardAPIProjection{
+		Items: []corev1.DownwardAPIVolumeFile{
+			{
+				Path: "memory-limit",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "limits.memory",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "memory-request",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "requests.memory",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "cpu-limit",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "limits.cpu",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "cpu-request",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "requests.cpu",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "labels",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.labels",
+				},
+			},
+			{
+				Path: "annotations",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.annotations",
+				},
+			},
+			{
+				Path: "name",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+			{
+				Path: "namespace",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+			{
+				Path: "k8s-version",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesVersionAnnotation),
+				},
+			},
+			{
+				Path: "k8s-git-commit",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesGitCommitAnnotation),
+				},
+			},
+			{
+				Path: "k8s-build-date",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesBuildDateAnnotation),
+				},
+			},
+		},
+	}
+}
+
+// buildOperatorConfigMapProjection creates a projection for inclusion in /etc/podinfo
+func buildOperatorConfigMapProjection() *corev1.ConfigMapProjection {
+	return &corev1.ConfigMapProjection{
+		LocalObjectReference: corev1.LocalObjectReference{Name: "verticadb-operator-manager-config"},
+		Items: []corev1.KeyToPath{
+			{Key: "DEPLOY_WITH", Path: "operator-deployment-method"},
+			{Key: "VERSION", Path: "operator-version"},
+		},
+	}
+}
+
+// buildSuperuserPasswordProjection creates a projection for inclusion in /etc/podinfo
+func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
+	if vdb.Spec.SuperuserPasswordSecret != "" {
+		return &corev1.SecretProjection{
+			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
+			Items: []corev1.KeyToPath{
+				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
+			},
+		}
+	}
+	return nil
 }
 
 // buildCertSecretVolumes returns a list of volumes, one for each secret in certSecrets.

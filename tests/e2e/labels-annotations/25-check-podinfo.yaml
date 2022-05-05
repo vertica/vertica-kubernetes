@@ -17,6 +17,10 @@ commands:
   - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/k8s-version
   - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/k8s-git-commit
   - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/k8s-build-date
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/operator-deployment-method
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- cat /etc/podinfo/operator-version
   - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/k8s-version ]"
   - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/k8s-git-commit ]"
   - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/k8s-build-date ]"
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/operator-deployment-method ]"
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "[ -s /etc/podinfo/operator-version ]"
