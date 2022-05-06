@@ -107,7 +107,7 @@ RUN set -x \
   # Update is needed to be confident that we're picking up
   # fixed libraries. 
   && apt-get -y update \
-  && apt-get install -y \
+  && apt-get install -y --no-install-recommends \
   locales \
   cron \
   sysstat \
