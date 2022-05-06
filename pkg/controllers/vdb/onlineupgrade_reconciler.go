@@ -138,6 +138,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		"Draining primary subclusters",
 		"Recreating pods for primary subclusters",
 		"Checking if new version is compatible",
+		"Adding annotations to pods",
 		"Waiting for secondary nodes to become read-only",
 		"Restarting vertica in primary subclusters",
 	}
@@ -340,6 +341,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		o.drainSubcluster,
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
+		o.addPodAnnotations,
 		o.waitForReadOnly,
 		o.bringSubclusterOnline,
 	}
@@ -371,6 +373,7 @@ func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *app
 		o.postNextStatusMsgForSts,
 		o.recreateSubclusterWithNewImage,
 		o.postNextStatusMsgForSts,
+		o.addPodAnnotations,
 		o.bringSubclusterOnline,
 	}
 	for _, fn := range funcs {
@@ -454,6 +457,13 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 		return &PodFact{}, false
 	}
 	return vr.Reconcile(ctx, &ctrl.Request{})
+}
+
+// addPodAnnotations will add the necessary pod annotations that need to be
+// in-place prior to restart
+func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	r := MakePodAnnotationReconciler(o.VRec, o.Vdb, o.PFacts)
+	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
 // waitForReadOnly will only succeed if all of the up pods running the old image

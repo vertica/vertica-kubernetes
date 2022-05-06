@@ -96,6 +96,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		o.checkVersion,
 		// Start up vertica in each pod.
 		o.postRestartingClusterMsg,
+		o.addPodAnnotations,
 		o.restartCluster,
 		// Apply labels so svc objects can route to the new pods that came up
 		o.addClientRoutingLabel,
@@ -248,6 +249,13 @@ func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Resul
 // cluster is being restarted
 func (o *OfflineUpgradeReconciler) postRestartingClusterMsg(ctx context.Context) (ctrl.Result, error) {
 	return o.postNextStatusMsg(ctx, ClusterRestartOfflineMsgIndex)
+}
+
+// addPodAnnotations will call the PodAnnotationReconciler so that we have the
+// necessary annotations on the pod prior to restart.
+func (o *OfflineUpgradeReconciler) addPodAnnotations(ctx context.Context) (ctrl.Result, error) {
+	r := MakePodAnnotationReconciler(o.VRec, o.Vdb, o.PFacts)
+	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
 // restartCluster will start up vertica.  This is called after the statefulset's have
