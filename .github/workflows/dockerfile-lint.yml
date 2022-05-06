@@ -12,14 +12,14 @@ jobs:
     - name: Lint vlogger
       uses: hadolint/hadolint-action@v2.0.0
       with:
-        target: docker-vlogger/Dockerfile
+        dockerfile: docker-vlogger/Dockerfile
 
     - name: Lint operator
       uses: hadolint/hadolint-action@v2.0.0
       with:
-        target: docker-operator/Dockerfile
+        dockerfile: docker-operator/Dockerfile
 
     - name: Lint vertica
       uses: hadolint/hadolint-action@v2.0.0
       with:
-        target: docker-vertica/Dockerfile
+        dockerfile: docker-vertica/Dockerfile
