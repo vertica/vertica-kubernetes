@@ -36,7 +36,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -51,7 +51,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		uninstallPod := builder.BuildPod(vdb, sc, 1)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		recon := actor.(*DBRemoveNodeReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
@@ -77,7 +77,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		uninstallPods := []types.NamespacedName{names.GenPodName(vdb, sc, 1), names.GenPodName(vdb, sc, 2)}
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -103,7 +103,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc.Size = sc.Size - 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -121,7 +121,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc.Size = 2 // Set to 2 to mimic a pending uninstall of the last pod
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		removePod := names.GenPodName(vdb, sc, 2)
 		pfacts.Detail[removePod].dbExists = false

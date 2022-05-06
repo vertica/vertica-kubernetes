@@ -34,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"yunion.io/x/pkg/tristate"
 )
 
@@ -133,15 +132,15 @@ type PodFactDetail map[types.NamespacedName]*PodFact
 
 // A collection of facts for many pods.
 type PodFacts struct {
-	client.Client
+	VRec           *VerticaDBReconciler
 	PRunner        cmds.PodRunner
 	Detail         PodFactDetail
 	NeedCollection bool
 }
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFacts(cli client.Client, prunner cmds.PodRunner) PodFacts {
-	return PodFacts{Client: cli, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
+func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
+	return PodFacts{VRec: vrec, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
 }
 
 // Collect will gather up the for facts if a collection is needed
@@ -156,7 +155,7 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	// Find all of the subclusters to collect facts for.  We want to include all
 	// subclusters, even ones that are scheduled to be deleted -- we keep
 	// collecting facts for those until the statefulsets are gone.
-	finder := iter.MakeSubclusterFinder(p.Client, vdb)
+	finder := iter.MakeSubclusterFinder(p.VRec.Client, vdb)
 	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
 	if err != nil {
 		return nil
@@ -184,7 +183,7 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 	maxStsSize := sc.Size
 	// Attempt to fetch the sts.  We continue even for 'not found' errors
 	// because we want to populate the missing pods into the pod facts.
-	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !errors.IsNotFound(err) {
+	if err := p.VRec.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
 		maxStsSize = *sts.Spec.Replicas
@@ -214,7 +213,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	}
 
 	pod := &corev1.Pod{}
-	if err := p.Client.Get(ctx, pf.name, pod); err != nil && !errors.IsNotFound(err) {
+	if err := p.VRec.Client.Get(ctx, pf.name, pod); err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if err == nil {
 		// Treat not found errors as if the pod is not running.  We continue

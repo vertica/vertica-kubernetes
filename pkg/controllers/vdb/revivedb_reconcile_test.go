@@ -36,7 +36,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreate
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
@@ -54,7 +54,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "revive_db")
@@ -86,7 +86,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*ReviveDBReconciler)
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
@@ -137,7 +137,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*ReviveDBReconciler)
 		vdb.Spec.IgnoreClusterLease = false
@@ -165,7 +165,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*ReviveDBReconciler)
@@ -193,7 +193,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*ReviveDBReconciler)
@@ -212,7 +212,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*ReviveDBReconciler)
 

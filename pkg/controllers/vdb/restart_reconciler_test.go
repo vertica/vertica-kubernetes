@@ -49,7 +49,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		recon := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -343,7 +343,7 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.DBName = "d"
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		stateMap := r.parseClusterNodeStatus(
@@ -372,7 +372,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
@@ -615,7 +615,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)

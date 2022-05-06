@@ -37,7 +37,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		recon := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -50,7 +50,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
 		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		recon := actor.(*UninstallReconciler)
@@ -74,7 +74,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc.Size = 1 // Set to 1 to mimic a pending uninstall
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
 		r := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -93,7 +93,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc.Size = 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 2)
 
 		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
@@ -116,7 +116,7 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc.Size = 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pn := names.GenPodName(vdb, sc, 1)
 		Expect(pfacts.Detail[pn].dbExists).Should(BeTrue())

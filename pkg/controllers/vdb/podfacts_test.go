@@ -37,7 +37,7 @@ var _ = Describe("podfacts", func() {
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
-		pfacts := &PodFacts{Client: k8sClient, PRunner: fpr, Detail: make(PodFactDetail)}
+		pfacts := &PodFacts{VRec: vdbRec, PRunner: fpr, Detail: make(PodFactDetail)}
 		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, &appsv1.StatefulSet{}, 0)).Should(Succeed())
 		podName := names.GenPodName(vdb, sc, 0)
 		f, ok := (pfacts.Detail[podName])
@@ -61,7 +61,7 @@ var _ = Describe("podfacts", func() {
 				{Stderr: "No such file or directory", Err: errors.New("no such file")},
 			},
 		}}
-		pfacts := &PodFacts{Client: k8sClient, PRunner: fpr, Detail: make(PodFactDetail)}
+		pfacts := &PodFacts{VRec: vdbRec, PRunner: fpr, Detail: make(PodFactDetail)}
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts)).Should(Succeed())
 		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, sts, 0)).Should(Succeed())
@@ -88,7 +88,7 @@ var _ = Describe("podfacts", func() {
 
 		nm := names.GenPodName(vdb, sc, 0)
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
 			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
 		}
@@ -119,7 +119,7 @@ var _ = Describe("podfacts", func() {
 
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
@@ -138,7 +138,7 @@ var _ = Describe("podfacts", func() {
 				{Stderr: "No such file or directory", Err: errors.New("file not found")}, // db dir does not
 			},
 		}}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
@@ -148,7 +148,7 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should verify all doesDBExist return codes", func() {
-		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: false, isPodRunning: true}
 		Expect(pf.doesDBExist()).Should(BeFalse())
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: false, isPodRunning: false}
@@ -158,7 +158,7 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should verify findPodsWithMissingDB return codes", func() {
-		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: true, subcluster: "sc1", isPodRunning: true}
 		pods, somePodsNotRunning := pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(0))
@@ -174,7 +174,7 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should verify return of findPodsWithMissingDB", func() {
-		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			dnsName: "p1", subcluster: "sc1", dbExists: true,
 		}
@@ -202,7 +202,7 @@ var _ = Describe("podfacts", func() {
 	It("should verify return of countNotReadOnlyWithOldImage", func() {
 		const OldImage = "image:v1"
 		const NewImage = "image:v2"
-		pf := MakePodFacts(k8sClient, &cmds.FakePodRunner{})
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
 			isPodRunning: true,
 			upNode:       true,
@@ -243,7 +243,7 @@ var _ = Describe("podfacts", func() {
 				},
 			},
 		}
-		pfs := MakePodFacts(k8sClient, fpr)
+		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeFalse())
@@ -259,7 +259,7 @@ var _ = Describe("podfacts", func() {
 				},
 			},
 		}
-		pfs := MakePodFacts(k8sClient, fpr)
+		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
@@ -276,7 +276,7 @@ var _ = Describe("podfacts", func() {
 				},
 			},
 		}
-		pfs := MakePodFacts(k8sClient, fpr)
+		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
@@ -294,7 +294,7 @@ var _ = Describe("podfacts", func() {
 				{Stdout: "node0010\n"}, // install indicator contents
 			},
 		}}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())

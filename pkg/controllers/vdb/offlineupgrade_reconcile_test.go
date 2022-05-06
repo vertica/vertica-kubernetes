@@ -164,7 +164,7 @@ func updateVdbToCauseUpgrade(ctx context.Context, vdb *vapi.VerticaDB, newImage 
 // createOfflineUpgradeReconciler is a helper to run the OfflineUpgradeReconciler.
 func createOfflineUpgradeReconciler(vdb *vapi.VerticaDB) (*OfflineUpgradeReconciler, *cmds.FakePodRunner, *PodFacts) {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := MakePodFacts(k8sClient, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr)
 	actor := MakeOfflineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 	return actor.(*OfflineUpgradeReconciler), fpr, &pfacts
 }

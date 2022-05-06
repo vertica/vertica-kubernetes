@@ -45,7 +45,7 @@ var _ = Describe("podannotation_reconcile", func() {
 		pod.SetAnnotations(map[string]string{})
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		act := MakePodAnnotationReconciler(vdbRec, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

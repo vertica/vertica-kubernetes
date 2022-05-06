@@ -41,7 +41,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
-		pfact := MakePodFacts(k8sClient, fpr)
+		pfact := MakePodFacts(vdbRec, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -65,7 +65,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{{}},
 		}}
 
-		pfact := MakePodFacts(k8sClient, fpr)
+		pfact := MakePodFacts(vdbRec, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
 		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
 		// Reset the pod runner output to dump the compat21 node number
@@ -101,7 +101,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 				Err:    errors.New("command terminated with exit code 1")}},
 		}}
 
-		pfact := MakePodFacts(k8sClient, fpr)
+		pfact := MakePodFacts(vdbRec, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
 		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
 		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = false
@@ -140,7 +140,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-		pfact := MakePodFacts(k8sClient, fpr)
+		pfact := MakePodFacts(vdbRec, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
@@ -165,7 +165,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		test.SetPodStatus(ctx, k8sClient, 1 /* funcOffset */, names.GenPodName(vdb, sc, 1), ScIndex, PodIndex, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{}
-		pfact := MakePodFacts(k8sClient, fpr)
+		pfact := MakePodFacts(vdbRec, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})

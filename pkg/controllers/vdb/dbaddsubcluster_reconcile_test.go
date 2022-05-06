@@ -37,7 +37,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		a := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := a.(*DBAddSubclusterReconciler)
 		subclusters := r.parseFetchSubclusterVsql(
@@ -66,7 +66,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		const PodIndex = 0
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], PodIndex)
@@ -92,7 +92,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		act := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*DBAddSubclusterReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
