@@ -30,7 +30,6 @@ RUN set -x \
   openssh-server \
   openssh-clients \
   openssl \
-  sudo \
   which \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
@@ -122,7 +121,6 @@ RUN set -x \
   openssh-client \
   openssh-server \
   openssl \
-  sudo \
   && rm -rf /var/lib/apt/lists/* \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
