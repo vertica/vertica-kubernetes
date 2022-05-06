@@ -1,0 +1,17 @@
+name: Dockerfile lint
+
+on: [push, pull_request]
+
+jobs:
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+        
+    - name: Lint
+      uses: luke142367/Docker-Lint-Action@v1.0.0
+      with:
+        target: docker-vertica/Dockerfile docker-operator/Dockerfile docker-vlogger/Dockerfile
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
