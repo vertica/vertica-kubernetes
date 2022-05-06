@@ -121,6 +121,7 @@ RUN set -x \
   openssh-client \
   openssh-server \
   openssl \
+  sudo \
   && rm -rf /var/lib/apt/lists/* \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
