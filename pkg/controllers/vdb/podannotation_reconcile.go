@@ -69,7 +69,7 @@ func (s *PodAnnotationReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 
 // generateAnnotations will generate static annotations that will be applied to each running pod
 func (s *PodAnnotationReconciler) generateAnnotations() (map[string]string, error) {
-	// We get the k8s server information from the client.  It would better to
+	// We get the k8s server information from the client.  It would be better to
 	// get the node the pod was assigned and fetch the system info from the
 	// node.  This will give us more details information like what container
 	// runtime they are using and versions for kubelet and kube-proxy.  However,
