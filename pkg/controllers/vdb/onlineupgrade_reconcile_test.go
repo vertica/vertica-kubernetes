@@ -471,7 +471,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 // createOnlineUpgradeReconciler is a helper to run the OnlineUpgradeReconciler.
 func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := MakePodFacts(k8sClient, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr)
 	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 	r := actor.(*OnlineUpgradeReconciler)
 

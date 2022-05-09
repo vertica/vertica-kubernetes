@@ -40,7 +40,7 @@ var _ = Describe("status_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -60,7 +60,7 @@ var _ = Describe("status_reconcile", func() {
 		// We intentionally don't create the pods or sts
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -81,7 +81,7 @@ var _ = Describe("status_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -109,7 +109,7 @@ var _ = Describe("status_reconcile", func() {
 		test.SetPodStatus(ctx, k8sClient, 1 /* funcOffset */, names.GenPodName(vdb, &sc, PodIndex), ScIndex, PodIndex, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -135,7 +135,7 @@ var _ = Describe("status_reconcile", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

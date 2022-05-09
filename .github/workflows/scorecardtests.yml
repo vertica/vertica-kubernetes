@@ -19,4 +19,4 @@ jobs:
         kubectx kind-vertica
 
     - name: Run scorecard tests
-      run: make run-scorecard-tests
+      run: DEPLOY_WITH=olm make run-scorecard-tests

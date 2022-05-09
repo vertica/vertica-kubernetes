@@ -4,6 +4,7 @@
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
 VERSION ?= 1.4.0
+export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
 # (see docker-vlogger).  This version is separate from VERSION above in
@@ -162,6 +163,7 @@ E2E_ADDITIONAL_ARGS?=
 # When deploying with olm, it is expected that `make setup-olm` has been run
 # already.  When deploying with random, it will randomly pick between olm and helm.
 DEPLOY_WITH?=helm
+export DEPLOY_WITH
 # Name of the test OLM catalog that we will create and deploy with in e2e tests
 OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 
@@ -340,6 +342,9 @@ endif
 
 .PHONY: bundle 
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+ifneq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
+	$(error Bundle can only be generated when deploying with OLM.  Current deployment method: $(DEPLOY_WITH))
+endif
 	scripts/gen-csv.sh $(USE_IMAGE_DIGESTS_FLAG)  $(VERSION) $(BUNDLE_METADATA_OPTS)
 	mv bundle.Dockerfile $(BUNDLE_DOCKERFILE)
 	$(OPERATOR_SDK) bundle validate ./bundle

@@ -33,7 +33,7 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 	It("should do nothing if none of the statefulsets were created yet", func() {
 		vdb := vapi.MakeVDB()
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -61,7 +61,7 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 		}
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, lookupVdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// One command should be AT -t db_remove_subcluster and one should be

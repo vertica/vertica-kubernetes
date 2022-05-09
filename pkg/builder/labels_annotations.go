@@ -54,6 +54,13 @@ const (
 	OperatorVersion131 = "1.3.1"
 	OperatorVersion140 = "1.4.0"
 	OperatorVersion150 = CurOperatorVersion
+
+	// Annotations that we set in each of the pod.  These are set by the
+	// PodAnnotationReconciler.  They are available in the pod with the
+	// downwardAPI so they can be picked up by the Vertica data collector (DC).
+	KubernetesVersionAnnotation   = "kubernetes.io/version"   // Version of the k8s server
+	KubernetesGitCommitAnnotation = "kubernetes.io/gitcommit" // Git commit of the k8s server
+	KubernetesBuildDateAnnotation = "kubernetes.io/buildDate" // Build date of the k8s server
 )
 
 // MakeSubclusterLabels returns the labels added for the subcluster

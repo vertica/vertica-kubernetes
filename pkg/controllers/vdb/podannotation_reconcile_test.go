@@ -21,31 +21,37 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("prometheus_reconcile", func() {
+var _ = Describe("podannotation_reconcile", func() {
 	ctx := context.Background()
 
-	It("should collect prometheus gauge values based on the pod facts", func() {
+	It("should fetch node information and include it in the pod as annotations", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 3
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
+		// The pod we created will already have the annotatons we want to add.
+		// We remove them to test having the reconciler add them.
+		pod := &corev1.Pod{}
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+		pod.SetAnnotations(map[string]string{})
+
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		actor := MakeMetricReconciler(vdbRec, vdb, &pfacts)
-		r := actor.(*MetricReconciler)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		act := MakePodAnnotationReconciler(vdbRec, vdb, &pfacts)
+		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
-		metrics := r.captureRawMetrics()
-		Expect(metrics[vdb.Spec.Subclusters[0].Name].podCount).Should(Equal(float64(3)))
-		Expect(metrics[vdb.Spec.Subclusters[0].Name].runningCount).Should(Equal(float64(3)))
-		Expect(metrics[vdb.Spec.Subclusters[0].Name].readyCount).Should(Equal(float64(3)))
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+		Expect(pod.Annotations[builder.KubernetesBuildDateAnnotation]).ShouldNot(Equal(""))
+		Expect(pod.Annotations[builder.KubernetesGitCommitAnnotation]).ShouldNot(Equal(""))
+		Expect(pod.Annotations[builder.KubernetesVersionAnnotation]).ShouldNot(Equal(""))
 	})
 })

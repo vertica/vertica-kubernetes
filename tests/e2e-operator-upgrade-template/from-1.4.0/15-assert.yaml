@@ -11,10 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-delete:
-  - apiVersion: vertica.com/v1beta1
-    kind: VerticaDB
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: controller-manager
+spec:
+  containers:
+  - name: manager
+    image: vertica/verticadb-operator:1.4.0
+  - name: kube-rbac-proxy
+status:
+  phase: Running

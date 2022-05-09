@@ -200,63 +200,10 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 // buildPodInfoVolume constructs the volume that has the /etc/podinfo files.
 func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	projSources := []corev1.VolumeProjection{
-		{
-			DownwardAPI: &corev1.DownwardAPIProjection{
-				Items: []corev1.DownwardAPIVolumeFile{
-					{
-						Path: "memory-limit",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "limits.memory",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "memory-request",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "requests.memory",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "cpu-limit",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "limits.cpu",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "cpu-request",
-						ResourceFieldRef: &corev1.ResourceFieldSelector{
-							Resource:      "requests.cpu",
-							ContainerName: names.ServerContainer,
-						},
-					},
-					{
-						Path: "labels",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.labels",
-						},
-					},
-					{
-						Path: "name",
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.name",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// If these is a superuser password, include that in the projection
-	if vdb.Spec.SuperuserPasswordSecret != "" {
-		secretProj := &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
-			Items: []corev1.KeyToPath{
-				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
-			},
-		}
-		projSources = append(projSources, corev1.VolumeProjection{Secret: secretProj})
+		{DownwardAPI: buildDownwardAPIProjection()},
+		{ConfigMap: buildOperatorConfigMapProjection()},
+		// If these is a superuser password, include that in the projection
+		{Secret: buildSuperuserPasswordProjection(vdb)},
 	}
 
 	return corev1.Volume{
@@ -267,6 +214,109 @@ func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 			},
 		},
 	}
+}
+
+// buildDownwardAPIProjection creates a projection from the downwardAPI for
+// inclusion in /etc/podinfo
+func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
+	return &corev1.DownwardAPIProjection{
+		Items: []corev1.DownwardAPIVolumeFile{
+			{
+				Path: "memory-limit",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "limits.memory",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "memory-request",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "requests.memory",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "cpu-limit",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "limits.cpu",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "cpu-request",
+				ResourceFieldRef: &corev1.ResourceFieldSelector{
+					Resource:      "requests.cpu",
+					ContainerName: names.ServerContainer,
+				},
+			},
+			{
+				Path: "labels",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.labels",
+				},
+			},
+			{
+				Path: "annotations",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.annotations",
+				},
+			},
+			{
+				Path: "name",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+			{
+				Path: "namespace",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
+				},
+			},
+			{
+				Path: "k8s-version",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesVersionAnnotation),
+				},
+			},
+			{
+				Path: "k8s-git-commit",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesGitCommitAnnotation),
+				},
+			},
+			{
+				Path: "k8s-build-date",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesBuildDateAnnotation),
+				},
+			},
+		},
+	}
+}
+
+// buildOperatorConfigMapProjection creates a projection for inclusion in /etc/podinfo
+func buildOperatorConfigMapProjection() *corev1.ConfigMapProjection {
+	return &corev1.ConfigMapProjection{
+		LocalObjectReference: corev1.LocalObjectReference{Name: "verticadb-operator-manager-config"},
+		Items: []corev1.KeyToPath{
+			{Key: "DEPLOY_WITH", Path: "operator-deployment-method"},
+			{Key: "VERSION", Path: "operator-version"},
+		},
+	}
+}
+
+// buildSuperuserPasswordProjection creates a projection for inclusion in /etc/podinfo
+func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
+	if vdb.Spec.SuperuserPasswordSecret != "" {
+		return &corev1.SecretProjection{
+			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
+			Items: []corev1.KeyToPath{
+				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
+			},
+		}
+	}
+	return nil
 }
 
 // buildCertSecretVolumes returns a list of volumes, one for each secret in certSecrets.
@@ -337,6 +387,12 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	envVars = append(envVars, []corev1.EnvVar{
 		{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
+		},
+		{Name: "HOST_IP", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}},
+		},
+		{Name: "HOST_NODENAME", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}},
 		},
 		{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
 		{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
@@ -491,6 +547,13 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		},
 		Spec: buildPodSpec(vdb, sc, DefaultServiceAccountName),
 	}
+	// Setup default values for the DC table annotations.  These are normally
+	// added by the PodAnnotationReconciler.  However, this function is for test
+	// purposes, and we have a few dependencies on these annotations.  Rather
+	// than having many tests run the reconciler, we will add in sample values.
+	pod.Annotations[KubernetesBuildDateAnnotation] = "2022-03-16T15:58:47Z"
+	pod.Annotations[KubernetesGitCommitAnnotation] = "c285e781331a3785a7f436042c65c5641ce8a9e9"
+	pod.Annotations[KubernetesVersionAnnotation] = "v1.23.5"
 	// Set a few things in the spec that are normally done by the statefulset
 	// controller. Again, this is for testing purposes only as the statefulset
 	// controller handles adding of the PVC to the volume list.

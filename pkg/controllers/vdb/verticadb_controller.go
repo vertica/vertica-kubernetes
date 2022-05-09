@@ -103,7 +103,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := MakePodFacts(r.Client, prunner)
+	pfacts := MakePodFacts(r, prunner)
 	var res ctrl.Result
 
 	// Iterate over each actor
@@ -153,6 +153,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// pods are missing.  We don't want to apply all updates as we may need
 		// to go through necessary admintools commands to handle a scale down.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
+		// Add annotations to each pod about the host running them
+		MakePodAnnotationReconciler(r, vdb, pfacts),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true),
 		MakeMetricReconciler(r, vdb, pfacts),

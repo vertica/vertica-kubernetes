@@ -41,7 +41,7 @@ var _ = Describe("createdb_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
@@ -103,7 +103,7 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
@@ -113,7 +113,7 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*CreateDBReconciler)
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)

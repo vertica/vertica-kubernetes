@@ -107,7 +107,7 @@ func setVerticaNodeNameInPodFacts(vdb *vapi.VerticaDB, sc *vapi.Subcluster, pf *
 }
 
 func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner, numPodsToChange int) *PodFacts {
-	pfacts := MakePodFacts(k8sClient, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	// Change a number of pods to indicate db doesn't exist.  Due to the map that
 	// stores the pod facts, the specific pods we change are non-deterministic.
@@ -124,7 +124,7 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 }
 
 func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(k8sClient, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, pfact := range pfacts.Detail {
 		pfact.isInstalled = false
@@ -138,7 +138,7 @@ func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, f
 
 func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	fpr *cmds.FakePodRunner, podsDownByIndex []int32, readOnly bool) *PodFacts {
-	pfacts := MakePodFacts(k8sClient, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, podIndex := range podsDownByIndex {
 		downPodNm := names.GenPodName(vdb, sc, podIndex)

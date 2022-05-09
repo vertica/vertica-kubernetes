@@ -38,7 +38,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
@@ -81,7 +81,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		// Make a specific pod as not having a db.
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
@@ -126,7 +126,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
@@ -142,7 +142,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(k8sClient, fpr)
+		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		// Make a specific pod as not having a db and not running
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)

@@ -34,7 +34,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"yunion.io/x/pkg/tristate"
 )
 
@@ -123,21 +122,25 @@ type PodFact struct {
 	// The number of shards this node has subscribed to, not including the
 	// special replica shard that has unsegmented projections.
 	shardSubscriptions int
+
+	// We add annotations to the pod for the k8s DC table.  This is an
+	// indication that the pod already has them.
+	hasDCTableAnnotations bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
 
 // A collection of facts for many pods.
 type PodFacts struct {
-	client.Client
+	VRec           *VerticaDBReconciler
 	PRunner        cmds.PodRunner
 	Detail         PodFactDetail
 	NeedCollection bool
 }
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFacts(cli client.Client, prunner cmds.PodRunner) PodFacts {
-	return PodFacts{Client: cli, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
+func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
+	return PodFacts{VRec: vrec, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
 }
 
 // Collect will gather up the for facts if a collection is needed
@@ -152,7 +155,7 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	// Find all of the subclusters to collect facts for.  We want to include all
 	// subclusters, even ones that are scheduled to be deleted -- we keep
 	// collecting facts for those until the statefulsets are gone.
-	finder := iter.MakeSubclusterFinder(p.Client, vdb)
+	finder := iter.MakeSubclusterFinder(p.VRec.Client, vdb)
 	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
 	if err != nil {
 		return nil
@@ -180,7 +183,7 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 	maxStsSize := sc.Size
 	// Attempt to fetch the sts.  We continue even for 'not found' errors
 	// because we want to populate the missing pods into the pod facts.
-	if err := p.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !errors.IsNotFound(err) {
+	if err := p.VRec.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
 		maxStsSize = *sts.Spec.Replicas
@@ -210,7 +213,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	}
 
 	pod := &corev1.Pod{}
-	if err := p.Client.Get(ctx, pf.name, pod); err != nil && !errors.IsNotFound(err) {
+	if err := p.VRec.Client.Get(ctx, pf.name, pod); err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if err == nil {
 		// Treat not found errors as if the pod is not running.  We continue
@@ -227,6 +230,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
 		pf.pendingDelete = podIndex >= sc.Size
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
+		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 	}
 
 	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
@@ -373,6 +377,14 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 		return nil
 	}
 	return setShardSubscription(stdout, pf)
+}
+
+// checkDCTableAnnotations will check if the pod has the necessary annotations
+// to populate the DC tables that we log at vertica start.
+func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
+	// We just look for one annotation.  This works because they are always added together.
+	_, ok := pod.Annotations[builder.KubernetesVersionAnnotation]
+	return ok
 }
 
 // checkIsDBCreated will check for evidence of a database at the local node.
@@ -638,7 +650,7 @@ func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) [
 		if !restartTransient && v.isTransient {
 			return false
 		}
-		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists && v.isPodRunning
+		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists && v.isPodRunning && v.hasDCTableAnnotations
 	})
 }
 
@@ -708,12 +720,14 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
-// countInstalledAndNotRunning returns number of installed pods that aren't running yet
-func (p *PodFacts) countInstalledAndNotRunning() int {
+// countInstalledAndNotRestartable returns number of installed pods that aren't yet restartable
+func (p *PodFacts) countInstalledAndNotRestartable() int {
 	return p.countPods(func(v *PodFact) int {
 		// We don't count non-running pods that aren't yet managed by the parent
 		// sts.  The sts needs to be created or sized first.
-		if !v.isPodRunning && v.isInstalled && v.managedByParent {
+		// We need the pod to have the DC table annotations since the DC
+		// collection is done at start, so these need to set prior to starting.
+		if !v.isPodRunning && v.isInstalled && v.managedByParent && v.hasDCTableAnnotations {
 			return 1
 		}
 		return 0

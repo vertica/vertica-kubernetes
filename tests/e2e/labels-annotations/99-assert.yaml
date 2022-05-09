@@ -11,23 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: vdb-label-ant
-spec:
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  labels:
-    app: kuttl
-    ver: 0.7.2
-  annotations:
-    gitRef: abcd123
-  dbName: vdb
-  subclusters:
-    - name: cluster1
-      size: 3
-  certSecrets: []
+  name: clean-communal
+status:
+  phase: Succeeded
