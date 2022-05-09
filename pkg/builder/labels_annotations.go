@@ -57,7 +57,7 @@ const (
 
 	// Annotations that we set in each of the pod.  These are set by the
 	// PodAnnotationReconciler.  They are available in the pod with the
-	// downwardAPI so they can be picked by up the Vertica data collector (DC).
+	// downwardAPI so they can be picked up by the Vertica data collector (DC).
 	KubernetesVersionAnnotation   = "kubernetes.io/version"   // Version of the k8s server
 	KubernetesGitCommitAnnotation = "kubernetes.io/gitcommit" // Git commit of the k8s server
 	KubernetesBuildDateAnnotation = "kubernetes.io/buildDate" // Build date of the k8s server
