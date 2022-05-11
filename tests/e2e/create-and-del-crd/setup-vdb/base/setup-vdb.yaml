@@ -36,3 +36,4 @@ spec:
   subclusters:
     - name: defaultsubcluster
   certSecrets: []
+  imagePullSecrets: []

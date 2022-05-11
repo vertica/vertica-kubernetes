@@ -31,3 +31,4 @@ spec:
       size: 1
   requeueTime: 5
   certSecrets: []
+  imagePullSecrets: []

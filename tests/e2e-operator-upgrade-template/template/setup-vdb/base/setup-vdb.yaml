@@ -31,3 +31,4 @@ spec:
       isPrimary: false
   kSafety: "0"
   certSecrets: []
+  imagePullSecrets: []

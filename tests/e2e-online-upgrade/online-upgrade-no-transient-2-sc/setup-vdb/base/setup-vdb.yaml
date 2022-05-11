@@ -35,3 +35,4 @@ spec:
       - sec
       - pri
   certSecrets: []
+  imagePullSecrets: []

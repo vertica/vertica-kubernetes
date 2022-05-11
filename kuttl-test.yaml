@@ -28,16 +28,6 @@ commands:
   # make dependencies
   - command: make config-transformer vdb-gen install-cert-manager
 
-  # We do a pre-pull of the vertica-k8s image to avoid timeouts
-  # during the test run.
-  - command: bash -c "kustomize build tests/manifests/image-pull/base | kubectl -n $NAMESPACE delete -f - "
-    ignoreFailure: true
-  - command: bash -c "kustomize build tests/manifests/image-pull/base | kubectl -n $NAMESPACE apply -f - "
-  - command: kubectl wait --for=condition=Ready pod --timeout=10m vertica-k8s-image-pull
-    namespaced: true
-  - command: kubectl delete pod vertica-k8s-image-pull
-    namespaced: true
-
   - command: kubectl stern --version
 
   # Ensure the log output directory exists

@@ -34,3 +34,4 @@ spec:
       serviceName: one
   kSafety: "0"
   certSecrets: []
+  imagePullSecrets: []

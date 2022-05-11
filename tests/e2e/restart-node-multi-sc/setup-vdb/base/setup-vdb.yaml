@@ -37,3 +37,4 @@ spec:
       size: 2
       isPrimary: false
   certSecrets: []
+  imagePullSecrets: []

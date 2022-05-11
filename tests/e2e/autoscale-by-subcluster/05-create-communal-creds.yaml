@@ -15,3 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: kustomize build ../../manifests/communal-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
+  - script: kustomize build ../../manifests/priv-container-creds/overlay | kubectl apply -f - --namespace $NAMESPACE

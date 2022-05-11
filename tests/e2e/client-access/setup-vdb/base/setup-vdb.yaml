@@ -27,3 +27,4 @@ spec:
       size: 2
   kSafety: "0"
   certSecrets: []
+  imagePullSecrets: []

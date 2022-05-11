@@ -33,3 +33,4 @@ spec:
   #   names:
   #     - pri
   certSecrets: []
+  imagePullSecrets: []
