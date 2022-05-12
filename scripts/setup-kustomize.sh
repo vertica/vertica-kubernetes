@@ -260,6 +260,9 @@ EOF
           path: /spec/imagePullSecrets/-
           value: 
             name: $PRIVATE_REG_CERT_SERCET_NS_COPY
+        - op: replace
+          path: /spec/imagePullPolicy
+          value: Always
 EOF
         $KUSTOMIZE edit add patch --path $PRIVATE_REG_SECRET_PATCH --kind VerticaDB
     fi
@@ -653,7 +656,7 @@ function setup_creds_for_private_repo {
     if [ -n "$PRIVATE_REG_SERVER" ]
     then
         AUTH_ENC=$(echo -n "$PRIVATE_REG_USERNAME:$PRIVATE_REG_PASSWORD" | base64 --wrap=0)
-        DOCKER_CONFIG_JSON="{\"auths\":{\"$PRIVATE_REG_SERVER\":{\"username\":\"$PRIVATE_REG_USERNAME\",\"password\":\"$PRIVATE_REG_PASSWORD\",\"email\":\"$PRIVATE_REG_EMAIL\",\"auth\":\"$AUTH_ENC\"}}}"
+        DOCKER_CONFIG_JSON="{\"auths\":{\"$PRIVATE_REG_SERVER\":{\"username\":\"$PRIVATE_REG_USERNAME\",\"password\":\"$PRIVATE_REG_PASSWORD\",\"auth\":\"$AUTH_ENC\"}}}"
         DOCKER_CONFIG_JSON_ENC=$(echo $DOCKER_CONFIG_JSON | base64 --wrap=0)
         cat <<EOF > priv-container-cred-secret.yaml
 apiVersion: v1
