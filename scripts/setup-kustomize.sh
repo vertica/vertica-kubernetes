@@ -107,6 +107,7 @@ else
 fi
 
 echo "Vertica server image name: $VERTICA_IMG"
+echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
 echo "Endpoint: $ENDPOINT"
 echo "Protocol: $PATH_PROTOCOL"
