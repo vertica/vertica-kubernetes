@@ -28,3 +28,4 @@ spec:
   certSecrets:
     - name: my-cert-1
     - name: my-cert-2
+  imagePullSecrets: []
