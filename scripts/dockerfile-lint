@@ -24,7 +24,8 @@ NC='\033[0m'  # No color
 set -o errexit
 set -o pipefail
 
-docker pull hadolint/hadolint
+LINT_IMAGE=hadolint/hadolint:2.9.2
+docker pull $LINT_IMAGE
 
 for dir in docker-operator docker-vertica docker-vlogger
 do
@@ -35,6 +36,6 @@ do
     #         package install.  We are going to ignore it so that we always
     #         pull the latest version of the package without having to update
     #         the Dockerfile.
-    docker run --rm -i hadolint/hadolint hadolint --ignore=DL3008 --ignore=DL3018 --ignore=DL3033 - < $REPO_DIR/$F
+    docker run --rm -i $LINT_IMAGE hadolint --ignore=DL3008 --ignore=DL3018 --ignore=DL3033 - < $REPO_DIR/$F
     printf "\xE2\x9C\x94 Success${NC}\n"
 done
