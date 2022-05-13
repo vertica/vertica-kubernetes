@@ -24,6 +24,8 @@ NC='\033[0m'  # No color
 set -o errexit
 set -o pipefail
 
+docker pull hadolint/hadolint
+
 for dir in docker-operator docker-vertica docker-vlogger
 do
     F=$dir/Dockerfile
