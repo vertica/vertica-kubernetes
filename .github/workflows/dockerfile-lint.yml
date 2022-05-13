@@ -9,17 +9,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
         
-    - name: Lint vlogger
-      uses: hadolint/hadolint-action@v2.0.0
-      with:
-        dockerfile: docker-vlogger/Dockerfile
-
-    - name: Lint operator
-      uses: hadolint/hadolint-action@v2.0.0
-      with:
-        dockerfile: docker-operator/Dockerfile
-
-    - name: Lint vertica
-      uses: hadolint/hadolint-action@v2.0.0
-      with:
-        dockerfile: docker-vertica/Dockerfile
+    - name: Lint
+      run: |
+        scripts/dockerfile-lint

@@ -28,6 +28,11 @@ for dir in docker-operator docker-vertica docker-vlogger
 do
     F=$dir/Dockerfile
     printf "Checking ${YELLOW}$F${NC}\n"
-    docker run --rm -i hadolint/hadolint < $REPO_DIR/$F
+    # Ignore the following rules:
+    # DL3008, DL3018, DL3033: All are warnings about pinning versions in
+    #         package install.  We are going to ignore it so that we always
+    #         pull the latest version of the package without having to update
+    #         the Dockerfile.
+    docker run --rm -i hadolint/hadolint hadolint --ignore=DL3008 --ignore=DL3018 --ignore=DL3033 - < $REPO_DIR/$F
     printf "\xE2\x9C\x94 Success${NC}\n"
 done
