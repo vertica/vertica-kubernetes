@@ -36,3 +36,4 @@ spec:
       name: transient
       size: 1
   certSecrets: []
+  imagePullSecrets: []

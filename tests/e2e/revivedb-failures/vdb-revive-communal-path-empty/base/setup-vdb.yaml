@@ -31,3 +31,4 @@ spec:
   kSafety: "0"
   requeueTime: 4
   certSecrets: []
+  imagePullSecrets: []

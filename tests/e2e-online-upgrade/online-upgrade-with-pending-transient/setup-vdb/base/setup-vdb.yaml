@@ -37,3 +37,4 @@ spec:
         requests:
           cpu: "128"
   certSecrets: []
+  imagePullSecrets: []

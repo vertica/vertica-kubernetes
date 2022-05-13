@@ -32,3 +32,4 @@ spec:
       name: "temp"
       size: 2
   certSecrets: []
+  imagePullSecrets: []

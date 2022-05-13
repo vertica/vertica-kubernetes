@@ -87,6 +87,10 @@ fi
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
 COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
+# Name of the secret that has any credentials to access a private container
+# repository.  If using a private repo, this secret is generated in each
+# namespace we test in.
+PRIVATE_REG_CERT_SERCET_NS_COPY="priv-reg-cred"
 # Similar hard coded name for namespace specific hadoopConfig
 HADOOP_CONF_CM_NS_COPY="hadoop-conf"
 # The full prefix for the communal path
@@ -103,11 +107,14 @@ else
 fi
 
 echo "Vertica server image name: $VERTICA_IMG"
+echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
 echo "Endpoint: $ENDPOINT"
 echo "Protocol: $PATH_PROTOCOL"
 echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
 echo "Communal Path Prefix: $PATH_PREFIX"
+echo -n "Using private registry: "
+if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -238,10 +245,27 @@ EOF
         cat <<EOF > $COMMUNAL_EP_CERT_SECRET_PATCH
         - op: add
           path: /spec/certSecrets/-
-          value: 
+          value:
             name: $COMMUNAL_EP_CERT_SECRET_NS_COPY
 EOF
         $KUSTOMIZE edit add patch --path $COMMUNAL_EP_CERT_SECRET_PATCH --kind VerticaDB
+    fi
+
+    # If using a private container registry add a patch to include the
+    # imagePullSecrets to access the registry.
+    if [ -n "$PRIVATE_REG_SERVER" ]
+    then
+        PRIVATE_REG_SECRET_PATCH="private-reg-secret-patch.yaml"
+        cat <<EOF > $PRIVATE_REG_SECRET_PATCH
+        - op: add
+          path: /spec/imagePullSecrets/-
+          value: 
+            name: $PRIVATE_REG_CERT_SERCET_NS_COPY
+        - op: replace
+          path: /spec/imagePullPolicy
+          value: Always
+EOF
+        $KUSTOMIZE edit add patch --path $PRIVATE_REG_SECRET_PATCH --kind VerticaDB
     fi
 }
 
@@ -624,6 +648,51 @@ EOF
     popd > /dev/null
 }
 
+function setup_creds_for_private_repo {
+    pushd manifests/priv-container-creds > /dev/null
+
+    mkdir -p overlay
+    pushd overlay > /dev/null
+
+    if [ -n "$PRIVATE_REG_SERVER" ]
+    then
+        AUTH_ENC=$(echo -n "$PRIVATE_REG_USERNAME:$PRIVATE_REG_PASSWORD" | base64 --wrap=0)
+        DOCKER_CONFIG_JSON="{\"auths\":{\"$PRIVATE_REG_SERVER\":{\"username\":\"$PRIVATE_REG_USERNAME\",\"password\":\"$PRIVATE_REG_PASSWORD\",\"auth\":\"$AUTH_ENC\"}}}"
+        DOCKER_CONFIG_JSON_ENC=$(echo $DOCKER_CONFIG_JSON | base64 --wrap=0)
+        cat <<EOF > priv-container-cred-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: $PRIVATE_REG_CERT_SERCET_NS_COPY
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: $DOCKER_CONFIG_JSON_ENC
+EOF
+
+        cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+- ../base
+
+resources:
+- priv-container-cred-secret.yaml
+EOF
+    else
+      # If we don't have any credentials for a private registry, we are pulling
+      # from a public registry or in the case of kind, the image was pushed to
+      # k8s already.  We still go ahead and create an empty kustomization just
+      # so we can still run the kustomize build on the overlay.
+      cat <<EOF > kustomization.yaml
+bases:
+- ../base
+EOF
+    fi
+
+    popd > /dev/null
+    popd > /dev/null
+}
+
 cd $REPO_DIR/tests
 
 # Create the configMap that is used to control the communal endpoint and creds.
@@ -636,6 +705,8 @@ copy_hadoop_conf
 create_communal_creds
 # Setup an overlay for create-s3-bucket so it has access to the credentials
 setup_creds_for_create_s3_bucket
+# Setup credential secret to access a private container registry
+setup_creds_for_private_repo
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>

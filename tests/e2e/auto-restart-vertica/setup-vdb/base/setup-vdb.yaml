@@ -31,3 +31,4 @@ spec:
     - name: defsc
       size: 2
   certSecrets: []
+  imagePullSecrets: []

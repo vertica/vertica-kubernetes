@@ -38,3 +38,4 @@ spec:
     names:
       - sec1
   certSecrets: []
+  imagePullSecrets: []

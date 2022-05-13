@@ -30,3 +30,4 @@ spec:
   # cause the test to timeout.
   requeueTime: 5
   certSecrets: []
+  imagePullSecrets: []
