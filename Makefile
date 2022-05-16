@@ -227,6 +227,7 @@ endif
 .PHONY: lint
 lint: config-transformer  ## Lint the helm charts and the Go operator
 	helm lint $(OPERATOR_CHART)
+	scripts/dockerfile-lint
 ifneq (${GOLANGCI_LINT_VER}, $(shell ./bin/golangci-lint version --format short 2>&1))
 	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
 	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"

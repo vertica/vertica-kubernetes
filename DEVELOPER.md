@@ -138,9 +138,10 @@ $ make generate manifests
 
 ## 3. Running Linters
 
-We run two different linters:
+We run three different linters:
 1. **Helm lint**: Uses the chart verification test that is built into Helm.
 2. **Go lint**: Uses a few linters that you can run with golang.
+3. **Dockerfile lint**: Uses hadolint to check the various Dockerfile's that we have in our repo
 
 Both of these linters can be run with this command:
 

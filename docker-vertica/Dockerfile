@@ -12,11 +12,11 @@ ARG MINIMAL=""
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
-ADD ./packages/${VERTICA_RPM} /tmp/
+COPY ./packages/${VERTICA_RPM} /tmp/
 # this is a script which removes unnecessary stuff from the
 # container image
-ADD ./packages/cleanup.sh /tmp/
-ADD ./packages/package-checksum-patcher.py /tmp/
+COPY ./packages/cleanup.sh /tmp/
+COPY ./packages/package-checksum-patcher.py /tmp/
 
 RUN set -x \
   # Update is needed to be confident that we're picking up
@@ -30,7 +30,6 @@ RUN set -x \
   openssh-server \
   openssh-clients \
   openssl \
-  sudo \
   which \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
@@ -54,16 +53,17 @@ RUN set -x \
   && chown -R dbadmin:verticadba /opt/vertica \
   # reduce the size of the final image
   && rm -rf /opt/vertica/lib64  \
+  && yum clean all \
   && sh /tmp/cleanup.sh
 
-ADD dbadmin/.bash_profile /home/dbadmin/
+COPY dbadmin/.bash_profile /home/dbadmin/
 # Copy in a stable ssh key.  This is done so that Vertica pods can communicate
 # with pods running an older image.  This is necessary when doing an online
 # image change as the Vertica cluster will be running with two container
 # versions at once.
-ADD dbadmin/.ssh /home/dbadmin/.ssh
+COPY dbadmin/.ssh /home/dbadmin/.ssh
 # prepare (put inside) entrypoint script and make right permissions
-ADD ./docker-entrypoint.sh /opt/vertica/bin/
+COPY ./docker-entrypoint.sh /opt/vertica/bin/
 
 RUN set -x \
   && chmod a+x /opt/vertica/bin/docker-entrypoint.sh \
@@ -97,8 +97,9 @@ ENV TZ UTC
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
 
-ADD ./packages/init.d.functions /etc/rc.d/init.d/functions
+COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   # COPY may not preserve file permissions on older docker versions.  This is a
   # workaround for that.  This will cause the image to increase a bit, but there
@@ -107,7 +108,7 @@ RUN set -x \
   # Update is needed to be confident that we're picking up
   # fixed libraries. 
   && apt-get -y update \
-  && apt-get install -y \
+  && apt-get install -y --no-install-recommends \
   locales \
   cron \
   sysstat \
@@ -141,6 +142,6 @@ EXPOSE 5433
 # agent port
 EXPOSE 5444
 USER dbadmin
-LABEL os_family="ubuntu"
-LABEL image_name="vertica_k8s"
+LABEL os-family="ubuntu"
+LABEL image-name="vertica_k8s"
 LABEL maintainer="K8 Team"
