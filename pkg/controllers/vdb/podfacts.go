@@ -727,7 +727,7 @@ func (p *PodFacts) countInstalledAndNotRestartable() int {
 		// sts.  The sts needs to be created or sized first.
 		// We need the pod to have the DC table annotations since the DC
 		// collection is done at start, so these need to set prior to starting.
-		if !v.isPodRunning && v.isInstalled && v.managedByParent && v.hasDCTableAnnotations {
+		if v.isInstalled && v.managedByParent && (!v.isPodRunning || !v.hasDCTableAnnotations) {
 			return 1
 		}
 		return 0
