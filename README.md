@@ -76,14 +76,18 @@ A pod is an ephemeral Kubernetes object that requires access to external storage
 
 For details about local volume mounts, StorageClass requirements, and custom volume mounts, see [Containerized Vertica on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm).
 
-# Scale Up and Down
+# Scaling Subclusters
 
 Vertica on Kubernetes offers the following two scaling strategies to fine-tune your clusters by workload:  
 
 - For complex, long-running queries, add nodes to an existing subcluster. 
 - To increase the throughput of multiple short-term queries (often called "dashboard queries"), improve your cluster's parallelism by adding subclusters.
 
-For complete instructions on scaling subclusters, see [Subclusters on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/SubclustersOperator.htm).
+After you create a subcluster, you can use the VerticaAutoscaler to automatically scale subclusters or pods when resource metrics reach a specified trigger.
+
+For instructions on scaling subclusters for new workloads, see [Subclusters on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/SubclustersOperator.htm).
+
+For instructions on automatically scaling existing subclusters with VerticaAutoscaler, see [VerticaAutoscaler Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/VerticaAutoScaler.htm).
 
 
 # Client Connections
@@ -124,6 +128,12 @@ OpenShift manages security with [Security Context Constraints](https://docs.open
 
 
 For details about Vertica on OpenShift, see [Red Hat OpenShift Overview](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/OpenShiftK8s.htm).
+
+# Prometheus Integraion
+
+Vertica integrates with [Prometheus](https://prometheus.io) to collect time series metrics on the VerticaDB operator. Configure Prometheus to authorize connections using a role-based access (RBAC) sidecar proxy, or expose the metrics to external clients with an HTTP endpoint.
+
+For more information, see [Prometheus Integration](https://www.vertica.com/docs/latest/HTML//Content/Authoring/Containers/Kubernetes/Prometheus.htm).
 
 # Additional Details
 
