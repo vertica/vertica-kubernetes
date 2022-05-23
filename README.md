@@ -78,16 +78,15 @@ For details about local volume mounts, StorageClass requirements, and custom vol
 
 # Scaling Subclusters
 
-Vertica on Kubernetes offers the following two scaling strategies to fine-tune your clusters by workload:  
+Vertica on Kubernetes manages subclusters by workload, which allows you to fine-tune your workload with one of the following scaling strategies:
 
-- For complex, long-running queries, add nodes to an existing subcluster. 
-- To increase the throughput of multiple short-term queries (often called "dashboard queries"), improve your cluster's parallelism by adding subclusters.
+- Subcluster: Increase the throughput of multiple short-term queries (often called "dashboard queries") to improve your cluster's parallelism.
+- Pod: Increase the number of pods in an existing subcluster for complex, long-running queries. 
 
-After you create a subcluster, you can use the VerticaAutoscaler to automatically scale subclusters or pods when resource metrics reach a specified trigger.
+For details about manually sizing subclusters for new workloads, see [Subclusters on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/SubclustersOperator.htm).
 
-For instructions on scaling subclusters for new workloads, see [Subclusters on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/SubclustersOperator.htm).
 
-For instructions on automatically scaling existing subclusters with VerticaAutoscaler, see [VerticaAutoscaler Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/VerticaAutoScaler.htm).
+After you create a subcluster, you can use the VerticaAutoscaler to automatically scale subclusters or pods when resource metrics reach specified triggers. For instructions on automatically scaling existing subclusters with VerticaAutoscaler, see [VerticaAutoscaler Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/VerticaAutoScaler.htm).
 
 
 # Client Connections
