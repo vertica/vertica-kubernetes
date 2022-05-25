@@ -51,7 +51,6 @@ else
 	NAMESPACE?=$(shell ${GET_NAMESPACE_SH})
 endif
 
-GOLANGCI_LINT_VER=1.41.1
 LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
@@ -225,14 +224,10 @@ else
 endif	
 
 .PHONY: lint
-lint: config-transformer  ## Lint the helm charts and the Go operator
+lint: config-transformer golangci-lint ## Lint the helm charts and the Go operator
 	helm lint $(OPERATOR_CHART)
 	scripts/dockerfile-lint
-ifneq (${GOLANGCI_LINT_VER}, $(shell ./bin/golangci-lint version --format short 2>&1))
-	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
-	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
-endif
-	./bin/golangci-lint run
+	$(GOLANGCI_LINT) run
 
 .PHONY: install-unittest-plugin
 install-unittest-plugin:
@@ -444,6 +439,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 KIND ?= $(LOCALBIN)/kind
 KUBERNETES_SPLIT_YAML ?= $(LOCALBIN)/kubernetes-split-yaml
 GO_JUNIT_REPORT = $(LOCALBIN)/go-junit-report
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.2
@@ -451,34 +447,46 @@ CONTROLLER_TOOLS_VERSION ?= v0.8.0
 KIND_VERSION ?= v0.11.1
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
 GO_JUNIT_REPORT_VERSION ?= latest
+GOLANGCI_LINT_VER ?= 1.41.1
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
-#.PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(LOCALBIN) 
+.PHONY: kustomize
+kustomize: $(LOCALBIN) $(KUSTOMIZE) ## Download kustomize locally if necessary.
+$(KUSTOMIZE): 
 	curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
-$(CONTROLLER_GEN): $(LOCALBIN)
+controller-gen: $(LOCALBIN) $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
+$(CONTROLLER_GEN):
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
 
 .PHONY: envtest
-envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
-$(ENVTEST): $(LOCALBIN)
+envtest: $(LOCALBIN) $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST):
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 .PHONY: go-junit-report
-go-junit-report: ## Download go-junit-report locally if necessary.
-	GOBIN=$(LOCALBIN) go install github.com/jstemmer/go-junit-report@latest
+go-junit-report: $(LOCALBIN) $(GO_JUNIT_REPORT) ## Download go-junit-report locally if necessary.
+$(GO_JUNIT_REPORT):
+	GOBIN=$(LOCALBIN) go install github.com/jstemmer/go-junit-report@$(GO_JUNIT_REPORT_VERSION)
 
 .PHONY: kind
-kind: ## Download kind locally if necessary
+kind: $(LOCALBIN) $(KIND) ## Download kind locally if necessary
+$(KIND): 
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/kind@$(KIND_VERSION)
 
 .PHONY: kubernetes-split-yaml
-kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
+kubernetes-split-yaml: $(LOCALBIN) $(KUBERNETES_SPLIT_YAML) ## Download kubernetes-split-yaml locally if necessary.
+$(KUBERNETES_SPLIT_YAML):
 	GOBIN=$(LOCALBIN) go install github.com/mogensen/kubernetes-split-yaml@$(KUBERNETES_SPLIT_YAML_VERSION)
+
+.PHONY: golangci-lint $(GOLANGCI_LINT)
+golangci-lint: $(LOCALBIN) $(GOLANGCI_LINT)
+$(GOLANGCI_LINT):
+ifneq (${GOLANGCI_LINT_VER}, $(shell [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version --format short 2>&1))
+	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
+	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
+endif
 
 krew: $(HOME)/.krew/bin/kubectl-krew ## Download krew plugin locally if necessary
 
