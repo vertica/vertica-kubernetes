@@ -44,10 +44,6 @@ var _ webhook.Defaulter = &VerticaDB{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaAutoscaler) Default() {
 	verticaautoscalerlog.Info("default", "name", v.Name)
-
-	if v.Spec.Template.ServiceName == "" {
-		v.Spec.Template.ServiceName = v.Spec.ServiceName
-	}
 }
 
 //+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticaautoscaler,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1beta1,name=vverticaautoscaler.kb.io,admissionReviewVersions=v1
@@ -57,7 +53,7 @@ var _ webhook.Validator = &VerticaAutoscaler{}
 func (v *VerticaAutoscaler) ValidateCreate() error {
 	verticaautoscalerlog.Info("validate create", "name", v.Name)
 
-	allErrs := v.validateSpec(true)
+	allErrs := v.validateSpec()
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -68,7 +64,7 @@ func (v *VerticaAutoscaler) ValidateCreate() error {
 func (v *VerticaAutoscaler) ValidateUpdate(old runtime.Object) error {
 	verticaautoscalerlog.Info("validate update", "name", v.Name)
 
-	allErrs := v.validateSpec(false)
+	allErrs := v.validateSpec()
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -83,10 +79,10 @@ func (v *VerticaAutoscaler) ValidateDelete() error {
 }
 
 // validateSpec will validate the current VerticaAutoscaler to see if it is valid
-func (v *VerticaAutoscaler) validateSpec(isCreate bool) field.ErrorList {
+func (v *VerticaAutoscaler) validateSpec() field.ErrorList {
 	allErrs := field.ErrorList{}
 	allErrs = v.validateScalingGranularity(allErrs)
-	allErrs = v.validateSubclusterTemplate(allErrs, isCreate)
+	allErrs = v.validateSubclusterTemplate(allErrs)
 	return allErrs
 }
 
@@ -106,18 +102,19 @@ func (v *VerticaAutoscaler) validateScalingGranularity(allErrs field.ErrorList) 
 }
 
 // validateSubclusterTemplate will validate the subcluster template
-func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList, isCreate bool) field.ErrorList {
+func (v *VerticaAutoscaler) validateSubclusterTemplate(allErrs field.ErrorList) field.ErrorList {
 	pathPrefix := field.NewPath("spec").Child("template")
-	// We have a defaulter that sets the service name in template to match
-	// spec.serviceName.  So we only need to check for differences if this is an
-	// update or a create but we set something.
-	if (!isCreate || v.Spec.Template.ServiceName != "") &&
-		v.Spec.Template.ServiceName != v.Spec.ServiceName {
+	if v.CanUseTemplate() && v.Spec.Template.ServiceName != v.Spec.ServiceName {
 		err := field.Invalid(pathPrefix.Child("serviceName"),
 			v.Spec.Template.ServiceName,
 			"The serviceName in the subcluster template must match spec.serviceName")
 		allErrs = append(allErrs, err)
 	}
-
+	if v.CanUseTemplate() && v.Spec.ScalingGranularity == PodScalingGranularity {
+		err := field.Invalid(pathPrefix.Child("serviceName"),
+			v.Spec.Template.ServiceName,
+			"You cannot use the template if scalingGranularity is Pod.  Set the template size to 0 to disable the template")
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }

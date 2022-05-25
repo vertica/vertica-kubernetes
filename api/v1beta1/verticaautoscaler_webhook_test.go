@@ -32,21 +32,26 @@ var _ = Describe("verticaautoscaler_webhook", func() {
 		Expect(vas.ValidateCreate()).ShouldNot(Succeed())
 	})
 
-	It("should set a default value for the service name in the template", func() {
-		vas := MakeVAS()
-		vas.Spec.Template.ServiceName = ""
-		vas.Default()
-		Expect(vas.Spec.Template.ServiceName).Should(Equal(vas.Spec.ServiceName))
-	})
-
 	It("should fail if the service name differs", func() {
 		vas := MakeVAS()
+		vas.Spec.ScalingGranularity = SubclusterScalingGranularity
 		vas.Spec.Template.ServiceName = "SomethingElse"
+		vas.Spec.Template.Size = 1
 		Expect(vas.ValidateCreate()).ShouldNot(Succeed())
 		vas.Spec.Template.ServiceName = ""
-		Expect(vas.ValidateCreate()).Should(Succeed())
+		Expect(vas.ValidateCreate()).ShouldNot(Succeed())
 		Expect(vas.ValidateUpdate(MakeVAS())).ShouldNot(Succeed())
 		vas.Spec.Template.ServiceName = vas.Spec.ServiceName
 		Expect(vas.ValidateUpdate(MakeVAS())).Should(Succeed())
+	})
+
+	It("should fail if you try to use the template with pod scalingGranularity", func() {
+		vas := MakeVAS()
+		vas.Spec.Template.ServiceName = vas.Spec.ServiceName
+		vas.Spec.Template.Size = 1
+		vas.Spec.ScalingGranularity = PodScalingGranularity
+		Expect(vas.ValidateCreate()).ShouldNot(Succeed())
+		vas.Spec.ScalingGranularity = SubclusterScalingGranularity
+		Expect(vas.ValidateCreate()).Should(Succeed())
 	})
 })
