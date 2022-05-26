@@ -21,8 +21,10 @@ spec:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
     credentialSecret: s3-auth
+    includeUIDInPath: true
   subclusters:
     - name: defaultsubcluster
+      size: 3
       # The CPU resource setting is here is a sample.  We set it so that this
       # will work with the sample VerticaAutoscaler resource.  The actual amount
       # should be sized according to:

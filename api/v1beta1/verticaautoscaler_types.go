@@ -145,7 +145,8 @@ const (
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
 
-// VerticaAutoscaler is the Schema for the verticaautoscalers API
+// VerticaAutoscaler is a CR that allows you to autoscale one or more
+// subclusters in a VerticaDB.
 type VerticaAutoscaler struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

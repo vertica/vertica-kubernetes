@@ -3,7 +3,7 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[]'
-    capabilities: Seamless Upgrades
+    capabilities: Auto Pilot
     categories: Database
     containerImage: OPERATOR_IMG_PLACEHOLDER
     createdAt: CREATED_AT_PLACEHOLDER
@@ -16,7 +16,8 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: VerticaAutoscaler is the Schema for the verticaautoscalers API
+    - description: VerticaAutoscaler is a CR that allows you to autoscale one or more
+        subclusters in a VerticaDB.
       displayName: Vertica Autoscaler
       kind: VerticaAutoscaler
       name: verticaautoscalers.vertica.com
@@ -27,11 +28,11 @@ spec:
       specDescriptors:
       - description: 'This defines how the scaling will happen.  This can be one of
           the following: - Subcluster: Scaling will be achieved by creating or deleting
-          entire subclusters.   The template for new subclusters are either the template
-          if filled out   or an existing subcluster that matches the service name.
-          - Pod: Only increase or decrease the size of an existing subcluster.   If
-          multiple subclusters are selected by the serviceName, this will grow   the
-          last subcluster only.'
+          entire subclusters. The template for new subclusters are either the template
+          if filled out or an existing subcluster that matches the service name. -
+          Pod: Only increase or decrease the size of an existing subcluster. If multiple
+          subclusters are selected by the serviceName, this will grow the last subcluster
+          only.'
         displayName: Scaling Granularity
         path: scalingGranularity
         x-descriptors:
@@ -245,7 +246,7 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'Secrets that will be mounted in the vertica container.  The
           purpose of this is to allow custom certs to be available.  The full path
-          is:   /certs/<secretName>/<key_i> Where <secretName> is the name provided
+          is: /certs/<secretName>/<key_i> Where <secretName> is the name provided
           in the secret and <key_i> is one of the keys in the secret.'
         displayName: Cert Secrets
         path: certSecrets
@@ -266,15 +267,15 @@ spec:
       - description: "The name of a secret that contains the credentials to connect
           to the communal endpoint (only applies to s3://, gs:// or azb://). Certain
           keys need to be set, depending on the endpoint type: - s3:// or gs:// -
-          It must have the following keys set: accessey and secretkey.     When using
-          Google Cloud Storage, the IDs set in the secret are taken     from the hash-based
+          It must have the following keys set: accessey and secretkey. When using
+          Google Cloud Storage, the IDs set in the secret are taken from the hash-based
           message authentication code (HMAC) keys. - azb:// - It must have the following
-          keys set:     accountName - Name of the Azure account     blobEndpoint -
-          (Optional) Set this to the location of the endpoint.       If using an emulator
-          like Azurite, it can be set to something like       'http://<IP-addr>:<port>'
-          \    accountKey - If accessing with an account key set it here     sharedAccessSignature
-          - If accessing with a shared access signature,     \t  set it here \n When
-          initPolicy is Create or Revive, and not using HDFS this field is required."
+          keys set: accountName - Name of the Azure account blobEndpoint - (Optional)
+          Set this to the location of the endpoint. If using an emulator like Azurite,
+          it can be set to something like 'http://<IP-addr>:<port>' accountKey - If
+          accessing with an account key set it here sharedAccessSignature - If accessing
+          with a shared access signature, set it here \n When initPolicy is Create
+          or Revive, and not using HDFS this field is required."
         displayName: Credential Secret
         path: communal.credentialSecret
         x-descriptors:
@@ -799,7 +800,7 @@ spec:
       - description: If a reconciliation iteration during an operation such as Upgrade
           needs to be requeued, this controls the amount of time in seconds to delay
           adding the key to the reconcile queue.  If RequeueTime is set, it overrides
-          this value.  If RequeueTime is not set either, then we set the default value
+          this value. If RequeueTime is not set either, then we set the default value
           only for upgrades. For other reconciles we use the exponential backoff algorithm.
         displayName: Upgrade Requeue Time
         path: upgradeRequeueTime
@@ -906,9 +907,11 @@ spec:
     * Installing Vertica
     * Creating and reviving a Vertica database
     * Restarting and rescheduling DOWN pods to maintain quorum
-    * Subcluster scaling
+    * Upgrading Vertica to a new version while keeping the database online
+    * Subcluster scaling, both manually and automatically with the Horizontal Pod Autoscaler
     * Service management and health monitoring for pods
     * Load balancing for internal and external traffic
+    * Expose a metrics endpoint to integrate with Prometheus to monitor the operator's health
 
     For a brief overview on how to create a cluster, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
   displayName: VerticaDB Operator
