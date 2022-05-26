@@ -16,6 +16,7 @@ kind: VerticaAutoscaler
 metadata:
   name: vas-webhook
 spec:
+  verticaDBName: vert
   serviceName: sc1
   scalingGranularity: Subcluster
   template:

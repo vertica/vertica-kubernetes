@@ -27,11 +27,12 @@ import (
 type VerticaAutoscalerSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// The name of the VerticaDB CR that this autoscaler is defined for.  The
 	// VerticaDB object must exist in the same namespace as this object.
-	VerticaDBName string `json:"verticaDBName,omitempty"`
+	VerticaDBName string `json:"verticaDBName"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:default:="Subcluster"
@@ -46,6 +47,7 @@ type VerticaAutoscalerSpec struct {
 	//   the last subcluster only.
 	ScalingGranularity ScalingGranularityType `json:"scalingGranularity"`
 
+	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// This acts as a selector for the subclusters that are being scaled together.
@@ -188,7 +190,7 @@ func MakeVAS() *VerticaAutoscaler {
 		},
 		Spec: VerticaAutoscalerSpec{
 			VerticaDBName:      vdbNm.Name,
-			ScalingGranularity: "Pod",
+			ScalingGranularity: PodScalingGranularity,
 			ServiceName:        "sc1",
 		},
 	}
