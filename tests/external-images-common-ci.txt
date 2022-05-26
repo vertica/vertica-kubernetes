@@ -13,4 +13,4 @@ bitnami/kubectl:1.20.4
 minio/operator:v4.2.7
 minio/console:v0.9.8
 rancher/local-path-provisioner:v0.0.19
-gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+gcr.io/kubebuilder/kube-rbac-proxy:v0.11.0

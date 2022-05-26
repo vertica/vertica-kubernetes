@@ -51,7 +51,6 @@ else
 	NAMESPACE?=$(shell ${GET_NAMESPACE_SH})
 endif
 
-GOLANGCI_LINT_VER=1.41.1
 LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
@@ -216,7 +215,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: install-unittest-plugin manifests generate fmt vet lint get-go-junit-report envtest ## Run tests.
+test: install-unittest-plugin manifests generate fmt vet lint go-junit-report envtest ## Run tests.
 	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
 ifdef INTERACTIVE
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
@@ -225,14 +224,10 @@ else
 endif	
 
 .PHONY: lint
-lint: config-transformer  ## Lint the helm charts and the Go operator
+lint: config-transformer golangci-lint ## Lint the helm charts and the Go operator
 	helm lint $(OPERATOR_CHART)
 	scripts/dockerfile-lint
-ifneq (${GOLANGCI_LINT_VER}, $(shell ./bin/golangci-lint version --format short 2>&1))
-	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
-	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
-endif
-	./bin/golangci-lint run
+	$(GOLANGCI_LINT) run
 
 .PHONY: install-unittest-plugin
 install-unittest-plugin:
@@ -261,6 +256,10 @@ ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) $(E2E_TEST_DIRS)
+
+WAIT_TIME = 120s
+run-scorecard-tests: bundle ## Run the scorecard tests
+	$(OPERATOR_SDK) scorecard bundle --wait-time $(WAIT_TIME)
 
 .PHONY: run-online-upgrade-tests
 run-online-upgrade-tests: install-kuttl-plugin install-stern-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
@@ -426,44 +425,68 @@ deploy: deploy-operator
 
 undeploy: undeploy-operator
 
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.8.0)
+##@ Build Dependencies
 
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-kustomize: ## Download kustomize locally if necessary.
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@v4.5.2)
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
 
-GO_JUNIT_REPORT = $(shell pwd)/bin/go-junit-report
-get-go-junit-report: ## Download go-junit-report locally if necessary.
-	$(call go-get-tool,$(GO_JUNIT_REPORT),github.com/jstemmer/go-junit-report@latest)
+## Tool Binaries
+KUSTOMIZE ?= $(LOCALBIN)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+KIND ?= $(LOCALBIN)/kind
+KUBERNETES_SPLIT_YAML ?= $(LOCALBIN)/kubernetes-split-yaml
+GO_JUNIT_REPORT = $(LOCALBIN)/go-junit-report
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
-KIND = $(shell pwd)/bin/kind
-kind: ## Download kind locally if necessary
-	$(call go-get-tool,$(KIND),sigs.k8s.io/kind@v0.11.1)
+## Tool Versions
+KUSTOMIZE_VERSION ?= v4.5.2
+CONTROLLER_TOOLS_VERSION ?= v0.8.0
+KIND_VERSION ?= v0.11.1
+KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
+GO_JUNIT_REPORT_VERSION ?= latest
+GOLANGCI_LINT_VER ?= 1.41.1
 
-KUBERNETES_SPLIT_YAML = $(shell pwd)/bin/kubernetes-split-yaml
-kubernetes-split-yaml: ## Download kubernetes-split-yaml locally if necessary.
-	$(call go-get-tool,$(KUBERNETES_SPLIT_YAML),github.com/mogensen/kubernetes-split-yaml@v0.3.0)
+KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+.PHONY: kustomize
+kustomize: $(LOCALBIN) $(KUSTOMIZE) ## Download kustomize locally if necessary.
+$(KUSTOMIZE): 
+	curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
 
-ENVTEST = $(shell pwd)/bin/setup-envtest
+.PHONY: controller-gen
+controller-gen: $(LOCALBIN) $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
+$(CONTROLLER_GEN):
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+
 .PHONY: envtest
-envtest: ## Download setup-envtest locally if necessary.
-	$(call go-get-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+envtest: $(LOCALBIN) $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST):
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-# go-get-tool will 'go install' any package $2 to $1.
-PROJECT_DIR := $(abspath $(REPO_DIR))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go install $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+.PHONY: go-junit-report
+go-junit-report: $(LOCALBIN) $(GO_JUNIT_REPORT) ## Download go-junit-report locally if necessary.
+$(GO_JUNIT_REPORT):
+	GOBIN=$(LOCALBIN) go install github.com/jstemmer/go-junit-report@$(GO_JUNIT_REPORT_VERSION)
+
+.PHONY: kind
+kind: $(LOCALBIN) $(KIND) ## Download kind locally if necessary
+$(KIND): 
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/kind@$(KIND_VERSION)
+
+.PHONY: kubernetes-split-yaml
+kubernetes-split-yaml: $(LOCALBIN) $(KUBERNETES_SPLIT_YAML) ## Download kubernetes-split-yaml locally if necessary.
+$(KUBERNETES_SPLIT_YAML):
+	GOBIN=$(LOCALBIN) go install github.com/mogensen/kubernetes-split-yaml@$(KUBERNETES_SPLIT_YAML_VERSION)
+
+.PHONY: golangci-lint $(GOLANGCI_LINT)
+golangci-lint: $(LOCALBIN) $(GOLANGCI_LINT)
+$(GOLANGCI_LINT):
+ifneq (${GOLANGCI_LINT_VER}, $(shell [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version --format short 2>&1))
+	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
+	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
+endif
 
 krew: $(HOME)/.krew/bin/kubectl-krew ## Download krew plugin locally if necessary
 
@@ -482,7 +505,3 @@ operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
 	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.18.0/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
-
-WAIT_TIME = 120s
-run-scorecard-tests: bundle ## Run the scorecard tests
-	$(OPERATOR_SDK) scorecard bundle --wait-time $(WAIT_TIME)
