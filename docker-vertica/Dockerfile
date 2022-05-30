@@ -92,7 +92,7 @@ COPY --from=builder /home/dbadmin /home/dbadmin
 COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 
-ENV LANG en_US.utf8
+ENV LANG en_US.UTF-8
 ENV TZ UTC
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
