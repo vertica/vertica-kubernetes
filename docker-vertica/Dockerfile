@@ -63,10 +63,10 @@ COPY dbadmin/.bash_profile /home/dbadmin/
 # versions at once.
 COPY dbadmin/.ssh /home/dbadmin/.ssh
 # prepare (put inside) entrypoint script and make right permissions
-COPY ./docker-entrypoint.sh /opt/vertica/bin/
+COPY ./docker-entrypoint.sh /usr/local/bin
 
 RUN set -x \
-  && chmod a+x /opt/vertica/bin/docker-entrypoint.sh \
+  && chmod a+x /usr/local/bin/docker-entrypoint.sh \
   && chown dbadmin:verticadba /home/dbadmin/.bash_profile \
   && chmod 600 /home/dbadmin/.bash_profile \
   && mkdir -p /root/.ssh \
@@ -91,6 +91,7 @@ COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
 COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
+COPY --from=builder /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 ENV LANG en_US.utf8
 ENV TZ UTC
@@ -135,7 +136,7 @@ RUN set -x \
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
   && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf 
   
-ENTRYPOINT ["/opt/vertica/bin/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # vertica port
 EXPOSE 5433
@@ -144,4 +145,4 @@ EXPOSE 5444
 USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
-LABEL maintainer="K8 Team"
+LABEL maintainer="K8s Team"
