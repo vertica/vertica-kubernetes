@@ -30,7 +30,7 @@ REG_NAME='kind-registry'
 REG_PORT='5000'
 TERM_REGISTRY=1
 
-while getopts "ut:k:i:ap:xr:" opt
+while getopts "ut:k:i:ap:xr:m:" opt
 do
     case $opt in
         u) UPLOAD_IMAGES=1;;
@@ -41,12 +41,13 @@ do
         a) LISTEN_ALL_INTERFACES="Y";;
         r) REG_PORT=$OPTARG;;
         x) TERM_REGISTRY=;;
+        m) MOUNT_PATH=$OPTARG;;
     esac
 done
 
 if [ $(( $# - $OPTIND )) -lt 1 ]
 then
-    echo "usage: kind.sh [-uax] [-t <tag>] [-k <ver>] [-p <port>] [-i <ip-family>] [-r <port>] (init|term) <name>"
+    echo "usage: kind.sh [-uax] [-t <tag>] [-k <ver>] [-p <port>] [-i <ip-family>] [-r <port>] [-m <path>] (init|term) <name>"
     echo
     echo "Options:"
     echo "  -u     Upload the images to kind after creating the cluster."
@@ -60,6 +61,7 @@ then
     echo "         in the vdb manifest."
     echo "  -r     Use port number for the registry.  Defaults to: $REG_PORT"
     echo "  -x     When terminating kind, skip killing of the registry."
+    echo "  -m     Add an extra mount path to the given host path."
     echo
     echo "Positional Arguments:"
     echo " <name>  Name to give the cluster"
@@ -110,6 +112,14 @@ EOF
       hostPort: $VSQL_PORT
     - containerPort: $(( $PORT + 1 ))
       hostPort: $(( $VSQL_PORT + 1 ))
+EOF
+    fi
+    if [[ -n "$MOUNT_PATH" ]]
+    then
+        cat <<- EOF >> $tmpfile
+  extraMounts:
+    - hostPath: $MOUNT_PATH
+      containerPath: /host
 EOF
     fi
     cat $tmpfile
