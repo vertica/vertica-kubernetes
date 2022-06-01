@@ -93,6 +93,8 @@ COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
 PRIVATE_REG_CERT_SERCET_NS_COPY="priv-reg-cred"
 # Similar hard coded name for namespace specific hadoopConfig
 HADOOP_CONF_CM_NS_COPY="hadoop-conf"
+# Name of the patch that you can use to mount paths to the server repository.
+SERVER_MOUNT_PATCH_NS_COPY="server-mount-patch.yaml"
 # The full prefix for the communal path
 if [ "$PATH_PROTOCOL" == "azb://" ]
 then
@@ -249,6 +251,13 @@ EOF
             name: $COMMUNAL_EP_CERT_SECRET_NS_COPY
 EOF
         $KUSTOMIZE edit add patch --path $COMMUNAL_EP_CERT_SECRET_PATCH --kind VerticaDB
+    fi
+
+    # Add the server mount patch if that was indicated.
+    if [ -n "$USE_SERVER_MOUNT_PATCH" ]
+    then
+        cp ${REPO_DIR}/tests/manifests/server-mounts/server-mount-patch.yaml $SERVER_MOUNT_PATCH_NS_COPY
+        $KUSTOMIZE edit add patch --path $SERVER_MOUNT_PATCH_NS_COPY --kind VerticaDB
     fi
 
     # If using a private container registry add a patch to include the

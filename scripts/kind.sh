@@ -28,7 +28,7 @@ REPO_DIR=$(dirname $SCRIPT_DIR)
 KIND=$REPO_DIR/bin/kind
 REG_NAME='kind-registry'
 REG_PORT='5000'
-TERM_REGISTRY=1
+HANDLE_REGISTRY=1
 
 while getopts "ut:k:i:ap:xr:m:" opt
 do
@@ -40,7 +40,7 @@ do
         i) IP_FAMILY=$OPTARG;;
         a) LISTEN_ALL_INTERFACES="Y";;
         r) REG_PORT=$OPTARG;;
-        x) TERM_REGISTRY=;;
+        x) HANDLE_REGISTRY=;;
         m) MOUNT_PATH=$OPTARG;;
     esac
 done
@@ -60,7 +60,7 @@ then
     echo "         to use NodePort.  The given port is the port number you use"
     echo "         in the vdb manifest."
     echo "  -r     Use port number for the registry.  Defaults to: $REG_PORT"
-    echo "  -x     When terminating kind, skip killing of the registry."
+    echo "  -x     Skip handling of the registry, both on init and term"
     echo "  -m     Add an extra mount path to the given host path."
     echo
     echo "Positional Arguments:"
@@ -82,14 +82,19 @@ function create_kind_cluster {
     cat <<- EOF > $tmpfile
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ${IP_FAMILY}
+EOF
+    if [[ -n $HANDLE_REGISTRY ]]
+    then
+        cat <<- EOF > $tmpfile
 # Patch in the container registry
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${REG_PORT}"]
     endpoint = ["http://${REG_NAME}:${REG_PORT}"]
-networking:
-  ipFamily: ${IP_FAMILY}
 EOF
+    fi
     if [[ "$LISTEN_ALL_INTERFACES" == "Y" ]]; then
         if [[ "$IP_FAMILY" == "ipv6" ]]; then
             ADDR=0:0:0:0:0:0:0:0
@@ -128,12 +133,15 @@ EOF
 }
 
 function create_registry {
-    # create registry container unless it already exists
-    running="$(docker inspect -f '{{.State.Running}}' "${REG_NAME}" 2>/dev/null || true)"
-    if [ "${running}" != 'true' ]; then
-    docker run \
-        -d --restart=always -p "127.0.0.1:${REG_PORT}:5000" --name "${REG_NAME}" \
-        registry:2
+    if [[ -n $HANDLE_REGISTRY ]]
+    then
+        # create registry container unless it already exists
+        running="$(docker inspect -f '{{.State.Running}}' "${REG_NAME}" 2>/dev/null || true)"
+        if [ "${running}" != 'true' ]; then
+        docker run \
+            -d --restart=always -p "127.0.0.1:${REG_PORT}:5000" --name "${REG_NAME}" \
+            registry:2
+        fi
     fi
 }
 
@@ -171,7 +179,7 @@ function init_kind {
 function term_kind {
     ${KIND} delete cluster --name ${CLUSTER_NAME}
 
-    if [[ -n $TERM_REGISTRY ]]
+    if [[ -n $HANDLE_REGISTRY ]]
     then
         running="$(docker inspect -f '{{.State.Running}}' "${REG_NAME}" 2>/dev/null || true)"
         if [ "${running}" == 'true' ]; then
