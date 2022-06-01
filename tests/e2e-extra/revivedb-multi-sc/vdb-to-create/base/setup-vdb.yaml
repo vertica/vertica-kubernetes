@@ -38,3 +38,5 @@ spec:
   kSafety: "0"
   certSecrets: []
   imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

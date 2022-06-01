@@ -36,3 +36,5 @@ spec:
       - pri
   certSecrets: []
   imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

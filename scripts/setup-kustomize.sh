@@ -117,6 +117,8 @@ echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
 echo "Communal Path Prefix: $PATH_PREFIX"
 echo -n "Using private registry: "
 if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
+echo -n "Add server mounts: "
+if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 
 function create_vdb_kustomization {
     BASE_DIR=$1

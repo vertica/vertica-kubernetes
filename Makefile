@@ -251,7 +251,7 @@ ifeq ($(STERN_PLUGIN_INSTALLED), 0)
 endif
 
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin install-stern-plugin vdb-gen setup-e2e-communal ## Run the integration tests
+run-int-tests: install-kuttl-plugin install-stern-plugin kustomize vdb-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
@@ -375,7 +375,7 @@ echo-images:  ## Print the names of all of the images used
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 
-vdb-gen: ## Builds the vdb-gen tool
+vdb-gen: generate manifests ## Builds the vdb-gen tool
 	go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment

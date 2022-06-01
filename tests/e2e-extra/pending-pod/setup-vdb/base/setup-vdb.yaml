@@ -32,3 +32,5 @@ spec:
   certSecrets: []
   requeueTime: 5
   imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

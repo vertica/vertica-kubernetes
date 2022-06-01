@@ -39,3 +39,5 @@ spec:
       - sec1
   certSecrets: []
   imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
