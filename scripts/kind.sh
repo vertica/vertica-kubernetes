@@ -87,7 +87,7 @@ networking:
 EOF
     if [[ -n $HANDLE_REGISTRY ]]
     then
-        cat <<- EOF > $tmpfile
+        cat <<- EOF >> $tmpfile
 # Patch in the container registry
 containerdConfigPatches:
 - |-
