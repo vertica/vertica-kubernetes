@@ -31,5 +31,3 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
-  volumes: []
-  volumeMounts: []
