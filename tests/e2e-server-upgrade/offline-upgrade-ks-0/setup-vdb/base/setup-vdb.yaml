@@ -24,6 +24,7 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vd
+  upgradePolicy: Offline
   shardCount: 17
   kSafety: "0"
   subclusters:
