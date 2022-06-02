@@ -1,4 +1,4 @@
-name: e2e (online-upgrade) tests
+name: e2e (server upgrade) tests
 
 on: 
   push:
@@ -12,7 +12,7 @@ on:
 
 jobs:
 
-  e2e-online-upgrade:
+  e2e-server-upgrade:
 
     runs-on: ubuntu-latest
     steps:
@@ -28,12 +28,12 @@ jobs:
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         export MINIMAL_VERTICA_IMG=YES
         export BASE_VERTICA_IMG=vertica/vertica-k8s:11.1.0-0-minimal
-        export E2E_TEST_DIRS=tests/e2e-online-upgrade
+        export E2E_TEST_DIRS=tests/e2e-server-upgrade
         scripts/run-k8s-int-tests.sh
 
     - uses: actions/upload-artifact@v2
       if: failure()
       with:
-        name: logs-e2e-online-upgrade
+        name: logs-e2e-server-upgrade
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
 
