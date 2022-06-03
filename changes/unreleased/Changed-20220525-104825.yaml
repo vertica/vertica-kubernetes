@@ -1,5 +1,0 @@
-kind: Changed
-body: Move to operator-sdk v1.21.0
-time: 2022-05-25T10:48:25.676201626-03:00
-custom:
-  Issue: "214"

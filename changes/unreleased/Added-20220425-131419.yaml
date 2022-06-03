@@ -1,5 +1,0 @@
-kind: Added
-body: Expose prometheus service for operator
-time: 2022-04-25T13:14:19.824280496-03:00
-custom:
-  Issue: "198"

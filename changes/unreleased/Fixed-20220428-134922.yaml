@@ -1,5 +1,0 @@
-kind: Fixed
-body: When creating the db, we should also choose the first primary subcluster
-time: 2022-04-28T13:49:22.46755971-03:00
-custom:
-  Issue: "202"

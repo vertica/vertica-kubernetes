@@ -1,5 +1,0 @@
-kind: Added
-body: Log events when shard/node ratio is not optimal
-time: 2022-04-28T13:50:03.165861081-03:00
-custom:
-  Issue: "202"

@@ -1,5 +1,0 @@
-kind: Added
-body: Add new prometheus metrics for the operator
-time: 2022-04-25T13:14:35.420111144-03:00
-custom:
-  Issue: "199"
