@@ -31,6 +31,7 @@ RUN set -x \
   openssh-clients \
   openssl \
   which \
+  zlib-devel \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   && yum localinstall -q -y /tmp/${VERTICA_RPM} \
@@ -117,6 +118,7 @@ RUN set -x \
   dialog \
   iproute2 \
   libkeyutils1\
+  libz-dev \
   procps \
   krb5-user \
   logrotate \

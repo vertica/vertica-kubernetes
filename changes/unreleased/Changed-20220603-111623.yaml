@@ -1,0 +1,5 @@
+kind: Changed
+body: Include zlib dev package in vertica-k8s image
+time: 2022-06-03T11:16:23.572505194-03:00
+custom:
+  Issue: "219"
