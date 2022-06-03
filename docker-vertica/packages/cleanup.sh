@@ -26,7 +26,6 @@ rm -r -f \
    /opt/vertica/examples \
    /opt/vertica/sdk \
    /opt/vertica/packages/*/examples \
-   /opt/vertica/packages/kafka `# Removing kafka because we don't have a java runtime installed ` \
    /opt/vertica/oss/python*/lib/python*/test \
    /opt/vertica/oss/python*/lib/python*/unittest/test \
    /opt/vertica/oss/python*/lib/python*/pip \

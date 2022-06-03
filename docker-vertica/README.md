@@ -4,7 +4,8 @@
 * Docker Community: [Docker Forums](https://forums.docker.com/), [Stack Overflow](https://stackoverflow.com/questions/tagged/docker)
 
 # Supported Tags
-* [11.1.1-0-minimal, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.4.0/docker-vertica/Dockerfile)
+* [11.1.1-2-minimal, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.5.0/docker-vertica/Dockerfile)
+* [11.1.1-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.4.0/docker-vertica/Dockerfile)
 * [11.1.1-0](https://github.com/vertica/vertica-kubernetes/blob/v1.4.0/docker-vertica/Dockerfile)
 * [11.1.0-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.3.0/docker-vertica/Dockerfile)
 * [11.1.0-0](https://github.com/vertica/vertica-kubernetes/blob/v1.3.0/docker-vertica/Dockerfile)
