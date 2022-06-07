@@ -1,0 +1,5 @@
+kind: Changed
+body: Use limits for pod when running admintools
+time: 2022-06-03T12:57:41.161747492Z
+custom:
+  Issue: "218"

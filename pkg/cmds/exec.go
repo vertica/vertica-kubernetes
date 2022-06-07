@@ -128,7 +128,13 @@ func UpdateVsqlCmd(passwd string, cmd ...string) []string {
 
 // UpdateAdmintoolsCmd generates an admintools command appending the options we need
 func UpdateAdmintoolsCmd(passwd string, cmd ...string) []string {
-	prefix := []string{"/opt/vertica/bin/admintools"}
+	// We are running as dbadmin, but we need to do this 'sudo su dbadmin --'
+	// stuff so that we have the proper ulimits set.  When you exec into a pod,
+	// the ulimits you use are for the container runtime.  This can differ from
+	// the actual limits for the pod/container.  So we need this extra bit to
+	// ensure we always run with the pod limits.  This ensures the limits are
+	// the same across all vertica nodes.
+	prefix := []string{"sudo", "su", "dbadmin", "--", "/opt/vertica/bin/admintools"}
 	cmd = append(prefix, cmd...)
 	if passwd == "" {
 		return cmd
