@@ -16,7 +16,7 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repo: null # null = dockerhub
+  repo: docker.io
   name: vertica/verticadb-operator:1.5.0
   pullPolicy: IfNotPresent
 
