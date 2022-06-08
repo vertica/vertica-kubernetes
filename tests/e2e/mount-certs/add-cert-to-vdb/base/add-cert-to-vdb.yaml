@@ -21,3 +21,5 @@ spec:
     - name: my-cert-1
     - name: my-cert-2
     - name: my-cert-3
+  volumes: []
+  volumeMounts: []

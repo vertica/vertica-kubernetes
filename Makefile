@@ -251,7 +251,7 @@ ifeq ($(STERN_PLUGIN_INSTALLED), 0)
 endif
 
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin install-stern-plugin vdb-gen setup-e2e-communal ## Run the integration tests
+run-int-tests: install-kuttl-plugin install-stern-plugin kustomize vdb-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
@@ -261,15 +261,15 @@ WAIT_TIME = 120s
 run-scorecard-tests: bundle ## Run the scorecard tests
 	$(OPERATOR_SDK) scorecard bundle --wait-time $(WAIT_TIME)
 
-.PHONY: run-online-upgrade-tests
-run-online-upgrade-tests: install-kuttl-plugin install-stern-plugin setup-e2e-communal ## Run integration tests that only work on Vertica 11.1+ server
+.PHONY: run-server-upgrade-tests
+run-server-upgrade-tests: install-kuttl-plugin install-stern-plugin setup-e2e-communal ## Run integration tests for Vertica server upgrade
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
 ifeq ($(BASE_VERTICA_IMG), <not-set>)
 	$(error $$BASE_VERTICA_IMG not set)
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) tests/e2e-online-upgrade/
+	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) tests/e2e-server-upgrade/
 
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)
@@ -375,7 +375,7 @@ echo-images:  ## Print the names of all of the images used
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 
-vdb-gen: ## Builds the vdb-gen tool
+vdb-gen: generate manifests ## Builds the vdb-gen tool
 	go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment

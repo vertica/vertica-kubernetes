@@ -30,3 +30,5 @@ spec:
       size: 1
   certSecrets: []
   imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

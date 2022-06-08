@@ -31,3 +31,5 @@ spec:
       isPrimary: false
   certSecrets: []
   imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

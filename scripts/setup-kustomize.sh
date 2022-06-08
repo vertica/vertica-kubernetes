@@ -93,6 +93,8 @@ COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
 PRIVATE_REG_CERT_SERCET_NS_COPY="priv-reg-cred"
 # Similar hard coded name for namespace specific hadoopConfig
 HADOOP_CONF_CM_NS_COPY="hadoop-conf"
+# Name of the patch that you can use to mount paths to the server repository.
+SERVER_MOUNT_PATCH_NS_COPY="server-mount-patch.yaml"
 # The full prefix for the communal path
 if [ "$PATH_PROTOCOL" == "azb://" ]
 then
@@ -115,6 +117,8 @@ echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
 echo "Communal Path Prefix: $PATH_PREFIX"
 echo -n "Using private registry: "
 if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
+echo -n "Add server mounts: "
+if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -249,6 +253,13 @@ EOF
             name: $COMMUNAL_EP_CERT_SECRET_NS_COPY
 EOF
         $KUSTOMIZE edit add patch --path $COMMUNAL_EP_CERT_SECRET_PATCH --kind VerticaDB
+    fi
+
+    # Add the server mount patch if that was indicated.
+    if [ -n "$USE_SERVER_MOUNT_PATCH" ]
+    then
+        cp ${REPO_DIR}/tests/manifests/server-mounts/server-mount-patch.yaml $SERVER_MOUNT_PATCH_NS_COPY
+        $KUSTOMIZE edit add patch --path $SERVER_MOUNT_PATCH_NS_COPY --kind VerticaDB
     fi
 
     # If using a private container registry add a patch to include the
@@ -710,11 +721,11 @@ setup_creds_for_private_repo
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-online-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base
+for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-server-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-online-upgrade/* e2e-operator-upgrade-overlays/*
+for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-server-upgrade/* e2e-operator-upgrade-overlays/*
 do
     clean_communal_kustomization $tdir
 done
