@@ -1,0 +1,112 @@
+name: Verify Public Artifacts
+
+on: 
+  workflow_dispatch:
+    inputs:
+      deploy_with:
+        description: 'Select the deployment method: helm or olm'
+        required: true
+        options: ['helm', 'olm']
+        default: 'helm'
+      expected_operator_version:
+        description: 'The expected operator version to deploy (e.g. 1.5.0)'
+        required: true
+      expected_server_version:
+        description: 'The expected server version to deploy (e.g. 11.1.1-0)'
+        required: true
+
+env:
+  deploy_with: ${{ github.event.inputs.deploy_with || 'helm' }}
+  expected_operator_version: ${{ github.events.inputs.expected_operator_version || '1.5.0' }}
+  expected_server_version: ${{ github.events.inputs.expected_operator_version || '11.1.1-2' }}
+
+jobs:
+
+  verify-public-artifact:
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v2
+
+    - name: Set up Go and kubectx
+      uses: ./.github/actions/setup-go-kctx
+
+    - name: Download kind
+      run: |
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.14.0/kind-linux-amd64
+        chmod +x ./kind
+        sudo mv ./kind /usr/local/bin
+
+    - name: Install kubectl
+      uses: ./.github/actions/setup-kubectl
+      
+    - name: Create kind cluster
+      run: |
+        cat << EOF > kind.yaml
+        kind: Cluster
+        apiVersion: kind.x-k8s.io/v1alpha4
+        nodes:
+          - role: control-plane
+          - role: worker
+            extraPortMappings:
+            - containerPort: 32001
+              hostPort: 32001
+          - role: worker
+        EOF
+        kind create cluster --config kind.yaml
+      
+    - name: Setup OLM
+      run: |
+        curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.21.2/install.sh | bash -s v0.21.2
+
+    - name: Deploy the verticadb operator with olm
+      if: env.deploy_with == 'olm'
+      run: |
+        kubectl create -f https://operatorhub.io/install/verticadb-operator.yaml
+        echo "Waiting for verticadb-operator CSV to be created..."
+        timeout 5m bash -c -- "while ! kubectl get csv -n my-verticadb-operator --selector operators.coreos.com/verticadb-operator.my-verticadb-operator="" | grep -cq Succeeded; do sleep 5; done"
+        echo "DONE!"
+
+    - name: Deploy the verticadb operator with helm
+      if: env.deploy_with == 'helm'
+      run: |
+        make install-cert-manager
+        helm repo add vertica-charts https://vertica.github.io/charts
+        helm repo update vertica-charts
+        helm install vdb-op --wait --namespace my-verticadb-operator --create-namespace vertica-charts/verticadb-operator
+
+    - name: Deploy the minio operator
+      run: |
+        kubectl create -f https://operatorhub.io/install/minio-operator.yaml 
+        echo "Waiting for verticadb-operator CSV to be created..."
+        timeout 5m bash -c -- "while ! kubectl get csv -n operators | grep minio-operator | grep -cq Succeeded; do sleep 5; done"
+        echo "DONE!"
+
+    - name: Install the minio Tenant
+      run: |
+        kubectl apply --namespace my-verticadb-operator -f https://raw.githubusercontent.com/vertica/vertica-kubernetes/main/config/samples/minio.yaml
+        kubectl wait --for=condition=Complete=True --namespace my-verticadb-operator job/create-s3-bucket --timeout=5m
+
+    - name: Create a VerticaDB CR
+      run: |
+        kubectl apply --namespace my-verticadb-operator -f https://raw.githubusercontent.com/vertica/vertica-kubernetes/main/config/samples/v1beta1_verticadb.yaml
+        kubectl wait --for=condition=DBInitialized=True --namespace my-verticadb-operator vdb/verticadb-sample --timeout=10m
+        kubectl get pods --namespace my-verticadb-operator --selector app.kubernetes.io/instance=verticadb-sample
+
+    - name: Dump the vertica server version
+      run: |
+        kubectl exec -it --namespace my-verticadb-operator verticadb-sample-defaultsubcluster-0 -- vsql -c "select version();"
+
+    - name: Dump the labels/annotations of the vertica pods
+      run: |
+        kubectl get pods --namespace my-verticadb-operator --selector app.kubernetes.io/instance=verticadb-sample -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{.metadata.labels}{"\n"}{.metadata.annotations}{"\n"}{"\n"}{end}'
+
+    - name: Verify the operator version
+      run: |
+        kubectl get pods --namespace my-verticadb-operator --selector app.kubernetes.io/version=${{ env.expected_operator_version }} | grep -cq 'verticadb-sample-defaultsubcluster'
+
+    - name: Verify the server version
+      run: |
+        kubectl exec -it --namespace my-verticadb-operator verticadb-sample-defaultsubcluster-0 -- vsql -c "select 1 where version() = 'Vertica Analytic Database v${{ env.expected_server_version }}';" | grep -cq '(1 row)'
+ 
