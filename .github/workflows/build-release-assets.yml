@@ -37,7 +37,7 @@ jobs:
 
     - name: Build Bundle
       run: | 
-        IMG_REPO=vertica/ DEPLOY_WITH=olm make bundle
+        IMG_REPO=docker.io/vertica/ DEPLOY_WITH=olm make bundle
         ls -lhrt
 
     - name: Package helm charts

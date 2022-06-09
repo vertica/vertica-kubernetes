@@ -6,6 +6,7 @@ tests:
     set:
       image:
         name: something:tag
+        repo: null
     asserts:
       - isNotNull:
           path: spec.template.spec.containers[0].image
