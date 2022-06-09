@@ -18,7 +18,7 @@ jobs:
         make krew
         echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
       
-    - name: Build CRD yaml
+    - name: Build CRDs yaml
       run: make generate manifests
     
     - name: Lint the charts
@@ -46,11 +46,11 @@ jobs:
         helm package verticadb-operator
         ls -lhrt
     
-    - name: Upload CRD
+    - name: Upload CRDs
       uses: actions/upload-artifact@v2
       with:
         name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/verticadbs.vertica.com-crd.yaml 
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/*-crd.yaml 
 
     - name: Upload Custom SCC
       uses: actions/upload-artifact@v2
