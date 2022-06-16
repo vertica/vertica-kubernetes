@@ -59,9 +59,9 @@ func (p *MetricReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 	metrics.SubclusterCount.With(metrics.MakeVDBLabels(p.Vdb)).Set(float64(len(rawMetrics)))
 	for scName, detail := range rawMetrics {
 		scLabels := metrics.MakeSubclusterLabels(p.Vdb, scName)
-		metrics.SubclusterPodCount.With(scLabels).Set(detail.podCount)
-		metrics.SubclusterReadyPodCount.With(scLabels).Set(detail.readyCount)
-		metrics.SubclusterRunningPodCount.With(scLabels).Set(detail.runningCount)
+		metrics.TotalNodeCount.With(scLabels).Set(detail.podCount)
+		metrics.UpNodeCount.With(scLabels).Set(detail.readyCount)
+		metrics.RunningNodeCount.With(scLabels).Set(detail.runningCount)
 	}
 
 	return ctrl.Result{}, nil

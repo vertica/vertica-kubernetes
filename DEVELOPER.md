@@ -30,6 +30,7 @@ Prior to developing, the following software needs to be installed manually.  The
 - [krew](https://github.com/kubernetes-sigs/krew/releases/tag/v0.4.1) (version 0.4.1) $HOME/.krew/bin must be in your path
 - [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
 - [changie](https://github.com/miniscruff/changie) (version 0.5.0)
+- [jq](https://stedolan.github.io/jq/download/) (version 1.5+)
 
 # Kind
 

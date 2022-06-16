@@ -1,0 +1,5 @@
+kind: Changed
+body: Renamed Prometheus metrics exposed through the operator
+time: 2022-06-16T10:26:45.358234028-03:00
+custom:
+  Issue: "223"
