@@ -181,7 +181,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: build
+default: help
 
 ##@ General
 

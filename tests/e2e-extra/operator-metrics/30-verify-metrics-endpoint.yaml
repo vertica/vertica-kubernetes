@@ -29,14 +29,14 @@ data:
 
     SVC_NAME=verticadb-operator-metrics-service
     curl http://$SVC_NAME:8443/metrics
-    for metric in verticadb_upgrade verticadb_cluster_restart verticadb_nodes_restart
+    for metric in vertica_upgrade vertica_cluster_restart vertica_nodes_restart
     do
         curl http://$SVC_NAME:8443/metrics | grep $metric
     done
     for sc in pri-sc sec-sc
     do
-        curl http://$SVC_NAME:8443/metrics | grep "verticadb_subclusters_pod_count{subcluster=\"$sc\",verticadb=\"v-operator-metrics\"} 1"
-        curl http://$SVC_NAME:8443/metrics | grep "verticadb_subclusters_running_pod_count{subcluster=\"$sc\",verticadb=\"v-operator-metrics\"} 1"
+        curl http://$SVC_NAME:8443/metrics | grep "vertica_total_nodes_count{namespace=".*",subcluster=\"$sc\",verticadb=\"v-operator-metrics\"} 1"
+        curl http://$SVC_NAME:8443/metrics | grep "vertica_running_nodes_count{namespace=".*",subcluster=\"$sc\",verticadb=\"v-operator-metrics\"} 1"
     done
     # These is timing with the ready pod count.  The pod may be ready but the
     # metrics haven't yet been updated.  We check that a few times before
@@ -47,7 +47,7 @@ data:
       do
         [ $i -gt 1 ] && sleep 10
         curl http://$SVC_NAME:8443/metrics
-        curl http://$SVC_NAME:8443/metrics | grep "verticadb_subclusters_ready_pod_count{subcluster=\"$sc\",verticadb=\"v-operator-metrics\"} 1" \
+        curl http://$SVC_NAME:8443/metrics | grep "vertica_up_nodes_count{namespace=".*",subcluster=\"$sc\",verticadb=\"v-operator-metrics\"} 1" \
           && s=0 && break || s=$?
       done
       (exit $s)
