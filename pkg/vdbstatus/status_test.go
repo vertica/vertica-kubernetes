@@ -199,10 +199,10 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		Expect(IsConditionSet(vdb, vapi.VerticaRestartNeeded)).Should(BeFalse())
+		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeFalse())
 		Expect(UpdateCondition(ctx, k8sClient, vdb,
 			vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue},
 		)).Should(Succeed())
-		Expect(IsConditionSet(vdb, vapi.VerticaRestartNeeded)).Should(BeTrue())
+		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
 	})
 })

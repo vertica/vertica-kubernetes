@@ -83,7 +83,7 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
 // is already occurring.
 func (i *UpgradeManager) isUpgradeInProgress() (bool, error) {
 	// We first check if the status condition indicates the upgrade is in progress
-	isSet, err := vdbstatus.IsConditionSet(i.Vdb, i.StatusCondition)
+	isSet, err := i.Vdb.IsConditionSet(i.StatusCondition)
 	if isSet {
 		i.ContinuingUpgrade = true
 	}

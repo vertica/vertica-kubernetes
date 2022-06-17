@@ -767,8 +767,7 @@ func (v *VerticaDB) validateEncryptSpreadComm(allErrs field.ErrorList) field.Err
 }
 
 func (v *VerticaDB) isImageChangeInProgress() bool {
-	return len(v.Status.Conditions) > ImageChangeInProgressIndex &&
-		v.Status.Conditions[ImageChangeInProgressIndex].Status == v1.ConditionTrue
+	return v.isConditionIndexSet(ImageChangeInProgressIndex)
 }
 
 // checkImmutableUpgradePolicy will see if it unsafe to change the

@@ -1021,9 +1021,25 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
-	inx := OnlineUpgradeInProgressIndex
-	// SPILLY - could we generalize this.  Maybe make the error case a panic?  It should not be a runtime error
-	// Lets move it to vdb
+	return v.isConditionIndexSet(OnlineUpgradeInProgressIndex)
+}
+
+// IsConditionSet will return true if the status condition is set to true.
+// If the condition is not in the array then this implies the condition is
+// false.
+func (v *VerticaDB) IsConditionSet(statusCondition VerticaDBConditionType) (bool, error) {
+	inx, ok := VerticaDBConditionIndexMap[statusCondition]
+	if !ok {
+		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", statusCondition)
+	}
+	return v.isConditionIndexSet(inx), nil
+}
+
+// isConditionIndexSet will check a status condition when the index is already
+// known.  If the array isn't sized yet for the index then we assume the
+// condition is off.
+func (v *VerticaDB) isConditionIndexSet(inx int) bool {
+	// A missing condition implies false
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
 }
 

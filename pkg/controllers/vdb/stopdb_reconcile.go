@@ -62,7 +62,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 	}
 
 	// Only proceed if the restart needed status condition is set.
-	isSet, err := vdbstatus.IsConditionSet(s.Vdb, vapi.VerticaRestartNeeded)
+	isSet, err := s.Vdb.IsConditionSet(vapi.VerticaRestartNeeded)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
