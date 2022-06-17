@@ -161,7 +161,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	// by DBAddSubclusterReconciler.
 	sc := c.getFirstPrimarySubcluster()
 	sql := fmt.Sprintf(`
-     alter subcluster default_subcluster rename to '%s';
+     alter subcluster default_subcluster rename to \"%s\";
 	`, sc.Name)
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"

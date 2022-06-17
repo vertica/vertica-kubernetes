@@ -88,7 +88,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
 	pf, ok := s.PFacts.findPodToRunAdmintoolsAny()
 	if !ok {
-		// If no running pod found, then there is nothing to stop and we can just continue one
+		// If no running pod found, then there is nothing to stop and we can just continue on
 		return nil
 	}
 
@@ -118,7 +118,6 @@ func (s *StopDBReconciler) runATCmd(ctx context.Context, atPod types.NamespacedN
 
 // genCmd will return the command to run in the pod to create the database
 func (s *StopDBReconciler) genCmd() []string {
-	// SPILLY - what happens if one of the nodes is down already?
 	return []string{
 		"-t", "stop_db",
 		"--database", s.Vdb.Spec.DBName,

@@ -295,9 +295,11 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Controls if the spread communication between pods is encrypted.  Valid
-	// values are 'vertica' or an empty string if not enabled.  This can only be
-	// set during initial creation of the CR.  If set for initPolicy other than
-	// Create, then it has no effect.
+	// values are 'vertica' or an empty string if not enabled.  When set to
+	// 'vertica', Vertica generates the spread encryption key for the cluster
+	// when the database starts up.  This can only be set during initial
+	// creation of the CR.  If set for initPolicy other than Create, then it has
+	// no effect.
 	EncryptSpreadComm string `json:"encryptSpreadComm,omitempty"`
 }
 
@@ -1020,6 +1022,8 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	inx := OnlineUpgradeInProgressIndex
+	// SPILLY - could we generalize this.  Maybe make the error case a panic?  It should not be a runtime error
+	// Lets move it to vdb
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
 }
 
