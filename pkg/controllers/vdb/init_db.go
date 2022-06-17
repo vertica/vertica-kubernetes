@@ -47,6 +47,7 @@ type DatabaseInitializer interface {
 	genCmd(ctx context.Context, hostList []string) ([]string, error)
 	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, atPod types.NamespacedName) error
+	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
 
 type GenericDatabaseInitializer struct {
@@ -139,7 +140,8 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	// follow this that will update the Vdb status about the db existence.
 	g.PFacts.Invalidate()
 
-	return ctrl.Result{}, nil
+	// Handle any post initialization actions
+	return g.initializer.postCmdCleanup(ctx)
 }
 
 // getHostList will return a host list from the given pods

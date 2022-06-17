@@ -34,9 +34,6 @@ import (
 
 // Important: Run "make" to regenerate code after modifying this file
 
-// Set constant Upgrade Requeue Time
-const URTime = 30
-
 // VerticaDBSpec defines the desired state of VerticaDB
 type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
@@ -294,6 +291,14 @@ type VerticaDBSpec struct {
 	// it has the public keys to be able to ssh to those nodes.  It must have
 	// the following keys present: id_rsa, id_rsa.pub and authorized_keys.
 	SSHSecret string `json:"sshSecret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Controls if the spread communication between pods is encrypted.  Valid
+	// values are 'vertica' or an empty string if not enabled.  This can only be
+	// set during initial creation of the CR.  If set for initPolicy other than
+	// Create, then it has no effect.
+	EncryptSpreadComm string `json:"encryptSpreadComm,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -346,6 +351,12 @@ const (
 	// automation is disabled when running in this mode.
 	CommunalInitPolicyScheduleOnly = "ScheduleOnly"
 )
+
+// Set constant Upgrade Requeue Time
+const URTime = 30
+
+// Valid values for EncryptSpreadComm
+const EncryptSpreadCommWithVertica = "vertica"
 
 type KSafetyType string
 
@@ -700,6 +711,9 @@ const (
 	ImageChangeInProgress    VerticaDBConditionType = "ImageChangeInProgress"
 	OfflineUpgradeInProgress VerticaDBConditionType = "OfflineUpgradeInProgress"
 	OnlineUpgradeInProgress  VerticaDBConditionType = "OnlineUpgradeInProgress"
+	// VerticaRestartNeeded is a condition that when set to true will force the
+	// operator to stop/start the vertica pods.
+	VerticaRestartNeeded VerticaDBConditionType = "VerticaRestartNeeded"
 )
 
 // Fixed index entries for each condition.
@@ -709,6 +723,7 @@ const (
 	ImageChangeInProgressIndex
 	OfflineUpgradeInProgressIndex
 	OnlineUpgradeInProgressIndex
+	VerticaRestartNeededIndex
 )
 
 // VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
@@ -719,6 +734,7 @@ var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
 	ImageChangeInProgress:    ImageChangeInProgressIndex,
 	OfflineUpgradeInProgress: OfflineUpgradeInProgressIndex,
 	OnlineUpgradeInProgress:  OnlineUpgradeInProgressIndex,
+	VerticaRestartNeeded:     VerticaRestartNeededIndex,
 }
 
 // VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
@@ -729,12 +745,13 @@ var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
 	ImageChangeInProgressIndex:    ImageChangeInProgress,
 	OfflineUpgradeInProgressIndex: OfflineUpgradeInProgress,
 	OnlineUpgradeInProgressIndex:  OnlineUpgradeInProgress,
+	VerticaRestartNeededIndex:     VerticaRestartNeeded,
 }
 
 // VerticaDBCondition defines condition for VerticaDB
 type VerticaDBCondition struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Type is the type of the condition
+	// Type is the name of the condition
 	Type VerticaDBConditionType `json:"type"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status

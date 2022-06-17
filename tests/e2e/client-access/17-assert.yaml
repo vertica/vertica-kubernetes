@@ -28,3 +28,24 @@ status:
     - installCount: 2
       addedToDBCount: 2
       upNodeCount: 2
+---
+# We enable spread encryption so the cluster will restart as part of the create
+apiVersion: v1
+kind: Event
+reason: StopDBSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
+  name: v-client-access
+---
+apiVersion: v1
+kind: Event
+reason: ClusterRestartSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
+  name: v-client-access

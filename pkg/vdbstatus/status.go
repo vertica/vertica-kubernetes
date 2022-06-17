@@ -99,3 +99,18 @@ func UpdateUpgradeStatus(ctx context.Context, clnt client.Client, vdb *vapi.Vert
 		return nil
 	})
 }
+
+// IsConditionSet will return true if the status condition is set to true.
+// If the condition is not in the array then this implies the condition is
+// false.
+func IsConditionSet(vdb *vapi.VerticaDB, statusCondition vapi.VerticaDBConditionType) (bool, error) {
+	inx, ok := vapi.VerticaDBConditionIndexMap[statusCondition]
+	if !ok {
+		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", statusCondition)
+	}
+	if inx < len(vdb.Status.Conditions) {
+		return vdb.Status.Conditions[inx].Status == corev1.ConditionTrue, nil
+	}
+	// A missing condition implies false
+	return false, nil
+}

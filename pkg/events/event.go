@@ -68,6 +68,9 @@ const (
 	DrainNodeRetry                  = "DrainNodeRetry"
 	DrainSubclusterRetry            = "DrainSubclusterRetry"
 	SuboptimalNodeCount             = "SuboptimalNodeCount"
+	StopDBStart                     = "StopDBStart"
+	StopDBSucceeded                 = "StopDBSucceeded"
+	StopDBFailed                    = "StopDBFailed"
 )
 
 // Constants for VerticaAutoscaler reconciler

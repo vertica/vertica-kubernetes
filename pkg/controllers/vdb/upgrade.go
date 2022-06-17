@@ -83,16 +83,11 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
 // is already occurring.
 func (i *UpgradeManager) isUpgradeInProgress() (bool, error) {
 	// We first check if the status condition indicates the upgrade is in progress
-	inx, ok := vapi.VerticaDBConditionIndexMap[i.StatusCondition]
-	if !ok {
-		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", i.StatusCondition)
-	}
-	if inx < len(i.Vdb.Status.Conditions) && i.Vdb.Status.Conditions[inx].Status == corev1.ConditionTrue {
-		// Set a flag to indicate that we are continuing an upgrade.  This silences the UpgradeStarted event.
+	isSet, err := vdbstatus.IsConditionSet(i.Vdb, i.StatusCondition)
+	if isSet {
 		i.ContinuingUpgrade = true
-		return true, nil
 	}
-	return false, nil
+	return isSet, err
 }
 
 // isVDBImageDifferent will check if an upgrade is needed based on the

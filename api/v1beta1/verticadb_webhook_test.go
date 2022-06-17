@@ -494,6 +494,29 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.UpgradeRequeueTime = 0
 		validateSpecValuesHaveErr(vdb, false)
 	})
+
+	It("should prevent encryptSpreadComm from changing", func() {
+		vdbOrig := MakeVDB()
+		vdbOrig.Spec.EncryptSpreadComm = EncryptSpreadCommWithVertica
+		vdbUpdate := MakeVDB()
+
+		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+
+		vdbOrig.Spec.EncryptSpreadComm = ""
+		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).Should(BeNil())
+	})
+
+	It("should validate the value of encryptSpreadComm", func() {
+		vdb := MakeVDB()
+		vdb.Spec.EncryptSpreadComm = "blah"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.EncryptSpreadComm = ""
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.EncryptSpreadComm = EncryptSpreadCommWithVertica
+		validateSpecValuesHaveErr(vdb, false)
+	})
 })
 
 func createVDBHelper() *VerticaDB {

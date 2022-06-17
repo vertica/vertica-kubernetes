@@ -160,6 +160,12 @@ func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	return nil
 }
 
+// postCmdCleanup is a no-op for revive.  This exists so that we can use the
+// DatabaseInitializer interface.
+func (r *ReviveDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
 // getPodList gets a list of the pods we are going to use in revive db.
 // If it was not able to generate a list, possibly due to a bad reviveOrder, it
 // return false for the bool return value.

@@ -155,6 +155,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
 		// Add annotations to each pod about the host running them
 		MakePodAnnotationReconciler(r, vdb, pfacts),
+		// Stop vertica if the status condition indicates
+		MakeStopDBReconciler(r, vdb, prunner, pfacts),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true),
 		MakeMetricReconciler(r, vdb, pfacts),
