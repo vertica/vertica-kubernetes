@@ -29,7 +29,7 @@ status:
       addedToDBCount: 2
       upNodeCount: 2
 ---
-# We enable spread encryption so the cluster will restart as part of the create
+# We enable spread encryption, so the cluster will restart as part of the create
 apiVersion: v1
 kind: Event
 reason: StopDBSucceeded

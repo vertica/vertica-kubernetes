@@ -178,7 +178,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	}
 
 	// If setting encryptSpreadComm, we need to drive a restart of the vertica
-	// pods immediately after database creation.
+	// pods immediately after database creation for the setting to take effect.
 	if c.Vdb.Spec.EncryptSpreadComm != "" {
 		cond := vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue}
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
