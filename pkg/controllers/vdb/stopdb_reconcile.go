@@ -121,5 +121,6 @@ func (s *StopDBReconciler) genCmd() []string {
 	return []string{
 		"-t", "stop_db",
 		"--database", s.Vdb.Spec.DBName,
+		"--force",
 	}
 }
