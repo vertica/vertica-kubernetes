@@ -116,7 +116,7 @@ func (s *StopDBReconciler) runATCmd(ctx context.Context, atPod types.NamespacedN
 	return nil
 }
 
-// genCmd will return the command to run in the pod to create the database
+// genCmd will return the command to run in the pod to stop the database
 func (s *StopDBReconciler) genCmd() []string {
 	return []string{
 		"-t", "stop_db",
