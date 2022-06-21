@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -107,6 +108,30 @@ var _ = Describe("createdb_reconciler", func() {
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
+	})
+
+	It("should have DDL to encrypt spread if that setting is used", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommWithVertica
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		hist := fpr.FindCommands("alter database default set parameter EncryptSpreadComm")
+		Expect(len(hist)).Should(Equal(1))
+
+		// The restart condition variable should be set to true also
+		fetchVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
+		Expect(len(fetchVdb.Status.Conditions)).Should(BeNumerically(">=", vapi.VerticaRestartNeededIndex))
+		Expect(fetchVdb.Status.Conditions[vapi.VerticaRestartNeededIndex].Status).Should(Equal(corev1.ConditionTrue))
 	})
 
 	It("should generate a requeue error for various known createdb errors", func() {

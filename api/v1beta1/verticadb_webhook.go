@@ -247,6 +247,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	}
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
 	allErrs = v.checkImmutableTemporarySubclusterRouting(oldObj, allErrs)
+	allErrs = v.checkImmutableEncryptSpreadComm(oldObj, allErrs)
 	return allErrs
 }
 
@@ -271,6 +272,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.matchingServiceNamesAreConsistent(allErrs)
 	allErrs = v.transientSubclusterMustMatchTemplate(allErrs)
 	allErrs = v.validateRequeueTimes(allErrs)
+	allErrs = v.validateEncryptSpreadComm(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -754,9 +756,18 @@ func (v *VerticaDB) validateRequeueTimes(allErrs field.ErrorList) field.ErrorLis
 	return allErrs
 }
 
+func (v *VerticaDB) validateEncryptSpreadComm(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.EncryptSpreadComm != "" && v.Spec.EncryptSpreadComm != EncryptSpreadCommWithVertica {
+		err := field.Invalid(field.NewPath("spec").Child("encrpytSpreadComm"),
+			v.Spec.EncryptSpreadComm,
+			fmt.Sprintf("encryptSpreadComm can either be an empty string or set to %s", EncryptSpreadCommWithVertica))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
 func (v *VerticaDB) isImageChangeInProgress() bool {
-	return len(v.Status.Conditions) > ImageChangeInProgressIndex &&
-		v.Status.Conditions[ImageChangeInProgressIndex].Status == v1.ConditionTrue
+	return v.isConditionIndexSet(ImageChangeInProgressIndex)
 }
 
 // checkImmutableUpgradePolicy will see if it unsafe to change the
@@ -792,6 +803,16 @@ func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, 
 		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("template"),
 			v.Spec.TemporarySubclusterRouting.Template,
 			"template for temporasySubclusterRouting cannot change when an upgrade is in progress")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) checkImmutableEncryptSpreadComm(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.EncryptSpreadComm != oldObj.Spec.EncryptSpreadComm {
+		err := field.Invalid(field.NewPath("spec").Child("encryptSpreadComm"),
+			v.Spec.EncryptSpreadComm,
+			"encryptSpreadComm cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

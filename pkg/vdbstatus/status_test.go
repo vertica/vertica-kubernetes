@@ -193,4 +193,16 @@ var _ = Describe("status", func() {
 		)).Should(Succeed())
 		Expect(vdb.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
+
+	It("should return false in IsStatusConditionSet if condition isn't present", func() {
+		vdb := vapi.MakeVDB()
+		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+
+		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeFalse())
+		Expect(UpdateCondition(ctx, k8sClient, vdb,
+			vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue},
+		)).Should(Succeed())
+		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
+	})
 })

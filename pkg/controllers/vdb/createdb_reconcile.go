@@ -32,6 +32,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -160,15 +161,43 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	// by DBAddSubclusterReconciler.
 	sc := c.getFirstPrimarySubcluster()
 	sql := fmt.Sprintf(`
-     alter subcluster default_subcluster rename to "%s";
+     alter subcluster default_subcluster rename to \"%s\";
 	`, sc.Name)
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sql += "select set_preferred_ksafe(0);\n"
 	}
+	if c.Vdb.Spec.EncryptSpreadComm != "" {
+		sql += fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
+		`, c.Vdb.Spec.EncryptSpreadComm)
+	}
 	_, _, err := c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
-		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< '"+sql+"'",
+		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sql+"\"",
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// If setting encryptSpreadComm, we need to drive a restart of the vertica
+	// pods immediately after database creation for the setting to take effect.
+	if c.Vdb.Spec.EncryptSpreadComm != "" {
+		cond := vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue}
+		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// postCmdCleanup will handle any cleanup action after initializing the database
+func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, error) {
+	// If encryptSpreadComm was set we need to initiate a restart of the
+	// cluster.  This is done in a separate reconciler.  We will requeue to
+	// drive it.
+	if c.Vdb.Spec.EncryptSpreadComm != "" {
+		c.Log.Info("Requeue reconcile cycle to initiate restart of the server due to encryptSpreadComm setting")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
 }
 
 // getPodList gets a list of all of the pods we are going to use with create db.
