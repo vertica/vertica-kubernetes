@@ -11,27 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-multi-sc
-spec:
-  image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  subclusters:
-    - name: sc-2
-      size: 1
-      isPrimary: false
-    - name: sc-1
-      size: 1
-      isPrimary: true
-  kSafety: "0"
-  encryptSpreadComm: vertica
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: test-verify-spread-encryption
+status:
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0

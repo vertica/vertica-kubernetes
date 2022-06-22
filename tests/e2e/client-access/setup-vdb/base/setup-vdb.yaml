@@ -18,10 +18,11 @@ metadata:
 spec:
   image: kustomize-vertica-image
   communal:
-    includeUIDInPath: false
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   dbName: vertdb
+  encryptSpreadComm: vertica
   subclusters:
     - name: sc1
       size: 2

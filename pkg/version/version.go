@@ -53,8 +53,8 @@ const (
 // know if a new version is the next supported version by Vertica.
 //
 // As a general rule of thumb, this map needs to be updated each time a new
-// Vertica version that introduces a new major or minor version (e.g. 11.1.x ->
-// 12.0.x).  You don't need to update it for patch release because we only
+// Vertica version introduces a new major or minor version (e.g. 11.1.x ->
+// 12.0.x).  You don't need to update it for patch releases because we only
 // enforce the upgrade path for major/minor versions.
 var UpgradePaths = map[Components]Info{
 	{11, 0, 0}: {"v11.1.x", Components{11, 1, 0}},

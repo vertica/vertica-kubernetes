@@ -17,8 +17,8 @@
 
 # -------------------------------------------------------------------------------
 # NOTE: Whenever changing default values in here, be sure to update the
-# README.md in this directory.  We list out the helm chart parameters with
-# the default values.
+# README.md in this directory.  That file lists out the helm chart parameters
+# with the default values.
 # -------------------------------------------------------------------------------
 
 image:
