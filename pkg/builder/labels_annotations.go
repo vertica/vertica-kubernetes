@@ -46,14 +46,15 @@ const (
 	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	OperatorName         = "verticadb-operator" // The name of the operator
 
-	CurOperatorVersion = "1.5.0" // The version number of the operator
+	CurOperatorVersion = "1.6.0" // The version number of the operator
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion110 = "1.1.0"
 	OperatorVersion120 = "1.2.0"
 	OperatorVersion130 = "1.3.0"
 	OperatorVersion131 = "1.3.1"
 	OperatorVersion140 = "1.4.0"
-	OperatorVersion150 = CurOperatorVersion
+	OperatorVersion150 = "1.5.0"
+	OperatorVersion160 = CurOperatorVersion
 
 	// Annotations that we set in each of the pod.  These are set by the
 	// PodAnnotationReconciler.  They are available in the pod with the
