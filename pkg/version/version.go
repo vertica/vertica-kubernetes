@@ -46,6 +46,8 @@ const (
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version that added support a for --host list to start_db command
 	StartDBAcceptsHostListVersion = "v11.0.1"
+	// The version of the server that doesn't support cgroup v2
+	CGroupV2UnsupportedVersion = "v12.0.0"
 )
 
 // UpgradePaths has all of the vertica releases supported by the operator.  For
