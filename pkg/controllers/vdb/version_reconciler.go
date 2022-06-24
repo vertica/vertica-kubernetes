@@ -86,7 +86,28 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	v.logWarningIfVersionDoesNotSupportsCGroupV2(ctx, vinf, pod)
+
 	return ctrl.Result{}, nil
+}
+
+// logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a
+// 12.0.0 server and cgroups v2.  In such an environment you cannot start the
+// server in k8s.
+func (v *VersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context, vinf *version.Info, pod *PodFact) {
+	ver12, _ := version.MakeInfoFromStr(version.CGroupV2UnsupportedVersion)
+	if !vinf.IsEqual(ver12) {
+		return
+	}
+
+	// Check if the pod is running with cgroups v2
+	cmd := []string{"test", "-f", "/sys/fs/cgroup/cgroup.controllers"}
+	if _, _, err := v.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err == nil {
+		// Log a warning but we will continue on.  We may have a hotfix that
+		// addresses the bug so don't want to block any attempts to start vertica.
+		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			"The Vertica version is unsupported with cgroups v2. Try using a version other than %s.", vinf.VdbVer)
+	}
 }
 
 // reconcileVersion will parse the version output and update any annotations.
