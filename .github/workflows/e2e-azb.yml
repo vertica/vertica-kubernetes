@@ -30,6 +30,11 @@ jobs:
         export MINIMAL_VERTICA_IMG=YES
         scripts/run-k8s-int-tests.sh -e tests/external-images-azb-ci.txt
 
+    - name: Capture scrutinize
+      if: failure()
+      run: |
+        scripts/capture-scrutinize.sh -p kuttl-test
+
     - uses: actions/upload-artifact@v2
       if: failure()
       with:
