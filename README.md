@@ -9,14 +9,6 @@ To deploy the operator and a Kubernetes cluster in a local test environment that
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.21.1+)  
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0+)
 
-# Installing the CRD
-
-Vertica extends the Kubernetes API with its [Custom Resource Definition](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm). Install the `CustomResourceDefinition` with a YAML manifest:
-
-```shell
-kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/verticadbs.vertica.com-crd.yaml
-```
-
 # Installing the VerticaDB Operator
 
 The [VerticaDB operator](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/Operator.htm) automates tasks and monitors the state of your Vertica on Kubernetes deployment. It uses an admission controller webhook to verify any state changes to resource objects. Install the operator with [OperatorHub.io](#operatorhubio) or [Helm charts](#helm-charts).
