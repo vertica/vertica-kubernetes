@@ -25,18 +25,18 @@ NS=$(kubens)
 HOST_OP_DIR=$REPO_DIR/int-tests-output
 
 function usage() {
-    echo "usage: $(basename $0) [-p <namespace_prefix>]"
+    echo "usage: $(basename $0) [-n <namespace_prefix>]"
     echo
     echo "Options:"
-    echo "  -p <namespace_prefix>   Collect scrutinize only for VerticaDB that "
+    echo "  -n <namespace_prefix>   Collect scrutinize only for VerticaDB that "
     echo "                          have a namespace matching this prefix."
     exit 1
 }
 
-while getopts "p:h" opt
+while getopts "n:h" opt
 do
     case $opt in
-        p)
+        n)
             NS=$(kubens | grep "^$OPTARG")
             ;;
         h) 
@@ -62,7 +62,7 @@ do
             set -o xtrace
             POD_OP_DIR="/tmp"
             OP_FILE="$ns.$v.scrutinize.tar"
-            kubectl exec -t -n $ns ${pods[0]} -- /opt/vertica/bin/scrutinize --output_dir $POD_OP_DIR --output_file $OP_FILE
+            kubectl exec -t -n $ns ${pods[0]} -- /opt/vertica/bin/scrutinize --output_dir $POD_OP_DIR --output_file $OP_FILE --vsql-off 
             kubectl cp -n $ns ${pods[0]}:$POD_OP_DIR/$OP_FILE $HOST_OP_DIR/$OP_FILE
             set +o xtrace
         fi
