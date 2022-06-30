@@ -28,11 +28,6 @@ jobs:
         scripts/setup-operator-upgrade-testsuite.sh
         scripts/run-k8s-int-tests.sh
 
-    - name: Capture scrutinize
-      if: failure()
-      run: |
-        scripts/capture-scrutinize.sh -p kuttl-test
-
     - uses: actions/upload-artifact@v2
       if: failure()
       with:
