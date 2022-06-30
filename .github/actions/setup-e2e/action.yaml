@@ -6,7 +6,7 @@ runs:
     - name: Set up Go and kubectx
       uses: ./.github/actions/setup-go-kctx
 
-    - name: Install kubectl
+    - name: Install kubectl and related tools
       uses: ./.github/actions/setup-kubectl
     
     - name: Download vertica RPM package
