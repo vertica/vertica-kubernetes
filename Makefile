@@ -84,6 +84,10 @@ export OPERATOR_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= $(IMG_REPO)vertica-k8s:$(TAG)
 export VERTICA_IMG
+
+VERTICA_UDX_JAVA_IMG ?= $(IMG_REPO)vertica-udx-java-k8s:$(TAG)
+export VERTICA_UDX_JAVA_IMG
+
 # This is the base image to use for some upgrade tests.  We will always
 # upgrade to VERTICA_IMG, so BASE_VERTICA_IMG must be some image from a
 # version earlier than VERTICA_IMG.
@@ -338,6 +342,19 @@ ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VERTICA_IMG}
 else
 	scripts/push-to-kind.sh -i ${VERTICA_IMG}
+endif
+
+.PHONY: docker-build-vertica-udx-java
+docker-build-vertica-udx-java: docker-vertica-udx-java/Dockerfile ## Build vertica server docker image
+	cd docker-vertica-udx-java \
+	&& make VERTICA_IMG=${VERTICA_UDX_JAVA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG}
+
+.PHONY: docker-push
+docker-push-vertica-udx-java:  ## Push vertica server docker image
+ifeq ($(shell $(KIND_CHECK)), 0)
+	docker push ${VERTICA_UDX_JAVA_IMG}
+else
+	scripts/push-to-kind.sh -i ${VERTICA_UDX_JAVA_IMG}
 endif
 
 .PHONY: bundle 
