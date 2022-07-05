@@ -111,21 +111,22 @@ RUN set -x \
   # fixed libraries. 
   && apt-get -y update \
   && apt-get install -y --no-install-recommends \
-  locales \
-  cron \
-  sysstat \
   ca-certificates \
-  ntp \
+  cron \
   dialog \
+  gdb \
   iproute2 \
+  krb5-user \
   libkeyutils1\
   libz-dev \
-  procps \
-  krb5-user \
+  locales \
   logrotate \
+  ntp \
   openssh-client \
   openssh-server \
   openssl \
+  procps \
+  sysstat \
   sudo \
   && rm -rf /var/lib/apt/lists/* \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default

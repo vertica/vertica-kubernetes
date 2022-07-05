@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	v1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("builder", func() {
@@ -39,5 +40,39 @@ var _ = Describe("builder", func() {
 			c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 			Expect(reflect.DeepEqual(c, baseContainer)).Should(BeTrue())
 		}
+	})
+
+	It("should add our own capabilities to the securityContext", func() {
+		vdb := vapi.MakeVDB()
+		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
+		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE", "SYS_PTRACE"}))
+	})
+
+	It("should add omit our own capabilities in the securityContext if we are dropping them", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.SecurityContext = &v1.SecurityContext{
+			Capabilities: &v1.Capabilities{
+				Drop: []v1.Capability{"AUDIT_WRITE"},
+			},
+		}
+		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
+		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "SYS_PTRACE"}))
+		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
+	})
+
+	It("should allow you to run in priv mode", func() {
+		vdb := vapi.MakeVDB()
+		priv := true
+		vdb.Spec.SecurityContext = &v1.SecurityContext{
+			Privileged: &priv,
+		}
+		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Expect(baseContainer.SecurityContext.Privileged).ShouldNot(BeNil())
+		Expect(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
 	})
 })
