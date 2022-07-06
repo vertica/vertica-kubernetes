@@ -1,0 +1,5 @@
+kind: Added
+body: Allow vstack and cores to be taken in the container
+time: 2022-07-04T16:30:49.880373536-03:00
+custom:
+  Issue: "230"

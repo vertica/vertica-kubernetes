@@ -85,6 +85,8 @@ export DEPLOY_WITH=random  # Randomly pick between helm and OLM
 
 # cleanup the deployed k8s cluster
 function cleanup {
+    # Collect scrutinize for any failed tests.
+    scripts/capture-scrutinize.sh -n kuttl-test || :
     df -h
     scripts/kind.sh term $CLUSTER_NAME
 }
