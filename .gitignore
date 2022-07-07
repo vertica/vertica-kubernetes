@@ -68,3 +68,7 @@ config/release-manifests
 # bundle files are all auto generated, so omit them
 docker-bundle/Dockerfile
 bundle/
+
+
+docker-udx-java/java-se-8u41-ri
+docker-udx-java/openjdk-8u41-b04-linux-x64-14_jan_2020.tar.gz

@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -117,6 +118,12 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
+	if len(vdb.Spec.Init) > 0 {
+		for _, ic := range vdb.Spec.Init {
+			volMnts = append(volMnts, buildMainContainerUDXVolumeMounts(vdb, &ic)...)
+		}
+	}
+
 	return volMnts
 }
 
@@ -182,6 +189,11 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
+	if len(vdb.Spec.Init) > 0 {
+		for _, ic := range vdb.Spec.Init {
+			vols = append(vols, buildUDXVolumes(vdb, &ic)...)
+		}
+	}
 	return vols
 }
 
@@ -375,10 +387,88 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) corev
 		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 		Containers:                    makeContainers(vdb, sc),
+		InitContainers:                makeInitContainers(vdb),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		ServiceAccountName:            saName,
 	}
+}
+
+func makeInitContainers(vdb *vapi.VerticaDB) []corev1.Container {
+	var initContainers []corev1.Container
+	for _, ic := range vdb.Spec.Init {
+		initContainers = append(initContainers, corev1.Container{
+			Image:           ic.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Name:            ic.Name,
+			// Resources:       sc.Resources,
+			Ports: []corev1.ContainerPort{
+				// {ContainerPort: 5433, Name: "vertica"},
+				// {ContainerPort: 5434, Name: "vertica-int"},
+				{ContainerPort: 22, Name: "ssh"},
+			},
+			// ReadinessProbe: &corev1.Probe{
+			// 	ProbeHandler: corev1.ProbeHandler{
+			// 		Exec: &corev1.ExecAction{
+			// 			Command: []string{"bash", "-c", buildReadinessProbeSQL(vdb)},
+			// 		},
+			// 	},
+			// },
+			// Is needed to run sshd on Openshift
+			// SecurityContext: &corev1.SecurityContext{
+			// 	Capabilities: &corev1.Capabilities{
+			// 		Add: []corev1.Capability{"SYS_CHROOT", "AUDIT_WRITE"},
+			// 	},
+			// },
+			// Env:          envVars,
+			VolumeMounts: buildInitContainerUDXVolumeMounts(vdb, &ic),
+			Command:      []string{"/bin/bash"},
+			Args:         []string{"-c", ic.Command},
+		})
+	}
+	return initContainers
+}
+
+func getInitContainerVolumeName(ic *vapi.InitDescriptor, idx int) string {
+	return ic.Name + "_volume_" + strconv.Itoa(idx)
+}
+
+func buildUDXVolumeMounts(vdb *vapi.VerticaDB, ic *vapi.InitDescriptor, where string) []corev1.VolumeMount {
+	var volumeMounts []corev1.VolumeMount
+	for idx, pathPair := range ic.Paths {
+		var mountPath string
+		if where == "initContainer" {
+			mountPath = pathPair.InitPath
+		} else if where == "mainContainer" {
+			mountPath = pathPair.ServerPath
+		}
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      getInitContainerVolumeName(ic, idx),
+			MountPath: mountPath,
+		})
+	}
+	return volumeMounts
+}
+
+func buildUDXVolumes(vdb *vapi.VerticaDB, ic *vapi.InitDescriptor) []corev1.Volume {
+	var volumes []corev1.Volume
+	for idx := range ic.Paths {
+		volumes = append(volumes, corev1.Volume{
+			Name: getInitContainerVolumeName(ic, idx),
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		})
+	}
+	return volumes
+}
+
+func buildInitContainerUDXVolumeMounts(vdb *vapi.VerticaDB, ic *vapi.InitDescriptor) []corev1.VolumeMount {
+	return buildUDXVolumeMounts(vdb, ic, "initContainer")
+}
+
+func buildMainContainerUDXVolumeMounts(vdb *vapi.VerticaDB, ic *vapi.InitDescriptor) []corev1.VolumeMount {
+	return buildUDXVolumeMounts(vdb, ic, "mainContainer")
 }
 
 // makeServerContainer builds the spec for the server container

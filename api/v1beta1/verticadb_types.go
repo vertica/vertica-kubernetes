@@ -302,6 +302,20 @@ type VerticaDBSpec struct {
 	// creation of the CR.  If set for initPolicy other than Create, then it has
 	// no effect.
 	EncryptSpreadComm string `json:"encryptSpreadComm,omitempty"`
+
+	Init []InitDescriptor
+}
+
+type InitDescriptor struct {
+	Name    string
+	Image   string
+	Command string
+	Paths   []InitPaths
+}
+
+type InitPaths struct {
+	InitPath   string
+	ServerPath string
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
