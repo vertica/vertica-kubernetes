@@ -3,9 +3,7 @@
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
-
  http://www.apache.org/licenses/LICENSE-2.0
-
  Unless required by applicable law or agreed to in writing, software
  distributed under the License is distributed on an "AS IS" BASIS,
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -504,15 +502,48 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 				},
 			},
 		},
-		// Is needed to run sshd on Openshift
-		SecurityContext: &corev1.SecurityContext{
-			Capabilities: &corev1.Capabilities{
-				Add: []corev1.Capability{"SYS_CHROOT", "AUDIT_WRITE"},
-			},
-		},
-		Env:          envVars,
-		VolumeMounts: buildVolumeMounts(vdb),
+		SecurityContext: makeServerSecurityContext(vdb),
+		Env:             envVars,
+		VolumeMounts:    buildVolumeMounts(vdb),
 	}
+}
+
+func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
+	sc := &corev1.SecurityContext{}
+	if vdb.Spec.SecurityContext != nil {
+		sc = vdb.Spec.SecurityContext
+	}
+	if sc.Capabilities == nil {
+		sc.Capabilities = &corev1.Capabilities{}
+	}
+	capabilitiesNeeded := []corev1.Capability{
+		// Needed to run sshd on OpenShift
+		"SYS_CHROOT",
+		// Needed to run sshd on OpenShift
+		"AUDIT_WRITE",
+		// Needed to be able to collect stacks via vstack
+		"SYS_PTRACE",
+	}
+	for i := range capabilitiesNeeded {
+		foundCap := false
+		for j := range sc.Capabilities.Add {
+			if capabilitiesNeeded[i] == sc.Capabilities.Add[j] {
+				foundCap = true
+				break
+			}
+		}
+		for j := range sc.Capabilities.Drop {
+			if capabilitiesNeeded[i] == sc.Capabilities.Drop[j] {
+				// If the capability we want to add is *dropped*, we won't bother adding it in
+				foundCap = false
+				break
+			}
+		}
+		if !foundCap {
+			sc.Capabilities.Add = append(sc.Capabilities.Add, capabilitiesNeeded[i])
+		}
+	}
+	return sc
 }
 
 // makeContainers creates the list of containers to include in the pod spec.
