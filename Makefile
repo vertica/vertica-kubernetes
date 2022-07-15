@@ -84,9 +84,12 @@ export OPERATOR_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= $(IMG_REPO)vertica-k8s:$(TAG)
 export VERTICA_IMG
-
+# Image URL to use for building/pushing of the vertica server with java installed
 VERTICA_UDX_JAVA_IMG ?= $(IMG_REPO)vertica-udx-java-k8s:$(TAG)
 export VERTICA_UDX_JAVA_IMG
+# Image URL to use for building/pushing of the java udx init container
+UDX_JAVA_IMG ?= $(IMG_REPO)udx-java:$(TAG)
+export UDX_JAVA_IMG
 
 # This is the base image to use for some upgrade tests.  We will always
 # upgrade to VERTICA_IMG, so BASE_VERTICA_IMG must be some image from a
@@ -336,7 +339,6 @@ docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker i
 	cd docker-vertica \
 	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG}
 
-.PHONY: docker-push
 docker-push-vertica:  ## Push vertica server docker image
 ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VERTICA_IMG}
@@ -345,16 +347,26 @@ else
 endif
 
 .PHONY: docker-build-vertica-udx-java
-docker-build-vertica-udx-java: docker-vertica-udx-java/Dockerfile ## Build vertica server docker image
+docker-build-vertica-udx-java: docker-vertica-udx-java/Dockerfile ## Build vertica server docker image with jdk installed
 	cd docker-vertica-udx-java \
 	&& make VERTICA_IMG=${VERTICA_UDX_JAVA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG}
 
-.PHONY: docker-push
-docker-push-vertica-udx-java:  ## Push vertica server docker image
+docker-push-vertica-udx-java:  ## Push vertica server docker image with jdk installed
 ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VERTICA_UDX_JAVA_IMG}
 else
 	scripts/push-to-kind.sh -i ${VERTICA_UDX_JAVA_IMG}
+endif
+
+.PHONY: docker-build-udx-java
+docker-build-udx-java: docker-udx-java/Dockerfile ## Build docker image for java udx init container
+	docker build -t ${UDX_JAVA_IMG} -f docker-udx-java/Dockerfile docker-udx-java
+
+docker-push-udx-java:  ## Push docker image for java udx init container
+ifeq ($(shell $(KIND_CHECK)), 0)
+	docker push ${UDX_JAVA_IMG}
+else
+	scripts/push-to-kind.sh -i ${UDX_JAVA_IMG}
 endif
 
 .PHONY: bundle 
@@ -380,9 +392,9 @@ docker-build-olm-catalog: opm ## Build an OLM catalog that includes our bundle (
 docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
-docker-build: docker-build-vertica docker-build-operator docker-build-vlogger docker-build-bundle ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica docker-build-operator docker-build-vlogger docker-build-udx-java docker-build-bundle ## Build all docker images except OLM catalog
 
-docker-push: docker-push-vertica docker-push-operator docker-push-vlogger docker-push-bundle ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-operator docker-push-vlogger docker-push-udx-java docker-push-bundle ## Push all docker images except OLM catalog
 
 echo-images:  ## Print the names of all of the images used
 	@echo "OPERATOR_IMG=$(OPERATOR_IMG)"
