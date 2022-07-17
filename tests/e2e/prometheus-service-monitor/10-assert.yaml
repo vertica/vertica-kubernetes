@@ -30,6 +30,7 @@ spec:
     - --maxfilerotation=3
     - --level=info
     - --dev=false
+    - --prefix-name=verticadb-operator
   - name: kube-rbac-proxy
 status:
   phase: Running

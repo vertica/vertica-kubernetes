@@ -10,7 +10,7 @@ Choose the serviceAccount name
 */}}
 {{- define "vdb-op.serviceAccount" -}}
 {{- if .Values.serviceAccountNameOverride }}
-{{ .Values.serviceAccountNameOverride }}
+{{- .Values.serviceAccountNameOverride }}
 {{- else }}
 {{- include "vdb-op.name" . }}-controller-manager
 {{- end }}

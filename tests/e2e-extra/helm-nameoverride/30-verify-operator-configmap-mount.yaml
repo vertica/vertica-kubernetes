@@ -27,9 +27,7 @@ data:
 
     SVC_NAME=v-helm-nameoverride-pri-sc
     kubectl exec -it svc/$SVC_NAME -- ls /etc/podinfo
-    DEPLOY_METHOD=$(kubectl exec -it svc/$SVC_NAME -- cat /etc/podinfo/operator-deployment-method)
-    echo $DEPLOY_METHOD
-    echo $DEPLOY_METHOD | grep 'helm'
+    kubectl exec -it svc/$SVC_NAME -- test -f /etc/podinfo/operator-deployment-method
 ---
 apiVersion: v1
 kind: Pod
