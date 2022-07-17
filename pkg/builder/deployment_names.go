@@ -17,18 +17,12 @@ package builder
 
 import "fmt"
 
-const (
-	DefaultServiceAccountName = "verticadb-operator-controller-manager"
-	DefaultConfigMapName      = "verticadb-operator-manager-config"
-)
-
 // DeploymentNames gives context about the names used in deploying the operator
 type DeploymentNames struct {
 	ServiceAccountName string // Name of the service account to use for vertica pods
 	PrefixName         string // The common prefix for all objects created when deploying the operator
 }
 
-// SPILLY - separate func for DeploymentNames
 func (d *DeploymentNames) getConfigMapName() string {
 	return fmt.Sprintf("%s-manager-config", d.PrefixName)
 }
@@ -37,7 +31,7 @@ func (d *DeploymentNames) getConfigMapName() string {
 // This is for test purposes.
 func DefaultDeploymentNames() *DeploymentNames {
 	return &DeploymentNames{
-		ServiceAccountName: DefaultServiceAccountName,
+		ServiceAccountName: "verticadb-operator-controller-manager",
 		PrefixName:         "verticadb-operator",
 	}
 }
