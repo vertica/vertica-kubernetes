@@ -70,6 +70,7 @@ type FlagConfig struct {
 	ProbeAddr            string
 	EnableProfiler       bool
 	ServiceAccountName   string
+	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
 	LogArgs              *Logging
 }
 
@@ -118,6 +119,7 @@ func (fc *FlagConfig) setFlagArgs() {
 			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
 	flag.StringVar(&fc.ServiceAccountName, "service-account-name", "verticadb-operator-controller-manager",
 		"The name of the serviceAccount to use.")
+	flag.StringVar(&fc.PrefixName, "prefix-name", "", "The common prefix for all objects created during the operator deployment")
 	fc.LogArgs = &Logging{}
 	fc.LogArgs.setLoggingFlagArgs()
 }
@@ -228,12 +230,15 @@ func getLogger(logArgs Logging) *zap.Logger {
 // handles.  If any failure occurs, if will exit the program.
 func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, flagArgs *FlagConfig) {
 	if err := (&vdb.VerticaDBReconciler{
-		Client:             mgr.GetClient(),
-		Log:                ctrl.Log.WithName("controllers").WithName("VerticaDB"),
-		Scheme:             mgr.GetScheme(),
-		Cfg:                restCfg,
-		EVRec:              mgr.GetEventRecorderFor(builder.OperatorName),
-		ServiceAccountName: flagArgs.ServiceAccountName,
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
+		Scheme: mgr.GetScheme(),
+		Cfg:    restCfg,
+		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		DeploymentNames: builder.DeploymentNames{
+			ServiceAccountName: flagArgs.ServiceAccountName,
+			PrefixName:         flagArgs.PrefixName,
+		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)

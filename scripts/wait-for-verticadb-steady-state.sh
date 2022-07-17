@@ -52,7 +52,7 @@ then
     NS_OPT="-n $NAMESPACE "
 fi
 
-LOG_CMD="kubectl ${NS_OPT}logs -l app.kubernetes.io/name=verticadb-operator -c manager --tail -1"
+LOG_CMD="kubectl ${NS_OPT}logs -l control-plane=controller-manager -c manager --tail -1"
 WEBHOOK_FILTER="--invert-match -e 'controller-runtime.webhook.webhooks' -e 'verticadb-resource'"
 timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | \
     grep $WEBHOOK_FILTER | \

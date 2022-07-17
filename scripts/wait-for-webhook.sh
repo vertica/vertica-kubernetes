@@ -54,7 +54,7 @@ done
 trap "echo 'Failed waiting for webhook service object to exist'" 0 2 3 15
 set -o errexit
 timeout $TIMEOUT bash -c -- "\
-    while ! kubectl get $NAMESPACE_OPT svc --no-headers verticadb-operator-webhook-service 2> /dev/null | grep -cq 'service'; \
+    while ! kubectl get $NAMESPACE_OPT svc --no-headers --selector vertica.com/svc-type=webhook 2> /dev/null | grep -cq 'service'; \
     do \
       sleep 0.1; \
     done"

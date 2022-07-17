@@ -21,6 +21,9 @@
 # with the default values.
 # -------------------------------------------------------------------------------
 
+# To control the name of all of the objects created in the helm chart.
+# nameOverride: verticadb-operator
+
 image:
   repo: docker.io
   name: vertica/verticadb-operator:1.6.0
