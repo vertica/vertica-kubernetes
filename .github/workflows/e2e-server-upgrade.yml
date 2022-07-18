@@ -27,9 +27,9 @@ jobs:
         E2E_PARALLELISM=${{ github.event.inputs.parallel }}
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         export MINIMAL_VERTICA_IMG=YES
-        export BASE_VERTICA_IMG=vertica/vertica-k8s:11.1.0-0-minimal
+        export BASE_VERTICA_IMG=vertica/vertica-k8s:11.1.1-0-minimal
         export E2E_TEST_DIRS=tests/e2e-server-upgrade
-        scripts/run-k8s-int-tests.sh
+        scripts/run-k8s-int-tests.sh -d -e tests/external-images-server-upgrade-ci.txt
 
     - uses: actions/upload-artifact@v2
       if: failure()

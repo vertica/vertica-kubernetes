@@ -27,7 +27,7 @@ jobs:
         E2E_PARALLELISM=${{ github.event.inputs.parallel }}
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         export MINIMAL_VERTICA_IMG=YES
-        scripts/run-k8s-int-tests.sh
+        scripts/run-k8s-int-tests.sh -d
 
     - uses: actions/upload-artifact@v2
       if: failure()
