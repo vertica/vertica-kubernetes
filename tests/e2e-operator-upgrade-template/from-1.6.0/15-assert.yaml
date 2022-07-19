@@ -11,8 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl apply -f ../../../helm-charts/verticadb-operator/crds/*yaml
-  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE"
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: controller-manager
+spec:
+  containers:
+  - name: manager
+    image: docker.io/vertica/verticadb-operator:1.6.0
+  - name: kube-rbac-proxy
+status:
+  phase: Running

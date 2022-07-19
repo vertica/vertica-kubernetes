@@ -528,7 +528,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForObject(vdb, sc),
+			Labels:      makeLabelsForObject(vdb, sc, false),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -539,7 +539,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 			Replicas:    &sc.Size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeLabelsForObject(vdb, sc),
+					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
 				Spec: buildPodSpec(vdb, sc, saName),
@@ -575,7 +575,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForObject(vdb, sc),
+			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc, DefaultServiceAccountName),

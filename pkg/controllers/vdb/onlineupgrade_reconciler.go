@@ -465,7 +465,7 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 // addPodAnnotations will add the necessary pod annotations that need to be
 // in-place prior to restart
 func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	r := MakePodAnnotationReconciler(o.VRec, o.Vdb, o.PFacts)
+	r := MakePodAnnotateLabelReconciler(o.VRec, o.Vdb, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

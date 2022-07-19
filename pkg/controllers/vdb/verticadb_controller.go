@@ -154,7 +154,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// to go through necessary admintools commands to handle a scale down.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
 		// Add annotations to each pod about the host running them
-		MakePodAnnotationReconciler(r, vdb, pfacts),
+		MakePodAnnotateLabelReconciler(r, vdb, pfacts),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts),
 		// Handles restart + re_ip of vertica
