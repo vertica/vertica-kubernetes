@@ -105,7 +105,8 @@ echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
 # 12.  Template the roles/rolebindings for access to the rbac proxy
 for f in verticadb-operator-proxy-rolebinding-crb.yaml \
     verticadb-operator-proxy-role-cr.yaml \
-    verticadb-operator-metrics-reader-cr.yaml
+    verticadb-operator-metrics-reader-cr.yaml \
+    verticadb-operator-metrics-reader-crb.yaml
 do
     sed -i '1s/^/{{- if .Values.prometheus.createProxyRBAC -}}\n/' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
