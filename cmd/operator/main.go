@@ -119,7 +119,8 @@ func (fc *FlagConfig) setFlagArgs() {
 			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
 	flag.StringVar(&fc.ServiceAccountName, "service-account-name", "verticadb-operator-controller-manager",
 		"The name of the serviceAccount to use.")
-	flag.StringVar(&fc.PrefixName, "prefix-name", "", "The common prefix for all objects created during the operator deployment")
+	flag.StringVar(&fc.PrefixName, "prefix-name", "verticadb-operator",
+		"The common prefix for all objects created during the operator deployment")
 	fc.LogArgs = &Logging{}
 	fc.LogArgs.setLoggingFlagArgs()
 }
