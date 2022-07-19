@@ -11,9 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: upgrade-vertica-1
-data:
-  image: vertica/vertica-k8s:11.1.1-0-minimal
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: vertica.com/v1beta1
+    kind: VerticaDB
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+commands:
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

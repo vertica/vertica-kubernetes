@@ -11,9 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: ConfigMap
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: upgrade-vertica-1
-data:
-  image: vertica/vertica-k8s:11.1.1-0-minimal
+  name: v-base-upgrade
+status:
+  installCount: 3
+  addedToDBCount: 3
+  upNodeCount: 3

@@ -23,10 +23,11 @@ BUILD_IMAGES=1
 INT_TEST_OUTPUT_DIR=${REPO_DIR}/int-tests-output
 CLUSTER_NAME=vertica
 EXTRA_EXTERNAL_IMAGE_FILE=
+DELETE_RPM=
 
 # The make targets and  the invoked shell scripts are directly run from the root directory.
 function usage {
-    echo "$0 -l <log_dir>  -n <cluster_name> -t <tag_name> -e <ext-image-file> [-hs]"
+    echo "$0 -l <log_dir>  -n <cluster_name> -t <tag_name> -e <ext-image-file> [-hsd]"
     echo
     echo "Options:"
     echo "  -l <log_dir>        Log directory.   default: $INT_TEST_OUTPUT_DIR"
@@ -34,11 +35,12 @@ function usage {
     echo "  -t <tag_name>       Tag. default: $TAG"
     echo "  -e <ext-image-file> File with list of additional images to pull prior to running e2e tests"
     echo "  -s                  Skip the building of the container images"
+    echo "  -d                  Delete the RPM after the vertica image is built"
     exit
 }
 
 OPTIND=1
-while getopts l:n:t:hse: opt; do
+while getopts l:n:t:hse:d opt; do
     case ${opt} in
         l)
             INT_TEST_OUTPUT_DIR=${OPTARG}
@@ -59,6 +61,9 @@ while getopts l:n:t:hse: opt; do
                 echo "*** File '$EXTRA_EXTERNAL_IMAGE_FILE' does not exist"
                 exit 1
             fi
+            ;;
+        d)
+            DELETE_RPM=1
             ;;
         h)
             usage
@@ -112,6 +117,12 @@ function build {
 
     echo "Building all of the container images"
     make  docker-build vdb-gen
+
+    # To save space in CI, delete the RPM since we have create the image out of it
+    if [ -n "$DELETE_RPM" ]
+    then
+        rm $RPM_PATH
+    fi
 }
 
 # Build vertica images and push them to the kind environment
