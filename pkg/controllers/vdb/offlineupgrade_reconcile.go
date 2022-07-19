@@ -97,6 +97,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		// Start up vertica in each pod.
 		o.postRestartingClusterMsg,
 		o.addPodAnnotations,
+		o.runInstaller,
 		o.restartCluster,
 		// Apply labels so svc objects can route to the new pods that came up
 		o.addClientRoutingLabel,
@@ -255,6 +256,14 @@ func (o *OfflineUpgradeReconciler) postRestartingClusterMsg(ctx context.Context)
 // necessary annotations on the pod prior to restart.
 func (o *OfflineUpgradeReconciler) addPodAnnotations(ctx context.Context) (ctrl.Result, error) {
 	r := MakePodAnnotationReconciler(o.VRec, o.Vdb, o.PFacts)
+	return r.Reconcile(ctx, &ctrl.Request{})
+}
+
+// runInstaller will call the installer reconciler for the purpose of accepting
+// the end user license agreement.  This may have changed when we move to the
+// new vertica version.
+func (o *OfflineUpgradeReconciler) runInstaller(ctx context.Context) (ctrl.Result, error) {
+	r := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
