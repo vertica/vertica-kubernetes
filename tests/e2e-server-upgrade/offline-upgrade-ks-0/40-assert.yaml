@@ -17,7 +17,7 @@ metadata:
   name: v-upgrade-vertica-defsc-0
 spec:
   containers:
-    - image: vertica/vertica-k8s:11.1.0-0-minimal
+    - image: vertica/vertica-k8s:11.1.1-0-minimal
 ---
 apiVersion: apps/v1
 kind: StatefulSet

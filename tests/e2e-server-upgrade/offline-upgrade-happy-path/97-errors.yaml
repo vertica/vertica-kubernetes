@@ -11,9 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+---
 apiVersion: v1
-kind: ConfigMap
+kind: Service
 metadata:
-  name: upgrade-vertica-1
-data:
-  image: vertica/vertica-k8s:11.1.1-0-minimal
+  labels:
+    app.kubernetes.io/managed-by: verticadb-operator
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB

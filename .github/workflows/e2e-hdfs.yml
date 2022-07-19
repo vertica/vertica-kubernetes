@@ -28,7 +28,7 @@ jobs:
         [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         export KUSTOMIZE_CFG=tests/kustomize-defaults-hdfs-ci.cfg
         export MINIMAL_VERTICA_IMG=YES
-        scripts/run-k8s-int-tests.sh -e tests/external-images-hdfs-ci.txt
+        scripts/run-k8s-int-tests.sh -d -e tests/external-images-hdfs-ci.txt
 
     - uses: actions/upload-artifact@v2
       if: failure()
