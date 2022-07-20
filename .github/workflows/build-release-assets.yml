@@ -97,6 +97,13 @@ jobs:
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/release-manifests/verticadb-operator-metrics-reader-cr.yaml
 
 
+    - name: Upload ClusterRoleBinding to bind non-resource access of the /metrics endpoint
+      uses: actions/upload-artifact@v2
+      with:
+        name: release-artifacts
+        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/release-manifests/verticadb-operator-metrics-reader-crb.yaml
+
+
     - name: Upload ServiceMonitor object for integration with Prometheus operator
       uses: actions/upload-artifact@v2
       with:
