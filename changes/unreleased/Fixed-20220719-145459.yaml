@@ -1,0 +1,5 @@
+kind: Fixed
+body: Update app.kubernetes.io/version in all objects when upgrading the operator
+time: 2022-07-19T14:54:59.206392217-03:00
+custom:
+  Issue: "234"

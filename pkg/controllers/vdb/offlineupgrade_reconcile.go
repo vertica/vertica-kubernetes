@@ -255,7 +255,7 @@ func (o *OfflineUpgradeReconciler) postRestartingClusterMsg(ctx context.Context)
 // addPodAnnotations will call the PodAnnotationReconciler so that we have the
 // necessary annotations on the pod prior to restart.
 func (o *OfflineUpgradeReconciler) addPodAnnotations(ctx context.Context) (ctrl.Result, error) {
-	r := MakePodAnnotationReconciler(o.VRec, o.Vdb, o.PFacts)
+	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Vdb, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

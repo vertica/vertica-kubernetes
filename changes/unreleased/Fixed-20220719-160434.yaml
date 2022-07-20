@@ -1,0 +1,5 @@
+kind: Fixed
+body: Allow operator upgrade from <= 1.1.0
+time: 2022-07-19T16:04:34.132425051-03:00
+custom:
+  Issue: "234"

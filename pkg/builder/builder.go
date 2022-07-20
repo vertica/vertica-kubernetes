@@ -527,7 +527,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForObject(vdb, sc),
+			Labels:      makeLabelsForObject(vdb, sc, false),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -538,7 +538,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 			Replicas:    &sc.Size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeLabelsForObject(vdb, sc),
+					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
 				Spec: buildPodSpec(vdb, sc, deployNames),
@@ -574,13 +574,13 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForObject(vdb, sc),
+			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc, DefaultDeploymentNames()),
 	}
 	// Setup default values for the DC table annotations.  These are normally
-	// added by the PodAnnotationReconciler.  However, this function is for test
+	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test
 	// purposes, and we have a few dependencies on these annotations.  Rather
 	// than having many tests run the reconciler, we will add in sample values.
 	pod.Annotations[KubernetesBuildDateAnnotation] = "2022-03-16T15:58:47Z"

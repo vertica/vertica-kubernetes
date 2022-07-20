@@ -29,7 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("podannotation_reconcile", func() {
+var _ = Describe("podannotatelabel_reconcile", func() {
 	ctx := context.Background()
 
 	It("should fetch node information and include it in the pod as annotations", func() {
@@ -37,21 +37,40 @@ var _ = Describe("podannotation_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		// The pod we created will already have the annotatons we want to add.
-		// We remove them to test having the reconciler add them.
-		pod := &corev1.Pod{}
-		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		pod.SetAnnotations(map[string]string{})
-
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakePodAnnotationReconciler(vdbRec, vdb, &pfacts)
+		act := MakeAnnotateAndLabelPodReconciler(vdbRec, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
+		pod := &corev1.Pod{}
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
 		Expect(pod.Annotations[builder.KubernetesBuildDateAnnotation]).ShouldNot(Equal(""))
 		Expect(pod.Annotations[builder.KubernetesGitCommitAnnotation]).ShouldNot(Equal(""))
 		Expect(pod.Annotations[builder.KubernetesVersionAnnotation]).ShouldNot(Equal(""))
+	})
+
+	It("should include operator version in the pod", func() {
+		vdb := vapi.MakeVDB()
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		// The pod we created will already have the labels we want to add.
+		// We change them to test having the reconciler update them.
+		pod := &corev1.Pod{}
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+		pod.SetAnnotations(map[string]string{
+			builder.OperatorVersionLabel: "1.0.0",
+		})
+		Expect(k8sClient.Update(ctx, pod)).Should(Succeed())
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr)
+		act := MakeAnnotateAndLabelPodReconciler(vdbRec, vdb, &pfacts)
+		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+		Expect(pod.Labels[builder.OperatorVersionLabel]).Should(Equal(builder.CurOperatorVersion))
 	})
 })

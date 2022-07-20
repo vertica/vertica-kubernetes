@@ -211,6 +211,29 @@ var _ = Describe("obj_reconcile", func() {
 			verifyLabelsAnnotations(&sts.ObjectMeta, true /* subcluster specific */)
 		})
 
+		It("should update version in svc objects", func() {
+			vdb := vapi.MakeVDB()
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			svc := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
+			svc.Labels[builder.OperatorVersionLabel] = builder.OperatorVersion100
+			Expect(k8sClient.Update(ctx, svc)).Should(Succeed())
+			Expect(k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)).Should(Succeed())
+			svc.Labels[builder.OperatorVersionLabel] = builder.OperatorVersion100
+			Expect(k8sClient.Update(ctx, svc)).Should(Succeed())
+
+			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+			objr := MakeObjReconciler(vdbRec, logger, vdb, &pfacts, ObjReconcileModeAll)
+			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+			Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
+			Expect(svc.Labels[builder.OperatorVersionLabel]).Should(Equal(builder.CurOperatorVersion))
+			Expect(k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)).Should(Succeed())
+			Expect(svc.Labels[builder.OperatorVersionLabel]).Should(Equal(builder.CurOperatorVersion))
+		})
+
 		It("should create a statefulset with the configured size", func() {
 			vdb := vapi.MakeVDB()
 			var desiredSize int32 = 16

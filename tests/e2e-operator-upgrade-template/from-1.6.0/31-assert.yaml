@@ -11,8 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl apply -f ../../../helm-charts/verticadb-operator/crds/*yaml
-  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE"
+apiVersion: vertica.com/v1beta1
+kind: VerticaAutoscaler
+metadata:
+  name: v-from-x
+status:
+  scalingCount: 0
+  currentSize: 1

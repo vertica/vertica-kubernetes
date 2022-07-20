@@ -29,23 +29,23 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// PodAnnotationReconciler will maintain annotations in the pod about the running system
-type PodAnnotationReconciler struct {
+// AnnotateAndLabelPodReconciler will maintain annotations and labels in pods about the running system
+type AnnotateAndLabelPodReconciler struct {
 	VRec   *VerticaDBReconciler
 	Vdb    *vapi.VerticaDB
 	PFacts *PodFacts
 }
 
-// MakePodAnnotationReconciler will build a PodAnnotationReconciler object
-func MakePodAnnotationReconciler(vdbrecon *VerticaDBReconciler,
+// MakeAnnotateAndLabelPodReconciler will build a AnnotateAndLabelPodReconciler object
+func MakeAnnotateAndLabelPodReconciler(vdbrecon *VerticaDBReconciler,
 	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
-	return &PodAnnotationReconciler{VRec: vdbrecon, Vdb: vdb, PFacts: pfacts}
+	return &AnnotateAndLabelPodReconciler{VRec: vdbrecon, Vdb: vdb, PFacts: pfacts}
 }
 
 // Reconcile will add annotations to each of the pods so that we flow down
 // system information with the downwardAPI.  The intent of this additional data
 // is for inclusion in Vertica data collector (DC) tables.
-func (s *PodAnnotationReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *AnnotateAndLabelPodReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -55,11 +55,12 @@ func (s *PodAnnotationReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	labels := s.generateLabels()
 
 	// Iterate over pod that exists.
 	for pn, pf := range s.PFacts.Detail {
 		if pf.exists {
-			if err := s.applyAnnotations(ctx, pn, annotations); err != nil {
+			if err := s.applyAnnotationsAndLabels(ctx, pn, annotations, labels); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -68,7 +69,7 @@ func (s *PodAnnotationReconciler) Reconcile(ctx context.Context, req *ctrl.Reque
 }
 
 // generateAnnotations will generate static annotations that will be applied to each running pod
-func (s *PodAnnotationReconciler) generateAnnotations() (map[string]string, error) {
+func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string, error) {
 	// We get the k8s server information from the client.  It would be better to
 	// get the node the pod was assigned and fetch the system info from the
 	// node.  This will give us more details information like what container
@@ -96,8 +97,17 @@ func (s *PodAnnotationReconciler) generateAnnotations() (map[string]string, erro
 	}, nil
 }
 
-// applyAnnotations will ensure the annotations passed in are set for the given pod
-func (s *PodAnnotationReconciler) applyAnnotations(ctx context.Context, podName types.NamespacedName, anns map[string]string) error {
+// generateLabels will generate static labels that will be applied to each running pod
+func (s *AnnotateAndLabelPodReconciler) generateLabels() map[string]string {
+	return map[string]string{
+		builder.OperatorVersionLabel: builder.CurOperatorVersion,
+	}
+}
+
+// applyAnnotationsAndLabels will ensure the annotations and labels passed in are set for the given pod
+func (s *AnnotateAndLabelPodReconciler) applyAnnotationsAndLabels(ctx context.Context,
+	podName types.NamespacedName,
+	anns, labels map[string]string) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		pod := &corev1.Pod{}
 		if err := s.VRec.Client.Get(ctx, podName, pod); err != nil {
@@ -107,17 +117,24 @@ func (s *PodAnnotationReconciler) applyAnnotations(ctx context.Context, podName 
 			return err
 		}
 
-		annotationsChanged := false
+		annotationsOrLabelsChanged := false
 		for k, v := range anns {
 			if pod.Annotations[k] != v {
 				if pod.Annotations == nil {
 					pod.Annotations = map[string]string{}
 				}
 				pod.Annotations[k] = v
-				annotationsChanged = true
+				annotationsOrLabelsChanged = true
 			}
 		}
-		if annotationsChanged {
+		for k, v := range labels {
+			if pod.Labels == nil {
+				pod.Labels = map[string]string{}
+			}
+			pod.Labels[k] = v
+			annotationsOrLabelsChanged = true
+		}
+		if annotationsOrLabelsChanged {
 			err := s.VRec.Client.Update(ctx, pod)
 			if err == nil {
 				// We have added/updated the annotations.  Refresh the podfacts.

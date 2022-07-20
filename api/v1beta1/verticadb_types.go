@@ -795,6 +795,7 @@ type SubclusterStatus struct {
 	UpNodeCount int32 `json:"upNodeCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +kubebuilder:validation:Optional
 	// A count of the number of pods that are in read-only state in this subcluster.
 	ReadOnlyCount int32 `json:"readOnlyCount"`
 
@@ -818,6 +819,7 @@ type VerticaDBPodStatus struct {
 	// connections on port 5433.
 	UpNode bool `json:"upNode"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +kubebuilder:validation:Optional
 	// True means the vertica process on this pod is in read-only state
 	ReadOnly bool `json:"readOnly"`
 }
