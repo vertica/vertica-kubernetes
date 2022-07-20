@@ -29,23 +29,23 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// PodAnnotateLabelReconciler will maintain annotations and labels in pods about the running system
-type PodAnnotateLabelReconciler struct {
+// AnnotateAndLabelPodReconciler will maintain annotations and labels in pods about the running system
+type AnnotateAndLabelPodReconciler struct {
 	VRec   *VerticaDBReconciler
 	Vdb    *vapi.VerticaDB
 	PFacts *PodFacts
 }
 
-// MakePodAnnotateLabelReconciler will build a PodAnnotateLabelReconciler object
-func MakePodAnnotateLabelReconciler(vdbrecon *VerticaDBReconciler,
+// MakeAnnotateAndLabelPodReconciler will build a AnnotateAndLabelPodReconciler object
+func MakeAnnotateAndLabelPodReconciler(vdbrecon *VerticaDBReconciler,
 	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
-	return &PodAnnotateLabelReconciler{VRec: vdbrecon, Vdb: vdb, PFacts: pfacts}
+	return &AnnotateAndLabelPodReconciler{VRec: vdbrecon, Vdb: vdb, PFacts: pfacts}
 }
 
 // Reconcile will add annotations to each of the pods so that we flow down
 // system information with the downwardAPI.  The intent of this additional data
 // is for inclusion in Vertica data collector (DC) tables.
-func (s *PodAnnotateLabelReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *AnnotateAndLabelPodReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -69,7 +69,7 @@ func (s *PodAnnotateLabelReconciler) Reconcile(ctx context.Context, req *ctrl.Re
 }
 
 // generateAnnotations will generate static annotations that will be applied to each running pod
-func (s *PodAnnotateLabelReconciler) generateAnnotations() (map[string]string, error) {
+func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string, error) {
 	// We get the k8s server information from the client.  It would be better to
 	// get the node the pod was assigned and fetch the system info from the
 	// node.  This will give us more details information like what container
@@ -98,14 +98,14 @@ func (s *PodAnnotateLabelReconciler) generateAnnotations() (map[string]string, e
 }
 
 // generateLabels will generate static labels that will be applied to each running pod
-func (s *PodAnnotateLabelReconciler) generateLabels() map[string]string {
+func (s *AnnotateAndLabelPodReconciler) generateLabels() map[string]string {
 	return map[string]string{
 		builder.OperatorVersionLabel: builder.CurOperatorVersion,
 	}
 }
 
 // applyAnnotationsAndLabels will ensure the annotations and labels passed in are set for the given pod
-func (s *PodAnnotateLabelReconciler) applyAnnotationsAndLabels(ctx context.Context,
+func (s *AnnotateAndLabelPodReconciler) applyAnnotationsAndLabels(ctx context.Context,
 	podName types.NamespacedName,
 	anns, labels map[string]string) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {

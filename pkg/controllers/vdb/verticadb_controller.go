@@ -153,8 +153,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// pods are missing.  We don't want to apply all updates as we may need
 		// to go through necessary admintools commands to handle a scale down.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
-		// Add annotations to each pod about the host running them
-		MakePodAnnotateLabelReconciler(r, vdb, pfacts),
+		// Add annotations/labels to each pod about the host running them
+		MakeAnnotateAndLabelPodReconciler(r, vdb, pfacts),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts),
 		// Handles restart + re_ip of vertica

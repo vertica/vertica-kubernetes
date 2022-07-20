@@ -39,7 +39,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakePodAnnotateLabelReconciler(vdbRec, vdb, &pfacts)
+		act := MakeAnnotateAndLabelPodReconciler(vdbRec, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		pod := &corev1.Pod{}
@@ -67,7 +67,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakePodAnnotateLabelReconciler(vdbRec, vdb, &pfacts)
+		act := MakeAnnotateAndLabelPodReconciler(vdbRec, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())

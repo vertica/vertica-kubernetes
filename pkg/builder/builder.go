@@ -581,7 +581,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		Spec: buildPodSpec(vdb, sc, DefaultServiceAccountName),
 	}
 	// Setup default values for the DC table annotations.  These are normally
-	// added by the PodAnnotationReconciler.  However, this function is for test
+	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test
 	// purposes, and we have a few dependencies on these annotations.  Rather
 	// than having many tests run the reconciler, we will add in sample values.
 	pod.Annotations[KubernetesBuildDateAnnotation] = "2022-03-16T15:58:47Z"
