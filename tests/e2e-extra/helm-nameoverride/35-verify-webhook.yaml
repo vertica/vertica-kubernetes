@@ -11,29 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    control-plane: controller-manager
-spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=false
-    - --prefix-name=verticadb-operator
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: verticadb-operator-webhook-service
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl -n $NAMESPACE get verticadb v-helm-nameoverride -o json | jq '.spec.initPolicy="Revive"' | kubectl -n $NAMESPACE replace -f -
+    ignoreFailure: true
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE"

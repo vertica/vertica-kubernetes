@@ -335,7 +335,7 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, o.VRec.ServiceAccountName)
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, &o.VRec.DeploymentNames)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)

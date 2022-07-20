@@ -16,44 +16,25 @@ kind: Pod
 metadata:
   labels:
     control-plane: controller-manager
-spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --metrics-bind-address=127.0.0.1:8080
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=false
-    - --prefix-name=verticadb-operator
-  - name: kube-rbac-proxy
 status:
   phase: Running
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: verticadb-operator-webhook-service
+  name: matt-webhook-service
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: verticadb-operator-metrics-service
+  name: matt-metrics-service
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: verticadb-operator-metrics-monitor
-spec:
-  endpoints:
-  - scheme: https
-    path: /metrics
-    port: metrics
-  selector:
-    matchLabels:
-      control-plane: controller-manager
+  name: matt-controller-manager
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: matt-manager-config

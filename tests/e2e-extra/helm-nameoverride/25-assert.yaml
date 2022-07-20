@@ -11,35 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  labels:
-    control-plane: controller-manager
-spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --metrics-bind-address=:8443
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=true
-    - --prefix-name=verticadb-operator
+  name: v-helm-nameoverride-pri-sc
 status:
-  phase: Running
+  replicas: 1
+  readyReplicas: 1
 ---
-apiVersion: v1
-kind: Service
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: verticadb-operator-webhook-service
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: verticadb-operator-metrics-service
+  name: v-helm-nameoverride
+status:
+  upNodeCount: 1
