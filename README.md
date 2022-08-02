@@ -120,7 +120,7 @@ OpenShift manages security with [Security Context Constraints](https://docs.open
 
 For details about Vertica on OpenShift, see [Red Hat OpenShift Overview](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/OpenShiftK8s.htm).
 
-# Prometheus Integraion
+# Prometheus Integration
 
 Vertica integrates with [Prometheus](https://prometheus.io) to collect time series metrics on the VerticaDB operator. Configure Prometheus to authorize connections using a role-based access (RBAC) sidecar proxy, or expose the metrics to external clients with an HTTP endpoint.
 
