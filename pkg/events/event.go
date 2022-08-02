@@ -33,7 +33,7 @@ const (
 	ReviveDBNodeCountMismatch       = "ReviveDBNodeCountMismatch"
 	ReviveOrderBad                  = "ReviveOrderBad"
 	ObjectNotFound                  = "ObjectNotFound"
-	CommunalCredsWrongKey           = "CommunalCredsWrongKey"
+	CommunalCredsWrongKey           = "CommunalCredsWrongKey" //nolint:gosec
 	S3EndpointIssue                 = "S3EndpointIssue"
 	S3BucketDoesNotExist            = "S3BucketDoesNotExist"
 	S3WrongRegion                   = "S3WrongRegion"
