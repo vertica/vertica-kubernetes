@@ -123,7 +123,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.23
+ENVTEST_K8S_VERSION = 1.24
 
 # Image URL for the OLM catalog.  This is for testing purposes only.
 ifeq ($(shell $(KIND_CHECK)), 1)
@@ -443,11 +443,11 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.2
-CONTROLLER_TOOLS_VERSION ?= v0.8.0
+CONTROLLER_TOOLS_VERSION ?= v0.9.0
 KIND_VERSION ?= v0.11.1
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
 GO_JUNIT_REPORT_VERSION ?= latest
-GOLANGCI_LINT_VER ?= 1.41.1
+GOLANGCI_LINT_VER ?= 1.47.3
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -494,10 +494,10 @@ $(HOME)/.krew/bin/kubectl-krew:
 	scripts/setup-krew.sh
 
 OPM = $(shell pwd)/bin/opm
-OPM_VERSION = 1.18.1
+OPM_VERSION = 1.23.0
 opm: $(OPM)  ## Download opm locally if necessary
 $(OPM):
-	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v1.18.1/linux-amd64-opm" --output $(OPM)
+	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)/$${OS}-$${ARCH}-opm" --output $(OPM)
 	chmod +x $(OPM)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk

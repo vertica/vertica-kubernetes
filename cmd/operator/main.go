@@ -184,7 +184,7 @@ func getZapcoreLevel(lvl string) zapcore.Level {
 	var level = new(zapcore.Level)
 	err := level.UnmarshalText([]byte(lvl))
 	if err != nil {
-		log.Println(fmt.Sprintf("unrecognized level, %s level will be used instead", DefaultLevel))
+		log.Printf("unrecognized level, %s level will be used instead", DefaultLevel)
 		return DefaultZapcoreLevel
 	}
 	return *level
@@ -286,7 +286,7 @@ func main() {
 
 	logger := getLogger(*flagArgs.LogArgs)
 	if flagArgs.LogArgs.FilePath != "" {
-		log.Println(fmt.Sprintf("Now logging in file %s", flagArgs.LogArgs.FilePath))
+		log.Printf("Now logging in file %s", flagArgs.LogArgs.FilePath)
 	}
 
 	ctrl.SetLogger(zapr.NewLogger(logger))

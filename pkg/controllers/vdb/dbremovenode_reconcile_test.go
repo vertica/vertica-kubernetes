@@ -100,7 +100,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdbCopy)
-		sc.Size = sc.Size - 1 // mimic a pending db_remove_node
+		sc.Size-- // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)

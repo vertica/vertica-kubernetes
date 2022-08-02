@@ -299,19 +299,19 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	elemPrefix := ""
 	azureCredsJSON.WriteString("[{")
 	if azureCreds.AccountName != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureCreds.AccountName))
+		azureCredsJSON.WriteString(fmt.Sprintf(`"accountName": %q`, azureCreds.AccountName))
 		elemPrefix = ","
 	}
 	if azureCreds.BlobEndpoint != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureCreds.BlobEndpoint))
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": %q`, elemPrefix, azureCreds.BlobEndpoint))
 		elemPrefix = ","
 	}
 	if azureCreds.AccountKey != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`%s"accountKey": "%s"`, elemPrefix, azureCreds.AccountKey))
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"accountKey": %q`, elemPrefix, azureCreds.AccountKey))
 		elemPrefix = ","
 	}
 	if azureCreds.SharedAccessSignature != "" {
-		azureCredsJSON.WriteString(fmt.Sprintf(`%s"sharedAccessSignature": "%s"`, elemPrefix, azureCreds.SharedAccessSignature))
+		azureCredsJSON.WriteString(fmt.Sprintf(`%s"sharedAccessSignature": %q`, elemPrefix, azureCreds.SharedAccessSignature))
 	}
 	azureCredsJSON.WriteString("}]")
 
@@ -319,15 +319,15 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	elemPrefix = ""
 	azureConfigJSON.WriteString("[{")
 	if azureConfig.AccountName != "" {
-		azureConfigJSON.WriteString(fmt.Sprintf(`"accountName": "%s"`, azureConfig.AccountName))
+		azureConfigJSON.WriteString(fmt.Sprintf(`"accountName": %q`, azureConfig.AccountName))
 		elemPrefix = ","
 	}
 	if azureConfig.BlobEndpoint != "" {
-		azureConfigJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": "%s"`, elemPrefix, azureConfig.BlobEndpoint))
+		azureConfigJSON.WriteString(fmt.Sprintf(`%s"blobEndpoint": %q`, elemPrefix, azureConfig.BlobEndpoint))
 		elemPrefix = ","
 	}
 	if azureConfig.Protocol != "" {
-		azureConfigJSON.WriteString(fmt.Sprintf(`%s"protocol": "%s"`, elemPrefix, azureConfig.Protocol))
+		azureConfigJSON.WriteString(fmt.Sprintf(`%s"protocol": %q`, elemPrefix, azureConfig.Protocol))
 	}
 	azureConfigJSON.WriteString("}]")
 
