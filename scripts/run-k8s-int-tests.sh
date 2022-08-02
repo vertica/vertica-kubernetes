@@ -121,8 +121,9 @@ function build {
     # To save space in CI, delete the RPM since we have create the image out of it
     if [ -n "$DELETE_RPM" ]
     then
-        rm $RPM_PATH
+        rm -v $RPM_PATH
     fi
+    df -h
 }
 
 # Build vertica images and push them to the kind environment
