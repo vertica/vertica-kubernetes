@@ -1,0 +1,349 @@
+name: Build images
+
+on:
+  workflow_call:
+    inputs:
+      operator_image:
+        description: 'Name of an existing Vertica operator image. If blank we will build one using the default name'
+        type: string
+        required: true
+      full_vertica_image:
+        description: 'Name of an existing full Vertica server image. If blank we will build one using the default name'
+        type: string
+        required: true
+      minimal_vertica_image:
+        description: 'Name of an existing minimal Vertica server image. If blank we will build one using the default name'
+        type: string
+        required: true
+      vlogger_image:
+        description: 'Name of an existing vlogger image. If blank we will build one using the default name'
+        type: string
+        required: true
+      security_scan_exit_code:
+        description: 'The exit code to use for any security vulnerabilities found. Set this to 1 to fail the build if a vulnerability is found'
+        type: string
+        required: false
+        default: '0'
+      run_security_scan:
+        description: 'What images to scan?'
+        type: string
+        required: false
+        default: 'all, except vertica server'
+    secrets:
+      DOCKERHUB_USERNAME:
+        description: 'When working with images from docker.io, this is the username for login purposes'
+        required: true
+      DOCKERHUB_TOKEN:
+        description: 'When working with images from docker.io, this is the password for login purposes'
+        required: true
+    outputs:
+      operator-image:
+        description: "The image name of the VerticaDB operator"
+        value: ${{ jobs.build-operator.outputs.image }}
+      full-vertica-image:
+        description: "The image name of the full vertica server image"
+        value: ${{ jobs.build-server-full.outputs.image }}
+      minimal-vertica-image:
+        description: "The image name of the vertica server, but with optional software removed"
+        value: ${{ jobs.build-server-minimal.outputs.image }}
+      vlogger-image:
+        description: "The image name of the vertica logger sidecar"
+        value: ${{ jobs.build-vlogger.outputs.image }}
+
+
+permissions:
+  packages: write
+  security-events: write
+
+jobs:
+  build-server-full:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.full_vertica_image.outputs.value }}
+    steps:
+
+    - name: Pick the name of the image
+      uses: dkershner6/switch-case-action@v1
+      id: full_vertica_image
+      with:
+        default: ghcr.io/${{ github.actor }}/vertica-k8s:${{ github.sha }}
+        conditionals-with-values: |
+          ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
+
+    - name: Login to GitHub Container registry
+      uses: docker/login-action@v2
+      if: ${{ inputs.full_vertica_image == '' }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      if: ${{ inputs.full_vertica_image != '' && startsWith(inputs.full_vertica_image, 'docker.io') }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - uses: actions/checkout@v2
+      if: ${{ inputs.full_vertica_image == '' }}
+
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.full_vertica_image == '' }}
+      
+    - name: Build and push full server image
+      if: ${{ inputs.full_vertica_image == '' }}
+      run: |
+        export VERTICA_IMG=${{ steps.full_vertica_image.outputs.value }}
+        make docker-build-vertica docker-push-vertica
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.full_vertica_image != '' }}
+      run: |
+        docker pull ${{ inputs.full_vertica_image }}
+
+    - name: Run the Trivy vulnerability scanner (sarif)
+      uses: aquasecurity/trivy-action@0.6.2
+      if: ${{ inputs.run_security_scan == 'all' }}
+      with:
+        image-ref: ${{ steps.full_vertica_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
+        ignore-unfixed: true
+        security-checks: vuln
+        timeout: '10m0s'
+        format: 'sarif'
+        output: 'trivy-results-vertica-image.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: ${{ always() && inputs.run_security_scan == 'all' }}
+      with:
+        sarif_file: 'trivy-results-vertica-image.sarif'
+
+    - name: Run the Trivy vulnerability scanner (pretty print)
+      uses: aquasecurity/trivy-action@0.6.2
+      if: ${{ inputs.run_security_scan == 'all' }}
+      with:
+        image-ref: ${{ steps.full_vertica_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
+        ignore-unfixed: true
+        security-checks: vuln
+        timeout: '10m0s'
+        format: 'table'
+        output: 'trivy-results-vertica-image.out'
+
+    - uses: actions/upload-artifact@v2
+      if: ${{ always() && inputs.run_security_scan == 'all' }}
+      with:
+        name: security-scan
+        path: 'trivy-results-vertica-image.out'
+
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.full_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.full_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+
+  build-server-minimal:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.minimal_vertica_image.outputs.value }}
+    steps:
+
+    - name: Pick the name of the image
+      uses: dkershner6/switch-case-action@v1
+      id: minimal_vertica_image
+      with:
+        default: ghcr.io/${{ github.actor }}/vertica-k8s:${{ github.sha }}-minimal
+        conditionals-with-values: |
+          ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
+
+    - name: Login to GitHub Container registry
+      uses: docker/login-action@v2
+      if: ${{ inputs.minimal_vertica_image == '' }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      if: ${{ inputs.full_vertica_image != '' && startsWith(inputs.full_vertica_image, 'docker.io') }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - uses: actions/checkout@v2
+      if: ${{ inputs.minimal_vertica_image == '' }}
+
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.minimal_vertica_image == '' }}
+      
+    - name: Build and push minimal server image
+      if: ${{ inputs.minimal_vertica_image == '' }}
+      run: |
+        export VERTICA_IMG=${{ steps.minimal_vertica_image.outputs.value }}
+        export MINIMAL_VERTICA_IMG=yes
+        make docker-build-vertica docker-push-vertica
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.minimal_vertica_image != '' }}
+      run: |
+        docker pull ${{ inputs.minimal_vertica_image }}
+
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.minimal_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.minimal_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
+
+  build-operator:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.operator_image.outputs.value }}
+    steps:
+
+    - name: Pick the name of the image
+      uses: dkershner6/switch-case-action@v1
+      id: operator_image
+      with:
+        default: ghcr.io/${{ github.actor }}/verticadb-operator:${{ github.sha }}
+        conditionals-with-values: |
+          ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
+
+    - name: Login to GitHub Container registry
+      uses: docker/login-action@v2
+      if: ${{ inputs.operator_image == '' }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - uses: actions/checkout@v2
+      if: ${{ inputs.operator_image == '' }}
+
+    - name: Build and push operator image
+      if: ${{ inputs.operator_image == '' }}
+      run: |
+        export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
+        make docker-build-operator docker-push-operator
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.operator_image != '' }}
+      run: |
+        docker pull ${{ inputs.operator_image }}
+
+    - name: Run the Trivy vulnerability scanner (sarif)
+      uses: aquasecurity/trivy-action@0.6.2
+      if: ${{ inputs.run_security_scan != 'none' }}
+      with:
+        image-ref: ${{ steps.operator_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
+        ignore-unfixed: true
+        format: 'sarif'
+        output: 'trivy-results-verticadb-operator-image.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      with:
+        sarif_file: 'trivy-results-verticadb-operator-image.sarif'
+
+    - name: Run the Trivy vulnerability scanner (pretty print)
+      uses: aquasecurity/trivy-action@0.6.2
+      if: ${{ inputs.run_security_scan != 'none' }}
+      with:
+        image-ref: ${{ steps.operator_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
+        ignore-unfixed: true
+        format: 'table'
+        output: 'trivy-results-verticadb-operator-image.out'
+
+    - uses: actions/upload-artifact@v2
+      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      with:
+        name: security-scan
+        path: 'trivy-results-verticadb-operator-image.out'
+
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.operator_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.operator_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+
+  build-vlogger:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.vlogger_image.outputs.value }}
+    steps:
+
+    - name: Pick the name of the image
+      uses: dkershner6/switch-case-action@v1
+      id: vlogger_image
+      with:
+        default: ghcr.io/${{ github.actor }}/vertica-logger:${{ github.sha }}
+        conditionals-with-values: |
+          ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
+
+    - name: Login to GitHub Container registry
+      uses: docker/login-action@v2
+      if: ${{ inputs.vlogger_image == '' }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - uses: actions/checkout@v2
+      if: ${{ inputs.vlogger_image == '' }}
+
+    - name: Build and push vlogger image
+      if: ${{ inputs.vlogger_image == '' }}
+      run: |
+        export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
+        make docker-build-vlogger docker-push-vlogger
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.vlogger_image != '' }}
+      run: |
+        docker pull ${{ inputs.vlogger_image }}
+
+    - name: Run the Trivy vulnerability scanner (sarif)
+      uses: aquasecurity/trivy-action@0.6.2
+      if: ${{ inputs.run_security_scan != 'none' }}
+      with:
+        image-ref: ${{ steps.vlogger_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
+        ignore-unfixed: true
+        format: 'sarif'
+        output: 'trivy-results-vertica-logger-image.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      with:
+        sarif_file: 'trivy-results-vertica-logger-image.sarif'
+
+    - name: Run the Trivy vulnerability scanner (pretty print)
+      uses: aquasecurity/trivy-action@0.6.2
+      if: ${{ inputs.run_security_scan != 'none' }}
+      with:
+        image-ref: ${{ steps.vlogger_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
+        ignore-unfixed: true
+        format: 'table'
+        output: 'trivy-results-vertica-logger-image.out'
+
+    - uses: actions/upload-artifact@v2
+      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      with:
+        name: security-scan
+        path: 'trivy-results-vertica-logger-image.out'
+
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.vlogger_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.vlogger_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+
