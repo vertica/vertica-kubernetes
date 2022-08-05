@@ -66,7 +66,7 @@ jobs:
       uses: dkershner6/switch-case-action@v1
       id: full_vertica_image
       with:
-        default: ghcr.io/${{ github.actor }}/vertica-k8s:${{ github.sha }}
+        default: ghcr.io/${{ github.repository }}/vertica-k8s:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
 
@@ -155,7 +155,7 @@ jobs:
       uses: dkershner6/switch-case-action@v1
       id: minimal_vertica_image
       with:
-        default: ghcr.io/${{ github.actor }}/vertica-k8s:${{ github.sha }}-minimal
+        default: ghcr.io/${{ github.repository }}/vertica-k8s:${{ github.sha }}-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
@@ -209,7 +209,7 @@ jobs:
       uses: dkershner6/switch-case-action@v1
       id: operator_image
       with:
-        default: ghcr.io/${{ github.actor }}/verticadb-operator:${{ github.sha }}
+        default: ghcr.io/${{ github.repository }}/verticadb-operator:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
 
@@ -283,7 +283,7 @@ jobs:
       uses: dkershner6/switch-case-action@v1
       id: vlogger_image
       with:
-        default: ghcr.io/${{ github.actor }}/vertica-logger:${{ github.sha }}
+        default: ghcr.io/${{ github.repository }}/vertica-logger:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
 
