@@ -36,12 +36,6 @@ on:
       DOCKERHUB_TOKEN:
         description: 'When working with images from docker.io, this is the password for login purposes'
         required: true
-      PR_GITHUB_USERNAME:
-        description: 'For pull requests, this is the GitHub username that accompanies the personal access token'
-        required: true
-      PR_GITHUB_PAT:
-        description: 'For pull requests, this is the personal access token that goes along with PR_GITHUB_USERNAME. This PAT is used to write to the container registry.'
-        required: true
     outputs:
       operator-image:
         description: "The image name of the VerticaDB operator"
@@ -56,7 +50,10 @@ on:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
 
-
+# These permissions only apply when not running a PR.  GitHub actions makes PRs
+# from forked repositories with extremely limited permissions that cannot be
+# overwritten:
+# https://github.blog/changelog/2021-04-20-github-actions-control-permissions-for-github_token/
 permissions:
   packages: write
   security-events: write
@@ -75,7 +72,7 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/vertica-k8s:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
-          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/vertica-k8s:pr-${{ github.sha }}
+          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
@@ -84,17 +81,6 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-
-    # We need a separate login for PRs because the GITHUB_TOKEN only allows
-    # read access to the container registry for PRs:
-    # https://github.blog/changelog/2021-04-20-github-actions-control-permissions-for-github_token/
-    - name: Login to GitHub Container registry for PRs
-      uses: docker/login-action@v2
-      if: ${{ inputs.full_vertica_image == '' && github.event_name == 'pull_request' }}
-      with:
-        registry: ghcr.io
-        username: ${{ secrets.PR_GITHUB_USERNAME }}
-        password: ${{ secrets.PR_GITHUB_PAT }}
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -110,11 +96,25 @@ jobs:
       uses: ./.github/actions/download-rpm
       if: ${{ inputs.full_vertica_image == '' }}
       
-    - name: Build and push full server image
+    - name: Build and optionally push full server image
       if: ${{ inputs.full_vertica_image == '' }}
       run: |
         export VERTICA_IMG=${{ steps.full_vertica_image.outputs.value }}
-        make docker-build-vertica docker-push-vertica
+        make docker-build-vertica
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+          make docker-push-vertica
+        fi
+
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.full_vertica_image.outputs.value }} > full_vertica_image.tar
+
+    - uses: actions/upload-artifact@v2
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: full_vertica_image
+        path: full_vertica_image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.full_vertica_image != '' }}
@@ -178,7 +178,7 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/vertica-k8s:${{ github.sha }}-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
-          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/vertica-k8s:pr-${{ github.sha }}-minimal
+          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-minimal
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
@@ -187,14 +187,6 @@ jobs:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Login to GitHub Container registry for PRs
-      uses: docker/login-action@v2
-      if: ${{ inputs.minimal_vertica_image == '' && github.event_name == 'pull_request' }}
-      with:
-        registry: ghcr.io
-        username: ${{ secrets.PR_GITHUB_USERNAME }}
-        password: ${{ secrets.PR_GITHUB_PAT }}
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -210,12 +202,26 @@ jobs:
       uses: ./.github/actions/download-rpm
       if: ${{ inputs.minimal_vertica_image == '' }}
       
-    - name: Build and push minimal server image
+    - name: Build and optionally push minimal server image
       if: ${{ inputs.minimal_vertica_image == '' }}
       run: |
         export VERTICA_IMG=${{ steps.minimal_vertica_image.outputs.value }}
         export MINIMAL_VERTICA_IMG=yes
-        make docker-build-vertica docker-push-vertica
+        make docker-build-vertica
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+          make docker-push-vertica
+        fi
+
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.minimal_vertica_image.outputs.value }} > minimal_vertica_image.tar
+
+    - uses: actions/upload-artifact@v2
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: minimal_vertica_image
+        path: minimal_vertica_image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.minimal_vertica_image != '' }}
@@ -241,7 +247,7 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/verticadb-operator:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
-          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/verticadb-operator:pr-${{ github.sha }}
+          ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
@@ -251,22 +257,28 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Login to GitHub Container registry for PRs
-      uses: docker/login-action@v2
-      if: ${{ inputs.operator_image == '' && github.event_name == 'pull_request' }}
-      with:
-        registry: ghcr.io
-        username: ${{ secrets.PR_GITHUB_USERNAME }}
-        password: ${{ secrets.PR_GITHUB_PAT }}
-
     - uses: actions/checkout@v2
       if: ${{ inputs.operator_image == '' }}
 
-    - name: Build and push operator image
+    - name: Build and optionally push operator image
       if: ${{ inputs.operator_image == '' }}
       run: |
         export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
-        make docker-build-operator docker-push-operator
+        make docker-build-operator
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+          make docker-push-operator
+        fi
+
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.operator_image.outputs.value }} > operator_image.tar
+
+    - uses: actions/upload-artifact@v2
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: operator_image
+        path: operator_image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.operator_image != '' }}
@@ -324,7 +336,7 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/vertica-logger:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
-          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/vertica-logger:pr-${{ github.sha }}
+          ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
@@ -334,24 +346,28 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Login to GitHub Container registry for PRs
-      uses: docker/login-action@v2
-      if: ${{ inputs.vlogger_image == '' && github.event_name == 'pull_request' }}
-      with:
-        registry: ghcr.io
-        #username: ${{ secrets.PR_GITHUB_USERNAME }}
-        #password: ${{ secrets.PR_GITHUB_PAT }}
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
     - uses: actions/checkout@v2
       if: ${{ inputs.vlogger_image == '' }}
 
-    - name: Build and push vlogger image
+    - name: Build and optionally push vlogger image
       if: ${{ inputs.vlogger_image == '' }}
       run: |
         export VLOGGER_IMG=${{ steps.vlogger_image.outputs.value }}
-        make docker-build-vlogger docker-push-vlogger
+        make docker-build-vlogger
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+          make docker-push-vlogger
+        fi
+
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.vlogger_image.outputs.value }} > vlogger_image.tar
+
+    - uses: actions/upload-artifact@v2
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: vlogger_image
+        path: vlogger_image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.vlogger_image != '' }}

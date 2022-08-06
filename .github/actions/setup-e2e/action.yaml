@@ -8,3 +8,17 @@ runs:
 
     - name: Install kubectl and related tools
       uses: ./.github/actions/setup-kubectl
+
+    - name: Download all the docker image for PRs
+      uses: actions/download-artifact@v2
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - name: Load the docker images for PRs
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker load --input full-vertica-image.tar
+        docker load --input minimal-vertica-image.tar
+        docker load --input operator-image.tar
+        docker load --input vlogger-image.tar
+        docker image ls -a
+
