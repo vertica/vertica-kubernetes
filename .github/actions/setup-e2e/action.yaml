@@ -17,9 +17,10 @@ runs:
       if: ${{ github.event_name == 'pull_request' }}
       shell: bash
       run: |
-        docker load --input full-vertica-image.tar
-        docker load --input minimal-vertica-image.tar
-        docker load --input operator-image.tar
-        docker load --input vlogger-image.tar
+        find .
+        docker load --input full-vertica-image/full-vertica-image.tar
+        docker load --input minimal-vertica-image/minimal-vertica-image.tar
+        docker load --input operator-image/operator-image.tar
+        docker load --input vlogger-image/vlogger-image.tar
         docker image ls -a
 
