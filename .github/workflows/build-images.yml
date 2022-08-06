@@ -36,6 +36,12 @@ on:
       DOCKERHUB_TOKEN:
         description: 'When working with images from docker.io, this is the password for login purposes'
         required: true
+      PR_GITHUB_USERNAME:
+        description: 'For pull requests, this is the GitHub username that accompanies the personal access token'
+        required: true
+      PR_GITHUB_PAT:
+        description: 'For pull requests, this is the personal access token that goes along with PR_GITHUB_USERNAME. This PAT is used to write to the container registry.'
+        required: true
     outputs:
       operator-image:
         description: "The image name of the VerticaDB operator"
