@@ -69,14 +69,26 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/vertica-k8s:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/vertica-k8s:pr-${{ github.sha }}
 
-    - name: Login to GitHub Container registry
+    - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.full_vertica_image == '' }}
+      if: ${{ inputs.full_vertica_image == '' && github.event_name != 'pull_request' }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
+
+    # We need a separate login for PRs because the GITHUB_TOKEN only allows
+    # read access to the container registry for PRs:
+    # https://github.blog/changelog/2021-04-20-github-actions-control-permissions-for-github_token/
+    - name: Login to GitHub Container registry for PRs
+      uses: docker/login-action@v2
+      if: ${{ inputs.full_vertica_image == '' && github.event_name == 'pull_request' }}
+      with:
+        registry: ghcr.io
+        username: ${{ secrets.PR_GITHUB_USERNAME }}
+        password: ${{ secrets.PR_GITHUB_PAT }}
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -103,9 +115,11 @@ jobs:
       run: |
         docker pull ${{ inputs.full_vertica_image }}
 
+    # We never run the sarif scanner in PRs because PRs don't have permission
+    # to upload the results to github.
     - name: Run the Trivy vulnerability scanner (sarif)
       uses: aquasecurity/trivy-action@0.6.2
-      if: ${{ inputs.run_security_scan == 'all' }}
+      if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.full_vertica_image.outputs.value }}
         exit-code: ${{ inputs.security_scan_exit_code }}
@@ -117,7 +131,7 @@ jobs:
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v2
-      if: ${{ always() && inputs.run_security_scan == 'all' }}
+      if: ${{ always() && inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       with:
         sarif_file: 'trivy-results-vertica-image.sarif'
 
@@ -158,14 +172,23 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/vertica-k8s:${{ github.sha }}-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/vertica-k8s:pr-${{ github.sha }}-minimal
 
-    - name: Login to GitHub Container registry
+    - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.minimal_vertica_image == '' }}
+      if: ${{ inputs.minimal_vertica_image == '' && github.event_name != 'pull_request' }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to GitHub Container registry for PRs
+      uses: docker/login-action@v2
+      if: ${{ inputs.minimal_vertica_image == '' && github.event_name == 'pull_request' }}
+      with:
+        registry: ghcr.io
+        username: ${{ secrets.PR_GITHUB_USERNAME }}
+        password: ${{ secrets.PR_GITHUB_PAT }}
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
@@ -212,14 +235,23 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/verticadb-operator:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
+          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/verticadb-operator:pr-${{ github.sha }}
 
-    - name: Login to GitHub Container registry
+    - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.operator_image == '' }}
+      if: ${{ inputs.operator_image == '' && github.event_name != 'pull_request' }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to GitHub Container registry for PRs
+      uses: docker/login-action@v2
+      if: ${{ inputs.operator_image == '' && github.event_name == 'pull_request' }}
+      with:
+        registry: ghcr.io
+        username: ${{ secrets.PR_GITHUB_USERNAME }}
+        password: ${{ secrets.PR_GITHUB_PAT }}
 
     - uses: actions/checkout@v2
       if: ${{ inputs.operator_image == '' }}
@@ -237,7 +269,7 @@ jobs:
 
     - name: Run the Trivy vulnerability scanner (sarif)
       uses: aquasecurity/trivy-action@0.6.2
-      if: ${{ inputs.run_security_scan != 'none' }}
+      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.operator_image.outputs.value }}
         exit-code: ${{ inputs.security_scan_exit_code }}
@@ -247,7 +279,7 @@ jobs:
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v2
-      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         sarif_file: 'trivy-results-verticadb-operator-image.sarif'
 
@@ -286,14 +318,23 @@ jobs:
         default: ghcr.io/${{ github.repository_owner }}/vertica-logger:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
+          ${{ github.event_name == 'pull_request' }} => ghcr.io/${{ github.repository_owner }}/vertica-logger:pr-${{ github.sha }}
 
-    - name: Login to GitHub Container registry
+    - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.vlogger_image == '' }}
+      if: ${{ inputs.vlogger_image == '' && github.event_name != 'pull_request' }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to GitHub Container registry for PRs
+      uses: docker/login-action@v2
+      if: ${{ inputs.vlogger_image == '' && github.event_name == 'pull_request' }}
+      with:
+        registry: ghcr.io
+        username: ${{ secrets.PR_GITHUB_USERNAME }}
+        password: ${{ secrets.PR_GITHUB_PAT }}
 
     - uses: actions/checkout@v2
       if: ${{ inputs.vlogger_image == '' }}
@@ -311,7 +352,7 @@ jobs:
 
     - name: Run the Trivy vulnerability scanner (sarif)
       uses: aquasecurity/trivy-action@0.6.2
-      if: ${{ inputs.run_security_scan != 'none' }}
+      if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.vlogger_image.outputs.value }}
         exit-code: ${{ inputs.security_scan_exit_code }}
@@ -321,7 +362,7 @@ jobs:
 
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v2
-      if: ${{ always() && inputs.run_security_scan != 'none' }}
+      if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         sarif_file: 'trivy-results-vertica-logger-image.sarif'
 
