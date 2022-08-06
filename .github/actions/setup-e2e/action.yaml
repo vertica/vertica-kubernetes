@@ -15,6 +15,7 @@ runs:
 
     - name: Load the docker images for PRs
       if: ${{ github.event_name == 'pull_request' }}
+      shell: bash
       run: |
         docker load --input full-vertica-image.tar
         docker load --input minimal-vertica-image.tar

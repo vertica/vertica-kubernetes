@@ -307,7 +307,7 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run cmd/operator/main.go -enable-profiler
 
-docker-build-operator: test ## Build operator docker image with the manager.
+docker-build-operator: ## Build operator docker image with the manager.
 	docker build -t ${OPERATOR_IMG} -f docker-operator/Dockerfile .
 
 docker-build-vlogger:  ## Build vertica logger docker image
