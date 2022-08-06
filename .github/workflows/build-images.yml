@@ -339,8 +339,10 @@ jobs:
       if: ${{ inputs.vlogger_image == '' && github.event_name == 'pull_request' }}
       with:
         registry: ghcr.io
-        username: ${{ secrets.PR_GITHUB_USERNAME }}
-        password: ${{ secrets.PR_GITHUB_PAT }}
+        #username: ${{ secrets.PR_GITHUB_USERNAME }}
+        #password: ${{ secrets.PR_GITHUB_PAT }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v2
       if: ${{ inputs.vlogger_image == '' }}
