@@ -149,3 +149,8 @@ USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
 LABEL maintainer="K8s Team"
+LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vertica \
+      org.opencontainers.image.title='Vertica Server' \
+      org.opencontainers.image.description='Runs the Vertica server that is optimized for use with the VerticaDB operator' \
+      org.opencontainers.image.url=https://github.com/vertica/vertica-kubernetes/ \
+      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm

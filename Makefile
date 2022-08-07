@@ -169,8 +169,8 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_PLUGIN_INSTALLED:=$(shell helm plugin list | grep -c '^unittest')
-KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^kuttl')
-STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^stern')
+KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^kuttl')
+STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^stern')
 INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
@@ -307,7 +307,7 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run cmd/operator/main.go -enable-profiler
 
-docker-build-operator: test ## Build operator docker image with the manager.
+docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
 	docker build -t ${OPERATOR_IMG} -f docker-operator/Dockerfile .
 
 docker-build-vlogger:  ## Build vertica logger docker image
@@ -363,9 +363,9 @@ docker-build-olm-catalog: opm ## Build an OLM catalog that includes our bundle (
 docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
-docker-build: docker-build-vertica docker-build-operator docker-build-vlogger docker-build-bundle ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
-docker-push: docker-push-vertica docker-push-operator docker-push-vlogger docker-push-bundle ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
 
 echo-images:  ## Print the names of all of the images used
 	@echo "OPERATOR_IMG=$(OPERATOR_IMG)"
