@@ -114,8 +114,8 @@ jobs:
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
       with:
-        name: full_vertica_image
-        path: full_vertica_image.tar
+        name: full-vertica-image
+        path: full-vertica-image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.full_vertica_image != '' }}
@@ -222,8 +222,8 @@ jobs:
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
       with:
-        name: minimal_vertica_image
-        path: minimal_vertica_image.tar
+        name: minimal-vertica-image
+        path: minimal-vertica-image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.minimal_vertica_image != '' }}
@@ -280,8 +280,8 @@ jobs:
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
       with:
-        name: operator_image
-        path: operator_image.tar
+        name: operator-image
+        path: operator-image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.operator_image != '' }}
@@ -370,8 +370,8 @@ jobs:
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
       with:
-        name: vlogger_image
-        path: vlogger_image.tar
+        name: vlogger-image
+        path: vlogger-image.tar
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.vlogger_image != '' }}

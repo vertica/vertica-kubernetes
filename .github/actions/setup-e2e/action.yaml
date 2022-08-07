@@ -17,7 +17,7 @@ runs:
       if: ${{ github.event_name == 'pull_request' }}
       shell: bash
       run: |
-        find .
+        find . -name \*.tar
         docker load --input full-vertica-image/full-vertica-image.tar
         docker load --input minimal-vertica-image/minimal-vertica-image.tar
         docker load --input operator-image/operator-image.tar
