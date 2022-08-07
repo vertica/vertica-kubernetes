@@ -164,6 +164,7 @@ jobs:
       run: |
         echo "Image Name: **${{ steps.full_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.full_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.full_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
         echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
@@ -236,6 +237,7 @@ jobs:
       run: |
         echo "Image Name: **${{ steps.minimal_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.minimal_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.minimal_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
         echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
@@ -328,6 +330,7 @@ jobs:
       run: |
         echo "Image Name: **${{ steps.operator_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.operator_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.operator_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
@@ -420,6 +423,7 @@ jobs:
       run: |
         echo "Image Name: **${{ steps.vlogger_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.vlogger_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.vlogger_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY

@@ -1,6 +1,6 @@
 name: Scorecard tests
 
-on: [push, workflow_call]
+on: [workflow_call]
 
 jobs:
 
