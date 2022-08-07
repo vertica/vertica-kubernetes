@@ -109,7 +109,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
-        docker save ${{ steps.full_vertica_image.outputs.value }} > full_vertica_image.tar
+        docker save ${{ steps.full_vertica_image.outputs.value }} > full-vertica-image.tar
 
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
@@ -217,7 +217,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
-        docker save ${{ steps.minimal_vertica_image.outputs.value }} > minimal_vertica_image.tar
+        docker save ${{ steps.minimal_vertica_image.outputs.value }} > minimal-vertica-image.tar
 
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
@@ -275,7 +275,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
-        docker save ${{ steps.operator_image.outputs.value }} > operator_image.tar
+        docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
@@ -365,7 +365,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
-        docker save ${{ steps.vlogger_image.outputs.value }} > vlogger_image.tar
+        docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
 
     - uses: actions/upload-artifact@v2
       if: ${{ github.event_name == 'pull_request' }}
