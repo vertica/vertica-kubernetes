@@ -168,6 +168,9 @@ jobs:
         echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
+        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.full_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
+        echo "**" >> $GITHUB_STEP_SUMMARY
 
   build-server-minimal:
     runs-on: ubuntu-latest
@@ -241,6 +244,9 @@ jobs:
         echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
+        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.minimal_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
+        echo "**" >> $GITHUB_STEP_SUMMARY
 
   build-operator:
     runs-on: ubuntu-latest
