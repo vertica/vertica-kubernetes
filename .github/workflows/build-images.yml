@@ -168,6 +168,7 @@ jobs:
         echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image Digest: **$(docker images --format '{{.Digest}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.full_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
@@ -244,6 +245,7 @@ jobs:
         echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image Digest: **$(docker images --format '{{.Digest}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.minimal_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
@@ -340,6 +342,7 @@ jobs:
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image Digest: **$(docker images --format '{{.Digest}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
 
   build-vlogger:
     runs-on: ubuntu-latest
@@ -433,4 +436,5 @@ jobs:
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
         echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image Digest: **$(docker images --format '{{.Digest}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
 
