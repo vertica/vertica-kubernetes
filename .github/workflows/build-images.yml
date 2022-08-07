@@ -165,6 +165,8 @@ jobs:
         echo "Image Name: **${{ steps.full_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.full_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Scanned: ${{ inputs.run_security_scan == 'all' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.full_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.full_vertica_image.outputs.valul }})**" >> $GITHUB_STEP_SUMMARY
 
   build-server-minimal:
     runs-on: ubuntu-latest
@@ -235,6 +237,8 @@ jobs:
         echo "Image Name: **${{ steps.minimal_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.minimal_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.minimal_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.minimal_vertica_image.outputs.valul }})**" >> $GITHUB_STEP_SUMMARY
 
   build-operator:
     runs-on: ubuntu-latest
@@ -325,6 +329,8 @@ jobs:
         echo "Image Name: **${{ steps.operator_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.operator_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.operator_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.operator_image.outputs.valul }})**" >> $GITHUB_STEP_SUMMARY
 
   build-vlogger:
     runs-on: ubuntu-latest
@@ -415,4 +421,6 @@ jobs:
         echo "Image Name: **${{ steps.vlogger_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.vlogger_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Scanned: ${{ inputs.run_security_scan != 'none' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker images --format '{{.Size}}' ${{ steps.vlogger_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker images --format '{{.ID}}' ${{ steps.vlogger_image.outputs.valul }})**" >> $GITHUB_STEP_SUMMARY
 
