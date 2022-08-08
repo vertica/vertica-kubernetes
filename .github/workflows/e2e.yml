@@ -48,6 +48,14 @@ on:
         - all
         - none
         - all, except vertica server
+      build_release_assets:
+        description: 'Build the release assets?'
+        type: choice
+        options:
+        - all
+        - none
+        default: none
+        required: false
 
 jobs:
   build:
@@ -68,6 +76,10 @@ jobs:
 
   scorecardtests:
     uses: ./.github/workflows/scorecardtests.yml
+
+  build-release-assets:
+    uses: ./.github/workflows/build-release-assets.yml
+    if: ${{ inputs.build_release_assets == 'all' }}
 
   e2e-s3:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 's3' || inputs.e2e_test_suites == '' }}
