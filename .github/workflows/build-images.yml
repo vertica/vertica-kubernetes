@@ -76,7 +76,7 @@ jobs:
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.full_vertica_image == '' && github.event_name != 'pull_request' }}
+      if: ${{ github.event_name != 'pull_request' && inputs.full_vertica_image == '' || startsWith(inputs.full_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -189,7 +189,7 @@ jobs:
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.minimal_vertica_image == '' && github.event_name != 'pull_request' }}
+      if: ${{ github.event_name != 'pull_request' && inputs.minimal_vertica_image == '' || startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -265,7 +265,7 @@ jobs:
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.operator_image == '' && github.event_name != 'pull_request' }}
+      if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' || startsWith(inputs.operator_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -358,7 +358,7 @@ jobs:
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ inputs.vlogger_image == '' && github.event_name != 'pull_request' }}
+      if: ${{ github.event_name != 'pull_request' && inputs.vlogger_image == '' || startsWith(inputs.vlogger_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
