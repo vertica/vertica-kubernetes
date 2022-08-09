@@ -325,4 +325,16 @@ var _ = Describe("podfacts", func() {
 		Expect(setShardSubscription("3\n", pf)).Should(Succeed())
 		Expect(pf.shardSubscriptions).Should(Equal(3))
 	})
+
+	It("should parse depot details output", func() {
+		pf := &PodFact{}
+		Expect(pf.setDepotDetails("1248116736|60%\n")).Should(Succeed())
+		Expect(pf.maxDepotSize).Should(Equal(1248116736))
+		Expect(pf.depotDiskPercentSize).Should(Equal("60%"))
+		Expect(pf.setDepotDetails("3248116736|\n")).Should(Succeed())
+		Expect(pf.maxDepotSize).Should(Equal(3248116736))
+		Expect(pf.depotDiskPercentSize).Should(Equal(""))
+		Expect(pf.setDepotDetails("a|b|c")).ShouldNot(Succeed())
+		Expect(pf.setDepotDetails("not-a-number|blah")).ShouldNot(Succeed())
+	})
 })

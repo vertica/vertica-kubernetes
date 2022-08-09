@@ -126,6 +126,14 @@ type PodFact struct {
 	// We add annotations to the pod for the k8s DC table.  This is an
 	// indication that the pod already has them.
 	hasDCTableAnnotations bool
+
+	// If the depot is sized to be a % of the local disk, this is the
+	// percentage.  If depot is a fixed sized, then this is empty.  This is only
+	// valid if the database is up.
+	depotDiskPercentSize string
+
+	// The size of the depot in bytes.  This is only valid if the database is up.
+	maxDepotSize int
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -242,6 +250,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkIsLogrotateWritable,
 		p.checkThatConfigShareExists,
 		p.checkShardSubscriptions,
+		p.queryDepotDetails,
 	}
 
 	for _, fn := range fns {
@@ -377,6 +386,46 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 		return nil
 	}
 	return setShardSubscription(stdout, pf)
+}
+
+// queryDepotDetails will query the database to get info about the depot for the node
+func (p *PodFacts) queryDepotDetails(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	// This check depends on the database being up
+	if !pf.isPodRunning || !pf.upNode {
+		return nil
+	}
+	cmd := []string{
+		"-tAc",
+		fmt.Sprintf("select max_size, disk_percent from storage_locations "+
+			"where location_usage = 'DEPOT' and node_name = '%s'", pf.vnodeName),
+	}
+	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		// An error implies the server is down, so skipping this check.
+		return nil
+	}
+	return pf.setDepotDetails(stdout)
+}
+
+// setDepotDetails will set depot details in the PodFacts based on the query output
+func (p *PodFact) setDepotDetails(op string) error {
+	// For testing purposes, return without error if there is no output
+	if op == "" {
+		return nil
+	}
+	lines := strings.Split(op, "\n")
+	cols := strings.Split(lines[0], "|")
+	const ExpectedCols = 2
+	if len(cols) != ExpectedCols {
+		return fmt.Errorf("expected %d columns from storage_locations query but only got %d", ExpectedCols, len(cols))
+	}
+	var err error
+	p.maxDepotSize, err = strconv.Atoi(cols[0])
+	if err != nil {
+		return err
+	}
+	p.depotDiskPercentSize = cols[1]
+	return nil
 }
 
 // checkDCTableAnnotations will check if the pod has the necessary annotations

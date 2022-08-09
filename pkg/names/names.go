@@ -81,3 +81,15 @@ func GenPodNameFromSts(vdb *vapi.VerticaDB, sts *appsv1.StatefulSet, podIndex in
 		Namespace: vdb.Namespace,
 	}
 }
+
+// GenPVCName returns the name of a specific pod's PVC.  This is for test purposes only.
+func GenPVCName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
+	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s-%s-%d", vapi.LocalDataPVC, vdb.Name, sc.Name, podIndex))
+}
+
+// GenPVName returns the name of a dummy PV for test purposes
+func GenPVName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
+	return types.NamespacedName{
+		Name: fmt.Sprintf("pv-%s-%s-%s-%d", vapi.LocalDataPVC, vdb.Name, sc.Name, podIndex),
+	}
+}

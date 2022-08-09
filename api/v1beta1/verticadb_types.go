@@ -505,7 +505,9 @@ type LocalStorage struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="500Gi"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The minimum size of the local data volume when picking a PV.
+	// The minimum size of the local data volume when picking a PV.  If changing
+	// this after the PV have been created, it will cause a resize of the PV to
+	// the new size.  When changing the value, it can only increase.
 	RequestSize resource.Quantity `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -917,8 +919,9 @@ func MakeVDB() *VerticaDB {
 				CredentialSecret: "s3-auth",
 			},
 			Local: LocalStorage{
-				DataPath:  "/data",
-				DepotPath: "/depot",
+				DataPath:    "/data",
+				DepotPath:   "/depot",
+				RequestSize: resource.MustParse("10Gi"),
 			},
 			KSafety:    KSafety1,
 			DBName:     "db",

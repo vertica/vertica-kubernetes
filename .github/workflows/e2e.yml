@@ -54,7 +54,7 @@ on:
         options:
         - all
         - none
-        default: none
+        default: all
         required: false
 
 jobs:
