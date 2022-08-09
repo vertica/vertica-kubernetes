@@ -44,6 +44,7 @@ RUN set -x \
   --license CE \
   --hosts 127.0.0.1 \
   --no-system-configuration \
+  --ignore-install-config \
   -U \
   --data-dir /home/dbadmin \
   && mkdir -p /home/dbadmin/licensing/ce \
