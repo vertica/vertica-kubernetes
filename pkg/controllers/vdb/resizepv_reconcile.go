@@ -148,7 +148,7 @@ func (r *ResizePVReconcile) updatePVC(ctx context.Context, pvc *corev1.Persisten
 func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
 	pf *PodFact) (ctrl.Result, error) {
 	if !pf.upNode {
-		r.VRec.Log.Info("Depot size needs to be updated in vertica. Requeue to wait for vertica to come up")
+		r.VRec.Log.Info("Depot size needs to be checked in vertica. Requeue to wait for vertica to come up")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if pf.depotDiskPercentSize == "" {
@@ -174,6 +174,8 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 	// depot size differently (i.e. rounding, etc.)
 	depotSizeLB := (curLocalDataSize * int64(dpAsInt) / 100) - (5 * 1024 * 1024)
 	if int64(pf.maxDepotSize) >= depotSizeLB {
+		r.VRec.Log.Info("Depot resize isn't needed in Vertica",
+			"cur depot size", pf.maxDepotSize, "expected depot size", depotSizeLB)
 		return ctrl.Result{}, nil
 	}
 	r.VRec.Log.Info("alter_location_size needed", "curLocalDataSize", curLocalDataSize,
@@ -204,7 +206,8 @@ func (r *ResizePVReconcile) getLocalDataSize(ctx context.Context, pvc *corev1.Pe
 	}
 	// If the output is empty, we will use the size from the PVC.  These is here
 	// for test purposes.  The PVC capacity was close to 100mb larger than then
-	// disk size that Vertica calculates, which is why it isn't the default.
+	// disk size that Vertica calculates, which is why it isn't preferred way of
+	// calculating.
 	if op == "" {
 		curCapacity, ok := pvc.Status.Capacity.Storage().AsInt64()
 		if !ok {
