@@ -109,7 +109,6 @@ func (r *ResizePVReconcile) reconcilePvc(ctx context.Context, pf *PodFact, pvc *
 
 	// Requeue to wait for the PVC to be expanded.
 	r.VRec.Log.Info("Wait for PVC to be expanded", "pvc", pvc.Name, "capacity", pvc.Status.Capacity.Storage())
-
 	return ctrl.Result{Requeue: true}, nil
 }
 
@@ -207,7 +206,6 @@ func (r *ResizePVReconcile) getLocalDataSize(ctx context.Context, pvc *corev1.Pe
 	// for test purposes.  The PVC capacity was close to 100mb larger than then
 	// disk size that Vertica calculates, which is why it isn't the default.
 	if op == "" {
-		// If we can't represent the capacity as an int, we will unconditionally update the location size
 		curCapacity, ok := pvc.Status.Capacity.Storage().AsInt64()
 		if !ok {
 			return 0, fmt.Errorf("cannot get capacity as int64: %s", pvc.Status.Capacity.Storage().String())

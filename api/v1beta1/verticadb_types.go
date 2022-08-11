@@ -507,7 +507,7 @@ type LocalStorage struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The minimum size of the local data volume when picking a PV.  If changing
 	// this after the PV have been created, it will cause a resize of the PV to
-	// the new size.  When changing the value, it can only increase.
+	// the new size.
 	RequestSize resource.Quantity `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional

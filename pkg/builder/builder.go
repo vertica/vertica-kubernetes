@@ -626,6 +626,7 @@ func BuildPVC(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	}
 }
 
+// BuildPV will build a PV for test purposes
 func BuildPV(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.PersistentVolume {
 	hostPathType := corev1.HostPathDirectoryOrCreate
 	return &corev1.PersistentVolume{
