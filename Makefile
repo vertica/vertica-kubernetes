@@ -84,9 +84,6 @@ export OPERATOR_IMG
 # Image URL to use for building/pushing of the vertica server
 VERTICA_IMG ?= $(IMG_REPO)vertica-k8s:$(TAG)
 export VERTICA_IMG
-# Image URL to use for building/pushing of the vertica server with java installed
-VERTICA_UDX_JAVA_IMG ?= $(IMG_REPO)vertica-udx-java-k8s:$(TAG)
-export VERTICA_UDX_JAVA_IMG
 # Image URL to use for building/pushing of the java udx init container
 UDX_JAVA_IMG ?= $(IMG_REPO)udx-java:$(TAG)
 export UDX_JAVA_IMG
@@ -344,18 +341,6 @@ ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VERTICA_IMG}
 else
 	scripts/push-to-kind.sh -i ${VERTICA_IMG}
-endif
-
-.PHONY: docker-build-vertica-udx-java
-docker-build-vertica-udx-java: docker-vertica-udx-java/Dockerfile ## Build vertica server docker image with jdk installed
-	cd docker-vertica-udx-java \
-	&& make VERTICA_IMG=${VERTICA_UDX_JAVA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG}
-
-docker-push-vertica-udx-java:  ## Push vertica server docker image with jdk installed
-ifeq ($(shell $(KIND_CHECK)), 0)
-	docker push ${VERTICA_UDX_JAVA_IMG}
-else
-	scripts/push-to-kind.sh -i ${VERTICA_UDX_JAVA_IMG}
 endif
 
 .PHONY: docker-build-udx-java

@@ -4,6 +4,7 @@ BASE_OS_VERSION?=focal-20220316
 VERTICA_IMG?=vertica-k8s
 MINIMAL_VERTICA_IMG?=
 VERTICA_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_RPM))
+USING_INIT?=
 
 all: docker-build-vertica
 
@@ -18,4 +19,5 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 		--build-arg VERTICA_RPM=${VERTICA_RPM} \
 		--build-arg BASE_OS_VERSION=${BASE_OS_VERSION} \
 		--build-arg BUILDER_OS_VERSION=${BUILDER_OS_VERSION} \
+		--build-arg USING_INIT=${USING_INIT} \
 		-t ${VERTICA_IMG} .

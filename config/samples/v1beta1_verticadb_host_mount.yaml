@@ -29,16 +29,6 @@ spec:
   volumeMounts:
     - mountPath: /host
       name: downloads
-  init:
-    - name: java
-      image: "udx-java:1.6.0"
-    #  in the image: 2 part, 1: download jre; 2: FROM: copy jvm folder from first stage to second stage
-      command: "time cp -r /tmp/java-se-8u41-ri/ /export/java-se-8u41-ri/"
-      paths:
-        - initPath: /export/java-se-8u41-ri/
-          serverPath: /opt/jvm/
-  # annotations:
-  #   JAVA_TOOL_OPTIONS: "-Xms2G -Xmx2G"
   kSafety: "0"
   subclusters:
     - name: defaultsubcluster
