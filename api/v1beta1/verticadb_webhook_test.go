@@ -517,6 +517,17 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.EncryptSpreadComm = EncryptSpreadCommWithVertica
 		validateSpecValuesHaveErr(vdb, false)
 	})
+
+	It("should validate we cannot have invalid paths for depot and data", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Local.DataPath = "/home/dbadmin"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Local.DataPath = "/data"
+		vdb.Spec.Local.DepotPath = "/opt/vertica/bin"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Local.DepotPath = "/depot"
+		validateSpecValuesHaveErr(vdb, false)
+	})
 })
 
 func createVDBHelper() *VerticaDB {
