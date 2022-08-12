@@ -1,0 +1,5 @@
+kind: Changed
+body: Update server container base image to Ubuntu focal-20220801
+time: 2022-08-12T08:28:10.182187973-03:00
+custom:
+  Issue: "245"
