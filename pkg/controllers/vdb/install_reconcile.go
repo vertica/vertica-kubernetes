@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -93,6 +94,7 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
+		d.generateHTTPSCerts,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -179,6 +181,37 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 		if !p.configShareExists {
 			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer,
 				"mkdir", paths.ConfigSharePath)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// generateHTTPSCerts will generate the necessary certs to be able to start and
+// communicate with the servers http service.
+func (d *InstallReconciler) generateHTTPSCerts(ctx context.Context) error {
+	// Early out if the http service isn't enabled
+	if !d.Vdb.Spec.EnableHTTPService {
+		return nil
+	}
+	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
+	if !ok || vinf.IsOlder(version.HTTPServiceMinVersion) {
+		d.Log.Info("Skipping https certs check because the vertica version doesn't have support for the https service")
+		return nil
+	}
+	for _, p := range d.PFacts.Detail {
+		if !p.isPodRunning {
+			continue
+		}
+		if !p.httpsCertsExists {
+			cmd := []string{
+				"sudo",
+				"/opt/vertica/sbin/install_vertica",
+				"--generate-https-certs-only",
+			}
+			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer, cmd...)
 			if err != nil {
 				return err
 			}

@@ -116,6 +116,9 @@ type PodFact struct {
 	// True if /opt/vertica/config/share exists
 	configShareExists bool
 
+	// True if /opt/vertica/config/https_certs exists
+	httpsCertsExists bool
+
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
 
@@ -137,6 +140,13 @@ type PodFacts struct {
 	Detail         PodFactDetail
 	NeedCollection bool
 }
+
+type CheckType string
+
+const (
+	CheckExists   CheckType = "-d"
+	CheckWritable CheckType = "-w"
+)
 
 // MakePodFacts will create a PodFacts object and return it
 func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
@@ -241,6 +251,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
 		p.checkThatConfigShareExists,
+		p.checkThatHTTPSCertsExists,
 		p.checkShardSubscriptions,
 	}
 
@@ -330,29 +341,30 @@ func (p *PodFacts) checkEulaAcceptance(ctx context.Context, vdb *vapi.VerticaDB,
 
 // checkLogrotateExists will verify that that /opt/vertica/config/logrotate exists
 func (p *PodFacts) checkLogrotateExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", paths.ConfigLogrotatePath); err == nil {
-			pf.configLogrotateExists = true
-		}
-	}
-	return nil
+	return p.checkDir(ctx, pf, CheckExists, paths.ConfigLogrotatePath, func() { pf.configLogrotateExists = true })
 }
 
 // checkIsLogrotateWritable will verify that dbadmin has write access to /opt/vertica/config/logrotate
 func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-w", paths.ConfigLogrotatePath); err == nil {
-			pf.configLogrotateWritable = true
-		}
-	}
-	return nil
+	return p.checkDir(ctx, pf, CheckWritable, paths.ConfigLogrotatePath, func() { pf.configLogrotateWritable = true })
 }
 
 // checkThatConfigShareExists will verify that /opt/vertica/config/share exists
 func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	return p.checkDir(ctx, pf, CheckExists, paths.ConfigSharePath, func() { pf.configShareExists = true })
+}
+
+// checkThatHTTPSCertsExists will verify that /opt/vertica/https_certs exists
+func (p *PodFacts) checkThatHTTPSCertsExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	return p.checkDir(ctx, pf, CheckExists, paths.HTTPSCertsPath, func() { pf.httpsCertsExists = true })
+}
+
+// checkDir is a general function that will check if a directory (exists,
+// writable, etc.) and callback to a function when it passes the check.
+func (p *PodFacts) checkDir(ctx context.Context, pf *PodFact, check CheckType, dir string, onSuccessCallback func()) error {
 	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-d", paths.ConfigSharePath); err == nil {
-			pf.configShareExists = true
+		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", string(check), dir); err == nil {
+			onSuccessCallback()
 		}
 	}
 	return nil

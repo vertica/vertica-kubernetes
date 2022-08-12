@@ -27,6 +27,7 @@ const (
 	ConfigPath             = "/opt/vertica/config"
 	ConfigSharePath        = "/opt/vertica/config/share"
 	ConfigLogrotatePath    = "/opt/vertica/config/logrotate"
+	HTTPSCertsPath         = "/opt/vertica/config/https_certs"
 	LogPath                = "/opt/vertica/log"
 	PodInfoPath            = "/etc/podinfo"
 	AdminToolsConf         = "/opt/vertica/config/admintools.conf"

@@ -22,6 +22,7 @@ testDirs:
   - tests/e2e-extra
   - tests/e2e-server-upgrade
   - tests/e2e-operator-upgrade-overlays
+  - tests/e2e-http-service
 parallel: 2
 timeout: 600
 commands:

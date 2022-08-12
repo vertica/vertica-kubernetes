@@ -310,6 +310,14 @@ type VerticaDBSpec struct {
 	// those capabilities to be removed you must explicitly include them in the
 	// drop list.
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=false
+	// +kubebuilder:validation:Optional
+	// Enable Vertica server's http service.  The http service opens up a
+	// REST interface that can be used for management and monitoring of the
+	// server.
+	EnableHTTPService bool `json:"enableHTTPService,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
