@@ -3,7 +3,7 @@
 # Copyright (c) 2021 Vertica
 #
 
-ARG BASE_OS_VERSION="focal-20220316"
+ARG BASE_OS_VERSION="focal-20220801"
 ARG BUILDER_OS_VERSION="7.9.2009"
 FROM centos:centos${BUILDER_OS_VERSION} as builder
 
