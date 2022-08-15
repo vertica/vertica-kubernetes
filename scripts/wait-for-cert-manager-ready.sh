@@ -58,5 +58,8 @@ while [[ $ERR_MSG != '' ]]; do
         exit 1
     fi
     sleep 1
-    ERR_MSG=$(kubectl apply -f config/samples/test-cert-manager.yaml 2>&1 1>/dev/null)
+    if kubectl apply -f config/samples/test-cert-manager.yaml 2>&1 1>/dev/null
+    then
+        break
+    fi
 done

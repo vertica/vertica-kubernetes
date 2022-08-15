@@ -11,33 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-mc-restart
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vertdb
-  shardCount: 16
-  subclusters:
-    - name: sc1
-      size: 1
-      isPrimary: true
-    - name: sc2
-      size: 1
-      isPrimary: true
-    - name: sc3
-      size: 2
-      isPrimary: false
-  requeueTime: 10
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build setup-vdb/overlay | kubectl -n $NAMESPACE apply -f - "

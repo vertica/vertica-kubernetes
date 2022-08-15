@@ -11,11 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-webhook
-spec:
-  local:
-    requestSize: 100Mi
+resources:
+  - setup-vdb.yaml
