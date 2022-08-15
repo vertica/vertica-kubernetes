@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: verticadb-sample
 spec:
-  image: "vertica-k8s-fat:1.6.0"
+  image: "vertica-k8s-fat:1.7.0"
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"

@@ -24,7 +24,6 @@
 # wander around in the image looking for things you can remove
 rm -r -f \
    /opt/vertica/examples \
-   /opt/vertica/sdk \
    /opt/vertica/packages/*/examples \
    /opt/vertica/oss/python*/lib/python*/test \
    /opt/vertica/oss/python*/lib/python*/unittest/test \
@@ -32,7 +31,13 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/site-packages/pip \
    /opt/vertica/oss/python*/lib/python*/config-[0-9]* \
    /opt/vertica/oss/python*/lib/python*/tkinter \
-   /opt/vertica/oss/python*/lib/python*/idlelib 
+   /opt/vertica/oss/python*/lib/python*/idlelib
+
+ # (optional) minimal images remove sdk folder which enables building UDx libraries
+if [ "$MINIMAL" = "YES" ] || [ "$MINIMAL" = "yes" ]
+then 
+  rm -r -f /opt/vertica/sdk
+fi
 
 # cleanup many of the __pycache__ directories 
 find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +

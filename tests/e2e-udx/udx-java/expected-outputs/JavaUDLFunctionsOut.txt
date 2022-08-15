@@ -1,0 +1,63 @@
+CREATE LIBRARY
+CREATE SOURCE FUNCTION
+CREATE PARSER FUNCTION
+CREATE PARSER FUNCTION
+CREATE FILTER FUNCTION
+CREATE TABLE
+ Rows Loaded 
+-------------
+          10
+(1 row)
+
+ i 
+---
+ 0
+ 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+(10 rows)
+
+TRUNCATE TABLE
+ i 
+---
+ 0
+ 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+(10 rows)
+
+TRUNCATE TABLE
+ i 
+---
+ 2
+ 2
+ 2
+ 2
+ 2
+(5 rows)
+
+TRUNCATE TABLE
+ Rows Loaded 
+-------------
+    10000000
+(1 row)
+
+  count   |  count   |    avg    
+----------+----------+-----------
+ 10000000 | 10000000 | 4999999.5
+(1 row)
+
+DROP TABLE
+DROP LIBRARY

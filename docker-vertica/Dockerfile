@@ -93,9 +93,6 @@ ARG DBADMIN_UID=5000
 # "apt-cache search jre | grep jre"
 ARG JRE_PKG=openjdk-8-jre-headless
 ARG MINIMAL
-ENV MINIMAL=${MINIMAL:-""}
-ARG USING_INIT=""
-ENV USING_INIT=${USING_INIT:-""}
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
@@ -140,8 +137,7 @@ RUN set -x \
   && rm -rf /var/lib/apt/lists/*
 RUN set -x \
   # Install jre if not minimal and not using init container
-  && if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") \
-     && ($USING_INIT != "YES" && $USING_INIT != "yes") ]]; then \
+  && if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") ]] ; then \
     apt-get -y update \
     && apt-get install -y --no-install-recommends $JRE_PKG \
     && rm -rf /var/lib/apt/lists/* ; \

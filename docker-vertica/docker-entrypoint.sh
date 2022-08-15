@@ -34,12 +34,12 @@ copy_config_files
 
 echo "Vertica container is now running"
 
-if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") \
-     && ($USING_INIT == "YES" || $USING_INIT == "yes") ]]; then
-    sudo mkdir -p /usr/lib/jvm
-    sudo cp -r /opt/jvm /usr/lib/
-    # echo $(ls /usr/lib)
-    sudo update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-se-8u41-ri/bin/java 1
-fi
+# if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") \
+#      && ($USING_INIT == "YES" || $USING_INIT == "yes") ]]; then
+#     sudo mkdir -p /usr/lib/jvm
+#     sudo cp -r /opt/jvm /usr/lib/
+#     # echo $(ls /usr/lib)
+#     sudo update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-se-8u41-ri/bin/java 1
+# fi
 
 sudo /usr/sbin/sshd -D
