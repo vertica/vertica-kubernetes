@@ -136,7 +136,7 @@ RUN set -x \
   sudo \
   && rm -rf /var/lib/apt/lists/*
 RUN set -x \
-  # Install jre if not minimal and not using init container
+  # Install jre if not minimal
   && if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") ]] ; then \
     apt-get -y update \
     && apt-get install -y --no-install-recommends $JRE_PKG \
@@ -153,14 +153,12 @@ RUN set -x \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
   && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
-  # Set JAVA_HOME environment variable if not minimal
+  # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
   && if [[ $MINIMAL != "YES" && $MINIMAL != "yes" ]]; then \
-    # echo "export JAVA_HOME=/usr" >> /home/dbadmin/.bashrc; \
     echo "JAVA_HOME=/usr" >> /etc/environment; \
   fi
 
 ENTRYPOINT [ "/usr/local/bin/docker-entrypoint.sh" ]
-# ENTRYPOINT "MINIMAL=${MINIMAL} USING_INIT=${USING_INIT} /usr/local/bin/docker-entrypoint.sh"
 
 # vertica port
 EXPOSE 5433

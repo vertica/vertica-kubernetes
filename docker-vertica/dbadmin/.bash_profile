@@ -12,4 +12,3 @@ export PATH
 
 export LANG=en_US.UTF-8
 export TZ=UTC
-# export JAVA_HOME=/usr

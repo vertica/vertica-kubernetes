@@ -1,14 +1,9 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  # upload the built library binaries
   - command: kubectl -n $NAMESPACE cp ../../../bin/udx-libs/build v-udx-java-sc1-0:/opt/vertica/sdk/examples
+  # upload the expected outputs of executing sql files
   - command: kubectl -n $NAMESPACE cp ./expected-outputs v-udx-java-sc1-0:/opt/vertica/sdk/examples
-  - command: kubectl -n $NAMESPACE exec v-udx-java-sc1-0 -- ls /opt/vertica/sdk/examples
-  - command: kubectl -n $NAMESPACE exec v-udx-java-sc1-0 -- ls /opt/vertica/sdk/examples/build
-  # - command: kubectl -n $NAMESPACE cp run-vdb-gen.sh v-vdb-gen-sc1-0:/tmp/run-vdb-gen.sh
-  # - command: kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- chmod +x /tmp/run-vdb-gen.sh
-  # - script: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- sh -c \"/tmp/run-vdb-gen.sh $NAMESPACE $(cd ../../.. && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2) $(kubectl get cm e2e -n $NAMESPACE -o jsonpath='{.data.caFileSecretName}')\" > /tmp/$NAMESPACE-vdb-gen.yaml"
-  # - command: cat /tmp/$NAMESPACE-vdb-gen.yaml
-  # # Apply the generated CR
-  # - command: kubectl -n $NAMESPACE apply -f /tmp/$NAMESPACE-vdb-gen.yaml
-  # - command: rm /tmp/$NAMESPACE-vdb-gen.yaml
+  # - command: kubectl -n $NAMESPACE exec v-udx-java-sc1-0 -- ls /opt/vertica/sdk/examples
+  # - command: kubectl -n $NAMESPACE exec v-udx-java-sc1-0 -- ls /opt/vertica/sdk/examples/build
