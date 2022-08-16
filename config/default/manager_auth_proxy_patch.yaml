@@ -49,4 +49,3 @@ spec:
         - "--level=info"
         - "--dev=false"
         - "--prefix-name=verticadb-operator"
-        - "--http-server-tls-secret-name=verticadb-operator-http-server-cert"

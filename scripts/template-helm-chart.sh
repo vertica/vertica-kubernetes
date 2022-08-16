@@ -53,11 +53,7 @@ cat >>$TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml << END
 {{ end }}
 END
 # 5. Template the tls secret name
-sed -i 's/secretName: webhook-server-cert/secretName: {{ include "vdb-op.webhookTLSSecret" }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-for fn in verticadb-operator-controller-manager-deployment.yaml verticadb-operator-serving-cert-certificate.yaml
-do
-  sed -i 's/secretName: .*/secretName: {{ include "vdb-op.webhookTLSSecret" . }}/' $TEMPLATE_DIR/$fn
-done
+sed -i 's/secretName: webhook-server-cert/secretName: {{ default "webhook-server-cert" .Values.webhook.tlsSecret }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 for fn in verticadb-operator-selfsigned-issuer-issuer.yaml verticadb-operator-serving-cert-certificate.yaml
 do
   sed -i '1s/^/{{- if not .Values.webhook.tlsSecret }}\n/' $TEMPLATE_DIR/$fn
@@ -136,12 +132,3 @@ perl -i -0777 -pe 's/(memory: 64Mi)/$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-op
 # In the config/ directory we hardcoded everything to start with
 # verticadb-operator.
 sed -i 's/verticadb-operator/{{ include "vdb-op.name" . }}/g' $TEMPLATE_DIR/*yaml
-
-# 17. Template the tls secret for the http server
-sed -i 's/--http-server-tls-secret-name=.*/--http-server-tls-secret-name={{ include "vdb-op.httpTLSSecret" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i 's/secretName: .*/secretName: {{ include "vdb-op.httpTLSSecret" . }}/' $TEMPLATE_DIR/verticadb-operator-http-server-cert-certificate.yaml
-for fn in verticadb-operator-http-server-selfsigned-issuer-issuer.yaml verticadb-operator-http-server-cert-certificate.yaml
-do
-  sed -i '1s/^/{{- if not .Values.http.tlsSecret }}\n/' $TEMPLATE_DIR/$fn
-  echo "{{- end -}}" >> $TEMPLATE_DIR/$fn
-done

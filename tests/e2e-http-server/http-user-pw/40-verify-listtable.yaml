@@ -19,24 +19,21 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-enable-http-endpoint
+  name: script-verify-listtable
 data:
   entrypoint.sh: |-
     #!/bin/bash
-    set -o errexit
-    set -o xtrace
 
-    # Linked builds will not start the http service by default.  We need to
-    # point to the server conf to make it happen.  This step isn't needed when
-    # running an image built from an official Vertica RPM.
-    kubectl exec -it svc/v-http-basics-sc -- vsql -c "select set_config_parameter('HTTPServerConf', '/opt/vertica/config/https_certs/httpstls.json')"
-    kubectl exec -it pod/v-http-basics-sc-0 -- vsql -c "select http_server_ctrl('restart','')"
-    kubectl exec -it pod/v-http-basics-sc-1 -- vsql -c "select http_server_ctrl('restart','')"
+    kubectl exec -it svc/v-http-basics-sc -- vsql -w superuser -c "create table IF NOT EXISTS t1 (c1 int)"
+
+    LIST_TABLE=$(curl -k --user dbadmin:superuser https://v-http-basics-sc-0.v-http-basics:8443/test/listtable)
+    echo $LIST_TABLE
+    echo $LIST_TABLE | grep -cq "public.t1"
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-enable-http-endpoint
+  name: test-verify-listtable
   labels:
     stern: include
 spec:
@@ -54,4 +51,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-enable-http-endpoint
+        name: script-verify-listtable

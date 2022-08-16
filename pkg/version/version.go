@@ -48,8 +48,8 @@ const (
 	StartDBAcceptsHostListVersion = "v11.0.1"
 	// The version of the server that doesn't support cgroup v2
 	CGroupV2UnsupportedVersion = "v12.0.0"
-	// The minimum version that can start the server's http service
-	HTTPServiceMinVersion = "v12.0.1"
+	// The minimum version that can start Vertica's http server
+	HTTPServerMinVersion = "v12.0.1"
 )
 
 // UpgradePaths has all of the vertica releases supported by the operator.  For

@@ -28,9 +28,11 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -94,7 +96,7 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
-		d.generateHTTPSCerts,
+		d.generateHTTPCerts,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -189,33 +191,33 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 	return nil
 }
 
-// generateHTTPSCerts will generate the necessary certs to be able to start and
-// communicate with the servers http service.
-func (d *InstallReconciler) generateHTTPSCerts(ctx context.Context) error {
+// generateHTTPCerts will generate the necessary certs to be able to start and
+// communicate with the Vertica's http server.
+func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 	// Early out if the http service isn't enabled
-	if !d.Vdb.Spec.EnableHTTPService {
+	if !d.Vdb.Spec.EnableHTTPServer {
 		return nil
 	}
 	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
-	if !ok || vinf.IsOlder(version.HTTPServiceMinVersion) {
-		d.Log.Info("Skipping https certs setup because the vertica version doesn't have support for the https service")
+	if !ok || vinf.IsOlder(version.HTTPServerMinVersion) {
+		d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
+			"Skipping http server cert setup because the Vertica version doesn't have "+
+				"support for it. A Vertica version of '%s' or newer is needed", version.HTTPServerMinVersion)
 		return nil
 	}
 	for _, p := range d.PFacts.Detail {
 		if !p.isPodRunning {
 			continue
 		}
-		// SPILLY - verify the tls version is 1.2 or higher
-		// "_VERT_ROOT_OVERRIDE=yes " + // Allows us to run the installer as a normal user, not as root
 		if !p.httpTLSConfExists {
 			cmd := []string{
 				"bash",
 				"-c",
 				"sudo /opt/vertica/sbin/install_vertica " +
 					"--generate-bootstrap-tls-conf-only " +
-					"--tls-key " + fmt.Sprintf("%s/%s ", paths.HTTPServiceSecretRoot, paths.HTTPServicePrivKey) +
-					"--tls-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServiceSecretRoot, paths.HTTPServiceChainCert) +
-					"--ca-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServiceSecretRoot, paths.HTTPServiceCACert),
+					"--tls-key " + fmt.Sprintf("%s/%s ", paths.HTTPServerCertsRoot, corev1.TLSPrivateKeyKey) +
+					"--tls-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServerCertsRoot, corev1.TLSCertKey) +
+					"--ca-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServerCertsRoot, HTTPServerCACrtName),
 			}
 			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer, cmd...)
 			if err != nil {

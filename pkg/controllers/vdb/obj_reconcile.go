@@ -131,19 +131,18 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.EnableHTTPService {
-		// SPILLY - need a UT
-		// SPILLY - I don't really like this.  At some point enable HTTP service
-		// is going to be the default.  So anyone creating a CR will now have to
-		// create a secret for it.  I think we would better off have a default
-		// secret to use if the secret is omitted. Maybe!?
-		if o.Vdb.Spec.HTTPServiceSecret == "" {
-			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServiceSecretNeeded,
-				"The httpServiceSecret must be set when the http service is enabled")
+	if o.Vdb.Spec.EnableHTTPServer {
+		// When the HTTP server is enabled, a secret must exist that has the
+		// certs to use for it.  There is a reconciler that is run before this
+		// that will create the secret.  We will requeue if we find the Vdb
+		// doesn't have the secret set.
+		if o.Vdb.Spec.HTTPServerSecret == "" {
+			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
+				"The httpServerSecret must be set when Vertica's http server is enabled")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPServiceSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPServerSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -164,9 +163,9 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.HTTPServiceSecret != "" {
-		keyNames := []string{paths.HTTPServiceCACert, paths.HTTPServiceChainCert, paths.HTTPServicePrivKey}
-		if res, err := o.checkSecretHasKeys(ctx, "HTTPService", o.Vdb.Spec.HTTPServiceSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+	if o.Vdb.Spec.HTTPServerSecret != "" {
+		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, HTTPServerCACrtName}
+		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.HTTPServerSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}

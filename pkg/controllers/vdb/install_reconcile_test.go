@@ -215,20 +215,20 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 	It("should generate certs only on supported vertica versions", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.EnableHTTPService = true
+		vdb.Spec.EnableHTTPServer = true
 		vdb.Annotations[vapi.VersionAnnotation] = "v12.0.0"
 
 		fpr := &cmds.FakePodRunner{}
 		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
-		err := drecon.generateHTTPSCerts(ctx)
+		err := drecon.generateHTTPCerts(ctx)
 		Expect(err).Should(Succeed())
 		cmds := fpr.FindCommands("install_vertica")
 		Expect(len(cmds)).Should(Equal(0))
 
-		vdb.Annotations[vapi.VersionAnnotation] = version.HTTPServiceMinVersion
-		err = drecon.generateHTTPSCerts(ctx)
+		vdb.Annotations[vapi.VersionAnnotation] = version.HTTPServerMinVersion
+		err = drecon.generateHTTPCerts(ctx)
 		Expect(err).Should(Succeed())
 		cmds = fpr.FindCommands("install_vertica")
 		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))

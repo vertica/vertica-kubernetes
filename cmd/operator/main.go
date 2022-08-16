@@ -65,14 +65,13 @@ var (
 )
 
 type FlagConfig struct {
-	MetricsAddr             string
-	EnableLeaderElection    bool
-	ProbeAddr               string
-	EnableProfiler          bool
-	ServiceAccountName      string
-	PrefixName              string // Prefix of the name of all objects created when the operator was deployed
-	HTTPServerTLSSecretName string
-	LogArgs                 *Logging
+	MetricsAddr          string
+	EnableLeaderElection bool
+	ProbeAddr            string
+	EnableProfiler       bool
+	ServiceAccountName   string
+	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
+	LogArgs              *Logging
 }
 
 type Logging struct {
@@ -122,8 +121,6 @@ func (fc *FlagConfig) setFlagArgs() {
 		"The name of the serviceAccount to use.")
 	flag.StringVar(&fc.PrefixName, "prefix-name", "verticadb-operator",
 		"The common prefix for all objects created during the operator deployment")
-	flag.StringVar(&fc.HTTPServerTLSSecretName, "http-server-tls-secret-name", "verticadb-operator-http-server-certs",
-		"The name of the secret that will be used as the default TLS certificates in the HTTP server")
 	fc.LogArgs = &Logging{}
 	fc.LogArgs.setLoggingFlagArgs()
 }
@@ -240,9 +237,8 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, flagArgs
 		Cfg:    restCfg,
 		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
 		DeploymentNames: builder.DeploymentNames{
-			ServiceAccountName:    flagArgs.ServiceAccountName,
-			PrefixName:            flagArgs.PrefixName,
-			HTTPServiceSecretName: flagArgs.HTTPServerTLSSecretName,
+			ServiceAccountName: flagArgs.ServiceAccountName,
+			PrefixName:         flagArgs.PrefixName,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")

@@ -19,19 +19,19 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verify-http-endpoint
+  name: script-wait-for-http-server
 data:
   entrypoint.sh: |-
     #!/bin/bash
 
-    # Wait for the service to be up
+    # Wait for the http server to be up
     for pod in 0 1
     do
       set +o errexit
       set +o xtrace
 
       timeout 60 bash -c -- "\
-          while ! kubectl exec -it pod/v-http-basics-sc-$pod -- vsql -tAc \"select http_server_ctrl('status_bool','')\" | grep -cq '1'
+          while ! kubectl exec -it pod/v-http-basics-sc-$pod -- vsql -w superuser -tAc \"select http_server_ctrl('status_bool','')\" | grep -cq '1'
           do \
             sleep 0.1; \
           done" &
@@ -42,20 +42,14 @@ data:
       wait $pid
     done
     
-    HTTP_STATUS=$(kubectl exec -it svc/v-http-basics-sc -- vsql -c "select http_server_ctrl('status','')")
+    HTTP_STATUS=$(kubectl exec -it svc/v-http-basics-sc -- vsql -w superuser -c "select http_server_ctrl('status','')")
     echo $HTTP_STATUS
     echo $HTTP_STATUS | grep -cq "Http server is running"
-
-    kubectl exec -it svc/v-http-basics-sc -- vsql -c "create table IF NOT EXISTS t1 (c1 int)"
-
-    LIST_TABLE=$(curl -k --user dbadmin: https://v-http-basics-sc-0.v-http-basics:8443/test/listtable)
-    echo $LIST_TABLE
-    echo $LIST_TABLE | grep -cq "public.t1"
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-verify-http-endpoint
+  name: test-wait-for-http-server
   labels:
     stern: include
 spec:
@@ -73,4 +67,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-verify-http-endpoint
+        name: script-wait-for-http-server
