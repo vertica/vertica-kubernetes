@@ -198,18 +198,24 @@ func (d *InstallReconciler) generateHTTPSCerts(ctx context.Context) error {
 	}
 	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
 	if !ok || vinf.IsOlder(version.HTTPServiceMinVersion) {
-		d.Log.Info("Skipping https certs check because the vertica version doesn't have support for the https service")
+		d.Log.Info("Skipping https certs setup because the vertica version doesn't have support for the https service")
 		return nil
 	}
 	for _, p := range d.PFacts.Detail {
 		if !p.isPodRunning {
 			continue
 		}
-		if !p.httpsCertsExists {
+		// SPILLY - verify the tls version is 1.2 or higher
+		// "_VERT_ROOT_OVERRIDE=yes " + // Allows us to run the installer as a normal user, not as root
+		if !p.httpTLSConfExists {
 			cmd := []string{
-				"sudo",
-				"/opt/vertica/sbin/install_vertica",
-				"--generate-https-certs-only",
+				"bash",
+				"-c",
+				"sudo /opt/vertica/sbin/install_vertica " +
+					"--generate-bootstrap-tls-conf-only " +
+					"--tls-key " + fmt.Sprintf("%s/%s ", paths.HTTPServiceSecretRoot, paths.HTTPServicePrivKey) +
+					"--tls-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServiceSecretRoot, paths.HTTPServiceChainCert) +
+					"--ca-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServiceSecretRoot, paths.HTTPServiceCACert),
 			}
 			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer, cmd...)
 			if err != nil {

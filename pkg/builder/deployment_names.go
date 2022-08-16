@@ -19,8 +19,9 @@ import "fmt"
 
 // DeploymentNames gives context about the names used in deploying the operator
 type DeploymentNames struct {
-	ServiceAccountName string // Name of the service account to use for vertica pods
-	PrefixName         string // The common prefix for all objects created when deploying the operator
+	ServiceAccountName    string // Name of the service account to use for vertica pods
+	HTTPServiceSecretName string // Name of the secret that will be used as the default credentials for the http service.
+	PrefixName            string // The common prefix for all objects created when deploying the operator
 }
 
 func (d *DeploymentNames) getConfigMapName() string {
@@ -31,7 +32,8 @@ func (d *DeploymentNames) getConfigMapName() string {
 // This is for test purposes.
 func DefaultDeploymentNames() *DeploymentNames {
 	return &DeploymentNames{
-		ServiceAccountName: "verticadb-operator-controller-manager",
-		PrefixName:         "verticadb-operator",
+		ServiceAccountName:    "verticadb-operator-controller-manager",
+		HTTPServiceSecretName: "verticadb-operator-http-service-credentials",
+		PrefixName:            "verticadb-operator",
 	}
 }

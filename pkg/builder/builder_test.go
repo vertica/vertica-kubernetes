@@ -34,17 +34,17 @@ var _ = Describe("builder", func() {
 			"1_not_valid_env_var_name": "blah",
 		}
 
-		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
 		const MaxLoopIteratons = 100
 		for i := 1; i < MaxLoopIteratons; i++ {
-			c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+			c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
 			Expect(reflect.DeepEqual(c, baseContainer)).Should(BeTrue())
 		}
 	})
 
 	It("should add our own capabilities to the securityContext", func() {
 		vdb := vapi.MakeVDB()
-		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
 		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE", "SYS_PTRACE"}))
@@ -57,7 +57,7 @@ var _ = Describe("builder", func() {
 				Drop: []v1.Capability{"AUDIT_WRITE"},
 			},
 		}
-		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
 		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "SYS_PTRACE"}))
@@ -70,7 +70,7 @@ var _ = Describe("builder", func() {
 		vdb.Spec.SecurityContext = &v1.SecurityContext{
 			Privileged: &priv,
 		}
-		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
 		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Privileged).ShouldNot(BeNil())
 		Expect(*baseContainer.SecurityContext.Privileged).Should(BeTrue())

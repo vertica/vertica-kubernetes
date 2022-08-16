@@ -1,5 +1,6 @@
 resources:
-- certificate.yaml
+- webhook-certificate.yaml
+- http-server-certificate.yaml
 
 configurations:
 - kustomizeconfig.yaml

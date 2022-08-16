@@ -1,0 +1,25 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: http-server-selfsigned-issuer
+  namespace: system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: http-server-cert # this name should match the one appeared in kustomizeconfig.yaml
+  namespace: system
+spec:
+  # $(SERVICE_NAME) and $(SERVICE_NAMESPACE) will be substituted by kustomize
+  # SPILLY - these dns names aren't correct.  What do we put here?
+  # SPILLY - lets close on this before we proceed.  We need to know how this fits in.  An argument for having the operator generate the key when we create the CR.
+  # SPILLY - lets change this up.  You can specify the host with a wildcard on the commonName.  But this is deprecated.
+  dnsNames:
+  - $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc
+  - $(SERVICE_NAME).$(SERVICE_NAMESPACE).svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: http-server-selfsigned-issuer
+  secretName: http-server-cert

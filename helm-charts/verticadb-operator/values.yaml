@@ -58,6 +58,18 @@ webhook:
   # can be used to skip that and still deploy the operator.
   enable: true
 
+http:
+  # The http server is deployed with each CR. When you deploy it you must
+  # specify a secret that has the TLS certificates. The operator provides a
+  # default secret to use when it is omitted in the CR.
+  #
+  # By default the secret is created in this helm chart with cert-manager.  This
+  # must be installed ahead of time before using this chart.
+  #
+  # If you don't wish to use cert-manager, you can specify the name of a secret
+  # here.  The secret must have the keys: tls.key, ca.crt, and tls.crt.
+  tlsSecret: ""
+
 logging:
   # filePath is the path to the log file. If omitted, all logging will be written to stdout.
   filePath: ""

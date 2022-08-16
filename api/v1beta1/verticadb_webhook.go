@@ -47,6 +47,7 @@ const (
 	HadoopConfigMountName = "hadoop-conf"
 	Krb5SecretMountName   = "krb5"
 	SSHMountName          = "ssh"
+	HTTPServiceMountName  = "http-service-creds"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
 	AzurePrefix           = "azb://"

@@ -116,8 +116,8 @@ type PodFact struct {
 	// True if /opt/vertica/config/share exists
 	configShareExists bool
 
-	// True if /opt/vertica/config/https_certs exists
-	httpsCertsExists bool
+	// True if /opt/vertica/config/https_certs/httpstls.json file exists
+	httpTLSConfExists bool
 
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
@@ -144,8 +144,9 @@ type PodFacts struct {
 type CheckType string
 
 const (
-	CheckExists   CheckType = "-d"
-	CheckWritable CheckType = "-w"
+	CheckDirExists  CheckType = "-d"
+	CheckFileExists CheckType = "-f"
+	CheckWritable   CheckType = "-w"
 )
 
 // MakePodFacts will create a PodFacts object and return it
@@ -251,7 +252,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
 		p.checkThatConfigShareExists,
-		p.checkThatHTTPSCertsExists,
+		p.checkThatHTTPTLSConfExists,
 		p.checkShardSubscriptions,
 	}
 
@@ -341,7 +342,7 @@ func (p *PodFacts) checkEulaAcceptance(ctx context.Context, vdb *vapi.VerticaDB,
 
 // checkLogrotateExists will verify that that /opt/vertica/config/logrotate exists
 func (p *PodFacts) checkLogrotateExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckExists, paths.ConfigLogrotatePath, func() { pf.configLogrotateExists = true })
+	return p.checkDir(ctx, pf, CheckDirExists, paths.ConfigLogrotatePath, func() { pf.configLogrotateExists = true })
 }
 
 // checkIsLogrotateWritable will verify that dbadmin has write access to /opt/vertica/config/logrotate
@@ -351,12 +352,12 @@ func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, vdb *vapi.Verti
 
 // checkThatConfigShareExists will verify that /opt/vertica/config/share exists
 func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckExists, paths.ConfigSharePath, func() { pf.configShareExists = true })
+	return p.checkDir(ctx, pf, CheckDirExists, paths.ConfigSharePath, func() { pf.configShareExists = true })
 }
 
-// checkThatHTTPSCertsExists will verify that /opt/vertica/https_certs exists
-func (p *PodFacts) checkThatHTTPSCertsExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckExists, paths.HTTPSCertsPath, func() { pf.httpsCertsExists = true })
+// checkThatHTTPTLSConfExists will verify that http service config file exists
+func (p *PodFacts) checkThatHTTPTLSConfExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	return p.checkDir(ctx, pf, CheckFileExists, paths.HTTPTLSConfPath, func() { pf.httpTLSConfExists = true })
 }
 
 // checkDir is a general function that will check if a directory (exists,

@@ -61,6 +61,7 @@ const (
 	ClusterShutdownSucceeded        = "ClusterShutdownSucceeded"
 	ReipFailed                      = "ReipFailed"
 	MissingSecretKeys               = "MissingSecretKeys"
+	HTTPServiceSecretNeeded         = "HTTPServiceSecretNeeded"
 	KerberosAuthError               = "KerberosAuthError"
 	OperatorUpgrade                 = "OperatorUpgrade"
 	InvalidUpgradePath              = "InvalidUpgradePath"

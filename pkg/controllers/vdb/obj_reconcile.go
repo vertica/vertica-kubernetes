@@ -131,6 +131,24 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
+	if o.Vdb.Spec.EnableHTTPService {
+		// SPILLY - need a UT
+		// SPILLY - I don't really like this.  At some point enable HTTP service
+		// is going to be the default.  So anyone creating a CR will now have to
+		// create a secret for it.  I think we would better off have a default
+		// secret to use if the secret is omitted. Maybe!?
+		if o.Vdb.Spec.HTTPServiceSecret == "" {
+			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServiceSecretNeeded,
+				"The httpServiceSecret must be set when the http service is enabled")
+			return ctrl.Result{Requeue: true}, nil
+		}
+		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPServiceSecret))
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+
 	// Next check for secrets that must have specific keys.
 
 	if o.Vdb.Spec.KerberosSecret != "" {
@@ -142,6 +160,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 	if o.Vdb.Spec.SSHSecret != "" {
 		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+
+	if o.Vdb.Spec.HTTPServiceSecret != "" {
+		keyNames := []string{paths.HTTPServiceCACert, paths.HTTPServiceChainCert, paths.HTTPServicePrivKey}
+		if res, err := o.checkSecretHasKeys(ctx, "HTTPService", o.Vdb.Spec.HTTPServiceSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}

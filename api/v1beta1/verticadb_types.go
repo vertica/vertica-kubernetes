@@ -318,6 +318,18 @@ type VerticaDBSpec struct {
 	// REST interface that can be used for management and monitoring of the
 	// server.
 	EnableHTTPService bool `json:"enableHTTPService,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the credentials to use for the server's HTTP
+	// service.  If this is omitted, the HTTP service will not be started.  The
+	// secret name that it specifies must already exist.  The Secret must have
+	// the following keys defined:
+	// - tls.key: The private key to be used by the HTTP service
+	// - tls.crt: The signed certificate chain
+	// - ca.crt: The CA certificate
+	HTTPServiceSecret string `json:"httpServiceSecret,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.

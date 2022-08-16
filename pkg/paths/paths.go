@@ -27,7 +27,8 @@ const (
 	ConfigPath             = "/opt/vertica/config"
 	ConfigSharePath        = "/opt/vertica/config/share"
 	ConfigLogrotatePath    = "/opt/vertica/config/logrotate"
-	HTTPSCertsPath         = "/opt/vertica/config/https_certs"
+	HTTPTLSConfPath        = "/opt/vertica/config/https_certs/httpstls.json"
+	HTTPServiceSecretRoot  = "/certs/http-service"
 	LogPath                = "/opt/vertica/log"
 	PodInfoPath            = "/etc/podinfo"
 	AdminToolsConf         = "/opt/vertica/config/admintools.conf"
@@ -38,6 +39,9 @@ const (
 	Krb5Conf               = "/etc/krb5.conf"
 	Krb5Keytab             = "/etc/krb5/krb5.keytab"
 	SSHPath                = "/home/dbadmin/.ssh"
+	HTTPServicePrivKey     = "tls.key"
+	HTTPServiceChainCert   = "tls.crt"
+	HTTPServiceCACert      = "ca.crt"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.

@@ -81,7 +81,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 }
 
 // buildVolumeMounts returns the volume mounts to include in the sts pod spec
-func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+func buildVolumeMounts(vdb *vapi.VerticaDB, deployNames *DeploymentNames) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("config"), MountPath: paths.ConfigPath},
@@ -111,6 +111,10 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 
 	if vdb.Spec.SSHSecret != "" {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
+	}
+
+	if secretName := getHTTPSCertsSecret(vdb, deployNames); secretName != "" {
+		volMnts = append(volMnts, buildHTTPServiceVolumeMount()...)
 	}
 
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
@@ -151,6 +155,15 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	return mnts
 }
 
+func buildHTTPServiceVolumeMount() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      vapi.HTTPServiceMountName,
+			MountPath: paths.HTTPServiceSecretRoot,
+		},
+	}
+}
+
 // buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
 func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	mnts := []corev1.VolumeMount{}
@@ -178,6 +191,9 @@ func buildVolumes(vdb *vapi.VerticaDB, deployNames *DeploymentNames) []corev1.Vo
 	}
 	if vdb.Spec.SSHSecret != "" {
 		vols = append(vols, buildSSHVolume(vdb))
+	}
+	if secretName := getHTTPSCertsSecret(vdb, deployNames); secretName != "" {
+		vols = append(vols, buildSecretVolume(vapi.HTTPServiceMountName, secretName))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -365,6 +381,35 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 }
 
+func buildSecretVolume(mountName, secretName string) corev1.Volume {
+	// SPILLY - UT?
+	return corev1.Volume{
+		Name: mountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretName,
+			},
+		},
+	}
+}
+
+// getHTTPSCertsSecret returns the name of the secret that has the certs for the HTTP service
+func getHTTPSCertsSecret(vdb *vapi.VerticaDB, deployNames *DeploymentNames) string {
+	// Early out if the http service is not enabled
+	// SPILLY - rename EnableHTTPService to EnableHTTPServer
+	if !vdb.Spec.EnableHTTPService {
+		return ""
+	}
+	// Always use the secret defined in the CR.  If it is omitted, then the
+	// deployment of the operator may have created a default secret, so we will
+	// use that.
+	secretName := vdb.Spec.HTTPServiceSecret
+	if secretName == "" {
+		secretName = deployNames.HTTPServiceSecretName
+	}
+	return secretName
+}
+
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *DeploymentNames) corev1.PodSpec {
 	termGracePeriod := int64(0)
@@ -373,7 +418,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *Deploym
 		Affinity:                      GetK8sAffinity(sc.Affinity),
 		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
-		Containers:                    makeContainers(vdb, sc),
+		Containers:                    makeContainers(vdb, sc, deployNames),
 		Volumes:                       buildVolumes(vdb, deployNames),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		ServiceAccountName:            deployNames.ServiceAccountName,
@@ -381,7 +426,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *Deploym
 }
 
 // makeServerContainer builds the spec for the server container
-func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
+func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *DeploymentNames) corev1.Container {
 	envVars := translateAnnotationsToEnvVars(vdb)
 	envVars = append(envVars, []corev1.EnvVar{
 		{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
@@ -415,7 +460,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		},
 		SecurityContext: makeServerSecurityContext(vdb),
 		Env:             envVars,
-		VolumeMounts:    buildVolumeMounts(vdb),
+		VolumeMounts:    buildVolumeMounts(vdb, deployNames),
 	}
 }
 
@@ -458,14 +503,14 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 }
 
 // makeContainers creates the list of containers to include in the pod spec.
-func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
-	cnts := []corev1.Container{makeServerContainer(vdb, sc)}
+func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *DeploymentNames) []corev1.Container {
+	cnts := []corev1.Container{makeServerContainer(vdb, sc, deployNames)}
 	for i := range vdb.Spec.Sidecars {
 		c := vdb.Spec.Sidecars[i]
 		// Append the standard volume mounts to the container.  This is done
 		// because some of the the mount path include the UID, which isn't know
 		// prior to the creation of the VerticaDB.
-		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb)...)
+		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb, deployNames)...)
 		// Append additional environment variables passed through annotations.
 		c.Env = append(c.Env, translateAnnotationsToEnvVars(vdb)...)
 		// As a convenience, add the database path as an environment variable.
