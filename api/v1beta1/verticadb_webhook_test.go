@@ -243,11 +243,6 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.Communal.Endpoint = "https://minio"
 		validateImmutableFields(vdbUpdate)
 	})
-	It("should not change local.requestSize after creation", func() {
-		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.Local.RequestSize = resource.MustParse("600Gi")
-		validateImmutableFields(vdbUpdate)
-	})
 	It("should not change local.storageClass after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.StorageClass = "MyStorageClass"
@@ -515,6 +510,17 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.EncryptSpreadComm = ""
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.EncryptSpreadComm = EncryptSpreadCommWithVertica
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should validate we cannot have invalid paths for depot and data", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Local.DataPath = "/home/dbadmin"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Local.DataPath = "/data"
+		vdb.Spec.Local.DepotPath = "/opt/vertica/bin"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Local.DepotPath = "/depot"
 		validateSpecValuesHaveErr(vdb, false)
 	})
 })

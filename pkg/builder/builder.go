@@ -28,13 +28,14 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	SuperuserPasswordPath     = "superuser-passwd"
-	DefaultServiceAccountName = "verticadb-operator-controller-manager"
+	SuperuserPasswordPath = "superuser-passwd"
+	TestStorageClassName  = "test-storage-class"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -165,9 +166,9 @@ func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 }
 
 // buildVolumes builds up a list of volumes to include in the sts
-func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
+func buildVolumes(vdb *vapi.VerticaDB, deployNames *DeploymentNames) []corev1.Volume {
 	vols := []corev1.Volume{}
-	vols = append(vols, buildPodInfoVolume(vdb))
+	vols = append(vols, buildPodInfoVolume(vdb, deployNames))
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
@@ -198,10 +199,10 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 // buildPodInfoVolume constructs the volume that has the /etc/podinfo files.
-func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
+func buildPodInfoVolume(vdb *vapi.VerticaDB, deployNames *DeploymentNames) corev1.Volume {
 	projSources := []corev1.VolumeProjection{
 		{DownwardAPI: buildDownwardAPIProjection()},
-		{ConfigMap: buildOperatorConfigMapProjection()},
+		{ConfigMap: buildOperatorConfigMapProjection(deployNames)},
 		// If these is a superuser password, include that in the projection
 		{Secret: buildSuperuserPasswordProjection(vdb)},
 	}
@@ -296,9 +297,9 @@ func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
 }
 
 // buildOperatorConfigMapProjection creates a projection for inclusion in /etc/podinfo
-func buildOperatorConfigMapProjection() *corev1.ConfigMapProjection {
+func buildOperatorConfigMapProjection(deployNames *DeploymentNames) *corev1.ConfigMapProjection {
 	return &corev1.ConfigMapProjection{
-		LocalObjectReference: corev1.LocalObjectReference{Name: "verticadb-operator-manager-config"},
+		LocalObjectReference: corev1.LocalObjectReference{Name: deployNames.getConfigMapName()},
 		Items: []corev1.KeyToPath{
 			{Key: "DEPLOY_WITH", Path: "operator-deployment-method"},
 			{Key: "VERSION", Path: "operator-version"},
@@ -367,7 +368,7 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
-func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) corev1.PodSpec {
+func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *DeploymentNames) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -375,9 +376,9 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) corev
 		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 		Containers:                    makeContainers(vdb, sc),
-		Volumes:                       buildVolumes(vdb),
+		Volumes:                       buildVolumes(vdb, deployNames),
 		TerminationGracePeriodSeconds: &termGracePeriod,
-		ServiceAccountName:            saName,
+		ServiceAccountName:            deployNames.ServiceAccountName,
 	}
 }
 
@@ -523,12 +524,12 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // BuildStsSpec builds manifest for a subclusters statefulset
-func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, saName string) *appsv1.StatefulSet {
+func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *DeploymentNames) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForObject(vdb, sc),
+			Labels:      makeLabelsForObject(vdb, sc, false),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -539,10 +540,10 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 			Replicas:    &sc.Size,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      MakeLabelsForObject(vdb, sc),
+					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, sc, saName),
+				Spec: buildPodSpec(vdb, sc, deployNames),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -556,7 +557,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 						StorageClassName: getStorageClassName(vdb),
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								"storage": vdb.Spec.Local.RequestSize,
+								corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
 							},
 						},
 					},
@@ -575,13 +576,13 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForObject(vdb, sc),
+			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc, DefaultServiceAccountName),
+		Spec: buildPodSpec(vdb, sc, DefaultDeploymentNames()),
 	}
 	// Setup default values for the DC table annotations.  These are normally
-	// added by the PodAnnotationReconciler.  However, this function is for test
+	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test
 	// purposes, and we have a few dependencies on these annotations.  Rather
 	// than having many tests run the reconciler, we will add in sample values.
 	pod.Annotations[KubernetesBuildDateAnnotation] = "2022-03-16T15:58:47Z"
@@ -594,13 +595,70 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		Name: vapi.LocalDataPVC,
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: vapi.LocalDataPVC + "-" + vdb.ObjectMeta.Name + "-" + sc.Name + fmt.Sprintf("%d", podIndex),
+				ClaimName: names.GenPVCName(vdb, sc, podIndex).Name,
 			},
 		},
 	})
 	pod.Spec.Hostname = nm.Name
 	pod.Spec.Subdomain = names.GenHlSvcName(vdb).Name
 	return pod
+}
+
+// BuildPVC will build a PVC for test purposes
+func BuildPVC(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.PersistentVolumeClaim {
+	scn := TestStorageClassName
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      names.GenPVCName(vdb, sc, podIndex).Name,
+			Namespace: vdb.Namespace,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				"ReadWriteOnce",
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
+				},
+			},
+			StorageClassName: &scn,
+		},
+	}
+}
+
+// BuildPV will build a PV for test purposes
+func BuildPV(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.PersistentVolume {
+	hostPathType := corev1.HostPathDirectoryOrCreate
+	return &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: names.GenPVName(vdb, sc, podIndex).Name,
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				"ReadWriteOnce",
+			},
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
+			},
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/host",
+					Type: &hostPathType,
+				},
+			},
+		},
+	}
+}
+
+// BuildStorageClass will construct a storageClass for test purposes
+func BuildStorageClass(allowVolumeExpansion bool) *storagev1.StorageClass {
+	return &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: TestStorageClassName,
+		},
+		Provisioner:          "vertica.com/dummy-provisioner",
+		AllowVolumeExpansion: &allowVolumeExpansion,
+	}
 }
 
 // BuildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials

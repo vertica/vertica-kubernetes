@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.6.0
+VERSION ?= 1.7.0
 export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
@@ -123,7 +123,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.23
+ENVTEST_K8S_VERSION = 1.24
 
 # Image URL for the OLM catalog.  This is for testing purposes only.
 ifeq ($(shell $(KIND_CHECK)), 1)
@@ -169,8 +169,8 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_PLUGIN_INSTALLED:=$(shell helm plugin list | grep -c '^unittest')
-KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^kuttl')
-STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list | grep -c '^stern')
+KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^kuttl')
+STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^stern')
 INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
@@ -307,7 +307,7 @@ build: generate fmt vet ## Build manager binary.
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run cmd/operator/main.go -enable-profiler
 
-docker-build-operator: test ## Build operator docker image with the manager.
+docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
 	docker build -t ${OPERATOR_IMG} -f docker-operator/Dockerfile .
 
 docker-build-vlogger:  ## Build vertica logger docker image
@@ -363,9 +363,9 @@ docker-build-olm-catalog: opm ## Build an OLM catalog that includes our bundle (
 docker-push-olm-catalog:
 	docker push $(OLM_CATALOG_IMG)
 
-docker-build: docker-build-vertica docker-build-operator docker-build-vlogger docker-build-bundle ## Build all docker images except OLM catalog
+docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
-docker-push: docker-push-vertica docker-push-operator docker-push-vlogger docker-push-bundle ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
 
 echo-images:  ## Print the names of all of the images used
 	@echo "OPERATOR_IMG=$(OPERATOR_IMG)"
@@ -443,11 +443,11 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.2
-CONTROLLER_TOOLS_VERSION ?= v0.8.0
+CONTROLLER_TOOLS_VERSION ?= v0.9.0
 KIND_VERSION ?= v0.11.1
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
 GO_JUNIT_REPORT_VERSION ?= latest
-GOLANGCI_LINT_VER ?= 1.41.1
+GOLANGCI_LINT_VER ?= 1.47.3
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -494,10 +494,10 @@ $(HOME)/.krew/bin/kubectl-krew:
 	scripts/setup-krew.sh
 
 OPM = $(shell pwd)/bin/opm
-OPM_VERSION = 1.18.1
+OPM_VERSION = 1.23.0
 opm: $(OPM)  ## Download opm locally if necessary
 $(OPM):
-	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v1.18.1/linux-amd64-opm" --output $(OPM)
+	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/linux-amd64-opm" --output $(OPM)
 	chmod +x $(OPM)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk

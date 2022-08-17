@@ -46,7 +46,7 @@ const (
 	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	OperatorName         = "verticadb-operator" // The name of the operator
 
-	CurOperatorVersion = "1.6.0" // The version number of the operator
+	CurOperatorVersion = "1.7.0" // The version number of the operator
 	OperatorVersion100 = "1.0.0"
 	OperatorVersion110 = "1.1.0"
 	OperatorVersion120 = "1.2.0"
@@ -54,10 +54,11 @@ const (
 	OperatorVersion131 = "1.3.1"
 	OperatorVersion140 = "1.4.0"
 	OperatorVersion150 = "1.5.0"
-	OperatorVersion160 = CurOperatorVersion
+	OperatorVersion160 = "1.6.0"
+	OperatorVersion170 = CurOperatorVersion
 
 	// Annotations that we set in each of the pod.  These are set by the
-	// PodAnnotationReconciler.  They are available in the pod with the
+	// AnnotateAndLabelPodReconciler.  They are available in the pod with the
 	// downwardAPI so they can be picked up by the Vertica data collector (DC).
 	KubernetesVersionAnnotation   = "kubernetes.io/version"   // Version of the k8s server
 	KubernetesGitCommitAnnotation = "kubernetes.io/gitcommit" // Git commit of the k8s server
@@ -91,12 +92,16 @@ func MakeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 }
 
 // MakeCommonLabels returns the labels that are common to all objects.
-func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
 	labels := MakeOperatorLabels(vdb)
-	// Apply a label to indicate a version of the operator that created the
-	// object.  This is separate from makeOperatorLabels as we don't want to
-	// include that in any sort of label selector.
-	labels[OperatorVersionLabel] = CurOperatorVersion
+	if !forPod {
+		// Apply a label to indicate a version of the operator that created the
+		// object.  This is separate from MakeOperatorLabels as we don't want to
+		// set this for pods in the template.  We set the operator version in
+		// the pods as part of a reconciler so that we don't have to reschedule
+		// the pods.
+		labels[OperatorVersionLabel] = CurOperatorVersion
+	}
 
 	// Remaining labels are for objects that are subcluster specific
 	if sc == nil {
@@ -111,8 +116,8 @@ func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]strin
 }
 
 // MakeLabelsForObjects constructs the labels for a new k8s object
-func MakeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	labels := MakeCommonLabels(vdb, sc)
+func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
+	labels := MakeCommonLabels(vdb, sc, forPod)
 
 	// Add any custom labels that were in the spec.
 	for k, v := range vdb.Spec.Labels {
@@ -122,9 +127,19 @@ func MakeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]st
 	return labels
 }
 
+// MakeLabelsForPodObject constructs the labels that are common for all pods
+func MakeLabelsForPodObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	return makeLabelsForObject(vdb, sc, true)
+}
+
+// MakeLabelsForStsObject constructs the labels that are common for all statefulsets.
+func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	return makeLabelsForObject(vdb, sc, false)
+}
+
 // MakeLabelsForSvcObject will create the set of labels for use with service objects
 func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType string) map[string]string {
-	labels := MakeLabelsForObject(vdb, sc)
+	labels := makeLabelsForObject(vdb, sc, false)
 	labels[SvcTypeLabel] = svcType
 	return labels
 }

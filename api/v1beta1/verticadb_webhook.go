@@ -216,13 +216,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			"communal.endpoint cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
-	// local.requestSize cannot change after creation
-	if v.Spec.Local.RequestSize.Cmp(oldObj.Spec.Local.RequestSize) != 0 {
-		err := field.Invalid(field.NewPath("spec").Child("local").Child("requestSize"),
-			v.Spec.Local.RequestSize,
-			"local.requestSize cannot change after creation")
-		allErrs = append(allErrs, err)
-	}
 	// local.storageClass cannot change after creation
 	if v.Spec.Local.StorageClass != oldObj.Spec.Local.StorageClass {
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("storageClass"),
@@ -273,6 +266,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.transientSubclusterMustMatchTemplate(allErrs)
 	allErrs = v.validateRequeueTimes(allErrs)
 	allErrs = v.validateEncryptSpreadComm(allErrs)
+	allErrs = v.validateLocalPaths(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -761,6 +755,46 @@ func (v *VerticaDB) validateEncryptSpreadComm(allErrs field.ErrorList) field.Err
 		err := field.Invalid(field.NewPath("spec").Child("encrpytSpreadComm"),
 			v.Spec.EncryptSpreadComm,
 			fmt.Sprintf("encryptSpreadComm can either be an empty string or set to %s", EncryptSpreadCommWithVertica))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList {
+	// We cannot let any of the local paths be the same as important paths in
+	// the image.  Otherwise, we risk losing the contents of those directory in
+	// the container, which can mess up the deployment.
+	invalidPaths := []string{
+		"/home",
+		"/home/dbadmin",
+		"/opt",
+		"/opt/vertica",
+		"/opt/vertica/bin",
+		"/opt/vertica/sbin",
+		"/opt/vertica/include",
+		"/opt/vertica/java",
+		"/opt/vertica/lib",
+		"/opt/vertica/oss",
+		"/opt/vertica/packages",
+		"/opt/vertica/share",
+		"/opt/vertica/scripts",
+		"/opt/vertica/spread",
+	}
+	for _, invalidPath := range invalidPaths {
+		if v.Spec.Local.DataPath != invalidPath && v.Spec.Local.DepotPath != invalidPath {
+			continue
+		}
+		var fieldRef interface{}
+		var fieldPathName string
+		if v.Spec.Local.DataPath == invalidPath {
+			fieldPathName = "dataPath"
+			fieldRef = v.Spec.Local.DataPath
+		} else {
+			fieldPathName = "depotPath"
+			fieldRef = v.Spec.Local.DepotPath
+		}
+		err := field.Invalid(field.NewPath("spec").Child("local").Child(fieldPathName),
+			fieldRef, fmt.Sprintf("%s cannot be set to %s. This is a restricted path.", fieldPathName, invalidPath))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

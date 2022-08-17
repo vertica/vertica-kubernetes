@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -500,7 +499,7 @@ func (d *DBGenerator) readLicense(ctx context.Context) error {
 	}
 
 	var err error
-	d.LicenseData, err = ioutil.ReadFile(d.Opts.LicenseFile)
+	d.LicenseData, err = os.ReadFile(d.Opts.LicenseFile)
 	if err != nil {
 		return err
 	}
@@ -531,7 +530,7 @@ func (d *DBGenerator) readCAFile(ctx context.Context) error {
 	}
 
 	var err error
-	d.CAFileData, err = ioutil.ReadFile(d.Opts.CAFile)
+	d.CAFileData, err = os.ReadFile(d.Opts.CAFile)
 	return err
 }
 
@@ -591,7 +590,7 @@ func (d *DBGenerator) readHadoopConfig(ctx context.Context) error {
 		if !strings.HasSuffix(fn, ".xml") {
 			continue
 		}
-		cnt, err := ioutil.ReadFile(fmt.Sprintf("%s/%s", d.Opts.HadoopConfigDir, fn))
+		cnt, err := os.ReadFile(fmt.Sprintf("%s/%s", d.Opts.HadoopConfigDir, fn))
 		if err != nil {
 			return err
 		}
@@ -724,7 +723,7 @@ func (d *DBGenerator) readKrb5ConfFile(ctx context.Context) error {
 	}
 
 	var err error
-	d.Krb5ConfData, err = ioutil.ReadFile(d.Opts.Krb5Conf)
+	d.Krb5ConfData, err = os.ReadFile(d.Opts.Krb5Conf)
 	return err
 }
 
@@ -734,7 +733,7 @@ func (d *DBGenerator) readKrb5KeytabFile(ctx context.Context) error {
 	}
 
 	var err error
-	d.Krb5KeytabData, err = ioutil.ReadFile(d.Opts.Krb5Keytab)
+	d.Krb5KeytabData, err = os.ReadFile(d.Opts.Krb5Keytab)
 	return err
 }
 

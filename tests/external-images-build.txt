@@ -4,7 +4,7 @@
 
 # Images that are used as the base in our containers
 centos:centos7.9.2009
-golang:1.17
+golang:1.18
 gcr.io/distroless/static:nonroot
 alpine:3.15
 ubuntu:focal-20220316

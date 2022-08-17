@@ -505,7 +505,9 @@ type LocalStorage struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="500Gi"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The minimum size of the local data volume when picking a PV.
+	// The minimum size of the local data volume when picking a PV.  If changing
+	// this after the PV have been created, it will cause a resize of the PV to
+	// the new size.
 	RequestSize resource.Quantity `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -795,6 +797,7 @@ type SubclusterStatus struct {
 	UpNodeCount int32 `json:"upNodeCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +kubebuilder:validation:Optional
 	// A count of the number of pods that are in read-only state in this subcluster.
 	ReadOnlyCount int32 `json:"readOnlyCount"`
 
@@ -818,6 +821,7 @@ type VerticaDBPodStatus struct {
 	// connections on port 5433.
 	UpNode bool `json:"upNode"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +kubebuilder:validation:Optional
 	// True means the vertica process on this pod is in read-only state
 	ReadOnly bool `json:"readOnly"`
 }
@@ -915,8 +919,9 @@ func MakeVDB() *VerticaDB {
 				CredentialSecret: "s3-auth",
 			},
 			Local: LocalStorage{
-				DataPath:  "/data",
-				DepotPath: "/depot",
+				DataPath:    "/data",
+				DepotPath:   "/depot",
+				RequestSize: resource.MustParse("10Gi"),
 			},
 			KSafety:    KSafety1,
 			DBName:     "db",

@@ -1,18 +1,42 @@
 name: e2e (hdfs) tests
 
 on: 
-  push:
-     branches: [main, vnext]
-  pull_request:
+  workflow_call:
+    inputs:
+      vlogger-image:
+        type: string
+        required: false
+      operator-image:
+        type: string
+        required: false
+      vertica-image:
+        type: string
+        required: false
+    secrets:
+      DOCKERHUB_USERNAME:
+        description: 'When working with images from docker.io, this is the username for login purposes'
+        required: true
+      DOCKERHUB_TOKEN:
+        description: 'When working with images from docker.io, this is the password for login purposes'
+        required: true
   workflow_dispatch:
     inputs:
-      parallel:
-        description: 'Maximum number of tests to run at once'
+      vlogger-image:
+        description: 'Name of the vertica logger image'
+        type: string
+        required: false
+      operator-image:
+        description: 'Name of the operator image'
+        type: string
+        required: false
+      vertica-image:
+        description: 'Name of the vertica server image'
+        type: string
         required: false
 
 jobs:
 
-  e2e-hdfs:
+  test:
 
     runs-on: ubuntu-latest
     steps:
@@ -22,13 +46,20 @@ jobs:
     - name: Set up e2e environment
       uses: ./.github/actions/setup-e2e
       
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      if: ${{ startsWith(inputs.vertica-image, 'docker.io') }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
     - name: Run e2e tests
       run: |
-        E2E_PARALLELISM=${{ github.event.inputs.parallel }}
-        [ ! -z "$E2E_PARALLELISM" ] && export E2E_PARALLELISM
         export KUSTOMIZE_CFG=tests/kustomize-defaults-hdfs-ci.cfg
-        export MINIMAL_VERTICA_IMG=YES
-        scripts/run-k8s-int-tests.sh -e tests/external-images-hdfs-ci.txt
+        export VERTICA_IMG=${{ inputs.vertica-image }}
+        export OPERATOR_IMG=${{ inputs.operator-image }}
+        export VLOGGER_IMG=${{ inputs.vlogger-image }}
+        scripts/run-k8s-int-tests.sh -s -e tests/external-images-hdfs-ci.txt
 
     - uses: actions/upload-artifact@v2
       if: failure()

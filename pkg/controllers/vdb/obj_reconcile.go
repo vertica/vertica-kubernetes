@@ -229,8 +229,21 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 
 // reconcileExtSvc verifies the external service objects exists and creates it if necessary.
 func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Service, sc *vapi.Subcluster) error {
-	curSvc := &corev1.Service{}
 	svcName := types.NamespacedName{Name: expSvc.Name, Namespace: expSvc.Namespace}
+	return o.reconcileSvc(ctx, expSvc, svcName, sc, o.reconcileExtSvcFields)
+}
+
+// reconcileHlSvc verifies the headless service object exists and creates it if necessary.
+func (o ObjReconciler) reconcileHlSvc(ctx context.Context) error {
+	svcName := names.GenHlSvcName(o.Vdb)
+	expSvc := builder.BuildHlSvc(svcName, o.Vdb)
+	return o.reconcileSvc(ctx, expSvc, svcName, nil, o.reconcileHlSvcFields)
+}
+
+// reconcileSvc verifies the external service objects exists and creates it if necessary.
+func (o ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service, svcName types.NamespacedName,
+	sc *vapi.Subcluster, reconcileFieldsFunc func(*corev1.Service, *corev1.Service, *vapi.Subcluster) *corev1.Service) error {
+	curSvc := &corev1.Service{}
 	err := o.VRec.Client.Get(ctx, svcName, curSvc)
 	if err != nil && errors.IsNotFound(err) {
 		return o.createService(ctx, expSvc, svcName)
@@ -241,7 +254,7 @@ func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Servi
 		return nil
 	}
 
-	newSvc := o.reconcileExtSvcFields(curSvc, expSvc, sc)
+	newSvc := reconcileFieldsFunc(curSvc, expSvc, sc)
 
 	if newSvc != nil {
 		o.Log.Info("updating svc", "Name", svcName)
@@ -302,20 +315,23 @@ func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc 
 		updated = true
 	}
 
+	if !reflect.DeepEqual(expSvc.Labels, curSvc.Labels) {
+		updated = true
+		curSvc.Labels = expSvc.Labels
+	}
+
 	if updated {
 		return curSvc
 	}
 	return nil
 }
 
-// reconcileHlSvc verifies the headless service object exists and creates it if necessary.
-func (o ObjReconciler) reconcileHlSvc(ctx context.Context) error {
-	curSvc := &corev1.Service{}
-	svcName := names.GenHlSvcName(o.Vdb)
-	expSvc := builder.BuildHlSvc(svcName, o.Vdb)
-	err := o.VRec.Client.Get(ctx, svcName, curSvc)
-	if err != nil && errors.IsNotFound(err) {
-		return o.createService(ctx, expSvc, svcName)
+// reconcileHlSvcFields merges relevant service fields into curSvc. This assumes
+// we are reconciling the headless service object.
+func (o ObjReconciler) reconcileHlSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
+	if !reflect.DeepEqual(expSvc.Labels, curSvc.Labels) {
+		curSvc.Labels = expSvc.Labels
+		return curSvc
 	}
 	return nil
 }
@@ -335,7 +351,7 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, o.VRec.ServiceAccountName)
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, &o.VRec.DeploymentNames)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
@@ -369,6 +385,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
 	}
 
+	// We allow the requestSize to change in the VerticaDB.  But we cannot
+	// propagate that in the sts spec.  We handle that by modifying the PVC in a
+	// separate reconciler.  Reset the volume claim spec so that we don't try to
+	// change it here.
+	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
+
 	// Update the sts by patching in fields that changed according to expSts.
 	// Due to the omission of default fields in expSts, curSts != expSts.  We
 	// always send a patch request, then compare what came back against origSts
@@ -377,6 +399,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	origSts := &appsv1.StatefulSet{}
 	curSts.DeepCopyInto(origSts)
 	expSts.Spec.DeepCopyInto(&curSts.Spec)
+	curSts.Labels = expSts.Labels
 	if err := o.VRec.Client.Patch(ctx, curSts, patch); err != nil {
 		return ctrl.Result{}, err
 	}

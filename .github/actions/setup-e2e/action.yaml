@@ -8,10 +8,26 @@ runs:
 
     - name: Install kubectl and related tools
       uses: ./.github/actions/setup-kubectl
-    
-    - name: Download vertica RPM package
+
+    - name: Download all the docker image for PRs
+      uses: actions/download-artifact@v2
+      if: ${{ github.event_name == 'pull_request' }}
+
+    - name: Load the docker images for PRs
+      if: ${{ github.event_name == 'pull_request' }}
       shell: bash
-      env:
-          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-11.1.1-0.x86_64.RHEL6.rpm"
       run: |
-        curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-x86_64.RHEL6.latest.rpm
+        find . -name \*.tar
+        docker load --input full-vertica-image/full-vertica-image.tar
+        docker load --input minimal-vertica-image/minimal-vertica-image.tar
+        docker load --input operator-image/operator-image.tar
+        docker load --input vlogger-image/vlogger-image.tar
+        docker image ls -a
+
+    - name: Login to GitHub Container registry for non-PRs
+      uses: docker/login-action@v2
+      if: ${{ github.event_name != 'pull_request' }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ github.token }}

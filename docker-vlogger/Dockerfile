@@ -25,3 +25,10 @@ ENTRYPOINT ["/sbin/tini", "--"]
 # the cluster. 
 # Note: we use the '-F' option with tail so that it survives log rotations.
 CMD ["sh", "-c", "FN=$DBPATH/v_*_catalog/vertica.log; until [ -f $FN ]; do sleep 5; done; tail -n 1 -F $FN"]
+
+LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vlogger \
+      org.opencontainers.image.title='Vertica Logger' \
+      org.opencontainers.image.description='A sidecar utility container that assists with logging of the Vertica server image' \
+      org.opencontainers.image.url=https://github.com/vertica/vertica-kubernetes/ \
+      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm
+

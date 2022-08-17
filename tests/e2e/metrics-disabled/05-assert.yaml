@@ -29,6 +29,7 @@ spec:
     - --maxfilerotation=3
     - --level=info
     - --dev=false
+    - --prefix-name=verticadb-operator
 status:
   phase: Running
 ---

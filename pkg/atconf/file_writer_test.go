@@ -17,7 +17,6 @@ package atconf
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 
 	"github.com/go-logr/logr"
@@ -144,7 +143,7 @@ func genAtConfWithAdd(w Writer, pn types.NamespacedName, ips []string) (string, 
 	if err != nil {
 		return "", err
 	}
-	rawCnts, err := ioutil.ReadFile(fn)
+	rawCnts, err := os.ReadFile(fn)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +157,7 @@ func genAtConfWithDel(w Writer, pn types.NamespacedName, ips []string) (string, 
 	if err != nil {
 		return "", err
 	}
-	rawCnts, err := ioutil.ReadFile(fn)
+	rawCnts, err := os.ReadFile(fn)
 	if err != nil {
 		return "", err
 	}

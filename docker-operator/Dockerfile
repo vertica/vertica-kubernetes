@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.17 as builder
+FROM golang:1.18 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -25,3 +25,9 @@ COPY --from=builder /workspace/manager .
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
+
+LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-operator \
+      org.opencontainers.image.title='VerticaDB Operator' \
+      org.opencontainers.image.description='Deploys the VerticaDB operator.  The operator manages a Vertica Eon Mode database in Kubernetes, and automates administative tasks.' \
+      org.opencontainers.image.url=https://github.com/vertica/vertica-kubernetes/ \
+      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm

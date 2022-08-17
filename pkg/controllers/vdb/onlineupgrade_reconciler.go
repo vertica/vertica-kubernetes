@@ -139,6 +139,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		"Recreating pods for primary subclusters",
 		"Checking if new version is compatible",
 		"Adding annotations to pods",
+		"Running installer",
 		"Waiting for secondary nodes to become read-only",
 		"Restarting vertica in primary subclusters",
 	}
@@ -342,6 +343,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
 		o.addPodAnnotations,
+		o.runInstaller,
 		o.waitForReadOnly,
 		o.bringSubclusterOnline,
 	}
@@ -374,6 +376,7 @@ func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *app
 		o.recreateSubclusterWithNewImage,
 		o.postNextStatusMsgForSts,
 		o.addPodAnnotations,
+		o.runInstaller,
 		o.bringSubclusterOnline,
 	}
 	for _, fn := range funcs {
@@ -462,7 +465,15 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 // addPodAnnotations will add the necessary pod annotations that need to be
 // in-place prior to restart
 func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	r := MakePodAnnotationReconciler(o.VRec, o.Vdb, o.PFacts)
+	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Vdb, o.PFacts)
+	return r.Reconcile(ctx, &ctrl.Request{})
+}
+
+// runInstaller will run the install reconciler.  The main purpose is to accept
+// the end user license agreement (eula).  This may need to be accepted again if
+// the eula changed in this new version of vertica.
+func (o *OnlineUpgradeReconciler) runInstaller(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	r := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

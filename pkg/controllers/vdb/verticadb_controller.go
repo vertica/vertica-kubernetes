@@ -43,11 +43,11 @@ import (
 // VerticaDBReconciler reconciles a VerticaDB object
 type VerticaDBReconciler struct {
 	client.Client
-	Log                logr.Logger
-	Scheme             *runtime.Scheme
-	Cfg                *rest.Config
-	EVRec              record.EventRecorder
-	ServiceAccountName string
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+	Cfg    *rest.Config
+	EVRec  record.EventRecorder
+	builder.DeploymentNames
 }
 
 //+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -58,6 +58,7 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/exec,verbs=create
 // +kubebuilder:rbac:groups=core,namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=persistentvolumeclaims,verbs=get;list;watch;update
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -153,8 +154,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// pods are missing.  We don't want to apply all updates as we may need
 		// to go through necessary admintools commands to handle a scale down.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
-		// Add annotations to each pod about the host running them
-		MakePodAnnotationReconciler(r, vdb, pfacts),
+		// Add annotations/labels to each pod about the host running them
+		MakeAnnotateAndLabelPodReconciler(r, vdb, pfacts),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts),
 		// Handles restart + re_ip of vertica
@@ -208,6 +209,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Update the label in pods so that Service routing uses them if they
 		// have finished being rebalanced.
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Resize any PVs if the local data size changed in the vdb
+		MakeResizePVReconciler(r, vdb, prunner, pfacts),
 	}
 }
 

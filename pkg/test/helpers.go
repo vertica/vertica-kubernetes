@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,11 +46,16 @@ func CreatePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, podRu
 	}
 }
 
+func CreateStorageClass(ctx context.Context, c client.Client, allowVolumeExpansion bool) {
+	stoclass := builder.BuildStorageClass(allowVolumeExpansion)
+	Expect(c.Create(ctx, stoclass)).Should(Succeed())
+}
+
 func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, offset int,
 	scIndex int32, podRunningState PodRunningState) {
 	sts := &appsv1.StatefulSet{}
 	if err := c.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
-		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc, builder.DefaultServiceAccountName)
+		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc, builder.DefaultDeploymentNames())
 		ExpectWithOffset(offset, c.Create(ctx, sts)).Should(Succeed())
 	}
 	for j := int32(0); j < sc.Size; j++ {
@@ -58,6 +64,18 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 			pod = builder.BuildPod(vdb, sc, j)
 			ExpectWithOffset(offset, c.Create(ctx, pod)).Should(Succeed())
 			setPodStatusHelper(ctx, c, offset+1, names.GenPodName(vdb, sc, j), scIndex, j, podRunningState, false)
+		}
+		pv := &corev1.PersistentVolume{}
+		if err := c.Get(ctx, names.GenPVName(vdb, sc, j), pv); kerrors.IsNotFound(err) {
+			pv := builder.BuildPV(vdb, sc, j)
+			ExpectWithOffset(offset, c.Create(ctx, pv)).Should(Succeed())
+		}
+		pvc := &corev1.PersistentVolumeClaim{}
+		if err := c.Get(ctx, names.GenPVCName(vdb, sc, j), pvc); kerrors.IsNotFound(err) {
+			pvc := builder.BuildPVC(vdb, sc, j)
+			ExpectWithOffset(offset, c.Create(ctx, pvc)).Should(Succeed())
+			pvc.Status.Phase = corev1.ClaimBound
+			ExpectWithOffset(offset, c.Status().Update(ctx, pvc)).Should(Succeed())
 		}
 	}
 	// Update the status in the sts to reflect the number of pods we created
@@ -144,12 +162,35 @@ func DeletePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	}
 }
 
+func DeleteStorageClass(ctx context.Context, c client.Client) {
+	stoclass := &storagev1.StorageClass{}
+	err := c.Get(ctx, types.NamespacedName{Name: builder.TestStorageClassName}, stoclass)
+	if !kerrors.IsNotFound(err) {
+		Expect(c.Delete(ctx, stoclass)).Should(Succeed())
+	}
+}
+
 func DeleteSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, offset int) {
 	for j := int32(0); j < sc.Size; j++ {
 		pod := &corev1.Pod{}
 		err := c.Get(ctx, names.GenPodName(vdb, sc, j), pod)
 		if !kerrors.IsNotFound(err) {
 			ExpectWithOffset(offset, c.Delete(ctx, pod)).Should(Succeed())
+		}
+		pvc := &corev1.PersistentVolumeClaim{}
+		err = c.Get(ctx, names.GenPVCName(vdb, sc, j), pvc)
+		if !kerrors.IsNotFound(err) {
+			// Clear the finalizer to allow us to delete the PVC
+			pvc.Finalizers = nil
+			ExpectWithOffset(1, c.Update(ctx, pvc)).Should(Succeed())
+			ExpectWithOffset(offset, c.Delete(ctx, pvc)).Should(Succeed())
+			err = c.Get(ctx, names.GenPVCName(vdb, sc, j), pvc)
+			ExpectWithOffset(1, err).ShouldNot(Succeed())
+		}
+		pv := &corev1.PersistentVolume{}
+		err = c.Get(ctx, names.GenPVName(vdb, sc, j), pv)
+		if !kerrors.IsNotFound(err) {
+			ExpectWithOffset(offset, c.Delete(ctx, pv)).Should(Succeed())
 		}
 	}
 	sts := &appsv1.StatefulSet{}

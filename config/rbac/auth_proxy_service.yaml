@@ -3,6 +3,7 @@ kind: Service
 metadata:
   labels:
     control-plane: controller-manager
+    vertica.com/svc-type: operator-metrics
   name: metrics-service
   namespace: system
 spec:

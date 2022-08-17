@@ -18,7 +18,6 @@ set -o pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
-TAG=kind
 BUILD_IMAGES=1
 INT_TEST_OUTPUT_DIR=${REPO_DIR}/int-tests-output
 CLUSTER_NAME=vertica
@@ -26,28 +25,24 @@ EXTRA_EXTERNAL_IMAGE_FILE=
 
 # The make targets and  the invoked shell scripts are directly run from the root directory.
 function usage {
-    echo "$0 -l <log_dir>  -n <cluster_name> -t <tag_name> -e <ext-image-file> [-hs]"
+    echo "$0 -l <log_dir>  -n <cluster_name> -e <ext-image-file> [-hs]"
     echo
     echo "Options:"
     echo "  -l <log_dir>        Log directory.   default: $INT_TEST_OUTPUT_DIR"
     echo "  -n <cluster_name>   Name of the kind cluster. default: $CLUSTER_NAME"
-    echo "  -t <tag_name>       Tag. default: $TAG"
     echo "  -e <ext-image-file> File with list of additional images to pull prior to running e2e tests"
-    echo "  -s                  Skip the building of the container images"
+    echo "  -s                  Skip the building of the container images we publish externally"
     exit
 }
 
 OPTIND=1
-while getopts l:n:t:hse: opt; do
+while getopts l:n:hse: opt; do
     case ${opt} in
         l)
             INT_TEST_OUTPUT_DIR=${OPTARG}
             ;;
         n)
             CLUSTER_NAME=${OPTARG}
-            ;;
-        t)
-            TAG=${OPTARG}
             ;;
         s)
             BUILD_IMAGES=
@@ -76,10 +71,8 @@ shift "$((OPTIND-1))"
 PACKAGES_DIR=docker-vertica/packages #RPM file should be in this directory to create docker image.
 RPM_FILE=vertica-x86_64.RHEL6.latest.rpm
 RPM_PATH="${PACKAGES_DIR}/${RPM_FILE}"
+# It is expected that the caller has set the appropriate *_IMG environment variables
 export INT_TEST_OUTPUT_DIR
-export VERTICA_IMG=vertica-k8s:$TAG
-export OPERATOR_IMG=verticadb-operator:$TAG
-export VLOGGER_IMG=vertica-logger:$TAG
 export PATH=$PATH:$HOME/.krew/bin
 export DEPLOY_WITH=random  # Randomly pick between helm and OLM
 
@@ -111,7 +104,16 @@ function build {
     fi
 
     echo "Building all of the container images"
-    make  docker-build vdb-gen
+    make docker-build
+
+    df -h
+}
+
+function build_push_olm_bundle {
+    # This one is handle separately because its not a container that we publish
+    # externally.  So it needs to be build each time we run the e2e tests.
+    echo "Building and pushing the OLM bundle"
+    make docker-build-bundle docker-push-bundle
 }
 
 # Build vertica images and push them to the kind environment
@@ -140,5 +142,6 @@ then
     build
 fi
 push
+build_push_olm_bundle
 run_integration_tests
 cleanup

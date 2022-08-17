@@ -4,6 +4,9 @@ kind: Service
 metadata:
   name: webhook-service
   namespace: system
+  labels:
+    control-plane: controller-manager
+    vertica.com/svc-type: webhook
 spec:
   ports:
     - port: 443
