@@ -30,14 +30,6 @@ data:
     UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f JavaFunctions.sql 2>&1")
     echo "$UDX_OP"
     kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - /opt/vertica/sdk/examples/expected-outputs/JavaFunctionsOut.txt"
-    # echo "$UDX_OP" | awk 'FNR == 1 && /CREATE LIBRARY/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 2 && /CREATE LIBRARY/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 3 && /CREATE FUNCTION/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 4 && /CREATE FUNCTION/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 5 && /CREATE TRANSFORM FUNCTION/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 6 && /CREATE TRANSFORM FUNCTION/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 7 && /CREATE TRANSFORM FUNCTION/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 8 && /CREATE TRANSFORM FUNCTION/ {print}' | wc -l | grep -cq '1'
 ---
 apiVersion: v1
 kind: Pod

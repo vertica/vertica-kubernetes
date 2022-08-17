@@ -31,10 +31,6 @@ data:
     kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - /opt/vertica/sdk/examples/expected-outputs/JavaUDAnalyticsOut.txt" \
     || kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples/expected-outputs; sort ./JavaUDAnalyticsOut.txt > ./JavaUDAnalyticsOutSorted.txt; \
     echo \"$UDX_OP\" | sort | diff - /opt/vertica/sdk/examples/expected-outputs/JavaUDAnalyticsOutSorted.txt"
-    # echo "$UDX_OP" | awk 'FNR == 1 && /CREATE LIBRARY/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 2 && /CREATE ANALYTIC FUNCTION/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 3 && /CREATE ANALYTIC FUNCTION/ {print}' | wc -l | grep -cq '1'
-    # echo "$UDX_OP" | awk 'FNR == 4 && /CREATE ANALYTIC FUNCTION/ {print}' | wc -l | grep -cq '1'
 ---
 apiVersion: v1
 kind: Pod
