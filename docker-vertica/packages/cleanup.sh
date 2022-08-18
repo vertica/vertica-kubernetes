@@ -33,12 +33,6 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/tkinter \
    /opt/vertica/oss/python*/lib/python*/idlelib
 
- # (optional) minimal images remove sdk folder which enables building UDx libraries
-if [ "$MINIMAL" = "YES" ] || [ "$MINIMAL" = "yes" ]
-then 
-  rm -r -f /opt/vertica/sdk
-fi
-
 # cleanup many of the __pycache__ directories 
 find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +
    
@@ -56,7 +50,7 @@ strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
 /opt/vertica/oss/python*/bin/python[0-9] \
     /tmp/package-checksum-patcher.py /opt/vertica/packages/*
 
-# (optional) minimal images remove packages that aren't auto installed
+# (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
 if [ "$MINIMAL" = "YES" ] || [ "$MINIMAL" = "yes" ]
 then 
   cd /opt/vertica/packages
@@ -64,4 +58,5 @@ then
   do
    rm -rf $i
   done
+  rm -r -f /opt/vertica/sdk
 fi

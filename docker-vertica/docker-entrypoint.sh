@@ -35,7 +35,4 @@ copy_config_files
 
 echo "Vertica container is now running"
 
-# Create a symlink to python3 interpreter in vertica
-sudo update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1
-
 sudo /usr/sbin/sshd -D

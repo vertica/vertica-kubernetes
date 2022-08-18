@@ -5,5 +5,3 @@ commands:
   - command: kubectl -n $NAMESPACE cp ../../../bin/udx-libs/build v-udx-java-sc1-0:/opt/vertica/sdk/examples
   # upload the expected outputs of executing sql files
   - command: kubectl -n $NAMESPACE cp ./expected-outputs v-udx-java-sc1-0:/opt/vertica/sdk/examples
-  # - command: kubectl -n $NAMESPACE exec v-udx-java-sc1-0 -- ls /opt/vertica/sdk/examples
-  # - command: kubectl -n $NAMESPACE exec v-udx-java-sc1-0 -- ls /opt/vertica/sdk/examples/build
