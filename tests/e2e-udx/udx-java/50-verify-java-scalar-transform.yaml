@@ -44,12 +44,6 @@ spec:
           mountPath: /bin/entrypoint.sh
           readOnly: true
           subPath: entrypoint.sh
-        # - name: lib-volume
-        #   mountPath: /bin/UDx-Examples/build
-        #   readOnly: true
-        # - name: sql-volume
-        #   mountPath: /bin/UDx-Examples/Java-and-C++
-        #   readOnly: true
   volumes:
     - name: entrypoint-volume
       configMap:
