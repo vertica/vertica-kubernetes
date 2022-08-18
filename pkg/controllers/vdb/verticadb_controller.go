@@ -58,6 +58,7 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/exec,verbs=create
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=persistentvolumeclaims,verbs=get;list;watch;update
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -210,6 +211,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Update the label in pods so that Service routing uses them if they
 		// have finished being rebalanced.
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Resize any PVs if the local data size changed in the vdb
+		MakeResizePVReconciler(r, vdb, prunner, pfacts),
 	}
 }
 

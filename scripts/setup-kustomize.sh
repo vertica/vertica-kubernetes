@@ -704,6 +704,23 @@ EOF
     popd > /dev/null
 }
 
+function create_volume_expansion_overlay {
+    # Some tests have different outcomes depending on whether volume expansion
+    # is allowed with the PVC.
+    TDIR=$1
+    VOL_EXPANSION_ENABLED_SUBDIR=$2
+    VOL_EXPANSION_DISABLED_SUBDIR=$3
+
+    OVERLAY_DIR=${TDIR}/overlay
+    rm -rf $OVERLAY_DIR
+    if [ -n "$ALLOW_VOLUME_EXPANSION" ]
+    then
+        cp -r ${TDIR}/$VOL_EXPANSION_ENABLED_SUBDIR $OVERLAY_DIR
+    else
+        cp -r ${TDIR}/$VOL_EXPANSION_DISABLED_SUBDIR $OVERLAY_DIR
+    fi
+}
+
 cd $REPO_DIR/tests
 
 # Create the configMap that is used to control the communal endpoint and creds.
@@ -728,4 +745,8 @@ done
 for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-server-upgrade/* e2e-operator-upgrade-overlays/* e2e-http-server/*
 do
     clean_communal_kustomization $tdir
+done
+for tdir in e2e-extra/pvc-expansion/verify-pvc-change
+do
+    create_volume_expansion_overlay $tdir volume-expansion-enabled volume-expansion-disabled
 done

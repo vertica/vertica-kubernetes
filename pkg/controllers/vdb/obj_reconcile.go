@@ -409,6 +409,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
 	}
 
+	// We allow the requestSize to change in the VerticaDB.  But we cannot
+	// propagate that in the sts spec.  We handle that by modifying the PVC in a
+	// separate reconciler.  Reset the volume claim spec so that we don't try to
+	// change it here.
+	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
+
 	// Update the sts by patching in fields that changed according to expSts.
 	// Due to the omission of default fields in expSts, curSts != expSts.  We
 	// always send a patch request, then compare what came back against origSts

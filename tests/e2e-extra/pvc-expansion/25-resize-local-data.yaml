@@ -14,30 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-mc-restart
+  name: v-pvc-expansion
 spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
   local:
-    requestSize: 100Mi
-  dbName: vertdb
-  shardCount: 16
-  subclusters:
-    - name: sc1
-      size: 1
-      isPrimary: true
-    - name: sc2
-      size: 1
-      isPrimary: true
-    - name: sc3
-      size: 2
-      isPrimary: false
-  requeueTime: 10
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    requestSize: 2Gi

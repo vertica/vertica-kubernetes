@@ -72,6 +72,9 @@ const (
 	StopDBStart                     = "StopDBStart"
 	StopDBSucceeded                 = "StopDBSucceeded"
 	StopDBFailed                    = "StopDBFailed"
+	SkipPVCExpansion                = "SkipPVCExpansion"
+	SkipDepotResize                 = "SkipDepotResize"
+	DepotResized                    = "DepotResized"
 )
 
 // Constants for VerticaAutoscaler reconciler

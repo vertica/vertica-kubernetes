@@ -28,12 +28,14 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	SuperuserPasswordPath = "superuser-passwd"
+	TestStorageClassName  = "test-storage-class"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -582,7 +584,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 						StorageClassName: getStorageClassName(vdb),
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
-								"storage": vdb.Spec.Local.RequestSize,
+								corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
 							},
 						},
 					},
@@ -620,13 +622,70 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		Name: vapi.LocalDataPVC,
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: vapi.LocalDataPVC + "-" + vdb.ObjectMeta.Name + "-" + sc.Name + fmt.Sprintf("%d", podIndex),
+				ClaimName: names.GenPVCName(vdb, sc, podIndex).Name,
 			},
 		},
 	})
 	pod.Spec.Hostname = nm.Name
 	pod.Spec.Subdomain = names.GenHlSvcName(vdb).Name
 	return pod
+}
+
+// BuildPVC will build a PVC for test purposes
+func BuildPVC(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.PersistentVolumeClaim {
+	scn := TestStorageClassName
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      names.GenPVCName(vdb, sc, podIndex).Name,
+			Namespace: vdb.Namespace,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				"ReadWriteOnce",
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
+				},
+			},
+			StorageClassName: &scn,
+		},
+	}
+}
+
+// BuildPV will build a PV for test purposes
+func BuildPV(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.PersistentVolume {
+	hostPathType := corev1.HostPathDirectoryOrCreate
+	return &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: names.GenPVName(vdb, sc, podIndex).Name,
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				"ReadWriteOnce",
+			},
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: vdb.Spec.Local.RequestSize,
+			},
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/host",
+					Type: &hostPathType,
+				},
+			},
+		},
+	}
+}
+
+// BuildStorageClass will construct a storageClass for test purposes
+func BuildStorageClass(allowVolumeExpansion bool) *storagev1.StorageClass {
+	return &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: TestStorageClassName,
+		},
+		Provisioner:          "vertica.com/dummy-provisioner",
+		AllowVolumeExpansion: &allowVolumeExpansion,
+	}
 }
 
 // BuildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
