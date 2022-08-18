@@ -24,11 +24,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/lithammer/dedent"
+	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
@@ -210,18 +212,19 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 			continue
 		}
 		if !p.httpTLSConfExists {
-			cmd := []string{
-				"bash",
-				"-c",
-				"sudo /opt/vertica/sbin/install_vertica " +
-					"--generate-bootstrap-tls-conf-only " +
-					"--tls-key " + fmt.Sprintf("%s/%s ", paths.HTTPServerCertsRoot, corev1.TLSPrivateKeyKey) +
-					"--tls-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServerCertsRoot, corev1.TLSCertKey) +
-					"--ca-crt " + fmt.Sprintf("%s/%s ", paths.HTTPServerCertsRoot, HTTPServerCACrtName),
-			}
-			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer, cmd...)
-			if err != nil {
+			if _, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer, "mkdir", "-p", paths.HTTPTLSConfDir); err != nil {
 				return err
+			}
+			frwt := httpconf.FileWriter{}
+			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerSecret)
+			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFile))
+			}
+			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
+				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFile))
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
 			}
 		}
 	}

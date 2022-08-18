@@ -22,6 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,10 +37,6 @@ type HTTPServerCertGenReconciler struct {
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
 }
 
-const (
-	HTTPServerCACrtName = "ca.crt"
-)
-
 func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB) controllers.ReconcileActor {
 	return &HTTPServerCertGenReconciler{
 		VRec: vdbrecon,
@@ -49,15 +46,16 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.Ve
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	const PKKeySize = 2048
 	// Early out if http server is not enabled, or we already have a TLS secret
 	if !h.Vdb.Spec.EnableHTTPServer || h.Vdb.Spec.HTTPServerSecret != "" {
 		return ctrl.Result{}, nil
 	}
-	caCert, err := security.NewSelfSignedCACertificate()
+	caCert, err := security.NewSelfSignedCACertificate(PKKeySize)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	cert, err := security.NewCertificate(caCert, h.getDNSNames())
+	cert, err := security.NewCertificate(caCert, PKKeySize, h.getDNSNames())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -98,9 +96,9 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 		},
 		Type: corev1.SecretTypeTLS,
 		Data: map[string][]byte{
-			corev1.TLSPrivateKeyKey: cert.TLSKey(),
-			corev1.TLSCertKey:       cert.TLSCrt(),
-			HTTPServerCACrtName:     caCert.TLSCrt(),
+			corev1.TLSPrivateKeyKey:   cert.TLSKey(),
+			corev1.TLSCertKey:         cert.TLSCrt(),
+			paths.HTTPServerCACrtName: caCert.TLSCrt(),
 		},
 	}
 	err := h.VRec.Client.Create(ctx, &secret)

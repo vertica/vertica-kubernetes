@@ -366,7 +366,8 @@ func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.Ver
 
 // checkThatHTTPTLSConfExists will verify that http service config file exists
 func (p *PodFacts) checkThatHTTPTLSConfExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckFileExists, paths.HTTPTLSConfPath, func() { pf.httpTLSConfExists = true })
+	return p.checkDir(ctx, pf, CheckFileExists, fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFile),
+		func() { pf.httpTLSConfExists = true })
 }
 
 // checkDir is a general function that will check if a directory (exists,

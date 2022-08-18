@@ -164,7 +164,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	}
 
 	if o.Vdb.Spec.HTTPServerSecret != "" {
-		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, HTTPServerCACrtName}
+		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
 		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.HTTPServerSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
