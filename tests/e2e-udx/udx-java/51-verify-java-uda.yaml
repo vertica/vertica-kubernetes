@@ -21,10 +21,7 @@ data:
     set -o xtrace
     set -o errexit
 
-    VDB_NAME=v-udx-java
-    SELECTOR=app.kubernetes.io/name=vertica,app.kubernetes.io/instance=$VDB_NAME
-    POD_NAME=$(kubectl get pods --selector=$SELECTOR -o jsonpath="{.items[0].metadata.name}")
-    echo $POD_NAME
+    POD_NAME=v-udx-java-sc1-0
     UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f JavaUDAnalytics.sql 2>&1")
     echo "$UDX_OP"
     # the row orders in the output might be unstable, so sort the entire output and then compare
