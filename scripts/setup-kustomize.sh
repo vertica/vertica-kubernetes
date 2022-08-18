@@ -742,7 +742,7 @@ for tdir in e2e/*/*/base e2e-extra/*/*/base e2e-server-upgrade/*/*/base e2e-oper
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-server-upgrade/* e2e-operator-upgrade-overlays/* e2e-udx/* e2e-udx/*
+for tdir in e2e/* e2e-extra/* e2e-disabled/* e2e-server-upgrade/* e2e-operator-upgrade-overlays/* e2e-udx/*
 do
     clean_communal_kustomization $tdir
 done
