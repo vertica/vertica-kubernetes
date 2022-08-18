@@ -223,6 +223,7 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 			}
 			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
 				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFile))
+			_ = os.Remove(fname)
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
 			}
