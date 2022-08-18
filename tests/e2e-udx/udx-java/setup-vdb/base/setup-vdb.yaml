@@ -29,10 +29,5 @@ spec:
   kSafety: "0"
   certSecrets: []
   imagePullSecrets: []
-  # volumes:
-  #   - name: downloads
-  #     hostPath:
-  #       path: /host
-  # volumeMounts:
-  #   - mountPath: /host
-  #     name: downloads
+  volumes: []
+  volumeMounts: []
