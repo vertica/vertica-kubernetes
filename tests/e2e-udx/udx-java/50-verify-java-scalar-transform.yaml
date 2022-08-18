@@ -49,11 +49,3 @@ spec:
       configMap:
         defaultMode: 0700
         name: script-verify-java-scalar-transform
-    # - name: lib-volume
-    #   hostPath:
-    #     path: /host/UDx-Examples/build
-    #     type: Directory
-    # - name: sql-volume
-    #   hostPath:
-    #     path: /host/UDx-Examples/Java-and-C++
-    #     type: Directory
