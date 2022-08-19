@@ -24,7 +24,6 @@
 # wander around in the image looking for things you can remove
 rm -r -f \
    /opt/vertica/examples \
-   /opt/vertica/sdk \
    /opt/vertica/packages/*/examples \
    /opt/vertica/oss/python*/lib/python*/test \
    /opt/vertica/oss/python*/lib/python*/unittest/test \
@@ -32,7 +31,7 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/site-packages/pip \
    /opt/vertica/oss/python*/lib/python*/config-[0-9]* \
    /opt/vertica/oss/python*/lib/python*/tkinter \
-   /opt/vertica/oss/python*/lib/python*/idlelib 
+   /opt/vertica/oss/python*/lib/python*/idlelib
 
 # cleanup many of the __pycache__ directories 
 find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +
@@ -51,7 +50,7 @@ strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
 /opt/vertica/oss/python*/bin/python[0-9] \
     /tmp/package-checksum-patcher.py /opt/vertica/packages/*
 
-# (optional) minimal images remove packages that aren't auto installed
+# (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
 if [ "$MINIMAL" = "YES" ] || [ "$MINIMAL" = "yes" ]
 then 
   cd /opt/vertica/packages
@@ -59,4 +58,5 @@ then
   do
    rm -rf $i
   done
+  rm -r -f /opt/vertica/sdk
 fi

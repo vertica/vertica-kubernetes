@@ -5,10 +5,11 @@
 
 ARG BASE_OS_VERSION="focal-20220801"
 ARG BUILDER_OS_VERSION="7.9.2009"
+ARG MINIMAL=""
 FROM centos:centos${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
-ARG MINIMAL=""
+ARG MINIMAL
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
@@ -88,6 +89,11 @@ FROM ubuntu:${BASE_OS_VERSION}
 
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
+# Controls the version of jre to be installed by apt-get. The list of all
+# available jre packages can be queried through apt-cache. For instance,
+# "apt-cache search jre | grep jre"
+ARG JRE_PKG=openjdk-8-jre-headless
+ARG MINIMAL
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
@@ -129,6 +135,10 @@ RUN set -x \
   procps \
   sysstat \
   sudo \
+  # Install jre if not minimal
+  && if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") ]] ; then \
+    apt-get install -y --no-install-recommends $JRE_PKG; \
+  fi \
   && rm -rf /var/lib/apt/lists/* \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
@@ -138,9 +148,15 @@ RUN set -x \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
-  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf 
-  
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
+  # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
+  && if [[ $MINIMAL != "YES" && $MINIMAL != "yes" ]]; then \
+    echo "JAVA_HOME=/usr" >> /etc/environment; \
+  fi \
+  # Create a symlink to python3 interpreter in vertica
+  && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1
+
+ENTRYPOINT [ "/usr/local/bin/docker-entrypoint.sh" ]
 
 # vertica port
 EXPOSE 5433

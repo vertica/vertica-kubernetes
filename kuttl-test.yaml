@@ -19,6 +19,7 @@ skipDelete: true
 # These are overridden when running kuttl from the Makefile
 testDirs:
   - tests/e2e
+  - tests/e2e-udx
   - tests/e2e-extra
   - tests/e2e-server-upgrade
   - tests/e2e-operator-upgrade-overlays

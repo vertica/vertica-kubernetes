@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+set -o errexit
+set -o xtrace
 
 start_cron(){
     # daemonizes, no need for &

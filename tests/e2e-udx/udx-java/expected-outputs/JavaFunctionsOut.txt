@@ -1,0 +1,125 @@
+CREATE LIBRARY
+CREATE LIBRARY
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TRANSFORM FUNCTION
+CREATE TRANSFORM FUNCTION
+CREATE TRANSFORM FUNCTION
+CREATE TRANSFORM FUNCTION
+CREATE TABLE
+CREATE TABLE
+ c1 | c2 | add2ints 
+----+----+----------
+  1 |  2 |        3
+  3 |  2 |        5
+  5 |  2 |        7
+  1 |  4 |        5
+  2 |  2 |        4
+(5 rows)
+
+ c1 | c2 | addanyints 
+----+----+------------
+  1 |  2 |          3
+  3 |  2 |          5
+  5 |  2 |          7
+  1 |  4 |          5
+  2 |  2 |          4
+(5 rows)
+
+ c1 | c2 | c3 | addanyints 
+----+----+----+------------
+  1 |  2 |  3 |          6
+  3 |  2 |  9 |         14
+  5 |  2 |  8 |         15
+  1 |  4 |  5 |         10
+  2 |  2 |  5 |          9
+(5 rows)
+
+ col1 | col2 
+------+------
+    1 |    2
+    1 |    4
+(2 rows)
+
+ col0 | col1 
+------+------
+    1 |    2
+    1 |    4
+(2 rows)
+
+ col0 | col1 
+------+------
+    1 |    2
+(1 row)
+
+ col0 | col1 
+------+------
+    1 |    2
+    1 |    4
+(2 rows)
+
+ col0 | col1 
+------+------
+ a    | b
+ a    | c
+(2 rows)
+
+ col0 
+------
+    2
+    2
+(2 rows)
+
+CREATE TABLE
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+COMMIT
+CREATE TABLE
+ doc_id |                                           text                                           
+--------+------------------------------------------------------------------------------------------
+    100 | Vertica Analytic database
+    300 | Vertica in database analytic functions combined with UD functions include many UD things
+(2 rows)
+
+ doc_id |                                           text                                           
+--------+------------------------------------------------------------------------------------------
+    300 | Vertica in database analytic functions combined with UD functions include many UD things
+(1 row)
+
+ doc_id |                                                          text                                                           
+--------+-------------------------------------------------------------------------------------------------------------------------
+    200 | Analytic database functions with User Defined Functions UD functions for short
+    300 | Vertica in database analytic functions combined with UD functions include many UD things
+    400 | UDx Framework include UD scalar functions analytic functions UD single and multiphase transforms UD aggregates UD Loads
+(3 rows)
+
+ doc_id |                                                          text                                                           |       score       
+--------+-------------------------------------------------------------------------------------------------------------------------+-------------------
+    400 | UDx Framework include UD scalar functions analytic functions UD single and multiphase transforms UD aggregates UD Loads |  1.15072828980712
+    300 | Vertica in database analytic functions combined with UD functions include many UD things                                | 0.575364144903562
+(2 rows)
+
+DROP TABLE
+DROP TABLE
+DROP TABLE
+DROP TABLE
+DROP LIBRARY
+DROP LIBRARY
