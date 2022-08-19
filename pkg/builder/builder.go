@@ -115,6 +115,10 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
+	if vdb.Spec.HTTPServerSecret != "" {
+		volMnts = append(volMnts, buildHTTPServerVolumeMount()...)
+	}
+
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
@@ -153,6 +157,15 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	return mnts
 }
 
+func buildHTTPServerVolumeMount() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      vapi.HTTPServerCertsMountName,
+			MountPath: paths.HTTPServerCertsRoot,
+		},
+	}
+}
+
 // buildCertSecretVolumeMounts returns the volume mounts for any cert secrets that are in the vdb
 func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	mnts := []corev1.VolumeMount{}
@@ -180,6 +193,9 @@ func buildVolumes(vdb *vapi.VerticaDB, deployNames *DeploymentNames) []corev1.Vo
 	}
 	if vdb.Spec.SSHSecret != "" {
 		vols = append(vols, buildSSHVolume(vdb))
+	}
+	if vdb.Spec.HTTPServerSecret != "" {
+		vols = append(vols, buildHTTPServerSecretVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -362,6 +378,17 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: vdb.Spec.SSHSecret,
+			},
+		},
+	}
+}
+
+func buildHTTPServerSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return corev1.Volume{
+		Name: vapi.HTTPServerCertsMountName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: vdb.Spec.HTTPServerSecret,
 			},
 		},
 	}

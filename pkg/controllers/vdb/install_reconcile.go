@@ -24,12 +24,17 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/lithammer/dedent"
+	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -93,6 +98,7 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
+		d.generateHTTPCerts,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -181,6 +187,45 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 				"mkdir", paths.ConfigSharePath)
 			if err != nil {
 				return err
+			}
+		}
+	}
+	return nil
+}
+
+// generateHTTPCerts will generate the necessary certs to be able to start and
+// communicate with the Vertica's http server.
+func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
+	// Early out if the http service isn't enabled
+	if !d.Vdb.Spec.EnableHTTPServer {
+		return nil
+	}
+	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
+	if !ok || vinf.IsOlder(version.HTTPServerMinVersion) {
+		d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
+			"Skipping http server cert setup because the Vertica version doesn't have "+
+				"support for it. A Vertica version of '%s' or newer is needed", version.HTTPServerMinVersion)
+		return nil
+	}
+	for _, p := range d.PFacts.Detail {
+		if !p.isPodRunning {
+			continue
+		}
+		if !p.httpTLSConfExists {
+			if _, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer, "mkdir", "-p", paths.HTTPTLSConfDir); err != nil {
+				return err
+			}
+			frwt := httpconf.FileWriter{}
+			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerSecret)
+			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFile))
+			}
+			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
+				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFile))
+			_ = os.Remove(fname)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
 			}
 		}
 	}

@@ -48,6 +48,8 @@ const (
 	StartDBAcceptsHostListVersion = "v11.0.1"
 	// The version of the server that doesn't support cgroup v2
 	CGroupV2UnsupportedVersion = "v12.0.0"
+	// The minimum version that can start Vertica's http server
+	HTTPServerMinVersion = "v12.0.1"
 )
 
 // UpgradePaths has all of the vertica releases supported by the operator.  For
@@ -117,6 +119,11 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 		return false
 	}
 	return true
+}
+
+// IsOlder returns true if the version in info is older than the given version
+func (i *Info) IsOlder(inVer string) bool {
+	return !i.IsEqualOrNewer(inVer)
 }
 
 // IsEqual compares two versions to see if they are equal

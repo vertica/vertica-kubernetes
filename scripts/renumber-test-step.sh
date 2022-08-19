@@ -22,20 +22,24 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 
 function usage() {
-    echo "usage: $0 <testsuite> <testcase> <old-number> <new-number>"
+    echo "usage: $0 [-v] <testsuite> <testcase> <old-number> <new-number>"
     echo
     echo "Positional Arguments:"
     echo " <testsuite>   The name of the testsuite (e.g. e2e, e2e-extra)"
     echo " <testcase>    The name of the testcase in the testsuite to rename"
     echo " <old-number>  Old step number to rename"
     echo " <new-number>  Number to use for new step number"
+    echo
+    echo "Optional Arguments:"
+    echo " -v            Show verbose output"
     exit 1
 }
 
-while getopts "h" opt
+while getopts "hv" opt
 do
     case $opt in
       h) usage;;
+      v) set -o xtrace;;
     esac
 done
 
@@ -51,4 +55,5 @@ NEW_NUMBER=${@:$OPTIND+3:1}
 
 echo "$TESTSUITE.$TESTCASE moving all steps starting with $OLD_NUMBER to $NEW_NUMBER"
 
-rename "s/$OLD_NUMBER/$NEW_NUMBER/g" $(ls $REPO_DIR/tests/$TESTSUITE/$TESTCASE/$OLD_NUMBER-*)
+test -d $REPO_DIR/tests/$TESTSUITE/$TESTCASE
+rename -v "s/$OLD_NUMBER/$NEW_NUMBER/g" $(ls $REPO_DIR/tests/$TESTSUITE/$TESTCASE/$OLD_NUMBER-*)
