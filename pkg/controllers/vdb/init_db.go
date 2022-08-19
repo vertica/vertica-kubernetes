@@ -456,7 +456,7 @@ func (g *GenericDatabaseInitializer) getEnableHTTPS() string {
 	return "0"
 }
 
-// getCAFile will return an entry for awscafile if one needs to be included
+// getCAFile will return an entry for SystemCABundlePath if one needs to be included
 func (g *GenericDatabaseInitializer) getCAFile() string {
 	if g.Vdb.Spec.Communal.CaFile == "" {
 		return ""

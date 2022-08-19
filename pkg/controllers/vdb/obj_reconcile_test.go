@@ -644,6 +644,20 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, sc2StsName, sts)).Should(Succeed())
 			Expect(*sts.Spec.Replicas).Should(Equal(int32(1)))
 		})
+
+		It("should requeue if HTTP server is enabled but HTTP secret isn't setup properly", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.EnableHTTPServer = true
+			vdb.Spec.HTTPServerSecret = ""
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
+
+			// Having a secret name, but not created should force a requeue too
+			vdb.Spec.HTTPServerSecret = "dummy"
+			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
+		})
 	})
 })
 

@@ -310,6 +310,25 @@ type VerticaDBSpec struct {
 	// those capabilities to be removed you must explicitly include them in the
 	// drop list.
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=false
+	// +kubebuilder:validation:Optional
+	// Enable Vertica's http server.  The http server provides a REST interface
+	// that can be used for management and monitoring of the server.
+	EnableHTTPServer bool `json:"enableHTTPServer,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:default:=""
+	// +kubebuilder:validation:Optional
+	// A secret that contains the TLS credentials to use for the Vertica HTTP
+	// server.  If this is empty, the operator will create a secret to use and
+	// add the name of the generate secret in this field.  When set, the secret
+	// must have the following keys defined:
+	// - tls.key: The private key to be used by the HTTP server
+	// - tls.crt: The signed certificate chain for the private key
+	// - ca.crt: The CA certificate
+	HTTPServerSecret string `json:"httpServerSecret,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.

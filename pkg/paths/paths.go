@@ -27,6 +27,8 @@ const (
 	ConfigPath             = "/opt/vertica/config"
 	ConfigSharePath        = "/opt/vertica/config/share"
 	ConfigLogrotatePath    = "/opt/vertica/config/logrotate"
+	HTTPTLSConfDir         = "/opt/vertica/config/https_certs"
+	HTTPTLSConfFile        = "httpstls.json"
 	LogPath                = "/opt/vertica/log"
 	PodInfoPath            = "/etc/podinfo"
 	AdminToolsConf         = "/opt/vertica/config/admintools.conf"
@@ -34,9 +36,11 @@ const (
 	EulaAcceptanceFile     = "/opt/vertica/config/d5415f948449e9d4c421b568f2411140.dat"
 	EulaAcceptanceScript   = "/opt/vertica/config/accept_eula.py"
 	CertsRoot              = "/certs"
+	HTTPServerCertsRoot    = "/certs/http-server"
 	Krb5Conf               = "/etc/krb5.conf"
 	Krb5Keytab             = "/etc/krb5/krb5.keytab"
 	SSHPath                = "/home/dbadmin/.ssh"
+	HTTPServerCACrtName    = "ca.crt"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.

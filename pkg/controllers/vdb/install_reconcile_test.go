@@ -28,6 +28,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -210,5 +213,40 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		Expect(err).Should(Succeed())
 		Expect(len(podList)).Should(Equal(1))
 		Expect(podList[0].name).Should(Equal(names.GenPodName(vdb, sc, 0)))
+	})
+
+	It("should generate certs only on supported vertica versions", func() {
+		vdb := vapi.MakeVDB()
+		secret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "tls-secret",
+				Namespace: vdb.Namespace,
+			},
+			Data: map[string][]byte{
+				corev1.TLSPrivateKeyKey:   []byte("pk"),
+				corev1.TLSCertKey:         []byte("cert"),
+				paths.HTTPServerCACrtName: []byte("ca"),
+			},
+		}
+		Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, &secret)) }()
+		vdb.Spec.EnableHTTPServer = true
+		vdb.Spec.HTTPServerSecret = secret.Name
+		vdb.Annotations[vapi.VersionAnnotation] = "v12.0.0"
+
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
+		drecon := actor.(*InstallReconciler)
+		err := drecon.generateHTTPCerts(ctx)
+		Expect(err).Should(Succeed())
+		cmds := fpr.FindCommands(paths.HTTPTLSConfFile)
+		Expect(len(cmds)).Should(Equal(0))
+
+		vdb.Annotations[vapi.VersionAnnotation] = version.HTTPServerMinVersion
+		err = drecon.generateHTTPCerts(ctx)
+		Expect(err).Should(Succeed())
+		cmds = fpr.FindCommands(paths.HTTPTLSConfFile)
+		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
 	})
 })

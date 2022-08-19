@@ -57,7 +57,7 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups=apps,namespace=WATCH_NAMESPACE,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/exec,verbs=create
-// +kubebuilder:rbac:groups=core,namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=persistentvolumeclaims,verbs=get;list;watch;update
 
 // SetupWithManager sets up the controller with the Manager.
@@ -149,6 +149,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts),
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts),
+		// Create a TLS secret for the HTTP server
+		MakeHTTPServerCertGenReconciler(r, vdb),
 		// Creates any missing k8s objects.  This doesn't update existing
 		// objects.  It is a special case for when restart is needed but the
 		// pods are missing.  We don't want to apply all updates as we may need

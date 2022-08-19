@@ -131,6 +131,23 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
+	if o.Vdb.Spec.EnableHTTPServer {
+		// When the HTTP server is enabled, a secret must exist that has the
+		// certs to use for it.  There is a reconciler that is run before this
+		// that will create the secret.  We will requeue if we find the Vdb
+		// doesn't have the secret set.
+		if o.Vdb.Spec.HTTPServerSecret == "" {
+			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
+				"The httpServerSecret must be set when Vertica's http server is enabled")
+			return ctrl.Result{Requeue: true}, nil
+		}
+		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPServerSecret))
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+
 	// Next check for secrets that must have specific keys.
 
 	if o.Vdb.Spec.KerberosSecret != "" {
@@ -142,6 +159,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 	if o.Vdb.Spec.SSHSecret != "" {
 		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+
+	if o.Vdb.Spec.HTTPServerSecret != "" {
+		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
+		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.HTTPServerSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
