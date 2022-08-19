@@ -12,6 +12,7 @@ local-soak.cfg
 local-kustomize*.cfg
 .envrc
 custom-rbac-overlay/
+sdk
 
 # Generated files from setup-kustomize.sh
 overlay/

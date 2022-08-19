@@ -25,7 +25,7 @@ TIMEOUT=360
 MANIFEST_PATH=$REPO_DIR/tests/manifests/azurite/base
 
 function usage {
-    echo "usage: $0 [-u] [-t <seconds>]"
+    echo "usage: $0 [-t <seconds>]"
     echo
     echo "Options:"
     echo "  -t <seconds>  Length of the timeout."

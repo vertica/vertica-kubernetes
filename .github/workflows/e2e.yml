@@ -35,6 +35,7 @@ on:
         - hdfs
         - server upgrade
         - operator upgrade
+        - udx
       security_scan_exit_code:
         description: 'Set to 1 to fail the build for security vulnerabilities. Otherwise set to 0'
         required: false
@@ -136,6 +137,19 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-udx:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'udx' || inputs.e2e_test_suites == '' }}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-udx.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      # We must pass the full image since the minimal image cannot run Java UDx's
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
