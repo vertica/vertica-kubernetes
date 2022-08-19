@@ -1,0 +1,5 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # upload the expected outputs of executing sql files
+  - command: kubectl -n $NAMESPACE cp ./expected-outputs v-udx-python-sc1-0:/opt/vertica/sdk/examples

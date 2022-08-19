@@ -1,0 +1,265 @@
+CREATE LIBRARY
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TABLE
+ c1 | c2 | add2ints 
+----+----+----------
+  1 |  2 |        3
+  3 |  2 |        5
+  5 |  2 |        7
+  1 |  4 |        5
+  2 |  2 |        4
+(5 rows)
+
+   enable_profiling   
+----------------------
+ EE Profiling Enabled
+(1 row)
+
+       clear_profiling       
+-----------------------------
+ GLOBAL EE Profiling Cleared
+(1 row)
+
+CREATE VIEW
+CREATE TABLE
+ count 
+-------
+   250
+(1 row)
+
+                counter_name                | SUM 
+--------------------------------------------+-----
+ container rows pruned by query predicates  | 220
+ container rows added by predicate analysis | 250
+(2 rows)
+
+DROP TABLE
+DROP VIEW
+                            set_optimizer_directives                            
+--------------------------------------------------------------------------------
+ 
+Optimizer Directives
+----------------------
+EnableDistributeExprEval = false
+
+(1 row)
+
+ c1 | c2 | dfswriteread 
+----+----+--------------
+  1 |  2 |            3
+  3 |  2 |            5
+  5 |  2 |            7
+  1 |  4 |            5
+  2 |  2 |            4
+(5 rows)
+
+ COUNT 
+-------
+     1
+(1 row)
+
+     name     | size | isfile | isdirectory 
+--------------+------+--------+-------------
+ dfswriteread |   40 | t      | f
+(1 row)
+
+ block_size | block_id 
+------------+----------
+         40 |        0
+(1 row)
+
+            dfs_delete             
+-----------------------------------
+ [/exscalarfunctions/dfswriteread]
+(1 row)
+
+           set_optimizer_directives            
+-----------------------------------------------
+ 
+Optimizer Directives
+----------------------
+
+(1 row)
+
+ c1 | c2 | addanyints 
+----+----+------------
+  1 |  2 |          3
+  3 |  2 |          5
+  5 |  2 |          7
+  1 |  4 |          5
+  2 |  2 |          4
+(5 rows)
+
+ c1 | c2 | c3 | addanyints 
+----+----+----+------------
+  1 |  2 |  3 |          6
+  3 |  2 |  9 |         14
+  5 |  2 |  8 |         15
+  1 |  4 |  5 |         10
+  2 |  2 |  5 |          9
+(5 rows)
+
+ c1 | c2 | c3 | c4 | addanyints 
+----+----+----+----+------------
+  1 |  2 |  3 |  4 |         10
+  3 |  2 |  9 |  3 |         17
+  5 |  2 |  8 |  4 |         19
+  1 |  4 |  5 |  3 |         13
+  2 |  2 |  5 |  6 |         15
+(5 rows)
+
+DROP TABLE
+CREATE TABLE
+                     word                     |             removespace              
+----------------------------------------------+--------------------------------------
+ This is the final data line                  | Thisisthefinaldataline
+ SingleWord                                   | SingleWord
+ This is an input text file                   | Thisisaninputtextfile
+ Well maybe not!                              | Wellmaybenot!
+ The quick brown fox jumped over the lazy dog | Thequickbrownfoxjumpedoverthelazydog
+ So possibly is equated with possible         | Sopossiblyisequatedwithpossible
+(6 rows)
+
+DROP TABLE
+ textconvert 
+-------------
+ hi
+(1 row)
+
+ textconvert 
+-------------
+ 㑣㔸愰
+(1 row)
+
+ substring 
+-----------
+ c4850
+(1 row)
+
+ substring 
+-----------
+ a
+(1 row)
+
+ length 
+--------
+      0
+(1 row)
+
+ length 
+--------
+      3
+(1 row)
+
+ length 
+--------
+      3
+(1 row)
+
+ length 
+--------
+  60000
+(1 row)
+
+ length 
+--------
+  60000
+(1 row)
+
+ length 
+--------
+ 600000
+(1 row)
+
+ length 
+--------
+ 600000
+(1 row)
+
+ length  
+---------
+ 6000000
+(1 row)
+
+ length  
+---------
+ 6000000
+(1 row)
+
+  length  
+----------
+ 30000000
+(1 row)
+
+  length  
+----------
+ 30000000
+(1 row)
+
+ schema_name | function_name |     function_type     | function_argument_type | parameter_name | data_type  | data_type_id | data_type_length | is_required | can_be_null |             comment             
+-------------+---------------+-----------------------+------------------------+----------------+------------+--------------+------------------+-------------+-------------+---------------------------------
+ public      | removesymbol  | User Defined Function | Varchar                | symbol         | varchar(1) |            9 |                1 | t           | f           | Symbol to be removed
+ public      | removesymbol  | User Defined Function | Varchar                | n              | int        |            6 |                8 | f           | f           | Number of occurrences to remove
+(2 rows)
+
+ schema_name | function_name |     function_type     | function_argument_type | parameter_name | data_type  | data_type_id | data_type_length | is_required | can_be_null |       comment        
+-------------+---------------+-----------------------+------------------------+----------------+------------+--------------+------------------+-------------+-------------+----------------------
+ public      | removesymbol  | User Defined Function | Varchar                | symbol         | varchar(1) |            9 |                1 | t           | f           | Symbol to be removed
+(1 row)
+
+ orig_string | removesymbol 
+-------------+--------------
+ abcxyzxdefx | abcyzxdefx
+(1 row)
+
+ orig_string | removesymbol 
+-------------+--------------
+ abcxyzxdefx | abcyzdefx
+(1 row)
+
+ orig_string | removesymbol 
+-------------+--------------
+ abcxyzxdefx | abcyzdef
+(1 row)
+
+CREATE TABLE
+ a  | b |                Div                 | quotient | remainder 
+----+---+------------------------------------+----------+-----------
+ 10 | 0 | {"quotient":null,"remainder":null} |          |          
+ 10 | 5 | {"quotient":2,"remainder":0}       |        2 |         0
+ 10 | 2 | {"quotient":5,"remainder":0}       |        5 |         0
+ 10 | 1 | {"quotient":10,"remainder":0}      |       10 |         0
+ 10 | 4 | {"quotient":2,"remainder":2}       |        2 |         2
+ 10 | 3 | {"quotient":3,"remainder":1}       |        3 |         1
+(6 rows)
+
+DROP TABLE
+CREATE TABLE
+CREATE TABLE
+ id | b | e | slice 
+----+---+---+-------
+  2 | 0 | 2 | [1,2]
+  2 | 2 | 4 | [3]
+  2 | 1 | 3 | [2,3]
+  3 | 0 | 2 | [5,4]
+  3 | 2 | 4 | [3,2]
+  3 | 1 | 3 | [4,3]
+  1 | 0 | 2 | []
+  1 | 2 | 4 | []
+  1 | 1 | 3 | []
+(9 rows)
+
+ id | b | e | slice 
+----+---+---+-------
+(0 rows)
+
+DROP TABLE
+DROP LIBRARY
