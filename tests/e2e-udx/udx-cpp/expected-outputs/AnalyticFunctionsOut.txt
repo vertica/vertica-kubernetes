@@ -1,0 +1,93 @@
+CREATE LIBRARY
+CREATE ANALYTIC FUNCTION
+CREATE ANALYTIC FUNCTION
+CREATE ANALYTIC FUNCTION
+CREATE ANALYTIC FUNCTION
+CREATE TABLE
+ x | y  | z | an_rank 
+---+----+---+---------
+ 3 |  9 | 1 |       1
+ 3 |  8 | 2 |       2
+ 3 |  8 | 3 |       3
+ 2 |  7 | 4 |       4
+ 2 |  7 | 5 |       5
+ 2 |  9 | 6 |       6
+ 1 | 11 | 7 |       7
+ 1 | 10 | 8 |       8
+ 1 | 10 | 9 |       9
+(9 rows)
+
+ x | y  | z | an_rank 
+---+----+---+---------
+ 2 |  7 | 4 |       1
+ 2 |  7 | 5 |       2
+ 1 | 10 | 8 |       1
+ 1 | 10 | 9 |       2
+ 3 |  8 | 2 |       1
+ 3 |  8 | 3 |       2
+ 1 | 11 | 7 |       1
+ 3 |  9 | 1 |       1
+ 2 |  9 | 6 |       1
+(9 rows)
+
+ z | an_lag 
+---+--------
+ 1 |       
+ 2 |       
+ 3 |      1
+ 4 |      2
+ 5 |      3
+ 6 |      4
+ 7 |      5
+ 8 |      6
+ 9 |      7
+(9 rows)
+
+ z | an_lead 
+---+---------
+ 1 |       3
+ 2 |       4
+ 3 |       5
+ 4 |       6
+ 5 |       7
+ 6 |       8
+ 7 |       9
+ 8 |        
+ 9 |        
+(9 rows)
+
+ x | z | nth_value 
+---+---+-----------
+ 1 | 7 |         8
+ 1 | 8 |         8
+ 1 | 9 |         8
+ 2 | 4 |         5
+ 2 | 5 |         5
+ 2 | 6 |         5
+ 3 | 1 |         2
+ 3 | 2 |         2
+ 3 | 3 |         2
+(9 rows)
+
+ nth_value 
+-----------
+ t
+(1 row)
+
+ nth_value 
+-----------
+    3.1415
+(1 row)
+
+ nth_value 
+-----------
+    123.45
+(1 row)
+
+ nth_value  
+------------
+ 2021-03-01
+(1 row)
+
+DROP TABLE
+DROP LIBRARY

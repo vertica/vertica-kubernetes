@@ -1,0 +1,36 @@
+CREATE LIBRARY
+CREATE LIBRARY
+CREATE LIBRARY
+CREATE SOURCE FUNCTION
+CREATE PARSER FUNCTION
+CREATE PARSER FUNCTION
+CREATE TABLE
+ Rows Loaded 
+-------------
+          20
+(1 row)
+
+TRUNCATE TABLE
+ Rows Loaded 
+-------------
+          20
+(1 row)
+
+TRUNCATE TABLE
+ Rows Loaded 
+-------------
+          20
+(1 row)
+
+TRUNCATE TABLE
+CREATE TABLE
+ Rows Loaded 
+-------------
+     1048576
+(1 row)
+
+DROP TABLE
+DROP TABLE
+DROP LIBRARY
+DROP LIBRARY
+DROP LIBRARY

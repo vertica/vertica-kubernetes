@@ -1,0 +1,50 @@
+# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-cpp-parser
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o xtrace
+    set -o errexit
+
+    POD_NAME=v-udx-cpp-sc1-0
+    UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f ParserFunctions.sql 2>&1")
+    echo "$UDX_OP"
+    kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - /opt/vertica/sdk/examples/expected-outputs/ParserFunctionsOut.txt"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-cpp-parser
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: quay.io/helmpack/chart-testing:v3.3.1
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0700
+        name: script-verify-cpp-parser
