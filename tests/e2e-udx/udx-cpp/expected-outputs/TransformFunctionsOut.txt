@@ -1,0 +1,193 @@
+CREATE LIBRARY
+CREATE TRANSFORM FUNCTION
+CREATE TABLE
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+COMMIT
+       url       |   words   
+-----------------+-----------
+ www.amazon.com  | Online
+ www.amazon.com  | retail
+ www.amazon.com  | merchant
+ www.amazon.com  | and
+ www.amazon.com  | provider
+ www.amazon.com  | of
+ www.amazon.com  | cloud
+ www.amazon.com  | services
+ www.hp.com      | Leading
+ www.hp.com      | provider
+ www.hp.com      | of
+ www.hp.com      | computer
+ www.hp.com      | hardware
+ www.hp.com      | and
+ www.hp.com      | imaging
+ www.hp.com      | solutions
+ www.vertica.com | World's
+ www.vertica.com | fastest
+ www.vertica.com | analytic
+ www.vertica.com | database
+(20 rows)
+
+DROP TABLE
+CREATE TABLE
+   words    
+------------
+ This
+ is
+ the
+ final
+ data
+ line
+ SingleWord
+ This
+ is
+ an
+ input
+ text
+ file
+ Well
+ maybe
+ not!
+ The
+ quick
+ brown
+ fox
+ jumped
+ over
+ the
+ lazy
+ dog
+ So
+ possibly
+ is
+ equated
+ with
+ possible
+(31 rows)
+
+DROP TABLE
+CREATE TRANSFORM FUNCTION
+CREATE TABLE
+CREATE TABLE
+           ts           |       ip       | unknown | username |           ts_str           | request_type |            request_url            | request_version | response_code | response_size | referring_url |                                  user_agent                                  
+------------------------+----------------+---------+----------+----------------------------+--------------+-----------------------------------+-----------------+---------------+---------------+---------------+------------------------------------------------------------------------------
+ 2003-10-16 07:50:51+00 | 65.124.172.131 |         |          | 16/Oct/2003:03:50:51 -0400 | GET          | /scripts/nsiislog.dll             |                 | 404           | 307           |               | 
+ 2003-10-16 13:43:49+00 | 66.92.74.252   |         |          | 16/Oct/2003:09:43:49 -0400 | GET          | /                                 | HTTP/1.1        | 200           | 14            |               | 
+ 2003-10-16 13:43:49+00 | 66.92.74.252   |         |          | 16/Oct/2003:09:43:49 -0400 | GET          | /favicon.ico                      | HTTP/1.1        | 404           | 298           |               | 
+ 2003-10-16 06:59:28+00 | 217.226.190.13 |         |          | 16/Oct/2003:02:59:28 -0400 | GET          | /scripts/nsiislog.dll             |                 | 404           | 307           |               | 
+ 2003-11-02 03:39:52+00 | 65.221.182.2   |         |          | 01/Nov/2003:22:39:52 -0500 | GET          | /about.html                       | HTTP/1.1        | 200           | 532           |               | 
+ 2011-05-02 10:28:35+00 | 66.249.67.20   |         |          | 02/May/2011:03:28:35 -0700 | GET          | /robots.txt                       | HTTP/1.1        | 404           | 335           |               | "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+ 2003-10-16 13:17:42+00 | 65.194.193.201 |         |          | 16/Oct/2003:09:17:42 -0400 | GET          | /                                 | HTTP/1.0        | 200           | 14            |               | 
+ 2011-05-03 02:59:17+00 | 123.108.250.82 |         |          | 02/May/2011:19:59:17 -0700 | GET          | /classes/commit/pldi03-aal.pdf    | HTTP/1.1        | 200           | 346761        |               | "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322)"
+ 2003-11-02 03:39:51+00 | 65.221.182.2   |         |          | 01/Nov/2003:22:39:51 -0500 | GET          | /main.css                         | HTTP/1.1        | 200           | 373           |               | 
+ 2003-11-02 03:39:55+00 | 65.221.182.2   |         |          | 01/Nov/2003:22:39:55 -0500 | GET          | /web.mit.edu                      | HTTP/1.1        | 404           | 298           |               | 
+ 2011-05-02 10:28:35+00 | 66.249.67.20   |         |          | 02/May/2011:03:28:35 -0700 | GET          | /classes/commit/fft-factoring.pdf | HTTP/1.1        | 200           | 69534         |               | "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+(11 rows)
+
+DROP TABLE
+DROP TABLE
+CREATE TRANSFORM FUNCTION
+CREATE TABLE
+ col1 | col2 
+------+------
+    4 |    1
+    3 |    2
+(2 rows)
+
+CREATE TRANSFORM FUNCTION
+ col0 | col1 
+------+------
+    4 |    1
+    3 |    2
+(2 rows)
+
+CREATE TRANSFORM FUNCTION
+CREATE TABLE
+ a | b 
+---+---
+ 4 | 1
+ 3 | 2
+(2 rows)
+
+ a 
+---
+ 4
+ 3
+(2 rows)
+
+ x | y 
+---+---
+ a | b
+ a | d
+ b | a
+ b | c
+ c | a
+ c | f
+(6 rows)
+
+DROP TABLE
+DROP TABLE
+CREATE TRANSFORM FUNCTION
+CREATE TABLE
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+ OUTPUT 
+--------
+      1
+(1 row)
+
+COMMIT
+CREATE TABLE
+ doc_id |                                           text                                           
+--------+------------------------------------------------------------------------------------------
+    100 | Vertica Analytic database
+    300 | Vertica in database analytic functions combined with UD functions include many UD things
+(2 rows)
+
+ doc_id |                                           text                                           
+--------+------------------------------------------------------------------------------------------
+    300 | Vertica in database analytic functions combined with UD functions include many UD things
+(1 row)
+
+ doc_id |                                                          text                                                           
+--------+-------------------------------------------------------------------------------------------------------------------------
+    200 | Analytic database functions with User Defined Functions UD functions for short
+    300 | Vertica in database analytic functions combined with UD functions include many UD things
+    400 | UDx Framework include UD scalar functions analytic functions UD single and multiphase transforms UD aggregates UD Loads
+(3 rows)
+
+ doc_id |                                                          text                                                           |       score       
+--------+-------------------------------------------------------------------------------------------------------------------------+-------------------
+    400 | UDx Framework include UD scalar functions analytic functions UD single and multiphase transforms UD aggregates UD Loads |  1.15072828980712
+    300 | Vertica in database analytic functions combined with UD functions include many UD things                                | 0.575364144903562
+(2 rows)
+
+DROP TABLE
+DROP TABLE
+DROP LIBRARY
