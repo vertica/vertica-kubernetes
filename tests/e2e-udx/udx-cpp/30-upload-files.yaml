@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # upload the built library binaries
+  - command: kubectl -n $NAMESPACE cp ../../../sdk/examples/build v-udx-java-sc1-0:/opt/vertica/sdk/examples
+  # upload the expected outputs of executing sql files
+  - command: kubectl -n $NAMESPACE cp ./expected-outputs v-udx-cpp-sc1-0:/opt/vertica/sdk/examples

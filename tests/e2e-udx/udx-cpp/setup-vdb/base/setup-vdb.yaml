@@ -22,7 +22,6 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertdb
-  encryptSpreadComm: vertica
   subclusters:
     - name: sc1
       size: 1
