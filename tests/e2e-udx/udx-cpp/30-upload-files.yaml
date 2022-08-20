@@ -2,6 +2,8 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   # upload the built library binaries
-  - command: kubectl -n $NAMESPACE cp ../../../sdk/examples/build v-udx-java-sc1-0:/opt/vertica/sdk/examples
+  - command: kubectl -n $NAMESPACE cp ../../../sdk/examples/build v-udx-cpp-sc1-0:/opt/vertica/sdk/examples
   # upload the expected outputs of executing sql files
   - command: kubectl -n $NAMESPACE cp ./expected-outputs v-udx-cpp-sc1-0:/opt/vertica/sdk/examples
+  # Install packages in the pod that are needed to run the C++ examples.
+  - command: kubectl -n $NAMESPACE exec -it v-udx-cpp-sc1-0 -- bash -c "sudo apt-get update && apt-get install -y libboost-all-dev libcurl4-openssl-dev libbz2-dev"

@@ -62,7 +62,8 @@ jobs:
         export JAVA_HOME=${JAVA_HOME_8_X64}  # We need a java version that matches the one in the Vertica image
         export   # Show all variables
         java --version
-        # Install system packages that some of the tests depend on
+        # Install system packages that some of the tests depend on.  Any
+        # changes here need to be duplicated in udx-cpp/30-upload-files.yaml
         sudo apt-get install -y libboost-all-dev libcurl4-openssl-dev libbz2-dev
         scripts/setup-e2e-udx.sh -v
         scripts/run-k8s-int-tests.sh -s

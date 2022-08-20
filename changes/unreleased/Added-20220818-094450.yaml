@@ -1,5 +1,5 @@
 kind: Added
-body: Support for Java, C++ and Python UDx's
+body: Support for Java UDx's in the full Vertica image
 time: 2022-08-18T09:44:50.678890201-03:00
 custom:
   Issue: "248"
