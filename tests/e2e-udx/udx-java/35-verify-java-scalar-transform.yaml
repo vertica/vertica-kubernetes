@@ -22,7 +22,7 @@ data:
     set -o errexit
 
     POD_NAME=v-udx-java-sc1-0
-    kubectl exec $POD_NAME -i -- bash -c "vsql -U dbadmin -c \"SELECT SET_CONFIG_PARAMETER('JavaSideProcessMinHeapSizeMB',2048);\""
+    kubectl exec $POD_NAME -i -- bash -c "vsql -U dbadmin -c \"SELECT SET_CONFIG_PARAMETER('JavaSideProcessMinHeapSizeMB',500);\""
     UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f JavaFunctions.sql 2>&1")
     echo "$UDX_OP"
     kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - /opt/vertica/sdk/examples/expected-outputs/JavaFunctionsOut.txt"
