@@ -197,7 +197,7 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 // communicate with the Vertica's http server.
 func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 	// Early out if the http service isn't enabled
-	if !d.Vdb.Spec.EnableHTTPServer {
+	if !d.Vdb.IsHTTPServerEnabled() {
 		return nil
 	}
 	vinf, ok := version.MakeInfoFromVdb(d.Vdb)

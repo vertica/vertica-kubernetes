@@ -268,6 +268,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateRequeueTimes(allErrs)
 	allErrs = v.validateEncryptSpreadComm(allErrs)
 	allErrs = v.validateLocalPaths(allErrs)
+	allErrs = v.validateHTTPServerMode(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -799,6 +800,20 @@ func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList 
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
+}
+
+func (v *VerticaDB) validateHTTPServerMode(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.HTTPServerMode == "" ||
+		v.Spec.HTTPServerMode == HTTPServerModeEnabled ||
+		v.Spec.HTTPServerMode == HTTPServerModeDisabled {
+		return allErrs
+	}
+
+	err := field.Invalid(field.NewPath("spec").Child("httpServerMode"),
+		v.Spec.HTTPServerMode,
+		fmt.Sprintf("Valid values are: %s, %s or an empty string",
+			HTTPServerModeEnabled, HTTPServerModeDisabled))
+	return append(allErrs, err)
 }
 
 func (v *VerticaDB) isImageChangeInProgress() bool {

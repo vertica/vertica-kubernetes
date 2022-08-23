@@ -33,7 +33,7 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 
 	It("should be a no-op if http server isn't enabled", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.EnableHTTPServer = false
+		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeDisabled
 		vdb.Spec.HTTPServerSecret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -43,9 +43,9 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 		Expect(vdb.Spec.HTTPServerSecret).Should(Equal(""))
 	})
 
-	It("should be a no-op if http server is enabled and secret name is set", func() {
+	It("should be a no-op if http server is disabled and secret name is set", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.EnableHTTPServer = false
+		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeDisabled
 		const DummySecretName = "dummy"
 		vdb.Spec.HTTPServerSecret = DummySecretName
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -58,7 +58,7 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 
 	It("should create a secret when http server is enabled and secret name is missing", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.EnableHTTPServer = true
+		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
 		vdb.Spec.HTTPServerSecret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

@@ -1,0 +1,59 @@
+# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verifies external access through the service to the agent port 5444.  It
+# does this by invoking the REST API and doing basic sanity on what it
+# received.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-nodes
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o xtrace
+    set -o errexit
+
+    curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/nodes | tee /tmp/curl.out
+    grep -cq 'v_vertdb_node0001' /tmp/curl.out
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-nodes
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - name: certs
+          mountPath: /certs
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verify-nodes
+    - name: certs
+      secret:
+        secretName: custom-certs
+        defaultMode: 0777

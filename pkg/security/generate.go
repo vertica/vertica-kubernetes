@@ -37,8 +37,10 @@ func NewSelfSignedCACertificate(keySize int) (Certificate, error) {
 
 	// Create the CA cert
 	caCrt := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{Organization: []string{"Micro Focus"}, Country: []string{"US"}, OrganizationalUnit: []string{"Vertica"}},
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Micro Focus"}, Country: []string{"US"}, OrganizationalUnit: []string{"Vertica"}, CommonName: "rootca",
+		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour),
 		IsCA:                  true,
@@ -58,7 +60,7 @@ func NewSelfSignedCACertificate(keySize int) (Certificate, error) {
 }
 
 // NewCertificate will create a certificate using the given CA.
-func NewCertificate(ca Certificate, keySize int, dnsNames []string) (Certificate, error) {
+func NewCertificate(ca Certificate, keySize int, commonName string, dnsNames []string) (Certificate, error) {
 	caCrt, err := ca.Buildx509()
 	if err != nil {
 		return nil, err
@@ -76,8 +78,13 @@ func NewCertificate(ca Certificate, keySize int, dnsNames []string) (Certificate
 	}
 
 	crt := &x509.Certificate{
-		SerialNumber:          big.NewInt(1),
-		Subject:               pkix.Name{Organization: []string{"Micro Focus"}, Country: []string{"US"}, OrganizationalUnit: []string{"Vertica"}},
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization:       []string{"Micro Focus"},
+			Country:            []string{"US"},
+			OrganizationalUnit: []string{"Vertica"},
+			CommonName:         commonName,
+		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour),
 		IsCA:                  false,
@@ -85,9 +92,6 @@ func NewCertificate(ca Certificate, keySize int, dnsNames []string) (Certificate
 		KeyUsage:              x509.KeyUsageDigitalSignature,
 		DNSNames:              dnsNames,
 		BasicConstraintsValid: true,
-	}
-	if len(dnsNames) > 0 {
-		crt.Subject.CommonName = dnsNames[0]
 	}
 	keyCert, err := x509.CreateCertificate(rand.Reader, crt, caCrt, &pk.PublicKey, caPK)
 	if err != nil {

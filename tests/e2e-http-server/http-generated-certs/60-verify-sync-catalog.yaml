@@ -19,37 +19,20 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-wait-for-http-server
+  name: script-verify-sync-catalog
 data:
   entrypoint.sh: |-
     #!/bin/bash
+    set -o errexit
+    set -o xtrace
 
-    # Wait for the http server to be up
-    for pod in 0 1
-    do
-      set +o errexit
-      set +o xtrace
-
-      timeout 60 bash -c -- "\
-          while ! kubectl exec -it pod/v-http-basics-sc-$pod -- vsql -w superuser -tAc \"select http_server_ctrl('status_bool','')\" | grep -cq '1'
-          do \
-            sleep 0.1; \
-          done" &
-      pid=$!
-
-      set -o errexit
-      set -o xtrace
-      wait $pid
-    done
-    
-    HTTP_STATUS=$(kubectl exec -it svc/v-http-basics-sc -- vsql -w superuser -c "select http_server_ctrl('status','')")
-    echo $HTTP_STATUS
-    echo $HTTP_STATUS | grep -cq "Http server is running"
+    curl --insecure -X POST --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-generated-certs-sc-0.v-http-generated-certs:8443/manage/sync-catalog | tee /tmp/curl.out
+    grep -cq 'new_truncation_version' /tmp/curl.out
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-wait-for-http-server
+  name: test-verify-sync-catalog
   labels:
     stern: include
 spec:
@@ -63,8 +46,15 @@ spec:
           mountPath: /bin/entrypoint.sh
           readOnly: true
           subPath: entrypoint.sh
+        - name: generated-cert
+          mountPath: /certs
+          readOnly: true
   volumes:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-wait-for-http-server
+        name: script-verify-sync-catalog
+    - name: generated-cert
+      secret:
+        secretName: http-server-tls-copy
+        defaultMode: 0777

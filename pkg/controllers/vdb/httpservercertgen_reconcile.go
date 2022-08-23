@@ -48,14 +48,14 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.Ve
 func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	const PKKeySize = 2048
 	// Early out if http server is not enabled, or we already have a TLS secret
-	if !h.Vdb.Spec.EnableHTTPServer || h.Vdb.Spec.HTTPServerSecret != "" {
+	if !h.Vdb.IsHTTPServerEnabled() || h.Vdb.Spec.HTTPServerSecret != "" {
 		return ctrl.Result{}, nil
 	}
 	caCert, err := security.NewSelfSignedCACertificate(PKKeySize)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	cert, err := security.NewCertificate(caCert, PKKeySize, h.getDNSNames())
+	cert, err := security.NewCertificate(caCert, PKKeySize, "dbadmin", h.getDNSNames())
 	if err != nil {
 		return ctrl.Result{}, err
 	}

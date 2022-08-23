@@ -647,7 +647,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if HTTP server is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.EnableHTTPServer = true
+			vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
 			vdb.Spec.HTTPServerSecret = ""
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
