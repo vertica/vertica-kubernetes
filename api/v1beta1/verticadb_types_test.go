@@ -54,4 +54,12 @@ var _ = Describe("verticadb_types", func() {
 		}
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeTrue())
 	})
+
+	It("should say that the httpServer is not enabled if value is blank", func() {
+		vdb := MakeVDB()
+		vdb.Spec.HTTPServerMode = ""
+		Expect(vdb.IsHTTPServerEnabled()).Should(BeFalse())
+		vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
+		Expect(vdb.IsHTTPServerEnabled()).Should(BeTrue())
+	})
 })

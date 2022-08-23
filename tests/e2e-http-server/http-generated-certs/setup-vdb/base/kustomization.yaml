@@ -11,24 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-http-basics
-spec:
-  image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vertdb
-  enableHTTPServer: true
-  subclusters:
-    - name: sc
-      size: 2
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+resources:
+  - setup-vdb.yaml

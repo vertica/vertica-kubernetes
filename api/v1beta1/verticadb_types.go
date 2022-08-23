@@ -312,11 +312,13 @@ type VerticaDBSpec struct {
 	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=false
+	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// Enable Vertica's http server.  The http server provides a REST interface
-	// that can be used for management and monitoring of the server.
-	EnableHTTPServer bool `json:"enableHTTPServer,omitempty"`
+	// Control the Vertica's http server.  The http server provides a REST interface
+	// that can be used for management and monitoring of the server.  Valid
+	// values are: Enabled, Disabled or an empty string.  An empty string
+	// currently defaults to Disabled.
+	HTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
@@ -411,6 +413,13 @@ const (
 	// out, (b) we are already on a minimum Vertica engine version that supports
 	// read-only subclusters and (c) has a k-safety of 1.
 	AutoUpgrade UpgradePolicyType = "Auto"
+)
+
+type HTTPServerModeType string
+
+const (
+	HTTPServerModeEnabled  HTTPServerModeType = "Enabled"
+	HTTPServerModeDisabled HTTPServerModeType = "Disabled"
 )
 
 // Defines a number of pods for a specific subcluster
@@ -1112,4 +1121,10 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 		}
 	}
 	return SubclusterStatus{}, false
+}
+
+// IsHTTPServerEnabled will return true if the http server is enabled for this
+// instance of the vdb
+func (v *VerticaDB) IsHTTPServerEnabled() bool {
+	return v.Spec.HTTPServerMode == HTTPServerModeEnabled
 }

@@ -29,9 +29,9 @@ data:
     # Linked builds will not start the http service by default.  We need to
     # point to the server conf to make it happen.  This step isn't needed when
     # running an image built from an official Vertica RPM.
-    kubectl exec -it svc/v-http-basics-sc -- vsql -w superuser -c "select set_config_parameter('HTTPServerConf', '/opt/vertica/config/https_certs/httpstls.json')"
-    kubectl exec -it pod/v-http-basics-sc-0 -- vsql -w superuser -c "select http_server_ctrl('restart','')"
-    kubectl exec -it pod/v-http-basics-sc-1 -- vsql -w superuser -c "select http_server_ctrl('restart','')"
+    kubectl exec -it svc/v-http-generated-certs-sc -- vsql -w superuser -c "select set_config_parameter('HTTPServerConf', '/opt/vertica/config/https_certs/httpstls.json')"
+    kubectl exec -it pod/v-http-generated-certs-sc-0 -- vsql -w superuser -c "select http_server_ctrl('restart','')"
+    kubectl exec -it pod/v-http-generated-certs-sc-1 -- vsql -w superuser -c "select http_server_ctrl('restart','')"
 ---
 apiVersion: v1
 kind: Pod

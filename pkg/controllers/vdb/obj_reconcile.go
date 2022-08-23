@@ -131,7 +131,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.EnableHTTPServer {
+	if o.Vdb.IsHTTPServerEnabled() {
 		// When the HTTP server is enabled, a secret must exist that has the
 		// certs to use for it.  There is a reconciler that is run before this
 		// that will create the secret.  We will requeue if we find the Vdb

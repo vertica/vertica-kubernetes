@@ -523,6 +523,18 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Local.DepotPath = "/depot"
 		validateSpecValuesHaveErr(vdb, false)
 	})
+
+	It("should verify httpServerMode is valid", func() {
+		vdb := MakeVDB()
+		vdb.Spec.HTTPServerMode = "bad-server-mode"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.HTTPServerMode = ""
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.HTTPServerMode = HTTPServerModeDisabled
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
+		validateSpecValuesHaveErr(vdb, false)
+	})
 })
 
 func createVDBHelper() *VerticaDB {

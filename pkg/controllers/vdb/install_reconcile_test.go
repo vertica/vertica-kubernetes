@@ -230,7 +230,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		}
 		Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, &secret)) }()
-		vdb.Spec.EnableHTTPServer = true
+		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
 		vdb.Spec.HTTPServerSecret = secret.Name
 		vdb.Annotations[vapi.VersionAnnotation] = "v12.0.0"
 
