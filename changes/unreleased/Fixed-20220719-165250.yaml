@@ -1,5 +1,0 @@
-kind: Fixed
-body: Helm chart parm 'prometheus.createProxyRBAC' missed a required manifest
-time: 2022-07-19T16:52:50.228247737-03:00
-custom:
-  Issue: "235"

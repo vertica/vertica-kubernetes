@@ -1,5 +1,0 @@
-kind: Added
-body: Ability to override the names of k8s objects in helm chart
-time: 2022-07-17T08:46:05.224081628-03:00
-custom:
-  Issue: "232"

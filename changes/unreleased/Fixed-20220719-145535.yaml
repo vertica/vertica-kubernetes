@@ -1,5 +1,0 @@
-kind: Fixed
-body: Prevent the need to restart the pods when the operator is upgraded
-time: 2022-07-19T14:55:35.768110388-03:00
-custom:
-  Issue: "234"
