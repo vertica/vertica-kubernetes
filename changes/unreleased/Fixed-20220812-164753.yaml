@@ -1,6 +1,0 @@
-kind: Fixed
-body: Add webhook rule to prevent use of restricted paths for local paths (data or
-  depot)
-time: 2022-08-12T16:47:53.497874076-03:00
-custom:
-  Issue: "247"

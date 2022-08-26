@@ -1,5 +1,0 @@
-kind: Fixed
-body: Allow Vertica upgrade from 11.x to 12.x.
-time: 2022-07-19T08:33:01.813631821-03:00
-custom:
-  Issue: "233"
