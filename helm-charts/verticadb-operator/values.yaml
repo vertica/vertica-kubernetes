@@ -31,7 +31,7 @@ image:
 
 rbac_proxy_image:
   repo: gcr.io
-  name: kubebuilder/kube-rbac-proxy:v0.11.0
+  name: kubebuilder/kube-rbac-proxy:v0.13.0
 
 imagePullSecrets: null
 
