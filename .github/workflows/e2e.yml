@@ -80,7 +80,7 @@ jobs:
 
   build-release-assets:
     uses: ./.github/workflows/build-release-assets.yml
-    if: ${{ inputs.build_release_assets == 'all' }}
+    if: ${{ inputs.build_release_assets == 'all' || inputs.build_release_assests == '' }}
 
   e2e-s3:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 's3' || inputs.e2e_test_suites == '' }}
