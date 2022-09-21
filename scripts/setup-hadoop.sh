@@ -21,7 +21,7 @@ set -o pipefail
 HADOOP_NS=kuttl-e2e-hadoop
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
-TIMEOUT=600
+TIMEOUT=900
 RELEASE=hdfs-ci
 CHART=vertica-charts/hdfs-ci
 DEFCHART=$CHART
@@ -65,4 +65,15 @@ then
     helm repo update
 fi
 
-helm install --wait -n $HADOOP_NS $RELEASE $CHART --timeout ${TIMEOUT}s
+if helm install --wait -n $HADOOP_NS $RELEASE $CHART --timeout ${TIMEOUT}s
+then
+    echo "✔ Success"
+    exit 0
+fi
+set +o errexit
+kubectl get pods -n $HADOOP_NS
+for pod in $(kubectl get pods --no-headers -o custom-columns=':metadata.name')
+do
+    kubectl logs -n $HADOOP_NS $pod
+done
+exit 1
