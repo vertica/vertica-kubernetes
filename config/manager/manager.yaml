@@ -30,12 +30,16 @@ spec:
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8081
           initialDelaySeconds: 15
           periodSeconds: 20
+        volumeMounts:
+        - name: tmp
+          mountPath: "/tmp"
         readinessProbe:
           httpGet:
             path: /readyz
@@ -50,3 +54,8 @@ spec:
                 fieldPath: metadata.namespace
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: "10Mi"
+          medium: "Memory"
