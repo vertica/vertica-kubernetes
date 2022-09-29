@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -51,22 +52,36 @@ func MakeClusterPodRunner(log logr.Logger, cfg *rest.Config, passwd string) *Clu
 	return &ClusterPodRunner{Log: log, Cfg: cfg, SUPassword: passwd}
 }
 
-// logInfoCmd calls log function after obfuscating the password
+// logInfoCmd calls log function for the given command
 func (c *ClusterPodRunner) logInfoCmd(podName types.NamespacedName, command ...string) {
+	c.Log.Info("ExecInPod entry", "pod", podName, "command", generateLogOutput(command...))
+}
+
+// generateLogOutput will produce the output suitable for logging purposes. It
+// will obfuscate any sensitive information like passwords or credentials.
+func generateLogOutput(cmd ...string) string {
 	var sb strings.Builder
-	for i := 0; i < len(command); i++ {
-		switch command[i] {
+	for i := 0; i < len(cmd); i++ {
+		switch cmd[i] {
 		case "--password":
-			sb.WriteString(command[i])
+			sb.WriteString(cmd[i])
 			sb.WriteString(" ")
 			sb.WriteString("*******")
 			i++
 		default:
-			sb.WriteString(command[i])
+			sb.WriteString(obfuscateForLog(cmd[i]))
 		}
 		sb.WriteString(" ")
 	}
-	c.Log.Info("ExecInPod entry", "pod", podName, "command", sb.String())
+	return sb.String()
+}
+
+// obfuscateForLog is a helper function to obfuscate any sensitive info in a
+// command. It returns the obfuscated string.
+func obfuscateForLog(s string) string {
+	r := regexp.MustCompile("awsauth = .*")
+	s = r.ReplaceAllString(s, "awsauth = ****")
+	return s
 }
 
 // ExecInPod executes arbitrary command inside of a pod and returns the output.

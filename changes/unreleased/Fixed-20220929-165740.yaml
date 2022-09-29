@@ -1,0 +1,5 @@
+kind: Fixed
+body: Hide communal credentials from the operator log
+time: 2022-09-29T16:57:40.08595858-03:00
+custom:
+  Issue: "259"
