@@ -379,6 +379,7 @@ vdb-gen: generate manifests ## Builds the vdb-gen tool
 	go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment
+# When changing this version be sure to update tests/external-images-common-ci.txt
 CERT_MANAGER_VER=1.5.3
 install-cert-manager: ## Install the cert-manager
 	kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VER)/cert-manager.yaml

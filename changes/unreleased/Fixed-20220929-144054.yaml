@@ -1,0 +1,5 @@
+kind: Fixed
+body: Don't interrupt a slow Vertica startup
+time: 2022-09-29T14:40:54.794595732-03:00
+custom:
+  Issue: "258"
