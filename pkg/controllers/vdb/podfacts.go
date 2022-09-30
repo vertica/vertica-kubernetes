@@ -90,6 +90,10 @@ type PodFact struct {
 	// created and this pod has been added to the vertica cluster.
 	dbExists bool
 
+	// true means the pod has a running vertica process, but it isn't yet
+	// accepting connections because it is in the middle of startup.
+	startupInProgress bool
+
 	// true means the pod has a running vertica process accepting connections on
 	// port 5433.
 	upNode bool
@@ -256,6 +260,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
 		p.checkIfNodeIsUpAndReadOnly,
+		p.checkIfNodeIsDoingStartup,
 		p.checkEulaAcceptance,
 		p.checkLogrotateExists,
 		p.checkIsLogrotateWritable,
@@ -506,6 +511,51 @@ func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.Ver
 		return p.queryNodeStatus(ctx, pf)
 	}
 	return p.checkIfNodeIsUp(ctx, pf)
+}
+
+// checkIfNodeIsDoingStartup will determine if the pod has vertica process
+// running but not yet ready for connections.
+func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+	pf.startupInProgress = false
+	if !pf.dbExists || !pf.isPodRunning || pf.upNode {
+		return nil
+	}
+
+	// vertica must be running
+	cmd := []string{
+		"bash",
+		"-c",
+		"pgrep ^vertica",
+	}
+	_, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...)
+	// We intentionally don't return an error back. Any error assumes vertica isn't running.
+	if err != nil {
+		return nil
+	}
+
+	// Next, check the startup log.  We can't have a 'Startup Complete' message
+	// or 'Database Halted' command.  If the command fails at all, then we
+	// assume startup is in progress.
+	startupLog := pf.getStartupLogPath(vdb)
+	cmd = []string{
+		"bash",
+		"-c",
+		fmt.Sprintf(
+			"grep 'stage' %s && grep --quiet -e 'Startup Complete' -e 'Database Halted' %s",
+			startupLog, startupLog),
+	}
+	_, _, err = p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...)
+	pf.startupInProgress = (err != nil)
+	return nil // Intentionally eating the err as that just means the grep of startup.log failed to find pattern
+}
+
+// getStartupLogPath returns the path to the startup.log
+func (p *PodFact) getStartupLogPath(vdb *vapi.VerticaDB) string {
+	return fmt.Sprintf("%s/%s/%s_catalog/startup.log",
+		vdb.Spec.Local.DataPath,
+		vdb.Spec.DBName,
+		p.vnodeName,
+	)
 }
 
 // checkIfNodeIsUp will check if the Vertica is up and running in this process.

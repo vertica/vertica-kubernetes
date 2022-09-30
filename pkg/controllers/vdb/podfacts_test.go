@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -336,5 +337,37 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.depotDiskPercentSize).Should(Equal(""))
 		Expect(pf.setDepotDetails("a|b|c")).ShouldNot(Succeed())
 		Expect(pf.setDepotDetails("not-a-number|blah")).ShouldNot(Succeed())
+	})
+
+	It("should detect startup in progress correctly", func() {
+		vdb := vapi.MakeVDB()
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		pn := names.GenPodName(vdb, sc, 0)
+		// Failure in bash output means startup is in progress
+		fpr := &cmds.FakePodRunner{
+			Results: cmds.CmdResults{
+				pn: []cmds.CmdResult{
+					{Err: nil}, // pgrep of vertica succeeded
+					{Err: fmt.Errorf("grep of startup.log didn't find evidence it finished startup")},
+				},
+			},
+		}
+		pfs := MakePodFacts(vdbRec, fpr)
+		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf)).Should(Succeed())
+		Expect(pf.startupInProgress).Should(BeTrue())
+
+		// Success in bash output means startup isn't in progress
+		fpr = &cmds.FakePodRunner{
+			Results: cmds.CmdResults{
+				pn: []cmds.CmdResult{{Err: nil}, {Err: nil}},
+			},
+		}
+		pfs = MakePodFacts(vdbRec, fpr)
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf)).Should(Succeed())
+		Expect(pf.startupInProgress).Should(BeFalse())
 	})
 })

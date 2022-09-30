@@ -13,3 +13,6 @@ minio/operator:v4.2.7
 minio/console:v0.9.8
 rancher/local-path-provisioner:v0.0.19
 gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
+quay.io/jetstack/cert-manager-controller:v1.5.3
+quay.io/jetstack/cert-manager-cainjector:v1.5.3
+quay.io/jetstack/cert-manager-webhook:v1.5.3

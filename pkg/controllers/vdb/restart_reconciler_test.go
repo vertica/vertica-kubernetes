@@ -638,4 +638,29 @@ var _ = Describe("restart_reconciler", func() {
 		listCmd = fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(1))
 	})
+
+	It("should not kill process if startup is still happening", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := MakePodFacts(vdbRec, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
+			downPodNm := names.GenPodName(vdb, sc, podIndex)
+			pfacts.Detail[downPodNm].upNode = false
+			pfacts.Detail[downPodNm].readOnly = false
+			pfacts.Detail[downPodNm].isInstalled = true
+			pfacts.Detail[downPodNm].startupInProgress = true
+		}
+
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartSkipReadOnly)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		killCmd := fpr.FindCommands("kill")
+		Expect(len(killCmd)).Should(Equal(0))
+	})
 })

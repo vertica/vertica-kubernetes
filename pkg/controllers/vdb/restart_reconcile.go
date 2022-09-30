@@ -435,7 +435,15 @@ func genRestartIPList(downPods []*PodFact) []string {
 // the benefit of PD purposes and stability in the restart test.
 func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	killedAtLeastOnePid := false
+	startupInProgressCount := 0
 	for _, pod := range pods {
+		// We will avoid killing pids that are in the process of starting up.
+		// Startup can be slow at times and killing the pid will just force the
+		// entire process to restart, which will likely timeout again.
+		if pod.startupInProgress {
+			startupInProgressCount++
+			continue
+		}
 		const KillMarker = "Killing process"
 		cmd := []string{
 			"bash", "-c",
@@ -453,6 +461,14 @@ func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFac
 		// the benefit of the status reconciler, so that we don't treat it as
 		// an up node anymore.
 		r.Log.Info("Requeue.  Killed at least one vertica process.")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if startupInProgressCount > 0 {
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.SlowRestartDetected,
+			"Detected slow Vertica startup in %d pod(s). Continuing to wait.", startupInProgressCount)
+		// At least one pid was still in the middle of startup.  We are going to
+		// requeue to allow that process to complete startup.
+		r.Log.Info("Requeue. Found at least one vertica process still starting up.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
