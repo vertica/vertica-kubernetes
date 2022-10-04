@@ -26,10 +26,23 @@ var _ = Describe("exec", func() {
 		Expect(s).Should(Equal("vsql --password ******* -c select 1 "))
 	})
 
-	It("should obfuscate credentials", func() {
+	It("should obfuscate aws credentials", func() {
 		s := generateLogOutput(`cat > auth_parms.conf<<< '
 awsauth = user:pass
 awsendpoint = minio`)
 		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\nawsauth = ****\nawsendpoint = minio "))
+	})
+
+	It("should obfuscate gcs credentials", func() {
+		s := generateLogOutput(`cat > auth_parms.conf<<< '
+GCSAuth = user:pass
+GCSEndpoint = google`)
+		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\nGCSAuth = ****\nGCSEndpoint = google "))
+	})
+
+	It("should obfuscate azure credentials", func() {
+		s := generateLogOutput(`cat > auth_parms.conf<<< '
+AzureStorageCredentials = {"elem1": "a", "elem2": "b"}`)
+		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\nAzureStorageCredentials = **** "))
 	})
 })

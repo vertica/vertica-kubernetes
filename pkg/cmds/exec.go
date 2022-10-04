@@ -79,8 +79,15 @@ func generateLogOutput(cmd ...string) string {
 // obfuscateForLog is a helper function to obfuscate any sensitive info in a
 // command. It returns the obfuscated string.
 func obfuscateForLog(s string) string {
-	r := regexp.MustCompile("awsauth = .*")
-	s = r.ReplaceAllString(s, "awsauth = ****")
+	pats := map[string]string{
+		"awsauth = .*":                 "awsauth = ****",
+		"GCSAuth = .*":                 "GCSAuth = ****",
+		"AzureStorageCredentials = .*": "AzureStorageCredentials = ****",
+	}
+	for expr, replacement := range pats {
+		r := regexp.MustCompile(expr)
+		s = r.ReplaceAllString(s, replacement)
+	}
 	return s
 }
 
