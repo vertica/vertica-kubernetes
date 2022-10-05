@@ -52,10 +52,13 @@ type DBGenerator struct {
 type QueryType string
 
 const (
-	ShardCountKey      QueryType = "shardCount"
-	DBCfgKey           QueryType = "dbCfg"
-	StorageLocationKey QueryType = "storageLocation"
-	SubclusterQueryKey QueryType = "subcluster"
+	ShardCountKey               QueryType = "shardCount"
+	DBCfgKey                    QueryType = "dbCfg"
+	StorageLocationKey          QueryType = "storageLocation"
+	SubclusterQueryKey          QueryType = "subcluster"
+	KSafetyQueryKey             QueryType = "ksafety"
+	StorageLocationSizeQueryKey QueryType = "storageLocationSize"
+	VersionQueryKey             QueryType = "version"
 
 	SecretAPIVersion = "v1"
 	SecretKindName   = "Secret"
@@ -65,10 +68,13 @@ const (
 )
 
 var Queries = map[QueryType]string{
-	ShardCountKey:      "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
-	DBCfgKey:           "SHOW DATABASE DEFAULT ALL",
-	StorageLocationKey: "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
-	SubclusterQueryKey: "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
+	ShardCountKey:               "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
+	DBCfgKey:                    "SHOW DATABASE DEFAULT ALL",
+	StorageLocationKey:          "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
+	SubclusterQueryKey:          "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
+	KSafetyQueryKey:             "SELECT GET_DESIGN_KSAFE()",
+	StorageLocationSizeQueryKey: "SELECT MAX(MAX_SIZE) FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
+	VersionQueryKey:             "SELECT VERSION()",
 }
 
 // Create will generate a VerticaDB based the specifics gathered from a live database
@@ -80,12 +86,15 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.readLicense,
 		d.connect,
 		d.setShardCount,
+		d.setKSafety,
+		d.setImage,
 		d.setCommunalPath,
 		d.fetchDatabaseConfig,
 		d.setCommunalEndpointAWS,
 		d.setCommunalEndpointGCloud,
 		d.setCommunalEndpointAzure,
 		d.setLocalPaths,
+		d.setRequestSize,
 		d.setSubclusterDetail,
 		d.setLicense,
 		d.setPasswordSecret,
@@ -167,6 +176,30 @@ func (d *DBGenerator) setShardCount(ctx context.Context) error {
 	if err := rows.Scan(&d.Objs.Vdb.Spec.ShardCount); err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
+
+	return nil
+}
+
+// setKsafety will fetch the ksafety from the database and set it inside v.vdb
+func (d *DBGenerator) setKSafety(ctx context.Context) error {
+	q := Queries[KSafetyQueryKey]
+	rows, err := d.Conn.QueryContext(ctx, q)
+	if err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	defer rows.Close()
+
+	if rows.Err() != nil {
+		return fmt.Errorf("failed running '%s': %w", q, rows.Err())
+	}
+	if !rows.Next() {
+		return errors.New("could not get ksafety from meta-function GET_DESIGN_KSAFE()")
+	}
+	var ksafety string
+	if err := rows.Scan(&ksafety); err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	d.Objs.Vdb.Spec.KSafety = vapi.KSafetyType(ksafety)
 
 	return nil
 }
@@ -338,6 +371,23 @@ func (d *DBGenerator) setLocalPaths(ctx context.Context) error {
 	return nil
 }
 
+// setRequestSize will fetch the local data size and set it in v.vdb.
+func (d *DBGenerator) setRequestSize(ctx context.Context) error {
+	depotMaxSize, err := d.queryLocalDataSize(ctx, "DEPOT")
+	if err != nil {
+		return err
+	}
+
+	dataMaxSize, err := d.queryLocalDataSize(ctx, "DATA,TEMP")
+	if err != nil {
+		return err
+	}
+	requestSize := depotMaxSize + dataMaxSize
+	d.Objs.Vdb.Spec.Local.RequestSize = *resource.NewQuantity(requestSize, resource.BinarySI)
+
+	return nil
+}
+
 // setCommunalPath will query the catalog and set the communal path in the vdb.
 func (d *DBGenerator) setCommunalPath(ctx context.Context) error {
 	var communalPath string
@@ -419,6 +469,32 @@ func (d *DBGenerator) queryLocalPath(ctx context.Context, usage string) (string,
 	return commonPrefix, nil
 }
 
+// queryLocalDataSize will find data/depot size. It will pick the max among all nodes
+func (d *DBGenerator) queryLocalDataSize(ctx context.Context, usage string) (int64, error) {
+	q := Queries[StorageLocationSizeQueryKey]
+	rows, err := d.Conn.QueryContext(ctx, q, usage)
+	if err != nil {
+		return 0, fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	defer rows.Close()
+
+	if rows.Err() != nil {
+		return 0, fmt.Errorf("failed running '%s': %w", q, rows.Err())
+	}
+	if !rows.Next() {
+		return 0, errors.New("did not find any rows in STORAGE_LOCATIONS")
+	}
+	var localDataSize sql.NullInt64
+	if err := rows.Scan(&localDataSize); err != nil {
+		return 0, fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	if !localDataSize.Valid {
+		return 0, fmt.Errorf("could not find any storage location with LOCATION_USAGE='%s'", usage)
+	}
+
+	return localDataSize.Int64, nil
+}
+
 // setSubclusterDetail will query the db for details about the subcluster.  This
 // will set the subcluster count, size of each and the revive order.
 func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
@@ -472,6 +548,37 @@ func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
 	if len(subclusterInxMap) == 0 {
 		return errors.New("not subclusters found")
 	}
+	return nil
+}
+
+// setImage will fetch the server version and use it to build
+// and set the image inside v.vdb.
+func (d *DBGenerator) setImage(ctx context.Context) error {
+	q := Queries[VersionQueryKey]
+	rows, err := d.Conn.QueryContext(ctx, q)
+	if err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	defer rows.Close()
+
+	if rows.Err() != nil {
+		return fmt.Errorf("failed running '%s': %w", q, rows.Err())
+	}
+	if !rows.Next() {
+		return errors.New("could not get Vertica version from meta-function")
+	}
+	var image string
+	if err := rows.Scan(&image); err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	// regex to match Vertica version
+	exp := regexp.MustCompile(`\d+(?:\.\d+){2}`)
+	version := exp.FindString(image)
+	if version == "" {
+		return errors.New("could not find Vertica version")
+	}
+	d.Objs.Vdb.Spec.Image = fmt.Sprintf("vertica/vertica-k8s:%s-0", version)
+
 	return nil
 }
 
