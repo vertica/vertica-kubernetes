@@ -224,7 +224,7 @@ func (d *DBGenerator) setKSafety(ctx context.Context) error {
 	return nil
 }
 
-// countNodes fetch the number of nodes in the cluster.
+// countNodes will fetch the number of nodes from the database.
 func (d *DBGenerator) countNodes(ctx context.Context) (int, error) {
 	q := Queries[NodeCountQueryKey]
 	rows, err := d.Conn.QueryContext(ctx, q)
