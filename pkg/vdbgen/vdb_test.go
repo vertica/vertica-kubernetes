@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var (
@@ -210,6 +211,112 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.Objs.CredSecret.Data[cloud.AzureAccountKey]).Should(Equal([]byte("key")))
 
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
+	It("should calculate and set requestSize", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db}
+
+		const expSQL = "SELECT MAX.* FROM DISK_STORAGE .*"
+		mock.ExpectQuery(expSQL).
+			WillReturnRows(sqlmock.NewRows([]string{"max"}).
+				AddRow("122222"))
+		mock.ExpectQuery(expSQL).
+			WillReturnRows(sqlmock.NewRows([]string{"max"}).
+				AddRow("122222"))
+
+		expRequestSize := resource.MustParse("244444Mi")
+		Expect(dbGen.setRequestSize(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.Local.RequestSize).Should(Equal(expRequestSize))
+	})
+
+	It("should find ksafety from corresponding meta-function", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db}
+
+		mock.ExpectQuery(Queries[KSafetyQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
+				AddRow("0"))
+		mock.ExpectQuery("SELECT COUNT.* FROM SUBCLUSTERS").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).
+				AddRow("2"))
+
+		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.KSafety).Should(Equal(vapi.KSafety0))
+	})
+
+	It("should always set ksafety to '1' when the fetched value >= 1", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db}
+
+		mock.ExpectQuery(Queries[KSafetyQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
+				AddRow("2"))
+		mock.ExpectQuery("SELECT COUNT.* FROM SUBCLUSTERS").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).
+				AddRow("4"))
+
+		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.KSafety).Should(Equal(vapi.KSafety1))
+	})
+
+	It("should raise an error if ksafety is '0' and the number of nodes > 3", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db}
+
+		mock.ExpectQuery(Queries[KSafetyQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
+				AddRow("0"))
+		mock.ExpectQuery("SELECT COUNT.* FROM SUBCLUSTERS").
+			WillReturnRows(sqlmock.NewRows([]string{"count"}).
+				AddRow("4"))
+
+		Expect(dbGen.setKSafety(ctx)).ShouldNot(Succeed())
+	})
+
+	It("should fetch the server version and use it to pick an image from the docker repo", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.setParmsFromOptions()
+
+		mock.ExpectQuery(Queries[VersionQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"version"}).
+				AddRow("Vertica Analytic Database 12.0.2-20221006"))
+		mock.ExpectQuery(Queries[VersionQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"version"}).
+				AddRow("Vertica Analytic Database 11.0.1-0"))
+
+		Expect(dbGen.setImage(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("vertica/vertica-k8s:12.0.2-0"))
+		Expect(dbGen.setImage(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("vertica/vertica-k8s:11.0.1-0"))
+	})
+
+	It("should set as image the one specified on the command line", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{
+			Image: "my-img:latest",
+		}}
+		dbGen.setParmsFromOptions()
+
+		mock.ExpectQuery(Queries[VersionQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"version"}).
+				AddRow("Vertica Analytic Database 11.0.1-0"))
+
+		Expect(dbGen.setImage(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("my-img:latest"))
 	})
 
 	It("should extract common prefix for local and depot path", func() {
