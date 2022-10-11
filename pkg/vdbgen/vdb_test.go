@@ -241,7 +241,7 @@ var _ = Describe("vdb", func() {
 		mock.ExpectQuery(Queries[KSafetyQueryKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
 				AddRow("0"))
-		mock.ExpectQuery("SELECT COUNT.* FROM SUBCLUSTERS").
+		mock.ExpectQuery("SELECT COUNT.* FROM NODES").
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).
 				AddRow("2"))
 
@@ -258,7 +258,7 @@ var _ = Describe("vdb", func() {
 		mock.ExpectQuery(Queries[KSafetyQueryKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
 				AddRow("2"))
-		mock.ExpectQuery("SELECT COUNT.* FROM SUBCLUSTERS").
+		mock.ExpectQuery("SELECT COUNT.* FROM NODES").
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).
 				AddRow("4"))
 
@@ -275,7 +275,7 @@ var _ = Describe("vdb", func() {
 		mock.ExpectQuery(Queries[KSafetyQueryKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
 				AddRow("0"))
-		mock.ExpectQuery("SELECT COUNT.* FROM SUBCLUSTERS").
+		mock.ExpectQuery("SELECT COUNT.* FROM NODES").
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).
 				AddRow("4"))
 

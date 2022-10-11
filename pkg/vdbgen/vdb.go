@@ -68,15 +68,13 @@ const (
 
 	ConfigAPIVersion = "v1"
 	ConfigKindName   = "ConfigMap"
-
-	MaxNodeCountForKSafety0 = 3
 )
 
 var Queries = map[QueryType]string{
 	ShardCountKey:      "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
 	DBCfgKey:           "SHOW DATABASE DEFAULT ALL",
 	StorageLocationKey: "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
-	NodeCountQueryKey:  "SELECT COUNT(NODE_NAME) FROM SUBCLUSTERS",
+	NodeCountQueryKey:  "SELECT COUNT(*) FROM NODES",
 	SubclusterQueryKey: "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
 	KSafetyQueryKey:    "SELECT GET_DESIGN_KSAFE()",
 	DepotSizeQueryKey:  "SELECT MAX(DISK_SPACE_USED_MB+DISK_SPACE_FREE_MB) FROM DISK_STORAGE WHERE STORAGE_USAGE = 'DEPOT'",
@@ -208,11 +206,11 @@ func (d *DBGenerator) setKSafety(ctx context.Context) error {
 	if err := rows.Scan(&designKSafe); err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
-	if designKSafe == "0" {
+	if designKSafe == string(vapi.KSafety0) {
 		if nodeCount, err := d.countNodes(ctx); err == nil {
-			// vdbgen will fail if kasety is 0 and there are more than 3 nodes
-			if nodeCount > MaxNodeCountForKSafety0 {
-				return fmt.Errorf("ksafety 0 is not recommended for a %d nodes cluster", nodeCount)
+			// vdbgen will fail if ksafety is 0 and there are more than max nodes
+			if nodeCount > vapi.KSafety0MaxHosts {
+				return fmt.Errorf("VerticaDB does not support ksafety 0 of more than %d nodes", nodeCount)
 			}
 		} else {
 			return err
@@ -233,18 +231,18 @@ func (d *DBGenerator) countNodes(ctx context.Context) (int, error) {
 	}
 	defer rows.Close()
 
-	if rows.Err() != nil {
-		return 0, fmt.Errorf("failed running '%s': %w", q, rows.Err())
-	}
-	if !rows.Next() {
-		return 0, errors.New("could not find any nodes in the cluster")
+	if rows.Next() {
+		if rows.Err() != nil {
+			return 0, fmt.Errorf("failed running '%s': %w", q, rows.Err())
+		}
+		var nodeCount int
+		if err := rows.Scan(&nodeCount); err != nil {
+			return 0, fmt.Errorf("failed running '%s': %w", q, err)
+		}
+		return nodeCount, nil
 	}
 
-	var nodeCount int
-	if err := rows.Scan(&nodeCount); err != nil {
-		return 0, fmt.Errorf("failed running '%s': %w", q, err)
-	}
-	return nodeCount, nil
+	return 0, nil
 }
 
 // fetchDatabaseConfig populate the DbCfg with output of the call to
@@ -416,12 +414,12 @@ func (d *DBGenerator) setLocalPaths(ctx context.Context) error {
 
 // setRequestSize will fetch the local data size and set it in v.vdb.
 func (d *DBGenerator) setRequestSize(ctx context.Context) error {
-	depotMaxSize, err := d.queryLocalDataSize(ctx, "DEPOT")
+	depotMaxSize, err := d.queryLocalDataSize(ctx, DepotSizeQueryKey)
 	if err != nil {
 		return err
 	}
 
-	dataMaxSize, err := d.queryLocalDataSize(ctx, "DATA,TEMP")
+	dataMaxSize, err := d.queryLocalDataSize(ctx, CatalogSizeQueryKey)
 	if err != nil {
 		return err
 	}
@@ -513,15 +511,7 @@ func (d *DBGenerator) queryLocalPath(ctx context.Context, usage string) (string,
 }
 
 // queryLocalDataSize will find data/depot size. It will pick the max among all nodes
-func (d *DBGenerator) queryLocalDataSize(ctx context.Context, usage string) (int64, error) {
-	var qtype QueryType
-	if usage == "DEPOT" {
-		qtype = DepotSizeQueryKey
-	} else if usage == "DATA,TEMP" {
-		qtype = CatalogSizeQueryKey
-	} else {
-		return 0, nil
-	}
+func (d *DBGenerator) queryLocalDataSize(ctx context.Context, qtype QueryType) (int64, error) {
 	q := Queries[qtype]
 	rows, err := d.Conn.QueryContext(ctx, q)
 	if err != nil {

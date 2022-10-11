@@ -23,6 +23,7 @@ spec:
   local:
     dataPath: /data
     depotPath: /depot
+  kSafety: "0"
   subclusters:
     - name: sc1
       isPrimary: true
