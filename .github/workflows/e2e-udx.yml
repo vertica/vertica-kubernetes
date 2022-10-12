@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Set up e2e environment
       uses: ./.github/actions/setup-e2e
@@ -67,7 +67,7 @@ jobs:
         scripts/setup-e2e-udx.sh -v
         scripts/run-k8s-int-tests.sh -s
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: logs-e2e-udx

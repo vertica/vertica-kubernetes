@@ -66,7 +66,7 @@ jobs:
     steps:
 
     - name: Pick the name of the image
-      uses: dkershner6/switch-case-action@v1
+      uses: spilchen/switch-case-action@v1
       id: full_vertica_image
       with:
         default: ghcr.io/${{ github.repository_owner }}/vertica-k8s:${{ github.sha }}
@@ -89,7 +89,7 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       if: ${{ inputs.full_vertica_image == '' }}
 
     - name: Download the RPM
@@ -111,7 +111,7 @@ jobs:
       run: |
         docker save ${{ steps.full_vertica_image.outputs.value }} > full-vertica-image.tar
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ github.event_name == 'pull_request' }}
       with:
         name: full-vertica-image
@@ -154,7 +154,7 @@ jobs:
         format: 'table'
         output: 'trivy-results-vertica-image.out'
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ always() && inputs.run_security_scan == 'all' }}
       with:
         name: security-scan
@@ -180,7 +180,7 @@ jobs:
     steps:
 
     - name: Pick the name of the image
-      uses: dkershner6/switch-case-action@v1
+      uses: spilchen/switch-case-action@v1
       id: minimal_vertica_image
       with:
         default: ghcr.io/${{ github.repository_owner }}/vertica-k8s:${{ github.sha }}-minimal
@@ -203,7 +203,7 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       if: ${{ inputs.minimal_vertica_image == '' }}
 
     - name: Download the RPM
@@ -226,7 +226,7 @@ jobs:
       run: |
         docker save ${{ steps.minimal_vertica_image.outputs.value }} > minimal-vertica-image.tar
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ github.event_name == 'pull_request' }}
       with:
         name: minimal-vertica-image
@@ -257,7 +257,7 @@ jobs:
     steps:
 
     - name: Pick the name of the image
-      uses: dkershner6/switch-case-action@v1
+      uses: spilchen/switch-case-action@v1
       id: operator_image
       with:
         default: ghcr.io/${{ github.repository_owner }}/verticadb-operator:${{ github.sha }}
@@ -273,7 +273,7 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       if: ${{ inputs.operator_image == '' }}
 
     - name: Build and optionally push operator image
@@ -291,7 +291,7 @@ jobs:
       run: |
         docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ github.event_name == 'pull_request' }}
       with:
         name: operator-image
@@ -328,7 +328,7 @@ jobs:
         format: 'table'
         output: 'trivy-results-verticadb-operator-image.out'
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ always() && inputs.run_security_scan != 'none' }}
       with:
         name: security-scan
@@ -351,7 +351,7 @@ jobs:
     steps:
 
     - name: Pick the name of the image
-      uses: dkershner6/switch-case-action@v1
+      uses: spilchen/switch-case-action@v1
       id: vlogger_image
       with:
         default: ghcr.io/${{ github.repository_owner }}/vertica-logger:${{ github.sha }}
@@ -367,7 +367,7 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       if: ${{ inputs.vlogger_image == '' }}
 
     - name: Build and optionally push vlogger image
@@ -385,7 +385,7 @@ jobs:
       run: |
         docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ github.event_name == 'pull_request' }}
       with:
         name: vlogger-image
@@ -422,7 +422,7 @@ jobs:
         format: 'table'
         output: 'trivy-results-vertica-logger-image.out'
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: ${{ always() && inputs.run_security_scan != 'none' }}
       with:
         name: security-scan

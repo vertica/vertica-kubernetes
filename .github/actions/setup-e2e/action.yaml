@@ -10,7 +10,7 @@ runs:
       uses: ./.github/actions/setup-kubectl
 
     - name: Download all the docker image for PRs
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
       if: ${{ github.event_name == 'pull_request' }}
 
     - name: Load the docker images for PRs

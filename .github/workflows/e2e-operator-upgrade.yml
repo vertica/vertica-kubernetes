@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Set up e2e environment
       uses: ./.github/actions/setup-e2e
@@ -65,7 +65,7 @@ jobs:
         scripts/setup-operator-upgrade-testsuite.sh
         scripts/run-k8s-int-tests.sh -s
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: logs-e2e-operator-upgrade
