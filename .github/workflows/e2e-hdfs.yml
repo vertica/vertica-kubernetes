@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Set up e2e environment
       uses: ./.github/actions/setup-e2e
@@ -61,7 +61,7 @@ jobs:
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-hdfs-ci.txt
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: logs-e2e-hdfs
