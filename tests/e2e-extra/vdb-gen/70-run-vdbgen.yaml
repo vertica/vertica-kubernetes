@@ -14,14 +14,8 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  # Copy vdb-gen into the container.  We run it in the container so that it has
-  # access to k8s network.  Running it outside k8s, it would only have access to
-  # what is exposed.
-  - command: kubectl -n $NAMESPACE cp ../../../bin/vdb-gen v-vdb-gen-sc1-0:/tmp/vdb-gen
-  - command: kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- chmod +x /tmp/vdb-gen
-  - command: kubectl -n $NAMESPACE cp run-vdb-gen.sh v-vdb-gen-sc1-0:/tmp/run-vdb-gen.sh
-  - command: kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- chmod +x /tmp/run-vdb-gen.sh
-  - script: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- sh -c \"/tmp/run-vdb-gen.sh $NAMESPACE $(cd ../../.. && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2) v-vdb-gen-revive $(kubectl get cm e2e -n $NAMESPACE -o jsonpath='{.data.caFileSecretName}')\" > /tmp/$NAMESPACE-vdb-gen.yaml"
+  # We have already copied vdb-gen at step 45. Now we run it again, in the container.
+  - script: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- sh -c \"/tmp/run-vdb-gen.sh $NAMESPACE $(cd ../../.. && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2) v-vdb-gen-revive2 $(kubectl get cm e2e -n $NAMESPACE -o jsonpath='{.data.caFileSecretName}')\" > /tmp/$NAMESPACE-vdb-gen.yaml"
   - command: cat /tmp/$NAMESPACE-vdb-gen.yaml
   # Apply the generated CR
   - command: kubectl -n $NAMESPACE apply -f /tmp/$NAMESPACE-vdb-gen.yaml

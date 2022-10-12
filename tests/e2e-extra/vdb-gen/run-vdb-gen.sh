@@ -21,7 +21,8 @@ set -o pipefail
 
 NAMESPACE=$1
 VERTICA_IMG=$2
-COMMUNAL_EP_CERT_SECRET=$3
+VDB_NAME=$3
+COMMUNAL_EP_CERT_SECRET=$4
 
 # The ca.cert is optional.
 if [ -f "/certs/$COMMUNAL_EP_CERT_SECRET/ca.crt" ]
@@ -42,7 +43,7 @@ fi
 /tmp/vdb-gen \
     -license /home/dbadmin/licensing/ce/vertica_community_edition.license.key \
     -image $VERTICA_IMG \
-    -name v-vdb-gen-revive \
+    -name $VDB_NAME \
     -password superuser \
     -ignore-cluster-lease \
     $CA_CERT_OPT \

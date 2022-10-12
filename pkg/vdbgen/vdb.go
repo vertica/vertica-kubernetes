@@ -52,10 +52,16 @@ type DBGenerator struct {
 type QueryType string
 
 const (
-	ShardCountKey      QueryType = "shardCount"
-	DBCfgKey           QueryType = "dbCfg"
-	StorageLocationKey QueryType = "storageLocation"
-	SubclusterQueryKey QueryType = "subcluster"
+	ShardCountKey         QueryType = "shardCount"
+	DBCfgKey              QueryType = "dbCfg"
+	StorageLocationKey    QueryType = "storageLocation"
+	NodeCountQueryKey     QueryType = "nodeCount"
+	SubclusterQueryKey    QueryType = "subcluster"
+	KSafetyQueryKey       QueryType = "ksafety"
+	LocalDataSizeQueryKey QueryType = "storageLocationSize"
+	DepotSizeQueryKey     QueryType = "depotSize"
+	CatalogSizeQueryKey   QueryType = "catalogSize"
+	VersionQueryKey       QueryType = "version"
 
 	SecretAPIVersion = "v1"
 	SecretKindName   = "Secret"
@@ -68,7 +74,13 @@ var Queries = map[QueryType]string{
 	ShardCountKey:      "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
 	DBCfgKey:           "SHOW DATABASE DEFAULT ALL",
 	StorageLocationKey: "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
+	NodeCountQueryKey:  "SELECT COUNT(*) FROM NODES",
 	SubclusterQueryKey: "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
+	KSafetyQueryKey:    "SELECT GET_DESIGN_KSAFE()",
+	DepotSizeQueryKey:  "SELECT MAX(DISK_SPACE_USED_MB+DISK_SPACE_FREE_MB) FROM DISK_STORAGE WHERE STORAGE_USAGE = 'DEPOT'",
+	CatalogSizeQueryKey: "SELECT MAX(DISK_SPACE_USED_MB+DISK_SPACE_FREE_MB) " +
+		"FROM DISK_STORAGE WHERE STORAGE_USAGE in ('CATALOG','DATA,TEMP')",
+	VersionQueryKey: "SELECT VERSION()",
 }
 
 // Create will generate a VerticaDB based the specifics gathered from a live database
@@ -80,12 +92,15 @@ func (d *DBGenerator) Create() (*KObjs, error) {
 		d.readLicense,
 		d.connect,
 		d.setShardCount,
+		d.setKSafety,
+		d.setImage,
 		d.setCommunalPath,
 		d.fetchDatabaseConfig,
 		d.setCommunalEndpointAWS,
 		d.setCommunalEndpointGCloud,
 		d.setCommunalEndpointAzure,
 		d.setLocalPaths,
+		d.setRequestSize,
 		d.setSubclusterDetail,
 		d.setLicense,
 		d.setPasswordSecret,
@@ -169,6 +184,65 @@ func (d *DBGenerator) setShardCount(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// setKsafety will fetch the ksafety from the database and set it inside v.vdb
+func (d *DBGenerator) setKSafety(ctx context.Context) error {
+	q := Queries[KSafetyQueryKey]
+	rows, err := d.Conn.QueryContext(ctx, q)
+	if err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	defer rows.Close()
+
+	if rows.Err() != nil {
+		return fmt.Errorf("failed running '%s': %w", q, rows.Err())
+	}
+	if !rows.Next() {
+		return errors.New("could not get ksafety from meta-function GET_DESIGN_KSAFE()")
+	}
+	var designKSafe string
+	ksafety := vapi.KSafety1
+	if err := rows.Scan(&designKSafe); err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	if designKSafe == string(vapi.KSafety0) {
+		if nodeCount, err := d.countNodes(ctx); err == nil {
+			// vdbgen will fail if ksafety is 0 and there are more than max nodes
+			if nodeCount > vapi.KSafety0MaxHosts {
+				return fmt.Errorf("VerticaDB does not support ksafety 0 of more than %d nodes", nodeCount)
+			}
+		} else {
+			return err
+		}
+		ksafety = vapi.KSafety0
+	}
+	d.Objs.Vdb.Spec.KSafety = ksafety
+
+	return nil
+}
+
+// countNodes will fetch the number of nodes from the database.
+func (d *DBGenerator) countNodes(ctx context.Context) (int, error) {
+	q := Queries[NodeCountQueryKey]
+	rows, err := d.Conn.QueryContext(ctx, q)
+	if err != nil {
+		return 0, fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		if rows.Err() != nil {
+			return 0, fmt.Errorf("failed running '%s': %w", q, rows.Err())
+		}
+		var nodeCount int
+		if err := rows.Scan(&nodeCount); err != nil {
+			return 0, fmt.Errorf("failed running '%s': %w", q, err)
+		}
+		return nodeCount, nil
+	}
+
+	return 0, nil
 }
 
 // fetchDatabaseConfig populate the DbCfg with output of the call to
@@ -338,6 +412,23 @@ func (d *DBGenerator) setLocalPaths(ctx context.Context) error {
 	return nil
 }
 
+// setRequestSize will fetch the local data size and set it in v.vdb.
+func (d *DBGenerator) setRequestSize(ctx context.Context) error {
+	depotMaxSize, err := d.queryLocalDataSize(ctx, DepotSizeQueryKey)
+	if err != nil {
+		return err
+	}
+
+	dataMaxSize, err := d.queryLocalDataSize(ctx, CatalogSizeQueryKey)
+	if err != nil {
+		return err
+	}
+	requestSize := fmt.Sprintf("%dMi", depotMaxSize+dataMaxSize)
+	d.Objs.Vdb.Spec.Local.RequestSize = resource.MustParse(requestSize)
+
+	return nil
+}
+
 // setCommunalPath will query the catalog and set the communal path in the vdb.
 func (d *DBGenerator) setCommunalPath(ctx context.Context) error {
 	var communalPath string
@@ -419,6 +510,29 @@ func (d *DBGenerator) queryLocalPath(ctx context.Context, usage string) (string,
 	return commonPrefix, nil
 }
 
+// queryLocalDataSize will find data/depot size. It will pick the max among all nodes
+func (d *DBGenerator) queryLocalDataSize(ctx context.Context, qtype QueryType) (int64, error) {
+	q := Queries[qtype]
+	rows, err := d.Conn.QueryContext(ctx, q)
+	if err != nil {
+		return 0, fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	defer rows.Close()
+
+	if rows.Err() != nil {
+		return 0, fmt.Errorf("failed running '%s': %w", q, rows.Err())
+	}
+	if !rows.Next() {
+		return 0, errors.New("did not find any rows in DISK_STORAGE")
+	}
+	var localDataSize int64
+	if err := rows.Scan(&localDataSize); err != nil {
+		return 0, fmt.Errorf("failed running '%s': %w", q, err)
+	}
+
+	return localDataSize, nil
+}
+
 // setSubclusterDetail will query the db for details about the subcluster.  This
 // will set the subcluster count, size of each and the revive order.
 func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
@@ -472,6 +586,44 @@ func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
 	if len(subclusterInxMap) == 0 {
 		return errors.New("not subclusters found")
 	}
+	return nil
+}
+
+// setImage will fetch the server version and use it to pick
+// an image that is hosted on our docker repository.
+func (d *DBGenerator) setImage(ctx context.Context) error {
+	// We just exit if an image was specified on the command line.
+	if d.Opts.Image != "" {
+		return nil
+	}
+	q := Queries[VersionQueryKey]
+	rows, err := d.Conn.QueryContext(ctx, q)
+	if err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	defer rows.Close()
+
+	if rows.Err() != nil {
+		return fmt.Errorf("failed running '%s': %w", q, rows.Err())
+	}
+	if !rows.Next() {
+		return errors.New("could not get Vertica version from meta-function")
+	}
+	var fullVersion string
+	if err := rows.Scan(&fullVersion); err != nil {
+		return fmt.Errorf("failed running '%s': %w", q, err)
+	}
+	// regex to match Vertica version
+	exp := regexp.MustCompile(`\d+(?:\.\d+){2}`)
+	version := exp.FindString(fullVersion)
+	if version == "" {
+		return errors.New("could not find Vertica version")
+	}
+	// Pick an image we hosted in Docker Hub.  We always publish an image for
+	// hotfix 0. Rarely do we publish one for subsequent hotfixes, so always use
+	// hotfix 0 regardless of what hotfix was currently in use.
+	d.Objs.Vdb.Spec.Image = fmt.Sprintf("vertica/vertica-k8s:%s-0", version)
+
 	return nil
 }
 
