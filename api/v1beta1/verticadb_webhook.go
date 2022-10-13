@@ -254,7 +254,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateCommunalPath(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidDomainName(allErrs)
-	allErrs = v.credentialSecretExists(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
 	allErrs = v.isNodePortProperlySpecified(allErrs)
 	allErrs = v.isServiceTypeValid(allErrs)
@@ -331,24 +330,6 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
 			v.Spec.Communal.Endpoint,
 			"communal.endpoint must be prefaced with http:// or https:// to know what protocol to connect with")
-		allErrs = append(allErrs, err)
-	}
-	return allErrs
-}
-
-func (v *VerticaDB) credentialSecretExists(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
-		return allErrs
-	}
-	// Credential secrets are not needed if communal path is HDFS
-	if v.IsHDFS() {
-		return allErrs
-	}
-	// communal.credentialSecret must exist
-	if v.Spec.Communal.CredentialSecret == "" {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("credentialSecret"),
-			v.Spec.Communal.CredentialSecret,
-			"communal.credentialSecret must exist")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
