@@ -470,7 +470,7 @@ type CommunalStorage struct {
 	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
 	// need to be set, depending on the endpoint type:
 	// - s3:// or gs:// - If storing credentials in a secret, the secret must
-	//     have the following keys set: accessey and secretkey.  When using
+	//     have the following keys set: accesskey and secretkey.  When using
 	//     Google Cloud Storage, the IDs set in the secret are taken
 	//     from the hash-based message authentication code (HMAC) keys.
 	// - azb:// - It must have the following keys set:
