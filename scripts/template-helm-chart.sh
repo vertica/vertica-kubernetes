@@ -78,16 +78,24 @@ sed -i "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/verticadb-ope
 # 9.  Template the serviceaccount, roles and rolebindings
 sed -i 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 sed -i 's/--service-account-name=.*/--service-account-name={{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-for f in verticadb-operator-controller-manager-sa.yaml \
-    verticadb-operator-manager-role-role.yaml \
-    verticadb-operator-manager-rolebinding-rb.yaml \
-    verticadb-operator-leader-election-role-role.yaml \
-    verticadb-operator-leader-election-rolebinding-rb.yaml \
-    verticadb-operator-proxy-rolebinding-crb.yaml \
-    verticadb-operator-proxy-role-cr.yaml
+for f in verticadb-operator-controller-manager-sa.yaml
 do
     sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
+done
+for f in verticadb-operator-manager-role-role.yaml \
+    verticadb-operator-manager-rolebinding-rb.yaml \
+    verticadb-operator-leader-election-role-role.yaml \
+    verticadb-operator-leader-election-rolebinding-rb.yaml
+do
+    sed -i '1s/^/{{- if not .Values.skipRoleAndRoleBindingCreation -}}\n/' $TEMPLATE_DIR/$f
+    echo "{{- end }}" >> $TEMPLATE_DIR/$f
+done
+for f in verticadb-operator-manager-rolebinding-rb.yaml \
+    verticadb-operator-leader-election-rolebinding-rb.yaml \
+    verticadb-operator-proxy-rolebinding-crb.yaml
+do
+    perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
 done
 
 # 10.  Template the webhook access enablement

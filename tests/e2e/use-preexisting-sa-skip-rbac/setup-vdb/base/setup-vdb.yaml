@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-use-preexisting-sa
+  name: v-use-preexisting-sa-skip-rbac
 spec:
   image: kustomize-vertica-image
   communal:

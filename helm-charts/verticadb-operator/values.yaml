@@ -92,10 +92,19 @@ resources:
 
 # If set, this will be the name of an existing service account that will be used to run
 # any of the pods related to this operator. This includes the pod for the operator itself, 
-# as well as any pods created for our custom resource. The necessary roles and role bindings
-# must be already setup for this service account. If unset, we will use the default service account name
-# and create the necessary roles and role bindings to allow the pods to interact with the apiserver.
+# as well as any pods created for our custom resource.  If unset, we will use
+# the default service account name.
 serviceAccountNameOverride: ""
+
+# Set this to true to force the helm chart to skip creation of any Roles and
+# RoleBindings. This can only be used when the ServiceAccount already exists,
+# so it expects serviceAccountNameOverride to have been used. 
+#
+# Use this option if you are installing the helm chart with k8s privileges that
+# prevent you from creating Roles/RoleBindings. We provide the Roles and
+# RoleBindings that the operator needs as a artifact of the GitHub release (see
+# https://github.com/vertica/vertica-kubernetes/releases).
+skipRoleAndRoleBindingCreation: false
 
 prometheus:
   # Controls exposing of the prometheus metrics endpoint.  Valid options are:

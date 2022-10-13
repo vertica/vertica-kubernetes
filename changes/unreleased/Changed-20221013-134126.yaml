@@ -1,0 +1,5 @@
+kind: Changed
+body: Helm install with serviceAccountNameOverride will add roles/rolebindings
+time: 2022-10-13T13:41:26.854428242-03:00
+custom:
+  Issue: "266"
