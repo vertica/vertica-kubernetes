@@ -1,0 +1,5 @@
+kind: Fixed
+body: Allow environment variables to flow down to Vertica process
+time: 2022-10-12T15:55:28.081052382-03:00
+custom:
+  Issue: "264"

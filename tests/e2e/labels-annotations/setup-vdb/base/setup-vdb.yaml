@@ -26,6 +26,7 @@ spec:
     ver: 0.7.2
   annotations:
     gitRef: abcd123
+    TZ: "America/Halifax"
   dbName: vdb
   subclusters:
     - name: cluster1

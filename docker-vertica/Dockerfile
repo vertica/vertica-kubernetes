@@ -18,6 +18,8 @@ COPY ./packages/${VERTICA_RPM} /tmp/
 # container image
 COPY ./packages/cleanup.sh /tmp/
 COPY ./packages/package-checksum-patcher.py /tmp/
+COPY ./packages/10-vertica-sshd.conf /etc/ssh/sshd_config.d/10-vertica-sshd.conf
+COPY ./packages/10-vertica-ssh.conf /etc/ssh/ssh_config.d/10-vertica-ssh.conf
 
 RUN set -x \
   # Update is needed to be confident that we're picking up
@@ -59,7 +61,6 @@ RUN set -x \
   && yum clean all \
   && sh /tmp/cleanup.sh
 
-COPY dbadmin/.bash_profile /home/dbadmin/
 # Copy in a stable ssh key.  This is done so that Vertica pods can communicate
 # with pods running an older image.  This is necessary when doing an online
 # image change as the Vertica cluster will be running with two container
@@ -70,8 +71,6 @@ COPY ./docker-entrypoint.sh /usr/local/bin
 
 RUN set -x \
   && chmod a+x /usr/local/bin/docker-entrypoint.sh \
-  && chown dbadmin:verticadba /home/dbadmin/.bash_profile \
-  && chmod 600 /home/dbadmin/.bash_profile \
   && mkdir -p /root/.ssh \
   && cp -r /home/dbadmin/.ssh /root \
   && chmod 700 /root/.ssh \
@@ -79,10 +78,8 @@ RUN set -x \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
-  # On older docker versions, the ownership of /opt/vertica is not preserved in
-  # the COPY.  Working around this by changing it so that all files and
-  # directories are world writeable.
-  && chmod 777 -R /opt/vertica
+  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/*
+
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION}
@@ -96,13 +93,13 @@ ARG JRE_PKG=openjdk-8-jre-headless
 ARG MINIMAL
 
 COPY --from=builder /opt/vertica /opt/vertica
-COPY --from=builder /home/dbadmin /home/dbadmin
+COPY --from=builder --chown=$DBADMIN_UID:$DBADMIN_GID /home/dbadmin /home/dbadmin
 COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 COPY --from=builder /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY --from=builder /etc/ssh/sshd_config.d/* /etc/ssh/sshd_config.d/
+COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
 
-ENV LANG en_US.UTF-8
-ENV TZ UTC
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -110,10 +107,6 @@ COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  # COPY may not preserve file permissions on older docker versions.  This is a
-  # workaround for that.  This will cause the image to increase a bit, but there
-  # isn't much we copy over for this directory.
-  && chown -R $DBADMIN_UID:$DBADMIN_GID /home/dbadmin \
   # Update is needed to be confident that we're picking up
   # fixed libraries. 
   && apt-get -y update \
