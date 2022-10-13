@@ -94,10 +94,10 @@ var _ = Describe("verticadb_webhook", func() {
 		sc.Name = "default_subcluster"
 		validateSpecValuesHaveErr(vdb, true)
 	})
-	It("should not have empty credentialsecret", func() {
+	It("should be allowed to have empty credentialsecret", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Communal.CredentialSecret = ""
-		validateSpecValuesHaveErr(vdb, true)
+		validateSpecValuesHaveErr(vdb, false)
 	})
 	It("should not have nodePort smaller than 30000", func() {
 		vdb := createVDBHelper()

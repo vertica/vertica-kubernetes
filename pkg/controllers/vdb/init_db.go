@@ -222,17 +222,33 @@ func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, atPod
 	return err
 }
 
-// getS3AuthParmsContent construct a string for the auth parms when using S3
-// communal storage.
-func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+// getAuth will retrieve the auth parms if they exist.  If no credential secret
+// then an empty string is returned.
+func (g *GenericDatabaseInitializer) getAuth(ctx context.Context, parmName string) (string, ctrl.Result, error) {
+	if g.Vdb.Spec.Communal.CredentialSecret == "" {
+		return "", ctrl.Result{}, nil
+	}
+
 	// Extract the auth from the credential secret.
 	auth, res, err := g.getCommunalAuth(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
 	}
 
+	content := fmt.Sprintf("%s = %s", parmName, auth)
+	return content, ctrl.Result{}, nil
+}
+
+// getS3AuthParmsContent construct a string for the auth parms when using S3
+// communal storage.
+func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	auth, res, err := g.getAuth(ctx, "awsauth")
+	if verrors.IsReconcileAborted(res, err) {
+		return "", res, err
+	}
+
 	content := fmt.Sprintf(`
-			awsauth = %s
+			%s
 			awsendpoint = %s
 			awsenablehttps = %s
 			%s
@@ -271,14 +287,13 @@ func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
 // getGCloudAuthParmsContent will get the content for the auth parms when we are
 // connecting to google cloud storage.
 func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
-	// Extract the auth from the credential secret.
-	auth, res, err := g.getCommunalAuth(ctx)
+	auth, res, err := g.getAuth(ctx, "GCSAuth")
 	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
 	}
 
 	content := fmt.Sprintf(`
-		GCSAuth = %s
+	    %s
 		GCSEndpoint = %s
 		GCSEnableHttps = %s
 		%s
@@ -290,6 +305,10 @@ func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Conte
 // getAzureAuthParmsContent will get the content for an EON database created in
 // Azure Blob Storage
 func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+	if g.Vdb.Spec.Communal.CredentialSecret == "" {
+		return "", ctrl.Result{}, nil
+	}
+
 	azureCreds, azureConfig, res, err := g.getAzureAuth(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
@@ -409,9 +428,9 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (
 	accountKey, hasAccountKey := secret.Data[cloud.AzureAccountKey]
 	sas, hasSAS := secret.Data[cloud.AzureSharedAccessSignature]
 
-	if (!hasAccountKey && !hasSAS) || (hasAccountKey && hasSAS) {
+	if hasAccountKey && hasSAS {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The communal credential secret '%s' is not setup properly for azure.  It must have one '%s' or '%s'",
+			"The communal credential secret '%s' is not setup properly for azure.  It cannot have both '%s' and '%s'",
 			g.Vdb.Spec.Communal.CredentialSecret, cloud.AzureAccountKey, cloud.AzureSharedAccessSignature)
 		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, ctrl.Result{Requeue: true}, nil
 	}

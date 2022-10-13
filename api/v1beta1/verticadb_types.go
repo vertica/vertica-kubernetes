@@ -469,8 +469,9 @@ type CommunalStorage struct {
 	// The name of a secret that contains the credentials to connect to the
 	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
 	// need to be set, depending on the endpoint type:
-	// - s3:// or gs:// - It must have the following keys set: accessey and secretkey.
-	//     When using Google Cloud Storage, the IDs set in the secret are taken
+	// - s3:// or gs:// - If storing credentials in a secret, the secret must
+	//     have the following keys set: accessey and secretkey.  When using
+	//     Google Cloud Storage, the IDs set in the secret are taken
 	//     from the hash-based message authentication code (HMAC) keys.
 	// - azb:// - It must have the following keys set:
 	//     accountName - Name of the Azure account
@@ -481,8 +482,11 @@ type CommunalStorage struct {
 	//     sharedAccessSignature - If accessing with a shared access signature,
 	//     	  set it here
 	//
-	// When initPolicy is Create or Revive, and not using HDFS this field is
-	// required.
+	// This field is optional. For AWS, authentication to communal storage can
+	// be provided through an attached IAM profile: attached to the EC2 instance
+	// or to a ServiceAccount with IRSA (see
+	// https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
+	// IRSA requires a Vertica server running at least with version >= 12.0.3.
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional
