@@ -11,11 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-use-preexisting-sa-sc1-0
-spec:
-  serviceAccountName: custom-sa
-status:
-  phase: Running
+resources:
+  - setup-vdb.yaml
