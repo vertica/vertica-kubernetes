@@ -16,20 +16,9 @@
 package security
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
-
-func TestSecurity(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"security Suite",
-		[]Reporter{printer.NewlineReporter{}})
-}
 
 var _ = Describe("security", func() {
 	It("generate a cert with no dns names", func() {

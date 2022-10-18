@@ -54,11 +54,22 @@ cat >>$TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml << END
 END
 # 5. Template the tls secret name
 sed -i 's/secretName: webhook-server-cert/secretName: {{ default "webhook-server-cert" .Values.webhook.tlsSecret }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-for fn in verticadb-operator-selfsigned-issuer-issuer.yaml verticadb-operator-serving-cert-certificate.yaml
+for fn in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 do
-  sed -i '1s/^/{{- if not .Values.webhook.tlsSecret }}\n/' $TEMPLATE_DIR/$fn
+  # Include the secret only if not using webhook.certSource=internal
+  perl -i -0777 -pe 's/(.*- name: cert\n.*secret:\n.*defaultMode:.*\n.*secretName:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
+  perl -i -0777 -pe 's/(.*- mountPath: .*\n.*name: cert\n.*readOnly:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
+  # Add the --generate-webhook-cert option when cert generation is internal
+  perl -i -0777 -pe 's/(.*- --prefix-name=.*)/$1\n\{\{- if and (eq .Values.webhook.certSource "internal") (empty .Values.webhook.tlsSecret) \}\}\n        - --generate-webhook-cert\n\{\{- end \}\}/g' $fn
+done
+for fn in verticadb-operator-selfsigned-issuer-issuer.yaml \
+    verticadb-operator-serving-cert-certificate.yaml
+do
+  sed -i '1s/^/{{- if eq .Values.webhook.certSource "cert-manager" }}\n/' $TEMPLATE_DIR/$fn
   echo "{{- end -}}" >> $TEMPLATE_DIR/$fn
 done
+# Include WEBHOOK_CERT_SOURCE in the config map
+perl -i -0777 -pe 's/(\ndata:)/$1\n  WEBHOOK_CERT_SOURCE: {{ include "vdb-op.certSource" . }}/g' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 # 6. Template the caBundle
 for fn in $(ls $TEMPLATE_DIR/*webhookconfiguration.yaml)
 do
@@ -93,9 +104,17 @@ do
 done
 for f in verticadb-operator-manager-rolebinding-rb.yaml \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
-    verticadb-operator-proxy-rolebinding-crb.yaml
+    verticadb-operator-proxy-rolebinding-crb.yaml \
+    verticadb-operator-metrics-reader-crb.yaml \
+    verticadb-operator-manager-clusterrolebinding-crb.yaml
 do
     perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
+done
+perl -i -0777 -pe 's/-manager-clusterrolebinding/-{{ .Release.Namespace }}-manager-clusterolebinding/g' $TEMPLATE_DIR/verticadb-operator-manager-clusterrolebinding-crb.yaml
+for f in verticadb-operator-manager-clusterrolebinding-crb.yaml \
+    verticadb-operator-manager-role-cr.yaml
+do
+  perl -i -0777 -pe 's/-manager-role/-{{ .Release.Namespace }}-manager-role/g' $TEMPLATE_DIR/$f
 done
 
 # 10.  Template the webhook access enablement

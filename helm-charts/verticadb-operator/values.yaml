@@ -36,20 +36,37 @@ rbac_proxy_image:
 imagePullSecrets: null
 
 webhook:
-  # The webhook requires a TLS certficate to work.  By default we rely on
-  # cert-manager to be installed as we use it generate the cert.  cert-manager
-  # can be installed with this command:
-  # kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+  # The webhook requires a TLS certificate to work. This parm defines how the
+  # cert is supplied. Valid values are:
+  # - internal: The certs are generated internally by the operator prior to
+  #      starting the managing controller. The generated cert is self-signed.
+  #      When it expires, the operator pod will need to be restarted in order
+  #      to generate a new certificate. This is the default.
+  # - cert-manager: The certs are generated using the cert-manager operator.
+  #      This operator needs to be deployed before deploying the operator. It
+  #      can be installed with this command:
+  #      kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
   #
-  # If you don't want to use cert-manager, you need to specify your own cert,
-  # which you can do with the next two parameters.
+  #      Deployment of this chart will create a self-signed cert. The advantage
+  #      of this over 'internal' is that cert-manager will automatically handle
+  #      private key rotation when the certificate is about to expire.
+  # - secret: The certs are created prior to installation of this chart and are
+  #      provided to the operator through a secret. This option gives you the
+  #      most flexibility as it is entirely up to you how the cert is created.
+  #      This option requires the webhook.tlsSecret option to be set. For
+  #      backwards compatibility, if webhook.tlsSecret is set, it is implicit
+  #      that this mode is selected.
+  certSource: internal
+  # Use this parameter if you want to provide your own cert. tlsSecret is a
+  # name of a secret in the same namespace the chart is being installed in.
+  # The secret must have the keys: tls.key and tls.crt.
   #
-  # tlsSecret is a name of a secret in the same namespace the chart is being
-  # installed in.  The secret must have the keys: tls.key, ca.crt, and tls.crt.
+  # For backwards compatibility, if this is set, then 'certSource = secret' is
+  # implied.
   tlsSecret: ""
   # caBundle is a PEM encoded CA bundle that will be used to validate the
   # webhook's server certificate.  If unspecified, system trust roots on the
-  # apiserver are used.
+  # apiserver are used. Use this when providing your own cert.
   caBundle: ""
   # If true, the webhook will be enabled and its configuration is setup by the helm chart. 
   # Setting this to false will disable the webhook. The webhook setup needs privileges to add 
