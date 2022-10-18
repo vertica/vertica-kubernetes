@@ -11,22 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-base-upgrade
+  labels:
+    control-plane: controller-manager
 status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "False"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "False"
-  subclusterCount: 2
-  installCount: 2
-  upNodeCount: 1
+  phase: Running

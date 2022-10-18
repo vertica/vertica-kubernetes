@@ -15,18 +15,29 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
-status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "False"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "False"
-  subclusterCount: 2
-  installCount: 2
-  upNodeCount: 1
+spec:
+  image: kustomize-vertica-image
+  imagePullPolicy: IfNotPresent
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+  dbName: vertica
+  upgradePolicy: Offline
+  shardCount: 12
+  kSafety: "0"
+  subclusters:
+    - name: s0
+      size: 1
+  # Set requeueTime to prevent the exponential backoff kicking in, which can
+  # cause the test to timeout.
+  requeueTime: 5
+  certSecrets: []
+  imagePullSecrets: []
+  volumes:
+    - name: cm
+      configMap:
+        name: vdb-state-orig-name
+  volumeMounts:
+    - name: cm
+      mountPath: /configmap

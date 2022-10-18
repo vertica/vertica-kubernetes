@@ -11,22 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "False"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "False"
-  subclusterCount: 2
-  installCount: 2
-  upNodeCount: 1
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE"

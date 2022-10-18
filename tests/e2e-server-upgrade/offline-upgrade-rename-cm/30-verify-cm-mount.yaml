@@ -11,22 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "False"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "False"
-  subclusterCount: 2
-  installCount: 2
-  upNodeCount: 1
+# Start another upgrade but with a bogus image that doesn't exist.  The purpose
+# of this is abort an upgrade that is improgress and get it back to a good
+# state.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl -n $NAMESPACE exec -it v-base-upgrade-s0-0 -- cat /configmap/LOCATION
+  - command: kubectl -n $NAMESPACE exec -it v-base-upgrade-s0-0 -- grep -q Charlottetown /configmap/LOCATION

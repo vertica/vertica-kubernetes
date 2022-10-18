@@ -44,24 +44,29 @@ const (
 	ServerContainerIndex = 0
 )
 
-type ObjReconcileModeType string
+type ObjReconcileModeType uint8
 
 const (
-	// Consider all ways to reconcile - add, delete, modify k8s objects
-	ObjReconcileModeAll ObjReconcileModeType = "All"
-	// Only reconcile objects that are missing.
-	ObjReconcileModeIfNotFound ObjReconcileModeType = "IfNotFound"
+	// Must maintain the same size when reconciling statefulsets
+	ObjReconcileModePreserveScaling = 1 << iota
+	// Must maintain the same delete policy when reconciling statefulsets
+	ObjReconcileModePreserveUpdateStrategy
+	// Reconcile to modify or create service objects if needed
+	ObjReconcileModeReconcileSvc
+	// Reconcile is allowed to delete objects
+	ObjReconcileModeDeleteObjects
+	// Reconcile to consider every change
+	ObjReconcileModeAll = ObjReconcileModeDeleteObjects | ObjReconcileModeReconcileSvc
 )
 
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is
 // used for a single reconcile iteration.
 type ObjReconciler struct {
-	VRec              *VerticaDBReconciler
-	Log               logr.Logger
-	Vdb               *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts            *PodFacts
-	PatchImageAllowed bool // a patch can only change the image when this is set to true
-	Mode              ObjReconcileModeType
+	VRec   *VerticaDBReconciler
+	Log    logr.Logger
+	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts *PodFacts
+	Mode   ObjReconcileModeType
 }
 
 // MakeObjReconciler will build an ObjReconciler object
@@ -208,7 +213,7 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 // checkForDeletedSubcluster will remove any objects that were created for
 // subclusters that don't exist anymore.
 func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Result, error) {
-	if o.Mode == ObjReconcileModeIfNotFound {
+	if o.Mode&ObjReconcileModeDeleteObjects == 0 {
 		// Bypass this check since we won't be doing any scale down with this reconcile
 		return ctrl.Result{}, nil
 	}
@@ -264,18 +269,18 @@ func (o ObjReconciler) reconcileHlSvc(ctx context.Context) error {
 	return o.reconcileSvc(ctx, expSvc, svcName, nil, o.reconcileHlSvcFields)
 }
 
-// reconcileSvc verifies the external service objects exists and creates it if necessary.
+// reconcileSvc verifies the service object exists and creates it if necessary.
 func (o ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service, svcName types.NamespacedName,
 	sc *vapi.Subcluster, reconcileFieldsFunc func(*corev1.Service, *corev1.Service, *vapi.Subcluster) *corev1.Service) error {
+	if o.Mode&ObjReconcileModeReconcileSvc == 0 {
+		// Bypass this check since we are doing changes to statefulsets only
+		return nil
+	}
+
 	curSvc := &corev1.Service{}
 	err := o.VRec.Client.Get(ctx, svcName, curSvc)
 	if err != nil && errors.IsNotFound(err) {
 		return o.createService(ctx, expSvc, svcName)
-	}
-	// Early out if the mode is set such that we only create objects if they are
-	// missing.  The rest of the logic will attempt to update an existing object.
-	if o.Mode == ObjReconcileModeIfNotFound {
-		return nil
 	}
 
 	newSvc := reconcileFieldsFunc(curSvc, expSvc, sc)
@@ -387,26 +392,31 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		o.PFacts.Invalidate()
 		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
 	}
-	// The rest of the logic deals with updating an existing object.  We do an
-	// early out if the mode is set such that we only create objects if they are
-	// missing.
-	if o.Mode == ObjReconcileModeIfNotFound {
-		return ctrl.Result{}, nil
-	}
 
 	// We can only remove pods if we have called 'admintools -t db_remove_node'
 	// and done the uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
-	if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
-		return r, e
+	if o.Mode&ObjReconcileModeDeleteObjects != 0 {
+		if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
+			return r, e
+		}
 	}
 
-	// To distinguish when this is called as part of the upgrade reconciler, we
-	// will only change the image for a patch when instructed to do so.
-	if !o.PatchImageAllowed {
-		i := names.ServerContainerIndex
-		expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
+	// We always preserve the image. This is done because during upgrade, the
+	// entire sts is deleted and rebuilt to change the image.
+	i := names.ServerContainerIndex
+	expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
+
+	// Preserve scaling if told to do so. This is used when doing early
+	// reconciliation so that we have any necessary pods started.
+	if o.Mode&ObjReconcileModePreserveScaling != 0 {
+		expSts.Spec.Replicas = curSts.Spec.Replicas
+	}
+	// Preserve the delete policy as they may be changed temporarily by upgrade,
+	// which we may be in the middle of.
+	if o.Mode&ObjReconcileModePreserveUpdateStrategy != 0 {
+		expSts.Spec.UpdateStrategy.Type = curSts.Spec.UpdateStrategy.Type
 	}
 
 	// We allow the requestSize to change in the VerticaDB.  But we cannot
