@@ -156,7 +156,7 @@ func (d *InstallReconciler) acceptEulaIfMissing(ctx context.Context) error {
 		if !p.eulaAccepted.IsFalse() || !p.isPodRunning {
 			continue
 		}
-		if err := d.acceptEulaInPod(ctx, p); err != nil {
+		if err := acceptEulaInPod(ctx, p, d.PRunner); err != nil {
 			return err
 		}
 	}
@@ -329,7 +329,7 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 }
 
 // acceptEulaInPod will run a script that will accept the eula in the given pod
-func (d *InstallReconciler) acceptEulaInPod(ctx context.Context, pf *PodFact) error {
+func acceptEulaInPod(ctx context.Context, pf *PodFact, pRunner cmds.PodRunner) error {
 	tmp, err := ioutil.TempFile("", "accept_eula.py.")
 	if err != nil {
 		return err
@@ -350,12 +350,12 @@ func (d *InstallReconciler) acceptEulaInPod(ctx context.Context, pf *PodFact) er
 	}
 	tmp.Close()
 
-	_, _, err = d.PRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript)
+	_, _, err = pRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = d.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "/opt/vertica/oss/python3/bin/python3", paths.EulaAcceptanceScript)
+	_, _, err = pRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "/opt/vertica/oss/python3/bin/python3", paths.EulaAcceptanceScript)
 	if err != nil {
 		return err
 	}
