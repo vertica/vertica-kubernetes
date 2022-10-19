@@ -1,0 +1,6 @@
+kind: Changed
+body: Default TLS cert for webhook is now generated internally rather than through
+  cert-manager.
+time: 2022-10-18T19:57:15.741678429-03:00
+custom:
+  Issue: "268"

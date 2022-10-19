@@ -267,15 +267,18 @@ spec:
       - description: "The name of a secret that contains the credentials to connect
           to the communal endpoint (only applies to s3://, gs:// or azb://). Certain
           keys need to be set, depending on the endpoint type: - s3:// or gs:// -
-          It must have the following keys set: accessey and secretkey. When using
-          Google Cloud Storage, the IDs set in the secret are taken from the hash-based
-          message authentication code (HMAC) keys. - azb:// - It must have the following
-          keys set: accountName - Name of the Azure account blobEndpoint - (Optional)
-          Set this to the location of the endpoint. If using an emulator like Azurite,
-          it can be set to something like 'http://<IP-addr>:<port>' accountKey - If
-          accessing with an account key set it here sharedAccessSignature - If accessing
-          with a shared access signature, set it here \n When initPolicy is Create
-          or Revive, and not using HDFS this field is required."
+          If storing credentials in a secret, the secret must have the following keys
+          set: accesskey and secretkey.  When using Google Cloud Storage, the IDs
+          set in the secret are taken from the hash-based message authentication code
+          (HMAC) keys. - azb:// - It must have the following keys set: accountName
+          - Name of the Azure account blobEndpoint - (Optional) Set this to the location
+          of the endpoint. If using an emulator like Azurite, it can be set to something
+          like 'http://<IP-addr>:<port>' accountKey - If accessing with an account
+          key set it here sharedAccessSignature - If accessing with a shared access
+          signature, set it here \n This field is optional. For AWS, authentication
+          to communal storage can be provided through an attached IAM profile: attached
+          to the EC2 instance or to a ServiceAccount with IRSA (see https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
+          IRSA requires a Vertica server running at least with version >= 12.0.3."
         displayName: Credential Secret
         path: communal.credentialSecret
         x-descriptors:
@@ -332,6 +335,33 @@ spec:
         path: dbName
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Controls if the spread communication between pods is encrypted.  Valid
+          values are 'vertica' or an empty string if not enabled.  When set to 'vertica',
+          Vertica generates the spread encryption key for the cluster when the database
+          starts up.  This can only be set during initial creation of the CR.  If
+          set for initPolicy other than Create, then it has no effect.
+        displayName: Encrypt Spread Comm
+        path: encryptSpreadComm
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Control the Vertica''s http server.  The http server provides
+          a REST interface that can be used for management and monitoring of the server.  Valid
+          values are: Enabled, Disabled or an empty string.  An empty string currently
+          defaults to Disabled.'
+        displayName: HTTPServer Mode
+        path: httpServerMode
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'A secret that contains the TLS credentials to use for the Vertica
+          HTTP server.  If this is empty, the operator will create a secret to use
+          and add the name of the generate secret in this field.  When set, the secret
+          must have the following keys defined: - tls.key: The private key to be used
+          by the HTTP server - tls.crt: The signed certificate chain for the private
+          key - ca.crt: The CA certificate'
+        displayName: HTTPServer Secret
+        path: httpServerSecret
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Ignore the cluster lease when doing a revive or start_db.  Use
           this with caution, as ignoring the cluster lease when another system is
           using the same communal storage will cause corruption.
@@ -348,9 +378,10 @@ spec:
         path: ignoreUpgradePath
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
-      - description: The docker image name that contains Vertica.  Whenever this changes,
-          the operator treats this as an upgrade and will stop the entire cluster
-          and restart it with the new image.
+      - description: The docker image name that contains the Vertica server.  Whenever
+          this changes, the operator treats this as an upgrade.  The upgrade can be
+          done either in an online or offline fashion.  See the upgradePolicy to understand
+          how to control the behavior.
         displayName: Image
         path: image
       - description: This dictates the image pull policy to use
@@ -430,7 +461,9 @@ spec:
           database was first created.
         displayName: Depot Path
         path: local.depotPath
-      - description: The minimum size of the local data volume when picking a PV.
+      - description: The minimum size of the local data volume when picking a PV.  If
+          changing this after the PV have been created, it will cause a resize of
+          the PV to the new size.
         displayName: Request Size
         path: local.requestSize
       - description: The local data stores the local catalog, depot and config files.
@@ -486,6 +519,15 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
+      - description: Allows you to set any additional securityContext for the Vertica
+          server container.  We merge the values with the securityContext generated
+          by the operator.  The operator adds its own capabilities to this.  If you
+          want those capabilities to be removed you must explicitly include them in
+          the drop list.
+        displayName: Security Context
+        path: securityContext
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: 'The number of shards to create in the database. This cannot
           be updated once the CRD is created.  Refer to this page to determine an
           optimal size: https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/SizingEonCluster.htm
@@ -837,7 +879,7 @@ spec:
       - description: Status is the status of the condition can be True, False or Unknown
         displayName: Status
         path: conditions[0].status
-      - description: Type is the type of the condition
+      - description: Type is the name of the condition
         displayName: Type
         path: conditions[0].type
       - description: A count of the number of pods that have been installed into the

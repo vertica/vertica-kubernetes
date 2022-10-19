@@ -68,3 +68,12 @@ patches:
     kind: RoleBinding
     version: v1
     name: verticadb-operator-manager-rolebinding
+- patch: |-
+    - op: replace
+      path: /subjects/0/name
+      value: custom-sa
+  target:
+    kind: ClusterRoleBinding
+    version: v1
+    name: verticadb-operator-manager-clusterrolebinding
+

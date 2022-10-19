@@ -57,8 +57,10 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups=apps,namespace=WATCH_NAMESPACE,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/exec,verbs=create
-// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=persistentvolumeclaims,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {

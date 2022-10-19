@@ -1,0 +1,8 @@
+- patch: |-
+    - op: add
+      path: /subjects/0/namespace
+      value: $NAMESPACE
+  target:
+    kind: ClusterRoleBinding
+    version: v1
+    name: verticadb-operator-manager-clusterrolebinding

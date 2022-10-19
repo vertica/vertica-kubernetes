@@ -45,6 +45,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -57,6 +58,7 @@ const (
 	DefaultZapcoreLevel    = zapcore.InfoLevel
 	First                  = 100
 	ThereAfter             = 100
+	CertDir                = "/tmp/k8s-webhook-server/serving-certs"
 )
 
 var (
@@ -71,6 +73,7 @@ type FlagConfig struct {
 	EnableProfiler       bool
 	ServiceAccountName   string
 	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
+	GenerateWebhookCert  bool   // true if the operator needs to generate the webhook cert
 	LogArgs              *Logging
 }
 
@@ -121,6 +124,8 @@ func (fc *FlagConfig) setFlagArgs() {
 		"The name of the serviceAccount to use.")
 	flag.StringVar(&fc.PrefixName, "prefix-name", "verticadb-operator",
 		"The common prefix for all objects created during the operator deployment")
+	flag.BoolVar(&fc.GenerateWebhookCert, "generate-webhook-cert", false,
+		"The operator will generate the cert to be used for the webhook")
 	fc.LogArgs = &Logging{}
 	fc.LogArgs.setLoggingFlagArgs()
 }
@@ -317,14 +322,22 @@ func main() {
 		LeaderElection:         flagArgs.EnableLeaderElection,
 		LeaderElectionID:       "5c1e6227.vertica.com",
 		Namespace:              watchNamespace,
+		CertDir:                CertDir,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
+	ctx := ctrl.SetupSignalHandler()
 	addReconcilersToManager(mgr, restCfg, flagArgs)
 	if getIsWebhookEnabled() {
+		if flagArgs.GenerateWebhookCert {
+			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, flagArgs.PrefixName, watchNamespace); err != nil {
+				setupLog.Error(err, "generating webhook cert")
+				os.Exit(1)
+			}
+		}
 		addWebhooksToManager(mgr)
 	}
 
@@ -338,7 +351,7 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

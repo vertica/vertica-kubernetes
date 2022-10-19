@@ -18,3 +18,10 @@ metadata:
     control-plane: controller-manager
 status:
   phase: Running
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verticadb-operator-manager-config
+data:
+  WEBHOOK_CERT_SOURCE: secret

@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator NAMESPACE=$NAMESPACE HELM_OVERRIDES='--set prometheus.expose=EnableWithAuthProxy --set prometheus.createServiceMonitor=true --set logging.dev=false'"
+  - command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator NAMESPACE=$NAMESPACE HELM_OVERRIDES='--set prometheus.expose=EnableWithAuthProxy --set prometheus.createServiceMonitor=true --set logging.dev=false --set webhook.certSource=cert-manager'"

@@ -15,3 +15,14 @@ Choose the serviceAccount name
 {{- include "vdb-op.name" . }}-controller-manager
 {{- end }}
 {{- end }}
+
+{{/*
+Choose the webhook certificate source
+*/}}
+{{- define "vdb-op.certSource" -}}
+{{- if not (empty .Values.webhook.tlsSecret) }}
+{{- "secret" }}
+{{- else }}
+{{- .Values.webhook.certSource }}
+{{- end }}
+{{- end }}

@@ -17,4 +17,5 @@ commands:
   - command: mkdir -p custom-rbac-overlay/
   - command: cp ../../../config/release-manifests/operator-rbac.yaml custom-rbac-overlay
   - command: cp ../../manifests/custom-rbac/kustomization.yaml custom-rbac-overlay
+  - command: sh -c "envsubst < cluster-role-binding-patch.yaml | tee -a custom-rbac-overlay/kustomization.yaml"
   - command: bash -c "kustomize build custom-rbac-overlay | kubectl -n $NAMESPACE apply -f - "

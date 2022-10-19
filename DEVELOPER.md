@@ -194,14 +194,14 @@ When run in this mode, the operator will watch only a single namespace.  It will
 
 The default deployment model will install the operator with helm.  You can also have it install with olm or randomly pick between olm and helm.  You can control this by specifing the `DEPLOY_WITH` environment variable; valid values are: helm, olm or random.
 
-The operator pod contains a webhook, which needs TLS certificates setup.  When deploying with helm, the default behaviour is to use TLS certificates created from cert-manager.  You can install cert-manager if not already on your system with the `install-cert-manager` make target.
+The operator pod contains a webhook, which needs TLS certificates setup.  When deploying with helm, the default behaviour is generate a self-signed TLS certificate internally. Although, there are helm chart parameters to provide a custom TLS certificate or have one created through cert-manager (see the webhook.certSource helm chart parameter for info).
 
 When installing with olm, you need to have olm setup.  
 
 To deploy helm and all of its prereqs, use the following command:
 
 ```shell
-DEPLOY_WITH=helm make install-cert-manager config-transformer deploy
+DEPLOY_WITH=helm make config-transformer deploy
 ```
 
 To deploy olm all of its prereqs, use the following command:
