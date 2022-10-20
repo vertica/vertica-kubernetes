@@ -51,12 +51,8 @@ const (
 	ObjReconcileModePreserveScaling = 1 << iota
 	// Must maintain the same delete policy when reconciling statefulsets
 	ObjReconcileModePreserveUpdateStrategy
-	// Reconcile to modify or create service objects if needed
-	ObjReconcileModeReconcileSvc
-	// Reconcile is allowed to delete objects
-	ObjReconcileModeDeleteObjects
-	// Reconcile to consider every change
-	ObjReconcileModeAll = ObjReconcileModeDeleteObjects | ObjReconcileModeReconcileSvc
+	// Reconcile to consider every change. Without this we will skip svc objects.
+	ObjReconcileModeAll
 )
 
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is
@@ -213,7 +209,7 @@ func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.
 // checkForDeletedSubcluster will remove any objects that were created for
 // subclusters that don't exist anymore.
 func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Result, error) {
-	if o.Mode&ObjReconcileModeDeleteObjects == 0 {
+	if o.Mode&ObjReconcileModePreserveScaling != 0 {
 		// Bypass this check since we won't be doing any scale down with this reconcile
 		return ctrl.Result{}, nil
 	}
@@ -272,7 +268,7 @@ func (o ObjReconciler) reconcileHlSvc(ctx context.Context) error {
 // reconcileSvc verifies the service object exists and creates it if necessary.
 func (o ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service, svcName types.NamespacedName,
 	sc *vapi.Subcluster, reconcileFieldsFunc func(*corev1.Service, *corev1.Service, *vapi.Subcluster) *corev1.Service) error {
-	if o.Mode&ObjReconcileModeReconcileSvc == 0 {
+	if o.Mode&ObjReconcileModeAll == 0 {
 		// Bypass this check since we are doing changes to statefulsets only
 		return nil
 	}
@@ -397,14 +393,15 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// and done the uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
-	if o.Mode&ObjReconcileModeDeleteObjects != 0 {
+	if o.Mode&ObjReconcileModePreserveScaling == 0 {
 		if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
 			return r, e
 		}
 	}
 
 	// We always preserve the image. This is done because during upgrade, the
-	// entire sts is deleted and rebuilt to change the image.
+	// image is changed outside of this reconciler. It is done through a
+	// separate update to the sts.
 	i := names.ServerContainerIndex
 	expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
 
