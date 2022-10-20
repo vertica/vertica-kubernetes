@@ -617,7 +617,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(reflect.DeepEqual(svc1.Spec.Selector, svc2.Spec.Selector)).Should(BeFalse())
 		})
 
-		It("should only create new objects and not update existin if ObjReconcileModeIfNotExists is used", func() {
+		It("should create new objects and not update scale of existing if ObjReconcileModePreserveScaling is used", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.Subclusters = []vapi.Subcluster{
 				{Name: "sc1", Size: 1},
@@ -627,7 +627,7 @@ var _ = Describe("obj_reconcile", func() {
 			defer deleteCrd(vdb)
 
 			// Delete a statefulset and make a change that should cause a change
-			// in the other statefulset.  If we run with ObjReconcileModeIfNotExists
+			// in the other statefulset.  If we run with ObjReconcileModeNoScaling
 			// we won't make the second change.  We'll only recreate the first sts.
 			sc1 := &vdb.Spec.Subclusters[0]
 			sc1StsName := names.GenStsName(vdb, sc1)
@@ -637,7 +637,7 @@ var _ = Describe("obj_reconcile", func() {
 			sc2 := &vdb.Spec.Subclusters[1]
 			sc2.Size = 2
 
-			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeIfNotFound)
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModePreserveScaling)
 
 			Expect(k8sClient.Get(ctx, sc1StsName, sts)).Should(Succeed())
 			sc2StsName := names.GenStsName(vdb, sc2)
@@ -657,6 +657,50 @@ var _ = Describe("obj_reconcile", func() {
 			// Having a secret name, but not created should force a requeue too
 			vdb.Spec.HTTPServerSecret = "dummy"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
+		})
+
+		It("should not change size of sts if ObjReconcileModePreserveScaling is used", func() {
+			vdb := vapi.MakeVDB()
+			origSize := vdb.Spec.Subclusters[0].Size
+			createCrd(vdb, false)
+			defer deleteCrd(vdb)
+
+			sc := &vdb.Spec.Subclusters[0]
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+
+			// Having a secret name, but not created should force a requeue too
+			vdb.Spec.Subclusters[0].Size++
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModePreserveScaling)
+
+			nm := names.GenStsName(vdb, sc)
+			sts := &appsv1.StatefulSet{}
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(*sts.Spec.Replicas).Should(Equal(origSize))
+		})
+
+		It("should not change delete policy of sts if ObjReconcileModeUpdateStrategy is used", func() {
+			vdb := vapi.MakeVDB()
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			// Change updateStrategy in sts so that we know the objReconciler
+			// won't change it back.
+			sc := &vdb.Spec.Subclusters[0]
+			nm := names.GenStsName(vdb, sc)
+			sts := &appsv1.StatefulSet{}
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(sts.Spec.UpdateStrategy.Type).Should(Equal(appsv1.RollingUpdateStatefulSetStrategyType))
+			sts.Spec.UpdateStrategy.Type = appsv1.OnDeleteStatefulSetStrategyType
+			Expect(k8sClient.Update(ctx, sts)).Should(Succeed())
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModePreserveUpdateStrategy)
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(sts.Spec.UpdateStrategy.Type).Should(Equal(appsv1.OnDeleteStatefulSetStrategyType))
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(sts.Spec.UpdateStrategy.Type).Should(Equal(appsv1.RollingUpdateStatefulSetStrategyType))
 		})
 	})
 })

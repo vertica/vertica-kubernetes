@@ -148,18 +148,22 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperator120Reconciler(r, log, vdb),
+		// Create a TLS secret for the HTTP server
+		MakeHTTPServerCertGenReconciler(r, vdb),
+		// Update any k8s objects with some exceptions. For instance, preserve
+		// scaling. This is needed *before* upgrade and restart in case a change
+		// was made with the image change that would prevent the pods from
+		// running. An example of this is if we also changed a volume mount
+		// (i.e. renamed a ConfigMap). We want the objects to reflect the new
+		// volume mount so that we can start the pod.  Similar rationale for
+		// preserving other things.
+		MakeObjReconciler(r, log, vdb, pfacts,
+			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// Add annotations/labels to each pod about the host running them
+		MakeAnnotateAndLabelPodReconciler(r, vdb, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts),
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts),
-		// Create a TLS secret for the HTTP server
-		MakeHTTPServerCertGenReconciler(r, vdb),
-		// Creates any missing k8s objects.  This doesn't update existing
-		// objects.  It is a special case for when restart is needed but the
-		// pods are missing.  We don't want to apply all updates as we may need
-		// to go through necessary admintools commands to handle a scale down.
-		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeIfNotFound),
-		// Add annotations/labels to each pod about the host running them
-		MakeAnnotateAndLabelPodReconciler(r, vdb, pfacts),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts),
 		// Handles restart + re_ip of vertica

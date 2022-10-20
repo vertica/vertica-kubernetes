@@ -22,11 +22,6 @@ status:
     - type: DBInitialized
       status: "True"
     - type: ImageChangeInProgress
-      status: "False"
+      status: "True"
     - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "False"
-  subclusterCount: 2
-  installCount: 2
-  upNodeCount: 1
+      status: "True"
