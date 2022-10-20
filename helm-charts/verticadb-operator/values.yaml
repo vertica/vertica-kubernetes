@@ -59,14 +59,20 @@ webhook:
   certSource: internal
   # Use this parameter if you want to provide your own cert. tlsSecret is a
   # name of a secret in the same namespace the chart is being installed in.
-  # The secret must have the keys: tls.key and tls.crt.
+  # The secret must have the keys: tls.key and tls.crt. It can also include the
+  # key ca.crt. When that key is included the operator will patch it into the CA
+  # bundle in the webhook configuration.
   #
   # For backwards compatibility, if this is set, then 'certSource = secret' is
   # implied.
   tlsSecret: ""
   # caBundle is a PEM encoded CA bundle that will be used to validate the
-  # webhook's server certificate.  If unspecified, system trust roots on the
-  # apiserver are used. Use this when providing your own cert.
+  # webhook's server certificate.
+  #
+  # This is another way to provide the CA bundle to be patched with in the
+  # webhook configuration. This approach is deprecated in favour of providing
+  # the CA bundle in the tlsSecret with the ca.crt key. This option will be
+  # removed in a future release.
   caBundle: ""
   # If true, the webhook will be enabled and its configuration is setup by the helm chart. 
   # Setting this to false will disable the webhook. The webhook setup needs privileges to add 
