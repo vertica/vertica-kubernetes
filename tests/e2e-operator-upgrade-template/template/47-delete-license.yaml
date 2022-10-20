@@ -13,12 +13,8 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-delete:
-  - apiVersion: v1
-    kind: Pod
-    name: v-from-x-pri1-0
-  - apiVersion: v1
-    kind: Pod
-    name: v-from-x-pri1-1
 commands:
+  # Remove the EULA dat file to mimic a server upgrade that has to accept the EULA again
   - script: sh -c "kubectl -n $NAMESPACE exec v-from-x-pri1-0 -- sh -c \"rm /opt/vertica/config/*.dat\""
+  
+  
