@@ -656,15 +656,8 @@ func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 	return false
 }
 
-// acceptEulaIfMissing will accept the end user license agreement if any pods have not yet signed it
+// acceptEulaIfMissing is a wrapper function that calls another function that
+// accepts the end user license agreement.
 func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
-	for _, p := range r.PFacts.Detail {
-		if !p.eulaAccepted.IsFalse() || !p.isPodRunning {
-			continue
-		}
-		if err := acceptEulaInPod(ctx, p, r.PRunner); err != nil {
-			return err
-		}
-	}
-	return nil
+	return acceptEulaIfMissing(ctx, r.PFacts, r.PRunner)
 }

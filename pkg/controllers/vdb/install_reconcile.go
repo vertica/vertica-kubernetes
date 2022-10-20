@@ -18,12 +18,10 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 
 	"github.com/go-logr/logr"
-	"github.com/lithammer/dedent"
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
@@ -150,17 +148,10 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	return d.createInstallIndicators(ctx, pods)
 }
 
-// acceptEulaIfMissing will accept the end user license agreement if any pods have not yet signed it
+// acceptEulaIfMissing is a wrapper function that calls another function that
+// accepts the end user license agreement.
 func (d *InstallReconciler) acceptEulaIfMissing(ctx context.Context) error {
-	for _, p := range d.PFacts.Detail {
-		if !p.eulaAccepted.IsFalse() || !p.isPodRunning {
-			continue
-		}
-		if err := acceptEulaInPod(ctx, p, d.PRunner); err != nil {
-			return err
-		}
-	}
-	return nil
+	return acceptEulaIfMissing(ctx, d.PFacts, d.PRunner)
 }
 
 // checkConfigDir will check that certain directories in /opt/vertica/config
@@ -326,38 +317,4 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 		paths.AdminToolsConf,
 		fmt.Sprintf("%s.uid.%s", paths.AdminToolsConf, string(d.Vdb.UID)),
 	}
-}
-
-// acceptEulaInPod will run a script that will accept the eula in the given pod
-func acceptEulaInPod(ctx context.Context, pf *PodFact, pRunner cmds.PodRunner) error {
-	tmp, err := ioutil.TempFile("", "accept_eula.py.")
-	if err != nil {
-		return err
-	}
-	defer tmp.Close()
-	defer os.Remove(tmp.Name())
-
-	// A python script that will accept the eula
-	acceptEulaPython := `
-		import vertica.shared.logging
-		import vertica.tools.eula_checker
-		vertica.shared.logging.setup_admintool_logging()
-		vertica.tools.eula_checker.EulaChecker().write_acceptance()
-	`
-	_, err = tmp.WriteString(dedent.Dedent(acceptEulaPython))
-	if err != nil {
-		return err
-	}
-	tmp.Close()
-
-	_, _, err = pRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = pRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "/opt/vertica/oss/python3/bin/python3", paths.EulaAcceptanceScript)
-	if err != nil {
-		return err
-	}
-	return nil
 }
