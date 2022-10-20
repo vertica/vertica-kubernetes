@@ -360,7 +360,10 @@ func main() {
 
 	addReconcilersToManager(mgr, restCfg, flagArgs)
 	ctx := ctrl.SetupSignalHandler()
-	setupWebhook(ctx, mgr, restCfg, flagArgs)
+	if err := setupWebhook(ctx, mgr, restCfg, flagArgs); err != nil {
+		setupLog.Error(err, "unable to setup webhook")
+		os.Exit(1)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
