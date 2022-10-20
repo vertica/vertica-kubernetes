@@ -16,5 +16,6 @@ kind: TestStep
 commands:
   # Remove the EULA dat file to mimic a server upgrade that has to accept the EULA again
   - script: sh -c "kubectl -n $NAMESPACE exec v-from-x-pri1-0 -- sh -c \"rm /opt/vertica/config/*.dat\""
+  - script: sh -c "kubectl -n $NAMESPACE exec v-from-x-pri1-1 -- sh -c \"rm /opt/vertica/config/*.dat\""
   
   
