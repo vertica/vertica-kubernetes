@@ -1,0 +1,6 @@
+kind: Fixed
+body: Upgrade operator and server together may cause admintools to fail in the container
+  due to lack of EULA acceptance
+time: 2022-10-21T09:17:29.544626129-03:00
+custom:
+  Issue: "270"
