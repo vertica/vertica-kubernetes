@@ -141,6 +141,10 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
+	if err := r.acceptEulaIfMissing(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// re_ip/start_db require all pods to be running that have run the
 	// installation.  This check is done when we generate the map file
 	// (genMapFile).
@@ -174,6 +178,11 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// Always skip the transient pods since they only run the old image so they
 	// can't be restarted.
 	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, false)
+	// This is too make sure all pods have signed they EULA before running
+	// admintools on any of them.
+	if err := r.acceptEulaIfMissing(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
 	if len(downPods) > 0 {
 		if ok := r.setATPod(r.PFacts.findPodToRunAdmintoolsAny); !ok {
 			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
@@ -645,4 +654,10 @@ func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 		return true
 	}
 	return false
+}
+
+// acceptEulaIfMissing is a wrapper function that calls another function that
+// accepts the end user license agreement.
+func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
+	return acceptEulaIfMissing(ctx, r.PFacts, r.PRunner)
 }
