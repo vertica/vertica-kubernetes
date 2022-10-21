@@ -30,6 +30,7 @@ spec:
     - --level=info
     - --dev=false
     - --prefix-name=verticadb-operator
+    - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
 status:
   phase: Running
 ---
