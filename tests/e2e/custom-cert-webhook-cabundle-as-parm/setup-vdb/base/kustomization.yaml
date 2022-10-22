@@ -11,9 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-custom-cert-webhook
-spec:
-  dbName: vertdb
+resources:
+  - setup-vdb.yaml

@@ -11,9 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-custom-cert-webhook
-spec:
-  initPolicy: Create
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: vertica.com/v1beta1
+    kind: VerticaDB
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+commands:
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

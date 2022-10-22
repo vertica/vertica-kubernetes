@@ -11,30 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  labels:
-    control-plane: controller-manager
+  name: v-disable-webhook
 spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=false
-    - --prefix-name=verticadb-operator
-    - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: verticadb-operator-webhook-service
+  kSafety: "1"

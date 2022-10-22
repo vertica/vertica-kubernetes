@@ -11,8 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl -n $NAMESPACE get verticadb v-custom-cert-webhook -o json | jq '.spec.initPolicy="Revive"' | kubectl -n $NAMESPACE replace -f -
-    ignoreFailure: true
+resources:
+  - setup-vdb.yaml

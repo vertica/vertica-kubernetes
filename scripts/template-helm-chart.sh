@@ -53,14 +53,20 @@ cat >>$TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml << END
 {{ end }}
 END
 # 5. Template the tls secret name
-sed -i 's/secretName: webhook-server-cert/secretName: {{ default "webhook-server-cert" .Values.webhook.tlsSecret }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+for fn in verticadb-operator-controller-manager-deployment.yaml \
+    verticadb-operator-serving-cert-certificate.yaml
+do
+  sed -i 's/secretName: webhook-server-cert/secretName: {{ include "vdb-op.certSecret" . }}/' $TEMPLATE_DIR/$fn
+done
 for fn in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 do
   # Include the secret only if not using webhook.certSource=internal
   perl -i -0777 -pe 's/(.*- name: cert\n.*secret:\n.*defaultMode:.*\n.*secretName:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
   perl -i -0777 -pe 's/(.*- mountPath: .*\n.*name: cert\n.*readOnly:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
-  # Add the --generate-webhook-cert option when cert generation is internal
-  perl -i -0777 -pe 's/(.*- --prefix-name=.*)/$1\n\{\{- if and (eq .Values.webhook.certSource "internal") (empty .Values.webhook.tlsSecret) \}\}\n        - --generate-webhook-cert\n\{\{- end \}\}/g' $fn
+  # Update the --webhook-cert-secret option to include the actual name of the secret
+  perl -i -0777 -pe 's/(- --webhook-cert-secret=)(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
+  # Set ENABLE_WEBHOOK according to webhook.enable value
+  perl -i -0777 -pe 's/(name: ENABLE_WEBHOOKS\n.*value:) .*/$1 {{ quote .Values.webhook.enable }}/g' $fn
 done
 for fn in verticadb-operator-selfsigned-issuer-issuer.yaml \
     verticadb-operator-serving-cert-certificate.yaml

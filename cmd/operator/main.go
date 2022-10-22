@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -73,7 +74,7 @@ type FlagConfig struct {
 	EnableProfiler       bool
 	ServiceAccountName   string
 	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
-	GenerateWebhookCert  bool   // true if the operator needs to generate the webhook cert
+	WebhookCertSecret    string // when this is empty we will generate the webhook cert
 	LogArgs              *Logging
 }
 
@@ -124,8 +125,9 @@ func (fc *FlagConfig) setFlagArgs() {
 		"The name of the serviceAccount to use.")
 	flag.StringVar(&fc.PrefixName, "prefix-name", "verticadb-operator",
 		"The common prefix for all objects created during the operator deployment")
-	flag.BoolVar(&fc.GenerateWebhookCert, "generate-webhook-cert", false,
-		"The operator will generate the cert to be used for the webhook")
+	flag.StringVar(&fc.WebhookCertSecret, "webhook-cert-secret", "",
+		"Specifies the secret that contains the webhook cert. If this option is omitted, "+
+			"then the operator will generate the certificate.")
 	fc.LogArgs = &Logging{}
 	fc.LogArgs.setLoggingFlagArgs()
 }
@@ -153,6 +155,8 @@ func getIsWebhookEnabled() bool {
 		return DefaultEnabled
 	}
 	enabled, err := strconv.ParseBool(enableWebhook)
+	setupLog.Info(fmt.Sprintf("Parsed %s env var", enableWebhook),
+		"value", enableWebhook, "enabled", enabled, "err", err)
 	if err != nil {
 		return DefaultEnabled
 	}
@@ -284,6 +288,31 @@ func addWebhooksToManager(mgr manager.Manager) {
 	}
 }
 
+// setupWebhook will setup the webhook in the manager if enabled
+func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config, flagArgs *FlagConfig) error {
+	if getIsWebhookEnabled() {
+		watchNamespace, err := getWatchNamespace()
+		if err != nil {
+			// We cannot setup webhooks if we are watching multiple namespaces
+			// because the webhook config uses a namespaceSelector.
+			setupLog.Info("Disabling webhook since we are not watching a single namespace")
+			return nil
+		}
+		if flagArgs.WebhookCertSecret == "" {
+			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, flagArgs.PrefixName, watchNamespace); err != nil {
+				return err
+			}
+		} else {
+			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, flagArgs.WebhookCertSecret,
+				flagArgs.PrefixName, watchNamespace); err != nil {
+				return err
+			}
+		}
+		addWebhooksToManager(mgr)
+	}
+	return nil
+}
+
 func main() {
 	flagArgs := &FlagConfig{}
 	flagArgs.setFlagArgs()
@@ -329,16 +358,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := ctrl.SetupSignalHandler()
 	addReconcilersToManager(mgr, restCfg, flagArgs)
-	if getIsWebhookEnabled() {
-		if flagArgs.GenerateWebhookCert {
-			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, flagArgs.PrefixName, watchNamespace); err != nil {
-				setupLog.Error(err, "generating webhook cert")
-				os.Exit(1)
-			}
-		}
-		addWebhooksToManager(mgr)
+	ctx := ctrl.SetupSignalHandler()
+	if err := setupWebhook(ctx, mgr, restCfg, flagArgs); err != nil {
+		setupLog.Error(err, "unable to setup webhook")
+		os.Exit(1)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

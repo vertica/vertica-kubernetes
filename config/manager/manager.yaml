@@ -52,6 +52,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: ENABLE_WEBHOOKS
+            value: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

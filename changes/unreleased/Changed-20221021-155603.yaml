@@ -1,0 +1,5 @@
+kind: Changed
+body: Allow webhook CA bundle to be taken from secret instead of helm chart parameter
+time: 2022-10-21T15:56:03.734031786-03:00
+custom:
+  Issue: "273"

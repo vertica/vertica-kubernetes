@@ -11,8 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl -n $NAMESPACE get verticadb v-custom-cert-webhook -o json | jq '.spec.dbName="NewName"' | kubectl -n $NAMESPACE replace -f -
-    ignoreFailure: true
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: controller-manager
+status:
+  phase: Running
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verticadb-operator-manager-config
+data:
+  WEBHOOK_CERT_SOURCE: secret

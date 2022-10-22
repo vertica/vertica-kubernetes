@@ -11,30 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# List of objects that should not be created since we used a custom cert when
+# we deployed the operator.
+
 apiVersion: v1
-kind: Pod
+kind: Secret
 metadata:
-  labels:
-    control-plane: controller-manager
-spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=false
-    - --prefix-name=verticadb-operator
-    - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
-status:
-  phase: Running
+    name: webhook-server-cert
 ---
-apiVersion: v1
-kind: Service
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: verticadb-operator-webhook-service
+    name: verticadb-operator-serving-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+    name: verticadb-operator-selfsigned-issuer
