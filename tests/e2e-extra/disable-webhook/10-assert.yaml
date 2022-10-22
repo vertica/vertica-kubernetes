@@ -18,3 +18,10 @@ metadata:
     control-plane: controller-manager
 status:
   phase: Running
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verticadb-operator-controller-manager
+status:
+  readyReplicas: 1
