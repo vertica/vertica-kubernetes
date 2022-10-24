@@ -92,6 +92,11 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("depot"), MountPath: vdb.Spec.Local.DepotPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
+	if vdb.Spec.Local.GetCatalogPath() != vdb.Spec.Local.DataPath {
+		volMnts = append(volMnts, corev1.VolumeMount{
+			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("catalog"), MountPath: vdb.Spec.Local.GetCatalogPath(),
+		})
+	}
 
 	if vdb.Spec.LicenseSecret != "" {
 		volMnts = append(volMnts, corev1.VolumeMount{
@@ -424,6 +429,8 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		},
 		{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
 		{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
+		{Name: "CATALOG_PATH", Value: vdb.Spec.Local.GetCatalogPath()},
+		{Name: "DATABASE_NAME", Value: vdb.Spec.DBName},
 	}...)
 	return corev1.Container{
 		Image:           pickImage(vdb, sc),
@@ -497,8 +504,8 @@ func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container
 		c.VolumeMounts = append(c.VolumeMounts, buildVolumeMounts(vdb)...)
 		// Append additional environment variables passed through annotations.
 		c.Env = append(c.Env, translateAnnotationsToEnvVars(vdb)...)
-		// As a convenience, add the database path as an environment variable.
-		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: vdb.GetDBDataPath()})
+		// As a convenience, add the catalog path as an environment variable.
+		c.Env = append(c.Env, corev1.EnvVar{Name: "DBPATH", Value: vdb.GetDBCatalogPath()})
 		cnts = append(cnts, c)
 	}
 	return cnts

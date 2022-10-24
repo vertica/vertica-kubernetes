@@ -22,6 +22,7 @@ spec:
     includeUIDInPath: false
   local:
     requestSize: 100Mi
+    catalogPath: /catalog
   dbName: vertdb
   shardCount: 6
   kSafety: "0"

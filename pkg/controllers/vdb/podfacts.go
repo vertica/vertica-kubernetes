@@ -552,7 +552,7 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.Vert
 // getStartupLogPath returns the path to the startup.log
 func (p *PodFact) getStartupLogPath(vdb *vapi.VerticaDB) string {
 	return fmt.Sprintf("%s/%s/%s_catalog/startup.log",
-		vdb.Spec.Local.DataPath,
+		vdb.Spec.Local.GetCatalogPath(),
 		vdb.Spec.DBName,
 		p.vnodeName,
 	)

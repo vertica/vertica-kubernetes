@@ -25,6 +25,8 @@ spec:
     includeUIDInPath: true
   local:
     requestSize: 100Mi
+    catalogPath: /vertica/catalog
+    dataPath: /vertica/data
   subclusters:
     - name: main
       size: 3

@@ -24,6 +24,7 @@ spec:
     includeUIDInPath: true
   local:
     requestSize: 100Mi
+    catalogPath: /vertica/catalog
   dbName: vertdb
   shardCount: 16
   subclusters:

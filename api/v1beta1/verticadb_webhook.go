@@ -196,6 +196,12 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			"depotPath cannot change after creation.")
 		allErrs = append(allErrs, err)
 	}
+	if v.Spec.Local.GetCatalogPath() != oldObj.Spec.Local.GetCatalogPath() {
+		err := field.Invalid(field.NewPath("spec").Child("local").Child("catalogPath"),
+			v.Spec.Local.CatalogPath,
+			"catalogPath cannot change after creation.")
+		allErrs = append(allErrs, err)
+	}
 	// shardCount cannot change after creation
 	if v.Spec.ShardCount != oldObj.Spec.ShardCount {
 		err := field.Invalid(field.NewPath("spec").Child("shardCount"),
@@ -503,7 +509,7 @@ func (v *VerticaDB) hasValidVolumeName(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) hasValidVolumeMountName(allErrs field.ErrorList) field.ErrorList {
 	invalidPaths := make([]string, len(paths.MountPaths))
 	copy(invalidPaths, paths.MountPaths)
-	invalidPaths = append(invalidPaths, v.Spec.Local.DataPath, v.Spec.Local.DepotPath)
+	invalidPaths = append(invalidPaths, v.Spec.Local.DataPath, v.Spec.Local.DepotPath, v.Spec.Local.GetCatalogPath())
 	for i := range v.Spec.VolumeMounts {
 		volMnt := v.Spec.VolumeMounts[i]
 		for j := range invalidPaths {
@@ -764,7 +770,8 @@ func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList 
 		"/opt/vertica/spread",
 	}
 	for _, invalidPath := range invalidPaths {
-		if v.Spec.Local.DataPath != invalidPath && v.Spec.Local.DepotPath != invalidPath {
+		if v.Spec.Local.DataPath != invalidPath && v.Spec.Local.DepotPath != invalidPath &&
+			v.Spec.Local.CatalogPath != invalidPath {
 			continue
 		}
 		var fieldRef interface{}
@@ -772,6 +779,9 @@ func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList 
 		if v.Spec.Local.DataPath == invalidPath {
 			fieldPathName = "dataPath"
 			fieldRef = v.Spec.Local.DataPath
+		} else if v.Spec.Local.CatalogPath == invalidPath {
+			fieldPathName = "catalogPath"
+			fieldRef = v.Spec.Local.CatalogPath
 		} else {
 			fieldPathName = "depotPath"
 			fieldRef = v.Spec.Local.DepotPath

@@ -214,6 +214,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.Local.DepotPath = "/newdepot"
 		validateImmutableFields(vdbUpdate)
 	})
+	It("should not change catalog path after creation", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Spec.Local.CatalogPath = "/newcatalog"
+		validateImmutableFields(vdbUpdate)
+	})
 	It("should not change shardCount after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.ShardCount = 10
@@ -513,7 +518,7 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
-	It("should validate we cannot have invalid paths for depot and data", func() {
+	It("should validate we cannot have invalid paths for depot, data and catalog", func() {
 		vdb := MakeVDB()
 		vdb.Spec.Local.DataPath = "/home/dbadmin"
 		validateSpecValuesHaveErr(vdb, true)
@@ -522,6 +527,8 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Local.DepotPath = "/depot"
 		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Local.CatalogPath = "/opt/vertica/sbin"
+		validateSpecValuesHaveErr(vdb, true)
 	})
 
 	It("should verify httpServerMode is valid", func() {

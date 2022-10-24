@@ -264,6 +264,7 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"--sql=" + PostDBCreateSQLFile,
 		fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),
 		"--depot-path=" + c.Vdb.Spec.Local.DepotPath,
+		"--catalog_path=" + c.Vdb.Spec.Local.CatalogPath,
 		"--database", c.Vdb.Spec.DBName,
 		"--force-cleanup-on-failure",
 		"--noprompt",

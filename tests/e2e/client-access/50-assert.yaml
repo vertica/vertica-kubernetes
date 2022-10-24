@@ -11,24 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-client-access
-spec:
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-    catalogPath: /catalog
-  dbName: vertdb
-  encryptSpreadComm: vertica
-  subclusters:
-    - name: sc1
-      size: 2
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: test-verify-catalog-path
+status:
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0
