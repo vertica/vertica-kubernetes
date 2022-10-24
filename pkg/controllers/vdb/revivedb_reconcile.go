@@ -103,9 +103,9 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 
 		case isPermissionDeniedError(stdout):
 			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBPermissionDenied,
-				"revive_db failed because of a permission denied error.  Verify these paths match the "+
-					"ones used by the database: %s, %s",
-				r.Vdb.Spec.Local.DataPath, r.Vdb.Spec.Local.DepotPath)
+				"revive_db failed because of a permission denied error. Verify these paths match the "+
+					"ones used by the database: 'DATA,TEMP' => %s, 'DEPOT' => %s, 'CATALOG' => %s",
+				r.Vdb.Spec.Local.DataPath, r.Vdb.Spec.Local.DepotPath, r.Vdb.Spec.Local.GetCatalogPath())
 			return ctrl.Result{Requeue: true}, nil
 
 		case isNodeCountMismatch(stdout):

@@ -239,7 +239,7 @@ func (f *FileWriter) addNodes(oldHosts map[string]bool, installIPs []string) err
 		}
 		nodeName := fmt.Sprintf("node%04d", nextNodeNumber)
 		nextNodeNumber++
-		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, f.Vdb.Spec.Local.DataPath, f.Vdb.Spec.Local.DataPath)
+		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, f.Vdb.Spec.Local.GetCatalogPath(), f.Vdb.Spec.Local.DataPath)
 		err := f.Cfg.Set(NodesSection, nodeName, nodeInfo)
 		if err != nil {
 			return err

@@ -52,16 +52,17 @@ type DBGenerator struct {
 type QueryType string
 
 const (
-	ShardCountKey         QueryType = "shardCount"
-	DBCfgKey              QueryType = "dbCfg"
-	StorageLocationKey    QueryType = "storageLocation"
-	NodeCountQueryKey     QueryType = "nodeCount"
-	SubclusterQueryKey    QueryType = "subcluster"
-	KSafetyQueryKey       QueryType = "ksafety"
-	LocalDataSizeQueryKey QueryType = "storageLocationSize"
-	DepotSizeQueryKey     QueryType = "depotSize"
-	CatalogSizeQueryKey   QueryType = "catalogSize"
-	VersionQueryKey       QueryType = "version"
+	ShardCountKey          QueryType = "shardCount"
+	DBCfgKey               QueryType = "dbCfg"
+	StorageLocationKey     QueryType = "storageLocation"
+	DiskStorageLocationKey QueryType = "diskStorage"
+	NodeCountQueryKey      QueryType = "nodeCount"
+	SubclusterQueryKey     QueryType = "subcluster"
+	KSafetyQueryKey        QueryType = "ksafety"
+	LocalDataSizeQueryKey  QueryType = "storageLocationSize"
+	DepotSizeQueryKey      QueryType = "depotSize"
+	CatalogSizeQueryKey    QueryType = "catalogSize"
+	VersionQueryKey        QueryType = "version"
 
 	SecretAPIVersion = "v1"
 	SecretKindName   = "Secret"
@@ -71,13 +72,14 @@ const (
 )
 
 var Queries = map[QueryType]string{
-	ShardCountKey:      "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
-	DBCfgKey:           "SHOW DATABASE DEFAULT ALL",
-	StorageLocationKey: "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
-	NodeCountQueryKey:  "SELECT COUNT(*) FROM NODES",
-	SubclusterQueryKey: "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
-	KSafetyQueryKey:    "SELECT GET_DESIGN_KSAFE()",
-	DepotSizeQueryKey:  "SELECT MAX(DISK_SPACE_USED_MB+DISK_SPACE_FREE_MB) FROM DISK_STORAGE WHERE STORAGE_USAGE = 'DEPOT'",
+	ShardCountKey:          "SELECT COUNT(*) FROM SHARDS WHERE SHARD_TYPE != 'Replica'",
+	DBCfgKey:               "SHOW DATABASE DEFAULT ALL",
+	StorageLocationKey:     "SELECT NODE_NAME, LOCATION_PATH FROM STORAGE_LOCATIONS WHERE LOCATION_USAGE = ?",
+	DiskStorageLocationKey: "SELECT NODE_NAME, STORAGE_PATH FROM DISK_STORAGE WHERE STORAGE_USAGE = ?",
+	NodeCountQueryKey:      "SELECT COUNT(*) FROM NODES",
+	SubclusterQueryKey:     "SELECT SUBCLUSTER_NAME, IS_PRIMARY FROM SUBCLUSTERS ORDER BY NODE_NAME",
+	KSafetyQueryKey:        "SELECT GET_DESIGN_KSAFE()",
+	DepotSizeQueryKey:      "SELECT MAX(DISK_SPACE_USED_MB+DISK_SPACE_FREE_MB) FROM DISK_STORAGE WHERE STORAGE_USAGE = 'DEPOT'",
 	CatalogSizeQueryKey: "SELECT MAX(DISK_SPACE_USED_MB+DISK_SPACE_FREE_MB) " +
 		"FROM DISK_STORAGE WHERE STORAGE_USAGE in ('CATALOG','DATA,TEMP')",
 	VersionQueryKey: "SELECT VERSION()",
@@ -409,6 +411,12 @@ func (d *DBGenerator) setLocalPaths(ctx context.Context) error {
 	}
 	d.Objs.Vdb.Spec.Local.DepotPath = depotPath
 
+	catalogPath, err := d.queryLocalPath(ctx, "CATALOG")
+	if err != nil {
+		return err
+	}
+	d.Objs.Vdb.Spec.Local.CatalogPath = catalogPath
+
 	return nil
 }
 
@@ -452,7 +460,17 @@ func (d *DBGenerator) setCommunalPath(ctx context.Context) error {
 // error if nodes have different paths.
 func (d *DBGenerator) queryPathForUsage(ctx context.Context, usage string,
 	extractFunc func(nodeName, nodePath sql.NullString) error) error {
-	q := Queries[StorageLocationKey]
+	var q string
+	const CatalogUsage = "CATALOG"
+	// There isn't one table that we can query to get all storage locations. The
+	// one for catalog usage is not a true storage location so it doesn't show
+	// up in STORAGE_LOCATIONS. Where as communal doesn't show up in
+	// DISK_STORAGE. So we have to pick and choose the query depending on the usage.
+	if usage != CatalogUsage {
+		q = Queries[StorageLocationKey]
+	} else {
+		q = Queries[DiskStorageLocationKey]
+	}
 	rows, err := d.Conn.QueryContext(ctx, q, usage)
 	if err != nil {
 		return err
@@ -484,10 +502,18 @@ func (d *DBGenerator) queryLocalPath(ctx context.Context, usage string) (string,
 	var commonPrefix string
 
 	extractCommonPrefix := func(nodeName, nodePath sql.NullString) error {
+		workingDir := nodePath.String
+		// When we query the dir for catalog usage, we use a different query
+		// that has slightly different output. The table we use puts a /Catalog
+		// suffix on the end of the path. We want to take that off before
+		// proceeding.
+		if usage == "CATALOG" {
+			workingDir = path.Dir(workingDir)
+		}
 		// Extract out the common prefix from the nodePath.  nodePath will be
 		// something like /data/vertdb/v_vertdb_node0001_data.  We want to
 		// remove the node specific suffix.
-		curCommonPrefix := path.Dir(path.Dir(nodePath.String))
+		curCommonPrefix := path.Dir(path.Dir(workingDir))
 		// Check if the prefix matches.  If it doesn't then an error is returned
 		// as paths across all nodes must be homogenous.
 		if len(commonPrefix) > 0 && commonPrefix != curCommonPrefix {

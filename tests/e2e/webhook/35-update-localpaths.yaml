@@ -11,24 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-client-access
-spec:
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-    catalogPath: /catalog
-  dbName: vertdb
-  encryptSpreadComm: vertica
-  subclusters:
-    - name: sc1
-      size: 2
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.local.depotPath="/new_depot"' | kubectl -n $NAMESPACE replace -f -
+    ignoreFailure: true
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE"
+  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.local.catalogPath="/vertica/catalog"' | kubectl -n $NAMESPACE replace -f -
+    ignoreFailure: true
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE"

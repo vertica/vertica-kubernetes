@@ -32,7 +32,7 @@ import (
 // This step is necessary because of a lack of cleanup in admintools if any of
 // these commands fail.
 func cleanupLocalFiles(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
-	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDepotPath()}
+	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDBDepotPath(), vdb.GetDBCatalogPath()}
 	for _, path := range locPaths {
 		cmd := []string{"rm", "-r", path}
 

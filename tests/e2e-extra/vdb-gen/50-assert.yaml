@@ -23,6 +23,7 @@ spec:
   local:
     dataPath: /data
     depotPath: /depot
+    catalogPath: /catalog
   subclusters:
     - name: sc1
       isPrimary: true

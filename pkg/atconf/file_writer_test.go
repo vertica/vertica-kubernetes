@@ -17,6 +17,7 @@ package atconf
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/go-logr/logr"
@@ -133,6 +134,15 @@ var _ = Describe("file_writer", func() {
 		Expect(cnts).ShouldNot(ContainSubstring("node0001 = 10.1.1.1,"))
 		Expect(cnts).Should(ContainSubstring("node0002 = 10.1.1.10,"))
 		Expect(cnts).Should(ContainSubstring("node0003 = 10.1.1.11,"))
+	})
+
+	It("should be able to setup conf with separate catalog path", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Local.CatalogPath = "/catalog"
+		w := MakeFileWriter(logger, vdb, prunner)
+		cnts, err := genAtConfWithAdd(w, types.NamespacedName{}, []string{"10.1.1.1"})
+		Expect(err).Should(Succeed())
+		Expect(cnts).Should(ContainSubstring(fmt.Sprintf("%s,%s", vdb.Spec.Local.CatalogPath, vdb.Spec.Local.DataPath)))
 	})
 })
 

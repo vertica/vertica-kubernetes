@@ -75,4 +75,20 @@ var _ = Describe("builder", func() {
 		Expect(baseContainer.SecurityContext.Privileged).ShouldNot(BeNil())
 		Expect(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
 	})
+
+	It("should add a catalog mount point if it differs from data", func() {
+		vdb := vapi.MakeVDB()
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		makeSubPaths := func() []string {
+			sp := []string{}
+			for i := range c.VolumeMounts {
+				sp = append(sp, c.VolumeMounts[i].SubPath)
+			}
+			return sp
+		}
+		Expect(makeSubPaths()).ShouldNot(ContainElement(ContainSubstring("catalog")))
+		vdb.Spec.Local.CatalogPath = "/catalog"
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(makeSubPaths()).Should(ContainElement(ContainSubstring("catalog")))
+	})
 })

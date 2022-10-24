@@ -319,7 +319,7 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("my-img:latest"))
 	})
 
-	It("should extract common prefix for local and depot path", func() {
+	It("should extract common prefix for data, catalog and depot path", func() {
 		createMock()
 		defer deleteMock()
 
@@ -335,10 +335,16 @@ var _ = Describe("vdb", func() {
 			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
 				AddRow("v_vertdb_node0001", "/home/dbadmin/depot/vertdb/v_vertdb_node0001_data").
 				AddRow("v_vertdb_node0002", "/home/dbadmin/depot/vertdb/v_vertdb_node0002_data"))
+		mock.ExpectQuery(Queries[DiskStorageLocationKey]).
+			WithArgs("CATALOG").
+			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
+				AddRow("v_vertdb_node0001", "/catalog/vertdb/v_vertdb_node0001_catalog/Catalog").
+				AddRow("v_vertdb_node0002", "/catalog/vertdb/v_vertdb_node0002_catalog/Catalog"))
 
 		Expect(dbGen.setLocalPaths(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Local.DataPath).Should(Equal("/data"))
 		Expect(dbGen.Objs.Vdb.Spec.Local.DepotPath).Should(Equal("/home/dbadmin/depot"))
+		Expect(dbGen.Objs.Vdb.Spec.Local.CatalogPath).Should(Equal("/catalog"))
 
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})

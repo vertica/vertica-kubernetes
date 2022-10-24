@@ -24,6 +24,7 @@ spec:
     includeUIDInPath: false
   local:
     requestSize: 100Mi
+    catalogPath: /my-catalog
   subclusters:
     - name: sc1
       size: 1

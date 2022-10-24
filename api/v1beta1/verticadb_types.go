@@ -545,18 +545,37 @@ type LocalStorage struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=/data
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The path in the container to the local catalog.  When initializing the
-	// database with revive, the local path here must match the path that was
-	// used when the database was first created.
+	// The path in the container to the local directory for the 'DATA,TEMP'
+	// storage location usage. When initializing the database with revive, the
+	// local path here must match the path that was used when the database was
+	// first created.
 	DataPath string `json:"dataPath"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=/depot
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// The path in the container to the depot.  When initializing the database with
-	// revive, this path must match the depot path used when the database was
-	// first created.
+	// The path in the container to the depot -- 'DEPOT' storage location usage.
+	// When initializing the database with revive, this path must match the
+	// depot path used when the database was first created.
 	DepotPath string `json:"depotPath"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The path in the container to the catalog.  When initializing the database with
+	// revive, this path must match the catalog path used when the database was
+	// first created. For backwards compatibility, if this is omitted, then it
+	// shares the same path as the dataPath.
+	CatalogPath string `json:"catalogPath"`
+}
+
+// GetCatalogPath returns the path to the catalog. This wrapper exists because
+// earlier versions of the API never had a catalog path. So we default to
+// dataPath in that case.
+func (l *LocalStorage) GetCatalogPath() string {
+	if l.CatalogPath == "" {
+		return l.DataPath
+	}
+	return l.CatalogPath
 }
 
 type Subcluster struct {
@@ -1006,6 +1025,16 @@ func (v *VerticaDB) GetDBDataPath() string {
 	return fmt.Sprintf("%s/%s", v.Spec.Local.DataPath, v.Spec.DBName)
 }
 
+// GetCatalogPath gets the catalog path for the current database
+func (v *VerticaDB) GetDBCatalogPath() string {
+	return fmt.Sprintf("%s/%s", v.Spec.Local.GetCatalogPath(), v.Spec.DBName)
+}
+
+// GetDBDepotPath gets the depot path for the current database
+func (v *VerticaDB) GetDBDepotPath() string {
+	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
+}
+
 // GetCommunalPath returns the path to use for communal storage
 func (v *VerticaDB) GetCommunalPath() string {
 	// We include the UID in the communal path to generate a unique path for
@@ -1016,10 +1045,6 @@ func (v *VerticaDB) GetCommunalPath() string {
 		return v.Spec.Communal.Path
 	}
 	return fmt.Sprintf("%s/%s", v.Spec.Communal.Path, v.UID)
-}
-
-func (v *VerticaDB) GetDepotPath() string {
-	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
 }
 
 const (
