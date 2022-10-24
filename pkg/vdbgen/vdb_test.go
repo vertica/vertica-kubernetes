@@ -338,8 +338,8 @@ var _ = Describe("vdb", func() {
 		mock.ExpectQuery(Queries[DiskStorageLocationKey]).
 			WithArgs("CATALOG").
 			WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).
-				AddRow("v_vertdb_node0001", "/catalog/vertdb/v_vertdb_node0001_catalog").
-				AddRow("v_vertdb_node0002", "/catalog/vertdb/v_vertdb_node0002_catalog"))
+				AddRow("v_vertdb_node0001", "/catalog/vertdb/v_vertdb_node0001_catalog/Catalog").
+				AddRow("v_vertdb_node0002", "/catalog/vertdb/v_vertdb_node0002_catalog/Catalog"))
 
 		Expect(dbGen.setLocalPaths(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Local.DataPath).Should(Equal("/data"))

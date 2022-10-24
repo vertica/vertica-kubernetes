@@ -502,10 +502,18 @@ func (d *DBGenerator) queryLocalPath(ctx context.Context, usage string) (string,
 	var commonPrefix string
 
 	extractCommonPrefix := func(nodeName, nodePath sql.NullString) error {
+		workingDir := nodePath.String
+		// When we query the dir for catalog usage, we use a different query
+		// that has slightly different output. The table we use puts a /Catalog
+		// suffix on the end of the path. We want to take that off before
+		// proceeding.
+		if usage == "CATALOG" {
+			workingDir = path.Dir(workingDir)
+		}
 		// Extract out the common prefix from the nodePath.  nodePath will be
 		// something like /data/vertdb/v_vertdb_node0001_data.  We want to
 		// remove the node specific suffix.
-		curCommonPrefix := path.Dir(path.Dir(nodePath.String))
+		curCommonPrefix := path.Dir(path.Dir(workingDir))
 		// Check if the prefix matches.  If it doesn't then an error is returned
 		// as paths across all nodes must be homogenous.
 		if len(commonPrefix) > 0 && commonPrefix != curCommonPrefix {
