@@ -89,10 +89,17 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("config"), MountPath: paths.ConfigPath},
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("data"), MountPath: vdb.Spec.Local.DataPath},
-		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("depot"), MountPath: vdb.Spec.Local.DepotPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
-	if vdb.Spec.Local.GetCatalogPath() != vdb.Spec.Local.DataPath {
+	// Only mount separate depot/catalog paths if the paths are different in the
+	// container. Otherwise, you will get multiple mount points shared the same
+	// path, which will prevent any pods from starting.
+	if vdb.Spec.Local.DataPath != vdb.Spec.Local.DepotPath {
+		volMnts = append(volMnts, corev1.VolumeMount{
+			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("depot"), MountPath: vdb.Spec.Local.DepotPath,
+		})
+	}
+	if vdb.Spec.Local.GetCatalogPath() != vdb.Spec.Local.DataPath && vdb.Spec.Local.GetCatalogPath() != vdb.Spec.Local.DepotPath {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("catalog"), MountPath: vdb.Spec.Local.GetCatalogPath(),
 		})

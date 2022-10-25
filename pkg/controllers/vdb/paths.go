@@ -71,6 +71,10 @@ func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner,
 // the ownership of the config, log and data directory.  This function exists to
 // handle the depot directory.
 func changeDepotPermissions(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podList []*PodFact) error {
+	// Early out if depotPath is shared with one of the data or catalog paths.
+	if vdb.Spec.Local.DepotPath == vdb.Spec.Local.DataPath || vdb.Spec.Local.DepotPath == vdb.Spec.Local.CatalogPath {
+		return nil
+	}
 	cmd := []string{
 		"sudo", "chown", "dbadmin:verticadba", "-R", fmt.Sprintf("%s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")),
 	}

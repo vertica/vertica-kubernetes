@@ -79,16 +79,37 @@ var _ = Describe("builder", func() {
 	It("should add a catalog mount point if it differs from data", func() {
 		vdb := vapi.MakeVDB()
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		makeSubPaths := func() []string {
-			sp := []string{}
-			for i := range c.VolumeMounts {
-				sp = append(sp, c.VolumeMounts[i].SubPath)
-			}
-			return sp
-		}
-		Expect(makeSubPaths()).ShouldNot(ContainElement(ContainSubstring("catalog")))
+		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
 		vdb.Spec.Local.CatalogPath = "/catalog"
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths()).Should(ContainElement(ContainSubstring("catalog")))
+		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
+	})
+
+	It("should only have separate mount paths for data, depot and catalog if they are different", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Local.DataPath = "/vertica"
+		vdb.Spec.Local.DepotPath = vdb.Spec.Local.DataPath
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
+		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("depot")))
+		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("data")))
+		vdb.Spec.Local.DepotPath = "/depot"
+		vdb.Spec.Local.CatalogPath = vdb.Spec.Local.DepotPath
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("depot")))
+		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
+		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("data")))
+		vdb.Spec.Local.CatalogPath = "/vertica/catalog"
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
 	})
 })
+
+// makeSubPaths is a helper that extracts all of the subPaths from the volume mounts.
+func makeSubPaths(c *v1.Container) []string {
+	sp := []string{}
+	for i := range c.VolumeMounts {
+		sp = append(sp, c.VolumeMounts[i].SubPath)
+	}
+	return sp
+}

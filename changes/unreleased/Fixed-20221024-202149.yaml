@@ -1,0 +1,5 @@
+kind: Fixed
+body: Allow local paths to share the same mount point
+time: 2022-10-24T20:21:49.321480449-03:00
+custom:
+  Issue: "275"
