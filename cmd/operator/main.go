@@ -313,6 +313,16 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 	return nil
 }
 
+// getReadinessProbeCallack returns the check to use for the readiness probe
+func getReadinessProbeCallback(mgr ctrl.Manager) healthz.Checker {
+	// If the webhook is enabled, we use a checker that tests if the webhook is
+	// able to accept requests.
+	if getIsWebhookEnabled() {
+		return mgr.GetWebhookServer().StartedChecker()
+	}
+	return healthz.Ping
+}
+
 func main() {
 	flagArgs := &FlagConfig{}
 	flagArgs.setFlagArgs()
@@ -369,7 +379,7 @@ func main() {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+	if err := mgr.AddReadyzCheck("readyz", getReadinessProbeCallback(mgr)); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
