@@ -1,0 +1,26 @@
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: custom-psp
+spec:
+  privileged: false
+  hostNetwork: false
+  allowPrivilegeEscalation: true
+  hostPID: false
+  hostIPC: false
+  runAsUser:
+    rule: RunAsAny
+  fsGroup:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - '*'
+  allowedCapabilities:
+  - 'SYS_CHROOT'
+  - 'AUDIT_WRITE'
+  - 'SYS_PTRACE'
+  requiredDropCapabilities:
+  - 'SYS_ADMIN'

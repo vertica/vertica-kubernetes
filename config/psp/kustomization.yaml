@@ -1,0 +1,4 @@
+resources:
+- custom_psp.yaml
+- custom_psp_role.yaml
+- custom_psp_rb.yaml

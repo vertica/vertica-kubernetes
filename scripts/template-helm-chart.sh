@@ -165,3 +165,12 @@ perl -i -0777 -pe 's/(memory: 64Mi)/$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-op
 # In the config/ directory we hardcoded everything to start with
 # verticadb-operator.
 sed -i 's/verticadb-operator/{{ include "vdb-op.name" . }}/g' $TEMPLATE_DIR/*yaml
+
+# 17.   Template pod security policy manifests.
+sed -i 's/{{ include "vdb-op.name" . }}-//g' $TEMPLATE_DIR/verticadb-operator-custom-psp-podsecuritypolicy.yaml
+sed -i '1s/^/{{- if .Values.psp.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-custom-psp-podsecuritypolicy.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-custom-psp-podsecuritypolicy.yaml
+sed -i '1s/^/{{- if .Values.psp.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-custom-psp-role-role.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-custom-psp-role-role.yaml
+sed -i '1s/^/{{- if .Values.psp.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-custom-psp-rb-rb.yaml
+echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-custom-psp-rb-rb.yaml

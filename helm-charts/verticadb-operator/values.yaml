@@ -154,3 +154,9 @@ prometheus:
   # Note: setting this to true for multiple operator installs on the same
   # system will fail due to the cluster scoped nature of the rbac rules.
   createProxyRBAC: false
+
+psp:
+  # Set this to true if pod security policies (psp) are enabled on your cluster.
+  # The helm install will create a custom psp and rbac rules for later validating 
+  # pods that will be deployed in the same namespace as the operator.
+  enable: false
