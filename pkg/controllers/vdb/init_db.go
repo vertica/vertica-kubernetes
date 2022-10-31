@@ -44,6 +44,7 @@ const (
 
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
+	findPodToRunInit() (*PodFact, bool)
 	genCmd(ctx context.Context, hostList []string) ([]string, error)
 	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, atPod types.NamespacedName) error
@@ -78,7 +79,18 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 // runInit will physically setup the database.
 // Depending on g.initializer, this will either do create_db or revive_db.
 func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, error) {
-	atPodFact, ok := g.PFacts.findPodToRunAdmintoolsOffline()
+	podList, ok := g.initializer.getPodList()
+	if !ok {
+		// Was not able to generate the pod list
+		return ctrl.Result{Requeue: true}, nil
+	}
+	ok = g.checkPodList(podList)
+	if !ok {
+		g.Log.Info("Aborting reconciliation as not all required pods are running")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	atPodFact, ok := g.initializer.findPodToRunInit()
 	if !ok {
 		// Could not find a runable pod to run from.
 		return ctrl.Result{Requeue: true}, nil
@@ -90,17 +102,6 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 	if err := g.initializer.preCmdSetup(ctx, atPod); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	podList, ok := g.initializer.getPodList()
-	if !ok {
-		// Was not able to generate the pod list
-		return ctrl.Result{Requeue: true}, nil
-	}
-	ok = g.checkPodList(podList)
-	if !ok {
-		g.Log.Info("Aborting reconciliation as not all required pods are running")
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Cleanup for any prior failed attempt.

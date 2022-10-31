@@ -237,6 +237,16 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 	return podList, true
 }
 
+// findPodToRunInit will return a PodFact of the pod that should run the init
+// command from
+func (c *CreateDBReconciler) findPodToRunInit() (*PodFact, bool) {
+	// Always return the first pod of the first primary subcluster. We do this
+	// so that we can consistently pick the same pod if we have redo the create.
+	sc := c.getFirstPrimarySubcluster()
+	pf, ok := c.PFacts.Detail[names.GenPodName(c.Vdb, sc, 0)]
+	return pf, ok
+}
+
 // getFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
 func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
 	for i := range c.Vdb.Spec.Subclusters {

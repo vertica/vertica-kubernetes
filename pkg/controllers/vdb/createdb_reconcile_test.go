@@ -177,6 +177,29 @@ var _ = Describe("createdb_reconciler", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})
 
+	It("should always run AT commands from the first pod of the first primary subcluster", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sec", IsPrimary: false, Size: 1},
+			{Name: "pri", IsPrimary: true, Size: 2},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size+vdb.Spec.Subclusters[1].Size))
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
+		hist := fpr.FindCommands("-t create_db")
+		Expect(len(hist)).Should(Equal(1))
+		Expect(hist[0].Pod.Name).Should(Equal(names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0).Name))
+	})
+
 	It("should use option with create_db if skipping install", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreateSkipPackageInstall
