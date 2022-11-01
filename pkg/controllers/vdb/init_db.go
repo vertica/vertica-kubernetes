@@ -109,7 +109,9 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+	if g.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+	}
 
 	cmd, err := g.initializer.genCmd(ctx, getHostList(podList))
 	if err != nil {
@@ -119,7 +121,9 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
-	debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+	if g.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+	}
 
 	cond := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
 	if err := vdbstatus.UpdateCondition(ctx, g.VRec.Client, g.Vdb, cond); err != nil {

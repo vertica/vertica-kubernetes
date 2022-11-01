@@ -110,7 +110,9 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		}
 	}
 
-	debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	}
 
 	if stdout, err := d.runAddNodeForPod(ctx, pods, atPod); err != nil {
 		// If we reached the node limit according to the license, end this
@@ -123,7 +125,9 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		return ctrl.Result{}, err
 	}
 
-	debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	}
 
 	// Invalidate the cached pod facts now that some pods have a DB now.
 	d.PFacts.Invalidate()

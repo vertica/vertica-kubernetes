@@ -75,7 +75,6 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // remove old config
-				{}, // Debug info for admintools.conf after admintools.conf update
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 		}
@@ -112,12 +111,10 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf after updating admintools.conf
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
 				{}, // Remove old admintools.conf
-				{}, // Debug info for admintools.conf after updating admintools.conf
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}

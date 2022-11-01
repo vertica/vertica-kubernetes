@@ -38,6 +38,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 )
 
 // VerticaDBReconciler reconciles a VerticaDB object
@@ -47,6 +48,7 @@ type VerticaDBReconciler struct {
 	Scheme *runtime.Scheme
 	Cfg    *rest.Config
 	EVRec  record.EventRecorder
+	OpCfg  opcfg.OperatorConfig // When enabled, it includes extra debug logging
 	builder.DeploymentNames
 }
 

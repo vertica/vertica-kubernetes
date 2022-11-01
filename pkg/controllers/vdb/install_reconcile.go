@@ -135,12 +135,16 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	}
 	defer os.Remove(atConfTempFile)
 
-	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	}
 	if err := distributeAdmintoolsConf(ctx, d.Vdb, d.VRec, d.PFacts, d.PRunner, atConfTempFile); err != nil {
 		return err
 	}
 	installedPods = append(installedPods, pods...)
-	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	}
 
 	// Invalidate the pod facts cache since its out of date due to the install
 	d.PFacts.Invalidate()
