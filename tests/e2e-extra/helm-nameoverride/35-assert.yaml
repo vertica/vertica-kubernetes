@@ -17,4 +17,4 @@ kind: VerticaDB
 metadata:
   name: v-helm-nameoverride
 spec:
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall

@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: verticadb-sample
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: false

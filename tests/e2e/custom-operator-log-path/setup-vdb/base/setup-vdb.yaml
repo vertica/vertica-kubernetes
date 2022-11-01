@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-custom-operator-log-path
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: false

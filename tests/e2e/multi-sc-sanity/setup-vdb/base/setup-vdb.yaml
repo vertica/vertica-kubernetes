@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-multi-sc
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
   communal:

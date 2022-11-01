@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-shared-svc
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: true

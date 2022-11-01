@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-kill
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   sidecars:
     - name: vlogger

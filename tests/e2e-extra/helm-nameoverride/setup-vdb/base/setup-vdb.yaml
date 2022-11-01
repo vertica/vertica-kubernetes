@@ -22,6 +22,7 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertdb
+  initPolicy: CreateSkipPackageInstall
   subclusters:
     - name: pri-sc
       size: 1

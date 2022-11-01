@@ -16,4 +16,4 @@ kind: VerticaDB
 metadata:
   name: v-custom-cert-webhook-cabundle-as-parm
 spec:
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall

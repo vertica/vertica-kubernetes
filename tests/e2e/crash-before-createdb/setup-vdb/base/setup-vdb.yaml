@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-crash-before-createdb
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: false

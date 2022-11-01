@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-custom-cert-webhook-cabundle-in-secret
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: false

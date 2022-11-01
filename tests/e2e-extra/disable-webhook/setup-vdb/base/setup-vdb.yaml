@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-disable-webhook
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: true

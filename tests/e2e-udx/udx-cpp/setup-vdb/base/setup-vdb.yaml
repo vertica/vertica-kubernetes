@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-udx-cpp
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: true
