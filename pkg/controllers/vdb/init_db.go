@@ -105,11 +105,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 
 	// Cleanup for any prior failed attempt.
-	if err := g.cleanupLocalFilesInPods(ctx, podList); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := changeDepotPermissions(ctx, g.Vdb, g.PRunner, podList); err != nil {
+	if err := g.prepLocalDataInPods(ctx, podList); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -166,13 +162,14 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 	return true
 }
 
-// cleanupLocalFilesInPods will go through each pod and ensure their local files are gone.
-// This step is necessary because a failed create_db can leave old state around.
-func (g *GenericDatabaseInitializer) cleanupLocalFilesInPods(ctx context.Context, podList []*PodFact) error {
+// prepLocalDataInPods will go through each pod and ensure their local files are
+// prepared correctly.  This step is necessary because a failed create_db can
+// leave old state around.
+func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, podList []*PodFact) error {
 	for _, pod := range podList {
 		// Cleanup any local paths. This step is needed if an earlier create_db
 		// fails -- admintools does not clean everything up.
-		if err := cleanupLocalFiles(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
+		if err := prepLocalData(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
 			return err
 		}
 	}

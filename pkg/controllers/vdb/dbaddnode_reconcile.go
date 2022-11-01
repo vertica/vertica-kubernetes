@@ -101,15 +101,11 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if err := changeDepotPermissions(ctx, d.Vdb, d.PRunner, pods); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	for _, pod := range pods {
 		// admintools will not cleanup the local directories after a failed attempt
 		// to add node. So we ensure those directories are clear at each pod before
 		// proceeding.
-		if err := cleanupLocalFiles(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
+		if err := prepLocalData(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

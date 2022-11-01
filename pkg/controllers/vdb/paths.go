@@ -16,9 +16,9 @@
 package vdb
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
@@ -27,21 +27,30 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// cleanupLocalFiles Prepare for the add node or create_db by removing any local
-// data/depot dirs.
+// prepLocalData Prepare for the add node or create_db by removing any local
+// data/depot dirs and ensuring proper ownership.
 // This step is necessary because of a lack of cleanup in admintools if any of
 // these commands fail.
-func cleanupLocalFiles(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
+func prepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
 	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDBDepotPath(), vdb.GetDBCatalogPath()}
+	var rmCmds bytes.Buffer
+	rmCmds.WriteString("set -o errexit\n")
 	for _, path := range locPaths {
-		cmd := []string{"rm", "-r", path}
+		rmCmds.WriteString(fmt.Sprintf("[[ -d %s ]] && rm -rf %s || true\n", path, path))
+	}
+	// We also need to ensure the dbadmin owns the depot directory.  When the
+	// directory are first mounted they are owned by root.  Vertica handles changing
+	// the ownership of the config, log and data directory.  This function exists to
+	// handle the depot directory. This can be skipped if the depotPath is
+	// shared with one of the data or catalog paths.
+	if vdb.Spec.Local.DepotPath != vdb.Spec.Local.DataPath && vdb.Spec.Local.DepotPath != vdb.Spec.Local.GetCatalogPath() {
+		rmCmds.WriteString(fmt.Sprintf("sudo chown dbadmin:verticadba -R %s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")))
+	}
 
-		if _, stderr, err := prunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
-			// We ignore not found errors since the path is already gone
-			if !strings.Contains(stderr, "No such file or directory") {
-				return err
-			}
-		}
+	cmd := []string{"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'; bash %s",
+		paths.PrepScript, rmCmds.String(), paths.PrepScript)}
+	if _, _, err := prunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
+		return err
 	}
 	return nil
 }
@@ -64,24 +73,4 @@ func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner,
 	for _, pod := range pods {
 		debugDumpAdmintoolsConf(ctx, prunner, pod.name)
 	}
-}
-
-// changeDepotPermissions ensures dbadmin owns the depot directory.  When the
-// directory are first mounted they are owned by root.  Vertica handles changing
-// the ownership of the config, log and data directory.  This function exists to
-// handle the depot directory.
-func changeDepotPermissions(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podList []*PodFact) error {
-	// Early out if depotPath is shared with one of the data or catalog paths.
-	if vdb.Spec.Local.DepotPath == vdb.Spec.Local.DataPath || vdb.Spec.Local.DepotPath == vdb.Spec.Local.CatalogPath {
-		return nil
-	}
-	cmd := []string{
-		"sudo", "chown", "dbadmin:verticadba", "-R", fmt.Sprintf("%s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")),
-	}
-	for _, pod := range podList {
-		if _, _, err := prunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-			return err
-		}
-	}
-	return nil
 }
