@@ -84,15 +84,6 @@ var _ = Describe("resizepv_reconcile", func() {
 		// Run reconciler to update vertica.  This will requeue because database isn't up
 		runResizePVReconciler(ctx, vdb, true, false)
 	})
-
-	It("should parse df output", func() {
-		Expect(parseDFOutput(`   1B-blocks
-        490577010688
-		`)).Should(Equal(int64(490577010688)))
-		// Bad input -- not enough lines
-		_, err := parseDFOutput(`   1B-blocks`)
-		Expect(err).ShouldNot(Succeed())
-	})
 })
 
 func resizeLocalStorage(ctx context.Context, vdb *vapi.VerticaDB, newSize string) {

@@ -164,7 +164,7 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("cannot convert depot disk percent (%s) to an int: %w", pf.depotDiskPercentSize, err)
 	}
-	curLocalDataSize, err := r.getLocalDataSize(ctx, pvc, pf)
+	curLocalDataSize, err := r.getLocalDataSize(pvc, pf)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -194,38 +194,17 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 }
 
 // getLocalDataSize returns the size of the mount that contains the depot
-func (r *ResizePVReconcile) getLocalDataSize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, pf *PodFact) (int64, error) {
-	c := []string{
-		"bash",
-		"-c",
-		fmt.Sprintf("df --block-size=1 --output=size %s", r.Vdb.Spec.Local.DataPath),
-	}
-	op, _, err := r.PRunner.ExecInPod(ctx, pf.name, ServerContainer, c...)
-	if err != nil {
-		return 0, err
-	}
+func (r *ResizePVReconcile) getLocalDataSize(pvc *corev1.PersistentVolumeClaim, pf *PodFact) (int64, error) {
 	// If the output is empty, we will use the size from the PVC.  These is here
 	// for test purposes.  The PVC capacity was close to 100mb larger than then
 	// disk size that Vertica calculates, which is why it isn't preferred way of
 	// calculating.
-	if op == "" {
+	if pf.localDataSize == 0 {
 		curCapacity, ok := pvc.Status.Capacity.Storage().AsInt64()
 		if !ok {
 			return 0, fmt.Errorf("cannot get capacity as int64: %s", pvc.Status.Capacity.Storage().String())
 		}
 		return curCapacity, nil
 	}
-	return parseDFOutput(op)
-}
-
-// parseDFOutput will parse the output of the df to return the size of the depot drive
-func parseDFOutput(op string) (int64, error) {
-	lines := strings.Split(op, "\n")
-	const ExpectedLines = 2
-	if len(lines) < ExpectedLines {
-		return 0, fmt.Errorf("not enough lines in output: %s", op)
-	}
-	const Base10 = 10
-	const BitSize = 64
-	return strconv.ParseInt(strings.TrimSpace(lines[1]), Base10, BitSize)
+	return int64(pf.localDataSize), nil
 }

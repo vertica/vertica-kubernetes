@@ -145,6 +145,9 @@ type PodFact struct {
 
 	// The size of the depot in bytes.  This is only valid if the database is up.
 	maxDepotSize int
+
+	// The size, in bytes, of the local PV.
+	localDataSize int
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -177,6 +180,7 @@ type GatherState struct {
 	StartupComplete         bool   `json:"startupComplete"`
 	Compat21NodeName        string `json:"compat21NodeName"`
 	VNodeName               string `json:"vnodeName"`
+	LocalDataSize           int    `json:"localDataSize"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -360,7 +364,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		test -d %s && echo true || echo false
 		echo -n 'httpTLSConfExists: '
 		test -f %s/%s && echo true || echo false
-		echo -n 'dataPathExists: '
+		echo -n 'dbExists: '
 		test -d %s/v_%s_node????_data && echo true || echo false
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
@@ -369,7 +373,9 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		echo -n 'verticaPIDRunning: '
 		[[ $(pgrep ^vertica) ]] && echo true || echo false
 		echo -n 'startupComplete: '
-		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s && echo true || echo false
+		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s 2> /dev/null && echo true || echo false
+		echo -n 'localDataSize: '
+		df --block-size=1 --output=size %s | tail -1
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.AdminToolsConf,
@@ -383,6 +389,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", vdb.Spec.Local.GetCatalogPath(), vdb.Spec.DBName),
+		vdb.Spec.Local.DataPath,
 	))
 }
 
@@ -441,6 +448,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.configLogrotateWritable = gs.ConfigLogrotateWritable
 	pf.configShareExists = gs.ConfigShareExists
 	pf.httpTLSConfExists = gs.HTTPTLSConfExists
+	pf.localDataSize = gs.LocalDataSize
 	return nil
 }
 
