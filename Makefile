@@ -305,7 +305,9 @@ build: generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/operator/main.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run cmd/operator/main.go -enable-profiler
+	mkdir -p int-tests-output
+	sed 's/\(WEBHOOK_CERT_SOURCE\).*/\1: internal/;s/\(name:\) .*/\1 verticadb-operator-manager-config/;s/namespace: .*//' helm-charts/verticadb-operator/templates/verticadb-operator-manager-config-cm.yaml | kubectl apply -f -
+	ENABLE_WEBHOOKS=false go run cmd/operator/main.go -enable-profiler -service-account-name=default | tee int-tests-output/verticadb-operator.log
 
 docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
 	docker build -t ${OPERATOR_IMG} -f docker-operator/Dockerfile .

@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,41 +43,6 @@ var _ = Describe("podfacts", func() {
 		f, ok := (pfacts.Detail[podName])
 		Expect(ok).Should(BeTrue())
 		Expect(f.isPodRunning).Should(BeFalse())
-	})
-
-	It("should detect that there is a stale admintools.conf", func() {
-		vdb := vapi.MakeVDB()
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		sc := &vdb.Spec.Subclusters[0]
-		installIndFn := vdb.GenInstallerIndicatorFileName()
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
-			names.GenPodName(vdb, sc, 0): []cmds.CmdResult{
-				{Stderr: "cat: " + installIndFn + ": No such file or directory", Err: errors.New("file not found")},
-			},
-			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{Stderr: "cat: " + installIndFn + ": No such file or directory", Err: errors.New("file not found")},
-				{Stderr: "No such file or directory", Err: errors.New("no such file")},
-			},
-		}}
-		pfacts := &PodFacts{VRec: vdbRec, PRunner: fpr, Detail: make(PodFactDetail)}
-		sts := &appsv1.StatefulSet{}
-		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, sc), sts)).Should(Succeed())
-		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, sts, 0)).Should(Succeed())
-		pod0 := names.GenPodName(vdb, sc, 0)
-		f, ok := (pfacts.Detail[pod0])
-		Expect(ok).Should(BeTrue())
-		Expect(f.isPodRunning).Should(BeTrue())
-		Expect(f.isInstalled).Should(BeFalse())
-		Expect(f.hasStaleAdmintoolsConf).Should(BeTrue())
-		Expect(pfacts.collectPodByStsIndex(ctx, vdb, sc, sts, 1)).Should(Succeed())
-		pod1 := names.GenPodName(vdb, sc, 1)
-		f, ok = (pfacts.Detail[pod1])
-		Expect(ok).Should(BeTrue())
-		Expect(f.isPodRunning).Should(BeTrue())
-		Expect(f.isInstalled).Should(BeFalse())
-		Expect(f.hasStaleAdmintoolsConf).Should(BeFalse())
 	})
 
 	It("should use status fields to check if db exists when pods aren't running", func() {
@@ -125,27 +89,6 @@ var _ = Describe("podfacts", func() {
 		pf, ok := pfacts.Detail[nm]
 		Expect(ok).Should(BeTrue())
 		Expect(pf.isInstalled).Should(BeTrue())
-	})
-
-	It("should not indicate db exists if db directory is not there", func() {
-		vdb := vapi.MakeVDB()
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
-			nm: []cmds.CmdResult{
-				{}, // admintools.conf exists
-				{Stderr: "No such file or directory", Err: errors.New("file not found")}, // db dir does not
-			},
-		}}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		pf, ok := pfacts.Detail[nm]
-		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(BeTrue())
-		Expect(pf.dbExists).Should(BeFalse())
-		Expect(pfacts.doesDBExist()).Should(BeTrue())
 	})
 
 	It("should verify all doesDBExist return codes", func() {
@@ -246,7 +189,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, &GatherState{})).Should(Succeed())
 		Expect(pf.upNode).Should(BeFalse())
 	})
 
@@ -262,7 +205,8 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
+		gs := &GatherState{}
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
 
@@ -279,28 +223,10 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf)).Should(Succeed())
+		gs := &GatherState{}
+		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
-	})
-
-	It("should parse out the compat21 node name from install indicator file", func() {
-		vdb := vapi.MakeVDB()
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
-			nm: []cmds.CmdResult{
-				{Stdout: "node0010\n"}, // install indicator contents
-			},
-		}}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		pf, ok := pfacts.Detail[nm]
-		Expect(ok).Should(BeTrue())
-		Expect(pf.isInstalled).Should(BeTrue())
-		Expect(pf.compat21NodeName).Should(Equal("node0010"))
 	})
 
 	It("should parse read-only state from node query", func() {
@@ -346,28 +272,21 @@ var _ = Describe("podfacts", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		pn := names.GenPodName(vdb, sc, 0)
-		// Failure in bash output means startup is in progress
-		fpr := &cmds.FakePodRunner{
-			Results: cmds.CmdResults{
-				pn: []cmds.CmdResult{
-					{Err: nil}, // pgrep of vertica succeeded
-					{Err: fmt.Errorf("grep of startup.log didn't find evidence it finished startup")},
-				},
-			},
-		}
+		fpr := &cmds.FakePodRunner{}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf)).Should(Succeed())
+		gs := &GatherState{VerticaPIDRunning: true, StartupComplete: false}
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.startupInProgress).Should(BeTrue())
 
-		// Success in bash output means startup isn't in progress
-		fpr = &cmds.FakePodRunner{
-			Results: cmds.CmdResults{
-				pn: []cmds.CmdResult{{Err: nil}, {Err: nil}},
-			},
-		}
-		pfs = MakePodFacts(vdbRec, fpr)
-		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf)).Should(Succeed())
+		pf = &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		gs = &GatherState{VerticaPIDRunning: false, StartupComplete: true}
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.startupInProgress).Should(BeFalse())
+
+		pf = &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		gs = &GatherState{VerticaPIDRunning: true, StartupComplete: true}
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.startupInProgress).Should(BeFalse())
 	})
 })

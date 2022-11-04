@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -44,47 +43,13 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
-		pfact := MakePodFacts(vdbRec, fpr)
-		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
+		pfact := createPodFactsDefault(fpr)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		for i := int32(0); i < 3; i++ {
 			Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, i)].isInstalled).Should(BeTrue(), fmt.Sprintf("Pod index %d", i))
 		}
-	})
-
-	It("should detect one pod that needs to be installed", func() {
-		vdb := vapi.MakeVDB()
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		sc := &vdb.Spec.Subclusters[0]
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
-			names.GenPodName(vdb, sc, 0): []cmds.CmdResult{{}},
-			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{Stderr: "cat: " + vdb.GenInstallerIndicatorFileName() + ": No such file or directory",
-					Err: errors.New("command terminated with exit code 1")},
-			},
-			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{{}},
-		}}
-
-		pfact := MakePodFacts(vdbRec, fpr)
-		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
-		// Reset the pod runner output to dump the compat21 node number
-		fpr.Results = cmds.CmdResults{
-			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{}, // remove old config
-				{}, // Copy admintools.conf to the pod
-				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
-		}
-		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
-		drecon := actor.(*InstallReconciler)
-		drecon.ATWriter = &atconf.FakeWriter{}
-		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(drecon.PFacts.Detail[names.GenPodName(vdb, sc, 1)].isInstalled).Should(BeFalse())
-		Expect(fpr.Histories[len(fpr.Histories)-1]).Should(Equal(
-			cmds.CmdHistory{Pod: names.GenPodName(vdb, sc, 1), Command: drecon.genCmdCreateInstallIndicator("node0003")}))
 	})
 
 	It("should try install if a pod has not run the installer yet", func() {
@@ -93,32 +58,23 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		sc := &vdb.Spec.Subclusters[0]
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{
-			names.GenPodName(vdb, sc, 0): []cmds.CmdResult{{}},
-			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{{
-				Stderr: "cat: " + vdb.GenInstallerIndicatorFileName() + ": No such file or directory",
-				Err:    errors.New("command terminated with exit code 1")}},
-			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{{
-				Stderr: "cat: " + vdb.GenInstallerIndicatorFileName() + ": No such file or directory",
-				Err:    errors.New("command terminated with exit code 1")}},
-		}}
-
-		pfact := MakePodFacts(vdbRec, fpr)
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsDefault(fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
 		pfact.Detail[names.GenPodName(vdb, sc, 1)].dbExists = false
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].isInstalled = false
 		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = false
+		pfact.Detail[names.GenPodName(vdb, sc, 2)].isInstalled = false
 		// Reset the pod runner output to dump the compat21 node number
 		fpr.Results = cmds.CmdResults{
 			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{}, // Remove old admintools.conf
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
 			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
-				{}, // Remove old admintools.conf
 				{}, // Copy admintools.conf to the pod
 				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
 		}
-		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
 		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

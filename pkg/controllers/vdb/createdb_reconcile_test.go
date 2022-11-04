@@ -42,8 +42,8 @@ var _ = Describe("createdb_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		pfacts := createPodFactsDefault(fpr)
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
 		Expect(lastCall.Command).ShouldNot(ContainElements("/opt/vertica/bin/admintools", "create_db"))

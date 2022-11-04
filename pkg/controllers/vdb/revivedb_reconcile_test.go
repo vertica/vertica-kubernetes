@@ -54,8 +54,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		pfacts := createPodFactsDefault(fpr)
+		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "revive_db")
 		Expect(len(reviveCalls)).Should(Equal(0))

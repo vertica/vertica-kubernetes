@@ -50,9 +50,9 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 1)
-		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		pfacts := createPodFactsDefault(fpr)
+		updatePodFactsForUninstall(ctx, pfacts, vdb, sc, 1, 1)
+		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		recon := actor.(*UninstallReconciler)
 		recon.ATWriter = &atconf.FakeWriter{}
 		_, err := recon.uninstallPodsInSubcluster(ctx, sc, 1, 1)
@@ -93,10 +93,10 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc.Size = 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		updatePodFactsForUninstall(ctx, &pfacts, vdb, sc, 1, 2)
+		pfacts := createPodFactsDefault(fpr)
+		updatePodFactsForUninstall(ctx, pfacts, vdb, sc, 1, 2)
 
-		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		r := actor.(*UninstallReconciler)
 		r.ATWriter = &atconf.FakeWriter{}
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
@@ -116,12 +116,12 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc.Size = 1 // mimic a pending db_remove_node
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := createPodFactsDefault(fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pn := names.GenPodName(vdb, sc, 1)
 		Expect(pfacts.Detail[pn].dbExists).Should(BeTrue())
 
-		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		actor := MakeUninstallReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		r := actor.(*UninstallReconciler)
 		r.ATWriter = &atconf.FakeWriter{}
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))

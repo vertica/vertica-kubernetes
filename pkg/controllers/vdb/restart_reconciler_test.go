@@ -372,7 +372,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := createPodFactsDefault(fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
@@ -382,7 +382,7 @@ var _ = Describe("restart_reconciler", func() {
 			pfacts.Detail[downPodNm].isInstalled = true
 		}
 
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		listCmd := fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(1))
@@ -615,7 +615,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := createPodFactsDefault(fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
@@ -626,7 +626,7 @@ var _ = Describe("restart_reconciler", func() {
 			pfacts.Detail[downPodNm].isPodRunning = podIndex != 0
 		}
 
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		listCmd := fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(0))
@@ -648,7 +648,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := createPodFactsDefault(fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
@@ -658,7 +658,7 @@ var _ = Describe("restart_reconciler", func() {
 			pfacts.Detail[downPodNm].startupInProgress = true
 		}
 
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartSkipReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartSkipReadOnly)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		killCmd := fpr.FindCommands("kill")
 		Expect(len(killCmd)).Should(Equal(0))

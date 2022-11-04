@@ -29,7 +29,7 @@ import (
 // acceptEulaIfMissing will accept the end user license agreement if any pods have not yet signed it
 func acceptEulaIfMissing(ctx context.Context, pFacts *PodFacts, pRunner cmds.PodRunner) error {
 	for _, p := range pFacts.Detail {
-		if !p.eulaAccepted.IsFalse() || !p.isPodRunning {
+		if p.eulaAccepted || !p.isPodRunning {
 			continue
 		}
 		if err := acceptEulaInPod(ctx, p, pRunner); err != nil {
