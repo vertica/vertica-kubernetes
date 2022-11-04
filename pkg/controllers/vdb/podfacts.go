@@ -328,13 +328,12 @@ func (p *PodFacts) runGather(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 	}
 	tmp.Close()
 
-	_, _, err = p.PRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.PodFactGatherScript)
-	if err != nil {
-		return errors.Wrap(err, "failed to copy the gather script")
-	}
+	// Copy the script into the pod and execute it
 	var out string
-	if out, _, err = p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "bash", paths.PodFactGatherScript); err != nil {
-		return errors.Wrap(err, "failed calling gather script")
+	out, _, err = p.PRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.PodFactGatherScript,
+		"bash", paths.PodFactGatherScript)
+	if err != nil {
+		return errors.Wrap(err, "failed to copy and execute the gather script")
 	}
 	err = yaml.Unmarshal([]byte(out), gs)
 	if err != nil {

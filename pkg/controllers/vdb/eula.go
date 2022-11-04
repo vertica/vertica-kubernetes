@@ -61,14 +61,8 @@ func acceptEulaInPod(ctx context.Context, pf *PodFact, pRunner cmds.PodRunner) e
 	}
 	tmp.Close()
 
-	_, _, err = pRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript)
-	if err != nil {
-		return err
-	}
-
-	_, _, err = pRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "/opt/vertica/oss/python3/bin/python3", paths.EulaAcceptanceScript)
-	if err != nil {
-		return err
-	}
-	return nil
+	// Copy and execute the script
+	_, _, err = pRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.EulaAcceptanceScript,
+		"/opt/vertica/oss/python3/bin/python3", paths.EulaAcceptanceScript)
+	return err
 }
