@@ -65,15 +65,6 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		pfact.Detail[names.GenPodName(vdb, sc, 1)].isInstalled = false
 		pfact.Detail[names.GenPodName(vdb, sc, 2)].dbExists = false
 		pfact.Detail[names.GenPodName(vdb, sc, 2)].isInstalled = false
-		// Reset the pod runner output to dump the compat21 node number
-		fpr.Results = cmds.CmdResults{
-			names.GenPodName(vdb, sc, 1): []cmds.CmdResult{
-				{}, // Copy admintools.conf to the pod
-				{Stdout: "node0003 = 192.168.0.1,/d,/d\n"}}, // Get of compat21 node name
-			names.GenPodName(vdb, sc, 2): []cmds.CmdResult{
-				{}, // Copy admintools.conf to the pod
-				{Stdout: "node0003 = 192.168.0.2,/d,/d\n"}}, // Get of compat21 node name
-		}
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
 		drecon.ATWriter = &atconf.FakeWriter{}
@@ -81,7 +72,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		cmdHist := fpr.FindCommands(fmt.Sprintf("cat > %s", paths.AdminToolsConf))
 		Expect(len(cmdHist)).Should(Equal(3))
 		// We should see two instances of creating the install indicator -- one at each host that we install at
-		cmdHist = fpr.FindCommands(drecon.genCmdCreateInstallIndicator("node0003")...)
+		cmdHist = fpr.FindCommands(vdb.GenInstallerIndicatorFileName())
 		Expect(len(cmdHist)).Should(Equal(2))
 	})
 
