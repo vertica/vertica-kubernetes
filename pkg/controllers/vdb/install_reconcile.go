@@ -163,31 +163,8 @@ func (d *InstallReconciler) acceptEulaIfMissing(ctx context.Context) error {
 // exists and are writable by dbadmin
 func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) error {
 	for _, p := range d.PFacts.Detail {
-		if !p.isPodRunning {
-			continue
-		}
-		tmp, err := ioutil.TempFile("", "create-config-dirs.sh.")
-		if err != nil {
+		if err := d.createConfigDirsForPodIfNecessary(ctx, p); err != nil {
 			return err
-		}
-		defer tmp.Close()
-		defer os.Remove(tmp.Name())
-
-		script := d.genCreateConfigDirsScript(p)
-		if script == "" {
-			continue
-		}
-		_, err = tmp.WriteString(script)
-		if err != nil {
-			return err
-		}
-		tmp.Close()
-
-		// Copy the script into the pod and execute it
-		_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, tmp.Name(), paths.CreateConfigDirsScript,
-			"bash", paths.CreateConfigDirsScript)
-		if err != nil {
-			return errors.Wrap(err, "failed to copy and execute the config dirs script")
 		}
 	}
 	return nil
@@ -348,4 +325,35 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 		return ""
 	}
 	return sb.String()
+}
+
+// createConfigDirsForPodIfNecesssary will setup the config dirs for a single pod.
+func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Context, p *PodFact) error {
+	if !p.isPodRunning {
+		return nil
+	}
+	tmp, err := ioutil.TempFile("", "create-config-dirs.sh.")
+	if err != nil {
+		return err
+	}
+	defer tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	script := d.genCreateConfigDirsScript(p)
+	if script == "" {
+		return nil
+	}
+	_, err = tmp.WriteString(script)
+	if err != nil {
+		return err
+	}
+	tmp.Close()
+
+	// Copy the script into the pod and execute it
+	_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, tmp.Name(), paths.CreateConfigDirsScript,
+		"bash", paths.CreateConfigDirsScript)
+	if err != nil {
+		return errors.Wrap(err, "failed to copy and execute the config dirs script")
+	}
+	return nil
 }

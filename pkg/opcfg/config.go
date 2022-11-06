@@ -89,10 +89,8 @@ func (o *OperatorConfig) SetFlagArgs() {
 		"The minimum logging level.  Valid values are: debug, info, warn, and error.")
 }
 
-// SPILLY - make these functions of OperatorConfig
-
 // getEncoderConfig returns a concrete encoders configuration
-func getEncoderConfig(devMode bool) zapcore.EncoderConfig {
+func (o *OperatorConfig) getEncoderConfig(devMode bool) zapcore.EncoderConfig {
 	encoderConfig := zap.NewDevelopmentEncoderConfig()
 	if !devMode {
 		encoderConfig = zap.NewProductionEncoderConfig()
@@ -105,12 +103,12 @@ func getEncoderConfig(devMode bool) zapcore.EncoderConfig {
 // getLogger is a wrapper that calls other functions
 // to build a logger.
 func (o *OperatorConfig) GetLogger() *zap.Logger {
-	encoderConfig := getEncoderConfig(o.DevMode)
+	encoderConfig := o.getEncoderConfig(o.DevMode)
 	writes := []zapcore.WriteSyncer{}
 	opts := []zap.Option{}
-	lvl := zap.NewAtomicLevelAt(getZapcoreLevel(o.Logging.Level))
+	lvl := zap.NewAtomicLevelAt(o.getZapcoreLevel())
 	if o.FilePath != "" {
-		w := getLogWriter(o)
+		w := o.getLogWriter()
 		writes = append(writes, w)
 	}
 	if o.FilePath == "" || o.DevMode {
@@ -121,7 +119,7 @@ func (o *OperatorConfig) GetLogger() *zap.Logger {
 		zapcore.NewMultiWriteSyncer(writes...),
 		lvl,
 	)
-	opts = append(opts, getStackTrace(o.DevMode))
+	opts = append(opts, o.getStackTrace())
 	if !o.DevMode {
 		// This enables sampling only in prod
 		core = zapcore.NewSamplerWithOptions(core, time.Second, First, ThereAfter)
@@ -131,12 +129,12 @@ func (o *OperatorConfig) GetLogger() *zap.Logger {
 
 // getLogWriter returns an io.writer (setting up rolling files) converted
 // into a zapcore.WriteSyncer
-func getLogWriter(oc *OperatorConfig) zapcore.WriteSyncer {
+func (o *OperatorConfig) getLogWriter() zapcore.WriteSyncer {
 	lumberJackLogger := &lumberjack.Logger{
-		Filename:   oc.FilePath,
-		MaxSize:    oc.MaxFileSize, // megabytes
-		MaxBackups: oc.MaxFileRotation,
-		MaxAge:     oc.MaxFileAge, // days
+		Filename:   o.FilePath,
+		MaxSize:    o.MaxFileSize, // megabytes
+		MaxBackups: o.MaxFileRotation,
+		MaxAge:     o.MaxFileAge, // days
 	}
 	return zapcore.AddSync(lumberJackLogger)
 }
@@ -144,9 +142,9 @@ func getLogWriter(oc *OperatorConfig) zapcore.WriteSyncer {
 // getZapcoreLevel takes the level as string and returns the corresponding
 // zapcore.Level. If the string level is invalid, it returns the default
 // level
-func getZapcoreLevel(lvl string) zapcore.Level {
+func (o *OperatorConfig) getZapcoreLevel() zapcore.Level {
 	var level = new(zapcore.Level)
-	err := level.UnmarshalText([]byte(lvl))
+	err := level.UnmarshalText([]byte(o.Logging.Level))
 	if err != nil {
 		log.Printf("unrecognized level, %s level will be used instead", DefaultLevel)
 		return DefaultZapcoreLevel
@@ -156,9 +154,9 @@ func getZapcoreLevel(lvl string) zapcore.Level {
 
 // getStackTrace returns an option that configures
 // the logger to record a stack strace.
-func getStackTrace(devMode bool) zap.Option {
+func (o *OperatorConfig) getStackTrace() zap.Option {
 	lvl := zapcore.ErrorLevel
-	if devMode {
+	if o.DevMode {
 		lvl = zapcore.WarnLevel
 	}
 	return zap.AddStacktrace(zapcore.LevelEnabler(lvl))

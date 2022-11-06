@@ -48,7 +48,7 @@ type VerticaDBReconciler struct {
 	Scheme *runtime.Scheme
 	Cfg    *rest.Config
 	EVRec  record.EventRecorder
-	OpCfg  opcfg.OperatorConfig // When enabled, it includes extra debug logging
+	OpCfg  opcfg.OperatorConfig
 	builder.DeploymentNames
 }
 

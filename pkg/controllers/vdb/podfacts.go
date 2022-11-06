@@ -368,7 +368,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
 		echo -n 'vnodeName: '
-		cd %s/v_%s_node????_data 2> /dev/null && basename $(pwd) | cut -d'_' -f1-3 || echo ""
+		cd %s/v_%s_node????_data 2> /dev/null && basename $(pwd) | rev | cut -c6- | rev || echo ""
 		echo -n 'verticaPIDRunning: '
 		[[ $(pgrep ^vertica) ]] && echo true || echo false
 		echo -n 'startupComplete: '
