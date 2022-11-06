@@ -22,7 +22,7 @@ spec:
     includeUIDInPath: false
   local:
     requestSize: 100Mi
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall
   dbName: vertdb
   subclusters:
     - name: sc1

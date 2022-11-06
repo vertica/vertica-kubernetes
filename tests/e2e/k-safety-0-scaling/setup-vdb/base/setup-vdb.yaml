@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-k-safety-0-scaling
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   sidecars:
     - name: vlogger

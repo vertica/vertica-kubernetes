@@ -33,6 +33,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -62,7 +63,8 @@ func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 // Reconcile will ensure a DB exists and create one if it doesn't
 func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	// Skip this reconciler entirely if the init policy is not to create the DB.
-	if c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreate {
+	if c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreate &&
+		c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreateSkipPackageInstall {
 		return ctrl.Result{}, nil
 	}
 
@@ -255,7 +257,7 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		return []string{}, err
 	}
 
-	return []string{
+	cmd := []string{
 		"-t", "create_db",
 		"--skip-fs-checks",
 		"--hosts=" + strings.Join(hostList, ","),
@@ -264,10 +266,18 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"--sql=" + PostDBCreateSQLFile,
 		fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),
 		"--depot-path=" + c.Vdb.Spec.Local.DepotPath,
-		"--catalog_path=" + c.Vdb.Spec.Local.CatalogPath,
+		"--catalog_path=" + c.Vdb.Spec.Local.GetCatalogPath(),
 		"--database", c.Vdb.Spec.DBName,
 		"--force-cleanup-on-failure",
 		"--noprompt",
 		"--license", licPath,
-	}, nil
+	}
+
+	if c.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {
+		vinf, ok := version.MakeInfoFromVdb(c.Vdb)
+		if ok && vinf.IsEqualOrNewer(version.CreateDBSkipPackageInstallVersion) {
+			cmd = append(cmd, "--skip-package-install")
+		}
+	}
+	return cmd, nil
 }

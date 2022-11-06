@@ -21,6 +21,7 @@ spec:
     - name: vlogger
       image: kustomize-vlogger-image
   dbName: data_base
+  initPolicy: CreateSkipPackageInstall
   communal:
     includeUIDInPath: true
   local:

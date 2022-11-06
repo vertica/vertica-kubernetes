@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-use-preexisting-sa-skip-rbac
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: false

@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: vdb-label-ant
 spec:
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: true

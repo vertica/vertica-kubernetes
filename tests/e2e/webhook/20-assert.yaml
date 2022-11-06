@@ -17,4 +17,4 @@ kind: VerticaDB
 metadata:
   name: v-webhook
 spec:
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall

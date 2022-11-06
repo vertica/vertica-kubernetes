@@ -6,6 +6,13 @@ runs:
     - name: Set up Go and kubectx
       uses: ./.github/actions/setup-go-kctx
 
+    - name: Free up space on the hosted runner by removing unnecessary software
+      shell: bash
+      run: |
+        sudo rm -rf /usr/local/lib/android/sdk
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/share/swift
+
     - name: Install kubectl and related tools
       uses: ./.github/actions/setup-kubectl
 

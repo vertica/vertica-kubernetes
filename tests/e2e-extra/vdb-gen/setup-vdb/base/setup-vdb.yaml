@@ -18,6 +18,7 @@ metadata:
 spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
+  initPolicy: CreateSkipPackageInstall
   communal:
     includeUIDInPath: false
   local:

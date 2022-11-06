@@ -176,6 +176,27 @@ var _ = Describe("createdb_reconciler", func() {
 		Expect(err).ShouldNot(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})
+
+	It("should use option with create_db if skipping install", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreateSkipPackageInstall
+		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v12.0.1-0"
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
+		hist := fpr.FindCommands("-t create_db")
+		Expect(len(hist)).Should(Equal(1))
+		Expect(hist[0].Command).Should(ContainElement("--skip-package-install"))
+	})
 })
 
 // Helper function for kSafety verification

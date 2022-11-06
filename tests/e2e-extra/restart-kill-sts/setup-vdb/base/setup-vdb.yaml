@@ -22,6 +22,7 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertica1
+  initPolicy: CreateSkipPackageInstall
   requeueTime: 5
   subclusters:
     - name: pri1

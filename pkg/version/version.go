@@ -50,6 +50,9 @@ const (
 	CGroupV2UnsupportedVersion = "v12.0.0"
 	// The minimum version that can start Vertica's http server
 	HTTPServerMinVersion = "v12.0.1"
+	// The minimum version that we can use the option with create DB to skip the
+	// package install.
+	CreateDBSkipPackageInstallVersion = "v12.0.1"
 )
 
 // UpgradePaths has all of the vertica releases supported by the operator.  For

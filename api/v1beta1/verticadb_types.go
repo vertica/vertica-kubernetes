@@ -382,6 +382,10 @@ const (
 	// you want to provision new nodes to run inside Kubernetes.  Most of the
 	// automation is disabled when running in this mode.
 	CommunalInitPolicyScheduleOnly = "ScheduleOnly"
+	// Like CommunalInitPolicyCreate, except it will skip the install of the
+	// packages. This will speed up the time it takes to create the db. This is
+	// only supported in Vertica release 12.0.1 or higher.
+	CommunalInitPolicyCreateSkipPackageInstall = "CreateSkipPackageInstall"
 )
 
 // Set constant Upgrade Requeue Time

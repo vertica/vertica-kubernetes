@@ -27,6 +27,7 @@ spec:
     - name: sc
       size: 1
   kSafety: "0"
+  initPolicy: CreateSkipPackageInstall
   # Set requeueTime since we are intentionally failing.  This prevents the
   # exponential backoff kicking in, which can cause the test to timeout.
   requeueTime: 4

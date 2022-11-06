@@ -294,12 +294,15 @@ func (v *VerticaDB) hasAtLeastOneSC(allErrs field.ErrorList) field.ErrorList {
 func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList {
 	switch v.Spec.InitPolicy {
 	case CommunalInitPolicyCreate:
+	case CommunalInitPolicyCreateSkipPackageInstall:
 	case CommunalInitPolicyRevive:
 	case CommunalInitPolicyScheduleOnly:
 	default:
 		err := field.Invalid(field.NewPath("spec").Child("initPolicy"),
 			v.Spec.InitPolicy,
-			"initPolicy should either be Create, Revive or ScheduleOnly.")
+			fmt.Sprintf("initPolicy should either be %s, %s, %s or %s",
+				CommunalInitPolicyCreate, CommunalInitPolicyCreateSkipPackageInstall,
+				CommunalInitPolicyRevive, CommunalInitPolicyScheduleOnly))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
