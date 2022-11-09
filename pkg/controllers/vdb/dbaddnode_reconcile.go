@@ -101,20 +101,18 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if err := changeDepotPermissions(ctx, d.Vdb, d.PRunner, pods); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	for _, pod := range pods {
 		// admintools will not cleanup the local directories after a failed attempt
 		// to add node. So we ensure those directories are clear at each pod before
 		// proceeding.
-		if err := cleanupLocalFiles(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
+		if err := prepLocalData(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	}
 
 	if stdout, err := d.runAddNodeForPod(ctx, pods, atPod); err != nil {
 		// If we reached the node limit according to the license, end this
@@ -127,7 +125,9 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		return ctrl.Result{}, err
 	}
 
-	debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
+	}
 
 	// Invalidate the cached pod facts now that some pods have a DB now.
 	d.PFacts.Invalidate()

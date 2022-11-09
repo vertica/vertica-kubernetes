@@ -18,8 +18,9 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
-	"regexp"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -90,7 +91,7 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 
 	fns := []func(context.Context) error{
 		d.acceptEulaIfMissing,
-		d.checkConfigDir,
+		d.createConfigDirsIfNecessary,
 		// This has to be after accepting the EULA.  re_ip will not succeed if
 		// the EULA is not accepted and a re_ip can happen before coming to this
 		// reconcile function.  So if the pod is rescheduled after adding
@@ -135,12 +136,16 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	}
 	defer os.Remove(atConfTempFile)
 
-	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	}
 	if err := distributeAdmintoolsConf(ctx, d.Vdb, d.VRec, d.PFacts, d.PRunner, atConfTempFile); err != nil {
 		return err
 	}
 	installedPods = append(installedPods, pods...)
-	debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	if d.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
+	}
 
 	// Invalidate the pod facts cache since its out of date due to the install
 	d.PFacts.Invalidate()
@@ -154,31 +159,12 @@ func (d *InstallReconciler) acceptEulaIfMissing(ctx context.Context) error {
 	return acceptEulaIfMissing(ctx, d.PFacts, d.PRunner)
 }
 
-// checkConfigDir will check that certain directories in /opt/vertica/config
+// createConfigDirsIfNecessary will check that certain directories in /opt/vertica/config
 // exists and are writable by dbadmin
-func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
+func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) error {
 	for _, p := range d.PFacts.Detail {
-		if !p.isPodRunning {
-			continue
-		}
-		if p.configLogrotateExists && !p.configLogrotateWritable {
-			// We enforce this in the docker entrypoint of the container too.  But
-			// we have this here for backwards compatibility for the 11.0 image.
-			// The 10.1.1 image doesn't even have logrotate, which is why we
-			// first check if the directory exists.
-			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer,
-				"sudo", "chown", "-R", "dbadmin:verticadba", paths.ConfigLogrotatePath)
-			if err != nil {
-				return err
-			}
-		}
-
-		if !p.configShareExists {
-			_, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer,
-				"mkdir", paths.ConfigSharePath)
-			if err != nil {
-				return err
-			}
+		if err := d.createConfigDirsForPodIfNecessary(ctx, p); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -188,14 +174,7 @@ func (d *InstallReconciler) checkConfigDir(ctx context.Context) error {
 // communicate with the Vertica's http server.
 func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 	// Early out if the http service isn't enabled
-	if !d.Vdb.IsHTTPServerEnabled() {
-		return nil
-	}
-	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
-	if !ok || vinf.IsOlder(version.HTTPServerMinVersion) {
-		d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-			"Skipping http server cert setup because the Vertica version doesn't have "+
-				"support for it. A Vertica version of '%s' or newer is needed", version.HTTPServerMinVersion)
+	if !d.doHTTPInstall(true) {
 		return nil
 	}
 	for _, p := range d.PFacts.Detail {
@@ -203,9 +182,6 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 			continue
 		}
 		if !p.httpTLSConfExists {
-			if _, _, err := d.PRunner.ExecInPod(ctx, p.name, names.ServerContainer, "mkdir", "-p", paths.HTTPTLSConfDir); err != nil {
-				return err
-			}
 			frwt := httpconf.FileWriter{}
 			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerSecret)
 			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
@@ -267,17 +243,13 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 // createInstallIndicators will create the install indicator file for all pods passed in
 func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []*PodFact) error {
 	for _, v := range pods {
-		compat21Node, err := d.fetchCompat21NodeNum(ctx, v)
-		if err != nil {
-			return fmt.Errorf("failed to extract compat21 node name: %w", err)
-		}
 		// Create the install indicator file. This is used to know that this
 		// instance of the vdb has setup the config for this pod. The
 		// /opt/vertica/config is backed by a PV, so it is possible that we
 		// see state in there for a prior instance of the vdb. We use the
 		// UID of the vdb to know the current instance.
 		d.Log.Info("create installer indicator file", "Pod", v.name)
-		cmd := d.genCmdCreateInstallIndicator(compat21Node)
+		cmd := d.genCmdCreateInstallIndicator(v)
 		if stdout, _, err := d.PRunner.ExecInPod(ctx, v.name, names.ServerContainer, cmd...); err != nil {
 			return fmt.Errorf("failed to create installer indicator with command '%s', output was '%s': %w", cmd, stdout, err)
 		}
@@ -285,29 +257,15 @@ func (d *InstallReconciler) createInstallIndicators(ctx context.Context, pods []
 	return nil
 }
 
-// fetchCompat21NodeNum will figure out the compat21 node name that was assigned to the given pod
-func (d *InstallReconciler) fetchCompat21NodeNum(ctx context.Context, pf *PodFact) (string, error) {
-	cmd := []string{
-		"bash", "-c", fmt.Sprintf("grep -E '^node[0-9]{4} = %s,' %s", pf.podIP, paths.AdminToolsConf),
-	}
-	var stdout string
-	var err error
-	if stdout, _, err = d.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-		return "", fmt.Errorf("failed to find compat21 node for IP '%s', output was '%s': %w", pf.podIP, stdout, err)
-	}
-	re := regexp.MustCompile(`^(node\d{4}) = .*`)
-	match := re.FindAllStringSubmatch(stdout, 1)
-	if len(match) > 0 && len(match[0]) > 0 {
-		return match[0][1], nil
-	}
-	return "", fmt.Errorf("could not find compat21 node in output")
-}
-
 // genCmdCreateInstallIndicator generates the command to create the install indicator file
-func (d *InstallReconciler) genCmdCreateInstallIndicator(compat21Node string) []string {
+func (d *InstallReconciler) genCmdCreateInstallIndicator(pf *PodFact) []string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("grep -E '^node[0-9]{4} = %s,' %s", pf.podIP, paths.AdminToolsConf))
+	sb.WriteString(" | head -1 | cut -d' ' -f1 | tee ")
 	// The install indicator file has the UID of the vdb. This allows us to know
 	// that we are working with a different life in the vdb is ever recreated.
-	return []string{"bash", "-c", fmt.Sprintf("echo %s > %s", compat21Node, d.Vdb.GenInstallerIndicatorFileName())}
+	sb.WriteString(d.Vdb.GenInstallerIndicatorFileName())
+	return []string{"bash", "-c", sb.String()}
 }
 
 // genCmdRemoveOldConfig generates the command to remove the old admintools.conf file
@@ -317,4 +275,85 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 		paths.AdminToolsConf,
 		fmt.Sprintf("%s.uid.%s", paths.AdminToolsConf, string(d.Vdb.UID)),
 	}
+}
+
+// doHTTPInstall will return true if the installer should setup for the http server
+func (d *InstallReconciler) doHTTPInstall(logEvent bool) bool {
+	// Early out if the http service isn't enabled
+	if !d.Vdb.IsHTTPServerEnabled() {
+		return false
+	}
+	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
+	if !ok || vinf.IsOlder(version.HTTPServerMinVersion) {
+		if logEvent {
+			d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
+				"Skipping http server cert setup because the Vertica version doesn't have "+
+					"support for it. A Vertica version of '%s' or newer is needed", version.HTTPServerMinVersion)
+		}
+		return false
+	}
+	return true
+}
+
+// genCreateConfigDirsScript will create a script to be run in a pod to create
+// the necessary dirs for install. This will return an empty string if nothing
+// needs to happen.
+func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
+	var sb strings.Builder
+	sb.WriteString("set -o errexit\n")
+	numCmds := 0
+	if p.configLogrotateExists && !p.configLogrotateWritable {
+		// We enforce this in the docker entrypoint of the container too.  But
+		// we have this here for backwards compatibility for the 11.0 image.
+		// The 10.1.1 image doesn't even have logrotate, which is why we
+		// first check if the directory exists.
+		sb.WriteString(fmt.Sprintf("sudo chown -R dbadmin:verticadba %s\n", paths.ConfigLogrotatePath))
+		numCmds++
+	}
+
+	if !p.configShareExists {
+		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
+		numCmds++
+	}
+
+	if !d.doHTTPInstall(false) && !p.httpTLSConfExists {
+		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
+		numCmds++
+	}
+
+	if numCmds == 0 {
+		return ""
+	}
+	return sb.String()
+}
+
+// createConfigDirsForPodIfNecesssary will setup the config dirs for a single pod.
+func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Context, p *PodFact) error {
+	if !p.isPodRunning {
+		return nil
+	}
+	tmp, err := ioutil.TempFile("", "create-config-dirs.sh.")
+	if err != nil {
+		return err
+	}
+	defer tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	script := d.genCreateConfigDirsScript(p)
+	if script == "" {
+		return nil
+	}
+	_, err = tmp.WriteString(script)
+	if err != nil {
+		return err
+	}
+	tmp.Close()
+
+	// Copy the script into the pod and execute it
+	_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, tmp.Name(), paths.CreateConfigDirsScript,
+		"bash", paths.CreateConfigDirsScript)
+	if err != nil {
+		return errors.Wrap(err, "failed to copy and execute the config dirs script")
+	}
+	return nil
 }

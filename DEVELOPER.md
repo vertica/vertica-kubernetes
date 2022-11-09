@@ -177,7 +177,7 @@ This method runs the operator synchronously in your shell. It is the fastest way
 Enter the following command:
 
 ```shell
-make install run ENABLE_WEBHOOKS=false
+make install run
 ```
 
 Press **Ctrl+C** to stop the operator.
@@ -186,7 +186,7 @@ Press **Ctrl+C** to stop the operator.
 
 This disables the webhook from running too, as running the webhook requires TLS certs to be available.
 
-This will monitor VerticaDB CR's across all namespaces.  So, make sure that when you run in this mode that you don't have any old VerticaDB's lying around.
+This will monitor VerticaDB CR's in the current namespace only. You need to update your kubectl config and change the namespace if you want to monitor a different one.
 
 ### Option 2: Kubernetes Deployment
 

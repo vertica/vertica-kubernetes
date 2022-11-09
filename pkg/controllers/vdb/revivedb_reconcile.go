@@ -234,6 +234,12 @@ func (r *ReviveDBReconciler) getPodList() ([]*PodFact, bool) {
 	return podList, true
 }
 
+// findPodToRunInit will return a PodFact of the pod that should run the init
+// command from
+func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
+	return r.PFacts.findPodToRunAdmintoolsOffline()
+}
+
 // genCmd will return the command to run in the pod to create the database
 func (r *ReviveDBReconciler) genCmd(ctx context.Context, hostList []string) ([]string, error) {
 	cmd := []string{

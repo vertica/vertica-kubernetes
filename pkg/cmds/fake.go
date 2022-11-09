@@ -89,9 +89,13 @@ func (f *FakePodRunner) ExecVSQL(ctx context.Context, podName types.NamespacedNa
 
 // CopyToPod will mimic a real copy file into a pod
 func (f *FakePodRunner) CopyToPod(ctx context.Context, podName types.NamespacedName,
-	contName string, sourceFile string, destFile string) (stdout, stderr string, err error) {
+	contName string, sourceFile string, destFile string, executeCmd ...string) (stdout, stderr string, err error) {
 	command := []string{"sh", "-c", fmt.Sprintf("cat > %s", destFile)}
-	return f.ExecInPod(ctx, podName, contName, command...)
+	sout, serr, err := f.ExecInPod(ctx, podName, contName, command...)
+	if executeCmd == nil {
+		return sout, serr, err
+	}
+	return f.ExecInPod(ctx, podName, contName, executeCmd...)
 }
 
 // FindCommands will search through the command history for any command that

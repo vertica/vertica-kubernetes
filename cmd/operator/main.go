@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -30,9 +29,6 @@ import (
 	_ "net/http/pprof" // nolint:gosec
 
 	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -46,20 +42,13 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	//+kubebuilder:scaffold:imports
 )
 
 const (
-	DefaultMaxFileSize     = 500
-	DefaultMaxFileAge      = 7
-	DefaultMaxFileRotation = 3
-	DefaultLevel           = "info"
-	DefaultDevMode         = true
-	DefaultZapcoreLevel    = zapcore.InfoLevel
-	First                  = 100
-	ThereAfter             = 100
-	CertDir                = "/tmp/k8s-webhook-server/serving-certs"
+	CertDir = "/tmp/k8s-webhook-server/serving-certs"
 )
 
 var (
@@ -67,69 +56,11 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
-type FlagConfig struct {
-	MetricsAddr          string
-	EnableLeaderElection bool
-	ProbeAddr            string
-	EnableProfiler       bool
-	ServiceAccountName   string
-	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
-	WebhookCertSecret    string // when this is empty we will generate the webhook cert
-	LogArgs              *Logging
-}
-
-type Logging struct {
-	FilePath        string
-	Level           string
-	MaxFileSize     int
-	MaxFileAge      int
-	MaxFileRotation int
-	DevMode         bool
-}
-
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(verticacomv1beta1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
-}
-
-// setLoggingFlagArgs define logging flags with specified names and default values
-func (l *Logging) setLoggingFlagArgs() {
-	flag.StringVar(&l.FilePath, "filepath", "",
-		"The path to the log file. If omitted, all logging will be written to stdout.")
-	flag.IntVar(&l.MaxFileSize, "maxfilesize", DefaultMaxFileSize,
-		"The maximum size in megabytes of the log file "+
-			"before it gets rotated.")
-	flag.IntVar(&l.MaxFileAge, "maxfileage", DefaultMaxFileAge,
-		"The maximum number of days to retain old log files based on the timestamp encoded in the file.")
-	flag.IntVar(&l.MaxFileRotation, "maxfilerotation", DefaultMaxFileRotation,
-		"The maximum number of files that are kept in rotation before the old ones are removed.")
-	flag.StringVar(&l.Level, "level", DefaultLevel,
-		"The minimum logging level.  Valid values are: debug, info, warn, and error.")
-	flag.BoolVar(&l.DevMode, "dev", DefaultDevMode,
-		"Enables development mode if true and production mode otherwise.")
-}
-
-// setFlagArgs define flags with specified names and default values
-func (fc *FlagConfig) setFlagArgs() {
-	flag.StringVar(&fc.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&fc.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&fc.EnableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&fc.EnableProfiler, "enable-profiler", false,
-		"Enables runtime profiling collection.  The profiling data can be inspected by connecting to port 6060 "+
-			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
-	flag.StringVar(&fc.ServiceAccountName, "service-account-name", "verticadb-operator-controller-manager",
-		"The name of the serviceAccount to use.")
-	flag.StringVar(&fc.PrefixName, "prefix-name", "verticadb-operator",
-		"The common prefix for all objects created during the operator deployment")
-	flag.StringVar(&fc.WebhookCertSecret, "webhook-cert-secret", "",
-		"Specifies the secret that contains the webhook cert. If this option is omitted, "+
-			"then the operator will generate the certificate.")
-	fc.LogArgs = &Logging{}
-	fc.LogArgs.setLoggingFlagArgs()
 }
 
 // getWatchNamespace returns the Namespace the operator should be watching for changes
@@ -163,91 +94,19 @@ func getIsWebhookEnabled() bool {
 	return enabled
 }
 
-// getEncoderConfig returns a concrete encoders configuration
-func getEncoderConfig(devMode bool) zapcore.EncoderConfig {
-	encoderConfig := zap.NewDevelopmentEncoderConfig()
-	if !devMode {
-		encoderConfig = zap.NewProductionEncoderConfig()
-		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	}
-	return encoderConfig
-}
-
-// getLogWriter returns an io.writer (setting up rolling files) converted
-// into a zapcore.WriteSyncer
-func getLogWriter(logArgs Logging) zapcore.WriteSyncer {
-	lumberJackLogger := &lumberjack.Logger{
-		Filename:   logArgs.FilePath,
-		MaxSize:    logArgs.MaxFileSize, // megabytes
-		MaxBackups: logArgs.MaxFileRotation,
-		MaxAge:     logArgs.MaxFileAge, // days
-	}
-	return zapcore.AddSync(lumberJackLogger)
-}
-
-// getZapcoreLevel takes the level as string and returns the corresponding
-// zapcore.Level. If the string level is invalid, it returns the default
-// level
-func getZapcoreLevel(lvl string) zapcore.Level {
-	var level = new(zapcore.Level)
-	err := level.UnmarshalText([]byte(lvl))
-	if err != nil {
-		log.Printf("unrecognized level, %s level will be used instead", DefaultLevel)
-		return DefaultZapcoreLevel
-	}
-	return *level
-}
-
-// getStackTrace returns an option that configures
-// the logger to record a stack strace.
-func getStackTrace(devMode bool) zap.Option {
-	lvl := zapcore.ErrorLevel
-	if devMode {
-		lvl = zapcore.WarnLevel
-	}
-	return zap.AddStacktrace(zapcore.LevelEnabler(lvl))
-}
-
-// getLogger is a wrapper that calls other functions
-// to build a logger.
-func getLogger(logArgs Logging) *zap.Logger {
-	encoderConfig := getEncoderConfig(logArgs.DevMode)
-	writes := []zapcore.WriteSyncer{}
-	opts := []zap.Option{}
-	lvl := zap.NewAtomicLevelAt(getZapcoreLevel(logArgs.Level))
-	if logArgs.FilePath != "" {
-		w := getLogWriter(logArgs)
-		writes = append(writes, w)
-	}
-	if logArgs.FilePath == "" || logArgs.DevMode {
-		writes = append(writes, zapcore.AddSync(os.Stdout))
-	}
-	core := zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderConfig),
-		zapcore.NewMultiWriteSyncer(writes...),
-		lvl,
-	)
-	opts = append(opts, getStackTrace(logArgs.DevMode))
-	if !logArgs.DevMode {
-		// This enables sampling only in prod
-		core = zapcore.NewSamplerWithOptions(core, time.Second, First, ThereAfter)
-	}
-	return zap.New(core, opts...)
-}
-
 // addReconcilersToManager will add a controller for each CR that this operator
 // handles.  If any failure occurs, if will exit the program.
-func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, flagArgs *FlagConfig) {
+func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcfg.OperatorConfig) {
 	if err := (&vdb.VerticaDBReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
 		Scheme: mgr.GetScheme(),
 		Cfg:    restCfg,
 		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		OpCfg:  *oc,
 		DeploymentNames: builder.DeploymentNames{
-			ServiceAccountName: flagArgs.ServiceAccountName,
-			PrefixName:         flagArgs.PrefixName,
+			ServiceAccountName: oc.ServiceAccountName,
+			PrefixName:         oc.PrefixName,
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
@@ -289,7 +148,7 @@ func addWebhooksToManager(mgr manager.Manager) {
 }
 
 // setupWebhook will setup the webhook in the manager if enabled
-func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config, flagArgs *FlagConfig) error {
+func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config, oc *opcfg.OperatorConfig) error {
 	if getIsWebhookEnabled() {
 		watchNamespace, err := getWatchNamespace()
 		if err != nil {
@@ -298,13 +157,13 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 			setupLog.Info("Disabling webhook since we are not watching a single namespace")
 			return nil
 		}
-		if flagArgs.WebhookCertSecret == "" {
-			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, flagArgs.PrefixName, watchNamespace); err != nil {
+		if oc.WebhookCertSecret == "" {
+			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, watchNamespace); err != nil {
 				return err
 			}
 		} else {
-			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, flagArgs.WebhookCertSecret,
-				flagArgs.PrefixName, watchNamespace); err != nil {
+			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
+				oc.PrefixName, watchNamespace); err != nil {
 				return err
 			}
 		}
@@ -324,18 +183,18 @@ func getReadinessProbeCallback(mgr ctrl.Manager) healthz.Checker {
 }
 
 func main() {
-	flagArgs := &FlagConfig{}
-	flagArgs.setFlagArgs()
+	oc := &opcfg.OperatorConfig{}
+	oc.SetFlagArgs()
 	flag.Parse()
 
-	logger := getLogger(*flagArgs.LogArgs)
-	if flagArgs.LogArgs.FilePath != "" {
-		log.Printf("Now logging in file %s", flagArgs.LogArgs.FilePath)
+	logger := oc.GetLogger()
+	if oc.FilePath != "" {
+		log.Printf("Now logging in file %s", oc.FilePath)
 	}
 
 	ctrl.SetLogger(zapr.NewLogger(logger))
 
-	if flagArgs.EnableProfiler {
+	if oc.EnableProfiler {
 		go func() {
 			addr := "localhost:6060"
 			setupLog.Info("Opening profiling port", "addr", addr)
@@ -355,10 +214,10 @@ func main() {
 
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     flagArgs.MetricsAddr,
+		MetricsBindAddress:     oc.MetricsAddr,
 		Port:                   9443,
-		HealthProbeBindAddress: flagArgs.ProbeAddr,
-		LeaderElection:         flagArgs.EnableLeaderElection,
+		HealthProbeBindAddress: oc.ProbeAddr,
+		LeaderElection:         oc.EnableLeaderElection,
 		LeaderElectionID:       "5c1e6227.vertica.com",
 		Namespace:              watchNamespace,
 		CertDir:                CertDir,
@@ -368,9 +227,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	addReconcilersToManager(mgr, restCfg, flagArgs)
+	addReconcilersToManager(mgr, restCfg, oc)
 	ctx := ctrl.SetupSignalHandler()
-	if err := setupWebhook(ctx, mgr, restCfg, flagArgs); err != nil {
+	if err := setupWebhook(ctx, mgr, restCfg, oc); err != nil {
 		setupLog.Error(err, "unable to setup webhook")
 		os.Exit(1)
 	}

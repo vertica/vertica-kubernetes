@@ -38,7 +38,7 @@ type PodRunner interface {
 	ExecVSQL(ctx context.Context, podName types.NamespacedName, contName string, command ...string) (string, string, error)
 	ExecAdmintools(ctx context.Context, podName types.NamespacedName, contName string, command ...string) (string, string, error)
 	CopyToPod(ctx context.Context, podName types.NamespacedName, contName string, sourceFile string,
-		destFile string) (stdout, stderr string, err error)
+		destFile string, executeCmd ...string) (stdout, stderr string, err error)
 }
 
 type ClusterPodRunner struct {
@@ -103,16 +103,26 @@ func (c *ClusterPodRunner) ExecInPod(ctx context.Context, podName types.Namespac
 	return execOut.String(), execErr.String(), err
 }
 
-// CopyToPod copies a file into a container's pod
+// CopyToPod copies a file into a container's pod. Optionally, it can also run a
+// command after the copy has finished.
 func (c *ClusterPodRunner) CopyToPod(ctx context.Context, podName types.NamespacedName,
-	contName string, sourceFile string, destFile string) (stdout, stderr string, err error) {
+	contName string, sourceFile string, destFile string, executeCmd ...string) (stdout, stderr string, err error) {
 	var (
 		execOut bytes.Buffer
 		execErr bytes.Buffer
 	)
 
 	// Copying a file is simply a cat of the contents from stdin
-	command := []string{"sh", "-c", fmt.Sprintf("cat > %s", destFile)}
+	var sb strings.Builder
+	sb.WriteString("cat > ")
+	sb.WriteString(destFile)
+	// If an execute command was given, we tack this on the end as something
+	// that will run after the file has been copied in.
+	if executeCmd != nil {
+		sb.WriteString(" && ")
+		sb.WriteString(strings.Join(executeCmd, " "))
+	}
+	command := []string{"sh", "-c", sb.String()}
 
 	inFile, err := os.Open(sourceFile)
 	if err != nil {

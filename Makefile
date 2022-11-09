@@ -305,7 +305,7 @@ build: generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/operator/main.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run cmd/operator/main.go -enable-profiler
+	scripts/run-operator.sh
 
 docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
 	docker build -t ${OPERATOR_IMG} -f docker-operator/Dockerfile .

@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"yunion.io/x/pkg/tristate"
 )
 
 var k8sClient client.Client
@@ -106,40 +105,68 @@ func setVerticaNodeNameInPodFacts(vdb *vapi.VerticaDB, sc *vapi.Subcluster, pf *
 	}
 }
 
+func defaultPodFactOverrider(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+	if !pf.isPodRunning {
+		return nil
+	}
+	pf.eulaAccepted = true
+	pf.isInstalled = true
+	pf.configLogrotateExists = true
+	pf.configLogrotateWritable = true
+	pf.configShareExists = true
+	pf.httpTLSConfExists = true
+	pf.dbExists = true
+	pf.startupInProgress = false
+	pf.upNode = true
+	return nil
+}
+
+// createPodFactsDefault will generate the PodFacts for test using the default settings for all.
+func createPodFactsDefault(fpr *cmds.FakePodRunner) *PodFacts {
+	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts.OverrideFunc = defaultPodFactOverrider
+	return &pfacts
+}
+
 func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner, numPodsToChange int) *PodFacts {
 	pfacts := MakePodFacts(vdbRec, fpr)
-	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	// Change a number of pods to indicate db doesn't exist.  Due to the map that
 	// stores the pod facts, the specific pods we change are non-deterministic.
 	podsChanged := 0
-	for _, pfact := range pfacts.Detail {
-		if podsChanged == numPodsToChange {
-			break
+	pfacts.OverrideFunc = func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+		if err := defaultPodFactOverrider(ctx, vdb, pf, gs); err != nil {
+			return err
 		}
-		pfact.dbExists = false
-		pfact.upNode = false
+		if podsChanged == numPodsToChange {
+			return nil
+		}
+		pf.dbExists = false
+		pf.upNode = false
 		podsChanged++
+		return nil
 	}
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	return &pfacts
 }
 
 func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
 	pfacts := MakePodFacts(vdbRec, fpr)
-	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
-	for _, pfact := range pfacts.Detail {
+	pfacts.OverrideFunc = func(ctx context.Context, vdb *vapi.VerticaDB, pfact *PodFact, gs *GatherState) error {
 		pfact.isPodRunning = true
 		pfact.isInstalled = false
 		pfact.dbExists = false
-		pfact.eulaAccepted = tristate.False
+		pfact.eulaAccepted = false
 		pfact.configShareExists = false
 		pfact.upNode = false
+		return nil
 	}
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	return &pfacts
 }
 
 func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	fpr *cmds.FakePodRunner, podsDownByIndex []int32, readOnly bool) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := createPodFactsDefault(fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, podIndex := range podsDownByIndex {
 		downPodNm := names.GenPodName(vdb, sc, podIndex)
@@ -147,7 +174,7 @@ func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, s
 		pfacts.Detail[downPodNm].upNode = readOnly
 		pfacts.Detail[downPodNm].readOnly = readOnly
 	}
-	return &pfacts
+	return pfacts
 }
 
 const testAccessKey = "dummy"

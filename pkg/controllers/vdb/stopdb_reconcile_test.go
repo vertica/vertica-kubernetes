@@ -71,8 +71,8 @@ var _ = Describe("stopdb_reconcile", func() {
 		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, &pfacts)
+		pfacts := createPodFactsDefault(fpr)
+		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("stop_db")
 		Expect(len(hist)).Should(Equal(1))

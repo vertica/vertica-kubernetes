@@ -18,11 +18,16 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/ghodss/yaml"
+	"github.com/lithammer/dedent"
+	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
@@ -32,9 +37,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"yunion.io/x/pkg/tristate"
 )
 
 // PodFact keeps track of facts for a specific pod
@@ -109,7 +113,7 @@ type PodFact struct {
 	compat21NodeName string
 
 	// True if the end user license agreement has been accepted
-	eulaAccepted tristate.TriState
+	eulaAccepted bool
 
 	// True if /opt/vertica/config/logrotate exists
 	configLogrotateExists bool
@@ -141,9 +145,16 @@ type PodFact struct {
 
 	// The size of the depot in bytes.  This is only valid if the database is up.
 	maxDepotSize int
+
+	// The size, in bytes, of the local PV.
+	localDataSize int
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
+
+// CheckerFunc is the function signature for individual functions that help
+// populate a PodFact.
+type CheckerFunc func(context.Context, *vapi.VerticaDB, *PodFact, *GatherState) error
 
 // A collection of facts for many pods.
 type PodFacts struct {
@@ -151,15 +162,26 @@ type PodFacts struct {
 	PRunner        cmds.PodRunner
 	Detail         PodFactDetail
 	NeedCollection bool
+	OverrideFunc   CheckerFunc // Set this if you want to be able to control the PodFact
 }
 
-type CheckType string
-
-const (
-	CheckDirExists  CheckType = "-d"
-	CheckFileExists CheckType = "-f"
-	CheckWritable   CheckType = "-w"
-)
+// GatherState is the data exchanged with the gather pod facts script. We
+// parse the data from the script in YAML into this struct.
+type GatherState struct {
+	InstallIndicatorExists  bool   `json:"installIndicatorExists"`
+	AdmintoolsConfExists    bool   `json:"admintoolsConfExists"`
+	EulaAccepted            bool   `json:"eulaAccepted"`
+	ConfigLogrotateExists   bool   `json:"configLogrotateExists"`
+	ConfigLogrotateWritable bool   `json:"configLogrotateWritable"`
+	ConfigShareExists       bool   `json:"configShareExists"`
+	HTTPTLSConfExists       bool   `json:"httpTLSConfExists"`
+	DBExists                bool   `json:"dbExists"`
+	VerticaPIDRunning       bool   `json:"verticaPIDRunning"`
+	StartupComplete         bool   `json:"startupComplete"`
+	Compat21NodeName        string `json:"compat21NodeName"`
+	VNodeName               string `json:"vnodeName"`
+	LocalDataSize           int    `json:"localDataSize"`
+}
 
 // MakePodFacts will create a PodFacts object and return it
 func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
@@ -206,7 +228,7 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 	maxStsSize := sc.Size
 	// Attempt to fetch the sts.  We continue even for 'not found' errors
 	// because we want to populate the missing pods into the pod facts.
-	if err := p.VRec.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !errors.IsNotFound(err) {
+	if err := p.VRec.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !k8sErrors.IsNotFound(err) {
 		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
 		maxStsSize = *sts.Spec.Replicas
@@ -236,7 +258,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	}
 
 	pod := &corev1.Pod{}
-	if err := p.VRec.Client.Get(ctx, pf.name, pod); err != nil && !errors.IsNotFound(err) {
+	if err := p.VRec.Client.Get(ctx, pf.name, pod); err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	} else if err == nil {
 		// Treat not found errors as if the pod is not running.  We continue
@@ -256,22 +278,26 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 	}
 
-	fns := []func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error{
+	fns := []CheckerFunc{
+		p.runGather,
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
 		p.checkIfNodeIsUpAndReadOnly,
 		p.checkIfNodeIsDoingStartup,
-		p.checkEulaAcceptance,
-		p.checkLogrotateExists,
-		p.checkIsLogrotateWritable,
-		p.checkThatConfigShareExists,
-		p.checkThatHTTPTLSConfExists,
+		p.checkForSimpleGatherStateMapping,
 		p.checkShardSubscriptions,
 		p.queryDepotDetails,
+		// Override function must be last one as we can use it to override any
+		// of the facts set earlier.
+		p.OverrideFunc,
 	}
 
+	var gatherState GatherState
 	for _, fn := range fns {
-		if err := fn(ctx, vdb, &pf); err != nil {
+		if fn == nil {
+			continue
+		}
+		if err := fn(ctx, vdb, &pf, &gatherState); err != nil {
 			return err
 		}
 	}
@@ -280,8 +306,94 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	return nil
 }
 
+// runGather will generate a script to get multiple state information
+// from the pod. This is done this way to cut down on the number exec calls we
+// do into the pod. Exec can be quite expensive in terms of memory consumption
+// and will slow down the pod fact collection considerably.
+func (p *PodFacts) runGather(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+	// Early out if the pod isn't running
+	if !pf.isPodRunning {
+		return nil
+	}
+	tmp, err := ioutil.TempFile("", "gather_pod.sh.")
+	if err != nil {
+		return err
+	}
+	defer tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	_, err = tmp.WriteString(p.genGatherScript(vdb))
+	if err != nil {
+		return err
+	}
+	tmp.Close()
+
+	// Copy the script into the pod and execute it
+	var out string
+	out, _, err = p.PRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.PodFactGatherScript,
+		"bash", paths.PodFactGatherScript)
+	if err != nil {
+		return errors.Wrap(err, "failed to copy and execute the gather script")
+	}
+	err = yaml.Unmarshal([]byte(out), gs)
+	if err != nil {
+		return errors.Wrap(err, "failed to unmarshal YAML data")
+	}
+	return nil
+}
+
+// genGatherScript will generate the script that gathers multiple pieces of state in the pod
+func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
+	// The output of the script is yaml. We use a yaml package to unmarshal the
+	// output directly into a GatherState struct. And changes to this script
+	// must have a corresponding change in GatherState.
+	return dedent.Dedent(fmt.Sprintf(`
+		set -o errexit
+		echo -n 'installIndicatorExists: '
+		test -f %s && echo true || echo false
+		echo -n 'admintoolsConfExists: '
+		test -f %s && echo true || echo false
+		echo -n 'eulaAccepted: '
+		test -f %s && echo true || echo false
+		echo -n 'configLogrotateExists: '
+		test -d %s && echo true || echo false
+		echo -n 'configLogrotateWritable: '
+		test -w %s && echo true || echo false
+		echo -n 'configShareExists: '
+		test -d %s && echo true || echo false
+		echo -n 'httpTLSConfExists: '
+		test -f %s/%s && echo true || echo false
+		echo -n 'dbExists: '
+		test -d %s/v_%s_node????_data && echo true || echo false
+		echo -n 'compat21NodeName: '
+		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
+		echo -n 'vnodeName: '
+		cd %s/v_%s_node????_data 2> /dev/null && basename $(pwd) | rev | cut -c6- | rev || echo ""
+		echo -n 'verticaPIDRunning: '
+		[[ $(pgrep ^vertica) ]] && echo true || echo false
+		echo -n 'startupComplete: '
+		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s 2> /dev/null && echo true || echo false
+		echo -n 'localDataSize: '
+		df --block-size=1 --output=size %s | tail -1
+ 	`,
+		vdb.GenInstallerIndicatorFileName(),
+		paths.AdminToolsConf,
+		paths.EulaAcceptanceFile,
+		paths.ConfigLogrotatePath,
+		paths.ConfigLogrotatePath,
+		paths.ConfigSharePath,
+		paths.HTTPTLSConfDir, paths.HTTPTLSConfFile,
+		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
+		vdb.GenInstallerIndicatorFileName(),
+		vdb.GenInstallerIndicatorFileName(),
+		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
+		fmt.Sprintf("%s/%s/*_catalog/startup.log", vdb.Spec.Local.GetCatalogPath(), vdb.Spec.DBName),
+		vdb.Spec.Local.DataPath,
+	))
+}
+
 // checkIsInstalled will check a single pod to see if the installation has happened.
-func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.isInstalled = false
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
@@ -303,9 +415,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 	// of admintools.conf.
 	if vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		if !pf.isInstalled {
-			if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", "-f", paths.AdminToolsConf); err == nil {
-				pf.isInstalled = true
-			}
+			pf.isInstalled = gs.AdmintoolsConfExists
 		}
 
 		// We can't reliably set compat21NodeName because the operator didn't
@@ -315,80 +425,35 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 		return nil
 	}
 
-	fn := vdb.GenInstallerIndicatorFileName()
-	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", fn); err != nil {
-		if !strings.Contains(stderr, "cat: "+fn+": No such file or directory") {
-			return err
-		}
-		pf.isInstalled = false
-
-		// Check if there is a stale admintools.conf
-		cmd := []string{"ls", paths.AdminToolsConf}
-		if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-			if !strings.Contains(stderr, "No such file or directory") {
-				return err
-			}
-			pf.hasStaleAdmintoolsConf = false
-		} else {
-			pf.hasStaleAdmintoolsConf = true
-		}
+	pf.isInstalled = gs.InstallIndicatorExists
+	if !pf.isInstalled {
+		// If an admintools.conf exists without the install indicator, this
+		// indicates the admintools.conf and should be tossed.
+		pf.hasStaleAdmintoolsConf = gs.AdmintoolsConfExists
 	} else {
-		pf.isInstalled = true
-		pf.compat21NodeName = strings.TrimSuffix(stdout, "\n")
+		pf.compat21NodeName = gs.Compat21NodeName
 	}
 	return nil
 }
 
-// checkEulaAcceptance will check if the end user license agreement has been accepted
-func (p *PodFacts) checkEulaAcceptance(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	if pf.isPodRunning {
-		if _, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "cat", paths.EulaAcceptanceFile); err != nil {
-			if !strings.Contains(stderr, fmt.Sprintf("cat: %s: No such file or directory", paths.EulaAcceptanceFile)) {
-				return err
-			}
-			pf.eulaAccepted = tristate.False
-		} else {
-			pf.eulaAccepted = tristate.True
-		}
+// checkForSimpleGatherStateMapping will do any simple conversion of the gather state to pod facts.
+func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+	// Gather state is only valid if the pod was running
+	if !pf.isPodRunning {
+		return nil
 	}
-	return nil
-}
-
-// checkLogrotateExists will verify that that /opt/vertica/config/logrotate exists
-func (p *PodFacts) checkLogrotateExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckDirExists, paths.ConfigLogrotatePath, func() { pf.configLogrotateExists = true })
-}
-
-// checkIsLogrotateWritable will verify that dbadmin has write access to /opt/vertica/config/logrotate
-func (p *PodFacts) checkIsLogrotateWritable(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckWritable, paths.ConfigLogrotatePath, func() { pf.configLogrotateWritable = true })
-}
-
-// checkThatConfigShareExists will verify that /opt/vertica/config/share exists
-func (p *PodFacts) checkThatConfigShareExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckDirExists, paths.ConfigSharePath, func() { pf.configShareExists = true })
-}
-
-// checkThatHTTPTLSConfExists will verify that http service config file exists
-func (p *PodFacts) checkThatHTTPTLSConfExists(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
-	return p.checkDir(ctx, pf, CheckFileExists, fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFile),
-		func() { pf.httpTLSConfExists = true })
-}
-
-// checkDir is a general function that will check if a directory (exists,
-// writable, etc.) and callback to a function when it passes the check.
-func (p *PodFacts) checkDir(ctx context.Context, pf *PodFact, check CheckType, dir string, onSuccessCallback func()) error {
-	if pf.isPodRunning {
-		if _, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, "test", string(check), dir); err == nil {
-			onSuccessCallback()
-		}
-	}
+	pf.eulaAccepted = gs.EulaAccepted
+	pf.configLogrotateExists = gs.ConfigLogrotateExists
+	pf.configLogrotateWritable = gs.ConfigLogrotateWritable
+	pf.configShareExists = gs.ConfigShareExists
+	pf.httpTLSConfExists = gs.HTTPTLSConfExists
+	pf.localDataSize = gs.LocalDataSize
 	return nil
 }
 
 // checkShardSubscriptions will count the number of shards that are subscribed
 // to the current node
-func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// This check depends on the vnode, which is only present if the pod is
 	// running and the database exists at the node.
 	if !pf.isPodRunning || !pf.dbExists {
@@ -408,7 +473,7 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 }
 
 // queryDepotDetails will query the database to get info about the depot for the node
-func (p *PodFacts) queryDepotDetails(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+func (p *PodFacts) queryDepotDetails(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// This check depends on the database being up
 	if !pf.isPodRunning || !pf.upNode {
 		return nil
@@ -457,7 +522,7 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 
 // checkIsDBCreated will check for evidence of a database at the local node.
 // If a db is found, we will set the vertica node name.
-func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
@@ -475,28 +540,14 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	if !pf.isPodRunning {
 		return nil
 	}
-
-	cmd := []string{
-		"bash",
-		"-c",
-		fmt.Sprintf("ls -d %s/v_%s_node????_data", vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName)),
-	}
-	if stdout, stderr, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-		if !strings.Contains(stderr, "No such file or directory") {
-			return err
-		}
-		pf.dbExists = false
-	} else {
-		pf.dbExists = true
-		pf.vnodeName = parseVerticaNodeName(stdout)
-	}
-
+	pf.dbExists = gs.DBExists
+	pf.vnodeName = gs.VNodeName
 	return nil
 }
 
 // checkIfNodeIsUpAndReadOnly will determine whether Vertica process is running
 // in the pod and whether it is in read-only mode.
-func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	if !pf.dbExists || !pf.isPodRunning {
 		pf.upNode = false
 		pf.readOnly = false
@@ -515,47 +566,13 @@ func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.Ver
 
 // checkIfNodeIsDoingStartup will determine if the pod has vertica process
 // running but not yet ready for connections.
-func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact) error {
+func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.startupInProgress = false
-	if !pf.dbExists || !pf.isPodRunning || pf.upNode {
+	if !pf.dbExists || !pf.isPodRunning || pf.upNode || !gs.VerticaPIDRunning {
 		return nil
 	}
-
-	// vertica must be running
-	cmd := []string{
-		"bash",
-		"-c",
-		"pgrep ^vertica",
-	}
-	_, _, err := p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...)
-	// We intentionally don't return an error back. Any error assumes vertica isn't running.
-	if err != nil {
-		return nil
-	}
-
-	// Next, check the startup log.  We can't have a 'Startup Complete' message
-	// or 'Database Halted' command.  If the command fails at all, then we
-	// assume startup is in progress.
-	startupLog := pf.getStartupLogPath(vdb)
-	cmd = []string{
-		"bash",
-		"-c",
-		fmt.Sprintf(
-			"grep 'stage' %s && grep --quiet -e 'Startup Complete' -e 'Database Halted' %s",
-			startupLog, startupLog),
-	}
-	_, _, err = p.PRunner.ExecInPod(ctx, pf.name, names.ServerContainer, cmd...)
-	pf.startupInProgress = (err != nil)
-	return nil // Intentionally eating the err as that just means the grep of startup.log failed to find pattern
-}
-
-// getStartupLogPath returns the path to the startup.log
-func (p *PodFact) getStartupLogPath(vdb *vapi.VerticaDB) string {
-	return fmt.Sprintf("%s/%s/%s_catalog/startup.log",
-		vdb.Spec.Local.GetCatalogPath(),
-		vdb.Spec.DBName,
-		p.vnodeName,
-	)
+	pf.startupInProgress = !gs.StartupComplete
+	return nil
 }
 
 // checkIfNodeIsUp will check if the Vertica is up and running in this process.

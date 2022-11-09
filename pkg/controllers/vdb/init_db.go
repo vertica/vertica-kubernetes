@@ -44,6 +44,7 @@ const (
 
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
+	findPodToRunInit() (*PodFact, bool)
 	genCmd(ctx context.Context, hostList []string) ([]string, error)
 	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, atPod types.NamespacedName) error
@@ -78,7 +79,18 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 // runInit will physically setup the database.
 // Depending on g.initializer, this will either do create_db or revive_db.
 func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, error) {
-	atPodFact, ok := g.PFacts.findPodToRunAdmintoolsOffline()
+	podList, ok := g.initializer.getPodList()
+	if !ok {
+		// Was not able to generate the pod list
+		return ctrl.Result{Requeue: true}, nil
+	}
+	ok = g.checkPodList(podList)
+	if !ok {
+		g.Log.Info("Aborting reconciliation as not all required pods are running")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	atPodFact, ok := g.initializer.findPodToRunInit()
 	if !ok {
 		// Could not find a runable pod to run from.
 		return ctrl.Result{Requeue: true}, nil
@@ -92,27 +104,14 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	podList, ok := g.initializer.getPodList()
-	if !ok {
-		// Was not able to generate the pod list
-		return ctrl.Result{Requeue: true}, nil
-	}
-	ok = g.checkPodList(podList)
-	if !ok {
-		g.Log.Info("Aborting reconciliation as not all required pods are running")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	// Cleanup for any prior failed attempt.
-	if err := g.cleanupLocalFilesInPods(ctx, podList); err != nil {
+	if err := g.prepLocalDataInPods(ctx, podList); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err := changeDepotPermissions(ctx, g.Vdb, g.PRunner, podList); err != nil {
-		return ctrl.Result{}, err
+	if g.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
 	}
-
-	debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
 
 	cmd, err := g.initializer.genCmd(ctx, getHostList(podList))
 	if err != nil {
@@ -122,7 +121,9 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
-	debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+	if g.VRec.OpCfg.DevMode {
+		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+	}
 
 	cond := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
 	if err := vdbstatus.UpdateCondition(ctx, g.VRec.Client, g.Vdb, cond); err != nil {
@@ -165,13 +166,14 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 	return true
 }
 
-// cleanupLocalFilesInPods will go through each pod and ensure their local files are gone.
-// This step is necessary because a failed create_db can leave old state around.
-func (g *GenericDatabaseInitializer) cleanupLocalFilesInPods(ctx context.Context, podList []*PodFact) error {
+// prepLocalDataInPods will go through each pod and ensure their local files are
+// prepared correctly.  This step is necessary because a failed create_db can
+// leave old state around.
+func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, podList []*PodFact) error {
 	for _, pod := range podList {
 		// Cleanup any local paths. This step is needed if an earlier create_db
 		// fails -- admintools does not clean everything up.
-		if err := cleanupLocalFiles(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
+		if err := prepLocalData(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
 			return err
 		}
 	}

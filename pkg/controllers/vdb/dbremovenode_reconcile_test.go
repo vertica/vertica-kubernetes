@@ -51,8 +51,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		uninstallPod := builder.BuildPod(vdb, sc, 1)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		pfacts := createPodFactsDefault(fpr)
+		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		recon := actor.(*DBRemoveNodeReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		fpr.Histories = make([]cmds.CmdHistory, 0) // reset the calls so the first one is admintools
@@ -77,8 +77,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		uninstallPods := []types.NamespacedName{names.GenPodName(vdb, sc, 1), names.GenPodName(vdb, sc, 2)}
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		pfacts := createPodFactsDefault(fpr)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())
