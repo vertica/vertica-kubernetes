@@ -205,7 +205,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs := &GatherState{}
+		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
@@ -223,7 +223,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs := &GatherState{}
+		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
