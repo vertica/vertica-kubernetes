@@ -456,7 +456,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// This check depends on the vnode, which is only present if the pod is
 	// running and the database exists at the node.
-	if !pf.isPodRunning || !pf.dbExists {
+	if !pf.isPodRunning || !pf.dbExists || !gs.VerticaPIDRunning {
 		return nil
 	}
 	cmd := []string{
@@ -475,7 +475,7 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 // queryDepotDetails will query the database to get info about the depot for the node
 func (p *PodFacts) queryDepotDetails(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// This check depends on the database being up
-	if !pf.isPodRunning || !pf.upNode {
+	if !pf.isPodRunning || !pf.upNode || !gs.VerticaPIDRunning {
 		return nil
 	}
 	cmd := []string{
@@ -548,7 +548,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 // checkIfNodeIsUpAndReadOnly will determine whether Vertica process is running
 // in the pod and whether it is in read-only mode.
 func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
-	if !pf.dbExists || !pf.isPodRunning {
+	if !pf.dbExists || !pf.isPodRunning || !gs.VerticaPIDRunning {
 		pf.upNode = false
 		pf.readOnly = false
 		return nil
