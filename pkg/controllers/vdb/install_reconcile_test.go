@@ -182,12 +182,18 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
+		for _, val := range pfact.Detail {
+			Expect(drecon.genCreateConfigDirsScript(val)).ShouldNot(ContainSubstring(paths.HTTPTLSConfDir))
+		}
 		err := drecon.generateHTTPCerts(ctx)
 		Expect(err).Should(Succeed())
 		cmds := fpr.FindCommands(paths.HTTPTLSConfFile)
 		Expect(len(cmds)).Should(Equal(0))
 
 		vdb.Annotations[vapi.VersionAnnotation] = version.HTTPServerMinVersion
+		for _, val := range pfact.Detail {
+			Expect(drecon.genCreateConfigDirsScript(val)).Should(ContainSubstring(paths.HTTPTLSConfDir))
+		}
 		err = drecon.generateHTTPCerts(ctx)
 		Expect(err).Should(Succeed())
 		cmds = fpr.FindCommands(paths.HTTPTLSConfFile)
