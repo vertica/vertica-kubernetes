@@ -1,0 +1,5 @@
+kind: Deprecated
+body: prometheus.createServiceMonitor helm chart parameter
+time: 2022-11-17T11:24:15.118317499-04:00
+custom:
+  Issue: "287"
