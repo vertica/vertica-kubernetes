@@ -116,8 +116,8 @@ for f in verticadb-operator-manager-rolebinding-rb.yaml \
 do
     perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
 done
-# ClusterRole and ClusterRoleBinding's all need the namespace included to make
-# them unique for multiple operator deployments.
+# ClusterRole and ClusterRoleBinding's all need the namespace included in their
+# names to make them unique for multiple operator deployments.
 perl -i -0777 -pe 's/-manager-clusterrolebinding/-{{ .Release.Namespace }}-manager-clusterolebinding/g' $TEMPLATE_DIR/verticadb-operator-manager-clusterrolebinding-crb.yaml
 for f in verticadb-operator-manager-clusterrolebinding-crb.yaml \
     verticadb-operator-manager-role-cr.yaml
