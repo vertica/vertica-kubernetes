@@ -1,0 +1,44 @@
+suite: Metrics certificate tests
+templates:
+  - verticadb-operator-controller-manager-deployment.yaml
+tests:
+  - it: should include the cert if prometheus.tlsSecret is set
+    set:
+      prometheus:
+        expose: EnableWithAuthProxy
+        tlsSecret: my-secret
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].volumeMounts[0]
+          value:
+            name: auth-cert
+            mountPath: /cert
+      - equal:
+          path: spec.template.spec.volumes[0]
+          value:
+            name: auth-cert
+            secret:
+              secretName: my-secret
+      - equal:
+          path: spec.template.spec.containers[1].args
+          value:
+            - --secure-listen-address=0.0.0.0:8443
+            - --upstream=http://127.0.0.1:8080/
+            - --logtostderr=true
+            - --v=0
+            - --tls-cert-file=/cert/tls.crt
+            - --tls-private-key-file=/cert/tls.key
+            - --client-ca-file=/cert/ca.crt
+  - it: should not include the cert if prometheus.tlsSecret is not set
+    set:
+      prometheus:
+        expose: EnableWithAuthProxy
+        tlsSecret: ""
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[1].args
+          value:
+            - --secure-listen-address=0.0.0.0:8443
+            - --upstream=http://127.0.0.1:8080/
+            - --logtostderr=true
+            - --v=0

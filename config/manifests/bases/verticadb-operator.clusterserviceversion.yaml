@@ -451,14 +451,21 @@ spec:
       - description: Contain details about the local storage
         displayName: Local
         path: local
-      - description: The path in the container to the local catalog.  When initializing
-          the database with revive, the local path here must match the path that was
-          used when the database was first created.
+      - description: The path in the container to the catalog.  When initializing
+          the database with revive, this path must match the catalog path used when
+          the database was first created. For backwards compatibility, if this is
+          omitted, then it shares the same path as the dataPath.
+        displayName: Catalog Path
+        path: local.catalogPath
+      - description: The path in the container to the local directory for the 'DATA,TEMP'
+          storage location usage. When initializing the database with revive, the
+          local path here must match the path that was used when the database was
+          first created.
         displayName: Data Path
         path: local.dataPath
-      - description: The path in the container to the depot.  When initializing the
-          database with revive, this path must match the depot path used when the
-          database was first created.
+      - description: The path in the container to the depot -- 'DEPOT' storage location
+          usage. When initializing the database with revive, this path must match
+          the depot path used when the database was first created.
         displayName: Depot Path
         path: local.depotPath
       - description: The minimum size of the local data volume when picking a PV.  If
