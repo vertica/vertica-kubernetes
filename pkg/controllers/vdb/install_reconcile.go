@@ -316,7 +316,7 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 		numCmds++
 	}
 
-	if !d.doHTTPInstall(false) && !p.httpTLSConfExists {
+	if d.doHTTPInstall(false) && !p.httpTLSConfExists {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 		numCmds++
 	}
