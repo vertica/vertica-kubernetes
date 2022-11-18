@@ -1,5 +1,0 @@
-kind: Fixed
-body: "Some pods may fail to run for a server upgrade change"
-time: 2022-10-20T09:38:54.287714342-03:00
-custom:
-  Issue: "271"

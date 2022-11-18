@@ -1,5 +1,0 @@
-kind: Fixed
-body: Improve the stability of the operator in big clusters
-time: 2022-11-07T10:36:57.957077201-04:00
-custom:
-  Issue: "283"

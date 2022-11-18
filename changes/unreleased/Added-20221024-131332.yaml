@@ -1,5 +1,0 @@
-kind: Added
-body: Allow catalog path to be specified in VerticaDB
-time: 2022-10-24T13:13:32.150409811-03:00
-custom:
-  Issue: "274"

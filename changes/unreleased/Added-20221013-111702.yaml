@@ -1,5 +1,0 @@
-kind: Added
-body: Allow IAM authentication to communal storage
-time: 2022-10-13T11:17:02.4083894-03:00
-custom:
-  Issue: "265"

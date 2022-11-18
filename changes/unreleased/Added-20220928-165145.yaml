@@ -1,5 +1,0 @@
-kind: Added
-body: Run the operator with readOnlyRootFilesystem set to true
-time: 2022-09-28T16:51:45.243295919-03:00
-custom:
-  Issue: "257"
