@@ -330,7 +330,7 @@ type VerticaDBSpec struct {
 	// - tls.key: The private key to be used by the HTTP server
 	// - tls.crt: The signed certificate chain for the private key
 	// - ca.crt: The CA certificate
-	HTTPServerSecret string `json:"httpServerSecret,omitempty"`
+	HTTPServerTLSSecret string `json:"httpServerTLSSecret,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -685,11 +685,19 @@ type Subcluster struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// When setting serviceType to NodePort, this parameter allows you to define the
-	// port that is opened at each node. If using NodePort and this is omitted,
-	// Kubernetes will choose the port automatically. This port must be from
-	// within the defined range allocated by the control plane (default is
-	// 30000-32767).
+	// port that is opened at each node for Vertica client connections. If using
+	// NodePort and this is omitted, Kubernetes will choose the port
+	// automatically. This port must be from within the defined range allocated
+	// by the control plane (default is 30000-32767).
 	NodePort int32 `json:"nodePort,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Like the nodePort parameter, except this controls the node port to use
+	// for the http server.  The same rules apply: it must be defined within the
+	// range allocated by the control plane, if omitted Kubernetes will choose
+	// the port automatically.
+	HTTPNodePort int32 `json:"httpNodePort,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

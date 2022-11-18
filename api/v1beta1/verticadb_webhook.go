@@ -429,15 +429,29 @@ func (v *VerticaDB) hasValidDomainName(allErrs field.ErrorList) field.ErrorList 
 	return allErrs
 }
 
+func isNodePortNumberInvalid(port int32) bool {
+	return port != 0 && (port < portLowerBound || port > portUpperBound)
+}
+
+func (v *VerticaDB) genNodePortInvalidError(allErrs field.ErrorList, pathPrefix *field.Path, nodePortName string, nodePortVal int32) field.ErrorList {
+	err := field.Invalid(pathPrefix.Child(nodePortName),
+		nodePortVal,
+		fmt.Sprintf(`%s must be 0 or in the range of %d-%d`, nodePortName, portLowerBound, portUpperBound))
+	return append(allErrs, err)
+}
+
 func (v *VerticaDB) hasValidNodePort(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceType == v1.ServiceTypeNodePort {
-			if sc.NodePort != 0 && (sc.NodePort < portLowerBound || sc.NodePort > portUpperBound) {
-				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("nodePort"),
-					v.Spec.Subclusters[i].NodePort,
-					fmt.Sprintf(`nodePort must be 0 or in the range of %d-%d`, portLowerBound, portUpperBound))
-				allErrs = append(allErrs, err)
+			pathPrefix := field.NewPath("spec").Child("subclusters").Index(i)
+			if isNodePortNumberInvalid(sc.NodePort) {
+				allErrs = v.genNodePortInvalidError(allErrs, pathPrefix,
+					"nodePort", v.Spec.Subclusters[i].NodePort)
+			}
+			if isNodePortNumberInvalid(sc.HTTPNodePort) {
+				allErrs = v.genNodePortInvalidError(allErrs, pathPrefix,
+					"httpNodePort", v.Spec.Subclusters[i].HTTPNodePort)
 			}
 		}
 	}

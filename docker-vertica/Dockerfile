@@ -153,8 +153,8 @@ ENTRYPOINT [ "/usr/local/bin/docker-entrypoint.sh" ]
 
 # vertica port
 EXPOSE 5433
-# agent port
-EXPOSE 5444
+# http port
+EXPOSE 8443
 USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
