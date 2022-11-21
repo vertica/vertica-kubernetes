@@ -215,13 +215,16 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: install-unittest-plugin manifests generate fmt vet lint go-junit-report envtest ## Run tests.
-	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
+test: manifests generate fmt vet lint go-junit-report envtest helm-ut ## Run tests.
 ifdef INTERACTIVE
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 else
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test -v ./... -coverprofile cover.out 2>&1 | $(GO_JUNIT_REPORT) | tee ${LOGDIR}/unit-test-report.xml
 endif	
+
+.PHONY: helm-ut
+helm-ut: install-unittest-plugin  ## Run the helm unittest
+	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
 
 .PHONY: lint
 lint: config-transformer golangci-lint ## Lint the helm charts and the Go operator

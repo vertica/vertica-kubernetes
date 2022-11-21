@@ -61,8 +61,8 @@ done
 for fn in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 do
   # Include the secret only if not using webhook.certSource=internal
-  perl -i -0777 -pe 's/(.*- name: cert\n.*secret:\n.*defaultMode:.*\n.*secretName:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
-  perl -i -0777 -pe 's/(.*- mountPath: .*\n.*name: cert\n.*readOnly:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
+  perl -i -0777 -pe 's/(.*- name: webhook-cert\n.*secret:\n.*defaultMode:.*\n.*secretName:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
+  perl -i -0777 -pe 's/(.*- mountPath: .*\n.*name: webhook-cert\n.*readOnly:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
   # Update the --webhook-cert-secret option to include the actual name of the secret
   perl -i -0777 -pe 's/(- --webhook-cert-secret=)(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
   # Set ENABLE_WEBHOOK according to webhook.enable value
@@ -116,11 +116,21 @@ for f in verticadb-operator-manager-rolebinding-rb.yaml \
 do
     perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
 done
+# ClusterRole and ClusterRoleBinding's all need the namespace included in their
+# names to make them unique for multiple operator deployments.
 perl -i -0777 -pe 's/-manager-clusterrolebinding/-{{ .Release.Namespace }}-manager-clusterolebinding/g' $TEMPLATE_DIR/verticadb-operator-manager-clusterrolebinding-crb.yaml
 for f in verticadb-operator-manager-clusterrolebinding-crb.yaml \
     verticadb-operator-manager-role-cr.yaml
 do
   perl -i -0777 -pe 's/-manager-role/-{{ .Release.Namespace }}-manager-role/g' $TEMPLATE_DIR/$f
+done
+for f in verticadb-operator-metrics-reader-cr.yaml verticadb-operator-metrics-reader-crb.yaml
+do
+    perl -i -0777 -pe 's/-metrics-reader/-{{ .Release.Namespace }}-metrics-reader/g' $TEMPLATE_DIR/$f
+done
+for f in verticadb-operator-proxy-role-cr.yaml verticadb-operator-proxy-rolebinding-crb.yaml
+do
+    perl -i -0777 -pe 's/-(proxy-role.*)/-{{ .Release.Namespace }}-$1/g' $TEMPLATE_DIR/$f
 done
 
 # 10.  Template the webhook access enablement
@@ -141,7 +151,7 @@ for f in verticadb-operator-proxy-rolebinding-crb.yaml \
     verticadb-operator-metrics-reader-cr.yaml \
     verticadb-operator-metrics-reader-crb.yaml
 do
-    sed -i '1s/^/{{- if .Values.prometheus.createProxyRBAC -}}\n/' $TEMPLATE_DIR/$f
+    sed -i '1s/^/{{- if and (.Values.prometheus.createProxyRBAC) (eq .Values.prometheus.expose "EnableWithAuthProxy") -}}\n/' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
 done
 
@@ -165,3 +175,11 @@ perl -i -0777 -pe 's/(memory: 64Mi)/$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-op
 # In the config/ directory we hardcoded everything to start with
 # verticadb-operator.
 sed -i 's/verticadb-operator/{{ include "vdb-op.name" . }}/g' $TEMPLATE_DIR/*yaml
+
+# 17.  Mount TLS certs in the rbac proxy
+for f in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+do
+    perl -i -0777 -pe 's/(.*--v=[0-9]+)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n        - --tls-cert-file=\/cert\/tls.crt\n        - --tls-private-key-file=\/cert\/tls.key\n        - --client-ca-file=\/cert\/ca.crt\n{{- end }}/g' $f
+    perl -i -0777 -pe 's/(volumes:)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n      - name: auth-cert\n        secret:\n          secretName: {{ .Values.prometheus.tlsSecret }}\n{{- end }}/g' $f
+    perl -i -0777 -pe 's/(name: kube-rbac-proxy)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n        volumeMounts:\n        - mountPath: \/cert\n          name: auth-cert\n{{- end }}/g' $f
+done

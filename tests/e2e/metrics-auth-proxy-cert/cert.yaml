@@ -11,7 +11,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE"
+# This is applied through envsubst so that the $NAMESPACE gets filled in
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: serving-cert
+spec:
+  commonName: default
+  isCA: true
+  dnsNames:
+    - verticadb-operator-webhook-service.$NAMESPACE.svc
+    - verticadb-operator-webhook-service.$NAMESPACE.svc.cluster.local
+    - verticadb-operator-metrics-service
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: custom-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}

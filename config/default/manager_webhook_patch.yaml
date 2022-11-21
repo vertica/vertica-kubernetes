@@ -14,10 +14,10 @@ spec:
           protocol: TCP
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
+          name: webhook-cert
           readOnly: true
       volumes:
-      - name: cert
+      - name: webhook-cert
         secret:
           defaultMode: 420
           secretName: webhook-server-cert

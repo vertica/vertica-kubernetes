@@ -1,0 +1,5 @@
+kind: Changed
+body: Default value for prometheus.createRBACProxy helm chart parameter is now true
+time: 2022-11-17T11:25:06.256831824-04:00
+custom:
+  Issue: "287"

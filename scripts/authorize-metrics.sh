@@ -14,7 +14,9 @@
 # limitations under the License.
 
 # A script that will authorize the given service account in the given namespace
-# the ability to access a protected metrics endpoint.
+# the ability to access a protected metrics endpoint. The helm chart parameter
+# prometheus.createProxyRBAC=true will handle the authorization. This script is
+# only needed for olm.
 
 set -o errexit
 set -o pipefail
