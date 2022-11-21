@@ -52,13 +52,10 @@ jobs:
         EOF
         kind create cluster --config kind.yaml
       
-    - name: Setup OLM
-      run: |
-        curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.21.2/install.sh | bash -s v0.21.2
-
     - name: Deploy the verticadb operator with olm
       if: github.event.inputs.deploy_with == 'olm'
       run: |
+        curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.21.2/install.sh | bash -s v0.21.2
         kubectl create -f https://operatorhub.io/install/verticadb-operator.yaml
         echo "Waiting for verticadb-operator CSV to be created..."
         timeout 5m bash -c -- "while ! kubectl get csv -n my-verticadb-operator --selector operators.coreos.com/verticadb-operator.my-verticadb-operator="" | grep -cq Succeeded; do sleep 5; done"
@@ -67,17 +64,18 @@ jobs:
     - name: Deploy the verticadb operator with helm
       if: github.event.inputs.deploy_with == 'helm'
       run: |
-        make install-cert-manager
         helm repo add vertica-charts https://vertica.github.io/charts
         helm repo update vertica-charts
         helm install vdb-op --wait --namespace my-verticadb-operator --create-namespace vertica-charts/verticadb-operator
 
+    - name: Install krew
+      run: | 
+        make krew
+        echo "${KREW_ROOT:-$HOME/.krew}/bin" >> $GITHUB_PATH
+      
     - name: Deploy the minio operator
       run: |
-        kubectl create -f https://operatorhub.io/install/minio-operator.yaml 
-        echo "Waiting for verticadb-operator CSV to be created..."
-        timeout 5m bash -c -- "while ! kubectl get csv -n operators | grep minio-operator | grep -cq Succeeded; do sleep 5; done"
-        echo "DONE!"
+        scripts/setup-minio.sh -o
 
     - name: Install the minio Tenant
       run: |

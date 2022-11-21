@@ -62,6 +62,19 @@ kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes
 # If these images ever change, they must be updated in tests/external-images-common-ci.txt
 kubectl minio init --console-image minio/console:v0.9.8 --image minio/operator:v4.2.7
 
+# The above command will create the CRD.  But there is a timing hole where the
+# CRD is not yet registered with k8s, causing the tenant creation below to
+# fail.  Add a wait until we know the CRD exists.
+set +o xtrace
+set +o errexit
+echo "Waiting for CRD to be created..."
+while [[ $(kubectl api-resources --api-group=minio.min.io -o name | wc -l) = "0" ]]
+do
+    sleep 0.1
+done
+set -o errexit
+set +o xtrace
+
 # Early exit if the operator was the only thing that needed to be setup.
 if [ -n "$OPERATOR_ONLY" ]
 then
@@ -78,19 +91,6 @@ kubectl kuttl assert -n $MINIO_NS --timeout $TIMEOUT $REPO_DIR/tests/manifests/m
 
 # Make the tls keys be available through kustomize by copying it into the e2e.yaml
 $SCRIPT_DIR/setup-kustomize.sh
-
-# The above command will create the CRD.  But there is a timing hole where the
-# CRD is not yet registered with k8s, causing the tenant creation below to
-# fail.  Add a wait until we know the CRD exists.
-set +o xtrace
-set +o errexit
-echo "Waiting for CRD to be created..."
-while [[ $(kubectl api-resources --api-group=minio.min.io -o name | wc -l) = "0" ]]
-do
-    sleep 0.1
-done
-set -o errexit
-set +o xtrace
 
 EXP_CREDS_NAME=communal-creds
 if ! $KUSTOMIZE build $REPO_DIR/tests/manifests/communal-creds/overlay | grep -q "name: $EXP_CREDS_NAME"
