@@ -1,6 +1,0 @@
-kind: Fixed
-body: 'The vdbgen tool should be able to set ksafety, image and requestSize, when
-  needed, to appropriate values taken from the database'
-time: 2022-10-11T23:49:13.5872721+02:00
-custom:
-  Issue: "262"
