@@ -92,7 +92,7 @@ var _ = Describe("vdb", func() {
 		createMock()
 		defer deleteMock()
 
-		dbGen := DBGenerator{Conn: db}
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
 		dbGen.Objs.Vdb.Spec.Communal.Path = "s3://"
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
@@ -146,7 +146,7 @@ var _ = Describe("vdb", func() {
 		createMock()
 		defer deleteMock()
 
-		dbGen := DBGenerator{Conn: db}
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
 		dbGen.Objs.Vdb.Spec.Communal.Path = "gs://"
 
 		mock.ExpectQuery(Queries[DBCfgKey]).

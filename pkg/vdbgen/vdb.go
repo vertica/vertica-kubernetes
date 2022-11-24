@@ -159,7 +159,11 @@ func (d *DBGenerator) setParmsFromOptions() {
 	if d.Opts.Image != "" {
 		d.Objs.Vdb.Spec.Image = d.Opts.Image
 	}
+}
 
+// setupCredSecret will link a credential secret into the VerticaDB. Use this if
+// you know you will populate the credential secret with data.
+func (d *DBGenerator) setupCredSecret() {
 	d.Objs.CredSecret.TypeMeta.APIVersion = SecretAPIVersion
 	d.Objs.CredSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.CredSecret.ObjectMeta.Name = fmt.Sprintf("%s-credentials", d.Opts.VdbName)
@@ -334,6 +338,7 @@ func (d *DBGenerator) setCommunalEndpointAzure(ctx context.Context) error {
 		}
 	}
 
+	d.setupCredSecret()
 	d.Objs.CredSecret.Data = map[string][]byte{}
 	if cred.AccountKey != "" {
 		d.Objs.CredSecret.Data[cloud.AzureAccountKey] = []byte(cred.AccountKey)
@@ -381,6 +386,7 @@ func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey,
 		authRE := regexp.MustCompile(`:`)
 		const NumAuthComponents = 2
 		auth := authRE.Split(value, NumAuthComponents)
+		d.setupCredSecret()
 		d.Objs.CredSecret.Data = map[string][]byte{
 			cloud.CommunalAccessKeyName: []byte(auth[0]),
 			cloud.CommunalSecretKeyName: []byte(auth[1]),
