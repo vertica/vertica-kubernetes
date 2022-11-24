@@ -1,0 +1,5 @@
+kind: Added
+body: Exposed the http port in the service object
+time: 2022-11-24T09:35:31.275668348-04:00
+custom:
+  Issue: "290"
