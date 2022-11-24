@@ -374,13 +374,18 @@ func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey,
 	}
 	endpoint = value
 
-	value, ok = d.DBCfg[authKey]
-	if !ok {
-		return fmt.Errorf("missing '%s' in query '%s'", authKey, Queries[DBCfgKey])
+	value, authFound := d.DBCfg[authKey]
+	// The auth may be missing. This can happen if authenticating with IAM
+	// profiles.
+	if authFound {
+		authRE := regexp.MustCompile(`:`)
+		const NumAuthComponents = 2
+		auth := authRE.Split(value, NumAuthComponents)
+		d.Objs.CredSecret.Data = map[string][]byte{
+			cloud.CommunalAccessKeyName: []byte(auth[0]),
+			cloud.CommunalSecretKeyName: []byte(auth[1]),
+		}
 	}
-	authRE := regexp.MustCompile(`:`)
-	const NumAuthComponents = 2
-	auth := authRE.Split(value, NumAuthComponents)
 
 	// The region may not be present if the default was never overridden.
 	value, ok = d.DBCfg[regionKey]
@@ -389,10 +394,6 @@ func (d *DBGenerator) setCommunalEndpointGeneric(httpsKey, endpointKey, authKey,
 	}
 
 	d.Objs.Vdb.Spec.Communal.Endpoint = fmt.Sprintf("%s://%s", protocol, endpoint)
-	d.Objs.CredSecret.Data = map[string][]byte{
-		cloud.CommunalAccessKeyName: []byte(auth[0]),
-		cloud.CommunalSecretKeyName: []byte(auth[1]),
-	}
 
 	return nil
 }
