@@ -327,6 +327,7 @@ func (f *FileWriter) writeDefaultAdmintoolsConf(file *os.File) error {
 		sync_catalog_retries = 2000
 		client_connect_timeout_sec = 5.0
 		admintools_config_version = 110
+		thread_timeout = 1200
 
 		[Cluster]
 
