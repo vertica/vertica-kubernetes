@@ -11,19 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-k-safety-0-scaling-sc1
-status:
-  currentReplicas: 2
-  readyReplicas: 2
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-k-safety-0-scaling
-status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 2
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE -t 360"
