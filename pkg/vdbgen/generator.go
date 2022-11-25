@@ -55,19 +55,32 @@ func Generate(wr io.Writer, cr VDBCreator) error {
 
 // writeManifest will print out the objects in pretty-print yaml output
 func writeManifest(wr io.Writer, objs *KObjs) (err error) {
-	y, err := yaml.Marshal(objs.CredSecret)
+	y, err := yaml.Marshal(objs.Vdb)
 	if err != nil {
 		return err
 	}
 	fmt.Fprint(wr, string(y))
+
+	printManifestWithSeparator := func(y []byte) {
+		fmt.Fprint(wr, "---\n")
+		fmt.Fprint(wr, string(y))
+	}
+
+	// Skip if secret data is empty
+	if len(objs.CredSecret.Data) != 0 {
+		y, err = yaml.Marshal(objs.CredSecret)
+		if err != nil {
+			return err
+		}
+		printManifestWithSeparator(y)
+	}
 
 	if objs.HasPassword {
 		y, err = yaml.Marshal(objs.SuperuserPasswordSecret)
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(wr, "---\n")
-		fmt.Fprint(wr, string(y))
+		printManifestWithSeparator(y)
 	}
 
 	if objs.HasLicense {
@@ -75,8 +88,7 @@ func writeManifest(wr io.Writer, objs *KObjs) (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(wr, "---\n")
-		fmt.Fprint(wr, string(y))
+		printManifestWithSeparator(y)
 	}
 
 	if objs.HasCAFile {
@@ -84,8 +96,7 @@ func writeManifest(wr io.Writer, objs *KObjs) (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(wr, "---\n")
-		fmt.Fprint(wr, string(y))
+		printManifestWithSeparator(y)
 	}
 
 	if objs.HasHadoopConfig {
@@ -93,8 +104,7 @@ func writeManifest(wr io.Writer, objs *KObjs) (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(wr, "---\n")
-		fmt.Fprint(wr, string(y))
+		printManifestWithSeparator(y)
 	}
 
 	if objs.HasKerberosSecret {
@@ -102,15 +112,7 @@ func writeManifest(wr io.Writer, objs *KObjs) (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(wr, "---\n")
-		fmt.Fprint(wr, string(y))
+		printManifestWithSeparator(y)
 	}
-
-	y, err = yaml.Marshal(objs.Vdb)
-	if err != nil {
-		return err
-	}
-	fmt.Fprint(wr, "---\n")
-	fmt.Fprint(wr, string(y))
 	return nil
 }

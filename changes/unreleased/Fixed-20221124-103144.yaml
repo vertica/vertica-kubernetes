@@ -1,0 +1,5 @@
+kind: Fixed
+body: vdb-gen to handle db's that don't have authentication parms for communal storage
+time: 2022-11-24T10:31:44.437130694-04:00
+custom:
+  Issue: "291"

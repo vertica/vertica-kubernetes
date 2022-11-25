@@ -92,7 +92,7 @@ var _ = Describe("vdb", func() {
 		createMock()
 		defer deleteMock()
 
-		dbGen := DBGenerator{Conn: db}
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
 		dbGen.Objs.Vdb.Spec.Communal.Path = "s3://"
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
@@ -120,11 +120,33 @@ var _ = Describe("vdb", func() {
 		Expect(mock.ExpectationsWereMet()).Should(Succeed())
 	})
 
-	It("should get communal endpoint for GCS from show database", func() {
+	It("should handle case where auth isn't present for s3 communal db", func() {
 		createMock()
 		defer deleteMock()
 
 		dbGen := DBGenerator{Conn: db}
+		dbGen.Objs.Vdb.Spec.Communal.Path = "s3://my-bucket-ut"
+
+		mock.ExpectQuery(Queries[DBCfgKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).
+				AddRow("AWSEndpoint", "s3.amazonaws.com").
+				AddRow("AWSEnableHttps", "1"))
+		Expect(dbGen.fetchDatabaseConfig(ctx)).Should(Succeed())
+		Expect(dbGen.setCommunalEndpointAWS(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Spec.Communal.Endpoint).Should(Equal("https://s3.amazonaws.com"))
+		_, ok := dbGen.Objs.CredSecret.Data[cloud.CommunalAccessKeyName]
+		Expect(ok).Should(BeFalse())
+		_, ok = dbGen.Objs.CredSecret.Data[cloud.CommunalSecretKeyName]
+		Expect(ok).Should(BeFalse())
+
+		Expect(mock.ExpectationsWereMet()).Should(Succeed())
+	})
+
+	It("should get communal endpoint for GCS from show database", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
 		dbGen.Objs.Vdb.Spec.Communal.Path = "gs://"
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
