@@ -27,7 +27,7 @@ data:
     set -o errexit
 
     # Version can change only validate a portion of it
-    curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/version | tee /tmp/curl.out
+    curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/info/version | tee /tmp/curl.out
     grep -cq 'Vertica Analytic Database' /tmp/curl.out
 ---
 apiVersion: v1

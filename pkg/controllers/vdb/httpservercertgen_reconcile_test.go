@@ -34,39 +34,39 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 	It("should be a no-op if http server isn't enabled", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeDisabled
-		vdb.Spec.HTTPServerSecret = ""
+		vdb.Spec.HTTPServerTLSSecret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.HTTPServerSecret).Should(Equal(""))
+		Expect(vdb.Spec.HTTPServerTLSSecret).Should(Equal(""))
 	})
 
 	It("should be a no-op if http server is disabled and secret name is set", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeDisabled
 		const DummySecretName = "dummy"
-		vdb.Spec.HTTPServerSecret = DummySecretName
+		vdb.Spec.HTTPServerTLSSecret = DummySecretName
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.HTTPServerSecret).Should(Equal(DummySecretName))
+		Expect(vdb.Spec.HTTPServerTLSSecret).Should(Equal(DummySecretName))
 	})
 
 	It("should create a secret when http server is enabled and secret name is missing", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
-		vdb.Spec.HTTPServerSecret = ""
+		vdb.Spec.HTTPServerTLSSecret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.HTTPServerSecret).ShouldNot(Equal(""))
-		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.HTTPServerSecret}
+		Expect(vdb.Spec.HTTPServerTLSSecret).ShouldNot(Equal(""))
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.HTTPServerTLSSecret}
 		secret := &corev1.Secret{}
 		Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))

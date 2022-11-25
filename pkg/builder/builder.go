@@ -53,7 +53,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
-				{Port: 5444, Name: "agent"},
+				{Port: 8443, Name: "http", NodePort: sc.HTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,
@@ -127,7 +127,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vdb.Spec.HTTPServerSecret != "" {
+	if vdb.Spec.HTTPServerTLSSecret != "" {
 		volMnts = append(volMnts, buildHTTPServerVolumeMount()...)
 	}
 
@@ -206,7 +206,7 @@ func buildVolumes(vdb *vapi.VerticaDB, deployNames *DeploymentNames) []corev1.Vo
 	if vdb.Spec.SSHSecret != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vdb.Spec.HTTPServerSecret != "" {
+	if vdb.Spec.HTTPServerTLSSecret != "" {
 		vols = append(vols, buildHTTPServerSecretVolume(vdb))
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
@@ -400,7 +400,7 @@ func buildHTTPServerSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.HTTPServerCertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.HTTPServerSecret,
+				SecretName: vdb.Spec.HTTPServerTLSSecret,
 			},
 		},
 	}

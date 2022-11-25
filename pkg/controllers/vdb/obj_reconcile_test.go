@@ -118,7 +118,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.ClusterIP).ShouldNot(Equal("None"))
 			Expect(foundSvc.Spec.Type).Should(Equal(corev1.ServiceTypeClusterIP))
 			Expect(foundSvc.Spec.Ports[0].Port).Should(Equal(int32(5433)))
-			Expect(foundSvc.Spec.Ports[1].Port).Should(Equal(int32(5444)))
+			Expect(foundSvc.Spec.Ports[1].Port).Should(Equal(int32(8443)))
 
 			By("Checking the VerticaDB has a headless service object")
 			hlNameLookup := names.GenHlSvcName(vdb)
@@ -648,14 +648,14 @@ var _ = Describe("obj_reconcile", func() {
 		It("should requeue if HTTP server is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
-			vdb.Spec.HTTPServerSecret = ""
+			vdb.Spec.HTTPServerTLSSecret = ""
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.HTTPServerSecret = "dummy"
+			vdb.Spec.HTTPServerTLSSecret = "dummy"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 
@@ -701,6 +701,61 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
 			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
 			Expect(sts.Spec.UpdateStrategy.Type).Should(Equal(appsv1.RollingUpdateStatefulSetStrategyType))
+		})
+
+		It("should not change generated node port's if service object changes", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters[0].ServiceType = corev1.ServiceTypeNodePort
+			vdb.Spec.Subclusters[0].NodePort = 0     // k8s to generate one
+			vdb.Spec.Subclusters[0].HTTPNodePort = 0 // k8s to generate one
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			nm := names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])
+			svc := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, nm, svc)).Should(Succeed())
+			origVerticaNodePort := svc.Spec.Ports[0].NodePort
+			origHTTPPort := svc.Spec.Ports[1].NodePort
+			Expect(origVerticaNodePort).Should(BeNumerically(">", 0))
+			Expect(origHTTPPort).Should(BeNumerically(">", 0))
+
+			// Update the vdb such that a reconciler will need to update the service object
+			const NewAnnotationKey = "lb"
+			const NewAnnotationVal = "enable"
+			vdb.Spec.Subclusters[0].ServiceAnnotations = map[string]string{NewAnnotationKey: NewAnnotationVal}
+			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+
+			Expect(k8sClient.Get(ctx, nm, svc)).Should(Succeed())
+			// Ensure we actually update the service object
+			Expect(svc.ObjectMeta.Annotations[NewAnnotationKey]).Should(Equal(NewAnnotationVal))
+			// Node ports stayed the same
+			Expect(svc.Spec.Ports[0].NodePort).Should(Equal(origVerticaNodePort))
+			Expect(svc.Spec.Ports[1].NodePort).Should(Equal(origHTTPPort))
+		})
+
+		It("should preserve user specified HTTP node port when service object changes", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters[0].ServiceType = corev1.ServiceTypeNodePort
+			vdb.Spec.Subclusters[0].NodePort = 0 // k8s to generate one
+			const HTTPNodePort int32 = 30000
+			vdb.Spec.Subclusters[0].HTTPNodePort = HTTPNodePort
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			nm := names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])
+			svc := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, nm, svc)).Should(Succeed())
+			Expect(svc.Spec.Ports[1].NodePort).Should(Equal(HTTPNodePort))
+
+			const VerticaNodePort int32 = 30001
+			vdb.Spec.Subclusters[0].NodePort = VerticaNodePort
+			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+
+			Expect(k8sClient.Get(ctx, nm, svc)).Should(Succeed())
+			Expect(svc.Spec.Ports[0].NodePort).Should(Equal(VerticaNodePort))
+			Expect(svc.Spec.Ports[1].NodePort).Should(Equal(HTTPNodePort))
 		})
 	})
 })

@@ -1,0 +1,5 @@
+kind: Changed
+body: Renamed spec.httpServerSecret in VerticaDB to spec.httpServerTLSSecret
+time: 2022-11-24T09:38:17.263684643-04:00
+custom:
+  Issue: "290"

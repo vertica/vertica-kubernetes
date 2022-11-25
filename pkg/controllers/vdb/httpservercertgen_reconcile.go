@@ -48,7 +48,7 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.Ve
 func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	const PKKeySize = 2048
 	// Early out if http server is not enabled, or we already have a TLS secret
-	if !h.Vdb.IsHTTPServerEnabled() || h.Vdb.Spec.HTTPServerSecret != "" {
+	if !h.Vdb.IsHTTPServerEnabled() || h.Vdb.Spec.HTTPServerTLSSecret != "" {
 		return ctrl.Result{}, nil
 	}
 	caCert, err := security.NewSelfSignedCACertificate(PKKeySize)
@@ -113,7 +113,7 @@ func (h *HTTPServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, se
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		h.Vdb.Spec.HTTPServerSecret = secretName
+		h.Vdb.Spec.HTTPServerTLSSecret = secretName
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
 }

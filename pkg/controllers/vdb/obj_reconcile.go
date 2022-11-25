@@ -137,13 +137,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// certs to use for it.  There is a reconciler that is run before this
 		// that will create the secret.  We will requeue if we find the Vdb
 		// doesn't have the secret set.
-		if o.Vdb.Spec.HTTPServerSecret == "" {
+		if o.Vdb.Spec.HTTPServerTLSSecret == "" {
 			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpServerSecret must be set when Vertica's http server is enabled")
+				"The httpServerTLSSecret must be set when Vertica's http server is enabled")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPServerSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPServerTLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -164,9 +164,9 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.HTTPServerSecret != "" {
+	if o.Vdb.Spec.HTTPServerTLSSecret != "" {
 		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.HTTPServerSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.HTTPServerTLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -293,7 +293,6 @@ func (o ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service,
 // if nothing changed.
 func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
 	updated := false
-	const verticaPortIndex = 0
 
 	if !reflect.DeepEqual(expSvc.ObjectMeta.Annotations, curSvc.ObjectMeta.Annotations) {
 		updated = true
@@ -307,10 +306,17 @@ func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc 
 	}
 
 	if expSvc.Spec.Type == corev1.ServiceTypeLoadBalancer || expSvc.Spec.Type == corev1.ServiceTypeNodePort {
-		if sc.NodePort != 0 {
-			if expSvc.Spec.Ports[verticaPortIndex].NodePort != curSvc.Spec.Ports[verticaPortIndex].NodePort {
-				updated = true
-				curSvc.Spec.Ports = expSvc.Spec.Ports
+		// We only update the node port if one was specified by the user and it
+		// differs from what is currently in use. Otherwise, they must stay the
+		// same. This protects us from changing the k8s generated node port each
+		// time there is a Service object update.
+		explicitNodePortByIndex := []int32{sc.NodePort, sc.HTTPNodePort}
+		for i := range curSvc.Spec.Ports {
+			if explicitNodePortByIndex[i] != 0 {
+				if expSvc.Spec.Ports[i].NodePort != curSvc.Spec.Ports[i].NodePort {
+					updated = true
+					curSvc.Spec.Ports[i] = expSvc.Spec.Ports[i]
+				}
 			}
 		}
 	} else {
