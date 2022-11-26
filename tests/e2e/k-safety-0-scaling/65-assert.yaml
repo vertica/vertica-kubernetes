@@ -11,19 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-k-safety-0-scaling-sc1
-status:
-  currentReplicas: 2
-  readyReplicas: 2
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
+# We only wait for the start of the scale down as we
+# want to inject another scale down in the middle. In
+# the past, this use to expose a timing window that
+# corrupted the admintools.conf.
+
+apiVersion: v1
+kind: Event
+reason: RemoveNodesStart
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
   name: v-k-safety-0-scaling
-status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 2
