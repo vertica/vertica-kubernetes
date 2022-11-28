@@ -379,7 +379,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 ifneq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(error Bundle can only be generated when deploying with OLM.  Current deployment method: $(DEPLOY_WITH))
 endif
-	scripts/gen-csv.sh $(BUNDLE_GEN_FLAGS)
+	scripts/gen-csv.sh $(USE_IMAGE_DIGESTS_FLAG)  $(VERSION) $(BUNDLE_METADATA_OPTS)
 	mv bundle.Dockerfile $(BUNDLE_DOCKERFILE)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
