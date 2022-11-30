@@ -19,7 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -85,7 +85,7 @@ func (f *FileWriter) buildConfInMemory(tlsSecret *corev1.Secret) error {
 // returned. It is the callers responsibility to remove the file if it is a
 // temporary.
 func (f *FileWriter) writeConf() (string, error) {
-	tmp, err := ioutil.TempFile("", "httpstls.conf.")
+	tmp, err := os.CreateTemp("", "httpstls.conf.")
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create temporary file for httpstls.conf")
 	}

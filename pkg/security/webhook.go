@@ -124,7 +124,7 @@ func writeCert(certDir string, cert Certificate) error {
 	return nil
 }
 
-// nolint:dupl
+//nolint:dupl
 func patchMutatingWebhookConfig(ctx context.Context, cs *kubernetes.Clientset, cfgName string, caCert []byte) error {
 	api := cs.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -140,7 +140,7 @@ func patchMutatingWebhookConfig(ctx context.Context, cs *kubernetes.Clientset, c
 	})
 }
 
-// nolint:dupl
+//nolint:dupl
 func patchValidatingWebhookConfig(ctx context.Context, cs *kubernetes.Clientset, cfgName string, caCert []byte) error {
 	api := cs.AdmissionregistrationV1().ValidatingWebhookConfigurations()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {

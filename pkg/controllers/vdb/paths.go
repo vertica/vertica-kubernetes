@@ -65,7 +65,7 @@ func debugDumpAdmintoolsConf(ctx context.Context, prunner cmds.PodRunner, atPod 
 		fmt.Sprintf(`ls -l %s && grep '^node\|^v_\|^host' %s`, paths.AdminToolsConf, paths.AdminToolsConf),
 	}
 	// Since this is for debugging purposes all errors are ignored
-	prunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...) // nolint:errcheck
+	prunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...) //nolint:errcheck
 }
 
 // debugDumpAdmintoolsConfForPods will dump debug information for admintools.conf for a list of pods

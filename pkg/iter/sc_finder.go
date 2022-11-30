@@ -219,7 +219,8 @@ func hasSubclusterNameLabel(l map[string]string) bool {
 
 // getLabelsFromObject will extract the labels from a k8s object.
 // If labels were not found then false is return for bool output.
-// nolint:gocritic
+//
+//nolint:gocritic
 func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 	if sts, ok := obj.(*appsv1.StatefulSet); ok {
 		return sts.Labels, true

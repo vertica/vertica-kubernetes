@@ -38,7 +38,7 @@ func (v *VerticaAutoscaler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1beta1,name=mverticaautoscaler.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticaautoscaler,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1beta1,name=mverticaautoscaler.kb.io,admissionReviewVersions=v1
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -46,7 +46,7 @@ func (v *VerticaAutoscaler) Default() {
 	verticaautoscalerlog.Info("default", "name", v.Name)
 }
 
-//+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticaautoscaler,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1beta1,name=vverticaautoscaler.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticaautoscaler,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1beta1,name=vverticaautoscaler.kb.io,admissionReviewVersions=v1
 var _ webhook.Validator = &VerticaAutoscaler{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type

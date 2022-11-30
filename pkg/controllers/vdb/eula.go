@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 
 	"github.com/lithammer/dedent"
@@ -41,7 +40,7 @@ func acceptEulaIfMissing(ctx context.Context, pFacts *PodFacts, pRunner cmds.Pod
 
 // acceptEulaInPod will run a script that will accept the eula in the given pod
 func acceptEulaInPod(ctx context.Context, pf *PodFact, pRunner cmds.PodRunner) error {
-	tmp, err := ioutil.TempFile("", "accept_eula.py.")
+	tmp, err := os.CreateTemp("", "accept_eula.py.")
 	if err != nil {
 		return err
 	}
