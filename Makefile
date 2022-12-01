@@ -567,8 +567,18 @@ $(OPERATOR_SDK):
 
 ##@ Release
 
+CHANGIE = $(shell pwd)/bin/changie
+# Be sure to update DEVELOPER.md when switching to a new changie version
+CHANGIE_VERSION = 1.10.0
+changie: $(CHANGIE) ## Download changie locally if necessary
+$(CHANGIE): ## Download changie locally if necessary
+	curl --silent --show-error --location --fail https://github.com/miniscruff/changie/releases/download/v$(CHANGIE_VERSION)/changie_$(CHANGIE_VERSION)_linux_amd64.tar.gz | tar xvfz - changie 
+	mv changie $(CHANGIE)
+	chmod +x $(CHANGIE)
+
 .PHONY: gen-changelog
-gen-changelog: ## Generate the changelog
+gen-changelog: changie ## Generate the changelog
 	@cd $(REPO_DIR)
-	changie batch $(VERSION)
-	changie merge
+	$(CHANGIE) batch $(VERSION)
+	$(CHANGIE) merge
+
