@@ -3,8 +3,8 @@ description: 'Will setup the environment to run e2e tests'
 runs:
   using: "composite"
   steps:
-    - name: Set up Go and kubectx
-      uses: ./.github/actions/setup-go-kctx
+    - name: Set up Go
+      uses: ./.github/actions/setup-go
 
     - name: Free up space on the hosted runner by removing unnecessary software
       shell: bash

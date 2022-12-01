@@ -276,6 +276,9 @@ jobs:
     - uses: actions/checkout@v3
       if: ${{ inputs.operator_image == '' }}
 
+    - name: Set up Go
+      uses: ./.github/actions/setup-go
+
     - name: Build and optionally push operator image
       if: ${{ inputs.operator_image == '' }}
       run: |

@@ -16,3 +16,12 @@ runs:
         curl -LO "https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubens"
         sudo install -o root -g root -m 0755 kubens /usr/local/bin/kubens
         kubens --help
+    
+    - name: Install kubectx   
+      shell: bash
+      env:
+          KUBECTX_URL: https://github.com/ahmetb/kubectx/releases/download/v0.9.3/kubectx
+      run: |
+        curl -fsSLO $KUBECTX_URL
+        chmod +x kubectx
+        sudo install -o root -g root -m 0755 kubectx /usr/local/bin/kubectx
