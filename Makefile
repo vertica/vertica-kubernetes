@@ -582,3 +582,7 @@ gen-changelog: changie ## Generate the changelog
 	$(CHANGIE) batch $(VERSION)
 	$(CHANGIE) merge
 
+tag: ## Create a release tag
+	@git tag -d $(VERSION) 2> /dev/null || true
+	git tag --sign --message "verticadb-operator $(VERSION)" $(VERSION)
+	git verify-tag --verbose $(VERSION)
