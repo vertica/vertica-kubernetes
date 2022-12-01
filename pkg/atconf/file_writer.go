@@ -18,7 +18,6 @@ package atconf
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -106,7 +105,7 @@ func (f *FileWriter) RemoveHosts(ctx context.Context, sourcePod types.Namespaced
 // admintools.conf that we will add our newly installed pods too.  This handles
 // creating a file from scratch or copying one from a source pod.
 func (f *FileWriter) createAdmintoolsConfBase(ctx context.Context, sourcePod types.NamespacedName) error {
-	tmp, err := ioutil.TempFile("", "admintools.conf.")
+	tmp, err := os.CreateTemp("", "admintools.conf.")
 	if err != nil {
 		return err
 	}
@@ -304,7 +303,8 @@ func (f *FileWriter) getNextNodeNumber() int {
 }
 
 // writeDefaultAdmintoolsConf will write out the default admintools.conf for when nothing exists.
-// nolint:lll
+//
+//nolint:lll
 func (f *FileWriter) writeDefaultAdmintoolsConf(file *os.File) error {
 	var DefaultAdmintoolsConf = `
 	    [Configuration]

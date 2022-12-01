@@ -1,0 +1,9 @@
+name: 'Setup environment with Go'
+description: 'Will setup the environment with Go'
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19.3

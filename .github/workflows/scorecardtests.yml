@@ -9,14 +9,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
         
-    - name: Set up Go and kubectx
-      uses: ./.github/actions/setup-go-kctx
+    - name: Set up Go
+      uses: ./.github/actions/setup-go
         
     - name: Create kind cluster
       run: |
         echo "Setting up kind cluster named vertica"
-        scripts/kind.sh  init vertica
-        kubectx kind-vertica
+        scripts/kind.sh init vertica
 
     - name: Run scorecard tests
       run: DEPLOY_WITH=olm make run-scorecard-tests

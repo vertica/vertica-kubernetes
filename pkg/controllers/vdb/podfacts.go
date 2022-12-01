@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"sort"
@@ -315,7 +314,7 @@ func (p *PodFacts) runGather(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 	if !pf.isPodRunning {
 		return nil
 	}
-	tmp, err := ioutil.TempFile("", "gather_pod.sh.")
+	tmp, err := os.CreateTemp("", "gather_pod.sh.")
 	if err != nil {
 		return err
 	}

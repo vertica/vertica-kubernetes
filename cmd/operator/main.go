@@ -22,11 +22,12 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	"net/http"
-	_ "net/http/pprof" // nolint:gosec
+	_ "net/http/pprof" //nolint:gosec
 
 	"github.com/go-logr/zapr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -196,9 +197,12 @@ func main() {
 
 	if oc.EnableProfiler {
 		go func() {
-			addr := "localhost:6060"
-			setupLog.Info("Opening profiling port", "addr", addr)
-			if err := http.ListenAndServe(addr, nil); err != nil {
+			server := &http.Server{
+				Addr:              "localhost:6060",
+				ReadHeaderTimeout: 3 * time.Second,
+			}
+			setupLog.Info("Opening profiling port", "addr", server.Addr)
+			if err := server.ListenAndServe(); err != nil {
 				setupLog.Error(err, "Profiling port closed")
 			}
 		}()

@@ -41,7 +41,8 @@ func MergeAnnotations(vdb *vapi.VerticaDB, newAnnotations map[string]string) boo
 
 // ParseVersionOutput will parse the raw output from the --version call and
 // build an annotation map.
-// nolint:lll
+//
+//nolint:lll
 func ParseVersionOutput(op string) map[string]string {
 	// Sample output looks like this:
 	// Vertica Analytic Database v11.0.0-20210601

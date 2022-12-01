@@ -26,17 +26,18 @@ NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 HELM_RELEASE_NAME=$(grep 'HELM_RELEASE_NAME?=' $REPO_DIR/Makefile | cut -d'=' -f2)
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-e <helm_release_name>]"
+    echo "usage: $(basename $0) [-n <namespace>] [-e <helm_release_name>] [-i]"
     echo
     echo "Options:"
     echo "  -n <namespace>          Undeploy the operator found in this namespace.  If this is "
     echo "                          omitted it will pick the current namespace as set in the "
     echo "                          kubectl config."
     echo "  -e <helm_release_name>  Name of the helm release to look for and undeploy if present."
+    echo "  -i                      Ignore, and don't fail, when deployment isn't present."
     exit 1
 }
 
-while getopts "n:h" opt
+while getopts "n:hi" opt
 do
     case $opt in
         n)
@@ -47,6 +48,9 @@ do
             ;;
         e)
             HELM_RELEASE_NAME=$OPTARG
+            ;;
+        i)
+            IGNORE_NOT_FOUND=1
             ;;
         \?)
             echo "ERROR: unrecognized option: -$opt"
@@ -70,5 +74,9 @@ then
 	helm uninstall -n $NAMESPACE $HELM_RELEASE_NAME
 else
     echo "** No operator deployment detected"
+    if [ -n "$IGNORE_NOT_FOUND" ]
+    then
+        exit 0
+    fi
     exit 1
 fi

@@ -806,7 +806,8 @@ func (d *DBGenerator) setHadoopConfig(ctx context.Context) error {
 }
 
 // extractAzureCredential will grab the Azure credential to be used for communal access.
-// nolint:dupl
+//
+//nolint:dupl
 func (d *DBGenerator) extractAzureCredential(credsStr string) (cloud.AzureCredential, bool, error) {
 	// The azure credentials are stored in JSON format.  We should be able to
 	// take the string value stored in the database defaults and unmarhsal it
@@ -855,7 +856,8 @@ func (d *DBGenerator) getAzureCredential(creds []cloud.AzureCredential) (cloud.A
 
 // extractAzureEndpointConfig will parse out the endpoint config for the correct
 // accountName.  If nothing is found, the bool return is set to false.
-// nolint:dupl
+//
+//nolint:dupl
 func (d *DBGenerator) extractAzureEndpointConfig(configStr string) (cloud.AzureEndpointConfig, bool, error) {
 	// The azure endpoint config is stored in JSON format.  We will be able to
 	// take the string value stored in the database defaults and unmarhsal it

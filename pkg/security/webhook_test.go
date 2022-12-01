@@ -17,7 +17,6 @@ package security
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"sort"
 
@@ -73,7 +72,7 @@ var _ = Describe("webhook", func() {
 		createWebhookConfiguration(ctx)
 		defer deleteWebhookConfiguration(ctx)
 
-		dir, err := ioutil.TempDir("", "mock-cert")
+		dir, err := os.MkdirTemp("", "mock-cert")
 		Expect(err).Should(Succeed())
 		defer os.RemoveAll(dir)
 

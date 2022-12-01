@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 
-	. "github.com/onsi/gomega" // nolint:revive,stylecheck
+	. "github.com/onsi/gomega" //nolint:revive,stylecheck
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"

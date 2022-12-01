@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -332,7 +331,7 @@ func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Contex
 	if !p.isPodRunning {
 		return nil
 	}
-	tmp, err := ioutil.TempFile("", "create-config-dirs.sh.")
+	tmp, err := os.CreateTemp("", "create-config-dirs.sh.")
 	if err != nil {
 		return err
 	}
