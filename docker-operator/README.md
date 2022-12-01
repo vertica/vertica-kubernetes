@@ -4,17 +4,8 @@
 * Docker Community: [Docker Forums](https://forums.docker.com/), [Stack Overflow](https://stackoverflow.com/questions/tagged/docker)
 
 # Supported Tags
-* [1.9.0, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.9.0/docker-operator/Dockerfile)
-* [1.8.0](https://github.com/vertica/vertica-kubernetes/blob/v1.8.0/docker-operator/Dockerfile)
-* [1.7.0](https://github.com/vertica/vertica-kubernetes/blob/v1.7.0/docker-operator/Dockerfile)
-* [1.6.0](https://github.com/vertica/vertica-kubernetes/blob/v1.6.0/docker-operator/Dockerfile)
-* [1.5.0](https://github.com/vertica/vertica-kubernetes/blob/v1.5.0/docker-operator/Dockerfile)
-* [1.4.0](https://github.com/vertica/vertica-kubernetes/blob/v1.4.0/docker-operator/Dockerfile)
-* [1.3.1](https://github.com/vertica/vertica-kubernetes/blob/v1.3.1/docker-operator/Dockerfile)
-* [1.3.0](https://github.com/vertica/vertica-kubernetes/blob/v1.3.0/docker-operator/Dockerfile)
-* [1.2.0](https://github.com/vertica/vertica-kubernetes/blob/v1.2.0/docker-operator/Dockerfile)
-* [1.1.0](https://github.com/vertica/vertica-kubernetes/blob/v1.1.0/docker-operator/Dockerfile)
-* [1.0.0](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-operator/Dockerfile)
+
+The [Vertica Helm chart](https://github.com/vertica/vertica-kubernetes/tree/main/helm-charts/verticadb-operator) installs the VerticaDB operator with the most recently released patch version tag. For a comprehensive list, see [Tags](https://hub.docker.com/r/vertica/verticadb-operator/tags).
 
 # Quick Reference
 
@@ -44,8 +35,8 @@ This image is used to deploy the VerticaDB operator. The operator manages a Vert
 
 The VerticaDB operator image includes an [admission controller](https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/). The admission controller uses a webhook to verify changes to mutable states in a custom resource instance.
 
-For a brief overview on how to install and configure the operator and admission controller, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
+For in-depth details about how to install and configure the VerticaDB operator and admission controller, see the [Vertica documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/Operator.htm).
 
 # License
 
-View the [license information](https://www.vertica.com/end-user-license-agreement-ce-version/) for this image.
+View the [license information](https://www.microfocus.com/en-us/legal/software-licensing) for this image.

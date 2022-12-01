@@ -30,4 +30,4 @@ For an overview of the sidecar container, see [Containerized Vertica on Kubernet
 
 # License
 
-View the [license information](https://www.vertica.com/end-user-license-agreement-ce-version/) for this image.
+View the [license information](https://www.microfocus.com/en-us/legal/software-licensing) for this image.
