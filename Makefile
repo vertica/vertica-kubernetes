@@ -567,6 +567,9 @@ $(OPERATOR_SDK):
 
 ##@ Release
 
+change-operator-version: ## Change the operator version in source files. Override VERSION on command line to change the value in the Makefile.
+	scripts/change-operator-version.sh $(VERSION)
+
 CHANGIE = $(shell pwd)/bin/changie
 # Be sure to update DEVELOPER.md when switching to a new changie version
 CHANGIE_VERSION = 1.10.0
@@ -582,10 +585,8 @@ gen-changelog: changie ## Generate the changelog
 	$(CHANGIE) batch $(VERSION)
 	$(CHANGIE) merge
 
-tag: ## Create a release tag
-	@git tag -d $(VERSION) 2> /dev/null || true
-	git tag --sign --message "verticadb-operator $(VERSION)" $(VERSION)
-	git verify-tag --verbose $(VERSION)
-
-change-operator-version: ## Change the operator version in source files. Override VERSION on command line to change the value in the Makefile.
-	scripts/change-operator-version.sh $(VERSION)
+tag: ## Create a release tag and push it to GitHub
+	@git tag -d v$(VERSION) 2> /dev/null || true
+	git tag --sign --message "verticadb-operator $(VERSION)" v$(VERSION)
+	git verify-tag --verbose v$(VERSION)
+	git push origin v$(VERSION)
