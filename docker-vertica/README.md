@@ -4,25 +4,16 @@
 * Docker Community: [Docker Forums](https://forums.docker.com/), [Stack Overflow](https://stackoverflow.com/questions/tagged/docker)
 
 # Supported Tags
-* [12.0.2-0-minimal, latest](https://github.com/vertica/vertica-kubernetes/blob/v1.8.0/docker-vertica/Dockerfile)
-* [12.0.2-0](https://github.com/vertica/vertica-kubernetes/blob/v1.8.0/docker-vertica/Dockerfile)
-* [12.0.1-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.7.0/docker-vertica/Dockerfile)
-* [12.0.1-0](https://github.com/vertica/vertica-kubernetes/blob/v1.7.0/docker-vertica/Dockerfile)
-* [12.0.0-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.6.0/docker-vertica/Dockerfile)
-* [12.0.0-0](https://github.com/vertica/vertica-kubernetes/blob/v1.6.0/docker-vertica/Dockerfile)
-* [11.1.1-2-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.5.0/docker-vertica/Dockerfile)
-* [11.1.1-2](https://github.com/vertica/vertica-kubernetes/blob/v1.5.0/docker-vertica/Dockerfile)
-* [11.1.1-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.4.0/docker-vertica/Dockerfile)
-* [11.1.1-0](https://github.com/vertica/vertica-kubernetes/blob/v1.4.0/docker-vertica/Dockerfile)
-* [11.1.0-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.3.0/docker-vertica/Dockerfile)
-* [11.1.0-0](https://github.com/vertica/vertica-kubernetes/blob/v1.3.0/docker-vertica/Dockerfile)
-* [11.0.2-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.2.0/docker-vertica/Dockerfile)
-* [11.0.2-0](https://github.com/vertica/vertica-kubernetes/blob/v1.2.0/docker-vertica/Dockerfile)
-* [11.0.1-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.1.0/docker-vertica/Dockerfile)
-* [11.0.1-0](https://github.com/vertica/vertica-kubernetes/blob/v1.1.0/docker-vertica/Dockerfile)
-* [11.0.0-0-minimal](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-vertica/Dockerfile)
-* [11.0.0-0](https://github.com/vertica/vertica-kubernetes/blob/v1.0.0/docker-vertica/Dockerfile)
-* [10.1.1-0](https://github.com/vertica/vertica-kubernetes/blob/v0.1.0/docker-vertica/Dockerfile)
+
+Vertica tags each container with the Vertica version. Each version is provided in two formats: a full version and a minimal version. The minimal version has some libraries stripped out to reduce its size. For a detailed description of the differences between the formats, see the [documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Images.htm).
+
+Each tag follows this format: _`<major>.<minor>.<patch>-<hotfix>[-minimal]`_. For example:
+- `11.1.0-0` is the full image of 11.1, service pack 0, hotfix 0.
+- `12.0.1-0-minimal` is the minimal image of 12.0, service pack 1, hotfix 0.
+
+The `latest` tag always refers to the minimal image of the most recently released version.
+
+For a comprehensive list, see [Tags](https://hub.docker.com/r/vertica/vertica-k8s/tags).
 
 # Quick Reference
 
@@ -41,14 +32,14 @@ https://www.vertica.com/
 
 # How to Use This Image
 
-This image runs the Vertica server that is optimized for use with the [Vertica operator](https://github.com/vertica/vertica-kubernetes/tree/main/docker-operator). The operator automates management and administrative tasks for an [Eon Mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes. 
+This image runs the Vertica server that is optimized for use with the [Vertica operator](https://hub.docker.com/r/vertica/verticadb-operator). The operator automates management and administrative tasks for an [Eon Mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes. 
 
 Vertica provides two versions of this image, depending on whether you require the TensorFlow package:
 - If you do not require the TensorFlow package, Vertica recommends downloading the image with the *-minimal* supported tag suffix. Because it does not include the TensorFlow package, it has a reduced size. The *-minimal* image is the default image included in the [Vertica Helm chart](https://github.com/vertica/charts).
 - If you do require the TensorFlow package, download an image without the *-minimal* suffix. For details about TensorFlow and Vertica, see [Setting up TensorFlow Support in Vertica](https://www.vertica.com/docs/latest/HTML/Content/Authoring/AnalyzingData/MachineLearning/UsingExternalModels/UsingTensorFlow/TensorFlowExample.htm).
 
-For a brief overview on how to install and configure the operator, see the [Vertica GitHub repository](https://github.com/vertica/vertica-kubernetes). For an in-depth look at Vertica on Kubernetes, see the [Vertica documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm).
+For in-depth details about how to install and configure the VerticaDB operator, see the [Vertica documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/Operator.htm).
 
 # License
 
-View the [license information](https://www.vertica.com/end-user-license-agreement-ce-version/) for this image.
+View the [license information](https://www.microfocus.com/en-us/legal/software-licensing) for this image.
