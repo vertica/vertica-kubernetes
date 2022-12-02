@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# A script that will download the artifacts for a release build. The operator
-# version must alerady be tagged and the e2e run must be successful.
+# A script that will create a draft GitHub release for the given version of the
+# operator. It is expected that the release tag already exist.
 
 set -o errexit
 set -o pipefail
@@ -22,18 +22,16 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 ARTIFACTS_DIR=$REPO_DIR/ci-artifacts
-CLEAN_ARTIFACTS_DIR=
 
 source $SCRIPT_DIR/logging-utils.sh
 
 function usage() {
-    echo "usage: $0 [-vc] [-d <directory>] <operator-version>"
+    echo "usage: $0 [-v] [-d <directory>] <operator-version>"
     echo
     echo "Optional Arguments:"
-    echo " -c                   Clean the directory prior to downloading the artifacts."
-    echo " -d <directory>       The base directory to store the artifacts. The actual directory"
-    echo "                      will include the version number [default: $ARTIFACTS_DIR]"
     echo " -v                   Verbose output"
+    echo " -d <directory>       The base directory to find the artifacts. The actual directory"
+    echo "                      will include the version number [default: $ARTIFACTS_DIR]"
     echo
     echo "Positional Arguments:"
     echo " <operator-version>   The operator version we are downloading artifacts for"
@@ -45,8 +43,6 @@ do
     case $opt in
       h) usage;;
       v) set -o xtrace;;
-      d) ARTIFACTS_DIR=$OPTARG;;
-      c) CLEAN_ARTIFACTS_DIR=1;;
     esac
 done
 
@@ -62,24 +58,30 @@ logInfo "Verify git tag exists for version ($VERSION)"
 git tag --verify $VERSION
 VERSION_SHA=$(git rev-list -n 1 $VERSION)
 
-logInfo "Query GitHub to find CI run for release"
-tmpfile=$(mktemp /tmp/workflow-XXXXX.json)
-trap "rm $tmpfile" EXIT
-JQ_QUERY='[.[] | select (.event == "push") | select (.headSha == "'"$VERSION_SHA"'")][0]'
-gh run list --branch main --json conclusion,event,databaseId,status,headSha,url -q "$JQ_QUERY" | tee $tmpfile
-
-logInfo "Verify CI run is successful"
-jq -e '. | select(.conclusion == "success")' < $tmpfile
-
-logInfo "Preparing the artifacts directory"
-ARTIFACTS_DIR="${ARTIFACTS_DIR}/${VERSION}"
-mkdir -p $ARTIFACTS_DIR
-if [ -n "$CLEAN_ARTIFACTS_DIR" ] && [ -n "$(ls -A $ARTIFACTS_DIR)" ]
+logInfo "Verify artifacts exist"
+ARTIFACTS_DIR="${ARTIFACTS_DIR}/${VERSION}/release-artifacts"
+if [ -z "$(ls -A $ARTIFACTS_DIR)" ]
 then
-  logWarning "Removing the contents of the artifacts directory"
-  rm -r $ARTIFACTS_DIR/*
+  logError "No artifacts found in $ARTIFACTS_DIR"
+  exit 1
 fi
 
-DATABASE_ID=$(jq -r '.databaseId' < $tmpfile)
-logInfo "Downloading artifacts for run ID $DATABASE_ID into $ARTIFACTS_DIR"
-gh run download $DATABASE_ID --dir $ARTIFACTS_DIR
+logInfo "Verify versions' changelog exists"
+CHANGELOG_FILE=$REPO_DIR/changes/${VERSION}.md
+if [ ! -f "$CHANGELOG_FILE" ]
+then
+  logError "Could not find CHANGELOG file for version: $CHANGELOG_FILE"
+  exit 1
+fi
+TMP_CHANGELOG_FILE=$(mktemp /tmp/workflow-XXXXX.json)
+trap "rm $TMP_CHANGELOG_FILE" EXIT
+# Manipulate the changelog file so that it is suitable for the release notes.
+tail -n +2 $CHANGELOG_FILE | sed 's/^###/##/' > $TMP_CHANGELOG_FILE
+
+logInfo "Creating the draft release"
+gh release create \
+    --draft \
+    --notes-file $TMP_CHANGELOG_FILE \
+    --target $VERSION_SHA \
+    --title "Vertica Kubernetes $VERSION"
+    $ARTIFACTS_DIR/*
