@@ -55,10 +55,13 @@ logInfo "Moving to new version: $VERSION"
 
 logInfo "Changing Makefile"
 perl -i -0777 -pe "s/^(VERSION \?= ).*/\${1}$VERSION/gm" $REPO_DIR/Makefile
+
 logInfo "Changing version in the operator controller"
 perl -i -0777 -pe "s/(CurOperatorVersion = \")[0-9\.]+(\")/\${1}$VERSION\${2}/g" $REPO_DIR/pkg/builder/labels_annotations.go
 cd $REPO_DIR
 make fmt
+
 logInfo "Changing version in the helm chart"
 perl -i -0777 -pe "s/(name: .*verticadb-operator:)[0-9\.]+/\${1}$VERSION/g" $REPO_DIR/helm-charts/verticadb-operator/values.yaml
 perl -i -0777 -pe "s/^(version: )[0-9\.]+/\${1}$VERSION/gm" $REPO_DIR/helm-charts/verticadb-operator/Chart.yaml
+perl -i -0777 -pe "s/(verticadb-operator:)[0-9\.]+/\${1}$VERSION/g" $REPO_DIR/helm-charts/verticadb-operator/README.md
