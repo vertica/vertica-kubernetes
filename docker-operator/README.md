@@ -5,7 +5,7 @@
 
 # Supported Tags
 
-The [Vertica Helm chart](https://github.com/vertica/vertica-kubernetes/tree/main/helm-charts/verticadb-operator) installs the VerticaDB operator with the most recently released patch version tag. For a comprehensive list, see [Tags](https://hub.docker.com/r/vertica/verticadb-operator/tags).
+The [Vertica Helm chart](https://github.com/vertica/vertica-kubernetes/tree/main/helm-charts/verticadb-operator) installs the VerticaDB operator with a tag for the most recently released version. For a comprehensive list, see [Tags](https://hub.docker.com/r/vertica/verticadb-operator/tags).
 
 # Quick Reference
 

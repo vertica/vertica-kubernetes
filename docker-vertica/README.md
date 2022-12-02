@@ -5,7 +5,13 @@
 
 # Supported Tags
 
-The [VerticaDB operator](https://hub.docker.com/r/vertica/verticadb-operator) installs the `vertica-k8s` image with the most recently released patch version and _-minimal_ tag.
+Vertica tags each container with the Vertica version. Each version is provided in two formats: a full version and a minimal version. The minimal version has some libraries stripped out to reduce its size. For a detailed description of the differences between the formats, see the [documentation](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Images.htm).
+
+Each tag follows this format: _`<major>.<minor>.<patch>-<hotfix>[-minimal]`_. For example:
+- `11.1.0-0` is the full image of 11.1, service pack 0, hotfix 0.
+- `12.0.1-0-minimal` is the minimal image of 12.0, service pack 1, hotfix 0.
+
+The `latest` tag always refers to the minimal image of the most recently released version.
 
 For a comprehensive list, see [Tags](https://hub.docker.com/r/vertica/vertica-k8s/tags).
 
