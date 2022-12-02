@@ -17,9 +17,8 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 INT_TEST_OUTPUT_DIR=${REPO_DIR}/int-tests-output
 NS=$(kubectl config view --minify --output 'jsonpath={..namespace}' 2> /dev/null)
-CYAN='\033[0;36m'
-RED='\033[1;31m'
-NC='\033[0m'  # No color
+
+source $SCRIPT_DIR/logging-utils.sh
 
 set -o errexit
 set -o pipefail

@@ -564,3 +564,29 @@ operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
 	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.18.0/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
+
+##@ Release
+
+change-operator-version: ## Change the operator version in source files. Override VERSION on command line to change the value in the Makefile.
+	scripts/change-operator-version.sh $(VERSION)
+
+CHANGIE = $(shell pwd)/bin/changie
+# Be sure to update DEVELOPER.md when switching to a new changie version
+CHANGIE_VERSION = 1.10.0
+changie: $(CHANGIE) ## Download changie locally if necessary
+$(CHANGIE): ## Download changie locally if necessary
+	curl --silent --show-error --location --fail https://github.com/miniscruff/changie/releases/download/v$(CHANGIE_VERSION)/changie_$(CHANGIE_VERSION)_linux_amd64.tar.gz | tar xvfz - changie 
+	mv changie $(CHANGIE)
+	chmod +x $(CHANGIE)
+
+.PHONY: gen-changelog
+gen-changelog: changie ## Generate the changelog
+	@cd $(REPO_DIR)
+	$(CHANGIE) batch $(VERSION)
+	$(CHANGIE) merge
+
+tag: ## Create a release tag and push it to GitHub
+	@git tag -d v$(VERSION) 2> /dev/null || true
+	git tag --sign --message "verticadb-operator $(VERSION)" v$(VERSION)
+	git verify-tag --verbose v$(VERSION)
+	git push origin v$(VERSION)
