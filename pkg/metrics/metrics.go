@@ -186,26 +186,20 @@ func HandleSubclusterDelete(vdb *vapi.VerticaDB, scName string, log logr.Logger)
 // VerticaDB name in its metrics.
 func HandleVDBDelete(namespaceName, vdbName string, log logr.Logger) {
 	log.Info("Removing metrics with vdb label", "vdb", vdbName)
+	// Fill out the labels that we do know. We use DeletePartialMatch to delete
+	// metrics that have label values that we don't know (e.g. subcluster name).
 	labels := prometheus.Labels{NamespaceLabel: namespaceName, VerticaDBLabel: vdbName}
-	UpgradeCount.Delete(labels)
-	ClusterRestartAttempt.Delete(labels)
-	ClusterRestartFailure.Delete(labels)
-	ClusterRestartDuration.Delete(labels)
-	NodesRestartAttempt.Delete(labels)
-	NodesRestartFailed.Delete(labels)
-	NodesRestartDuration.Delete(labels)
-	SubclusterCount.Delete(labels)
-	// For the pod/node metrics, we don't actually know the subcluster values
-	// we used for the labels.  The current version of the client only allows
-	// deletion if you know all of the labels.  However, a way to delete metrics
-	// based on a partial match was added in
-	// https://github.com/prometheus/client_golang/pull/1013.  Once we have updated
-	// the Go pometheus client to include the above PR, we can use the new
-	// DeletePartialMatch API.
-	// For now, we will orphan the subcluster metrics when a VerticaDB is deleted.
-	// TotalNodeCountMetric.DeletePartialMatch(labels)
-	// RunningNodeCountMetric.DeletePartialMatch(labels)
-	// ReadyNodeCountMetric.DeletePartialMatch(labels)
+	UpgradeCount.DeletePartialMatch(labels)
+	ClusterRestartAttempt.DeletePartialMatch(labels)
+	ClusterRestartFailure.DeletePartialMatch(labels)
+	ClusterRestartDuration.DeletePartialMatch(labels)
+	NodesRestartAttempt.DeletePartialMatch(labels)
+	NodesRestartFailed.DeletePartialMatch(labels)
+	NodesRestartDuration.DeletePartialMatch(labels)
+	SubclusterCount.DeletePartialMatch(labels)
+	TotalNodeCount.DeletePartialMatch(labels)
+	RunningNodeCount.DeletePartialMatch(labels)
+	UpNodeCount.DeletePartialMatch(labels)
 }
 
 // HandleVDBInit will initialized metrics that use verticadb as a

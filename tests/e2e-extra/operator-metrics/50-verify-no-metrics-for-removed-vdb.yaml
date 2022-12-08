@@ -30,12 +30,7 @@ data:
     curl --silent http://$SVC_NAME:8443/metrics
     OLD_METRICS=$(curl --silent http://$SVC_NAME:8443/metrics | grep --count 'v-operator-metrics') || :
     echo $OLD_METRICS
-    # There are 3 subcluster metrics that we don't cleanup yet because we don't
-    # know the subcluster names when we do the cleanup.  There is a PR
-    # (https://github.com/prometheus/client_golang/pull/1013) that will allow
-    # this cleanup.  When we do have that fix, we can check for 0 here.  In the
-    # meantime, we allow 3.
-    if [ "$OLD_METRICS" -eq "3" ]
+    if [ "$OLD_METRICS" -eq "0" ]
     then
       exit 0
     fi
