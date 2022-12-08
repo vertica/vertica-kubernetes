@@ -38,6 +38,7 @@ const (
 	NamespaceLabel  = "namespace"
 	VerticaDBLabel  = "verticadb"
 	SubclusterLabel = "subcluster"
+	DBNameLabel     = "db_name"
 )
 
 var (
@@ -50,7 +51,7 @@ var (
 			Name:      "total",
 			Help:      "The number of times the operator performed an upgrade caused by an image change",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	ClusterRestartAttempt = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -59,7 +60,7 @@ var (
 			Name:      "attempted_total",
 			Help:      "The number of times we attempted a full cluster restart",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	ClusterRestartFailure = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -68,7 +69,7 @@ var (
 			Name:      "failed_total",
 			Help:      "The number of times we failed when attempting a full cluster restart",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	ClusterRestartDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -78,7 +79,7 @@ var (
 			Help:      "The number of seconds it took to do a full cluster restart",
 			Buckets:   AdminToolsBucket,
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	NodesRestartAttempt = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -87,7 +88,7 @@ var (
 			Name:      "attempted_total",
 			Help:      "The number of times we attempted to restart down nodes",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	NodesRestartFailed = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -96,7 +97,7 @@ var (
 			Name:      "failed_total",
 			Help:      "The number of times we failed when trying to restart down nodes",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	NodesRestartDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -106,7 +107,7 @@ var (
 			Help:      "The number of seconds it took to restart down nodes",
 			Buckets:   AdminToolsBucket,
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	SubclusterCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -115,7 +116,7 @@ var (
 			Name:      "count",
 			Help:      "The number of subclusters that exist",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel},
 	)
 	TotalNodeCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -123,7 +124,7 @@ var (
 			Name:      "total_nodes_count",
 			Help:      "The number of nodes that currently exist",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel, SubclusterLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel, SubclusterLabel},
 	)
 	RunningNodeCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -131,7 +132,7 @@ var (
 			Name:      "running_nodes_count",
 			Help:      "The number of nodes that have a running pod associated with it",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel, SubclusterLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel, SubclusterLabel},
 	)
 	UpNodeCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -139,7 +140,7 @@ var (
 			Name:      "up_nodes_count",
 			Help:      "The number of nodes that have vertica running and can accept connections",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel, SubclusterLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, DBNameLabel, SubclusterLabel},
 	)
 	// Add new metrics above this comment.
 	//
@@ -175,7 +176,12 @@ func init() {
 // deletion.  It will clear out any metrics that are subcluster specific.
 func HandleSubclusterDelete(vdb *vapi.VerticaDB, scName string, log logr.Logger) {
 	log.Info("Removing metrics with subcluster label", "subcluster", scName)
-	labels := prometheus.Labels{NamespaceLabel: vdb.Namespace, VerticaDBLabel: vdb.Name, SubclusterLabel: scName}
+	labels := prometheus.Labels{
+		NamespaceLabel:  vdb.Namespace,
+		VerticaDBLabel:  vdb.Name,
+		DBNameLabel:     vdb.Spec.DBName,
+		SubclusterLabel: scName,
+	}
 	TotalNodeCount.Delete(labels)
 	RunningNodeCount.Delete(labels)
 	UpNodeCount.Delete(labels)
@@ -210,18 +216,22 @@ func HandleVDBInit(vdb *vapi.VerticaDB) {
 	// Intentionally leaving out the pod/node metrics because we don't know
 	// the subcluster names.  Only include metrics that aren't set in the
 	// PrometheusReconciler.
-	UpgradeCount.WithLabelValues(vdb.Namespace, vdb.Name)
-	ClusterRestartAttempt.WithLabelValues(vdb.Namespace, vdb.Name)
-	ClusterRestartFailure.WithLabelValues(vdb.Namespace, vdb.Name)
-	ClusterRestartDuration.WithLabelValues(vdb.Namespace, vdb.Name)
-	NodesRestartAttempt.WithLabelValues(vdb.Namespace, vdb.Name)
-	NodesRestartFailed.WithLabelValues(vdb.Namespace, vdb.Name)
-	NodesRestartDuration.WithLabelValues(vdb.Namespace, vdb.Name)
+	UpgradeCount.WithLabelValues(vdb.Namespace, vdb.Name, vdb.Spec.DBName)
+	ClusterRestartAttempt.WithLabelValues(vdb.Namespace, vdb.Name, vdb.Spec.DBName)
+	ClusterRestartFailure.WithLabelValues(vdb.Namespace, vdb.Name, vdb.Spec.DBName)
+	ClusterRestartDuration.WithLabelValues(vdb.Namespace, vdb.Name, vdb.Spec.DBName)
+	NodesRestartAttempt.WithLabelValues(vdb.Namespace, vdb.Name, vdb.Spec.DBName)
+	NodesRestartFailed.WithLabelValues(vdb.Namespace, vdb.Name, vdb.Spec.DBName)
+	NodesRestartDuration.WithLabelValues(vdb.Namespace, vdb.Name, vdb.Spec.DBName)
 }
 
 // MakeVDBLabels return a prometheus.Labels that includes the VerticaDB name
 func MakeVDBLabels(vdb *vapi.VerticaDB) prometheus.Labels {
-	return prometheus.Labels{NamespaceLabel: vdb.Namespace, VerticaDBLabel: vdb.Name}
+	return prometheus.Labels{
+		NamespaceLabel: vdb.Namespace,
+		VerticaDBLabel: vdb.Name,
+		DBNameLabel:    vdb.Spec.DBName,
+	}
 }
 
 // MakeSubclusterLabels returns a prometheus.Labels that includes the VerticaDB
@@ -230,6 +240,7 @@ func MakeSubclusterLabels(vdb *vapi.VerticaDB, scName string) prometheus.Labels 
 	return prometheus.Labels{
 		NamespaceLabel:  vdb.Namespace,
 		VerticaDBLabel:  vdb.Name,
+		DBNameLabel:     vdb.Spec.DBName,
 		SubclusterLabel: scName,
 	}
 }

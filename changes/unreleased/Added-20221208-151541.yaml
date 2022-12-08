@@ -1,0 +1,5 @@
+kind: Added
+body: Include a label for the database name in the operator's Prometheus metrics
+time: 2022-12-08T15:15:41.574904895-04:00
+custom:
+  Issue: "300"
