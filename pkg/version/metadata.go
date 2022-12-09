@@ -21,24 +21,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
-// MergeAnnotations will merge new annotations with vdb.  It will return true if
-// any annotation changed.  Caller is responsible for updating the Vdb in the
-// API server.
-func MergeAnnotations(vdb *vapi.VerticaDB, newAnnotations map[string]string) bool {
-	changedAnnotations := false
-	for k, newValue := range newAnnotations {
-		oldValue, ok := vdb.ObjectMeta.Annotations[k]
-		if !ok || oldValue != newValue {
-			if vdb.ObjectMeta.Annotations == nil {
-				vdb.ObjectMeta.Annotations = map[string]string{}
-			}
-			vdb.ObjectMeta.Annotations[k] = newValue
-			changedAnnotations = true
-		}
-	}
-	return changedAnnotations
-}
-
 // ParseVersionOutput will parse the raw output from the --version call and
 // build an annotation map.
 //

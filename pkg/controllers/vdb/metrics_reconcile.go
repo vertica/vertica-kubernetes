@@ -17,18 +17,23 @@ package vdb
 
 import (
 	"context"
+	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // MetricReconciler will refresh any metrics based on latest podfacts
 type MetricReconciler struct {
-	VRec   *VerticaDBReconciler
-	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts *PodFacts
+	VRec    *VerticaDBReconciler
+	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts  *PodFacts
+	PRunner cmds.PodRunner
 }
 
 // subclusterGaugeDetail will collect information for each gauge.  This is
@@ -40,14 +45,28 @@ type subclusterGaugeDetail struct {
 }
 
 // MakeMetricReconciler will build a MetricReconciler object
-func MakeMetricReconciler(vrec *VerticaDBReconciler, vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
-	return &MetricReconciler{VRec: vrec, Vdb: vdb, PFacts: pfacts}
+func MakeMetricReconciler(vrec *VerticaDBReconciler, vdb *vapi.VerticaDB,
+	prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	return &MetricReconciler{VRec: vrec, Vdb: vdb, PFacts: pfacts, PRunner: prunner}
 }
 
 // Reconcile will update the metrics based on the pod facts
 func (p *MetricReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	if err := p.PFacts.Collect(ctx, p.Vdb); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// Reconcile of the metrics depends on knowing the revive_instance_id as
+	// this is used as one of the labels. Capture that if its missing. We will
+	// not continue if we can't get it.
+	if !p.Vdb.HasReviveInstanceIDAnnotation() {
+		if err := p.setReviveInstanceIDAnnotation(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
+		if !p.Vdb.HasReviveInstanceIDAnnotation() {
+			p.VRec.Log.Info("Skipping metrics reconcile until we know the revive_instance_id")
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// Initialized any metrics that use the vdb as label.  This sets all of the
@@ -90,4 +109,34 @@ func (p *MetricReconciler) captureRawMetrics() map[string]*subclusterGaugeDetail
 		}
 	}
 	return scGaugeSummary
+}
+
+// setReviveInstanceIDAnnotation will attempt to set the revive_instance_id
+// annotation in the vdb. This may fail for valid cases (e.g. vertica isn't up),
+// so its up to the caller to check that the annotaiton was set and act
+// accordingly.
+func (p *MetricReconciler) setReviveInstanceIDAnnotation(ctx context.Context) error {
+	pf, ok := p.PFacts.findPodToRunVsql(true, "")
+	if !ok {
+		return nil
+	}
+
+	cmd := []string{"-tAc", "select revive_instance_id from vs_databases"}
+	op, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return err
+	}
+	ann := map[string]string{vapi.ReviveInstanceIDAnnotation: strings.TrimSpace(op)}
+
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Always fetch to get latest Vdb incase this is a retry
+		err := p.VRec.Client.Get(ctx, p.Vdb.ExtractNamespacedName(), p.Vdb)
+		if err != nil {
+			return err
+		}
+		if p.Vdb.MergeAnnotations(ann) {
+			return p.VRec.Client.Update(ctx, p.Vdb)
+		}
+		return nil
+	})
 }

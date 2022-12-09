@@ -926,6 +926,8 @@ const (
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
 	BuildRefAnnotation  = "vertica.com/buildRef"
+	// Annotation for the database's revive_instance_id
+	ReviveInstanceIDAnnotation = "vertica.com/revive-instance-id"
 
 	DefaultS3Region       = "us-east-1"
 	DefaultGCloudRegion   = "US-EAST1"
@@ -1017,6 +1019,31 @@ func IsValidSubclusterName(scName string) bool {
 func (v *VerticaDB) GetVerticaVersion() (string, bool) {
 	ver, ok := v.ObjectMeta.Annotations[VersionAnnotation]
 	return ver, ok
+}
+
+// HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
+// revive_instance_id.
+func (v *VerticaDB) HasReviveInstanceIDAnnotation() bool {
+	_, ok := v.ObjectMeta.Annotations[ReviveInstanceIDAnnotation]
+	return ok
+}
+
+// MergeAnnotations will merge new annotations with vdb.  It will return true if
+// any annotation changed.  Caller is responsible for updating the Vdb in the
+// API server.
+func (v *VerticaDB) MergeAnnotations(newAnnotations map[string]string) bool {
+	changedAnnotations := false
+	for k, newValue := range newAnnotations {
+		oldValue, ok := v.ObjectMeta.Annotations[k]
+		if !ok || oldValue != newValue {
+			if v.ObjectMeta.Annotations == nil {
+				v.ObjectMeta.Annotations = map[string]string{}
+			}
+			v.ObjectMeta.Annotations[k] = newValue
+			changedAnnotations = true
+		}
+	}
+	return changedAnnotations
 }
 
 // GenInstallerIndicatorFileName returns the name of the installer indicator file.

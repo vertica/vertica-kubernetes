@@ -146,7 +146,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	return []controllers.ReconcileActor{
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		MakeMetricReconciler(r, vdb, pfacts),
+		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperator120Reconciler(r, log, vdb),
@@ -170,7 +170,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStopDBReconciler(r, vdb, prunner, pfacts),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true),
-		MakeMetricReconciler(r, vdb, pfacts),
+		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, PodRescheduleApplyMethod, ""),
@@ -184,7 +184,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handles calls to admintools -t db_remove_node
 		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts),
-		MakeMetricReconciler(r, vdb, pfacts),
+		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to remove hosts from admintools.conf
 		MakeUninstallReconciler(r, log, vdb, prunner, pfacts),
@@ -201,7 +201,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts),
 		// Handle calls to admintools -t revive_db
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts),
-		MakeMetricReconciler(r, vdb, pfacts),
+		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -209,7 +209,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to admintools -t db_add_subcluster
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts),
-		MakeMetricReconciler(r, vdb, pfacts),
+		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to admintools -t db_add_node
 		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts),
