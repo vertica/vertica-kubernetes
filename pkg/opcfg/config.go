@@ -59,7 +59,8 @@ type Logging struct {
 
 // SetFlagArgs define flags with specified names and default values
 func (o *OperatorConfig) SetFlagArgs() {
-	flag.StringVar(&o.MetricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&o.MetricsAddr, "metrics-bind-address", "0",
+		"The address the metric endpoint binds to. Setting this to 0 will disable metric serving.")
 	flag.StringVar(&o.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&o.EnableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+

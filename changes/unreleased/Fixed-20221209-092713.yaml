@@ -1,0 +1,5 @@
+kind: Fixed
+body: Don't start the metric endpoint if metrics are disabled
+time: 2022-12-09T09:27:13.333127284-04:00
+custom:
+  Issue: "301"
