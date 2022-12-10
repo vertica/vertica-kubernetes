@@ -55,7 +55,7 @@ fi
 VERSION=${@:$OPTIND:1}
 
 logInfo "Verify git tag exists for version ($VERSION)"
-git tag --verify $VERSION
+git tag --list v$VERSION
 VERSION_SHA=$(git rev-list -n 1 $VERSION)
 
 logInfo "Verify artifacts exist"

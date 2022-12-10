@@ -1,0 +1,21 @@
+name: Set environment variables for release workflow
+description: Will set VERSION and VERSION_SHA environment variables for the operator to release
+inputs:
+  path:
+    description: Path relative to $GITHUB_WORKSPACE where vertica-kubernetes was cloned
+    default: ''
+runs:
+  using: "composite"
+  steps:
+    - name: Save current version to env VERSION
+      shell: bash
+      run: |
+        cd $GITHUB_WORKSPACE/${{ inputs.path }}
+        echo $(make echo-versions | grep -e '^VERSION=' ) >> $GITHUB_ENV
+
+    - name: Save current sha to env VERSION_SHA
+      shell: bash
+      run: |
+        cd $GITHUB_WORKSPACE/${{ inputs.path }}
+        git tag --list
+        echo "VERSION_SHA=$(git rev-list -n 1 $VERSION)" >> $GITHUB_ENV

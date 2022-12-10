@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # A script that will download the artifacts for a release build. The operator
-# version must alerady be tagged and the e2e run must be successful.
+# version must already be tagged and the e2e run must be successful.
 
 set -o errexit
 set -o pipefail
@@ -59,8 +59,9 @@ fi
 VERSION=${@:$OPTIND:1}
 
 logInfo "Verify git tag exists for version ($VERSION)"
-git tag --verify $VERSION
-VERSION_SHA=$(git rev-list -n 1 $VERSION)
+cd $REPO_DIR
+git tag --list v$VERSION
+VERSION_SHA=$(git rev-list -n 1 v$VERSION)
 
 logInfo "Query GitHub to find CI run for release"
 tmpfile=$(mktemp /tmp/workflow-XXXXX.json)
@@ -82,4 +83,4 @@ fi
 
 DATABASE_ID=$(jq -r '.databaseId' < $tmpfile)
 logInfo "Downloading artifacts for run ID $DATABASE_ID into $ARTIFACTS_DIR"
-gh run download $DATABASE_ID --dir $ARTIFACTS_DIR
+gh run download $DATABASE_ID --dir $ARTIFACTS_DIR --name release-artifacts --name olm-bundle
