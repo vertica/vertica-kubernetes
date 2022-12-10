@@ -150,7 +150,7 @@ func (v *VersionReconciler) updateVDBVersion(ctx context.Context, newVersion str
 		if err != nil {
 			return err
 		}
-		if version.MergeAnnotations(v.Vdb, versionAnnotations) {
+		if v.Vdb.MergeAnnotations(versionAnnotations) {
 			err = v.VRec.Client.Update(ctx, v.Vdb)
 			if err != nil {
 				return err

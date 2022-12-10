@@ -44,7 +44,7 @@ vertica(v11.0.0-20210601) built by @re-docker2 from master@da8f0e93f1ee720d8e4f8
 		op := `Vertica Analytic Database v11.0.0
 vertica(v11.0.0) built by @re-docker2 from master@abcd on 'Tue Jun 10' $BuildId$
 `
-		chg := MergeAnnotations(vdb, ParseVersionOutput(op))
+		chg := vdb.MergeAnnotations(ParseVersionOutput(op))
 		Expect(chg).Should(BeFalse())
 	})
 
@@ -59,13 +59,13 @@ vertica(v11.0.0) built by @re-docker2 from master@abcd on 'Tue Jun 10' $BuildId$
 		op := `Vertica Analytic Database v11.0.0-1
 vertica(v11.0.0-1) built by @re-docker2 from master@abcd on 'Tue Jun 10' $BuildId$
 `
-		chg := MergeAnnotations(vdb, ParseVersionOutput(op))
+		chg := vdb.MergeAnnotations(ParseVersionOutput(op))
 		Expect(chg).Should(BeTrue())
 
 		vdb.ObjectMeta.Annotations = map[string]string{
 			vapi.BuildDateAnnotation: "Tue Jun 10",
 		}
-		chg = MergeAnnotations(vdb, ParseVersionOutput(op))
+		chg = vdb.MergeAnnotations(ParseVersionOutput(op))
 		Expect(chg).Should(BeTrue())
 	})
 
