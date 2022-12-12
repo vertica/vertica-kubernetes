@@ -1,0 +1,47 @@
+name: Upload the OPM bundle to a GitHub repo
+description: The OPM bundle will be uploaded to a given GitHub repo
+inputs:
+  token:
+    description: GitHub token. Must have write access to the forked repo.
+    required: true
+  version:
+    description: The VerticaDB operator version we are releasing
+    required: true
+  upstreamRepo:
+    description: The repo that publishes various operators. Must be in the format of {owner}/{repo}.
+    required: true
+  forkRepo:
+    description: A forked repo of ustreamRepo. This is the repo we will upload the OPM bundle too. Must be in the format of {owner}/{repo}.
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ inputs.forkRepo }}
+        fetch-depth: 0
+        token: ${{ inputs.token }}
+        path: operators-repo
+
+    - name: Setup repo
+      shell: bash
+      run: |
+        cd operators-repo
+        git remote add upstream https://github.com/${{ inputs.upstreamRepo }}
+        git remote -v
+        git pull upstream main
+        git push origin main
+
+    - name: Download the olm bundle
+      uses: actions/download-artifact@v3
+      with:
+        name: olm-bundle
+        path: operators-repo/operators/verticadb-operator/${{ inputs.version }}
+
+    - name: Commit the bundle
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: operator verticadb-operator (${{ inputs.version }})
+        branch: verticadb-operator-${{ inputs.version }}
+        create_branch: true
+        repository: operators-repo
