@@ -33,6 +33,45 @@ env:
 
 jobs:
 
+  release-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      version-sha: ${{ steps.version-sha.outputs.VERSION_SHA }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Get the operator version
+      id: version
+      shell: bash
+      run: |
+        echo $(make echo-versions | grep -e '^VERSION=' ) >> $GITHUB_OUTPUT
+        echo $(make echo-versions | grep -e '^VERSION=' ) >> $GITHUB_ENV
+
+    - name: Get the commit reference of the operator version
+      id: version-sha
+      shell: bash
+      run: |
+        cd $GITHUB_WORKSPACE/${{ inputs.path }}
+        git tag --list
+        echo "VERSION_SHA=$(git rev-list -n 1 $VERSION)" >> $GITHUB_OUTPUT
+
+    - name: Download the release artifacts
+      run: |
+        scripts/download-release-artifacts.sh -d ci-artifacts $VERSION
+        find ci-artifacts
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+    - name: Upload bundle to use later in the workflow
+      uses: actions/upload-artifact@v3
+      with:
+        name: olm-bundle
+        path: ci-artifacts/*/olm-bundle/
+
+
   upload-operator-image:
     if: ${{ inputs.action == 'upload operator image' }}
     runs-on: ubuntu-latest
@@ -102,43 +141,34 @@ jobs:
   open-pr-operatorhub:
     if: ${{ inputs.action == 'PR for operatorhub OLM catalog' }}
     runs-on: ubuntu-latest
+    needs: release-setup
     steps:
     - uses: actions/checkout@v3
       with:
-        path: vertica-kubernetes
-        fetch-depth: 0
-
-    - name: Set release env vars
-      uses: ./vertica-kubernetes/.github/actions/set-release-env
-      with:
-        path: vertica-kubernetes
-
-    - name: Download the release artifacts
-      run: |
-        $GITHUB_WORKSPACE/vertica-kubernetes/scripts/download-release-artifacts.sh -d $GITHUB_WORKSPACE/ci-artifacts $VERSION
-      env:
-        GH_TOKEN: ${{ github.token }}
-
-    - uses: actions/checkout@v3
-      with:
-        path: olm
         repository: spilchen/community-operators
         fetch-depth: 0
         token: ${{ secrets.PAT_TOKEN }}
 
-    - name: Copy olm bundle to github repo
+    - name: Setup repo
       run: |
-        cd $GITHUB_WORKSPACE/olm
         git remote add upstream https://github.com/k8s-operatorhub/community-operators
         git remote -v
         git pull upstream main
-        git checkout -b verticadb-operator-$VERSION
-        cd operators/verticadb-operator
-        mkdir $VERSION
-        cp -r $GITHUB_WORKSPACE/ci-artifacts/$VERSION/olm-bundle/* $VERSION/
-        git add $VERSION/
-        git commit -m "operator verticadb-operator ($VERSION)"
-        git push origin verticadb-operator-$VERSION
+        git push origin main
+        mkdir -p operators/verticadb-operator/${{ needs.release-setup.outputs.version }}
+
+    - name: Download the olm bundle
+      uses: actions/download-artifact@v3
+      with:
+        name: olm-bundle
+        path: operator/verticadb-operator/${{ needs.release-setup.outputs.version }}
+
+    - name: Commit the bundle
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: operator verticadb-operator (${{ needs.release-setup.outputs.version }})
+        branch: verticadb-operator-${{ needs.release-setup.outputs.version }}
+        create_branch: true
 
   open-pr-openshift:
     if: ${{ inputs.action == 'PR for openshift OLM catalog' }}
