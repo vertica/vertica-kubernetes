@@ -2,21 +2,83 @@ name: Pre-Release Actions
 
 on: 
   workflow_dispatch:
+    inputs:
+      action:
+        description: 'What action to perform'
+        required: true
+        type: choice
+        options:
+        - change operator version
+        - generate CHANGELOG
+      new-operator-version:
+        description: 'When changing the version of the operator, this is the new version to move to (e.g. 1.8.0).'
+        type: string
+        required: false
+  workflow_call:
+    inputs:
+      action:
+        description: 'What action to perform'
+        required: true
+        type: string
+      new-operator-version:
+        description: 'When changing the version of the operator, this is the new version to move to (e.g. 1.8.0).'
+        type: string
+        required: false
+
+run-name: "Pre-Release Action: ${{ inputs.action }}"
+
+env:
+  PR_OWNER: spilchen
 
 jobs:
 
-  version-bump:
+  version-change:
     runs-on: ubuntu-latest
+    if: ${{ inputs.action == 'change operator version' && inputs.new-operator-version != '' }}
     steps:
     - uses: actions/checkout@v3
+
+    - name: Change version in the source files
+      run: |
+        VERSION=${{ inputs.new-operator-version }} make change-operator-version
+
+    - name: Create Pull Request
+      id: cpr
+      uses: peter-evans/create-pull-request@v4
+      with:
+        commit-message: Change operator version to ${{ inputs.new-operator-version }}
+        title: Change operator version to ${{ inputs.new-operator-version }}
+        body: 'Automated changes by pre-release.yml GitHub action'
+        signoff: true
+        branch: change-operator-version-${{ inputs.new-operator-version }}
+        delete-branch: true
+        assignees: ${{ env.PR_OWNER }}
+        reviewers: ${{ env.PR_OWNER }}
+
+    - name: Print out details of the PR opened
+      run: |
+        echo "Version Change Pull Request URL: ${{ steps.cpr.outputs.pull-request-url }}" >> $GITHUB_STEP_SUMMARY
 
   changelog:
     runs-on: ubuntu-latest
+    if: ${{ inputs.action == 'generate CHANGELOG' }}
     steps:
     - uses: actions/checkout@v3
 
-  tag:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+    - name: Save current version to env
+      run: |
+        echo $(make echo-versions | grep -e '^VERSION=' ) >> $GITHUB_ENV
 
+    - name: Generate changelog
+      run: |
+        make gen-changelog
+
+    - uses: stefanzweifel/git-auto-commit-action@v4
+      id: commit
+      with:
+        commit_message: Update CHANGELOG for version ${{ env.VERSION }}
+        commit_options: '--signoff'
+
+    - name: Print out details of the CHANGELOG commit
+      run: |
+        echo "Commit hash of CHANGELOG generation: **${{ steps.commit.outputs.commit_hash }}**" >> $GITHUB_STEP_SUMMARY

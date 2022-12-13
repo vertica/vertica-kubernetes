@@ -3,7 +3,7 @@ test_output.*
 cert/
 logs.log
 int-tests-output/
-release-artifacts/
+ci-artifacts/
 .vscode/
 unit-tests.xml
 kuttl-test.xml

@@ -1,0 +1,56 @@
+name: Upload the OPM bundle to a GitHub repo
+description: The OPM bundle will be uploaded to a given GitHub repo
+inputs:
+  token:
+    description: GitHub token. Must have write access to the forked repo.
+    required: true
+  version:
+    description: The VerticaDB operator version we are releasing
+    required: true
+  upstreamRepo:
+    description: The repo that publishes various operators. Must be in the format of {owner}/{repo}.
+    required: true
+  forkRepo:
+    description: A forked repo of ustreamRepo. This is the repo we will upload the OPM bundle too. Must be in the format of {owner}/{repo}.
+    required: true
+  localRepoPath:
+    description: The local path to checkout the forked repository
+    required: true
+  bundlePath:
+    description: The local path that has the OLM bundle to upload. This is a path relative to $GITHUB_WORKSPACE.
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ inputs.forkRepo }}
+        fetch-depth: 0
+        token: ${{ inputs.token }}
+        path: ${{ inputs.localRepoPath }}
+
+    - name: Setup repo
+      shell: bash
+      run: |
+        cd ${GITHUB_WORKSPACE}/${{ inputs.localRepoPath }}
+        git remote add upstream https://github.com/${{ inputs.upstreamRepo }}
+        git remote -v
+        git pull upstream main
+        git push origin main
+
+    - name: Copy the olm bundle to the directory
+      shell: bash
+      run: |
+        set -o xtrace
+        test -d ${GITHUB_WORKSPACE}/${{ inputs.bundlePath }}
+        cd ${GITHUB_WORKSPACE}/${{ inputs.localRepoPath }}
+        mkdir -p operators/verticadb-operator/${{ inputs.version }}
+        cp -r ${GITHUB_WORKSPACE}/${{ inputs.bundlePath }}/* operators/verticadb-operator/${{ inputs.version }}
+
+    - name: Commit the bundle
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: operator verticadb-operator (${{ inputs.version }})
+        branch: verticadb-operator-${{ inputs.version }}
+        create_branch: true
+        repository: ${{ inputs.localRepoPath }}

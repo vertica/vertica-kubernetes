@@ -202,7 +202,7 @@ SHELL = /usr/bin/env bash -o pipefail
 
 .PHONY: help
 help: ## Display this help.
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(firstword $(MAKEFILE_LIST))
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(firstword $(MAKEFILE_LIST))
 
 ##@ Development
 
@@ -572,9 +572,9 @@ change-operator-version: ## Change the operator version in source files. Overrid
 
 CHANGIE = $(shell pwd)/bin/changie
 # Be sure to update DEVELOPER.md when switching to a new changie version
-CHANGIE_VERSION = 1.10.0
+CHANGIE_VERSION = 1.2.0
 changie: $(CHANGIE) ## Download changie locally if necessary
-$(CHANGIE): ## Download changie locally if necessary
+$(CHANGIE): $(LOCALBIN) ## Download changie locally if necessary
 	curl --silent --show-error --location --fail https://github.com/miniscruff/changie/releases/download/v$(CHANGIE_VERSION)/changie_$(CHANGIE_VERSION)_linux_amd64.tar.gz | tar xvfz - changie 
 	mv changie $(CHANGIE)
 	chmod +x $(CHANGIE)
@@ -585,8 +585,12 @@ gen-changelog: changie ## Generate the changelog
 	$(CHANGIE) batch $(VERSION)
 	$(CHANGIE) merge
 
+.PHONY: tag
 tag: ## Create a release tag and push it to GitHub
 	@git tag -d v$(VERSION) 2> /dev/null || true
 	git tag --sign --message "verticadb-operator $(VERSION)" v$(VERSION)
 	git verify-tag --verbose v$(VERSION)
-	git push origin v$(VERSION)
+
+echo-versions:  ## Print the current versions for various components
+	@echo "VERSION=$(VERSION)"
+	@echo "VLOGGER_VERSION=$(VLOGGER_VERSION)"
