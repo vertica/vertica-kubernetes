@@ -29,98 +29,62 @@ run-name: "Release Action: ${{ inputs.action }}"
 
 jobs:
 
-  release-setup:
+  create-release:
     runs-on: ubuntu-22.04
-    outputs:
-      version: ${{ steps.version.outputs.VERSION }}
-      version-sha: ${{ steps.version-sha.outputs.VERSION_SHA }}
     steps:
     - uses: actions/checkout@v3
       with:
+        path: vertica-kubernetes
         fetch-depth: 0
 
-    - name: Get the operator version
-      id: version
+    - name: Save current version to env VERSION
       shell: bash
       run: |
-        echo $(make echo-versions | grep -e '^VERSION=' ) >> $GITHUB_OUTPUT
+        cd vertica-kubernetes
         echo $(make echo-versions | grep -e '^VERSION=' ) >> $GITHUB_ENV
 
-    - name: Get the commit reference of the operator version
-      id: version-sha
+    - name: Save current sha to env VERSION_SHA
       shell: bash
       run: |
-        cd $GITHUB_WORKSPACE/${{ inputs.path }}
+        cd vertica-kubernetes
         git tag --list
-        echo "VERSION_SHA=$(git rev-list -n 1 $VERSION)" >> $GITHUB_OUTPUT
+        echo "VERSION_SHA=$(git rev-list -n 1 $VERSION)" >> $GITHUB_ENV
 
     - name: Download the release artifacts
       run: |
+        cd vertica-kubernetes
         scripts/download-release-artifacts.sh -d ci-artifacts $VERSION
         find ci-artifacts
       env:
         GH_TOKEN: ${{ github.token }}
 
-    - name: Upload bundle to use later in the workflow
-      uses: actions/upload-artifact@v3
-      with:
-        name: olm-bundle
-        path: ci-artifacts/${{ steps.version.outputs.VERSION }}/olm-bundle/
-
-
-  upload-operator-image:
-    if: ${{ inputs.action == 'upload operator image' || inputs.action == 'all' }}
-    runs-on: ubuntu-22.04
-    needs: release-setup
-    env:
-      BUILD_IMG: ghcr.io/vertica/verticadb-operator
-      PUBLIC_IMG: vertica/verticadb-operator
-    steps:
-    - uses: actions/checkout@v3
-
     - name: Login to Docker Hub
+      if: ${{ inputs.action == 'upload operator image' || inputs.action == 'all' }}
       uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - name: Upload new image
+      if: ${{ inputs.action == 'upload operator image' || inputs.action == 'all' }}
       run: |
-        docker pull $BUILD_IMG:${{ needs.release-setup.outputs.version-sha }}
-        for tag in ${{ needs.release-setup.outputs.version }} latest
+        docker pull ghcr.io/vertica/verticadb-operator:$VERSION_SHA
+        for tag in $VERSION latest
         do
-          docker tag $BUILD_IMG:${{ needs.release-setup.outputs.version-sha }} $PUBLIC_IMG:$tag
-          docker push $PUBLIC_IMG:$tag
+          docker tag ghcr.io/vertica/verticadb-operator:$VERSION_SHA vertica/verticadb-operator:$tag
+          docker push vertica/verticadb-operator:$tag
         done
 
-
-  create-github-release:
-    if: ${{ inputs.action == 'create github release' || inputs.action == 'all' }}
-    runs-on: ubuntu-22.04
-    needs: release-setup
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-
-    - name: Create the release 
+    - name: Create the release on GitHub
+      if: ${{ inputs.action == 'create github release' || inputs.action == 'all' }}
       run: |
-        scripts/download-release-artifacts.sh -d ci-artifacts ${{ needs.release-setup.outputs.version }}
-        scripts/create-release.sh -d ci-artifacts ${{ needs.release-setup.outputs.version }}
+        cd vertica-kubernetes
+        scripts/create-release.sh -d ci-artifacts $VERSION
       env:
         GH_TOKEN: ${{ github.token }}
 
-
-  add-helm-chart:
-    if: ${{ inputs.action == 'update helm chart' || inputs.action == 'all' }}
-    runs-on: ubuntu-22.04
-    needs: release-setup
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-
     - name: Start workflow to add the helm chart for the operator release
+      if: ${{ inputs.action == 'update helm chart' || inputs.action == 'all' }}
       run: |
         curl \
         -X POST \
@@ -129,40 +93,26 @@ jobs:
         --fail \
         https://api.github.com/repos/vertica/charts/actions/workflows/add-verticadb-chart.yaml/dispatches  \
         -d '{"ref":"main",
-             "inputs":{"operator_version":"'"${{ needs.release-setup.outputs.version }}"'"}}'
-
-
-  upload-bundle-operatorhub:
-    if: ${{ inputs.action == 'upload bundle for operatorhub OLM catalog' || inputs.action == 'all' }}
-    runs-on: ubuntu-22.04
-    needs: release-setup
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        path: vertica-kubernetes
+             "inputs":{"operator_version":"'"$VERSION"'"}}'
 
     - name: Upload the OPM bundle to fork of k8s-operatorhub/community-operators
+      if: ${{ inputs.action == 'upload bundle for operatorhub OLM catalog' || inputs.action == 'all' }}
       uses: ./vertica-kubernetes/.github/actions/upload-opm-bundle
       with:
         token: ${{ secrets.PAT_TOKEN }}
-        version: ${{ needs.release-setup.outputs.version }}
+        version: ${{ env.VERSION }}
         upstreamRepo: k8s-operatorhub/community-operators
         forkRepo: spilchen/community-operators
+        localRepoPath: community-operators
+        bundlePath: vertica-kubernetes/ci-artifacts/${{ env.VERSION }}/olm-bundle
 
-
-  upload-bundle-openshift:
-    if: ${{ inputs.action == 'upload bundle for openshift OLM catalog' || inputs.action == 'all' }}
-    runs-on: ubuntu-22.04
-    needs: release-setup
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        path: vertica-kubernetes
-
-    - name: Upload the OPM bundle to fork of k8s-operatorhub/community-operators
+    - name: Upload the OPM bundle to fork of redhat-openshift-ecosystem/community-operators-prod
+      if: ${{ inputs.action == 'upload bundle for openshift OLM catalog' || inputs.action == 'all' }}
       uses: ./vertica-kubernetes/.github/actions/upload-opm-bundle
       with:
         token: ${{ secrets.PAT_TOKEN }}
-        version: ${{ needs.release-setup.outputs.version }}
+        version: ${{ env.VERSION }}
         upstreamRepo: redhat-openshift-ecosystem/community-operators-prod
         forkRepo: spilchen/community-operators-prod
+        localRepoPath: community-operators-prod
+        bundlePath: vertica-kubernetes/ci-artifacts/${{ env.VERSION }}/olm-bundle

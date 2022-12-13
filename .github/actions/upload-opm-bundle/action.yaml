@@ -13,6 +13,12 @@ inputs:
   forkRepo:
     description: A forked repo of ustreamRepo. This is the repo we will upload the OPM bundle too. Must be in the format of {owner}/{repo}.
     required: true
+  localRepoPath:
+    description: The local path to checkout the forked repository
+    required: true
+  bundlePath:
+    description: The local path that has the OLM bundle to upload. This is a path relative to $GITHUB_WORKSPACE.
+    required: true
 runs:
   using: "composite"
   steps:
@@ -21,22 +27,25 @@ runs:
         repository: ${{ inputs.forkRepo }}
         fetch-depth: 0
         token: ${{ inputs.token }}
-        path: operators-repo
+        path: ${{ inputs.localRepoPath }}
 
     - name: Setup repo
       shell: bash
       run: |
-        cd operators-repo
+        cd ${GITHUB_WORKSPACE}/${{ inputs.localRepoPath }}
         git remote add upstream https://github.com/${{ inputs.upstreamRepo }}
         git remote -v
         git pull upstream main
         git push origin main
 
-    - name: Download the olm bundle
-      uses: actions/download-artifact@v3
-      with:
-        name: olm-bundle
-        path: operators-repo/operators/verticadb-operator/${{ inputs.version }}
+    - name: Copy the olm bundle to the directory
+      shell: bash
+      run: |
+        set -o xtrace
+        test -d ${GITHUB_WORKSPACE}/${{ inputs.bundlePath }}
+        cd ${GITHUB_WORKSPACE}/${{ inputs.localRepoPath }}
+        mkdir -p operators/verticadb-operator/${{ inputs.version }}
+        cp -r ${GITHUB_WORKSPACE}/${{ inputs.bundlePath }}/* operators/verticadb-operator/${{ inputs.version }}
 
     - name: Commit the bundle
       uses: stefanzweifel/git-auto-commit-action@v4
@@ -44,4 +53,4 @@ runs:
         commit_message: operator verticadb-operator (${{ inputs.version }})
         branch: verticadb-operator-${{ inputs.version }}
         create_branch: true
-        repository: operators-repo
+        repository: ${{ inputs.localRepoPath }}
