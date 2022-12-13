@@ -103,15 +103,15 @@ var _ = Describe("podfacts", func() {
 
 	It("should verify findPodsWithMissingDB return codes", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
-		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: true, subcluster: "sc1", isPodRunning: true}
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: true, subclusterName: "sc1", isPodRunning: true}
 		pods, somePodsNotRunning := pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(0))
 		Expect(somePodsNotRunning).Should(Equal(false))
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: false, subcluster: "sc1", isPodRunning: true}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: false, subclusterName: "sc1", isPodRunning: true}
 		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(1))
 		Expect(somePodsNotRunning).Should(Equal(false))
-		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: false, subcluster: "sc2", isPodRunning: false}
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: false, subclusterName: "sc2", isPodRunning: false}
 		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc2")
 		Expect(len(pods)).Should(Equal(1))
 		Expect(somePodsNotRunning).Should(Equal(true))
@@ -120,19 +120,19 @@ var _ = Describe("podfacts", func() {
 	It("should verify return of findPodsWithMissingDB", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-			dnsName: "p1", subcluster: "sc1", dbExists: true,
+			dnsName: "p1", subclusterName: "sc1", dbExists: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
-			dnsName: "p2", subcluster: "sc1", dbExists: false,
+			dnsName: "p2", subclusterName: "sc1", dbExists: false,
 		}
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
-			dnsName: "p3", subcluster: "sc1", dbExists: false,
+			dnsName: "p3", subclusterName: "sc1", dbExists: false,
 		}
 		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
-			dnsName: "p4", subcluster: "sc2", dbExists: false,
+			dnsName: "p4", subclusterName: "sc2", dbExists: false,
 		}
 		pf.Detail[types.NamespacedName{Name: "p5"}] = &PodFact{
-			dnsName: "p5", subcluster: "sc2", dbExists: false,
+			dnsName: "p5", subclusterName: "sc2", dbExists: false,
 		}
 		pods, _ := pf.findPodsWithMissingDB("sc1")
 		Expect(len(pods)).Should(Equal(2))
@@ -189,7 +189,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true}
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, &GatherState{})).Should(Succeed())
+		Expect(pfs.checkNodeStatus(ctx, vdb, pf, &GatherState{})).Should(Succeed())
 		Expect(pf.upNode).Should(BeFalse())
 	})
 
@@ -199,14 +199,14 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: " ?column? \n----------\n        1\n(1 row)\n\n"},
+					{Stdout: "UP|123456\n"},
 				},
 			},
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		gs := &GatherState{VerticaPIDRunning: true}
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
 
@@ -217,34 +217,42 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "UP|t"},
+					{Stdout: "UP|123456|t"},
 				},
 			},
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		gs := &GatherState{VerticaPIDRunning: true}
-		Expect(pfs.checkIfNodeIsUpAndReadOnly(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
 	})
 
 	It("should parse read-only state from node query", func() {
-		upNode1, readOnly1, err := parseNodeStateAndReadOnly("UP|t\n")
+		upNode1, readOnly1, oid1, err := parseNodeStateAndReadOnly("UP|123456|t\n")
 		Expect(err).Should(Succeed())
 		Expect(upNode1).Should(BeTrue())
 		Expect(readOnly1).Should(BeTrue())
+		Expect(oid1).Should(Equal("123456"))
 
-		upNode2, readOnly2, err := parseNodeStateAndReadOnly("UP|f\n")
+		upNode2, readOnly2, oid2, err := parseNodeStateAndReadOnly("UP|7890123|f\n")
 		Expect(err).Should(Succeed())
 		Expect(upNode2).Should(BeTrue())
 		Expect(readOnly2).Should(BeFalse())
+		Expect(oid2).Should(Equal("7890123"))
 
-		_, _, err = parseNodeStateAndReadOnly("")
+		upNode3, readOnly3, oid3, err := parseNodeStateAndReadOnly("UP|456789\n")
+		Expect(err).Should(Succeed())
+		Expect(upNode3).Should(BeTrue())
+		Expect(readOnly3).Should(BeFalse())
+		Expect(oid3).Should(Equal("456789"))
+
+		_, _, _, err = parseNodeStateAndReadOnly("")
 		Expect(err).Should(Succeed())
 
-		_, _, err = parseNodeStateAndReadOnly("UP|z|garbage")
-		Expect(err).ShouldNot(Succeed())
+		_, _, _, err = parseNodeStateAndReadOnly("UP|123|t|garbage")
+		Expect(err).Should(Succeed())
 	})
 
 	It("should parse node subscriptions output", func() {

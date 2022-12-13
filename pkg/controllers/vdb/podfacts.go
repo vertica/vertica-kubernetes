@@ -54,8 +54,11 @@ type PodFact struct {
 	// IP address of the pod
 	podIP string
 
-	// Name of the subcluster the pod is part of
-	subcluster string
+	// Name of the subclusterName the pod is part of
+	subclusterName string
+
+	// The oid of the subcluster the pod is part of
+	subclusterOid string
 
 	// true if this node is part of a primary subcluster
 	isPrimary bool
@@ -245,10 +248,10 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	sts *appsv1.StatefulSet, podIndex int32) error {
 	pf := PodFact{
-		name:       names.GenPodName(vdb, sc, podIndex),
-		subcluster: sc.Name,
-		isPrimary:  sc.IsPrimary,
-		podIndex:   podIndex,
+		name:           names.GenPodName(vdb, sc, podIndex),
+		subclusterName: sc.Name,
+		isPrimary:      sc.IsPrimary,
+		podIndex:       podIndex,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -281,7 +284,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.runGather,
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
-		p.checkIfNodeIsUpAndReadOnly,
+		p.checkNodeStatus,
 		p.checkIfNodeIsDoingStartup,
 		p.checkForSimpleGatherStateMapping,
 		p.checkShardSubscriptions,
@@ -395,7 +398,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.isInstalled = false
 
-	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
+	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the install indicator first based on the install count in the status
 		// field.  There are a couple of cases where this will give us the wrong state:
@@ -524,7 +527,7 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
 
-	scs, ok := vdb.FindSubclusterStatus(pf.subcluster)
+	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the db exists indicator first based on the count in the status
 		// field.  We continue to check the path as we do that to figure out the
@@ -544,23 +547,29 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	return nil
 }
 
-// checkIfNodeIsUpAndReadOnly will determine whether Vertica process is running
+// checkNodeStatus will determine whether Vertica process is running
 // in the pod and whether it is in read-only mode.
-func (p *PodFacts) checkIfNodeIsUpAndReadOnly(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	if !pf.dbExists || !pf.isPodRunning || !gs.VerticaPIDRunning {
 		pf.upNode = false
 		pf.readOnly = false
 		return nil
 	}
 
+	cols := "node_state, subcluster_oid"
 	// The read-only state is a new state added in 11.0.2.  So we can only query
 	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
 	// disabled.
 	vinf, ok := version.MakeInfoFromVdb(vdb)
 	if ok && vinf.IsEqualOrNewer(version.NodesHaveReadOnlyStateVersion) {
-		return p.queryNodeStatus(ctx, pf)
+		cols = fmt.Sprintf("%s, is_readonly", cols)
 	}
-	return p.checkIfNodeIsUp(ctx, pf)
+	sql := fmt.Sprintf(
+		"select %s "+
+			"from nodes as n, subclusters as s "+
+			"where s.node_oid = n.node_id and n.node_name in (select node_name from current_session)",
+		cols)
+	return p.queryNodeStatus(ctx, pf, sql)
 }
 
 // checkIfNodeIsDoingStartup will determine if the pod has vertica process
@@ -574,44 +583,15 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.Vert
 	return nil
 }
 
-// checkIfNodeIsUp will check if the Vertica is up and running in this process.
-// It assumes the pod is running and the database exists.  It doesn't check for
-// read-only state.  This exists for backwards compatibility of versions older
-// than 11.0.2.
-func (p *PodFacts) checkIfNodeIsUp(ctx context.Context, pf *PodFact) error {
-	cmd := []string{
-		"-c",
-		"select 1",
-	}
-	if _, stderr, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-		if !strings.Contains(stderr, "vsql: could not connect to server:") {
-			return err
-		}
-		pf.upNode = false
-	} else {
-		pf.upNode = true
-	}
-	// This is called for server versions that don't have read-only state.  So
-	// read-only will always be false.
-	pf.readOnly = false
-
-	return nil
-}
-
-// queryNodeStatus will query the nodes system table to see if the node is up
-// and wether it is in read-only state.  It assumes the database exists and the
+// queryNodeStatus will query the nodes system table for the following info: node is up,
+// read-only state, and subcluster oid. It assumes the database exists and the
 // pod is running.
-func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact) error {
-	cmd := []string{
-		"-tAc",
-		"select node_state, is_readonly " +
-			"from nodes " +
-			"where node_name in (select node_name from current_session)",
-	}
+func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact, sql string) error {
+	cmd := []string{"-tAc", sql}
 	if stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
 		pf.upNode = false
 		pf.readOnly = false
-	} else if pf.upNode, pf.readOnly, err = parseNodeStateAndReadOnly(stdout); err != nil {
+	} else if pf.upNode, pf.readOnly, pf.subclusterOid, err = parseNodeStateAndReadOnly(stdout); err != nil {
 		return err
 	}
 
@@ -620,23 +600,30 @@ func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact) error {
 
 // parseNodeStateAndReadOnly will parse query output to determine if a node is
 // up and read-only.
-func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, err error) {
+func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, scOid string, err error) {
 	// For testing purposes we early out with no error if there is no output
 	if stdout == "" {
 		return
 	}
 	// The stdout comes in the form like this:
-	// UP|t
-	// This means upNode is true and readOnly is true.
+	// UP|41231232423|t
+	// This means upNode is true, subcluster oid is 41231232423 and readOnly is true
 	lines := strings.Split(stdout, "\n")
 	cols := strings.Split(lines[0], "|")
-	const ExpectedCols = 2
-	if len(cols) != ExpectedCols {
-		err = fmt.Errorf("expected %d columns from node query but only got %d", ExpectedCols, len(cols))
+	const MinExpectedCols = 2
+	if len(cols) < MinExpectedCols {
+		err = fmt.Errorf("expected at least %d columns from node query but only got %d", MinExpectedCols, len(cols))
 		return
 	}
 	upNode = cols[0] == "UP"
-	readOnly = cols[1] == "t"
+	scOid = cols[1]
+	// Read-only can be missing on versions that don't support that state.
+	// Return false in those cases.
+	if len(cols) > MinExpectedCols {
+		readOnly = cols[2] == "t"
+	} else {
+		readOnly = false
+	}
 	return
 }
 
@@ -688,7 +675,7 @@ func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
 	podsHaveMissingDBAndNotRunning := false
 	hostList := []*PodFact{}
 	for _, v := range p.Detail {
-		if v.subcluster != scName {
+		if v.subclusterName != scName {
 			continue
 		}
 		if !v.dbExists {
@@ -710,7 +697,7 @@ func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
 // Will return false for second parameter if no pod could be found.
 func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact, bool) {
 	for _, v := range p.Detail {
-		if scName != "" && v.subcluster != scName {
+		if scName != "" && v.subclusterName != scName {
 			continue
 		}
 		if v.upNode && (allowReadOnly || !v.readOnly) {

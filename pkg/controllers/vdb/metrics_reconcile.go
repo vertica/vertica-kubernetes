@@ -76,8 +76,8 @@ func (p *MetricReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 	// Update any gauges that we track for subcluster events
 	rawMetrics := p.captureRawMetrics()
 	metrics.SubclusterCount.With(metrics.MakeVDBLabels(p.Vdb)).Set(float64(len(rawMetrics)))
-	for scName, detail := range rawMetrics {
-		scLabels := metrics.MakeSubclusterLabels(p.Vdb, scName)
+	for scOid, detail := range rawMetrics {
+		scLabels := metrics.MakeSubclusterLabels(p.Vdb, scOid)
 		metrics.TotalNodeCount.With(scLabels).Set(detail.podCount)
 		metrics.UpNodeCount.With(scLabels).Set(detail.readyCount)
 		metrics.RunningNodeCount.With(scLabels).Set(detail.runningCount)
@@ -94,18 +94,18 @@ func (p *MetricReconciler) captureRawMetrics() map[string]*subclusterGaugeDetail
 		// Only use subclusters from the Vdb.  We omit ones that are scheduled for
 		// deletion because we need to clear metrics for those deleted subclusters
 		// before we actually remove their statefulsets.
-		if _, ok := scMap[pf.subcluster]; !ok {
+		if _, ok := scMap[pf.subclusterName]; !ok {
 			continue
 		}
-		if _, ok := scGaugeSummary[pf.subcluster]; !ok {
-			scGaugeSummary[pf.subcluster] = &subclusterGaugeDetail{}
+		if _, ok := scGaugeSummary[pf.subclusterOid]; !ok {
+			scGaugeSummary[pf.subclusterOid] = &subclusterGaugeDetail{}
 		}
-		scGaugeSummary[pf.subcluster].podCount++
+		scGaugeSummary[pf.subclusterOid].podCount++
 		if pf.isPodRunning {
-			scGaugeSummary[pf.subcluster].runningCount++
+			scGaugeSummary[pf.subclusterOid].runningCount++
 		}
 		if pf.upNode {
-			scGaugeSummary[pf.subcluster].readyCount++
+			scGaugeSummary[pf.subclusterOid].readyCount++
 		}
 	}
 	return scGaugeSummary

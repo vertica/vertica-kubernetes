@@ -118,6 +118,7 @@ func defaultPodFactOverrider(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 	pf.dbExists = true
 	pf.startupInProgress = false
 	pf.upNode = true
+	pf.subclusterOid = "123456"
 	return nil
 }
 

@@ -68,6 +68,10 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 			if i == len(vdbChg.Status.Subclusters) {
 				vdbChg.Status.Subclusters = append(vdbChg.Status.Subclusters, vapi.SubclusterStatus{})
 			}
+			// Preserve the oid in case all of the subclusters pods are down
+			if i < len(s.Vdb.Status.Subclusters) {
+				vdbChg.Status.Subclusters[i].Oid = s.Vdb.Status.Subclusters[i].Oid
+			}
 			if err := s.calculateSubclusterStatus(ctx, subclusters[i], &vdbChg.Status.Subclusters[i]); err != nil {
 				return fmt.Errorf("failed to calculate subcluster status %s %w", subclusters[i].Name, err)
 			}
@@ -116,6 +120,9 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		curStat.Detail[podIndex].AddedToDB = pf.dbExists
 		if pf.vnodeName != "" {
 			curStat.Detail[podIndex].VNodeName = pf.vnodeName
+		}
+		if pf.subclusterOid != "" {
+			curStat.Oid = pf.subclusterOid
 		}
 	}
 	// Refresh the counts

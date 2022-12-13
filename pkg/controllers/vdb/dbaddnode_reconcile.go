@@ -176,7 +176,7 @@ func (d *DBAddNodeReconciler) genAddNodeCommand(pods []*PodFact) []string {
 		"-t", "db_add_node",
 		"--hosts", strings.Join(hostNames, ","),
 		"--database", d.Vdb.Spec.DBName,
-		"--subcluster", pods[0].subcluster,
+		"--subcluster", pods[0].subclusterName,
 		"--noprompt",
 	}
 }

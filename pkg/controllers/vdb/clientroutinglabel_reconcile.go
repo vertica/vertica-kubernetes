@@ -71,7 +71,7 @@ func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, req *ctrl.
 
 	var savedRes ctrl.Result
 	for pn, pf := range c.PFacts.Detail {
-		if c.ScName != "" && pf.subcluster != c.ScName {
+		if c.ScName != "" && pf.subclusterName != c.ScName {
 			continue
 		}
 		if res, err := c.reconcilePod(ctx, pn, c.PFacts.Detail[pn]); verrors.IsReconcileAborted(res, err) {

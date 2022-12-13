@@ -37,7 +37,7 @@ const (
 	// Names of the labels that we can apply to metrics.
 	NamespaceLabel        = "namespace"
 	VerticaDBLabel        = "verticadb"
-	SubclusterLabel       = "subcluster"
+	SubclusterOidLabel    = "subcluster_oid"
 	ReviveInstanceIDLabel = "revive_instance_id"
 )
 
@@ -124,7 +124,7 @@ var (
 			Name:      "total_nodes_count",
 			Help:      "The number of nodes that currently exist",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel, ReviveInstanceIDLabel, SubclusterLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, ReviveInstanceIDLabel, SubclusterOidLabel},
 	)
 	RunningNodeCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -132,7 +132,7 @@ var (
 			Name:      "running_nodes_count",
 			Help:      "The number of nodes that have a running pod associated with it",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel, ReviveInstanceIDLabel, SubclusterLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, ReviveInstanceIDLabel, SubclusterOidLabel},
 	)
 	UpNodeCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -140,7 +140,7 @@ var (
 			Name:      "up_nodes_count",
 			Help:      "The number of nodes that have vertica running and can accept connections",
 		},
-		[]string{NamespaceLabel, VerticaDBLabel, ReviveInstanceIDLabel, SubclusterLabel},
+		[]string{NamespaceLabel, VerticaDBLabel, ReviveInstanceIDLabel, SubclusterOidLabel},
 	)
 	// Add new metrics above this comment.
 	//
@@ -174,12 +174,12 @@ func init() {
 
 // HandleSubclusterDelete will cleanup metrics upon subcluster
 // deletion.  It will clear out any metrics that are subcluster specific.
-func HandleSubclusterDelete(vdb *vapi.VerticaDB, scName string, log logr.Logger) {
-	log.Info("Removing metrics with subcluster label", "subcluster", scName)
+func HandleSubclusterDelete(vdb *vapi.VerticaDB, scOid string, log logr.Logger) {
+	log.Info("Removing metrics with subcluster label", "subcluster oid", scOid)
 	labels := prometheus.Labels{
-		NamespaceLabel:  vdb.Namespace,
-		VerticaDBLabel:  vdb.Name,
-		SubclusterLabel: scName,
+		NamespaceLabel:     vdb.Namespace,
+		VerticaDBLabel:     vdb.Name,
+		SubclusterOidLabel: scOid,
 	}
 	TotalNodeCount.DeletePartialMatch(labels)
 	RunningNodeCount.DeletePartialMatch(labels)
@@ -235,12 +235,12 @@ func MakeVDBLabels(vdb *vapi.VerticaDB) prometheus.Labels {
 
 // MakeSubclusterLabels returns a prometheus.Labels that includes the VerticaDB
 // and subcluster name.
-func MakeSubclusterLabels(vdb *vapi.VerticaDB, scName string) prometheus.Labels {
+func MakeSubclusterLabels(vdb *vapi.VerticaDB, scOid string) prometheus.Labels {
 	return prometheus.Labels{
 		NamespaceLabel:        vdb.Namespace,
 		VerticaDBLabel:        vdb.Name,
 		ReviveInstanceIDLabel: getReviveInstanceID(vdb),
-		SubclusterLabel:       scName,
+		SubclusterOidLabel:    scOid,
 	}
 }
 

@@ -87,8 +87,14 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 	}
 
 	for i := range subclusters {
-		// Clear out any metrics for the subcluster we are about to delete
-		metrics.HandleSubclusterDelete(d.Vdb, subclusters[i].Name, d.Log)
+		stat, ok := d.Vdb.FindSubclusterStatus(subclusters[i].Name)
+		// We cannot find subcluster status for the subcluster. We will skip metric cleanup.
+		if ok {
+			// Clear out any metrics for the subcluster we are about to delete
+			metrics.HandleSubclusterDelete(d.Vdb, stat.Oid, d.Log)
+		} else {
+			d.Log.Info("Skipping metric cleanup for subcluster removal as oid is unknown", "name", subclusters[i].Name)
+		}
 
 		if err := d.removeSubcluster(ctx, subclusters[i].Name); err != nil {
 			return ctrl.Result{}, err

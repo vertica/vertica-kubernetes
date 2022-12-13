@@ -453,7 +453,7 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	scName := sts.Labels[builder.SubclusterNameLabel]
 	vr.FindPodFunc = func() (*PodFact, bool) {
 		for _, v := range o.PFacts.Detail {
-			if v.isPodRunning && v.subcluster == scName {
+			if v.isPodRunning && v.subclusterName == scName {
 				return v, true
 			}
 		}
