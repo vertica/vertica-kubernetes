@@ -174,7 +174,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		expectedSubclusterOrder := []string{"s2", "s1", "s1", "s0", "s0", "s1", "s2", "s2", "s0"}
 		Expect(len(pods)).Should(Equal(len(expectedSubclusterOrder)))
 		for i, expectedSC := range expectedSubclusterOrder {
-			Expect(pods[i].subcluster).Should(Equal(expectedSC), "Subcluster index %d", i)
+			Expect(pods[i].subclusterName).Should(Equal(expectedSC), "Subcluster index %d", i)
 		}
 	})
 
@@ -202,7 +202,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		expectedSubclusterOrder := []string{"s2", "s2", "s2", "s1", "s1", "s1", "s0", "s0", "s0"}
 		Expect(len(pods)).Should(Equal(len(expectedSubclusterOrder)))
 		for i, expectedSC := range expectedSubclusterOrder {
-			Expect(pods[i].subcluster).Should(Equal(expectedSC), "Subcluster index %d", i)
+			Expect(pods[i].subclusterName).Should(Equal(expectedSC), "Subcluster index %d", i)
 		}
 	})
 

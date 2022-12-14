@@ -86,11 +86,11 @@ func (s *RebalanceShardsReconciler) findShardsToRebalance() []string {
 	scToRebalance := []string{}
 
 	for _, pf := range s.PFacts.Detail {
-		if (s.ScName == "" || s.ScName == pf.subcluster) && pf.isPodRunning && pf.upNode && pf.shardSubscriptions == 0 {
-			_, ok := scRebalanceMap[pf.subcluster]
+		if (s.ScName == "" || s.ScName == pf.subclusterName) && pf.isPodRunning && pf.upNode && pf.shardSubscriptions == 0 {
+			_, ok := scRebalanceMap[pf.subclusterName]
 			if !ok {
-				scToRebalance = append(scToRebalance, pf.subcluster)
-				scRebalanceMap[pf.subcluster] = true
+				scToRebalance = append(scToRebalance, pf.subclusterName)
+				scRebalanceMap[pf.subclusterName] = true
 			}
 		}
 	}

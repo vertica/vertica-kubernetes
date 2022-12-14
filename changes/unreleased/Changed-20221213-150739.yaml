@@ -1,0 +1,5 @@
+kind: Changed
+body: Prometheus metrics for subcluster to include label for subcluster oid rather than subcluster name
+time: 2022-12-13T15:07:39.456726189-04:00
+custom:
+  Issue: "304"

@@ -33,26 +33,20 @@ data:
     do
         curl http://$SVC_NAME:8443/metrics | grep $metric
     done
-    for sc in pri-sc sec-sc
-    do
-        curl http://$SVC_NAME:8443/metrics | grep "vertica_total_nodes_count{.*subcluster=\"$sc\".*} 1"
-        curl http://$SVC_NAME:8443/metrics | grep "vertica_running_nodes_count{.*verticadb=\"v-operator-metrics\".*} 1"
-        curl http://$SVC_NAME:8443/metrics | grep -e 'vertica_cluster_restart_failed_total{.*revive_instance_id="\([0-9a-f]\)*".*}'
-    done
+    curl http://$SVC_NAME:8443/metrics | grep "vertica_total_nodes_count{.*subcluster_oid=.*} 1"
+    curl http://$SVC_NAME:8443/metrics | grep "vertica_running_nodes_count{.*verticadb=\"v-operator-metrics\".*} 1"
+    curl http://$SVC_NAME:8443/metrics | grep -e 'vertica_cluster_restart_failed_total{.*revive_instance_id="\([0-9a-f]\)*".*}'
     # These is timing with the ready pod count.  The pod may be ready but the
     # metrics haven't yet been updated.  We check that a few times before
     # failing the test.
-    for sc in pri-sc sec-sc
+    for i in $(seq 1 5)
     do
-      for i in $(seq 1 5)
-      do
-        [ $i -gt 1 ] && sleep 10
-        curl http://$SVC_NAME:8443/metrics
-        curl http://$SVC_NAME:8443/metrics | grep "vertica_up_nodes_count{.*subcluster=\"$sc\".*} 1" \
-          && s=0 && break || s=$?
-      done
-      (exit $s)
+      [ $i -gt 1 ] && sleep 10
+      curl http://$SVC_NAME:8443/metrics
+      curl http://$SVC_NAME:8443/metrics | grep "vertica_up_nodes_count{.*subcluster_oid.*} 1" \
+        && s=0 && break || s=$?
     done
+    (exit $s)
 ---
 apiVersion: v1
 kind: Pod

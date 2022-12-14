@@ -44,8 +44,10 @@ var _ = Describe("prometheus_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		metrics := r.captureRawMetrics()
-		Expect(metrics[vdb.Spec.Subclusters[0].Name].podCount).Should(Equal(float64(3)))
-		Expect(metrics[vdb.Spec.Subclusters[0].Name].runningCount).Should(Equal(float64(3)))
-		Expect(metrics[vdb.Spec.Subclusters[0].Name].readyCount).Should(Equal(float64(3)))
+		for oid := range metrics {
+			Expect(metrics[oid].podCount).Should(Equal(float64(3)))
+			Expect(metrics[oid].runningCount).Should(Equal(float64(3)))
+			Expect(metrics[oid].readyCount).Should(Equal(float64(3)))
+		}
 	})
 })

@@ -848,6 +848,10 @@ type SubclusterStatus struct {
 	Name string `json:"name"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Object ID of the subcluster.
+	Oid string `json:"oid"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been installed into the subcluster.
 	InstallCount int32 `json:"installCount"`
 
