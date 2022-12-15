@@ -57,6 +57,12 @@ on:
         - none
         default: all
         required: false
+      reason:
+        description: 'Descriptive name of the workflow run'
+        required: false
+        default: ''
+
+run-name: ${{ inputs.reason || github.event.pull_request.title || github.event.head_commit.message || 'e2e tests' }}
 
 jobs:
   build:
