@@ -586,11 +586,16 @@ gen-changelog: changie ## Generate the changelog
 	$(CHANGIE) merge
 
 .PHONY: tag
-tag: ## Create a release tag and push it to GitHub
+tag: ## Create a tag for the next version of the operator
 	@git tag -d v$(VERSION) 2> /dev/null || true
 	git tag --sign --message "verticadb-operator $(VERSION)" v$(VERSION)
 	git verify-tag --verbose v$(VERSION)
 
+.PHONY: push-tag
+push-tag: ## Push the tag up to GitHub
+	git push origin v$(VERSION)
+
+.PHONY: echo-versions
 echo-versions:  ## Print the current versions for various components
 	@echo "VERSION=$(VERSION)"
 	@echo "VLOGGER_VERSION=$(VLOGGER_VERSION)"
