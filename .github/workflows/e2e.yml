@@ -62,7 +62,7 @@ on:
         required: false
         default: ''
 
-run-name: ${{ inputs.reason || github.event.pull_request.title || github.event.head_commit.message || 'e2e tests' }}
+run-name: ${{ inputs.reason }}
 
 jobs:
   build:
