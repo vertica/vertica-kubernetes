@@ -117,6 +117,7 @@ RUN set -x \
   gdb \
   iproute2 \
   krb5-user \
+  less \
   libkeyutils1\
   libz-dev \
   locales \
@@ -128,6 +129,7 @@ RUN set -x \
   procps \
   sysstat \
   sudo \
+  vim-tiny \
   # Install jre if not minimal
   && if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
