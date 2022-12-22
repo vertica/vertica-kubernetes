@@ -297,4 +297,27 @@ var _ = Describe("podfacts", func() {
 		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.startupInProgress).Should(BeFalse())
 	})
+
+	It("should handle subcluster oid lookup properly for enterprise db", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.ShardCount = 0
+		vdb.Spec.Communal.Path = ""
+
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		fpr := &cmds.FakePodRunner{
+			Results: cmds.CmdResults{
+				pn: []cmds.CmdResult{
+					{Stdout: "UP||f"},
+				},
+			},
+		}
+		pfs := MakePodFacts(vdbRec, fpr)
+		gs := &GatherState{VerticaPIDRunning: true}
+		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.upNode).Should(BeTrue())
+		Expect(pf.readOnly).Should(BeFalse())
+		Expect(pf.subclusterOid).Should(Equal(""))
+	})
+
 })

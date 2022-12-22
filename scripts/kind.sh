@@ -165,7 +165,30 @@ data:
 EOF
 }
 
+function ensure_hostpath_perms {
+    if [[ -n "$MOUNT_PATH" ]]
+    then
+        # We ensure the mount path exists and we create the expected subpath.
+        # If we don't create it and assign the proper ownership, then the
+        # kubelet will create it with root privileges and we won't be able to
+        # write to it.
+        EXPECTED_SUBPATH=Linux64/Test/k8s
+        FULL_PATH=$MOUNT_PATH/$EXPECTED_SUBPATH
+        mkdir -p $FULL_PATH
+        # When the vertica container runs it uses a dbadmin user with uid/gid
+        # of 5000. We need to ensure the hostpath is writable by that user.
+        #
+        # You may be prompted for sudo access to change the ownership of the
+        # hostpath. So turning on trace so that it is obvious.
+        set -o xtrace
+        sudo chown -R 5000 $FULL_PATH
+        set +o xtrace
+        ls -ltrd $FULL_PATH
+    fi
+}
+
 function init_kind {
+    ensure_hostpath_perms
     create_registry
     create_kind_cluster
     finalize_registry

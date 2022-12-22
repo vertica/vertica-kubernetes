@@ -283,6 +283,8 @@ else ifeq ($(PATH_PROTOCOL), webhdfs://)
 	$(MAKE) setup-hadoop
 else ifeq ($(PATH_PROTOCOL), azb://)
 	$(MAKE) setup-azurite
+else ifeq ($(PATH_PROTOCOL), /)
+	@echo "Nothing to setup for PATH_PROTOCOL=/"
 else
 	$(error cannot setup communal endpoint for this protocol: $(PATH_PROTOCOL))
 	exit 1
@@ -509,11 +511,15 @@ KIND_VERSION ?= v0.11.1
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
 GOLANGCI_LINT_VER ?= 1.50.1
 
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+# We replaced the default download script found in the operator-sdk with a
+# direct download. I was htting the GitHub rate limiter by using the
+# script available in the kustomize repo (install_kustomize.sh). A direct
+# download allows us to manage retries easier.
+KUSTOMIZE_DOWNLOAD_URL?=https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F$(KUSTOMIZE_VERSION)/kustomize_$(KUSTOMIZE_VERSION)_linux_amd64.tar.gz
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
-	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+	test -s $(KUSTOMIZE) || { curl -sL $(KUSTOMIZE_DOWNLOAD_URL) | tar xzf - --directory $(LOCALBIN); }
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.

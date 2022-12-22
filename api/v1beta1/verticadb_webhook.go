@@ -90,6 +90,16 @@ func (v *VerticaDB) IsAzure() bool {
 	return strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix)
 }
 
+// IsKnownCommunalPrefix returns true if the communal has a known prefix that
+// indicates the type of communal storage. False means the communal path was
+// empty or is a POSIX path.
+func (v *VerticaDB) IsKnownCommunalPrefix() bool {
+	if v.IsHDFS() || v.IsS3() || v.IsGCloud() || v.IsAzure() {
+		return true
+	}
+	return false
+}
+
 // HasKerberosConfig returns true if VerticaDB is setup for Kerberos authentication.
 func (v *VerticaDB) HasKerberosConfig() bool {
 	// We have a webhook check that makes sure if the principal is set, the
@@ -274,6 +284,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateEncryptSpreadComm(allErrs)
 	allErrs = v.validateLocalPaths(allErrs)
 	allErrs = v.validateHTTPServerMode(allErrs)
+	allErrs = v.hasValidShardCount(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -312,16 +323,12 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
-	allPrefs := []string{S3Prefix, GCloudPrefix, AzurePrefix}
-	allPrefs = append(allPrefs, hdfsPrefixes...)
-	for _, pref := range allPrefs {
-		if strings.HasPrefix(v.Spec.Communal.Path, pref) {
-			return allErrs
-		}
+	if v.Spec.Communal.Path != "" {
+		return allErrs
 	}
 	err := field.Invalid(field.NewPath("spec").Child("communal").Child("path"),
 		v.Spec.Communal.Path,
-		"communal.Path is not prefixed with an accepted type")
+		"communal.path cannot be empty")
 	return append(allErrs, err)
 }
 
@@ -329,8 +336,8 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.InitPolicy == CommunalInitPolicyScheduleOnly {
 		return allErrs
 	}
-	// Endpoint is ignored if communal path is HDFS or Azure
-	if v.IsHDFS() || v.IsAzure() {
+	// This only applies if it's S3 or GCP.
+	if !v.IsS3() && !v.IsGCloud() {
 		return allErrs
 	}
 	// communal.endpoint must be prefaced with http:// or https:// to know what protocol to connect with.
@@ -821,6 +828,17 @@ func (v *VerticaDB) validateHTTPServerMode(allErrs field.ErrorList) field.ErrorL
 		v.Spec.HTTPServerMode,
 		fmt.Sprintf("Valid values are: %s, %s or an empty string",
 			HTTPServerModeEnabled, HTTPServerModeDisabled))
+	return append(allErrs, err)
+}
+
+func (v *VerticaDB) hasValidShardCount(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.ShardCount > 0 {
+		return allErrs
+	}
+
+	err := field.Invalid(field.NewPath("spec").Child("shardCount"),
+		v.Spec.ShardCount,
+		"Shard count must be > 0")
 	return append(allErrs, err)
 }
 

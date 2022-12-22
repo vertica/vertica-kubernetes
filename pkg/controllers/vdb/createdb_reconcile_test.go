@@ -220,6 +220,24 @@ var _ = Describe("createdb_reconciler", func() {
 		Expect(len(hist)).Should(Equal(1))
 		Expect(hist[0].Command).Should(ContainElement("--skip-package-install"))
 	})
+
+	It("should call mkdir when creating db using posix path", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "/host/db"
+		vdb.Spec.Communal.Endpoint = ""
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
+		hist := fpr.FindCommands("mkdir")
+		Expect(len(hist)).Should(Equal(1))
+	})
 })
 
 // Helper function for kSafety verification

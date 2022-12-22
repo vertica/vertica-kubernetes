@@ -1200,3 +1200,12 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 func (v *VerticaDB) IsHTTPServerEnabled() bool {
 	return v.Spec.HTTPServerMode == HTTPServerModeEnabled
 }
+
+// IsEON returns true if the instance is an EON database. Officially, all
+// deployments of this CR will result in an EON database. However, as a backdoor
+// for developers, if you set the shardCount to 0, we will create an enterprise
+// database. The webhook enforces ShardCount > 0, so that part needs to be
+// overridden to take affect.
+func (v *VerticaDB) IsEON() bool {
+	return v.Spec.ShardCount > 0
+}

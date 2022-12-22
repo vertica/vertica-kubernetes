@@ -17,6 +17,7 @@
 
 set -o errexit
 set -o pipefail
+set -o allexport
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
@@ -95,6 +96,8 @@ PRIVATE_REG_CERT_SERCET_NS_COPY="priv-reg-cred"
 HADOOP_CONF_CM_NS_COPY="hadoop-conf"
 # Name of the patch that you can use to mount paths to the server repository.
 SERVER_MOUNT_PATCH_NS_COPY="server-mount-patch.yaml"
+# Name of the patch that you can use to a communal host path mount
+COMUNAL_HOSTPATH_PATCH_NS_COPY="communal-hostpath-patch.yaml"
 # The full prefix for the communal path
 if [ "$PATH_PROTOCOL" == "azb://" ]
 then
@@ -113,8 +116,7 @@ echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
 echo "Endpoint: $ENDPOINT"
 echo "Protocol: $PATH_PROTOCOL"
-echo "S3 bucket name or cluster name: $BUCKET_OR_CLUSTER"
-echo "Communal Path Prefix: $PATH_PREFIX"
+echo "Communal Path Prefix: $COMMUNAL_PATH_PREFIX"
 echo -n "Using private registry: "
 if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
 echo -n "Add server mounts: "
@@ -123,6 +125,7 @@ if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 function create_vdb_kustomization {
     BASE_DIR=$1
     TESTCASE_NAME=$2
+    ENTERPRISE=$3
 
     cat <<EOF > kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -131,6 +134,10 @@ resources:
   - $BASE_DIR
   - $(realpath --relative-to="." $REPO_DIR/tests/kustomize-base)
 
+EOF
+    if [ -z "$ENTERPRISE" ]
+    then
+      cat <<EOF >> kustomization.yaml
 patches:
 - target:
     version: v1beta1
@@ -141,9 +148,9 @@ patches:
       value: ${COMMUNAL_PATH_PREFIX}${TESTCASE_NAME}
 EOF
 
-    if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
-    then
-      cat <<EOF >> kustomization.yaml
+        if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
+        then
+          cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/communal/endpoint
       value: $ENDPOINT
@@ -154,26 +161,31 @@ EOF
       path: /spec/communal/region
       value: $REGION
 EOF
-    elif [ "$PATH_PROTOCOL" == "azb://" ]
-    then
+        elif [ "$PATH_PROTOCOL" == "azb://" ]
+        then
       cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/communal/credentialSecret
       value: communal-creds
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
-    then
-        if [ -n "$HADOOP_CONF_CM" ]
+        elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
         then
-            cat <<EOF >> kustomization.yaml
+            if [ -n "$HADOOP_CONF_CM" ]
+            then
+                cat <<EOF >> kustomization.yaml
     - op: replace
       path: /spec/communal/hadoopConfig
       value: $HADOOP_CONF_CM_NS_COPY
 EOF
+            fi
+        elif [ "$PATH_PROTOCOL" == "/" ]
+        then
+          # Using a POSIX path for communal storage. No extra setup is needed.
+          true
+        else
+          echo "*** Unknown protocol (create_vdb_kustomization): $PATH_PROTOCOL"
+          exit 1
         fi
-    else
-      echo "*** Unknown protocol: $PATH_PROTOCOL"
-      exit 1
     fi
 
       cat <<EOF >> kustomization.yaml
@@ -258,8 +270,15 @@ EOF
     # Add the server mount patch if that was indicated.
     if [ -n "$USE_SERVER_MOUNT_PATCH" ]
     then
-        cp ${REPO_DIR}/tests/manifests/server-mounts/server-mount-patch.yaml $SERVER_MOUNT_PATCH_NS_COPY
+        cp ${REPO_DIR}/tests/manifests/kind-hostpath/server-mount-patch.yaml $SERVER_MOUNT_PATCH_NS_COPY
         $KUSTOMIZE edit add patch --path $SERVER_MOUNT_PATCH_NS_COPY --kind VerticaDB
+    fi
+    # Add the hostpath mount patch if that was indicated. This is used in cases
+    # where we want to use a hostpath for the communal path.
+    if [ "$PATH_PROTOCOL" == "/" ]
+    then
+        envsubst < ${REPO_DIR}/tests/manifests/kind-hostpath/communal-hostpath-patch.yaml > $COMUNAL_HOSTPATH_PATCH_NS_COPY
+        $KUSTOMIZE edit add patch --path $COMUNAL_HOSTPATH_PATCH_NS_COPY --kind VerticaDB
     fi
 
     # If using a private container registry add a patch to include the
@@ -286,6 +305,12 @@ function create_vdb_pod_kustomization {
     then
       return 0
     fi
+    if [[ $2 =~ ^enterprise ]]
+    then
+        ENTERPRISE=1
+    else
+        unset ENTERPRISE
+    fi
 
     TC_OVERLAY=$1/overlay
     mkdir -p $TC_OVERLAY
@@ -293,7 +318,7 @@ function create_vdb_pod_kustomization {
     if [[ -n "$VERBOSE" ]]; then
         echo "Creating overlay in $TC_OVERLAY"
     fi
-    create_vdb_kustomization ../base $2
+    create_vdb_kustomization ../base $2 $ENTERPRISE
     popd > /dev/null
 }
 
@@ -443,8 +468,30 @@ EOF
           configMap:
             name: hadoop-conf
 EOF
+    elif [ "$PATH_PROTOCOL" == "/" ]
+    then
+      cat <<EOF >> kustomization.yaml
+    - op: replace
+      path: /spec/containers/0/command/2
+      value: "cd ${COMMUNAL_PATH_PREFIX} && rm -rf ${TESTCASE_NAME}"
+    - op: replace
+      path: /spec/containers/0/image
+      value: quay.io/helmpack/chart-testing:v3.3.1
+    - op: add
+      path: /spec/containers/0/volumeMounts/-
+      value:
+        name: hostpath
+        mountPath: ${COMMUNAL_PATH_PREFIX}
+        subPath: ${COMMUNAL_STORAGE_SUBPATH}
+    - op: add
+      path: /spec/volumes/-
+      value:
+        name: hostpath
+        hostPath:
+          path: ${COMMUNAL_PATH_PREFIX}
+EOF
     else
-      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      echo "*** Unknown protocol (clean_communal_kustomization): $PATH_PROTOCOL"
       exit 1
     fi
     popd > /dev/null
@@ -596,14 +643,14 @@ EOF
 - $AZURITE_SVC
 EOF
       fi
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
+    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ] || [ "$PATH_PROTOCOL" == "/" ]
     then
       cat <<EOF > kustomization.yaml
 resources:
 - ../base
 EOF
     else
-      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      echo "*** Unknown protocol (create_communal_creds): $PATH_PROTOCOL"
       exit 1
     fi
     
@@ -645,13 +692,14 @@ patches:
       value: $ENDPOINT
 EOF
     elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ] || \
-         [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ]
+         [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ] || \
+         [ "$PATH_PROTOCOL" == "/" ]
     then
       cat <<EOF > kustomization.yaml
 # Intentionally blank -- either no permissions to create a bucket or one doesn't exist for protocol.
 EOF
     else
-      echo "*** Unknown protocol: $PATH_PROTOCOL"
+      echo "*** Unknown protocol (setup_creds_for_create_s3_bucket): $PATH_PROTOCOL"
       exit 1
     fi
     
@@ -738,7 +786,7 @@ setup_creds_for_private_repo
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e-leg-*/*/*/base e2e-server-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base e2e-udx/*/*/base e2e-http-server/*/*/base
+for tdir in e2e-leg-*/*/*/base e2e-server-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base e2e-udx/*/*/base e2e-http-server/*/*/base e2e-enterprise/*/*/base
 do
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done

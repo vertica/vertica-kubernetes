@@ -1,4 +1,4 @@
-name: e2e (operator-upgrade) tests
+name: e2e (hostpath) tests
 
 on: 
   workflow_call:
@@ -55,19 +55,16 @@ jobs:
 
     - name: Run e2e tests
       run: |
-        # Parallelism must be 1.  The testcases will uninstall and install CRDs,
-        # which are cluster scoped items.
-        export E2E_PARALLELISM=1
-        export E2E_TEST_DIRS=tests/e2e-operator-upgrade-overlays
+        export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
-        scripts/setup-operator-upgrade-testsuite.sh
-        scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
+        export E2E_TEST_DIRS="tests/e2e-leg-3"
+        mkdir -p $GITHUB_WORKSPACE/../host-path
+        scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-operator-upgrade
+        name: logs-e2e-hostpath
         path: ${{ github.workspace }}/int-tests-output/*
-

@@ -111,4 +111,17 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		Expect(len(hists)).Should(Equal(1))
 		Expect(hists[0].Command).ShouldNot(ContainElement("--is-primary"))
 	})
+
+	It("should exit without error if not using an EON database", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.ShardCount = 0 // Force enterprise database
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		Expect(vdb.IsEON()).Should(BeFalse())
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr)
+		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+	})
 })

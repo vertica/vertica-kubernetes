@@ -36,6 +36,8 @@ on:
         - server upgrade
         - operator upgrade
         - udx
+        - hostpath
+        - enterprise 
       security_scan_exit_code:
         description: 'Set to 1 to fail the build for security vulnerabilities. Otherwise set to 0'
         required: false
@@ -124,6 +126,18 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  e2e-hostpath:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'hostpath' || inputs.e2e_test_suites == '' }}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-hostpath.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
   e2e-server-upgrade:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'server upgrade' || inputs.e2e_test_suites == '' }}
     needs: [build] 
@@ -156,6 +170,18 @@ jobs:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       # We must pass the full image since the minimal image cannot run Java UDx's
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-enterprise:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'enterprise' || inputs.e2e_test_suites == '' }}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-enterprise.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}

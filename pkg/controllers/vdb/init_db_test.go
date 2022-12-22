@@ -160,6 +160,13 @@ var _ = Describe("init_db", func() {
 		Expect(cmds[0].Command[2]).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
 	})
 
+	It("should not create an auth parms if no communal path given", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = ""
+
+		_ = contructAuthParmsHelper(ctx, vdb, "")
+	})
+
 	It("should include Kerberos parms if there are kerberos settings", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.KerberosRealm = "EXAMPLE.COM"
@@ -228,6 +235,9 @@ func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveC
 	res, err := g.ConstructAuthParms(ctx, atPod)
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+	if mustHaveCmd == "" {
+		return nil
+	}
 	c := fpr.FindCommands(mustHaveCmd)
 	ExpectWithOffset(1, len(c)).Should(Equal(1))
 	return c

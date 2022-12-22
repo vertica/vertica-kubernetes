@@ -66,4 +66,4 @@ jobs:
       if: failure()
       with:
         name: logs-e2e-hdfs
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
+        path: ${{ github.workspace }}/int-tests-output/*

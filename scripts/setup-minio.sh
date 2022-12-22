@@ -59,7 +59,7 @@ set -o xtrace
 # First setup the operator
 kubectl krew update
 kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/9ee1af89f729b999bcd37f90484c4d74c70a1df2/plugins/minio.yaml
-# If these images ever change, they must be updated in tests/external-images-common-ci.txt
+# If these images ever change, they must be updated in tests/external-images-s3-ci.txt
 kubectl minio init --console-image minio/console:v0.9.8 --image minio/operator:v4.2.7
 
 # The above command will create the CRD.  But there is a timing hole where the

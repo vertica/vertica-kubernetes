@@ -108,7 +108,7 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 			return err
 		}
 
-		if c.ApplyMethod == AddNodeApplyMethod && pf.upNode && pf.shardSubscriptions == 0 && !pf.pendingDelete {
+		if c.ApplyMethod == AddNodeApplyMethod && c.Vdb.IsEON() && pf.upNode && pf.shardSubscriptions == 0 && !pf.pendingDelete {
 			c.VRec.Log.Info("Will requeue reconciliation because pod does not have any shard subscriptions yet", "name", pf.name)
 			res.Requeue = true
 		}
@@ -138,7 +138,7 @@ func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.P
 	// entire subcluster, so pending delete isn't checked.
 	switch c.ApplyMethod {
 	case AddNodeApplyMethod, PodRescheduleApplyMethod:
-		if !labelExists && pf.upNode && pf.shardSubscriptions > 0 && !pf.pendingDelete {
+		if !labelExists && pf.upNode && (pf.shardSubscriptions > 0 || !c.Vdb.IsEON()) && !pf.pendingDelete {
 			pod.Labels[builder.ClientRoutingLabel] = builder.ClientRoutingVal
 			c.VRec.Log.Info("Adding client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", builder.ClientRoutingLabel, builder.ClientRoutingVal))

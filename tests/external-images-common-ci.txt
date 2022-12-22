@@ -5,12 +5,9 @@
 # nodes.
 #    scripts/push-to-kind.sh -f tests/external-images-common-ci.txt
 #
-minio/minio:RELEASE.2021-09-03T03-56-13Z
 amazon/aws-cli:2.2.24
 quay.io/helmpack/chart-testing:v3.3.1
 bitnami/kubectl:1.20.4
-minio/operator:v4.2.7
-minio/console:v0.9.8
 rancher/local-path-provisioner:v0.0.19
 gcr.io/kubebuilder/kube-rbac-proxy:v0.13.0
 quay.io/jetstack/cert-manager-controller:v1.5.3
