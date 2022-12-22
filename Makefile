@@ -147,13 +147,10 @@ DEV_MODE?=true
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
 export E2E_PARALLELISM
-# Set the e2e test directories.  For azb:// we avoid tests/e2e-extra because
-# when running the Azure emulator, Azurite, revive_db fails.
-ifeq ($(PATH_PROTOCOL), azb://)
-E2E_TEST_DIRS?=tests/e2e
-else
-E2E_TEST_DIRS?=tests/e2e tests/e2e-extra
-endif
+# Set the e2e test directories.  We will include just a single test suite for
+# now. If you want to use multiple, separate them with spaces. Any test can be
+# driven separately using the `kubectl test --test=<testcase>` syntax.
+E2E_TEST_DIRS?=tests/e2e-leg-1
 # Additional arguments to pass to 'kubectl kuttl'
 E2E_ADDITIONAL_ARGS?=
 
@@ -263,7 +260,7 @@ run-int-tests: install-kuttl-plugin install-stern-plugin kustomize vdb-gen setup
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
-	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) $(E2E_TEST_DIRS)
+	kubectl kuttl test --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) $(E2E_TEST_DIRS)
 
 WAIT_TIME = 120s
 run-scorecard-tests: bundle ## Run the scorecard tests
