@@ -25,7 +25,7 @@ function usage() {
     echo "usage: $0 [-v] <testsuite> <testcase> <old-number> <new-number>"
     echo
     echo "Positional Arguments:"
-    echo " <testsuite>   The name of the testsuite (e.g. e2e, e2e-extra)"
+    echo " <testsuite>   The name of the testsuite (e.g. e2e-leg-1)"
     echo " <testcase>    The name of the testcase in the testsuite to rename"
     echo " <old-number>  Old step number to rename"
     echo " <new-number>  Number to use for new step number"
