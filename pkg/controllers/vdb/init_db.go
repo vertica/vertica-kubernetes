@@ -184,6 +184,11 @@ func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, po
 func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atPod types.NamespacedName) (ctrl.Result, error) {
 	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
 
+	if g.Vdb.Spec.Communal.Path == "" {
+		g.Log.Info("Communal path is empty. Not setting up communal auth parms")
+		return ctrl.Result{}, nil
+	}
+
 	if g.Vdb.IsS3() {
 		contentGen = g.getS3AuthParmsContent
 	} else if g.Vdb.IsHDFS() {
@@ -193,14 +198,17 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 	} else if g.Vdb.IsAzure() {
 		contentGen = g.getAzureAuthParmsContent
 	} else {
-		err := fmt.Errorf("unknown communal storage type: '%s'", g.Vdb.Spec.Communal.Path)
-		g.Log.Error(err, "unable to create auth parms for communal type")
-		return ctrl.Result{}, err
+		g.Log.Info("No special auth setup for communal path", "path", g.Vdb.Spec.Communal.Path)
 	}
 
-	content, res, err := contentGen(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	var content string
+	var res ctrl.Result
+	var err error
+	if contentGen != nil {
+		content, res, err = contentGen(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
 	}
 
 	if g.Vdb.HasKerberosConfig() {

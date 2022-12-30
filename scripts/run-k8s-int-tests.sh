@@ -22,6 +22,7 @@ BUILD_IMAGES=1
 INT_TEST_OUTPUT_DIR=${REPO_DIR}/int-tests-output
 CLUSTER_NAME=vertica
 EXTRA_EXTERNAL_IMAGE_FILE=
+MOUNT_PATH_ARG=
 
 # The make targets and  the invoked shell scripts are directly run from the root directory.
 function usage {
@@ -32,11 +33,12 @@ function usage {
     echo "  -n <cluster_name>   Name of the kind cluster. default: $CLUSTER_NAME"
     echo "  -e <ext-image-file> File with list of additional images to pull prior to running e2e tests"
     echo "  -s                  Skip the building of the container images we publish externally"
+    echo "  -m <path>           Host path volume to mount in kind"
     exit
 }
 
 OPTIND=1
-while getopts l:n:hse: opt; do
+while getopts l:n:hse:m: opt; do
     case ${opt} in
         l)
             INT_TEST_OUTPUT_DIR=${OPTARG}
@@ -57,6 +59,9 @@ while getopts l:n:hse: opt; do
             ;;
         h)
             usage
+            ;;
+        m)
+            MOUNT_PATH_ARG="-m ${OPTARG}"
             ;;
         \?)
             echo "ERROR: unrecognized option"
@@ -91,7 +96,7 @@ function setup_env {
 # Setup the k8s cluster and switch context
 function setup_cluster {
     echo "Setting up kind cluster named $CLUSTER_NAME"
-    scripts/kind.sh  init "$CLUSTER_NAME"
+    scripts/kind.sh $MOUNT_PATH_ARG init "$CLUSTER_NAME"
     kubectx kind-"$CLUSTER_NAME"
 }
 

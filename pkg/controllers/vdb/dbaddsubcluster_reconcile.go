@@ -51,8 +51,8 @@ func MakeDBAddSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 
 // Reconcile will ensure a subcluster exists for each one defined in the vdb.
 func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	// no-op for ScheduleOnly init policy
-	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
+	// no-op for ScheduleOnly init policy or if not EON
+	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || !d.Vdb.IsEON() {
 		return ctrl.Result{}, nil
 	}
 

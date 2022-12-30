@@ -59,11 +59,11 @@ jobs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
-        export E2E_TEST_DIRS=tests/e2e-leg-3
+        export E2E_TEST_DIRS=tests/e2e-leg-1
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: logs-e2e-azb
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
+        path: ${{ github.workspace }}/int-tests-output/*

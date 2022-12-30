@@ -957,6 +957,9 @@ spec:
       - description: Name of the subcluster
         displayName: Name
         path: subclusters[0].name
+      - description: Object ID of the subcluster.
+        displayName: Oid
+        path: subclusters[0].oid
       - description: A count of the number of pods that are in read-only state in
           this subcluster.
         displayName: Read Only Count

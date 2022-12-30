@@ -58,14 +58,14 @@ jobs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
-        export E2E_TEST_DIRS="tests/e2e-leg-1 tests/e2e-leg-4"
+        export E2E_TEST_DIRS="tests/e2e-leg-4"
         # All helm deployments will use cert-manager to create the webhook cert
         export HELM_OVERRIDES="--set webhook.certSource=cert-manager"
-        scripts/run-k8s-int-tests.sh -s
+        scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: logs-e2e-s3
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
+        path: ${{ github.workspace }}/int-tests-output/*
 

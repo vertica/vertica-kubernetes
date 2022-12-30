@@ -72,9 +72,11 @@ var _ = Describe("verticadb_webhook", func() {
 		sc.Size = 2
 		validateSpecValuesHaveErr(vdb, true)
 	})
-	It("should not have invalid communal path", func() {
+	It("should not havn invalid communal path", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Communal.Path = "http://nimbusdb/mspilchen"
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Communal.Path = ""
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should not have invalid communal endpoint", func() {
@@ -549,6 +551,16 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Subclusters[0].HTTPNodePort = 8443 // Too low
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Subclusters[0].HTTPNodePort = 30000 // Okay
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should verify the shard count", func() {
+		vdb := MakeVDB()
+		vdb.Spec.ShardCount = 0
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ShardCount = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ShardCount = 1
 		validateSpecValuesHaveErr(vdb, false)
 	})
 })

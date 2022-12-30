@@ -162,21 +162,37 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
 	sc := c.getFirstPrimarySubcluster()
-	sql := fmt.Sprintf(`
-     alter subcluster default_subcluster rename to \"%s\";
-	`, sc.Name)
+	var sb strings.Builder
+	sb.WriteString("-- SQL that is run after the database is created\n")
+	if c.Vdb.IsEON() {
+		sb.WriteString(
+			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
+		)
+	}
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
-		sql += "select set_preferred_ksafe(0);\n"
+		sb.WriteString("select set_preferred_ksafe(0);\n")
 	}
 	if c.Vdb.Spec.EncryptSpreadComm != "" {
-		sql += fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
-		`, c.Vdb.Spec.EncryptSpreadComm)
+		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
+		`, c.Vdb.Spec.EncryptSpreadComm))
 	}
 	_, _, err := c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
-		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sql+"\"",
+		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
 	if err != nil {
 		return err
+	}
+	// If the communal path is a POSIX file path, we need to create the communal
+	// path directory as the server won't create it. It handles that for other
+	// communal types though.
+	if c.Vdb.Spec.Communal.Path != "" && !c.Vdb.IsKnownCommunalPrefix() {
+		// We intentionally skip any errors. If there is an error creating the
+		// directory, this will manifest itself later when we attempt the
+		// created. That error will have better reporting than if we were
+		// handle it here.
+		_, _, _ = c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+			"bash", "-c", fmt.Sprintf("mkdir -p %s", c.Vdb.GetCommunalPath()),
+		)
 	}
 
 	// If setting encryptSpreadComm, we need to drive a restart of the vertica
@@ -271,16 +287,27 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"-t", "create_db",
 		"--skip-fs-checks",
 		"--hosts=" + strings.Join(hostList, ","),
-		"--communal-storage-location=" + c.Vdb.GetCommunalPath(),
-		"--communal-storage-params=" + paths.AuthParmsFile,
 		"--sql=" + PostDBCreateSQLFile,
-		fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),
-		"--depot-path=" + c.Vdb.Spec.Local.DepotPath,
 		"--catalog_path=" + c.Vdb.Spec.Local.GetCatalogPath(),
 		"--database", c.Vdb.Spec.DBName,
 		"--force-cleanup-on-failure",
 		"--noprompt",
 		"--license", licPath,
+		"--depot-path=" + c.Vdb.Spec.Local.DepotPath,
+	}
+
+	// If a communal path is set, include all of the EON parameters.
+	if c.Vdb.Spec.Communal.Path != "" {
+		cmd = append(cmd,
+			"--communal-storage-location="+c.Vdb.GetCommunalPath(),
+			"--communal-storage-params="+paths.AuthParmsFile,
+		)
+	}
+
+	if c.Vdb.Spec.ShardCount > 0 {
+		cmd = append(cmd,
+			fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),
+		)
 	}
 
 	if c.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {

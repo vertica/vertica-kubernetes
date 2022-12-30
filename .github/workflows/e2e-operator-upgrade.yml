@@ -63,11 +63,11 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         scripts/setup-operator-upgrade-testsuite.sh
-        scripts/run-k8s-int-tests.sh -s
+        scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: logs-e2e-operator-upgrade
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/int-tests-output/*
+        path: ${{ github.workspace }}/int-tests-output/*
 

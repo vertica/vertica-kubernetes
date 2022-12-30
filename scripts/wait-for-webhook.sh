@@ -21,6 +21,7 @@
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=30
+source $SCRIPT_DIR/logging-utils.sh
 
 function usage() {
     echo "usage: $(basename $0) [-n <namespace>] [-t <seconds>]"
@@ -50,8 +51,16 @@ do
     esac
 done
 
-# First ensure the service object for the webhook exists.
-trap "echo 'Failed waiting for webhook service object to exist'" 0 2 3 15
+# Ensure that webhook is enabled for the operator
+WEBHOOK_ENABLED=$(kubectl get $NAMESPACE_OPT deployments -l control-plane=controller-manager -o jsonpath='{.items[0].spec.template.spec.containers[0].env[1].value}')
+if [ "$WEBHOOK_ENABLED" == "false" ]
+then
+  logWarning "Webhook is not enabled. Skipping wait."
+  exit 0
+fi
+
+logInfo "Ensure the service object for the webhook exists"
+trap "logError 'Failed waiting for webhook service object to exist'" 0 2 3 15
 set -o errexit
 timeout $TIMEOUT bash -c -- "\
     while ! kubectl get $NAMESPACE_OPT svc --no-headers --selector vertica.com/svc-type=webhook 2> /dev/null | grep -cq 'service'; \
@@ -64,6 +73,7 @@ trap 1> /dev/null
 # Next, to validate the webhook exists, we will continually create/delete a
 # VerticaDB.  If it succeeds, then we assume the webhook is up and running.
 # This depends on the webhook config having the 'failurePolicy: Fail' set.
+logInfo "Continually create/delete a VerticaDB to verify webhook"
 
 SELECTOR_KEY=vertica.com/use
 SELECTOR_VAL=wait-for-webhook
@@ -89,7 +99,7 @@ EOF
 # Delete old manifests, but likely won't be there so eat the error.
 kubectl delete $NAMESPACE_OPT vdb -l $SELECTOR 2> /dev/null 1> /dev/null || :
 
-trap "kubectl delete $NAMESPACE_OPT vdb -l $SELECTOR; rm $MANIFEST" 0 2 3 15   # Ensure deletion on script exit"
+trap "if [ "$?" -ne 0 ]; then logError 'Timed out waiting for webhook'; fi && kubectl delete $NAMESPACE_OPT vdb -l $SELECTOR; rm $MANIFEST" 0 2 3 15   # Ensure deletion on script exit"
 
 timeout $TIMEOUT bash -c -- "\
     while ! kubectl create $NAMESPACE_OPT -f $MANIFEST 2> /dev/null; \
@@ -98,3 +108,4 @@ timeout $TIMEOUT bash -c -- "\
     done" &
 pid=$!
 wait $pid
+logInfo "Webhook verified successfully"

@@ -556,7 +556,12 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf 
 		return nil
 	}
 
-	cols := "node_state, subcluster_oid"
+	cols := "node_state"
+	if vdb.IsEON() {
+		cols = fmt.Sprintf("%s, subcluster_oid", cols)
+	} else {
+		cols = fmt.Sprintf("%s, ''", cols)
+	}
 	// The read-only state is a new state added in 11.0.2.  So we can only query
 	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
 	// disabled.
@@ -564,11 +569,20 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf 
 	if ok && vinf.IsEqualOrNewer(version.NodesHaveReadOnlyStateVersion) {
 		cols = fmt.Sprintf("%s, is_readonly", cols)
 	}
-	sql := fmt.Sprintf(
-		"select %s "+
-			"from nodes as n, subclusters as s "+
-			"where s.node_oid = n.node_id and n.node_name in (select node_name from current_session)",
-		cols)
+	var sql string
+	if vdb.IsEON() {
+		sql = fmt.Sprintf(
+			"select %s "+
+				"from nodes as n, subclusters as s "+
+				"where s.node_oid = n.node_id and n.node_name in (select node_name from current_session)",
+			cols)
+	} else {
+		sql = fmt.Sprintf(
+			"select %s "+
+				"from nodes as n "+
+				"where n.node_name in (select node_name from current_session)",
+			cols)
+	}
 	return p.queryNodeStatus(ctx, pf, sql)
 }
 

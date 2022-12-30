@@ -1,0 +1,5 @@
+kind: Added
+body: Allow posix path as communal path
+time: 2022-12-29T21:10:50.922505009-04:00
+custom:
+  Issue: "308"
