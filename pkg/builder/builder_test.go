@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -102,6 +103,35 @@ var _ = Describe("builder", func() {
 		vdb.Spec.Local.CatalogPath = "/vertica/catalog"
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
+	})
+
+	It("should allow parts of the readiness probe to be overridden", func() {
+		vdb := vapi.MakeVDB()
+		NewCommand := []string{"new", "command"}
+		const NewTimeout int32 = 5
+		const NewFailureThreshold int32 = 6
+		const NewInitialDelaySeconds int32 = 7
+		const NewPeriodSeconds int32 = 8
+		const NewSuccessThreshold int32 = 9
+		vdb.Spec.ReadinessProbeOverride = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: NewCommand,
+				},
+			},
+			TimeoutSeconds:      NewTimeout,
+			FailureThreshold:    NewFailureThreshold,
+			InitialDelaySeconds: NewInitialDelaySeconds,
+			PeriodSeconds:       NewPeriodSeconds,
+			SuccessThreshold:    NewSuccessThreshold,
+		}
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(c.ReadinessProbe.Exec.Command).Should(Equal(NewCommand))
+		Expect(c.ReadinessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
+		Expect(c.ReadinessProbe.FailureThreshold).Should(Equal(NewFailureThreshold))
+		Expect(c.ReadinessProbe.InitialDelaySeconds).Should(Equal(NewInitialDelaySeconds))
+		Expect(c.ReadinessProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
+		Expect(c.ReadinessProbe.SuccessThreshold).Should(Equal(NewSuccessThreshold))
 	})
 })
 

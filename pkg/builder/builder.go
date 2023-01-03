@@ -449,17 +449,47 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 			{ContainerPort: 5434, Name: "vertica-int"},
 			{ContainerPort: 22, Name: "ssh"},
 		},
-		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				Exec: &corev1.ExecAction{
-					Command: []string{"bash", "-c", buildReadinessProbeSQL(vdb)},
-				},
-			},
-		},
+		ReadinessProbe:  makeReadinessProbe(vdb),
 		SecurityContext: makeServerSecurityContext(vdb),
 		Env:             envVars,
 		VolumeMounts:    buildVolumeMounts(vdb),
 	}
+}
+
+// makeReadinessProbe will build the readiness probe. It has a default probe
+// that can be overridden with the spec.readinessProbeOverride parameter.
+func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	probe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"bash", "-c", buildReadinessProbeSQL(vdb)},
+			},
+		},
+	}
+	ov := vdb.Spec.ReadinessProbeOverride
+	if ov == nil {
+		return probe
+	}
+	// Merge in parts of the override into the default probe
+	if ov.Exec != nil {
+		probe.Exec = ov.Exec
+	}
+	if ov.FailureThreshold > 0 {
+		probe.FailureThreshold = ov.FailureThreshold
+	}
+	if ov.InitialDelaySeconds > 0 {
+		probe.InitialDelaySeconds = ov.InitialDelaySeconds
+	}
+	if ov.PeriodSeconds > 0 {
+		probe.PeriodSeconds = ov.PeriodSeconds
+	}
+	if ov.SuccessThreshold > 0 {
+		probe.SuccessThreshold = ov.SuccessThreshold
+	}
+	if ov.TimeoutSeconds > 0 {
+		probe.TimeoutSeconds = ov.TimeoutSeconds
+	}
+	return probe
 }
 
 func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
