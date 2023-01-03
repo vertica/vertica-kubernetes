@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -113,9 +112,9 @@ var _ = Describe("builder", func() {
 		const NewInitialDelaySeconds int32 = 7
 		const NewPeriodSeconds int32 = 8
 		const NewSuccessThreshold int32 = 9
-		vdb.Spec.ReadinessProbeOverride = &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				Exec: &corev1.ExecAction{
+		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				Exec: &v1.ExecAction{
 					Command: NewCommand,
 				},
 			},
