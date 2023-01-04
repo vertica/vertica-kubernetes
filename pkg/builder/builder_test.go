@@ -103,6 +103,35 @@ var _ = Describe("builder", func() {
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
 	})
+
+	It("should allow parts of the readiness probe to be overridden", func() {
+		vdb := vapi.MakeVDB()
+		NewCommand := []string{"new", "command"}
+		const NewTimeout int32 = 5
+		const NewFailureThreshold int32 = 6
+		const NewInitialDelaySeconds int32 = 7
+		const NewPeriodSeconds int32 = 8
+		const NewSuccessThreshold int32 = 9
+		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				Exec: &v1.ExecAction{
+					Command: NewCommand,
+				},
+			},
+			TimeoutSeconds:      NewTimeout,
+			FailureThreshold:    NewFailureThreshold,
+			InitialDelaySeconds: NewInitialDelaySeconds,
+			PeriodSeconds:       NewPeriodSeconds,
+			SuccessThreshold:    NewSuccessThreshold,
+		}
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(c.ReadinessProbe.Exec.Command).Should(Equal(NewCommand))
+		Expect(c.ReadinessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
+		Expect(c.ReadinessProbe.FailureThreshold).Should(Equal(NewFailureThreshold))
+		Expect(c.ReadinessProbe.InitialDelaySeconds).Should(Equal(NewInitialDelaySeconds))
+		Expect(c.ReadinessProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
+		Expect(c.ReadinessProbe.SuccessThreshold).Should(Equal(NewSuccessThreshold))
+	})
 })
 
 // makeSubPaths is a helper that extracts all of the subPaths from the volume mounts.

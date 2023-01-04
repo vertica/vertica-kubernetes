@@ -1,0 +1,5 @@
+kind: Added
+body: Allow the readinessProbe to be configured
+time: 2023-01-03T15:20:56.222242752-04:00
+custom:
+  Issue: "309"
