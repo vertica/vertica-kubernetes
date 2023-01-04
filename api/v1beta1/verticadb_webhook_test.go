@@ -545,12 +545,12 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
-	It("should verify range for httpNodePort", func() {
+	It("should verify range for verticaHTTPNodePort", func() {
 		vdb := MakeVDB()
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeNodePort
-		vdb.Spec.Subclusters[0].HTTPNodePort = 8443 // Too low
+		vdb.Spec.Subclusters[0].VerticaHTTPNodePort = 8443 // Too low
 		validateSpecValuesHaveErr(vdb, true)
-		vdb.Spec.Subclusters[0].HTTPNodePort = 30000 // Okay
+		vdb.Spec.Subclusters[0].VerticaHTTPNodePort = 30000 // Okay
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
