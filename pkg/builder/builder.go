@@ -53,7 +53,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
-				{Port: 8443, Name: "http", NodePort: sc.HTTPNodePort},
+				{Port: 8443, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,

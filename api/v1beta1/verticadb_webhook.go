@@ -456,9 +456,9 @@ func (v *VerticaDB) hasValidNodePort(allErrs field.ErrorList) field.ErrorList {
 				allErrs = v.genNodePortInvalidError(allErrs, pathPrefix,
 					"nodePort", v.Spec.Subclusters[i].NodePort)
 			}
-			if isNodePortNumberInvalid(sc.HTTPNodePort) {
+			if isNodePortNumberInvalid(sc.VerticaHTTPNodePort) {
 				allErrs = v.genNodePortInvalidError(allErrs, pathPrefix,
-					"httpNodePort", v.Spec.Subclusters[i].HTTPNodePort)
+					"verticaHttpNodePort", v.Spec.Subclusters[i].VerticaHTTPNodePort)
 			}
 		}
 	}

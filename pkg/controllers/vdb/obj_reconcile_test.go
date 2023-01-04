@@ -706,8 +706,8 @@ var _ = Describe("obj_reconcile", func() {
 		It("should not change generated node port's if service object changes", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.Subclusters[0].ServiceType = corev1.ServiceTypeNodePort
-			vdb.Spec.Subclusters[0].NodePort = 0     // k8s to generate one
-			vdb.Spec.Subclusters[0].HTTPNodePort = 0 // k8s to generate one
+			vdb.Spec.Subclusters[0].NodePort = 0            // k8s to generate one
+			vdb.Spec.Subclusters[0].VerticaHTTPNodePort = 0 // k8s to generate one
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -739,7 +739,7 @@ var _ = Describe("obj_reconcile", func() {
 			vdb.Spec.Subclusters[0].ServiceType = corev1.ServiceTypeNodePort
 			vdb.Spec.Subclusters[0].NodePort = 0 // k8s to generate one
 			const HTTPNodePort int32 = 30000
-			vdb.Spec.Subclusters[0].HTTPNodePort = HTTPNodePort
+			vdb.Spec.Subclusters[0].VerticaHTTPNodePort = HTTPNodePort
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
