@@ -14,4 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: helm install --wait -n $NAMESPACE vdb-op vertica-charts/verticadb-operator --version 1.2.0
+  - command: curl --fail --retry 10 --retry-max-time 1800 -LO https://github.com/vertica/vertica-kubernetes/releases/download/v1.2.0/verticadb-operator-1.2.0.tgz
+  - command: helm install --wait -n $NAMESPACE vdb-op verticadb-operator-1.2.0.tgz

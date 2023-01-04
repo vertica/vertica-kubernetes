@@ -25,19 +25,22 @@ TIMEOUT=900
 RELEASE=hdfs-ci
 CHART=vertica-charts/hdfs-ci
 DEFCHART=$CHART
+MAX_RETRY=5
+source $SCRIPT_DIR/logging-utils.sh
 
 function usage {
-    echo "usage: $0 [-u] [-t <seconds>] [-c <chart>]"
+    echo "usage: $0 [-u] [-t <seconds>] [-c <chart>] [-m <num>]"
     echo
     echo "Options:"
     echo "  -t <seconds>  Length of the timeout."
     echo "  -c <chart>    Override the name of the chart to use."
+    echo "  -m <num>      Maximum number of iterations to do before giving up. [Default: $MAX_RETRY]"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "ht:c:" opt; do
+while getopts "ht:c:m:" opt; do
     case ${opt} in
         h)
             usage
@@ -48,6 +51,9 @@ while getopts "ht:c:" opt; do
         c)
             CHART=$OPTARG
             ;;
+        m)
+            MAX_RETRY=$OPTARG
+            ;;
         \?)
             echo "Unknown option: -${opt}"
             usage
@@ -55,25 +61,33 @@ while getopts "ht:c:" opt; do
     esac
 done
 
-set -o xtrace
-kubectl delete namespace $HADOOP_NS || :
-kubectl create namespace $HADOOP_NS
-
 if [[ "$CHART" == "$DEFCHART" ]]
 then
+    logInfo "Add helm chart repo"
     helm repo add vertica-charts https://vertica.github.io/charts
     helm repo update
 fi
 
-if helm install --wait -n $HADOOP_NS $RELEASE $CHART --timeout ${TIMEOUT}s
-then
-    echo "✔ Success"
-    exit 0
-fi
-set +o errexit
-kubectl get pods -n $HADOOP_NS
-for pod in $(kubectl get pods --no-headers -o custom-columns=':metadata.name')
+for i in $(seq 1 $MAX_RETRY)
 do
-    kubectl logs -n $HADOOP_NS $pod
+    logInfo "Attempt $i to create hdfs backend"
+    logInfo "Create new namespace $HADOOP_NS"
+    kubectl delete namespace $HADOOP_NS || :
+    kubectl create namespace $HADOOP_NS
+
+    logInfo "Start the helm install..."
+    if helm install --wait -n $HADOOP_NS $RELEASE $CHART --timeout ${TIMEOUT}s
+    then
+        logInfo "Helm chart successfully installed"
+        exit 0
+    fi
+    logWarning "Timed out waiting for helm install. Dumping diagnostics."
+    set +o errexit
+    kubectl get pods -n $HADOOP_NS
+    for pod in $(kubectl get pods --no-headers -o custom-columns=':metadata.name')
+    do
+        kubectl logs -n $HADOOP_NS $pod
+    done
 done
+logError "Attempted to create hdfs helm chart. But failed each time. Failing script"
 exit 1
