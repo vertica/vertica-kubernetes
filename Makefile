@@ -164,10 +164,9 @@ OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
-HELM_UNITTEST_PLUGIN_INSTALLED:=$(shell helm plugin list | grep -c '^unittest')
+HELM_UNITTEST_VERSION?=3.9.3-0.2.11
 KUTTL_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^kuttl')
 STERN_PLUGIN_INSTALLED:=$(shell kubectl krew list 2>/dev/null | grep -c '^stern')
-INTERACTIVE:=$(shell [ -t 0 ] && echo 1)
 OPERATOR_CHART = $(shell pwd)/helm-charts/verticadb-operator
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -225,20 +224,14 @@ test: manifests generate fmt vet lint envtest helm-ut ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: helm-ut
-helm-ut: install-unittest-plugin  ## Run the helm unittest
-	helm unittest --helm3 --output-type JUnit --output-file $(TMPDIR)/unit-tests.xml helm-charts/verticadb-operator
+helm-ut: ## Run the helm unittest
+	docker run -i $(shell [ -t 0 ] && echo '-t') --rm -v $(OPERATOR_CHART):/apps quintush/helm-unittest:$(HELM_UNITTEST_VERSION) -3 .
 
 .PHONY: lint
 lint: config-transformer golangci-lint ## Lint the helm charts and the Go operator
 	helm lint $(OPERATOR_CHART)
 	scripts/dockerfile-lint
 	$(GOLANGCI_LINT) run
-
-.PHONY: install-unittest-plugin
-install-unittest-plugin:
-ifeq ($(HELM_UNITTEST_PLUGIN_INSTALLED), 0)
-	helm plugin install https://github.com/quintush/helm-unittest
-endif
 
 .PHONY: run-unit-tests
 run-unit-tests: test ## Run unit tests
