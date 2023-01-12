@@ -1,5 +1,0 @@
-kind: Fixed
-body: Remove metrics for subclusters when VerticaDB is deleted
-time: 2022-12-08T08:52:16.016946061-04:00
-custom:
-  Issue: "299"

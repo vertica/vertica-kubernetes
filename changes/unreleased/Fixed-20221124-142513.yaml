@@ -1,5 +1,0 @@
-kind: Fixed
-body: Extend the internal timeout for admintools to allow a slow revive to succeed
-time: 2022-11-24T14:25:13.134678971-04:00
-custom:
-  Issue: "292"
