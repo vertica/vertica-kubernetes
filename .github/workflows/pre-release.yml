@@ -73,12 +73,20 @@ jobs:
       run: |
         make gen-changelog
 
-    - uses: stefanzweifel/git-auto-commit-action@v4
-      id: commit
+    - name: Create Pull Request
+      id: cpr
+      uses: peter-evans/create-pull-request@v4
       with:
-        commit_message: Update CHANGELOG for version ${{ env.VERSION }}
-        commit_options: '--signoff'
+        commit-message: Update CHANGELOG for version ${{ env.VERSION }}
+        title: Update CHANGELOG for version ${{ env.VERSION }}
+        body: 'Automated changes by pre-release.yml GitHub action'
+        signoff: true
+        branch: changelog-${{ inputs.new-operator-version }}
+        delete-branch: true
+        assignees: ${{ env.PR_OWNER }}
+        reviewers: ${{ env.PR_OWNER }}
 
-    - name: Print out details of the CHANGELOG commit
+    - name: Print out details of the PR opened
       run: |
-        echo "Commit hash of CHANGELOG generation: **${{ steps.commit.outputs.commit_hash }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Changelog Pull Request URL: ${{ steps.cpr.outputs.pull-request-url }}" >> $GITHUB_STEP_SUMMARY
+
