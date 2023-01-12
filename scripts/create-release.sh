@@ -56,7 +56,7 @@ VERSION=${@:$OPTIND:1}
 
 logInfo "Verify git tag exists for version ($VERSION)"
 git tag --list v$VERSION
-VERSION_SHA=$(git rev-list -n 1 $VERSION)
+VERSION_SHA=$(git rev-list -n 1 v$VERSION)
 
 logInfo "Verify artifacts exist"
 ARTIFACTS_DIR="${ARTIFACTS_DIR}/${VERSION}/release-artifacts"
@@ -73,15 +73,14 @@ then
   logError "Could not find CHANGELOG file for version: $CHANGELOG_FILE"
   exit 1
 fi
-TMP_CHANGELOG_FILE=$(mktemp /tmp/workflow-XXXXX.json)
+TMP_CHANGELOG_FILE=$(mktemp /tmp/rel-notes-XXXXX.txt)
 trap "rm $TMP_CHANGELOG_FILE" EXIT
 # Manipulate the changelog file so that it is suitable for the release notes.
 tail -n +2 $CHANGELOG_FILE | sed 's/^###/##/' > $TMP_CHANGELOG_FILE
 
-logInfo "Creating the draft release"
-gh release create \
-    --draft \
+logInfo "Creating the release"
+gh release create v$VERSION \
     --notes-file $TMP_CHANGELOG_FILE \
     --target $VERSION_SHA \
-    --title "Vertica Kubernetes $VERSION"
+    --title "Vertica Kubernetes $VERSION" \
     $ARTIFACTS_DIR/*

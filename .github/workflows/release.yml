@@ -48,7 +48,7 @@ jobs:
       run: |
         cd vertica-kubernetes
         git tag --list
-        echo "VERSION_SHA=$(git rev-list -n 1 $VERSION)" >> $GITHUB_ENV
+        echo "VERSION_SHA=$(git rev-list -n 1 v$VERSION)" >> $GITHUB_ENV
 
     - name: Download the release artifacts
       run: |
@@ -84,7 +84,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
 
     - name: Start workflow to add the helm chart for the operator release
-      if: ${{ inputs.action == 'update helm chart' || inputs.action == 'all' }}
+      if: ${{ inputs.action == 'add helm chart' || inputs.action == 'all' }}
       run: |
         curl \
         -X POST \
