@@ -63,8 +63,8 @@ jobs:
         java --version
         # Install system packages that some of the tests depend on.  Any
         # changes here need to be duplicated in udx-cpp/30-upload-files.yaml
-        sudo apt-get update
-        sudo apt-get install -y libboost-all-dev libcurl4-openssl-dev libbz2-dev
+        # We retry the command to avoid any interimittent network issues.
+        for i in $(seq 1 5); do sudo apt-get update && sudo apt-get install -y libboost-all-dev libcurl4-openssl-dev libbz2-dev && break || sleep 60; done
         scripts/setup-e2e-udx.sh -v
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
 
