@@ -16,7 +16,20 @@
 #   kubectl krew install minio
 #   kubectl minio init
 
-# Secret to be used as MinIO Root Credentials
+# MiniIO storage config. The access/secret key needs to be duplicated here
+apiVersion: v1
+kind: Secret
+metadata:
+  name: storage-configuration
+stringData:
+  config.env: |-
+    export MINIO_ROOT_USER="minio"
+    export MINIO_ROOT_PASSWORD="minio123"
+type: Opaque
+---
+# Secret to be used as MinIO Root Credentials. We use this secret as access
+# credentials in v1beta1_verticadb.yaml. The accesskey/secretkey is duplicated
+# in the storage-configuration.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -34,10 +47,10 @@ kind: Tenant
 metadata:
   name: minio
 spec:
-  image: minio/minio:RELEASE.2021-09-03T03-56-13Z
+  configuration:
+    name: storage-configuration
+  image: quay.io/minio/minio:RELEASE.2023-01-12T02-06-16Z
   imagePullPolicy: IfNotPresent
-  credsSecret:
-    name: s3-auth
   pools:
     - servers: 1
       volumesPerServer: 4

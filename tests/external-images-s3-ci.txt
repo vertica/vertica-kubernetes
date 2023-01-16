@@ -1,6 +1,6 @@
 # List of additional images that are needed to run s3 endpoint in CI.
 # These are pushed to kind in run-k8s-int-tests.sh.
 #
-minio/minio:RELEASE.2021-09-03T03-56-13Z
-minio/operator:v4.2.7
-minio/console:v0.9.8
+quay.io/minio/minio:RELEASE.2023-01-12T02-06-16Z
+minio/operator:v4.5.7
+minio/console:v0.22.5
