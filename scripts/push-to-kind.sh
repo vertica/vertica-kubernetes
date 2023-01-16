@@ -100,7 +100,8 @@ do
     if [[ "$(docker images -q $imageName 2> /dev/null)" == "" ]]
     then
       printf "${ORANGE}Image not present locally, doing a docker pull${NC}\n"
-      docker pull $imageName
+      # Retry to avoid any temporary network issue
+      for i in $(seq 1 5); do docker pull $imageName && break || sleep 60; done
     fi
 
     ${KIND} load docker-image --name ${CLUSTER_NAME} ${imageName}
