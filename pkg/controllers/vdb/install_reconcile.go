@@ -301,12 +301,27 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
+	if !p.configLogrotateExists {
+		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
+		numCmds++
+	}
+
 	if p.configLogrotateExists && !p.configLogrotateWritable {
 		// We enforce this in the docker entrypoint of the container too.  But
 		// we have this here for backwards compatibility for the 11.0 image.
 		// The 10.1.1 image doesn't even have logrotate, which is why we
 		// first check if the directory exists.
 		sb.WriteString(fmt.Sprintf("sudo chown -R dbadmin:verticadba %s\n", paths.ConfigLogrotatePath))
+		numCmds++
+	}
+
+	if !p.logrotateATFileExists {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFile, paths.ConfigLogrotatePath))
+		numCmds++
+	}
+
+	if !p.logrotateBaseConfFileExists {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFile, paths.ConfigPath))
 		numCmds++
 	}
 
@@ -317,6 +332,16 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 
 	if d.doHTTPInstall(false) && !p.httpTLSConfExists {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
+		numCmds++
+	}
+
+	if !p.configLicensingExists {
+		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
+		numCmds++
+	}
+
+	if !p.ceLicenseFileExists {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFile, paths.ConfigLicensingPath))
 		numCmds++
 	}
 

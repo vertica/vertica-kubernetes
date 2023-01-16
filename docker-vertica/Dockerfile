@@ -6,6 +6,7 @@
 ARG BASE_OS_VERSION="focal-20220801"
 ARG BUILDER_OS_VERSION="7.9.2009"
 ARG MINIMAL=""
+ARG S6_OVERLAY_VERSION=3.1.2.1
 FROM centos:centos${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
@@ -66,11 +67,8 @@ RUN set -x \
 # image change as the Vertica cluster will be running with two container
 # versions at once.
 COPY dbadmin/.ssh /home/dbadmin/.ssh
-# prepare (put inside) entrypoint script and make right permissions
-COPY ./docker-entrypoint.sh /usr/local/bin
 
 RUN set -x \
-  && chmod a+x /usr/local/bin/docker-entrypoint.sh \
   && mkdir -p /root/.ssh \
   && cp -r /home/dbadmin/.ssh /root \
   && chmod 700 /root/.ssh \
@@ -79,7 +77,6 @@ RUN set -x \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/*
-
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION}
@@ -91,12 +88,12 @@ ARG DBADMIN_UID=5000
 # "apt-cache search jre | grep jre"
 ARG JRE_PKG=openjdk-8-jre-headless
 ARG MINIMAL
+ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder --chown=$DBADMIN_UID:$DBADMIN_GID /home/dbadmin /home/dbadmin
 COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
-COPY --from=builder /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY --from=builder /etc/ssh/sshd_config.d/* /etc/ssh/sshd_config.d/
 COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
 
@@ -151,11 +148,16 @@ RUN set -x \
   # Create a symlink to python3 interpreter in vertica
   && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1
 
-ENTRYPOINT [ "/usr/local/bin/docker-entrypoint.sh" ]
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
+COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
+ENTRYPOINT [ "/init" ]
 
 # vertica port
 EXPOSE 5433
-# http port
+# vertica-http port
 EXPOSE 8443
 USER dbadmin
 LABEL os-family="ubuntu"

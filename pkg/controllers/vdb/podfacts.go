@@ -126,6 +126,18 @@ type PodFact struct {
 	// True if /opt/vertica/config/share exists
 	configShareExists bool
 
+	// True if /opt/vertica/config/licensing exists
+	configLicensingExists bool
+
+	// True if /opt/vertica/config/licensing/vertica_community_edition.license.key exists
+	ceLicenseFileExists bool
+
+	// True if /opt/vertica/config/logrotate/admintool.logrotate file exists
+	logrotateATFileExists bool
+
+	// True if /opt/vertica/config/logrotate_base.conf file exists
+	logrotateBaseConfFileExists bool
+
 	// True if /opt/vertica/config/https_certs/httpstls.json file exists
 	httpTLSConfExists bool
 
@@ -170,19 +182,23 @@ type PodFacts struct {
 // GatherState is the data exchanged with the gather pod facts script. We
 // parse the data from the script in YAML into this struct.
 type GatherState struct {
-	InstallIndicatorExists  bool   `json:"installIndicatorExists"`
-	AdmintoolsConfExists    bool   `json:"admintoolsConfExists"`
-	EulaAccepted            bool   `json:"eulaAccepted"`
-	ConfigLogrotateExists   bool   `json:"configLogrotateExists"`
-	ConfigLogrotateWritable bool   `json:"configLogrotateWritable"`
-	ConfigShareExists       bool   `json:"configShareExists"`
-	HTTPTLSConfExists       bool   `json:"httpTLSConfExists"`
-	DBExists                bool   `json:"dbExists"`
-	VerticaPIDRunning       bool   `json:"verticaPIDRunning"`
-	StartupComplete         bool   `json:"startupComplete"`
-	Compat21NodeName        string `json:"compat21NodeName"`
-	VNodeName               string `json:"vnodeName"`
-	LocalDataSize           int    `json:"localDataSize"`
+	InstallIndicatorExists      bool   `json:"installIndicatorExists"`
+	AdmintoolsConfExists        bool   `json:"admintoolsConfExists"`
+	EulaAccepted                bool   `json:"eulaAccepted"`
+	ConfigLogrotateExists       bool   `json:"configLogrotateExists"` // Does the logrotate dir exist?
+	ConfigLogrotateWritable     bool   `json:"configLogrotateWritable"`
+	ConfigShareExists           bool   `json:"configShareExists"`
+	ConfigLicensingExists       bool   `json:"configLicensingExists"`
+	CELicenseFileExists         bool   `json:"ceLicenseFileExists"`
+	LogrotateATFileExists       bool   `json:"logrotateATFileExists"`       // Does the admintool.logrotate file exist in required path?
+	LogrotateBaseConfFileExists bool   `json:"logrotateBaseConfFileExists"` // Does the logrotate_base.conf file exist in required path?
+	HTTPTLSConfExists           bool   `json:"httpTLSConfExists"`
+	DBExists                    bool   `json:"dbExists"`
+	VerticaPIDRunning           bool   `json:"verticaPIDRunning"`
+	StartupComplete             bool   `json:"startupComplete"`
+	Compat21NodeName            string `json:"compat21NodeName"`
+	VNodeName                   string `json:"vnodeName"`
+	LocalDataSize               int    `json:"localDataSize"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -363,6 +379,14 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		test -w %s && echo true || echo false
 		echo -n 'configShareExists: '
 		test -d %s && echo true || echo false
+		echo -n 'configLicensingExists: '
+		test -d %s && echo true || echo false
+		echo -n 'ceLicenseFileExists: '
+		test -f %s/%s && echo true || echo false
+		echo -n 'logrotateATFileExists: '
+		test -f %s/%s && echo true || echo false
+		echo -n 'logrotateBaseConfFileExists: '
+		test -f %s/%s && echo true || echo false
 		echo -n 'httpTLSConfExists: '
 		test -f %s/%s && echo true || echo false
 		echo -n 'dbExists: '
@@ -384,6 +408,10 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		paths.ConfigLogrotatePath,
 		paths.ConfigLogrotatePath,
 		paths.ConfigSharePath,
+		paths.ConfigLicensingPath,
+		paths.ConfigLicensingPath, paths.CELicenseFile,
+		paths.ConfigLogrotatePath, paths.LogrotateATFile,
+		paths.ConfigPath, paths.LogrotateBaseConfFile,
 		paths.HTTPTLSConfDir, paths.HTTPTLSConfFile,
 		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
 		vdb.GenInstallerIndicatorFileName(),
@@ -448,6 +476,9 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.configLogrotateExists = gs.ConfigLogrotateExists
 	pf.configLogrotateWritable = gs.ConfigLogrotateWritable
 	pf.configShareExists = gs.ConfigShareExists
+	pf.configLicensingExists = gs.ConfigLicensingExists
+	pf.logrotateATFileExists = gs.LogrotateATFileExists
+	pf.logrotateBaseConfFileExists = gs.LogrotateBaseConfFileExists
 	pf.httpTLSConfExists = gs.HTTPTLSConfExists
 	pf.localDataSize = gs.LocalDataSize
 	return nil
