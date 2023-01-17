@@ -146,7 +146,8 @@ RUN set -x \
     echo "JAVA_HOME=/usr" >> /etc/environment; \
   fi \
   # Create a symlink to python3 interpreter in vertica
-  && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1
+  && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
+  && chmod u+s /usr/sbin/cron
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
 RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
