@@ -132,6 +132,12 @@ var _ = Describe("builder", func() {
 		Expect(c.ReadinessProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
 		Expect(c.ReadinessProbe.SuccessThreshold).Should(Equal(NewSuccessThreshold))
 	})
+
+	It("should have the fsGroup set for the dbadmin GID", func() {
+		vdb := vapi.MakeVDB()
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
+	})
 })
 
 // makeSubPaths is a helper that extracts all of the subPaths from the volume mounts.

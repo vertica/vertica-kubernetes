@@ -102,6 +102,16 @@ ENV DEBIAN_FRONTEND noninteractive
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
 
+# For the init program (process 1), we use s6-overlay. This ensures none of the
+# processes we start ever become zombie's. It will also restart long running
+# processes like sshd and cron in case they fail.
+#
+# See https://github.com/just-containers/s6-overlay for instructions on how to
+# setup and configure.
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   # Update is needed to be confident that we're picking up
@@ -147,13 +157,11 @@ RUN set -x \
   fi \
   # Create a symlink to python3 interpreter in vertica
   && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
-  && chmod u+s /usr/sbin/cron
+  && chmod u+s /usr/sbin/cron \
+  # Untar the init program that was downloaded earlier
+  && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
+  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
-RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
-RUN tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz
-COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 ENTRYPOINT [ "/init" ]
 
 # vertica port
