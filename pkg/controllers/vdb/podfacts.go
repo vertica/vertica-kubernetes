@@ -117,29 +117,11 @@ type PodFact struct {
 	// True if the end user license agreement has been accepted
 	eulaAccepted bool
 
-	// True if /opt/vertica/config/logrotate exists
-	configLogrotateExists bool
-
-	// True if /opt/vertica/config/logrotate is writable by dbadmin
-	configLogrotateWritable bool
-
-	// True if /opt/vertica/config/share exists
-	configShareExists bool
-
-	// True if /opt/vertica/config/licensing exists
-	configLicensingExists bool
-
-	// True if /opt/vertica/config/licensing/vertica_community_edition.license.key exists
-	ceLicenseFileExists bool
-
-	// True if /opt/vertica/config/logrotate/admintool.logrotate file exists
-	logrotateATFileExists bool
-
-	// True if /opt/vertica/config/logrotate_base.conf file exists
-	logrotateBaseConfFileExists bool
-
-	// True if /opt/vertica/config/https_certs/httpstls.json file exists
-	httpTLSConfExists bool
+	// Check if specific dirs/files exist. This is used to determine how far the
+	// installer got with the pod. Both require full absolute paths to the
+	// directory or file.
+	dirExists  map[string]bool
+	fileExists map[string]bool
 
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
@@ -182,23 +164,16 @@ type PodFacts struct {
 // GatherState is the data exchanged with the gather pod facts script. We
 // parse the data from the script in YAML into this struct.
 type GatherState struct {
-	InstallIndicatorExists      bool   `json:"installIndicatorExists"`
-	AdmintoolsConfExists        bool   `json:"admintoolsConfExists"`
-	EulaAccepted                bool   `json:"eulaAccepted"`
-	ConfigLogrotateExists       bool   `json:"configLogrotateExists"` // Does the logrotate dir exist?
-	ConfigLogrotateWritable     bool   `json:"configLogrotateWritable"`
-	ConfigShareExists           bool   `json:"configShareExists"`
-	ConfigLicensingExists       bool   `json:"configLicensingExists"`
-	CELicenseFileExists         bool   `json:"ceLicenseFileExists"`
-	LogrotateATFileExists       bool   `json:"logrotateATFileExists"`       // Does the admintool.logrotate file exist in required path?
-	LogrotateBaseConfFileExists bool   `json:"logrotateBaseConfFileExists"` // Does the logrotate_base.conf file exist in required path?
-	HTTPTLSConfExists           bool   `json:"httpTLSConfExists"`
-	DBExists                    bool   `json:"dbExists"`
-	VerticaPIDRunning           bool   `json:"verticaPIDRunning"`
-	StartupComplete             bool   `json:"startupComplete"`
-	Compat21NodeName            string `json:"compat21NodeName"`
-	VNodeName                   string `json:"vnodeName"`
-	LocalDataSize               int    `json:"localDataSize"`
+	InstallIndicatorExists bool            `json:"installIndicatorExists"`
+	EulaAccepted           bool            `json:"eulaAccepted"`
+	DirExists              map[string]bool `json:"dirExists"`
+	FileExists             map[string]bool `json:"fileExists"`
+	DBExists               bool            `json:"dbExists"`
+	VerticaPIDRunning      bool            `json:"verticaPIDRunning"`
+	StartupComplete        bool            `json:"startupComplete"`
+	Compat21NodeName       string          `json:"compat21NodeName"`
+	VNodeName              string          `json:"vnodeName"`
+	LocalDataSize          int             `json:"localDataSize"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -369,26 +344,28 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		set -o errexit
 		echo -n 'installIndicatorExists: '
 		test -f %s && echo true || echo false
-		echo -n 'admintoolsConfExists: '
-		test -f %s && echo true || echo false
 		echo -n 'eulaAccepted: '
 		test -f %s && echo true || echo false
-		echo -n 'configLogrotateExists: '
+		echo    'dirExists:'
+		echo -n '  %s: '
 		test -d %s && echo true || echo false
-		echo -n 'configLogrotateWritable: '
-		test -w %s && echo true || echo false
-		echo -n 'configShareExists: '
+		echo -n '  %s: '
 		test -d %s && echo true || echo false
-		echo -n 'configLicensingExists: '
+		echo -n '  %s: '
 		test -d %s && echo true || echo false
-		echo -n 'ceLicenseFileExists: '
-		test -f %s/%s && echo true || echo false
-		echo -n 'logrotateATFileExists: '
-		test -f %s/%s && echo true || echo false
-		echo -n 'logrotateBaseConfFileExists: '
-		test -f %s/%s && echo true || echo false
-		echo -n 'httpTLSConfExists: '
-		test -f %s/%s && echo true || echo false
+		echo -n '  %s: '
+		test -d %s && echo true || echo false
+		echo    'fileExists:'
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
 		test -d %s/v_%s_node????_data && echo true || echo false
 		echo -n 'compat21NodeName: '
@@ -403,16 +380,16 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		df --block-size=1 --output=size %s | tail -1
  	`,
 		vdb.GenInstallerIndicatorFileName(),
-		paths.AdminToolsConf,
 		paths.EulaAcceptanceFile,
-		paths.ConfigLogrotatePath,
-		paths.ConfigLogrotatePath,
-		paths.ConfigSharePath,
-		paths.ConfigLicensingPath,
-		paths.ConfigLicensingPath, paths.CELicenseFile,
-		paths.ConfigLogrotatePath, paths.LogrotateATFile,
-		paths.ConfigPath, paths.LogrotateBaseConfFile,
-		paths.HTTPTLSConfDir, paths.HTTPTLSConfFile,
+		paths.ConfigLogrotatePath, paths.ConfigLogrotatePath,
+		paths.ConfigSharePath, paths.ConfigSharePath,
+		paths.ConfigLicensingPath, paths.ConfigLicensingPath,
+		paths.HTTPTLSConfDir, paths.HTTPTLSConfDir,
+		paths.AdminToolsConf, paths.AdminToolsConf,
+		paths.CELicenseFile, paths.CELicenseFile,
+		paths.LogrotateATFile, paths.LogrotateATFile,
+		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
+		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
 		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
@@ -445,7 +422,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 	// of admintools.conf.
 	if vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		if !pf.isInstalled {
-			pf.isInstalled = gs.AdmintoolsConfExists
+			pf.isInstalled = gs.FileExists[paths.AdminToolsConf]
 		}
 
 		// We can't reliably set compat21NodeName because the operator didn't
@@ -459,7 +436,7 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 	if !pf.isInstalled {
 		// If an admintools.conf exists without the install indicator, this
 		// indicates the admintools.conf and should be tossed.
-		pf.hasStaleAdmintoolsConf = gs.AdmintoolsConfExists
+		pf.hasStaleAdmintoolsConf = gs.FileExists[paths.AdminToolsConf]
 	} else {
 		pf.compat21NodeName = gs.Compat21NodeName
 	}
@@ -473,13 +450,8 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 		return nil
 	}
 	pf.eulaAccepted = gs.EulaAccepted
-	pf.configLogrotateExists = gs.ConfigLogrotateExists
-	pf.configLogrotateWritable = gs.ConfigLogrotateWritable
-	pf.configShareExists = gs.ConfigShareExists
-	pf.configLicensingExists = gs.ConfigLicensingExists
-	pf.logrotateATFileExists = gs.LogrotateATFileExists
-	pf.logrotateBaseConfFileExists = gs.LogrotateBaseConfFileExists
-	pf.httpTLSConfExists = gs.HTTPTLSConfExists
+	pf.dirExists = gs.DirExists
+	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
 	return nil
 }

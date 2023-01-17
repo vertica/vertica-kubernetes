@@ -589,7 +589,7 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(r.genReIPCommand()).Should(ContainElement("--force"))
 	})
 
-	It("should use --hosts option in start_db if on version that supports it", func() {
+	It("should use --hosts option in start_db if on earliest version that we support", func() {
 		vdb := vapi.MakeVDB()
 		fpr := &cmds.FakePodRunner{}
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
@@ -599,8 +599,6 @@ var _ = Describe("restart_reconciler", func() {
 			{podIP: "9.10.1.2"},
 		}
 		vdb.Annotations[vapi.VersionAnnotation] = version.MinimumVersion
-		Expect(r.genStartDBCommand(downPods)).ShouldNot(ContainElement("--hosts"))
-		vdb.Annotations[vapi.VersionAnnotation] = version.StartDBAcceptsHostListVersion
 		Expect(r.genStartDBCommand(downPods)).Should(ContainElements("--hosts", "9.10.1.1,9.10.1.2"))
 	})
 

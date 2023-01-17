@@ -187,7 +187,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		}
 		err := drecon.generateHTTPCerts(ctx)
 		Expect(err).Should(Succeed())
-		cmds := fpr.FindCommands(paths.HTTPTLSConfFile)
+		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
 		Expect(len(cmds)).Should(Equal(0))
 
 		vdb.Annotations[vapi.VersionAnnotation] = version.HTTPServerMinVersion
@@ -196,7 +196,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		}
 		err = drecon.generateHTTPCerts(ctx)
 		Expect(err).Should(Succeed())
-		cmds = fpr.FindCommands(paths.HTTPTLSConfFile)
+		cmds = fpr.FindCommands(paths.HTTPTLSConfFileName)
 		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
 	})
 })

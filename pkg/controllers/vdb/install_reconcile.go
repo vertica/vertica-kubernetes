@@ -180,15 +180,15 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 		if !p.isPodRunning {
 			continue
 		}
-		if !p.httpTLSConfExists {
+		if !p.fileExists[paths.HTTPTLSConfFile] {
 			frwt := httpconf.FileWriter{}
 			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerTLSSecret)
 			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFile))
+				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
 			}
 			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
-				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFile))
+				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
 			_ = os.Remove(fname)
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
@@ -301,47 +301,38 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
-	if !p.configLogrotateExists {
+	if !p.dirExists[paths.ConfigLogrotatePath] {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
 		numCmds++
 	}
 
-	if p.configLogrotateExists && !p.configLogrotateWritable {
-		// We enforce this in the docker entrypoint of the container too.  But
-		// we have this here for backwards compatibility for the 11.0 image.
-		// The 10.1.1 image doesn't even have logrotate, which is why we
-		// first check if the directory exists.
-		sb.WriteString(fmt.Sprintf("sudo chown -R dbadmin:verticadba %s\n", paths.ConfigLogrotatePath))
+	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
 		numCmds++
 	}
 
-	if !p.logrotateATFileExists {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFile, paths.ConfigLogrotatePath))
+	if !p.fileExists[paths.LogrotateBaseConfFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
 		numCmds++
 	}
 
-	if !p.logrotateBaseConfFileExists {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFile, paths.ConfigPath))
-		numCmds++
-	}
-
-	if !p.configShareExists {
+	if !p.dirExists[paths.ConfigSharePath] {
 		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
 		numCmds++
 	}
 
-	if d.doHTTPInstall(false) && !p.httpTLSConfExists {
+	if d.doHTTPInstall(false) && !p.dirExists[paths.HTTPTLSConfDir] {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 		numCmds++
 	}
 
-	if !p.configLicensingExists {
+	if !p.dirExists[paths.ConfigLicensingPath] {
 		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
 		numCmds++
 	}
 
-	if !p.ceLicenseFileExists {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFile, paths.ConfigLicensingPath))
+	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
 		numCmds++
 	}
 

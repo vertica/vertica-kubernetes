@@ -36,16 +36,14 @@ type Info struct {
 const (
 	// This is the minimum vertica version that the operator currently supports.
 	// If the vertica image that we deploy is older than this then the operator
-	// abort the reconiliation process.
-	MinimumVersion = "v11.0.0"
+	// aborts the reconiliation process.
+	MinimumVersion = "v11.0.1"
 	// The version that added read-only state
 	NodesHaveReadOnlyStateVersion = "v11.0.2"
 	// The minimum version that allows for online upgrade.
 	OnlineUpgradeVersion = "v11.1.0"
 	// The version that added the --force option to reip to handle up nodes
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
-	// The version that added support a for --host list to start_db command
-	StartDBAcceptsHostListVersion = "v11.0.1"
 	// The version of the server that doesn't support cgroup v2
 	CGroupV2UnsupportedVersion = "v12.0.0"
 	// The minimum version that can start Vertica's http server
