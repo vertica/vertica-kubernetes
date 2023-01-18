@@ -18,6 +18,7 @@
 CYAN='\033[0;36m'
 RED='\033[1;31m'
 ORANGE='\033[0;33m'
+GREEN='\033[1;32m'
 NC='\033[0m'  # No color
 
 function logGeneric {
@@ -45,4 +46,9 @@ function logError {
 
 function logWarning {
     logGeneric ${ORANGE} "⚠" $@
+}
+
+function logAndRunCommand {
+    logGeneric ${GREEN} "🕹️ " $@
+    $@
 }
