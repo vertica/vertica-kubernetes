@@ -132,7 +132,7 @@ jobs:
         exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         security-checks: vuln
-        timeout: '10m0s'
+        timeout: '20m0s'
         format: 'sarif'
         output: 'trivy-results-vertica-image.sarif'
 
@@ -150,7 +150,7 @@ jobs:
         exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         security-checks: vuln
-        timeout: '10m0s'
+        timeout: '20m0s'
         format: 'table'
         output: 'trivy-results-vertica-image.out'
 
