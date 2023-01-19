@@ -338,6 +338,20 @@ type VerticaDBSpec struct {
 	// here are applied to the default readiness probe we create. If this is
 	// omitted, we use the default probe.
 	ReadinessProbeOverride *corev1.Probe `json:"readinessProbeOverride,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:validation:Optional
+	// Allows tuning of the Vertica pods liveness probe. Each of the values
+	// here are applied to the default liveness probe we create. If this is
+	// omitted, we use the default probe.
+	LivenessProbeOverride *corev1.Probe `json:"livenessProbeOverride,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
+	// +kubebuilder:validation:Optional
+	// Allows tuning of the Vertica pods startup probe. Each of the values
+	// here are applied to the default startup probe we create. If this is
+	// omitted, we use the default probe.
+	StartupProbeOverride *corev1.Probe `json:"startupProbeOverride,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.

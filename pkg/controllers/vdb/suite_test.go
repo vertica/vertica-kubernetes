@@ -120,8 +120,8 @@ func defaultPodFactOverrider(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 		paths.HTTPTLSConfFile: true,
 	}
 	pf.dbExists = true
-	pf.startupInProgress = false
 	pf.upNode = true
+	pf.startupInProgress = false
 	pf.subclusterOid = "123456"
 	return nil
 }
@@ -177,6 +177,18 @@ func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, s
 		// If readOnly is true, pod will be up and running.
 		pfacts.Detail[downPodNm].upNode = readOnly
 		pfacts.Detail[downPodNm].readOnly = readOnly
+	}
+	return pfacts
+}
+
+func createPodFactsWithSlowStartup(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	fpr *cmds.FakePodRunner, slowPodsByIndex []int32) *PodFacts {
+	pfacts := createPodFactsDefault(fpr)
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
+	for _, podIndex := range slowPodsByIndex {
+		downPodNm := names.GenPodName(vdb, sc, podIndex)
+		pfacts.Detail[downPodNm].startupInProgress = true
+		pfacts.Detail[downPodNm].upNode = false
 	}
 	return pfacts
 }

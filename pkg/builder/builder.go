@@ -31,11 +31,13 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
 	SuperuserPasswordPath = "superuser-passwd"
 	TestStorageClassName  = "test-storage-class"
+	VerticaClientPort     = 5433
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -52,7 +54,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
-				{Port: 5433, Name: "vertica", NodePort: sc.NodePort},
+				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.NodePort},
 				{Port: 8443, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
@@ -459,11 +461,13 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		Name:            names.ServerContainer,
 		Resources:       sc.Resources,
 		Ports: []corev1.ContainerPort{
-			{ContainerPort: 5433, Name: "vertica"},
+			{ContainerPort: VerticaClientPort, Name: "vertica"},
 			{ContainerPort: 5434, Name: "vertica-int"},
 			{ContainerPort: 22, Name: "ssh"},
 		},
 		ReadinessProbe:  makeReadinessProbe(vdb),
+		LivenessProbe:   makeLivenessProbe(vdb),
+		StartupProbe:    makeStartupProbe(vdb),
 		SecurityContext: makeServerSecurityContext(vdb),
 		Env:             envVars,
 		VolumeMounts:    buildVolumeMounts(vdb),
@@ -476,13 +480,62 @@ func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	probe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"bash", "-c", buildReadinessProbeSQL(vdb)},
+				Command: []string{"bash", "-c", buildCanaryQuerySQL(vdb)},
 			},
 		},
 	}
-	ov := vdb.Spec.ReadinessProbeOverride
+	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
+	return probe
+}
+
+// makeStartupProbe will return the Probe object to use for the startup probe.
+func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	probe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"bash", "-c", buildCanaryQuerySQL(vdb)},
+			},
+		},
+		// We want to wait about 20 minutes for the server to come up before the
+		// other probes come into affect. The total length of the probe is more or
+		// less: InitialDelaySeconds + PeriodSeconds * FailureThreshold.
+		InitialDelaySeconds: 30,
+		PeriodSeconds:       10,
+		FailureThreshold:    117,
+		TimeoutSeconds:      5,
+	}
+	overrideProbe(probe, vdb.Spec.StartupProbeOverride)
+	return probe
+}
+
+// makeLivenessProbe will return the Probe object to use for the liveness probe.
+func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	probe := &corev1.Probe{
+		// We check if the TCP client port is open. We used this approach,
+		// rather than issuing 'select 1' like readinessProbe because we need
+		// to minimize variability. If the livenessProbe fails, the pod is
+		// rescheduled. So, it isn't as forgiving as the readinessProbe.
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(VerticaClientPort),
+			},
+		},
+		// These values were picked to so that the vertica process has to be
+		// unresponsive for about 1.5-minutes before it gets killed. Formula is:
+		// InitialDelaySeconds + PeriodSeconds * FailureThreshold.
+		InitialDelaySeconds: 60,
+		TimeoutSeconds:      1,
+		PeriodSeconds:       30,
+		FailureThreshold:    3,
+	}
+	overrideProbe(probe, vdb.Spec.LivenessProbeOverride)
+	return probe
+}
+
+// overrideProbe will modify the probe with any user defined override values.
+func overrideProbe(probe, ov *corev1.Probe) {
 	if ov == nil {
-		return probe
+		return
 	}
 	// Merge in parts of the override into the default probe
 	if ov.Exec != nil {
@@ -503,7 +556,6 @@ func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if ov.TimeoutSeconds > 0 {
 		probe.TimeoutSeconds = ov.TimeoutSeconds
 	}
-	return probe
 }
 
 func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
@@ -831,8 +883,9 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 	return appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
 }
 
-// buildReadinessProbeSQL returns the SQL to use that will check if the pod is ready.
-func buildReadinessProbeSQL(vdb *vapi.VerticaDB) string {
+// buildCanaryQuerySQL returns the SQL to use that will check if the vertica
+// process is up and accepting connections.
+func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 	passwd := ""
 	if vdb.Spec.SuperuserPasswordSecret != "" {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)

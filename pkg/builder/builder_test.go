@@ -133,6 +133,21 @@ var _ = Describe("builder", func() {
 		Expect(c.ReadinessProbe.SuccessThreshold).Should(Equal(NewSuccessThreshold))
 	})
 
+	It("should allow parts of the startupProbe and livenessProbe to be overridden", func() {
+		vdb := vapi.MakeVDB()
+		const NewTimeout int32 = 10
+		const NewPeriodSeconds int32 = 20
+		vdb.Spec.LivenessProbeOverride = &v1.Probe{
+			TimeoutSeconds: NewTimeout,
+		}
+		vdb.Spec.StartupProbeOverride = &v1.Probe{
+			PeriodSeconds: NewPeriodSeconds,
+		}
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(c.LivenessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
+		Expect(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
+	})
+
 	It("should have the fsGroup set for the dbadmin GID", func() {
 		vdb := vapi.MakeVDB()
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
