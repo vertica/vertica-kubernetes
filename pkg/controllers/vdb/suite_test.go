@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -111,10 +112,13 @@ func defaultPodFactOverrider(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 	}
 	pf.eulaAccepted = true
 	pf.isInstalled = true
-	pf.configLogrotateExists = true
-	pf.configLogrotateWritable = true
-	pf.configShareExists = true
-	pf.httpTLSConfExists = true
+	pf.dirExists = map[string]bool{
+		paths.ConfigLogrotatePath: true,
+		paths.ConfigSharePath:     true,
+	}
+	pf.fileExists = map[string]bool{
+		paths.HTTPTLSConfFile: true,
+	}
 	pf.dbExists = true
 	pf.startupInProgress = false
 	pf.upNode = true
@@ -157,7 +161,6 @@ func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, f
 		pfact.isInstalled = false
 		pfact.dbExists = false
 		pfact.eulaAccepted = false
-		pfact.configShareExists = false
 		pfact.upNode = false
 		return nil
 	}

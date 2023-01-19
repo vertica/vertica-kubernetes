@@ -615,17 +615,14 @@ func (r *RestartReconciler) genStartDBCommand(downPods []*PodFact) []string {
 		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
 	}
 
-	// In some versions, we can include a list of hosts to start.  This
-	// parameter becomes important for online upgrade as we use this to start
-	// the primaries while the secondary are in read-only.
-	vinf, ok := version.MakeInfoFromVdb(r.Vdb)
-	if ok && vinf.IsEqualOrNewer(version.StartDBAcceptsHostListVersion) {
-		hostNames := []string{}
-		for _, pod := range downPods {
-			hostNames = append(hostNames, pod.podIP)
-		}
-		cmd = append(cmd, "--hosts", strings.Join(hostNames, ","))
+	// In all versions that we support we can include a list of hosts to start.
+	// This parameter becomes important for online upgrade as we use this to
+	// start the primaries while the secondary are in read-only.
+	hostNames := []string{}
+	for _, pod := range downPods {
+		hostNames = append(hostNames, pod.podIP)
 	}
+	cmd = append(cmd, "--hosts", strings.Join(hostNames, ","))
 
 	return cmd
 }
