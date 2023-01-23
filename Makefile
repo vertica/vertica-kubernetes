@@ -512,7 +512,7 @@ KUSTOMIZE_DOWNLOAD_URL?=https://github.com/kubernetes-sigs/kustomize/releases/do
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
-	test -s $(KUSTOMIZE) || { curl -sL $(KUSTOMIZE_DOWNLOAD_URL) | tar xzf - --directory $(LOCALBIN); }
+	test -s $(KUSTOMIZE) || { curl --retry 10 --retry-max-time 1800 -sL $(KUSTOMIZE_DOWNLOAD_URL) | tar xzf - --directory $(LOCALBIN); }
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
@@ -539,7 +539,7 @@ golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
 ifneq (${GOLANGCI_LINT_VER}, $(shell [ -f $(GOLANGCI_LINT) ] && $(GOLANGCI_LINT) version --format short 2>&1))
 	@echo "golangci-lint missing or not version '${GOLANGCI_LINT_VER}', downloading..."
-	curl -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
+	curl --retry 10 --retry-max-time 1800 -sSfL "https://raw.githubusercontent.com/golangci/golangci-lint/v${GOLANGCI_LINT_VER}/install.sh" | sh -s -- -b ./bin "v${GOLANGCI_LINT_VER}"
 endif
 
 krew: $(HOME)/.krew/bin/kubectl-krew ## Download krew plugin locally if necessary
@@ -552,13 +552,13 @@ OPM = $(shell pwd)/bin/opm
 OPM_VERSION = 1.23.0
 opm: $(OPM)  ## Download opm locally if necessary
 $(OPM):
-	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/linux-amd64-opm" --output $(OPM)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/linux-amd64-opm" --output $(OPM)
 	chmod +x $(OPM)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
 operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
-	curl --silent --show-error --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.18.0/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.18.0/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
 
 ##@ Release
