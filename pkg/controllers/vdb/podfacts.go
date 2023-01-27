@@ -559,7 +559,7 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf 
 		return nil
 	}
 
-	cols := "node_state"
+	cols := "n.node_name, node_state"
 	if vdb.IsEON() {
 		cols = fmt.Sprintf("%s, subcluster_oid", cols)
 	} else {
@@ -600,9 +600,9 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.Vert
 	return nil
 }
 
-// queryNodeStatus will query the nodes system table for the following info: node is up,
-// read-only state, and subcluster oid. It assumes the database exists and the
-// pod is running.
+// queryNodeStatus will query the nodes system table for the following info:
+// node name, node is up, read-only state, and subcluster oid. It assumes the
+// database exists and the pod is running.
 func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact, sql string) error {
 	cmd := []string{"-tAc", sql}
 	if stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
@@ -623,21 +623,23 @@ func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, scOid stri
 		return
 	}
 	// The stdout comes in the form like this:
-	// UP|41231232423|t
-	// This means upNode is true, subcluster oid is 41231232423 and readOnly is true
+	// v_vertdb_node0001|UP|41231232423|t
+	// This means upNode is true, subcluster oid is 41231232423 and readOnly is
+	// true. The node name is included in the output for debug purposes, but
+	// otherwise not used.
 	lines := strings.Split(stdout, "\n")
 	cols := strings.Split(lines[0], "|")
-	const MinExpectedCols = 2
+	const MinExpectedCols = 3
 	if len(cols) < MinExpectedCols {
 		err = fmt.Errorf("expected at least %d columns from node query but only got %d", MinExpectedCols, len(cols))
 		return
 	}
-	upNode = cols[0] == "UP"
-	scOid = cols[1]
+	upNode = cols[1] == "UP"
+	scOid = cols[2]
 	// Read-only can be missing on versions that don't support that state.
 	// Return false in those cases.
 	if len(cols) > MinExpectedCols {
-		readOnly = cols[2] == "t"
+		readOnly = cols[3] == "t"
 	} else {
 		readOnly = false
 	}

@@ -199,7 +199,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "UP|123456\n"},
+					{Stdout: "v_db_node0003|UP|123456\n"},
 				},
 			},
 		}
@@ -217,7 +217,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "UP|123456|t"},
+					{Stdout: "v_db_node0001|UP|123456|t"},
 				},
 			},
 		}
@@ -230,19 +230,19 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should parse read-only state from node query", func() {
-		upNode1, readOnly1, oid1, err := parseNodeStateAndReadOnly("UP|123456|t\n")
+		upNode1, readOnly1, oid1, err := parseNodeStateAndReadOnly("v_db_node0001|UP|123456|t\n")
 		Expect(err).Should(Succeed())
 		Expect(upNode1).Should(BeTrue())
 		Expect(readOnly1).Should(BeTrue())
 		Expect(oid1).Should(Equal("123456"))
 
-		upNode2, readOnly2, oid2, err := parseNodeStateAndReadOnly("UP|7890123|f\n")
+		upNode2, readOnly2, oid2, err := parseNodeStateAndReadOnly("v_db_node0001|UP|7890123|f\n")
 		Expect(err).Should(Succeed())
 		Expect(upNode2).Should(BeTrue())
 		Expect(readOnly2).Should(BeFalse())
 		Expect(oid2).Should(Equal("7890123"))
 
-		upNode3, readOnly3, oid3, err := parseNodeStateAndReadOnly("UP|456789\n")
+		upNode3, readOnly3, oid3, err := parseNodeStateAndReadOnly("v_db_node0001|UP|456789\n")
 		Expect(err).Should(Succeed())
 		Expect(upNode3).Should(BeTrue())
 		Expect(readOnly3).Should(BeFalse())
@@ -251,7 +251,7 @@ var _ = Describe("podfacts", func() {
 		_, _, _, err = parseNodeStateAndReadOnly("")
 		Expect(err).Should(Succeed())
 
-		_, _, _, err = parseNodeStateAndReadOnly("UP|123|t|garbage")
+		_, _, _, err = parseNodeStateAndReadOnly("v_db_node0001|UP|123|t|garbage")
 		Expect(err).Should(Succeed())
 	})
 
@@ -307,7 +307,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{
 				pn: []cmds.CmdResult{
-					{Stdout: "UP||f"},
+					{Stdout: "v_db_node0001|UP||f"},
 				},
 			},
 		}
