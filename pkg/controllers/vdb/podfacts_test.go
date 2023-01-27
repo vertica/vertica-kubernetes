@@ -273,6 +273,31 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.setDepotDetails("not-a-number|blah")).ShouldNot(Succeed())
 	})
 
+	It("should detect startup in progress correctly", func() {
+		vdb := vapi.MakeVDB()
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		pn := names.GenPodName(vdb, sc, 0)
+		fpr := &cmds.FakePodRunner{}
+		pfs := MakePodFacts(vdbRec, fpr)
+		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		gs := &GatherState{VerticaPIDRunning: true, StartupComplete: false}
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.startupInProgress).Should(BeTrue())
+
+		pf = &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		gs = &GatherState{VerticaPIDRunning: false, StartupComplete: true}
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.startupInProgress).Should(BeFalse())
+
+		pf = &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		gs = &GatherState{VerticaPIDRunning: true, StartupComplete: true}
+		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pf.startupInProgress).Should(BeFalse())
+	})
+
 	It("should handle subcluster oid lookup properly for enterprise db", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.ShardCount = 0

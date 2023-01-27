@@ -521,10 +521,10 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*P
 }
 
 // filterNonActiveStartupProbe returns a new pod list with the pods that
-// have already tried filtered out. It also returns the number of pods
-// that were removed. This is important because we don't want to restart any pod
-// that has an active livelinessProbe. The pods are likely to get deleted part way
-// through the restart.
+// have already finished the startupProbe filtered out. It also returns the
+// number of pods that were removed. This is important because we don't want to
+// restart any pod that has an active livelinessProbe. The pods are likely to
+// get deleted part way through the restart.
 func (r *RestartReconciler) filterNonActiveStartupProbe(ctx context.Context,
 	pods []*PodFact) (newPodList []*PodFact, removedCount int, err error) {
 	newPodList = []*PodFact{}
@@ -546,9 +546,8 @@ func (r *RestartReconciler) filterNonActiveStartupProbe(ctx context.Context,
 
 // filterSlowStartup removes any pods that are still in the process of starting
 // up. We want to not consider them as candidates to startup. We would need to
-// kill the vertica pid, which we let the health probes due. And if it takes a
-// long time, its usually best to wait it out since the lag is probably due to a
-// large catalog.
+// kill the vertica pid. Rather we let the health probes do that, which can be
+// tuned to how long you want to wait for.
 func (r *RestartReconciler) filterSlowStartup(pods []*PodFact) (newPodList []*PodFact, removedCount int) {
 	for i := range pods {
 		if pods[i].startupInProgress {
@@ -590,8 +589,8 @@ func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) 
 	}, nil
 }
 
-// isStartupProbeActive will check if the given pod name whether the
-// startupProbe is active.
+// isStartupProbeActive will check if the given pod name has an active
+// startupProbe.
 func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.NamespacedName) (bool, error) {
 	pod := &corev1.Pod{}
 	if err := r.VRec.Client.Get(ctx, nm, pod); err != nil {

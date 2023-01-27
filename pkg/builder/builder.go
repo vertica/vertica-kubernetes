@@ -520,7 +520,7 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 				Port: intstr.FromInt(VerticaClientPort),
 			},
 		},
-		// These values were picked to so that the vertica process has to be
+		// These values were picked so that the vertica process needs to be
 		// unresponsive for about 1.5-minutes before it gets killed. Formula is:
 		// InitialDelaySeconds + PeriodSeconds * FailureThreshold.
 		InitialDelaySeconds: 60,
