@@ -2,7 +2,7 @@ This helm chart will install the operator and an admission controller webhook.  
 
 | Parameter Name | Description | Default Value |
 |----------------|-------------|---------------|
-| image.name | The name of image that runs the operator. | vertica/verticadb-operator:1.9.0 |
+| image.name | The name of image that runs the operator. | vertica/verticadb-operator:1.10.0 |
 | image.repo | Repo server hosting image.name | docker.io |
 | image.pullPolicy | The pull policy for the image that runs the operator  | IfNotPresent |
 | nameOverride | Setting this allows you to control the prefix of all of the objects created by the helm chart.  If this is left blank, we use the name of the chart as the prefix | |
