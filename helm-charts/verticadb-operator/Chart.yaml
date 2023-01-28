@@ -15,4 +15,4 @@ name: verticadb-operator
 description: An operator that can deploy and manage Vertica clusters
 type: application
 # Versions follow Semantic Versioning (https://semver.org/)
-version: 1.9.0
+version: 1.10.0
