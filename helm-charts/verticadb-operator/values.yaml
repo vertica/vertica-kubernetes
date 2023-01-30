@@ -129,6 +129,33 @@ serviceAccountNameOverride: ""
 # https://github.com/vertica/vertica-kubernetes/releases).
 skipRoleAndRoleBindingCreation: false
 
+# Add specific node selector labels to control where the server pod is scheduled.
+# If left blank then no selectors are added.
+# See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+# key: value
+nodeSelector: {}
+
+# Add any affinity or anti-affinity to the pod to control where it gets scheduled.
+# See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#inter-pod-affinity-and-anti-affinity
+# podAffinity:
+#   requiredDuringSchedulingIgnoredDuringExecution:
+#   - labelSelector:
+#       matchExpressions:
+#       - key: security
+#         operator: In
+#         values:
+#         - S1
+#     topologyKey: topology.kubernetes.io/zone
+affinity: {}
+
+# PriorityClassName given to Pods of this StatefulSet
+# See: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+priorityClassName: ""
+
+# Taints and tolerations.
+# See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+tolerations: []
+
 prometheus:
   # Controls exposing of the prometheus metrics endpoint.  Valid options are:
   #

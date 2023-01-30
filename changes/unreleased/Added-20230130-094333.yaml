@@ -1,0 +1,5 @@
+kind: Added
+body: Allow scheduling rules for operator pod
+time: 2023-01-30T09:43:33.307685455-04:00
+custom:
+  Issue: "327"
