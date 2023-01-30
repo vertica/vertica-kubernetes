@@ -1,0 +1,61 @@
+suite: test that control where the operator is scheduled
+templates:
+  - verticadb-operator-controller-manager-deployment.yaml
+tests:
+  - it: we can specify a node selector
+    set:
+      nodeSelector:
+        region: us-east
+        usage: operator
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector
+          value:
+            region: us-east
+            usage: operator
+  - it: we can specify affinity and anti-affinity rules
+    set:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+              operator: In
+              values:
+              - vertica
+            topologyKey: "kubernetes.io/hostname"
+    asserts:
+      - equal:
+          path: spec.template.spec.affinity
+          value:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                  - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - vertica
+                topologyKey: "kubernetes.io/hostname"
+  - it: we can specify a priorityClassName
+    set:
+      priorityClassName: pri1
+    asserts:
+      - equal:
+          path: spec.template.spec.priorityClassName
+          value: pri1
+  - it: we can specify a toleration
+    set:
+      tolerations:
+      - key: "example-key"
+        operator: "Exists"
+        effect: "NoSchedule"
+    asserts:
+      - equal:
+          path: spec.template.spec.tolerations[0]
+          value: 
+            key: "example-key"
+            operator: "Exists"
+            effect: "NoSchedule"
+ 

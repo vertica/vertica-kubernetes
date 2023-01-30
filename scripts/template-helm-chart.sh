@@ -183,3 +183,22 @@ do
     perl -i -0777 -pe 's/(volumes:)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n      - name: auth-cert\n        secret:\n          secretName: {{ .Values.prometheus.tlsSecret }}\n{{- end }}/g' $f
     perl -i -0777 -pe 's/(name: kube-rbac-proxy)/$1\n{{- if not (empty .Values.prometheus.tlsSecret) }}\n        volumeMounts:\n        - mountPath: \/cert\n          name: auth-cert\n{{- end }}/g' $f
 done
+
+# 18.  Add pod scheduling options
+cat << EOF >> $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+{{- if .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+{{- end }}
+{{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+{{- end }}
+{{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+{{- end }}
+{{- if .Values.tolerations }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+{{- end }}
+EOF
