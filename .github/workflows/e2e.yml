@@ -38,6 +38,7 @@ on:
         - udx
         - hostpath
         - enterprise 
+        - http server
       security_scan_exit_code:
         description: 'Set to 1 to fail the build for security vulnerabilities. Otherwise set to 0'
         required: false
@@ -141,9 +142,21 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  e2e-http-server:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'http server' || inputs.e2e_test_suites == '' }}
+    needs: [build]
+    uses: ./.github/workflows/e2e-http-server.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
   e2e-server-upgrade:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'server upgrade' || inputs.e2e_test_suites == '' }}
-    needs: [build] 
+    needs: [build]
     uses: ./.github/workflows/e2e-server-upgrade.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
