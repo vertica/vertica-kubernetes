@@ -47,7 +47,9 @@ const (
 	AdminToolsMapFile = "/opt/vertica/config/ipMap.txt"
 	// Constant for an up node, this is taken from the STATE colume in NODES table
 	StateUp = "UP"
-	// Percent of livenessProbe time to wait when requeuing due to waiting on livenessProbe
+	// Percent of livenessProbe time to wait when requeuing due to waiting on
+	// livenessProbe. This is just a heuristic we use to avoid going into a long
+	// exponential backoff wait for the livenessProbe to fail.
 	PctOfLivenessProbeWait = 0.25
 )
 

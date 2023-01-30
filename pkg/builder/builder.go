@@ -35,9 +35,12 @@ import (
 )
 
 const (
-	SuperuserPasswordPath = "superuser-passwd"
-	TestStorageClassName  = "test-storage-class"
-	VerticaClientPort     = 5433
+	SuperuserPasswordPath   = "superuser-passwd"
+	TestStorageClassName    = "test-storage-class"
+	VerticaClientPort       = 5433
+	VerticaHTTPPort         = 8443
+	InternalVerticaCommPort = 5434
+	SSHPort                 = 22
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -55,7 +58,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
 				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.NodePort},
-				{Port: 8443, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
+				{Port: VerticaHTTPPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,
@@ -78,7 +81,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
-				{Port: 22, Name: "ssh"},
+				{Port: SSHPort, Name: "ssh"},
 			},
 		},
 	}
@@ -462,8 +465,8 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		Resources:       sc.Resources,
 		Ports: []corev1.ContainerPort{
 			{ContainerPort: VerticaClientPort, Name: "vertica"},
-			{ContainerPort: 5434, Name: "vertica-int"},
-			{ContainerPort: 22, Name: "ssh"},
+			{ContainerPort: InternalVerticaCommPort, Name: "vertica-int"},
+			{ContainerPort: SSHPort, Name: "ssh"},
 		},
 		ReadinessProbe:  makeReadinessProbe(vdb),
 		LivenessProbe:   makeLivenessProbe(vdb),
@@ -520,9 +523,14 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 				Port: intstr.FromInt(VerticaClientPort),
 			},
 		},
-		// These values were picked so that the vertica process needs to be
-		// unresponsive for about 1.5-minutes before it gets killed. Formula is:
+		// These values were picked so that we can estimate how long vertica
+		// needs to be unresponsive before it gets killed. We are targeting
+		// about 2.5 minutes after initial start and 1.5 minutes if the pod has
+		// been running for a while. The formula is:
 		// InitialDelaySeconds + PeriodSeconds * FailureThreshold.
+		//
+		// Note: InitialDelaySeconds only applies the first time after pod
+		// scheduling.
 		InitialDelaySeconds: 60,
 		TimeoutSeconds:      1,
 		PeriodSeconds:       30,
