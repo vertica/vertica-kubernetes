@@ -340,6 +340,7 @@ func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context) (map[str
 	}
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
 	if err != nil {
+		r.logATFailureEvent("list_allnodes", stdout)
 		return nil, err
 	}
 
@@ -390,14 +391,31 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 	metrics.NodesRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
 	metrics.NodesRestartAttempt.With(labels).Inc()
 	if err != nil {
-		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.NodeRestartFailed,
-			"Failed while calling 'admintools -t restart_node'")
 		metrics.NodesRestartFailed.With(labels).Inc()
+		r.logATFailureEvent("restart_node", stdout)
 		return stdout, err
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
 		"Successfully called 'admintools -t restart_node' and it took %ds", int(elapsedTimeInSeconds))
 	return stdout, nil
+}
+
+// logATFailureEvent will log k8s events for the admintools restart error.
+func (r *RestartReconciler) logATFailureEvent(atCmd, op string) {
+	switch {
+	case isDiskFull(op):
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ATFailedDiskFull,
+			"'admintools -t %s' failed because of disk full", atCmd)
+	default:
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ATFailed,
+			"Failed while calling 'admintools -t %s'", atCmd)
+	}
+}
+
+// isDiskFull looks at the admintools output to see if the a diskfull error occurred
+func isDiskFull(op string) bool {
+	re := regexp.MustCompile(`OSError: \[Errno 28\] No space left on device`)
+	return re.FindAllString(op, -1) != nil
 }
 
 // reipNodes will run admintools -t re_ip against a set of pods.
@@ -454,14 +472,13 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		"Calling 'admintools -t start_db' to restart the cluster")
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
-	_, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
+	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
 	elapsedTimeInSeconds := time.Since(start).Seconds()
 	metrics.ClusterRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
 	metrics.ClusterRestartAttempt.With(labels).Inc()
 	if err != nil {
-		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ClusterRestartFailed,
-			"Failed while calling 'admintools -t start_db'")
 		metrics.ClusterRestartFailure.With(labels).Inc()
+		r.logATFailureEvent("start_db", stdout)
 		return ctrl.Result{}, err
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,

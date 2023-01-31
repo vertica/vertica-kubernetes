@@ -42,10 +42,8 @@ const (
 	RemoveNodesSucceeded            = "RemoveNodesSucceeded"
 	RemoveNodesFailed               = "RemoveNodesFailed"
 	NodeRestartStarted              = "NodeRestartStarted"
-	NodeRestartFailed               = "NodeRestartFailed"
 	NodeRestartSucceeded            = "NodeRestartSucceeded"
 	ClusterRestartStarted           = "ClusterRestartStarted"
-	ClusterRestartFailed            = "ClusterRestartFailed"
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
@@ -76,6 +74,9 @@ const (
 	SkipPVCExpansion                = "SkipPVCExpansion"
 	SkipDepotResize                 = "SkipDepotResize"
 	DepotResized                    = "DepotResized"
+	ATFailed                        = "AdminToolsFailed"
+	ATFailedDiskFull                = "AdminToolsFailedDiskfull"
+	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 )
 
 // Constants for VerticaAutoscaler reconciler

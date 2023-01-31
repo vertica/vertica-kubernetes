@@ -148,6 +148,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
+		// Report any pods that have low disk space
+		MakeLocalDataCheckReconciler(r, vdb, pfacts),
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
 		MakeUpgradeOperator120Reconciler(r, log, vdb),
