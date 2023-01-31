@@ -6,6 +6,6 @@ runs:
     - name: Download vertica RPM package
       shell: bash
       env:
-          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-12.0.1-0.x86_64.RHEL6.rpm"
+          VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-12.0.3-0.x86_64.RHEL6.rpm"
       run: |
         curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-x86_64.RHEL6.latest.rpm
