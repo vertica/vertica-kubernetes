@@ -14,23 +14,10 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-scale-up-and-down
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  encryptSpreadComm: vertica
+  name: v-restart-with-liveness-probe
+status:
   subclusters:
-    - name: main
-      size: 3
-  kSafety: "1"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - addedToDBCount: 2
+      upNodeCount: 0
+    - addedToDBCount: 1
+      upNodeCount: 0

@@ -14,23 +14,26 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-scale-up-and-down
+  name: v-restart-with-liveness-probe
+status:
+  installCount: 3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-restart-with-liveness-probe-pri2-0
 spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  encryptSpreadComm: vertica
-  subclusters:
-    - name: main
-      size: 3
-  kSafety: "1"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  containers:
+  - name: server
+    livenessProbe:
+      failureThreshold: 3
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      successThreshold: 1
+      timeoutSeconds: 1
+    startupProbe:
+      failureThreshold: 117
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5

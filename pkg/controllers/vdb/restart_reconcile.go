@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -45,6 +47,10 @@ const (
 	AdminToolsMapFile = "/opt/vertica/config/ipMap.txt"
 	// Constant for an up node, this is taken from the STATE colume in NODES table
 	StateUp = "UP"
+	// Percent of livenessProbe time to wait when requeuing due to waiting on
+	// livenessProbe. This is just a heuristic we use to avoid going into a long
+	// exponential backoff wait for the livenessProbe to fail.
+	PctOfLivenessProbeWait = 0.25
 )
 
 // A map that does a lookup of a vertica node name to an IP address
@@ -130,15 +136,37 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Kill any vertica process that may still be running.  This includes a rogue
-	// process that is no longer communicating with spread and process for
-	// read-only nodes.  This is needed before re_ip, as re_ip can only work if
-	// the database isn't running, which would be case if there are read-only
-	// nodes.
-	// Include transient nodes since we may need to run re-ip against them.
 	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, true)
-	if res, err := r.killOldProcesses(ctx, downPods); verrors.IsReconcileAborted(res, err) {
+
+	// Kill any read-only vertica process that may still be running. This does
+	// not include any rogue process that is no longer communicating with
+	// spread; these are killed by the liveness probe. Read-only nodes need to
+	// be killed because we need to restart vertica on them so they join the new
+	// cluster and can gain write access.
+	if res, err := r.killReadOnlyProcesses(ctx, downPods); verrors.IsReconcileAborted(res, err) {
 		return res, err
+	}
+
+	// If any of the pods have finished the startupProbe, we need to wait for
+	// the livenessProbe to kill them before starting. If we don't do this, we
+	// run the risk of having the livenessProbe delete the pod while we
+	// are doing the startup. The startupProbe has a much longer timeout and can
+	// accommodate a slow startup.
+	if _, pc, err := r.filterNonActiveStartupProbe(ctx, downPods); err != nil {
+		return ctrl.Result{}, err
+	} else if pc != 0 {
+		r.Log.Info("Some pods have active livenessProbes. Waiting for them to be rescheduled before trying a restart.",
+			"podCount", pc)
+		return r.makeResultForLivenessProbeWait(ctx)
+	}
+
+	// Similar to above, wait for any pods that are just slow starting. They
+	// probably have a large catalog. So, its best to wait it out. The health
+	// probes will eventually kill them if they can't make any progress.
+	if _, pc := r.filterSlowStartup(downPods); pc != 0 {
+		r.Log.Info("Some pods are slow starting up. Waiting for them to finish or abort before trying a cluster restart",
+			"podCount", pc)
+		return r.makeResultForLivenessProbeWait(ctx)
 	}
 
 	if err := r.acceptEulaIfMissing(ctx); err != nil {
@@ -226,18 +254,38 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 		return ctrl.Result{}, err
 	}
 	if len(downPods) == 0 {
-		// Pods are down but the cluster doesn't yet know that.  Requeue the reconciliation.
-		return ctrl.Result{Requeue: true}, nil
+		r.Log.Info("Pods are down but the cluster state doesn't show that yet. Requeue the reconciliation.")
+		return r.makeResultForLivenessProbeWait(ctx)
 	}
-	vnodeList := genRestartVNodeList(downPods)
-	ipList := genRestartIPList(downPods)
 
-	if res, err := r.killOldProcesses(ctx, downPods); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	// Kill any read-only vertica processes so we can restart them with full
+	// write access. If any pods are killed, we will requeue.
+	if res, err2 := r.killReadOnlyProcesses(ctx, downPods); verrors.IsReconcileAborted(res, err2) {
+		return res, err2
+	}
+
+	var pc int
+	downPods, pc, err = r.filterNonActiveStartupProbe(ctx, downPods)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if len(downPods) == 0 {
+		r.Log.Info("Some pod(s) have active livenessProbes. "+
+			"Waiting for them to be rescheduled before trying a restart.", "podCount", pc)
+		return r.makeResultForLivenessProbeWait(ctx)
+	}
+
+	downPods, _ = r.filterSlowStartup(downPods)
+	if len(downPods) == 0 {
+		r.Log.Info("Some pod(s) are still starting up. Waiting for them to " +
+			"finish or abort (via health probes) before trying to restart again")
+		return r.makeResultForLivenessProbeWait(ctx)
 	}
 
 	debugDumpAdmintoolsConf(ctx, r.PRunner, r.ATPod)
 
+	vnodeList := genRestartVNodeList(downPods)
+	ipList := genRestartIPList(downPods)
 	cmd := r.genRestartNodeCmd(vnodeList, ipList)
 	if stdout, err := r.execRestartPods(ctx, downPods, cmd); err != nil {
 		if strings.Contains(stdout, "All nodes in the input are not down, can't restart") {
@@ -254,7 +302,10 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 
 	// Schedule a requeue if we detected some down pods aren't down according to
 	// the cluster state.
-	return ctrl.Result{Requeue: len(pods) > len(downPods)}, nil
+	if len(pods) > len(downPods) {
+		return r.makeResultForLivenessProbeWait(ctx)
+	}
+	return ctrl.Result{}, nil
 }
 
 // removePodsWithClusterUpState will see if the pods in the down list are
@@ -436,21 +487,17 @@ func genRestartIPList(downPods []*PodFact) []string {
 	return ipList
 }
 
-// killOldProcesses will remove any running vertica processes.  At this point,
-// we have determined the nodes are down, so we are cleaning up so that it
-// doesn't impact the restart.  This may include killing a pod that is in the
-// read-only state.  For this reason, we requeue the iteration if anything is
-// killed so that status is updated before starting a restart; this is done for
-// the benefit of PD purposes and stability in the restart test.
-func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
+// killReadOnlyProcesses will remove any running vertica processes that are
+// currently in read-only.  At this point, we have determined that the read-only
+// nodes need to be shutdown so we can restart them to have full write access.
+// We requeue the iteration if anything is killed so that status is updated
+// before starting a restart; this is done for the benefit of PD purposes and
+// stability in the restart test.
+func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	killedAtLeastOnePid := false
-	startupInProgressCount := 0
 	for _, pod := range pods {
-		// We will avoid killing pids that are in the process of starting up.
-		// Startup can be slow at times and killing the pid will just force the
-		// entire process to restart, which will likely timeout again.
-		if pod.startupInProgress {
-			startupInProgressCount++
+		// Only killing read-only vertica processes
+		if !pod.readOnly {
 			continue
 		}
 		const KillMarker = "Killing process"
@@ -469,18 +516,104 @@ func (r *RestartReconciler) killOldProcesses(ctx context.Context, pods []*PodFac
 		// We are going to requeue if killed at least one process.  This is for
 		// the benefit of the status reconciler, so that we don't treat it as
 		// an up node anymore.
-		r.Log.Info("Requeue.  Killed at least one vertica process.")
-		return ctrl.Result{Requeue: true}, nil
-	}
-	if startupInProgressCount > 0 {
-		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.SlowRestartDetected,
-			"Detected slow Vertica startup in %d pod(s). Continuing to wait.", startupInProgressCount)
-		// At least one pid was still in the middle of startup.  We are going to
-		// requeue to allow that process to complete startup.
-		r.Log.Info("Requeue. Found at least one vertica process still starting up.")
+		r.Log.Info("Requeue.  Killed at least one read-only vertica process.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
+}
+
+// filterNonActiveStartupProbe returns a new pod list with the pods that
+// have already finished the startupProbe filtered out. It also returns the
+// number of pods that were removed. This is important because we don't want to
+// restart any pod that has an active livelinessProbe. The pods are likely to
+// get deleted part way through the restart.
+func (r *RestartReconciler) filterNonActiveStartupProbe(ctx context.Context,
+	pods []*PodFact) (newPodList []*PodFact, removedCount int, err error) {
+	newPodList = []*PodFact{}
+	var startupActive bool
+	for i := range pods {
+		startupActive, err = r.isStartupProbeActive(ctx, pods[i].name)
+		if err != nil {
+			return
+		} else if !startupActive {
+			r.Log.Info("Not restarting pod because its startupProbe is not active anymore. "+
+				"Wait for livenessProbe to reschedule the pod", "pod", pods[i].name)
+			continue
+		}
+		newPodList = append(newPodList, pods[i])
+	}
+	removedCount = len(pods) - len(newPodList)
+	return
+}
+
+// filterSlowStartup removes any pods that are still in the process of starting
+// up. We want to not consider them as candidates to startup. We would need to
+// kill the vertica pid. Rather we let the health probes do that, which can be
+// tuned to how long you want to wait for.
+func (r *RestartReconciler) filterSlowStartup(pods []*PodFact) (newPodList []*PodFact, removedCount int) {
+	for i := range pods {
+		if pods[i].startupInProgress {
+			continue
+		}
+		newPodList = append(newPodList, pods[i])
+	}
+	removedCount = len(pods) - len(newPodList)
+	return
+}
+
+// getRequeueTimeoutForLivenessProbeWait will return the time to requeue if
+// waiting for a livenessProbe to reschedule a pod.
+func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) (ctrl.Result, error) {
+	// If the restart reconciler is going to requeue because it has to wait for
+	// the livenessProbe, we don't want to use the exponential backoff. That
+	// could result in waiting too long for the requeue. Instead, we are going
+	// to use a percentage of the total livenessProbe timeout.
+	pn := names.GenPodName(r.Vdb, &r.Vdb.Spec.Subclusters[0], 0)
+	pod := corev1.Pod{}
+	if err := r.VRec.Client.Get(ctx, pn, &pod); err != nil {
+		if k8sErrors.IsNotFound(err) {
+			r.Log.Info("Could not read sample pod for livenessProbe timeout. Default to exponential backoff",
+				"podName", pn)
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	probe := pod.Spec.Containers[names.ServerContainerIndex].LivenessProbe
+	if probe == nil {
+		// For backwards compatibility, if the probe isn't set, then we just
+		// return a simple requeue with exponential backoff.
+		return ctrl.Result{Requeue: true}, nil
+	}
+	timeToWait := int(float32(probe.PeriodSeconds*probe.FailureThreshold) * PctOfLivenessProbeWait)
+	const MinWaitTime = 10
+	return ctrl.Result{
+		RequeueAfter: time.Second * time.Duration(int(math.Max(float64(timeToWait), MinWaitTime))),
+	}, nil
+}
+
+// isStartupProbeActive will check if the given pod name has an active
+// startupProbe.
+func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.NamespacedName) (bool, error) {
+	pod := &corev1.Pod{}
+	if err := r.VRec.Client.Get(ctx, nm, pod); err != nil {
+		r.Log.Info("Failed to fetch the pod", "pod", nm, "err", err)
+		return false, err
+	}
+	// If the pod doesn't have a livenessProbe then we always return true. This
+	// can happen if we are in the middle of upgrading the operator.
+	if pod.Spec.Containers[names.ServerContainerIndex].LivenessProbe == nil {
+		r.Log.Info("Pod doesn't have a livenessProbe. Okay to restart", "pod", nm)
+		return true, nil
+	}
+	// Check the container status of the server. There is a state in there
+	// (Started) that indicates if the startupProbe is still active.
+	if len(pod.Status.ContainerStatuses) > names.ServerContainerIndex {
+		cstat := &pod.Status.ContainerStatuses[names.ServerContainerIndex]
+		r.Log.Info("Pod container status", "started", cstat.Started)
+		return cstat.Started == nil || !*cstat.Started, nil
+	}
+	// If no container status, then we assume startupProbe hasn't completed yet.
+	return true, nil
 }
 
 // genRestartNodeCmd returns the command to run to restart a pod

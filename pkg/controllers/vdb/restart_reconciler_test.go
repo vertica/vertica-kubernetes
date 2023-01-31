@@ -416,7 +416,7 @@ var _ = Describe("restart_reconciler", func() {
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
 		r.ATPod = atPod
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 22000000000}))
 		lastCmd := fpr.Histories[len(fpr.Histories)-1]
 		Expect(lastCmd.Command).Should(ContainElement("list_allnodes"))
 	})
@@ -637,8 +637,9 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(len(listCmd)).Should(Equal(1))
 	})
 
-	It("should not kill process if startup is still happening", func() {
+	It("should check container status to see if startupProbe is done", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -647,18 +648,127 @@ var _ = Describe("restart_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
-			downPodNm := names.GenPodName(vdb, sc, podIndex)
-			pfacts.Detail[downPodNm].upNode = false
-			pfacts.Detail[downPodNm].readOnly = false
-			pfacts.Detail[downPodNm].isInstalled = true
-			pfacts.Detail[downPodNm].startupInProgress = true
-		}
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		r := act.(*RestartReconciler)
 
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartSkipReadOnly)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		killCmd := fpr.FindCommands("kill")
-		Expect(len(killCmd)).Should(Equal(0))
+		pn := names.GenPodName(vdb, sc, 0)
+		pod := corev1.Pod{}
+		Expect(k8sClient.Get(ctx, pn, &pod)).Should(Succeed())
+		startupProbeFinished := false
+		pod.Status.ContainerStatuses[0].Started = &startupProbeFinished
+		Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+		Expect(r.isStartupProbeActive(ctx, pn)).Should(BeTrue())
+		startupProbeFinished = true
+		pod.Status.ContainerStatuses[0].Started = &startupProbeFinished
+		Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+		Expect(r.isStartupProbeActive(ctx, pn)).Should(BeFalse())
+	})
+
+	It("should pick a suitable requeueTimeout for livenessProbe wait", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 1
+		vdb.Spec.LivenessProbeOverride = &corev1.Probe{
+			PeriodSeconds:    45,
+			FailureThreshold: 10,
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		r := act.(*RestartReconciler)
+
+		const expectedRequeueTime int = 112 // 45 * 10 * 0.25
+		Expect(r.makeResultForLivenessProbeWait(ctx)).Should(Equal(
+			ctrl.Result{RequeueAfter: time.Second * time.Duration(expectedRequeueTime)},
+		))
+	})
+
+	It("should requeue for cluster restart because livenessProbes are active", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.LivenessProbeOverride = &corev1.Probe{
+			PeriodSeconds:    15,
+			FailureThreshold: 5,
+		}
+		vdb.Spec.Subclusters[0].Size = 2
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		// Make the startupProbe active on all of the pods
+		for i := int32(0); i < sc.Size; i++ {
+			pn := names.GenPodName(vdb, sc, i)
+			pod := &corev1.Pod{}
+			Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+			started := true
+			pod.Status.ContainerStatuses[names.ServerContainerIndex].Started = &started
+			Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
+		}
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, &vdb.Spec.Subclusters[0], fpr, []int32{0, 1}, PodNotReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
+			PctOfLivenessProbeWait)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{RequeueAfter: time.Second * time.Duration(expectedRequeueTime)}))
+	})
+
+	It("should requeue for node restart because livenessProbes is active in only 1 pod", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.LivenessProbeOverride = &corev1.Probe{
+			PeriodSeconds:    15,
+			FailureThreshold: 5,
+		}
+		vdb.Spec.Subclusters[0].Size = 4
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		// Make the startupProbe active on only the first pod. This means we can
+		// restart the other down pod.
+		pn := names.GenPodName(vdb, sc, 0)
+		pod := &corev1.Pod{}
+		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
+		started := true
+		pod.Status.ContainerStatuses[names.ServerContainerIndex].Started = &started
+		Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, &vdb.Spec.Subclusters[0], fpr, []int32{0, 1}, PodNotReadOnly)
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
+			PctOfLivenessProbeWait)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{RequeueAfter: time.Second * time.Duration(expectedRequeueTime)}))
+		// Verify that we restarted the other node
+		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
+		Expect(len(restart)).Should(Equal(1))
+	})
+
+	It("should requeue for node restart if all down have a slow startup", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.LivenessProbeOverride = &corev1.Probe{
+			PeriodSeconds:    25,
+			FailureThreshold: 2,
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsWithSlowStartup(ctx, vdb, &vdb.Spec.Subclusters[0], fpr, []int32{2})
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
+		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
+			PctOfLivenessProbeWait)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{RequeueAfter: time.Second * time.Duration(expectedRequeueTime)}))
+		// Verify that we did not restart any node
+		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
+		Expect(len(restart)).Should(Equal(0))
 	})
 })

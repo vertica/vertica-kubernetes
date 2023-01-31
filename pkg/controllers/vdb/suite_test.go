@@ -181,6 +181,18 @@ func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, s
 	return pfacts
 }
 
+func createPodFactsWithSlowStartup(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
+	fpr *cmds.FakePodRunner, slowPodsByIndex []int32) *PodFacts {
+	pfacts := createPodFactsDefault(fpr)
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
+	for _, podIndex := range slowPodsByIndex {
+		downPodNm := names.GenPodName(vdb, sc, podIndex)
+		pfacts.Detail[downPodNm].startupInProgress = true
+		pfacts.Detail[downPodNm].upNode = false
+	}
+	return pfacts
+}
+
 const testAccessKey = "dummy"
 const testSecretKey = "dummy"
 

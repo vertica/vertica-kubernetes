@@ -59,6 +59,7 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups=apps,namespace=WATCH_NAMESPACE,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/exec,verbs=create
+// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/status,verbs=update
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=persistentvolumeclaims,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
@@ -124,7 +125,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// Functions such as Upgrade may already set RequeueAfter and Requeue to false
 			if (res.Requeue || res.RequeueAfter > 0) && vdb.Spec.RequeueTime > 0 {
 				res.Requeue = false
-				res.RequeueAfter = time.Duration(vdb.Spec.RequeueTime)
+				res.RequeueAfter = time.Second * time.Duration(vdb.Spec.RequeueTime)
 			}
 			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err

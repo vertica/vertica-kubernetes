@@ -23,6 +23,5 @@ metadata:
 status:
   containerStatuses:
   - ready: false
-    started: true
     name: server
 
