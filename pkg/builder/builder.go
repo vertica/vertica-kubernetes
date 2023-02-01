@@ -41,6 +41,15 @@ const (
 	VerticaHTTPPort         = 8443
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
+
+	// Standard environment variables that are set in each pod
+	PodIPEnv        = "POD_IP"
+	HostIPEnv       = "HOST_IP"
+	HostNameEnv     = "HOST_NODENAME"
+	DataPathEnv     = "DATA_PATH"
+	CatalogPathEnv  = "CATALOG_PATH"
+	DepotPathEnv    = "DEPOT_PATH"
+	DatabaseNameEnv = "DATABASE_NAME"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -444,19 +453,19 @@ func buildPodSecurityPolicy() *corev1.PodSecurityContext {
 func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := translateAnnotationsToEnvVars(vdb)
 	envVars = append(envVars, []corev1.EnvVar{
-		{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{
+		{Name: PodIPEnv, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
 		},
-		{Name: "HOST_IP", ValueFrom: &corev1.EnvVarSource{
+		{Name: HostIPEnv, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}},
 		},
-		{Name: "HOST_NODENAME", ValueFrom: &corev1.EnvVarSource{
+		{Name: HostNameEnv, ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}},
 		},
-		{Name: "DATA_PATH", Value: vdb.Spec.Local.DataPath},
-		{Name: "DEPOT_PATH", Value: vdb.Spec.Local.DepotPath},
-		{Name: "CATALOG_PATH", Value: vdb.Spec.Local.GetCatalogPath()},
-		{Name: "DATABASE_NAME", Value: vdb.Spec.DBName},
+		{Name: DataPathEnv, Value: vdb.Spec.Local.DataPath},
+		{Name: DepotPathEnv, Value: vdb.Spec.Local.DepotPath},
+		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
+		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
 	}...)
 	return corev1.Container{
 		Image:           pickImage(vdb, sc),

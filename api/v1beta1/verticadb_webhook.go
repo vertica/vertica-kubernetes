@@ -192,33 +192,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			"dbName cannot change after creation.")
 		allErrs = append(allErrs, err)
 	}
-	// dataPath cannot change after creation
-	if v.Spec.Local.DataPath != oldObj.Spec.Local.DataPath {
-		err := field.Invalid(field.NewPath("spec").Child("local").Child("dataPath"),
-			v.Spec.Local.DataPath,
-			"dataPath cannot change after creation.")
-		allErrs = append(allErrs, err)
-	}
-	// depotPath cannot change after creation
-	if v.Spec.Local.DepotPath != oldObj.Spec.Local.DepotPath {
-		err := field.Invalid(field.NewPath("spec").Child("local").Child("depotPath"),
-			v.Spec.Local.DepotPath,
-			"depotPath cannot change after creation.")
-		allErrs = append(allErrs, err)
-	}
-	if v.Spec.Local.GetCatalogPath() != oldObj.Spec.Local.GetCatalogPath() {
-		err := field.Invalid(field.NewPath("spec").Child("local").Child("catalogPath"),
-			v.Spec.Local.CatalogPath,
-			"catalogPath cannot change after creation.")
-		allErrs = append(allErrs, err)
-	}
-	// shardCount cannot change after creation
-	if v.Spec.ShardCount != oldObj.Spec.ShardCount {
-		err := field.Invalid(field.NewPath("spec").Child("shardCount"),
-			v.Spec.ShardCount,
-			"shardCount cannot change after creation.")
-		allErrs = append(allErrs, err)
-	}
 	// communal.path cannot change after creation
 	if v.Spec.Communal.Path != oldObj.Spec.Communal.Path {
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("path"),
@@ -258,6 +231,8 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
 	allErrs = v.checkImmutableTemporarySubclusterRouting(oldObj, allErrs)
 	allErrs = v.checkImmutableEncryptSpreadComm(oldObj, allErrs)
+	allErrs = v.checkImmutableLocalPathChange(oldObj, allErrs)
+	allErrs = v.checkImmutableShardCount(oldObj, allErrs)
 	return allErrs
 }
 
@@ -846,6 +821,10 @@ func (v *VerticaDB) isImageChangeInProgress() bool {
 	return v.isConditionIndexSet(ImageChangeInProgressIndex)
 }
 
+func (v *VerticaDB) isDBInitialized() bool {
+	return v.isConditionIndexSet(DBInitializedIndex)
+}
+
 // checkImmutableUpgradePolicy will see if it unsafe to change the
 // upgradePolicy.  It will log an error if it detects a change in that field
 // when it isn't allowed.
@@ -889,6 +868,51 @@ func (v *VerticaDB) checkImmutableEncryptSpreadComm(oldObj *VerticaDB, allErrs f
 		err := field.Invalid(field.NewPath("spec").Child("encryptSpreadComm"),
 			v.Spec.EncryptSpreadComm,
 			"encryptSpreadComm cannot change after creation")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// checkImmutableLocalPathChange will make sure none of the local paths change
+// after the database has been initialized.
+func (v *VerticaDB) checkImmutableLocalPathChange(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// We allow the paths to change as long as the DB isn't yet initialized.
+	if !v.isDBInitialized() {
+		return allErrs
+	}
+
+	pathPrefix := field.NewPath("spec").Child("local")
+	if v.Spec.Local.DataPath != oldObj.Spec.Local.DataPath {
+		err := field.Invalid(pathPrefix.Child("dataPath"),
+			v.Spec.Local.DataPath,
+			"dataPath cannot change after the DB has been initialized.")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.Local.DepotPath != oldObj.Spec.Local.DepotPath {
+		err := field.Invalid(pathPrefix.Child("depotPath"),
+			v.Spec.Local.DepotPath,
+			"depotPath cannot change after the DB has been initialized.")
+		allErrs = append(allErrs, err)
+	}
+	if v.Spec.Local.GetCatalogPath() != oldObj.Spec.Local.GetCatalogPath() {
+		err := field.Invalid(pathPrefix.Child("catalogPath"),
+			v.Spec.Local.CatalogPath,
+			"catalogPath cannot change after the DB has been initialized.")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// checkImmutableShardCount will make sure the shard count doesn't change after
+// the db has been initialized.
+func (v *VerticaDB) checkImmutableShardCount(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if !v.isDBInitialized() {
+		return allErrs
+	}
+	if v.Spec.ShardCount != oldObj.Spec.ShardCount {
+		err := field.Invalid(field.NewPath("spec").Child("shardCount"),
+			v.Spec.ShardCount,
+			"shardCount cannot change after creation.")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

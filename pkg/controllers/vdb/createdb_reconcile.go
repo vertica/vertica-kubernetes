@@ -106,7 +106,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
-func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName) error {
+func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
@@ -129,7 +129,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 	// If the communal path is a POSIX file path, we need to create the communal
 	// path directory as the server won't create it. It handles that for other
@@ -149,10 +149,10 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	if c.Vdb.Spec.EncryptSpreadComm != "" {
 		cond := vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue}
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 	}
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // postCmdCleanup will handle any cleanup action after initializing the database
