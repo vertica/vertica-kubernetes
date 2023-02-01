@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -51,8 +52,9 @@ func (l *LocalDataCheckReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 	pods := l.PFacts.findPodsLowOnDiskSpace(FreeSpaceThreshold)
 	l.NumEvents = 0
 	for i := range pods {
-		l.VRec.Eventf(l.Vdb, corev1.EventTypeWarning, events.LowLocalDataAvailSpace,
-			"Low disk space in persistent volume attached to %s", pods[i].name.Name)
+		msg := fmt.Sprintf("Low disk space in persistent volume attached to %s", pods[i].name.Name)
+		l.VRec.Log.Info(msg)
+		l.VRec.Eventf(l.Vdb, corev1.EventTypeWarning, events.LowLocalDataAvailSpace, msg)
 		l.NumEvents++
 	}
 
