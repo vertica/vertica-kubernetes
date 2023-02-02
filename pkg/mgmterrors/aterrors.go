@@ -28,12 +28,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// ATErrors handles event logging for errors that come back from admintools.
 type ATErrors struct {
 	Writer               EVWriter
 	VDB                  *vapi.VerticaDB
 	GenericFailureReason string // The failure reason when no specific error is found
 }
 
+// MakeATErrors will consturct the ATErrors struct
 func MakeATErrors(writer EVWriter, vdb *vapi.VerticaDB, genericFailureReason string) EventLogger {
 	return &ATErrors{
 		Writer:               writer,
@@ -47,7 +49,7 @@ const (
 	RestartNodesNotDownRequeueWaitTimeInSeconds = 10
 )
 
-// LogFailureError is called when admintools had attempted an option but
+// LogFailure is called when admintools had attempted an option but
 // failed. The command used, along with the output of the command are
 // given. This function will parse the output and determine the appropriate
 // Event and log message to write.
@@ -125,10 +127,14 @@ func isDiskFull(op string) bool {
 	return re.FindAllString(op, -1) != nil
 }
 
+// areSomeNodesUpForRestart will check for the AT error that restart failed
+// because vertica thinks some nodes are still up
 func areSomeNodesUpForRestart(op string) bool {
 	return strings.Contains(op, "All nodes in the input are not down, can't restart")
 }
 
+// isCommunalPathNotEmpty will check the AT output to see if the error is due to
+// communal location not being empty during create_db
 func isCommunalPathNotEmpty(op string) bool {
 	re := regexp.MustCompile(`Communal location \[.+\] is not empty`)
 	return re.FindAllString(op, -1) != nil
@@ -157,6 +163,8 @@ func isKerberosAuthError(op string) bool {
 	return re.FindAllString(op, -1) != nil
 }
 
+// isClusterLeaseNotExpired will look at the AT output to see if the revive
+// failed because a cluster lease was still active
 func isClusterLeaseNotExpired(op string) bool {
 	// We use (?s) so that '.' matches newline characters
 	rs := `(?s)the communal storage location.*might still be in use.*cluster lease will expire`
@@ -164,6 +172,8 @@ func isClusterLeaseNotExpired(op string) bool {
 	return re.FindAllString(op, -1) != nil
 }
 
+// isDatabaseNotFound will look at the AT output to see if revive failed because
+// it couldn't find the database
 func isDatabaseNotFound(op string) bool {
 	rs := `(?s)Could not copy file.+: ` +
 		`(No such file or directory|.*FileNotFoundException|File not found|.*blob does not exist)`
@@ -171,10 +181,14 @@ func isDatabaseNotFound(op string) bool {
 	return re.FindAllString(op, -1) != nil
 }
 
+// isPermissionDeniedError will check the AT output to see if the operation
+// failed because of permission problems
 func isPermissionDeniedError(op string) bool {
 	return strings.Contains(op, "Permission Denied")
 }
 
+// isNodeCountMismatch will check the AT output to see if the revive failed
+// because of a primary node count mismatch
 func isNodeCountMismatch(op string) bool {
 	if strings.Contains(op, "Error: Node count mismatch") {
 		return true
