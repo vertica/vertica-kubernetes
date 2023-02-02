@@ -28,7 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// ATErrors handles event logging for errors that come back from admintools.
+// ATErrors handles event logging for errors that come back from admintools
 type ATErrors struct {
 	Writer               EVWriter
 	VDB                  *vapi.VerticaDB
