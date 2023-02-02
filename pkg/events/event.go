@@ -74,8 +74,8 @@ const (
 	SkipPVCExpansion                = "SkipPVCExpansion"
 	SkipDepotResize                 = "SkipDepotResize"
 	DepotResized                    = "DepotResized"
-	ATFailed                        = "AdminToolsFailed"
-	ATFailedDiskFull                = "AdminToolsFailedDiskfull"
+	MgmtFailed                      = "MgmtFailed"
+	MgmtFailedDiskFull              = "MgmtFailedDiskfull"
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 )
 

@@ -771,37 +771,4 @@ var _ = Describe("restart_reconciler", func() {
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
 	})
-
-	It("should log a diskfull event", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsWithSlowStartup(ctx, vdb, &vdb.Spec.Subclusters[0], fpr, []int32{2})
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly)
-		r := act.(*RestartReconciler)
-
-		sampleOutput := `Info: no password specified, using none
-*** Updating IP addresses for nodes of database vertdb ***
-    Start update IP addresses for nodes
-    Updating node IP addresses
-    Generating new configuration information and reloading spread
-
-
-Admintools was unable to complete a network operation while executing this request.
-Sometimes this can be caused by transient network issues.
-Please consider retrying the command.
-Details:
---- Logging error ---\r
-Traceback (most recent call last):\r
-  File \"/opt/vertica/oss/python3/lib/python3.9/logging/__init__.py\", line 1087, in emit\r
-    self.flush()\r
-  File \"/opt/vertica/oss/python3/lib/python3.9/logging/__init__.py\", line 1067, in flush\r
-    self.stream.flush()\r
-OSError: [Errno 28] No space left on device\r
-Call stack:\r
-  File \"/opt/vertica/oss/python3/lib/python3.9/runpy.py\", line 197, in _run_module_as_main\r
-    return _run_code(code, main_globals, None,\r
-		`
-		Expect(isDiskFull(sampleOutput)).Should(BeTrue())
-		r.logATFailureEvent("restart_db", sampleOutput)
-	})
 })

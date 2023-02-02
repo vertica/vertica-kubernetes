@@ -18,16 +18,15 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
@@ -42,12 +41,20 @@ type ReviveDBReconciler struct {
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
+	EVLogr  mgmterrors.EventLogger
 }
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
 func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &ReviveDBReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	return &ReviveDBReconciler{
+		VRec:    vdbrecon,
+		Log:     log,
+		Vdb:     vdb,
+		PRunner: prunner,
+		PFacts:  pfacts,
+		EVLogr:  mgmterrors.MakeATErrors(vdbrecon, vdb, events.ReviveDBFailed),
+	}
 }
 
 // Reconcile will ensure a DB exists and revive one if it doesn't
@@ -78,80 +85,11 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	start := time.Now()
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
-		switch {
-		case isClusterLeaseNotExpired(stdout):
-			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
-				"revive_db failed because the cluster lease has not expired for '%s'",
-				r.Vdb.GetCommunalPath())
-			return ctrl.Result{Requeue: true}, nil
-
-		case cloud.IsBucketNotExistError(stdout):
-			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
-				"The bucket in the S3 path '%s' does not exist", r.Vdb.GetCommunalPath())
-			return ctrl.Result{Requeue: true}, nil
-
-		case cloud.IsEndpointBadError(stdout):
-			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
-				"Unable to connect to S3 endpoint '%s'", r.Vdb.Spec.Communal.Endpoint)
-			return ctrl.Result{Requeue: true}, nil
-
-		case isDatabaseNotFound(stdout):
-			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBNotFound,
-				"revive_db failed because the database '%s' could not be found in the communal path '%s'",
-				r.Vdb.Spec.DBName, r.Vdb.GetCommunalPath())
-			return ctrl.Result{Requeue: true}, nil
-
-		case isPermissionDeniedError(stdout):
-			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBPermissionDenied,
-				"revive_db failed because of a permission denied error. Verify these paths match the "+
-					"ones used by the database: 'DATA,TEMP' => %s, 'DEPOT' => %s, 'CATALOG' => %s",
-				r.Vdb.Spec.Local.DataPath, r.Vdb.Spec.Local.DepotPath, r.Vdb.Spec.Local.GetCatalogPath())
-			return ctrl.Result{Requeue: true}, nil
-
-		case isNodeCountMismatch(stdout):
-			r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBNodeCountMismatch,
-				"revive_db failed because of a node count mismatch")
-			return ctrl.Result{Requeue: true}, nil
-
-		case isKerberosAuthError(stdout):
-			r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
-				"Error during keberos authentication")
-			return ctrl.Result{Requeue: true}, nil
-
-		default:
-			r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBFailed,
-				"Failed to revive the database")
-			return ctrl.Result{}, err
-		}
+		return r.EVLogr.LogFailure("revive_db", stdout, err)
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,
 		"Successfully revived database. It took %s", time.Since(start))
 	return ctrl.Result{}, nil
-}
-
-func isClusterLeaseNotExpired(op string) bool {
-	// We use (?s) so that '.' matches newline characters
-	rs := `(?s)the communal storage location.*might still be in use.*cluster lease will expire`
-	re := regexp.MustCompile(rs)
-	return re.FindAllString(op, -1) != nil
-}
-
-func isDatabaseNotFound(op string) bool {
-	rs := `(?s)Could not copy file.+: ` +
-		`(No such file or directory|.*FileNotFoundException|File not found|.*blob does not exist)`
-	re := regexp.MustCompile(rs)
-	return re.FindAllString(op, -1) != nil
-}
-
-func isPermissionDeniedError(op string) bool {
-	return strings.Contains(op, "Permission Denied")
-}
-
-func isNodeCountMismatch(op string) bool {
-	if strings.Contains(op, "Error: Node count mismatch") {
-		return true
-	}
-	return strings.Contains(op, "Error: Primary node count mismatch")
 }
 
 // preCmdSetup is a no-op for revive.  This exists so that we can use the

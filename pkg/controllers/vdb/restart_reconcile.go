@@ -30,6 +30,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
+	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -65,13 +66,20 @@ type RestartReconciler struct {
 	PFacts          *PodFacts
 	ATPod           types.NamespacedName // The pod that we run admintools from
 	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
+	EVLogr          mgmterrors.EventLogger
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
 func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, restartReadOnly bool) controllers.ReconcileActor {
-	return &RestartReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
-		RestartReadOnly: restartReadOnly}
+	return &RestartReconciler{
+		VRec:            vdbrecon,
+		Log:             log,
+		Vdb:             vdb,
+		PRunner:         prunner,
+		PFacts:          pfacts,
+		RestartReadOnly: restartReadOnly,
+		EVLogr:          mgmterrors.MakeATErrors(vdbrecon, vdb, events.MgmtFailed)}
 }
 
 // Reconcile will ensure each pod is UP in the vertica sense.
@@ -249,9 +257,9 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 // restartPods restart the down pods using admintools
 func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	// Reduce the pod list according to the cluster node state
-	downPods, err := r.removePodsWithClusterUpState(ctx, pods)
-	if err != nil {
-		return ctrl.Result{}, err
+	downPods, res, err := r.removePodsWithClusterUpState(ctx, pods)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 	if len(downPods) == 0 {
 		r.Log.Info("Pods are down but the cluster state doesn't show that yet. Requeue the reconciliation.")
@@ -287,12 +295,8 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 	vnodeList := genRestartVNodeList(downPods)
 	ipList := genRestartIPList(downPods)
 	cmd := r.genRestartNodeCmd(vnodeList, ipList)
-	if stdout, err := r.execRestartPods(ctx, downPods, cmd); err != nil {
-		if strings.Contains(stdout, "All nodes in the input are not down, can't restart") {
-			// Vertica hasn't yet detected some nodes are done.  Give Vertica more time and requeue.
-			return ctrl.Result{Requeue: false, RequeueAfter: time.Second * RequeueWaitTimeInSeconds}, nil
-		}
-		return ctrl.Result{}, fmt.Errorf("failed to restart pod(s) %w", err)
+	if res, err := r.execRestartPods(ctx, downPods, cmd); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 
 	debugDumpAdmintoolsConf(ctx, r.PRunner, r.ATPod)
@@ -311,10 +315,10 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 // removePodsWithClusterUpState will see if the pods in the down list are
 // down according to the cluster state. This will return a new pod list with the
 // pods that aren't considered down removed.
-func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, pods []*PodFact) ([]*PodFact, error) {
-	clusterState, err := r.fetchClusterNodeStatus(ctx)
-	if err != nil {
-		return nil, err
+func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, pods []*PodFact) ([]*PodFact, ctrl.Result, error) {
+	clusterState, res, err := r.fetchClusterNodeStatus(ctx)
+	if verrors.IsReconcileAborted(res, err) {
+		return nil, res, err
 	}
 	i := 0
 	// Remove any item from pods where the state is UP
@@ -325,7 +329,7 @@ func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, po
 			i++
 		}
 	}
-	return pods[:i], nil
+	return pods[:i], ctrl.Result{}, nil
 }
 
 // fetchClusterNodeStatus gets the node status (UP/DOWN) from the cluster.
@@ -334,17 +338,17 @@ func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, po
 // show up as down in the cluster state.  Even then, there is still a chance
 // that this may report a node is UP but not yet accepting connections because
 // it could doing the initialization phase.
-func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context) (map[string]string, error) {
+func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context) (map[string]string, ctrl.Result, error) {
 	cmd := []string{
 		"-t", "list_allnodes",
 	}
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.ATPod, names.ServerContainer, cmd...)
 	if err != nil {
-		r.logATFailureEvent("list_allnodes", stdout)
-		return nil, err
+		res, err2 := r.EVLogr.LogFailure("list_allnodes", stdout, err)
+		return nil, res, err2
 	}
 
-	return r.parseClusterNodeStatus(stdout), nil
+	return r.parseClusterNodeStatus(stdout), ctrl.Result{}, nil
 }
 
 // parseClusterNodeStatus will parse the output from a AT -t list_allnodes call
@@ -376,7 +380,7 @@ func (r *RestartReconciler) parseClusterNodeStatus(stdout string) map[string]str
 }
 
 // execRestartPods will execute the AT command and event recording for restart pods.
-func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*PodFact, cmd []string) (string, error) {
+func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*PodFact, cmd []string) (ctrl.Result, error) {
 	podNames := make([]string, 0, len(downPods))
 	for _, pods := range downPods {
 		podNames = append(podNames, pods.name.Name)
@@ -392,30 +396,11 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 	metrics.NodesRestartAttempt.With(labels).Inc()
 	if err != nil {
 		metrics.NodesRestartFailed.With(labels).Inc()
-		r.logATFailureEvent("restart_node", stdout)
-		return stdout, err
+		return r.EVLogr.LogFailure("restart_node", stdout, err)
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
 		"Successfully called 'admintools -t restart_node' and it took %ds", int(elapsedTimeInSeconds))
-	return stdout, nil
-}
-
-// logATFailureEvent will log k8s events for the admintools restart error.
-func (r *RestartReconciler) logATFailureEvent(atCmd, op string) {
-	switch {
-	case isDiskFull(op):
-		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ATFailedDiskFull,
-			"'admintools -t %s' failed because of disk full", atCmd)
-	default:
-		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ATFailed,
-			"Failed while calling 'admintools -t %s'", atCmd)
-	}
-}
-
-// isDiskFull looks at the admintools output to see if the a diskfull error occurred
-func isDiskFull(op string) bool {
-	re := regexp.MustCompile(`OSError: \[Errno 28\] No space left on device`)
-	return re.FindAllString(op, -1) != nil
+	return ctrl.Result{}, nil
 }
 
 // reipNodes will run admintools -t re_ip against a set of pods.
@@ -478,8 +463,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 	metrics.ClusterRestartAttempt.With(labels).Inc()
 	if err != nil {
 		metrics.ClusterRestartFailure.With(labels).Inc()
-		r.logATFailureEvent("start_db", stdout)
-		return ctrl.Result{}, err
+		return r.EVLogr.LogFailure("start_db", stdout, err)
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
 		"Successfully called 'admintools -t start_db' and it took %ds", int(elapsedTimeInSeconds))

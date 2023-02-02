@@ -1,0 +1,183 @@
+/*
+ (c) Copyright [2021-2023] Micro Focus or one of its affiliates.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+*/
+
+package mgmterrors
+
+import (
+	"fmt"
+	"regexp"
+	"strings"
+	"time"
+
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
+	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+type ATErrors struct {
+	Writer               EVWriter
+	VDB                  *vapi.VerticaDB
+	GenericFailureReason string // The failure reason when no specific error is found
+}
+
+func MakeATErrors(writer EVWriter, vdb *vapi.VerticaDB, genericFailureReason string) EventLogger {
+	return &ATErrors{
+		Writer:               writer,
+		VDB:                  vdb,
+		GenericFailureReason: genericFailureReason,
+	}
+}
+
+const (
+	// Amount of time to wait after a restart failed because nodes weren't down yet
+	RestartNodesNotDownRequeueWaitTimeInSeconds = 10
+)
+
+// LogFailureError is called when admintools had attempted an option but
+// failed. The command used, along with the output of the command are
+// given. This function will parse the output and determine the appropriate
+// Event and log message to write.
+func (a *ATErrors) LogFailure(cmd, op string, err error) (ctrl.Result, error) {
+	switch {
+	case isDiskFull(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.MgmtFailedDiskFull,
+			"'admintools -t %s' failed because of disk full", cmd)
+		return ctrl.Result{Requeue: true}, nil
+
+	case areSomeNodesUpForRestart(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, a.GenericFailureReason,
+			"Failed while calling 'admintools -t %s'", cmd)
+		return ctrl.Result{Requeue: false, RequeueAfter: time.Second * RestartNodesNotDownRequeueWaitTimeInSeconds}, nil
+
+	case cloud.IsEndpointBadError(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.S3EndpointIssue,
+			"Unable to write to the bucket in the S3 endpoint '%s'", a.VDB.Spec.Communal.Endpoint)
+		return ctrl.Result{Requeue: true}, nil
+
+	case cloud.IsBucketNotExistError(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
+			"The bucket in the S3 path '%s' does not exist", a.VDB.GetCommunalPath())
+		return ctrl.Result{Requeue: true}, nil
+
+	case isCommunalPathNotEmpty(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.CommunalPathIsNotEmpty,
+			"The communal path '%s' is not empty", a.VDB.GetCommunalPath())
+		return ctrl.Result{Requeue: true}, nil
+
+	case isWrongRegion(op):
+		a.Writer.Event(a.VDB, corev1.EventTypeWarning, events.S3WrongRegion,
+			"You are trying to access your S3 bucket using the wrong region")
+		return ctrl.Result{Requeue: true}, nil
+
+	case isKerberosAuthError(op):
+		a.Writer.Event(a.VDB, corev1.EventTypeWarning, events.KerberosAuthError,
+			"Error during keberos authentication")
+		return ctrl.Result{Requeue: true}, nil
+
+	case isClusterLeaseNotExpired(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
+			"revive_db failed because the cluster lease has not expired for '%s'",
+			a.VDB.GetCommunalPath())
+		return ctrl.Result{Requeue: true}, nil
+
+	case isDatabaseNotFound(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.ReviveDBNotFound,
+			"revive_db failed because the database '%s' could not be found in the communal path '%s'",
+			a.VDB.Spec.DBName, a.VDB.GetCommunalPath())
+		return ctrl.Result{Requeue: true}, nil
+
+	case isPermissionDeniedError(op):
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.ReviveDBPermissionDenied,
+			"revive_db failed because of a permission denied error. Verify these paths match the "+
+				"ones used by the database: 'DATA,TEMP' => %s, 'DEPOT' => %s, 'CATALOG' => %s",
+			a.VDB.Spec.Local.DataPath, a.VDB.Spec.Local.DepotPath, a.VDB.Spec.Local.GetCatalogPath())
+		return ctrl.Result{Requeue: true}, nil
+
+	case isNodeCountMismatch(op):
+		a.Writer.Event(a.VDB, corev1.EventTypeWarning, events.ReviveDBNodeCountMismatch,
+			"revive_db failed because of a node count mismatch")
+		return ctrl.Result{Requeue: true}, nil
+
+	default:
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, a.GenericFailureReason,
+			"Failed while calling 'admintools -t %s'", cmd)
+		return ctrl.Result{}, fmt.Errorf("failed mgmt command %s %w", cmd, err)
+	}
+}
+
+// isDiskFull looks at the admintools output to see if the a diskfull error occurred
+func isDiskFull(op string) bool {
+	re := regexp.MustCompile(`OSError: \[Errno 28\] No space left on device`)
+	return re.FindAllString(op, -1) != nil
+}
+
+func areSomeNodesUpForRestart(op string) bool {
+	return strings.Contains(op, "All nodes in the input are not down, can't restart")
+}
+
+func isCommunalPathNotEmpty(op string) bool {
+	re := regexp.MustCompile(`Communal location \[.+\] is not empty`)
+	return re.FindAllString(op, -1) != nil
+}
+
+// isWrongRegion will check the error to see if we are accessing the wrong S3 region
+func isWrongRegion(op string) bool {
+	// We have seen two varieties of errors
+	errTexts := []string{
+		"You are trying to access your S3 bucket using the wrong region",
+		"the region '.+' is wrong; expecting '.+'",
+	}
+
+	for i := range errTexts {
+		re := regexp.MustCompile(errTexts[i])
+		if re.FindAllString(op, -1) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// isKerberosAuthError will check if the error is related to Keberos authentication
+func isKerberosAuthError(op string) bool {
+	re := regexp.MustCompile(`An error occurred during kerberos authentication`)
+	return re.FindAllString(op, -1) != nil
+}
+
+func isClusterLeaseNotExpired(op string) bool {
+	// We use (?s) so that '.' matches newline characters
+	rs := `(?s)the communal storage location.*might still be in use.*cluster lease will expire`
+	re := regexp.MustCompile(rs)
+	return re.FindAllString(op, -1) != nil
+}
+
+func isDatabaseNotFound(op string) bool {
+	rs := `(?s)Could not copy file.+: ` +
+		`(No such file or directory|.*FileNotFoundException|File not found|.*blob does not exist)`
+	re := regexp.MustCompile(rs)
+	return re.FindAllString(op, -1) != nil
+}
+
+func isPermissionDeniedError(op string) bool {
+	return strings.Contains(op, "Permission Denied")
+}
+
+func isNodeCountMismatch(op string) bool {
+	if strings.Contains(op, "Error: Node count mismatch") {
+		return true
+	}
+	return strings.Contains(op, "Error: Primary node count mismatch")
+}
