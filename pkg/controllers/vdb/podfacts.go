@@ -144,6 +144,9 @@ type PodFact struct {
 
 	// The size, in bytes, of the local PV.
 	localDataSize int
+
+	// The size, in bytes, of the amount of space left on the PV
+	localDataAvail int
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -174,6 +177,7 @@ type GatherState struct {
 	Compat21NodeName       string          `json:"compat21NodeName"`
 	VNodeName              string          `json:"vnodeName"`
 	LocalDataSize          int             `json:"localDataSize"`
+	LocalDataAvail         int             `json:"localDataAvail"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -378,6 +382,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s 2> /dev/null && echo true || echo false
 		echo -n 'localDataSize: '
 		df --block-size=1 --output=size %s | tail -1
+		echo -n 'localDataAvail: '
+		df --block-size=1 --output=avail %s | tail -1
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -395,6 +401,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", vdb.Spec.Local.GetCatalogPath(), vdb.Spec.DBName),
+		vdb.Spec.Local.DataPath,
 		vdb.Spec.Local.DataPath,
 	))
 }
@@ -453,6 +460,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.dirExists = gs.DirExists
 	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
+	pf.localDataAvail = gs.LocalDataAvail
 	return nil
 }
 
@@ -810,6 +818,14 @@ func (p *PodFacts) findReIPPods(onlyPodsWithoutDBs bool) []*PodFact {
 		}
 		return true
 	})
+}
+
+// findPodsLowOnDiskSpace returns a list of pods that have low disk space in
+// their local data persistent volume (PV).
+func (p *PodFacts) findPodsLowOnDiskSpace(availThreshold int) []*PodFact {
+	return p.filterPods((func(v *PodFact) bool {
+		return v.isPodRunning && v.localDataAvail <= availThreshold
+	}))
 }
 
 // filterPods return a list of PodFact that match the given filter.

@@ -18,18 +18,17 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
+	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -52,12 +51,20 @@ type CreateDBReconciler struct {
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
+	EVLogr  mgmterrors.EventLogger
 }
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
 func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &CreateDBReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	return &CreateDBReconciler{
+		VRec:    vdbrecon,
+		Log:     log,
+		Vdb:     vdb,
+		PRunner: prunner,
+		PFacts:  pfacts,
+		EVLogr:  mgmterrors.MakeATErrors(vdbrecon, vdb, events.CreateDBFailed),
+	}
 }
 
 // Reconcile will ensure a DB exists and create one if it doesn't
@@ -89,70 +96,12 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	start := time.Now()
 	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
-		switch {
-		case cloud.IsEndpointBadError(stdout):
-			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3EndpointIssue,
-				"Unable to write to the bucket in the S3 endpoint '%s'", c.Vdb.Spec.Communal.Endpoint)
-			return ctrl.Result{Requeue: true}, nil
-
-		case cloud.IsBucketNotExistError(stdout):
-			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.S3BucketDoesNotExist,
-				"The bucket in the S3 path '%s' does not exist", c.Vdb.GetCommunalPath())
-			return ctrl.Result{Requeue: true}, nil
-
-		case isCommunalPathNotEmpty(stdout):
-			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.CommunalPathIsNotEmpty,
-				"The communal path '%s' is not empty", c.Vdb.GetCommunalPath())
-			return ctrl.Result{Requeue: true}, nil
-
-		case isWrongRegion(stdout):
-			c.VRec.Event(c.Vdb, corev1.EventTypeWarning, events.S3WrongRegion,
-				"You are trying to access your S3 bucket using the wrong region")
-			return ctrl.Result{Requeue: true}, nil
-
-		case isKerberosAuthError(stdout):
-			c.VRec.Event(c.Vdb, corev1.EventTypeWarning, events.KerberosAuthError,
-				"Error during keberos authentication")
-			return ctrl.Result{Requeue: true}, nil
-
-		default:
-			c.VRec.Event(c.Vdb, corev1.EventTypeWarning, events.CreateDBFailed,
-				"Failed to create the database")
-			return ctrl.Result{}, err
-		}
+		return c.EVLogr.LogFailure("create_db", stdout, err)
 	}
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
 		"Successfully created database with subcluster '%s'. It took %s", sc.Name, time.Since(start))
 	return ctrl.Result{}, nil
-}
-
-func isCommunalPathNotEmpty(op string) bool {
-	re := regexp.MustCompile(`Communal location \[.+\] is not empty`)
-	return re.FindAllString(op, -1) != nil
-}
-
-// isWrongRegion will check the error to see if we are accessing the wrong S3 region
-func isWrongRegion(op string) bool {
-	// We have seen two varieties of errors
-	errTexts := []string{
-		"You are trying to access your S3 bucket using the wrong region",
-		"the region '.+' is wrong; expecting '.+'",
-	}
-
-	for i := range errTexts {
-		re := regexp.MustCompile(errTexts[i])
-		if re.FindAllString(op, -1) != nil {
-			return true
-		}
-	}
-	return false
-}
-
-// isKerberosAuthError will check if the error is related to Keberos authentication
-func isKerberosAuthError(op string) bool {
-	re := regexp.MustCompile(`An error occurred during kerberos authentication`)
-	return re.FindAllString(op, -1) != nil
 }
 
 // preCmdSetup will generate the file we include with the create_db.
