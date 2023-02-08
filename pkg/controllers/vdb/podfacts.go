@@ -147,6 +147,17 @@ type PodFact struct {
 
 	// The size, in bytes, of the amount of space left on the PV
 	localDataAvail int
+
+	// The in-container path to the catalog. e.g. /catalog/vertdb/v_node0001_catalog
+	catalogPath string
+
+	// The in-container path to the data. e.g. /data/vertdb/v_node0001_data
+	dataPath string
+
+	// true if the pod isn't the latest version when compared to the
+	// StatefulSet. This is an indication that the pod is in the middle of a
+	// rolling update.
+	stsRevisionPending bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -273,6 +284,9 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.pendingDelete = podIndex >= sc.Size
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
+		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
+		pf.dataPath = p.getDataPathFromPod(vdb, pod)
+		pf.stsRevisionPending = p.isSTSRevisionPending(sts, pod)
 	}
 
 	fns := []CheckerFunc{
@@ -319,7 +333,7 @@ func (p *PodFacts) runGather(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 	defer tmp.Close()
 	defer os.Remove(tmp.Name())
 
-	_, err = tmp.WriteString(p.genGatherScript(vdb))
+	_, err = tmp.WriteString(p.genGatherScript(vdb, pf))
 	if err != nil {
 		return err
 	}
@@ -340,7 +354,7 @@ func (p *PodFacts) runGather(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 }
 
 // genGatherScript will generate the script that gathers multiple pieces of state in the pod
-func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
+func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 	// The output of the script is yaml. We use a yaml package to unmarshal the
 	// output directly into a GatherState struct. And changes to this script
 	// must have a corresponding change in GatherState.
@@ -371,11 +385,11 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
-		test -d %s/v_%s_node????_data && echo true || echo false
+		test -d %s/%s/v_%s_node????_data && echo true || echo false
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
 		echo -n 'vnodeName: '
-		cd %s/v_%s_node????_data 2> /dev/null && basename $(pwd) | rev | cut -c6- | rev || echo ""
+		cd %s/%s/v_%s_node????_data 2> /dev/null && basename $(pwd) | rev | cut -c6- | rev || echo ""
 		echo -n 'verticaPIDRunning: '
 		[[ $(pgrep ^vertica) ]] && echo true || echo false
 		echo -n 'startupComplete: '
@@ -396,13 +410,13 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB) string {
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
 		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
-		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
+		pf.dataPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
-		vdb.GetDBDataPath(), strings.ToLower(vdb.Spec.DBName),
-		fmt.Sprintf("%s/%s/*_catalog/startup.log", vdb.Spec.Local.GetCatalogPath(), vdb.Spec.DBName),
-		vdb.Spec.Local.DataPath,
-		vdb.Spec.Local.DataPath,
+		pf.dataPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
+		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
+		pf.dataPath,
+		pf.dataPath,
 	))
 }
 
@@ -531,6 +545,45 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 	// We just look for one annotation.  This works because they are always added together.
 	_, ok := pod.Annotations[builder.KubernetesVersionAnnotation]
 	return ok
+}
+
+// getCatalogPathFromPod will get the current catalog path from the pod
+func (p *PodFacts) getCatalogPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
+	return p.getEnvValueFromPodWithDefault(pod, builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath())
+}
+
+// getDataPathFromPod will get the current data path from the pod
+func (p *PodFacts) getDataPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
+	return p.getEnvValueFromPodWithDefault(pod, builder.DataPathEnv, vdb.Spec.Local.DataPath)
+}
+
+func (p *PodFacts) isSTSRevisionPending(sts *appsv1.StatefulSet, pod *corev1.Pod) bool {
+	podRevision, ok := pod.Labels["controller-revision-hash"]
+	if !ok {
+		// Could not find the required label. Assume no revision update pending
+		return false
+	}
+	return sts.Status.UpdateRevision != podRevision
+}
+
+// getEnvValueFromPodWithDefault will get an environment value from the pod. A default
+// value is used if the env var isn't found.
+func (p *PodFacts) getEnvValueFromPodWithDefault(pod *corev1.Pod, envName, defaultValue string) string {
+	pathPrefix, ok := p.getEnvValueFromPod(pod, envName)
+	if !ok {
+		return defaultValue
+	}
+	return pathPrefix
+}
+
+func (p *PodFacts) getEnvValueFromPod(pod *corev1.Pod, envName string) (string, bool) {
+	c := pod.Spec.Containers[ServerContainerIndex]
+	for i := range c.Env {
+		if c.Env[i].Name == envName {
+			return c.Env[i].Value, true
+		}
+	}
+	return "", false
 }
 
 // checkIsDBCreated will check for evidence of a database at the local node.
@@ -960,4 +1013,13 @@ func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.Namespac
 		}
 	}
 	return false, types.NamespacedName{}
+}
+
+// getHostList will return a host list from the given pods
+func getHostList(podList []*PodFact) []string {
+	hostList := make([]string, 0, len(podList))
+	for _, pod := range podList {
+		hostList = append(hostList, pod.podIP)
+	}
+	return hostList
 }

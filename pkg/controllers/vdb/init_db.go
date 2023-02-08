@@ -47,7 +47,7 @@ type DatabaseInitializer interface {
 	findPodToRunInit() (*PodFact, bool)
 	genCmd(ctx context.Context, hostList []string) ([]string, error)
 	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
-	preCmdSetup(ctx context.Context, atPod types.NamespacedName) error
+	preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
 
@@ -100,8 +100,8 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if res, err := g.ConstructAuthParms(ctx, atPod); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if err := g.initializer.preCmdSetup(ctx, atPod); err != nil {
-		return ctrl.Result{}, err
+	if res, err := g.initializer.preCmdSetup(ctx, atPod, podList); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 
 	// Cleanup for any prior failed attempt.
@@ -143,15 +143,6 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 
 	// Handle any post initialization actions
 	return g.initializer.postCmdCleanup(ctx)
-}
-
-// getHostList will return a host list from the given pods
-func getHostList(podList []*PodFact) []string {
-	hostList := make([]string, 0, len(podList))
-	for _, pod := range podList {
-		hostList = append(hostList, pod.podIP)
-	}
-	return hostList
 }
 
 // checkPodList ensures all of the pods that we will use for the init call are running

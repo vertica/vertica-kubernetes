@@ -25,12 +25,16 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -42,6 +46,7 @@ type ReviveDBReconciler struct {
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
 	EVLogr  mgmterrors.EventLogger
+	Planr   reviveplanner.Planner
 }
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
@@ -54,6 +59,7 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PRunner: prunner,
 		PFacts:  pfacts,
 		EVLogr:  mgmterrors.MakeATErrors(vdbrecon, vdb, events.ReviveDBFailed),
+		Planr:   reviveplanner.MakeATPlanner(log),
 	}
 }
 
@@ -92,10 +98,28 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 	return ctrl.Result{}, nil
 }
 
-// preCmdSetup is a no-op for revive.  This exists so that we can use the
-// DatabaseInitializer interface.
-func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName) error {
-	return nil
+// preCmdSetup is going to run revive with --display-only then validate and
+// fix-up any mismatch it finds.
+func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
+	// We need to delete any pods that have a pending revision. This can happen
+	// if in an earlier iteration we changed the paths in pod. Normally, these
+	// types of changes are rolled out via rolling upgrade. But that depends on
+	// having the pod get to the ready state. That's not possible because we
+	// haven't initialized the DB yet. So, we need to reschedule before the
+	// revive.
+	if res, err := r.deleteRevisionPendingPods(ctx, podList); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	// Generate output to feed into the revive planner
+	stdout, res, err := r.runRevivePrepass(ctx, atPod, podList)
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	// Run the revive planner that will check if everything is compatible and
+	// may end up changing the vdb to make it compatible.
+	return r.runRevivePlanner(ctx, stdout)
 }
 
 // postCmdCleanup is a no-op for revive.  This exists so that we can use the
@@ -178,17 +202,115 @@ func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
 	return r.PFacts.findPodToRunAdmintoolsOffline()
 }
 
-// genCmd will return the command to run in the pod to create the database
+// genCmd will return the command to run in the pod to revive the database
 func (r *ReviveDBReconciler) genCmd(ctx context.Context, hostList []string) ([]string, error) {
 	cmd := []string{
 		"-t", "revive_db",
 		"--hosts=" + strings.Join(hostList, ","),
-		"--communal-storage-location=" + r.Vdb.GetCommunalPath(),
-		"--communal-storage-params=" + paths.AuthParmsFile,
 		"--database", r.Vdb.Spec.DBName,
+	}
+	if r.Vdb.IsEON() {
+		cmd = append(cmd,
+			"--communal-storage-location="+r.Vdb.GetCommunalPath(),
+			"--communal-storage-params="+paths.AuthParmsFile)
 	}
 	if r.Vdb.Spec.IgnoreClusterLease {
 		cmd = append(cmd, "--ignore-cluster-lease")
 	}
 	return cmd, nil
+}
+
+// genValidateCmd will return the command to run in the pod to validate some
+// options with revive
+func (r *ReviveDBReconciler) genValidateCmd(ctx context.Context, hostList []string) ([]string, error) {
+	cmd, err := r.genCmd(ctx, hostList)
+	if err != nil {
+		return []string{}, err
+	}
+	cmd = append(cmd, "--display-only")
+	return cmd, nil
+}
+
+// deleteRevisionPendingPods will delete any pods that have a pending revision update from the sts.
+func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podList []*PodFact) (ctrl.Result, error) {
+	numPodsDeleted := 0
+	for i := range podList {
+		if !podList[i].stsRevisionPending {
+			continue
+		}
+		r.Log.Info("Deleting pod that has a pending STS revision update", "name", podList[i].name.Name)
+		pod := corev1.Pod{}
+		if err := r.VRec.Get(ctx, podList[i].name, &pod); err != nil {
+			return ctrl.Result{}, fmt.Errorf("could not fetch pod for revive preCmdSetup %s %w", podList[i].name.Name, err)
+		}
+		if err := r.VRec.Client.Delete(ctx, &pod); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete pod for revive preCmdSetup %s %w", podList[i].name.Name, err)
+		}
+		numPodsDeleted++
+	}
+	if numPodsDeleted > 0 {
+		r.Log.Info("Requeue to wait for deleted pods to be rescheduled")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
+}
+
+// runRevivePrepass will run revive with --display-only to check for any
+// preconditions that need to be met. The output of the run is returned so it
+// can be analyzed by the revive planner.
+func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, atPod types.NamespacedName,
+	podList []*PodFact) (string, ctrl.Result, error) {
+	cmd, err := r.genValidateCmd(ctx, getHostList(podList))
+	if err != nil {
+		return "", ctrl.Result{}, err
+	}
+	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
+	if err != nil {
+		res, err2 := r.EVLogr.LogFailure("revive_db", stdout, err)
+		return "", res, err2
+	}
+	return stdout, ctrl.Result{}, nil
+}
+
+func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (ctrl.Result, error) {
+	// Parse the JSON output we get from the AT command.
+	if err := r.Planr.Parse(op); err != nil {
+		return ctrl.Result{}, err
+	}
+	msg, ok := r.Planr.IsCompatible()
+	if !ok {
+		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBFailed, msg)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	nm := r.Vdb.ExtractNamespacedName()
+	vdbChanged := false
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		vdb := &vapi.VerticaDB{}
+		if retryErr := r.VRec.Client.Get(ctx, nm, vdb); retryErr != nil {
+			if errors.IsNotFound(retryErr) {
+				r.Log.Info("VerticaDB resource not found. Ignoring since object must be deleted")
+				return nil
+			}
+			return retryErr
+		}
+
+		var retryErr error
+		vdbChanged, retryErr = r.Planr.ApplyChanges(vdb)
+		if !vdbChanged {
+			return nil
+		}
+		if retryErr != nil {
+			return retryErr
+		}
+
+		r.Log.Info("Updating vdb from revive planner")
+		if retryErr := r.VRec.Client.Update(ctx, vdb); retryErr != nil {
+			return retryErr
+		}
+		return nil
+	})
+
+	// Always requeue if the vdb was changed in this function.
+	return ctrl.Result{Requeue: vdbChanged}, err
 }

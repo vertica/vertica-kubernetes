@@ -24,7 +24,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -76,10 +78,12 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, ScSize)
-		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		r := act.(*ReviveDBReconciler)
+		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "revive_db")
-		Expect(len(reviveCalls)).Should(Equal(1))
+		Expect(len(reviveCalls)).Should(Equal(2)) // 1 for display-only and 1 for the real thing
 	})
 
 	It("should generate a requeue error for various known s3 errors", func() {
@@ -225,4 +229,90 @@ var _ = Describe("revivedb_reconcile", func() {
 		Expect(ok).Should(BeFalse())
 	})
 
+	It("should requeue if there is an incompatible path", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "/db"
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		r := act.(*ReviveDBReconciler)
+		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
+
+		// Fake a bad path by changing one in the planr.
+		atp := r.Planr.(*reviveplanner.ATPlanner)
+		atp.Database.Nodes[0].CatalogPath = "/uncommon-path/vertdb/v_vertdb_node0001_catalog"
+
+		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "revive_db")
+		Expect(len(reviveCalls)).Should(Equal(1))
+		Expect(reviveCalls[0].Command).Should(ContainElement("--display-only"))
+	})
+
+	It("should requeue with correct paths if they differ", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 1
+		vdb.Spec.DBName = "v"
+		vdb.Spec.Communal.Path = "/db/dir"
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		r := act.(*ReviveDBReconciler)
+		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
+
+		// Force a path change in the vdb by changing one in the planr. The
+		// planner has the output from revive_db --display-only. That has the
+		// correct paths. The planner will update the vdb to match.
+		atp := r.Planr.(*reviveplanner.ATPlanner)
+		atp.Database.Nodes[0].CatalogPath = "/new-catalog/v/v_v_node0001_catalog"
+		atp.Database.Nodes[0].VStorageLocations = []reviveplanner.StorageLocation{
+			{Path: "/new-depot/v/v_v_node0001_depot", Usage: reviveplanner.UsageIsDepot},
+			{Path: "/new-data/v/v_v_node0001_data", Usage: reviveplanner.UsageIsDataTemp},
+		}
+
+		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "revive_db")
+		Expect(len(reviveCalls)).Should(Equal(1))
+		Expect(reviveCalls[0].Command).Should(ContainElement("--display-only"))
+
+		// Fetch the vdb and it should be updated with the new paths
+		fetchVdb := vapi.VerticaDB{}
+		nm := vdb.ExtractNamespacedName()
+		Expect(k8sClient.Get(ctx, nm, &fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Spec.Local.DataPath).Should(Equal("/new-data"))
+		Expect(fetchVdb.Spec.Local.CatalogPath).Should(Equal("/new-catalog"))
+		Expect(fetchVdb.Spec.Local.DepotPath).Should(Equal("/new-depot"))
+	})
+
+	It("should delete the pod if pending revision update", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 1
+		vdb.Spec.DBName = "v"
+		vdb.Spec.Communal.Path = "/del-pod-chk"
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
+		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		pfacts.Detail[pn].stsRevisionPending = true
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+
+		pod := corev1.Pod{}
+		Expect(k8sClient.Get(ctx, pn, &pod)).Should(Succeed())
+		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(k8sClient.Get(ctx, pn, &pod)).ShouldNot(Succeed())
+	})
 })

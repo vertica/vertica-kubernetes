@@ -72,7 +72,7 @@ var _ = Describe("verticadb_webhook", func() {
 		sc.Size = 2
 		validateSpecValuesHaveErr(vdb, true)
 	})
-	It("should not havn invalid communal path", func() {
+	It("should not have invalid communal path", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Communal.Path = "http://nimbusdb/mspilchen"
 		validateSpecValuesHaveErr(vdb, false)
@@ -194,42 +194,62 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not change kSafety after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.KSafety = KSafety0
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change initPolicy after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.InitPolicy = CommunalInitPolicyRevive
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change dbName after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.DBName = "newdb"
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, true)
 	})
-	It("should not change dataPath after creation", func() {
+	It("should not change dataPath after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.DataPath = "/newpath"
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, false)
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+		validateImmutableFields(vdbUpdate, true)
 	})
-	It("should not change depot path after creation", func() {
+	It("should not change depot path after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.DepotPath = "/newdepot"
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, false)
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+		validateImmutableFields(vdbUpdate, true)
 	})
-	It("should not change catalog path after creation", func() {
+	It("should not change catalog path after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.CatalogPath = "/newcatalog"
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, false)
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+		validateImmutableFields(vdbUpdate, true)
 	})
-	It("should not change shardCount after creation", func() {
+	It("should not change shardCount after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.ShardCount = 10
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, false)
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
+		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change isPrimary after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Subclusters[0].IsPrimary = !vdbUpdate.Spec.Subclusters[0].IsPrimary
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
 		vdb := createVDBHelper()
@@ -243,17 +263,17 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not change communal.path after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Communal.Path = "s3://nimbusdb/spilchen"
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change communal.endpoint after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Communal.Endpoint = "https://minio"
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change local.storageClass after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.StorageClass = "MyStorageClass"
-		validateImmutableFields(vdbUpdate)
+		validateImmutableFields(vdbUpdate, true)
 	})
 
 	It("should not have zero matched subcluster names to the old subcluster names", func() {
@@ -587,8 +607,12 @@ func validateSpecValuesHaveErr(vdb *VerticaDB, hasErr bool) {
 	}
 }
 
-func validateImmutableFields(vdbUpdate *VerticaDB) {
+func validateImmutableFields(vdbUpdate *VerticaDB, expectError bool) {
 	vdb := createVDBHelper()
-	allErrs := vdb.validateImmutableFields(vdbUpdate)
-	Expect(allErrs).ShouldNot(BeNil())
+	allErrs := vdbUpdate.validateImmutableFields(vdb)
+	if expectError {
+		Expect(allErrs).ShouldNot(BeNil())
+	} else {
+		Expect(allErrs).Should(BeNil())
+	}
 }
