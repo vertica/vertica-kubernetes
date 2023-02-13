@@ -320,4 +320,84 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.subclusterOid).Should(Equal(""))
 	})
 
+	It("should return consistent first pod", func() {
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			dnsName: "p1", dbExists: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			dnsName: "p2", dbExists: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			dnsName: "p3", dbExists: true,
+		}
+		p, ok := pf.findFirstPodSorted(func(p *PodFact) bool { return true })
+		Expect(ok).Should(BeTrue())
+		Expect(p.dnsName).Should(Equal("p1"))
+	})
+
+	It("should return correct pod in findPodToRunAdmintoolsAny", func() {
+		By("finding up, not read-only and not pending delete")
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			dnsName: "p1", dbExists: true, upNode: true, readOnly: false, pendingDelete: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			dnsName: "p2", dbExists: true, upNode: true, readOnly: true, pendingDelete: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			dnsName: "p3", dbExists: true, upNode: true, readOnly: false, pendingDelete: false,
+		}
+		p, ok := pf.findPodToRunAdmintoolsAny()
+		Expect(ok).Should(BeTrue())
+		Expect(p.dnsName).Should(Equal("p3"))
+
+		By("finding up and not read-only")
+		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			dnsName: "p1", dbExists: true, upNode: true, readOnly: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			dnsName: "p2", dbExists: true, upNode: true, readOnly: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			dnsName: "p3", dbExists: true, upNode: true, readOnly: false,
+		}
+		p, ok = pf.findPodToRunAdmintoolsAny()
+		Expect(ok).Should(BeTrue())
+		Expect(p.dnsName).Should(Equal("p2"))
+
+		By("finding up and read-only")
+		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			dnsName: "p1", dbExists: true, upNode: false, readOnly: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			dnsName: "p2", dbExists: true, upNode: true, readOnly: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			dnsName: "p3", dbExists: true, upNode: true, readOnly: true,
+		}
+		p, ok = pf.findPodToRunAdmintoolsAny()
+		Expect(ok).Should(BeTrue())
+		Expect(p.dnsName).Should(Equal("p2"))
+
+		By("finding a pod with an install")
+		pf = MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			dnsName: "p1", isInstalled: false, isPodRunning: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			dnsName: "p2", isInstalled: true, isPodRunning: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			dnsName: "p3", isInstalled: true, isPodRunning: false,
+		}
+		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
+			dnsName: "p3", isInstalled: true, isPodRunning: true,
+		}
+		p, ok = pf.findPodToRunAdmintoolsAny()
+		Expect(ok).Should(BeTrue())
+		Expect(p.dnsName).Should(Equal("p2"))
+	})
 })

@@ -792,25 +792,28 @@ func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact
 // Will return false for second parameter if no pod could be found.
 func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
 	// Our preference for the pod is as follows:
+	// - up, not read-only and not pending delete
 	// - up and not read-only
 	// - up and read-only
 	// - has vertica installation
-	for _, v := range p.Detail {
-		if v.upNode && !v.readOnly {
-			return v, true
-		}
+	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.upNode && !v.readOnly && !v.pendingDelete
+	}); ok {
+		return pod, ok
 	}
-	for _, v := range p.Detail {
-		if v.upNode {
-			return v, true
-		}
+	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.upNode && !v.readOnly
+	}); ok {
+		return pod, ok
 	}
-	for _, v := range p.Detail {
-		if v.isInstalled && v.isPodRunning {
-			return v, true
-		}
+	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.upNode
+	}); ok {
+		return pod, ok
 	}
-	return &PodFact{}, false
+	return p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.isInstalled && v.isPodRunning
+	})
 }
 
 // findPodToRunAdmintoolsOffline will return a pod to run an offline admintools
@@ -892,6 +895,20 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 		}
 	}
 	return pods
+}
+
+// findFirstPodSorted returns one pod that matches the filter function. All
+// matching pods are sorted by pod name and the first one is returned.
+func (p *PodFacts) findFirstPodSorted(filterFunc func(p *PodFact) bool) (*PodFact, bool) {
+	pods := p.filterPods(filterFunc)
+	if len(pods) == 0 {
+		return nil, false
+	}
+	// Return the first pod ordered by pod index for easier debugging
+	sort.Slice(pods, func(i, j int) bool {
+		return pods[i].dnsName < pods[j].dnsName
+	})
+	return pods[0], true
 }
 
 // areAllPodsRunningAndZeroInstalled returns true if all of the pods are running
