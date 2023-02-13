@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
@@ -159,7 +160,7 @@ func (a *ATPlanner) getCommonPath(paths []string) (string, error) {
 func (a *ATPlanner) extractPathPrefix(path string) (string, error) {
 	// Path will come in the form: <prefix>/<dbname>/v_<dbname>_<nodenum>_<pathType>
 	// This function will return <prefix>.
-	r := regexp.MustCompile(fmt.Sprintf(`(.*)/%s/v_%s_node[0-9]{4}_`, a.Database.Name, a.Database.Name))
+	r := regexp.MustCompile(fmt.Sprintf(`(.*)/%s/v_%s_node[0-9]{4}_`, a.Database.Name, strings.ToLower(a.Database.Name)))
 	m := r.FindStringSubmatch(path)
 	const ExpectedMatches = 2
 	if len(m) < ExpectedMatches {

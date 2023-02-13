@@ -37,6 +37,15 @@ var _ = Describe("analyze", func() {
 		Expect(err).ShouldNot(Succeed())
 	})
 
+	It("should be able to extract out a common prefix if db has capital letters", func() {
+		p := ATPlanner{
+			Database: Database{
+				Name: "Vertica_Dashboard",
+			},
+		}
+		Expect(p.extractPathPrefix("/vertica/dat/Vertica_Dashboard/v_vertica_dashboard_node0001_data")).Should(Equal("/vertica/dat"))
+	})
+
 	It("should be able to find common paths", func() {
 		p := ATPlanner{
 			Database: Database{
