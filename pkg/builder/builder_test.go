@@ -153,6 +153,23 @@ var _ = Describe("builder", func() {
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
 		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
 	})
+
+	It("should override some of the pod securityContext settings", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.PodSecurityContext = &v1.PodSecurityContext{
+			Sysctls: []v1.Sysctl{
+				{Name: "net.ipv4.tcp_keepalive_time", Value: "45"},
+				{Name: "net.ipv4.tcp_keepalive_intvl", Value: "5"},
+			},
+		}
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
+		Expect(len(c.SecurityContext.Sysctls)).Should(Equal(2))
+		Expect(c.SecurityContext.Sysctls[0].Name).Should(Equal("net.ipv4.tcp_keepalive_time"))
+		Expect(c.SecurityContext.Sysctls[0].Value).Should(Equal("45"))
+		Expect(c.SecurityContext.Sysctls[1].Name).Should(Equal("net.ipv4.tcp_keepalive_intvl"))
+		Expect(c.SecurityContext.Sysctls[1].Value).Should(Equal("5"))
+	})
 })
 
 // makeSubPaths is a helper that extracts all of the subPaths from the volume mounts.
