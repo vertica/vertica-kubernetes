@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-create-3-node
+  name: v-create
 spec:
   image: kustomize-vertica-image
   communal:
@@ -26,11 +26,12 @@ spec:
     catalogPath: /vertica/catalog
     requestSize: 100Mi
   dbName: entdb
+  kSafety: "0"
   shardCount: 32
   requeueTime: 5
   subclusters:
     - name: main
-      size: 3
+      size: 2
   certSecrets: []
   imagePullSecrets: []
   volumes: []

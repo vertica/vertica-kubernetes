@@ -11,26 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-create-main
-status:
-  replicas: 2
-  readyReplicas: 2
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-create
+  name: v-revive-1
 spec:
-  local:
-    dataPath: /vertica/data
-    depotPath: /vertica/depot
-    catalogPath: /vertica/catalog
-  shardCount: 32
-status:
   subclusters:
-    - installCount: 2
-      addedToDBCount: 2
-      upNodeCount: 2
+  - name: main
+    size: 3

@@ -14,23 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-create-main
-status:
-  replicas: 2
-  readyReplicas: 2
+  name: v-revive-1-main
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
-metadata:
-  name: v-create
-spec:
-  local:
-    dataPath: /vertica/data
-    depotPath: /vertica/depot
-    catalogPath: /vertica/catalog
-  shardCount: 32
-status:
-  subclusters:
-    - installCount: 2
-      addedToDBCount: 2
-      upNodeCount: 2

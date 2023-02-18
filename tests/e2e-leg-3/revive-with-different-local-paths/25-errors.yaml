@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-create-3-node-main
+  name: v-create-main
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB

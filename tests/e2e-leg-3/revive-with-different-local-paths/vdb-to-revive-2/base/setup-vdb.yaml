@@ -11,26 +11,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-create-main
-status:
-  replicas: 2
-  readyReplicas: 2
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-create
+  name: v-revive-2
 spec:
+  image: kustomize-vertica-image
+  ignoreClusterLease: true
+  communal:
+    includeUIDInPath: false
+  initPolicy: Revive
   local:
-    dataPath: /vertica/data
-    depotPath: /vertica/depot
-    catalogPath: /vertica/catalog
-  shardCount: 32
-status:
+    # The operator will overwrite the paths with the correct ones. So put
+    # anything here.
+    dataPath: /huh/where/data
+    depotPath: /huh/where/depot
+    catalogPath: /huh/where/catalog
+    requestSize: 100Mi
+  dbName: entdb
+  shardCount: 99 # Operator should change this to match what was used at create
+  requeueTime: 5
+  kSafety: "0"
   subclusters:
-    - installCount: 2
-      addedToDBCount: 2
-      upNodeCount: 2
+    - name: main
+      size: 3
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

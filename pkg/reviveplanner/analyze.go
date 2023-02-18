@@ -27,22 +27,37 @@ import (
 // IsCompatible will check the vdb and extracted revive info to see if
 // everything is compatible. Returns a failure if an error is detected.
 func (a *ATPlanner) IsCompatible() (string, bool) {
+	if err := a.checkForCompatiblePaths(); err != nil {
+		// Extract out the error message and return that.
+		return err.Error(), false
+	}
+	return "", true
+}
+
+// checkForCompatiblePaths does the heavy lifting of checking for compatible
+// paths. It returns an error if the paths aren't compatible.
+func (a *ATPlanner) checkForCompatiblePaths() error {
 	// To see if the revive is compatible, we are going to check each of the
 	// paths of all the nodes. The prefix of each path needs to be the same. The
 	// operator assumes that all paths are homogeneous across all vertica hosts.
-	pathFuncs := []func() []string{
-		a.getDataPaths,
-		a.getDepotPaths,
-		a.getCatalogPaths,
+	if _, err := a.getCommonPath(a.getDepotPaths(), ""); err != nil {
+		return err
 	}
-	for i := range pathFuncs {
-		_, err := a.getCommonPath(pathFuncs[i]())
-		if err != nil {
-			// Extract out the error message and return that.
-			return err.Error(), false
-		}
+
+	catPath, err := a.getCommonPath(a.getCatalogPaths(), "")
+	if err != nil {
+		return err
 	}
-	return "", true
+
+	// We tolerate a mix of paths for the data, as long as it matches the
+	// catalog path. This exists due to a bug in revive where the constructed
+	// admintools.conf has erronously set the data path to match the catalog
+	// path. This isn't a problem for existing nodes because the vertica catalog
+	// still has the correct path for data.  But if a scale-out occurs with the
+	// bad admintools.conf, new nodes will have a data path that matches the
+	// catalog path.
+	_, err = a.getCommonPath(a.getDataPaths(), catPath)
+	return err
 }
 
 // ApplyChanges will update the input vdb based on things it found during
@@ -60,7 +75,20 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 		updated = true
 	}
 
-	dataPath, err := a.getCommonPath(a.getDataPaths())
+	catPath, err := a.getCommonPath(a.getCatalogPaths(), "")
+	if err != nil {
+		return
+	}
+	if catPath != vdb.Spec.Local.GetCatalogPath() {
+		a.logPathChange("catalog", vdb.Spec.Local.GetCatalogPath(), catPath)
+		vdb.Spec.Local.CatalogPath = catPath
+		updated = true
+	}
+
+	// Generally the data path should be the same across all hosts. But it's
+	// possible for some nodes to have different one -- as long as the different
+	// path matches the catalog path.
+	dataPath, err := a.getCommonPath(a.getDataPaths(), catPath)
 	if err != nil {
 		return
 	}
@@ -70,23 +98,13 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 		updated = true
 	}
 
-	depotPath, err := a.getCommonPath(a.getDepotPaths())
+	depotPath, err := a.getCommonPath(a.getDepotPaths(), "")
 	if err != nil {
 		return
 	}
 	if depotPath != vdb.Spec.Local.DepotPath {
 		a.logPathChange("depot", vdb.Spec.Local.DepotPath, depotPath)
 		vdb.Spec.Local.DepotPath = depotPath
-		updated = true
-	}
-
-	catPath, err := a.getCommonPath(a.getCatalogPaths())
-	if err != nil {
-		return
-	}
-	if catPath != vdb.Spec.Local.GetCatalogPath() {
-		a.logPathChange("catalog", vdb.Spec.Local.GetCatalogPath(), catPath)
-		vdb.Spec.Local.CatalogPath = catPath
 		updated = true
 	}
 
@@ -135,8 +153,9 @@ func (a *ATPlanner) getCatalogPaths() []string {
 }
 
 // getCommonPath will look at a slice of paths, and return the common prefix for
-// all of them.
-func (a *ATPlanner) getCommonPath(paths []string) (string, error) {
+// all of them. The allowedOutlier parameter, if set, will allow some deviation
+// among the paths as long is it matches the outlier.
+func (a *ATPlanner) getCommonPath(paths []string, allowedOutlier string) (string, error) {
 	if len(paths) == 0 {
 		return "", fmt.Errorf("no paths passed in")
 	}
@@ -146,11 +165,17 @@ func (a *ATPlanner) getCommonPath(paths []string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if commonPath == "" {
+		if p == allowedOutlier {
+			continue
+		} else if commonPath == "" {
 			commonPath = p
 		} else if commonPath != p {
 			return "", fmt.Errorf("multiple vertica hosts don't have common paths: %s and %s", commonPath, p)
 		}
+	}
+	// If the common path matches the outlier...
+	if commonPath == "" {
+		return allowedOutlier, nil
 	}
 	return commonPath, nil
 }

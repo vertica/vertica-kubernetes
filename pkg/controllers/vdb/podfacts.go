@@ -385,7 +385,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
-		test -d %s/%s/v_%s_node????_data && echo true || echo false
+		test -d %s/%s/v_%s_node????_catalog && echo true || echo false
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
 		echo -n 'vnodeName: '
@@ -410,7 +410,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
 		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
-		pf.dataPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
+		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
 		pf.dataPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
