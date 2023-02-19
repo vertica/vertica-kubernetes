@@ -14,14 +14,14 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-create-3-node-main
+  name: v-create-main
 status:
-  replicas: 3
+  replicas: 2
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-create-3-node
+  name: v-create
 status:
   subclusters:
-    - installCount: 3
+    - installCount: 2

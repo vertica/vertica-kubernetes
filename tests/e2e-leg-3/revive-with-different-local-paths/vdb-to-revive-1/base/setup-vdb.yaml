@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-revive-3-node
+  name: v-revive-1
 spec:
   image: kustomize-vertica-image
   ignoreClusterLease: true
@@ -31,9 +31,10 @@ spec:
   dbName: entdb
   shardCount: 5 # Operator should change this to match what was used at create
   requeueTime: 5
+  kSafety: "0"
   subclusters:
     - name: main
-      size: 3
+      size: 2
   certSecrets: []
   imagePullSecrets: []
   volumes: []

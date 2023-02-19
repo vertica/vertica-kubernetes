@@ -56,19 +56,41 @@ var _ = Describe("analyze", func() {
 			"/data/prefix/v/v_v_node0001_depot",
 			"/data/prefix/v/v_v_node0002_depot",
 			"/data/prefix/v/v_v_node0003_depot",
-		})).Should(Equal("/data/prefix"))
+		}, "")).Should(Equal("/data/prefix"))
 		_, err := p.getCommonPath([]string{
 			"/p1/v/v_v_node0001_depot",
 			"/p2/v/v_v_node0002_depot",
-		})
+		}, "")
 		Expect(err).ShouldNot(Succeed())
-		_, err = p.getCommonPath(nil)
+		_, err = p.getCommonPath(nil, "")
 		Expect(err).ShouldNot(Succeed())
 		_, err = p.getCommonPath([]string{
 			"/p1/v/v_v_node0001_depot",
 			"/p1/v/invalid/path/no/vnode",
-		})
+		}, "")
 		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should be able to find common paths after accounting for an outlier", func() {
+		p := ATPlanner{
+			Database: Database{
+				Name: "v",
+			},
+		}
+		Expect(p.getCommonPath([]string{
+			"/path1/prefix/v/v_v_node0001_data",
+			"/outlier/prefix/v/v_v_node0002_data",
+			"/path1/prefix/v/v_v_node0003_data",
+		}, "/outlier/prefix")).Should(Equal("/path1/prefix"))
+		_, err := p.getCommonPath([]string{
+			"/p1/v/v_v_node0001_data",
+			"/p2/v/v_v_node0002_data",
+		}, "/outlier")
+		Expect(err).ShouldNot(Succeed())
+		Expect(p.getCommonPath([]string{
+			"/p1/v/v_v_node0001_data",
+			"/p1/v/v_v_node0002_data",
+		}, "/p1")).Should(Equal("/p1"))
 	})
 
 	It("should update vdb based on revive output", func() {
