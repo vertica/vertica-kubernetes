@@ -1,0 +1,5 @@
+kind: Fixed
+body: Allow revive if some data paths differ
+time: 2023-02-18T21:36:35.204274006-04:00
+custom:
+  Issue: "336"

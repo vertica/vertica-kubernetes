@@ -91,7 +91,6 @@ var _ = Describe("analyze", func() {
 			"/p1/v/v_v_node0001_data",
 			"/p1/v/v_v_node0002_data",
 		}, "/p1")).Should(Equal("/p1"))
-		// SPILLY - what about when prefix ends with a /. Does it matter?
 	})
 
 	It("should update vdb based on revive output", func() {

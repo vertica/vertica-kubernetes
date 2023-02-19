@@ -151,9 +151,6 @@ type PodFact struct {
 	// The in-container path to the catalog. e.g. /catalog/vertdb/v_node0001_catalog
 	catalogPath string
 
-	// The in-container path to the data. e.g. /data/vertdb/v_node0001_data
-	dataPath string
-
 	// true if the pod isn't the latest version when compared to the
 	// StatefulSet. This is an indication that the pod is in the middle of a
 	// rolling update.
@@ -285,7 +282,6 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
-		pf.dataPath = p.getDataPathFromPod(vdb, pod)
 		pf.stsRevisionPending = p.isSTSRevisionPending(sts, pod)
 	}
 
@@ -389,7 +385,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
 		echo -n 'vnodeName: '
-		cd %s/%s/v_%s_node????_data 2> /dev/null && basename $(pwd) | rev | cut -c6- | rev || echo ""
+		cd %s/%s/v_%s_node????_catalog 2> /dev/null && basename $(pwd) | rev | cut -c9- | rev || echo ""
 		echo -n 'verticaPIDRunning: '
 		[[ $(pgrep ^vertica) ]] && echo true || echo false
 		echo -n 'startupComplete: '
@@ -413,10 +409,10 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
-		pf.dataPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
+		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
-		pf.dataPath,
-		pf.dataPath,
+		pf.catalogPath,
+		pf.catalogPath,
 	))
 }
 
@@ -550,11 +546,6 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 // getCatalogPathFromPod will get the current catalog path from the pod
 func (p *PodFacts) getCatalogPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
 	return p.getEnvValueFromPodWithDefault(pod, builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath())
-}
-
-// getDataPathFromPod will get the current data path from the pod
-func (p *PodFacts) getDataPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
-	return p.getEnvValueFromPodWithDefault(pod, builder.DataPathEnv, vdb.Spec.Local.DataPath)
 }
 
 func (p *PodFacts) isSTSRevisionPending(sts *appsv1.StatefulSet, pod *corev1.Pod) bool {
