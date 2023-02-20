@@ -1,0 +1,5 @@
+kind: Added
+body: Add config knob for pod-level securityContext of vertica pod's
+time: 2023-02-19T21:49:00.227765135-04:00
+custom:
+  Issue: "337"

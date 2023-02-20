@@ -432,21 +432,28 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *Deploym
 		Volumes:                       buildVolumes(vdb, deployNames),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		ServiceAccountName:            deployNames.ServiceAccountName,
-		SecurityContext:               buildPodSecurityPolicy(),
+		SecurityContext:               buildPodSecurityPolicy(vdb),
 	}
 }
 
 // buildPodSecurityPolicy will create the security policy for the pod spec
-func buildPodSecurityPolicy() *corev1.PodSecurityContext {
-	// Set the FSGroup so that mounted volumes have the dbadmin gid. This gives
-	// pods write access to the volumes. Note in 1.9.0 and prior versions of the
-	// operator we did not have this and instead relied on the vertica image to
-	// set the required permissions via chmod.
-	const DefaultDbadminGID = 5000
-	dbadminGID := int64(DefaultDbadminGID)
-	return &corev1.PodSecurityContext{
-		FSGroup: &dbadminGID,
+func buildPodSecurityPolicy(vdb *vapi.VerticaDB) *corev1.PodSecurityContext {
+	// If anything was specified in the vdb, we use that as the base. Otherwise,
+	// we just use an empty context.
+	psc := corev1.PodSecurityContext{}
+	if vdb.Spec.PodSecurityContext != nil {
+		vdb.Spec.PodSecurityContext.DeepCopyInto(&psc)
 	}
+	if psc.FSGroup == nil {
+		// Set the FSGroup so that mounted volumes have the dbadmin gid. This gives
+		// pods write access to the volumes. Note in 1.9.0 and prior versions of the
+		// operator we did not have this and instead relied on the vertica image to
+		// set the required permissions via chmod.
+		const DefaultDbadminGID = 5000
+		dbadminGID := int64(DefaultDbadminGID)
+		psc.FSGroup = &dbadminGID
+	}
+	return &psc
 }
 
 // makeServerContainer builds the spec for the server container
