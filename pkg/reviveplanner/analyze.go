@@ -18,6 +18,7 @@ package reviveplanner
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -121,11 +122,7 @@ func (a *ATPlanner) logPathChange(pathType, oldPath, newPath string) {
 func (a *ATPlanner) getDataPaths() []string {
 	paths := []string{}
 	for i := range a.Database.Nodes {
-		p, ok := a.Database.Nodes[i].GetDataPath()
-		if !ok {
-			continue
-		}
-		paths = append(paths, p)
+		paths = append(paths, a.Database.Nodes[i].GetDataPaths()...)
 	}
 	return paths
 }
@@ -134,11 +131,7 @@ func (a *ATPlanner) getDataPaths() []string {
 func (a *ATPlanner) getDepotPaths() []string {
 	paths := []string{}
 	for i := range a.Database.Nodes {
-		p, ok := a.Database.Nodes[i].GetDepotPath()
-		if !ok {
-			continue
-		}
-		paths = append(paths, p)
+		paths = append(paths, a.Database.Nodes[i].GetDepotPath()...)
 	}
 	return paths
 }
@@ -159,37 +152,98 @@ func (a *ATPlanner) getCommonPath(paths []string, allowedOutlier string) (string
 	if len(paths) == 0 {
 		return "", fmt.Errorf("no paths passed in")
 	}
-	commonPath := ""
-	for i := range paths {
-		p, err := a.extractPathPrefix(paths[i])
-		if err != nil {
-			return "", err
-		}
-		if p == allowedOutlier {
-			continue
-		} else if commonPath == "" {
-			commonPath = p
-		} else if commonPath != p {
-			return "", fmt.Errorf("multiple vertica hosts don't have common paths: %s and %s", commonPath, p)
-		}
-	}
-	// If the common path matches the outlier...
-	if commonPath == "" {
+	paths = a.removeOutliers(paths, allowedOutlier)
+	if len(paths) == 0 {
 		return allowedOutlier, nil
 	}
-	return commonPath, nil
+	if len(paths) == 1 {
+		// If the path has a vnode in it, strip that part off
+		if fp, ok := a.extractPathPrefixFromVNodePath(paths[0]); ok {
+			return fp, nil
+		}
+		return strings.TrimSuffix(paths[0], "/"), nil
+	}
+
+	// We want to find the common prefix of all of the paths. If we sort the
+	// list, we only need to look at the first and list items.
+	sort.Slice(paths, func(i, j int) bool {
+		return paths[i] < paths[j]
+	})
+	const beg = 0
+	end := len(paths) - 1
+
+	// Find a common prefix between the first and last paths.  We only match
+	// complete directories. So, we need to keep track of the current directory
+	// as we go.
+	var fullPath strings.Builder
+	var curDir strings.Builder
+	commonLen := min(len(paths[beg]), len(paths[end]))
+	for i := 0; i < commonLen; i++ {
+		if paths[beg][i] == paths[end][i] {
+			cur := paths[beg][i]
+			if cur == '/' {
+				fullPath.WriteString(curDir.String())
+				fullPath.WriteByte(cur)
+				curDir.Reset()
+			} else {
+				curDir.WriteByte(cur)
+			}
+		} else {
+			break
+		}
+	}
+	if fullPath.Len() <= 1 {
+		return "", fmt.Errorf("multiple vertica hosts don't have common paths: %s and %s", paths[beg], paths[end])
+	}
+
+	// If the common path ended with a partial vnode directory, then trim off
+	// the database directory immediately preceding it.
+	fp := a.trimOffDatabaseDir(fullPath.String(), curDir.String())
+
+	// Remove any trailing '/' chars
+	return strings.TrimSuffix(fp, "/"), nil
 }
 
-// extractPathPrefix will extract out the prefix of a vertica POSIX path. This
+// removeOutliers builds a path list with any outliers removed
+func (a *ATPlanner) removeOutliers(paths []string, allowedOutlier string) []string {
+	p := []string{}
+	for i := range paths {
+		if paths[i] == allowedOutlier {
+			continue
+		}
+		if pathPrefix, ok := a.extractPathPrefixFromVNodePath(paths[i]); ok && pathPrefix == allowedOutlier {
+			continue
+		}
+		p = append(p, paths[i])
+	}
+	return p
+}
+
+// extractPathPrefixFromVNodePath will extract out the prefix of a vertica POSIX path. This
 // path could be catalog, depot or data path.
-func (a *ATPlanner) extractPathPrefix(path string) (string, error) {
+func (a *ATPlanner) extractPathPrefixFromVNodePath(path string) (string, bool) {
 	// Path will come in the form: <prefix>/<dbname>/v_<dbname>_<nodenum>_<pathType>
 	// This function will return <prefix>.
 	r := regexp.MustCompile(fmt.Sprintf(`(.*)/%s/v_%s_node[0-9]{4}_`, a.Database.Name, strings.ToLower(a.Database.Name)))
 	m := r.FindStringSubmatch(path)
 	const ExpectedMatches = 2
 	if len(m) < ExpectedMatches {
-		return "", fmt.Errorf("path '%s' is not a valid vertica path", path)
+		return "", false
 	}
-	return m[1], nil
+	return m[1], true
+}
+
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}
+
+func (a *ATPlanner) trimOffDatabaseDir(fullPath, partialDir string) string {
+	dbNameSuffix := fmt.Sprintf("/%s/", a.Database.Name)
+	if strings.HasPrefix(partialDir, fmt.Sprintf("v_%s_node", strings.ToLower(a.Database.Name))) && strings.HasSuffix(fullPath, dbNameSuffix) {
+		return strings.TrimSuffix(fullPath, dbNameSuffix)
+	}
+	return fullPath
 }

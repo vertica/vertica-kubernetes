@@ -122,25 +122,26 @@ func MakeATPlannerFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Planner {
 	}
 }
 
-// GetDataPath returns the data path for the node
-func (n *Node) GetDataPath() (string, bool) {
-	return n.getPathByUsage(UsageIsDataTemp)
+// GetDataPaths returns the data paths for the node
+func (n *Node) GetDataPaths() []string {
+	return n.getPathsByUsage(UsageIsDataTemp)
 }
 
-// GetDepotPath returns the depot path for the node
-func (n *Node) GetDepotPath() (string, bool) {
-	return n.getPathByUsage(UsageIsDepot)
+// GetDepotPath returns the depot paths for the node
+func (n *Node) GetDepotPath() []string {
+	return n.getPathsByUsage(UsageIsDepot)
 }
 
-// getPathByUsage returns the path for a given usage type. See Usage* const at
+// getPathsByUsage returns the path for a given usage type. See Usage* const at
 // the top of this file.
-func (n *Node) getPathByUsage(usage int) (string, bool) {
+func (n *Node) getPathsByUsage(usage int) []string {
+	paths := []string{}
 	for i := range n.VStorageLocations {
 		if n.VStorageLocations[i].Usage == usage {
-			return n.VStorageLocations[i].Path, true
+			paths = append(paths, n.VStorageLocations[i].Path)
 		}
 	}
-	return "", false
+	return paths
 }
 
 // Parse looks at the op string passed in and spits out Database and
