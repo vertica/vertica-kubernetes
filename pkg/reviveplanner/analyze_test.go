@@ -31,10 +31,14 @@ var _ = Describe("analyze", func() {
 				Name: "vertdb",
 			},
 		}
-		Expect(p.extractPathPrefix("/data/vertdb/v_vertdb_node0001_catalog")).Should(Equal("/data"))
-		Expect(p.extractPathPrefix("/one/path/vertdb/v_vertdb_node0101_data")).Should(Equal("/one/path"))
-		_, err := p.extractPathPrefix("/data/not-valid")
-		Expect(err).ShouldNot(Succeed())
+		pathPrefix, ok := p.extractPathPrefixFromVNodePath("/data/vertdb/v_vertdb_node0001_catalog")
+		Expect(ok).Should(BeTrue())
+		Expect(pathPrefix).Should(Equal("/data"))
+		pathPrefix, ok = p.extractPathPrefixFromVNodePath("/one/path/vertdb/v_vertdb_node0101_data")
+		Expect(ok).Should(BeTrue())
+		Expect(pathPrefix).Should(Equal("/one/path"))
+		_, ok = p.extractPathPrefixFromVNodePath("/data/not-valid")
+		Expect(ok).ShouldNot(BeTrue())
 	})
 
 	It("should be able to extract out a common prefix if db has capital letters", func() {
@@ -43,7 +47,9 @@ var _ = Describe("analyze", func() {
 				Name: "Vertica_Dashboard",
 			},
 		}
-		Expect(p.extractPathPrefix("/vertica/dat/Vertica_Dashboard/v_vertica_dashboard_node0001_data")).Should(Equal("/vertica/dat"))
+		pathPrefix, ok := p.extractPathPrefixFromVNodePath("/vertica/dat/Vertica_Dashboard/v_vertica_dashboard_node0001_data")
+		Expect(ok).Should(BeTrue())
+		Expect(pathPrefix).Should(Equal("/vertica/dat"))
 	})
 
 	It("should be able to find common paths", func() {
@@ -66,7 +72,7 @@ var _ = Describe("analyze", func() {
 		Expect(err).ShouldNot(Succeed())
 		_, err = p.getCommonPath([]string{
 			"/p1/v/v_v_node0001_depot",
-			"/p1/v/invalid/path/no/vnode",
+			"/p2/v/invalid/path/no/vnode",
 		}, "")
 		Expect(err).ShouldNot(Succeed())
 	})
@@ -91,6 +97,38 @@ var _ = Describe("analyze", func() {
 			"/p1/v/v_v_node0001_data",
 			"/p1/v/v_v_node0002_data",
 		}, "/p1")).Should(Equal("/p1"))
+	})
+
+	It("should be able to find common paths when db/node isn't a suffix", func() {
+		p := ATPlanner{
+			Database: Database{
+				Name: "v",
+			},
+		}
+		Expect(p.getCommonPath([]string{
+			"/vertica/dbx/node1/ssd",
+			"/vertica/dbx/all-remaining-nodes/ssd",
+			"/vertica/dbx/node2/ssd",
+		}, "")).Should(Equal("/vertica/dbx"))
+		Expect(p.getCommonPath([]string{
+			"/vertica/dbx/node1/ssd",
+			"/outlier/prefix/v/v_v_node0002_data",
+			"/vertica/dbx/all-remaining-nodes/ssd",
+			"/vertica/dbx/node2/ssd",
+		}, "/outlier/prefix")).Should(Equal("/vertica/dbx"))
+		_, err := p.getCommonPath([]string{
+			"/vertica/ssd",
+			"/outlier/prefix/v/v_v_node0002_data",
+			"/uncommon/path/ssd",
+			"/vertica/ssd",
+		}, "/outlier/prefix")
+		Expect(err).ShouldNot(Succeed())
+		Expect(p.getCommonPath([]string{
+			"/vertica/ssd",
+		}, "/outlier/prefix")).Should(Equal("/vertica/ssd"))
+		Expect(p.getCommonPath([]string{
+			"/vertica/ssd",
+		}, "/vertica/ssd")).Should(Equal("/vertica/ssd"))
 	})
 
 	It("should update vdb based on revive output", func() {
