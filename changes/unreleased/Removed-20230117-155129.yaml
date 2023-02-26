@@ -1,5 +1,0 @@
-kind: Removed
-body: Support for Vertica server 11.0.0. New minimum version it supports is 11.0.1.
-time: 2023-01-17T15:51:29.121087067-04:00
-custom:
-  Issue: "320"

@@ -1,6 +1,0 @@
-kind: Added
-body: Add an init program to the vertica-k8s container to reap zombies. This will
-  be available in server versions 12.0.4 and higher.
-time: 2023-01-17T15:50:50.360706391-04:00
-custom:
-  Issue: "320"
