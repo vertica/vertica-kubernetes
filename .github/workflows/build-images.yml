@@ -75,7 +75,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: full_vertica_image
       with:
-        default: ghcr.io/$OWNER_LC/vertica-k8s:${{ github.sha }}
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind
@@ -195,7 +195,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: ghcr.io/$OWNER_LC/vertica-k8s:${{ github.sha }}-minimal
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-minimal
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-minimal
@@ -278,7 +278,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: operator_image
       with:
-        default: ghcr.io/$OWNER_LC/verticadb-operator:${{ github.sha }}
+        default: ghcr.io/${{ env.OWNER_LC }}/verticadb-operator:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.operator_image != '' }} => ${{ inputs.operator_image }}
           ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
@@ -382,7 +382,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: vlogger_image
       with:
-        default: ghcr.io/$OWNER_LC/vertica-logger:${{ github.sha }}
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-logger:${{ github.sha }}
         conditionals-with-values: |
           ${{ inputs.vlogger_image != '' }} => ${{ inputs.vlogger_image }}
           ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
