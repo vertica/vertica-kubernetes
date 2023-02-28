@@ -209,7 +209,7 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate Role and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd paths="./..." output:crd:artifacts:config=config/crd/bases
-	sed -i '/WATCH_NAMESPACE/d' config/rbac/role.yaml ## delete any line with the dummy namespace WATCH_NAMESPACE
+	perl -i.$$$$ -nE 'print unless /WATCH_NAMESPACE/' config/rbac/role.yaml ; rm -f config/rbac/role.yaml.$$$$ ## delete any line with the dummy namespace WATCH_NAMESPACE
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
