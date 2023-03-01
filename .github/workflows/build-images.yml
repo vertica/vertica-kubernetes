@@ -179,6 +179,7 @@ jobs:
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.full_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
+        
   build-server-nosshkeys:
     runs-on: ubuntu-latest
     outputs:
