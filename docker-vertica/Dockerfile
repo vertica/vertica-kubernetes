@@ -70,6 +70,7 @@ RUN set -x \
 # versions at once.
 COPY dbadmin/.ssh /home/dbadmin/.ssh
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
