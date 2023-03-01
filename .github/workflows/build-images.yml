@@ -49,7 +49,7 @@ on:
         value: ${{ jobs.build-server-full.outputs.image }}
       nosshkeys-vertica-image:
         description: "The image name of the vertica server image, but with no ssh keys inside"
-        value: ${{ jobs.build-server-full.outputs.image }}
+        value: ${{ jobs.build-server-nosshkeys.outputs.image }}
       minimal-vertica-image:
         description: "The image name of the vertica server, but with optional software removed"
         value: ${{ jobs.build-server-minimal.outputs.image }}
