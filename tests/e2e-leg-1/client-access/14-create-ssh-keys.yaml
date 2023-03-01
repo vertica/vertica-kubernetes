@@ -14,4 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: sh -c "cd ../../.. && kubectl create secret generic ssh-keys --from-file=docker-vertica/dbadmin/.ssh -n $NAMESPACE"
+  - script: "mkdir -p ssh-keys && rm -f ssh-keys/* && ssh-keygen -q -t rsa -N '' -f ssh-keys/id_rsa && cp ssh-keys/id_rsa.pub ssh-keys/authorized_keys"
+  - script: "kubectl delete secret -n $NAMESPACE ssh-keys || :"
+  - script: "kubectl create secret -n $NAMESPACE generic ssh-keys --from-file=ssh-keys"
