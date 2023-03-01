@@ -1,2 +1,4 @@
 #!/command/execlineb -P
-sudo /usr/sbin/sshd
+foreground { sudo ssh-keygen -q -A } sudo /usr/sbin/sshd
+
+
