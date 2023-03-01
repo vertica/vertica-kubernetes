@@ -18,6 +18,7 @@ metadata:
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
+  sshSecret: ssh-keys
   communal:
     includeUIDInPath: false
   local:
