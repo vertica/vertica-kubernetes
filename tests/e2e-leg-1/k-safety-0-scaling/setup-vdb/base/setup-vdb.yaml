@@ -18,7 +18,6 @@ metadata:
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  sshSecret: ssh-keys
   sidecars:
     - name: vlogger
       image: kustomize-vlogger-image
