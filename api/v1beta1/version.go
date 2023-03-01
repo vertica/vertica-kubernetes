@@ -36,6 +36,8 @@ const (
 	CGroupV2UnsupportedVersion = "v12.0.0"
 	// The minimum version that can start Vertica's http server
 	HTTPServerMinVersion = "v12.0.3"
+	// When httpServerMode is Auto, this is the minimum server version that will start Vertica's http server
+	HTTPServerAutoMinVersion = "v12.0.4"
 	// The minimum version that we can use the option with create DB to skip the
 	// package install.
 	CreateDBSkipPackageInstallVersion = "v12.0.1"

@@ -22,7 +22,7 @@ spec:
   local:
     requestSize: 100Mi
   dbName: vertdb
-  # Leave httpServerMode out since the default behaviour is to enable it
+  httpServerMode: Enabled
   httpServerTLSSecret: custom-certs
   subclusters:
     - name: main

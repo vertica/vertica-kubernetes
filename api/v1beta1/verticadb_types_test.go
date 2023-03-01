@@ -68,7 +68,9 @@ var _ = Describe("verticadb_types", func() {
 		vdb.Spec.HTTPServerMode = HTTPServerModeAuto
 		vdb.ObjectMeta.Annotations[VersionAnnotation] = "v11.0.2"
 		Expect(vdb.IsHTTPServerEnabled()).Should(BeFalse())
-		vdb.ObjectMeta.Annotations[VersionAnnotation] = "v12.0.4"
+		vdb.ObjectMeta.Annotations[VersionAnnotation] = HTTPServerMinVersion
+		Expect(vdb.IsHTTPServerEnabled()).Should(BeFalse())
+		vdb.ObjectMeta.Annotations[VersionAnnotation] = HTTPServerAutoMinVersion
 		Expect(vdb.IsHTTPServerEnabled()).Should(BeTrue())
 	})
 })

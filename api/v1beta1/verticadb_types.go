@@ -1233,7 +1233,7 @@ func (v *VerticaDB) IsHTTPServerEnabled() bool {
 	if !ok {
 		return false
 	}
-	return inf.IsEqualOrNewer(HTTPServerMinVersion)
+	return inf.IsEqualOrNewer(HTTPServerAutoMinVersion)
 }
 
 // IsEON returns true if the instance is an EON database. Officially, all
