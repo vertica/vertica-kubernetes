@@ -73,16 +73,16 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 		return res, err
 	}
 
-	vinf, ok := version.MakeInfoFromVdb(v.Vdb)
+	vinf, ok := v.Vdb.MakeVersionInfo()
 	if !ok {
 		// Version info is not in the vdb.  Fine to skip.
 		return ctrl.Result{}, nil
 	}
 
-	if vinf.IsUnsupported() {
+	if vinf.IsUnsupported(vapi.MinimumVersion) {
 		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version %s is unsupported with this operator.  The minimum version supported is %s.",
-			vinf.VdbVer, version.MinimumVersion)
+			vinf.VdbVer, vapi.MinimumVersion)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -95,7 +95,7 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 // 12.0.0 server and cgroups v2.  In such an environment you cannot start the
 // server in k8s.
 func (v *VersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context, vinf *version.Info, pod *PodFact) {
-	ver12, _ := version.MakeInfoFromStr(version.CGroupV2UnsupportedVersion)
+	ver12, _ := version.MakeInfoFromStr(vapi.CGroupV2UnsupportedVersion)
 	if !vinf.IsEqual(ver12) {
 		return
 	}
@@ -133,10 +133,10 @@ func (v *VersionReconciler) getVersion(ctx context.Context, pod *PodFact) (strin
 // updateVDBVersion will update the version that is stored in the vdb.  This may
 // fail if it detects an invalid upgrade path.
 func (v *VersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
-	versionAnnotations := version.ParseVersionOutput(newVersion)
+	versionAnnotations := vapi.ParseVersionOutput(newVersion)
 
 	if v.EnforceUpgradePath && !v.Vdb.Spec.IgnoreUpgradePath {
-		ok, failureReason := version.IsUpgradePathSupported(v.Vdb, versionAnnotations)
+		ok, failureReason := v.Vdb.IsUpgradePathSupported(versionAnnotations)
 		if !ok {
 			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
 				"Invalid upgrade path detected.  %s", failureReason)

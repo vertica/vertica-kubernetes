@@ -451,6 +451,7 @@ type HTTPServerModeType string
 const (
 	HTTPServerModeEnabled  HTTPServerModeType = "Enabled"
 	HTTPServerModeDisabled HTTPServerModeType = "Disabled"
+	HTTPServerModeAuto     HTTPServerModeType = "Auto"
 )
 
 // Defines a number of pods for a specific subcluster
@@ -1047,11 +1048,6 @@ func IsValidSubclusterName(scName string) bool {
 	return r.MatchString(scName)
 }
 
-func (v *VerticaDB) GetVerticaVersion() (string, bool) {
-	ver, ok := v.ObjectMeta.Annotations[VersionAnnotation]
-	return ver, ok
-}
-
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
 // revive_instance_id.
 func (v *VerticaDB) HasReviveInstanceIDAnnotation() bool {
@@ -1225,7 +1221,19 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 // IsHTTPServerEnabled will return true if the http server is enabled for this
 // instance of the vdb
 func (v *VerticaDB) IsHTTPServerEnabled() bool {
-	return v.Spec.HTTPServerMode == HTTPServerModeEnabled
+	// An empty string defaults to auto.
+	if v.Spec.HTTPServerMode != HTTPServerModeAuto && v.Spec.HTTPServerMode != "" {
+		return v.Spec.HTTPServerMode == HTTPServerModeEnabled
+	}
+	// For auto, we only enable the http server if we are on a vertica version
+	// that supports it.
+	inf, ok := v.MakeVersionInfo()
+	// We cannot make any inference about the version, so assume https server
+	// isn't enabled
+	if !ok {
+		return false
+	}
+	return inf.IsEqualOrNewer(HTTPServerMinVersion)
 }
 
 // IsEON returns true if the instance is an EON database. Officially, all

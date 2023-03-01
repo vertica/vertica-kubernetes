@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
 type Components struct {
@@ -28,30 +26,9 @@ type Components struct {
 }
 
 type Info struct {
-	// The version that was extracted from a Vdb
-	VdbVer string
-	Components
+	VdbVer     string // The version that was extracted from a vdb
+	Components        // The same version as VdbVer but broken down into individual components
 }
-
-const (
-	// This is the minimum vertica version that the operator currently supports.
-	// If the vertica image that we deploy is older than this then the operator
-	// aborts the reconiliation process.
-	MinimumVersion = "v11.0.1"
-	// The version that added read-only state
-	NodesHaveReadOnlyStateVersion = "v11.0.2"
-	// The minimum version that allows for online upgrade.
-	OnlineUpgradeVersion = "v11.1.0"
-	// The version that added the --force option to reip to handle up nodes
-	ReIPAllowedWithUpNodesVersion = "v11.1.0"
-	// The version of the server that doesn't support cgroup v2
-	CGroupV2UnsupportedVersion = "v12.0.0"
-	// The minimum version that can start Vertica's http server
-	HTTPServerMinVersion = "v12.0.1"
-	// The minimum version that we can use the option with create DB to skip the
-	// package install.
-	CreateDBSkipPackageInstallVersion = "v12.0.1"
-)
 
 // UpgradePaths has all of the vertica releases supported by the operator.  For
 // each release, the next release that must be upgrade too.  Use this map to
@@ -69,33 +46,10 @@ var UpgradePaths = map[Components]Info{
 	{11, 1, 1}: {"v12.0.x", Components{12, 0, 0}},
 }
 
-// MakeInfoFromVdb will construct an Info struct by extracting the version from the
-// given vdb.  This returns false if it was unable to get the version from the
-// vdb.
-func MakeInfoFromVdb(vdb *vapi.VerticaDB) (*Info, bool) {
-	vdbVer, ok := vdb.GetVerticaVersion()
-	// If the version annotation isn't present, we abort creation of Info
-	if !ok {
-		return nil, false
-	}
-	return MakeInfoFromStr(vdbVer)
-}
-
 // MakeInfoFromStr will construct an Info struct by parsing the version string
-func MakeInfoFromStr(ver string) (*Info, bool) {
-	ma, mi, pa, ok := parseVersion(ver)
-	return &Info{ver, Components{ma, mi, pa}}, ok
-}
-
-// IsUnsupported returns true if the version in the vdb is unsupported by the operator.
-func (i *Info) IsUnsupported() bool {
-	return !i.IsSupported()
-}
-
-// IsSupported returns true if the version in the vdb is a supported version by
-// the operator.
-func (i *Info) IsSupported() bool {
-	return i.IsEqualOrNewer(MinimumVersion)
+func MakeInfoFromStr(curVer string) (*Info, bool) {
+	ma, mi, pa, ok := parseVersion(curVer)
+	return &Info{curVer, Components{ma, mi, pa}}, ok
 }
 
 // IsEqualOrNewer returns true if the version in the Vdb is is equal or newer
@@ -130,6 +84,17 @@ func (i *Info) IsOlder(inVer string) bool {
 // IsEqual compares two versions to see if they are equal
 func (i *Info) IsEqual(other *Info) bool {
 	return i.IsEqualExceptPatch(other) && other.VdbPatch == i.VdbPatch
+}
+
+// IsUnsupported returns true if the version in the vdb is unsupported by the operator.
+func (i *Info) IsUnsupported(minVersion string) bool {
+	return !i.IsSupported(minVersion)
+}
+
+// IsSupported returns true if the version in the vdb is a supported version by
+// the operator.
+func (i *Info) IsSupported(minVersion string) bool {
+	return i.IsEqualOrNewer(minVersion)
 }
 
 // IsEqualExceptPatch compares two versions major/minor versions to see if they

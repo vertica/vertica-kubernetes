@@ -25,7 +25,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -212,7 +211,7 @@ var _ = Describe("podfacts", func() {
 
 	It("checkIfNodeIsUpAndReadOnly should check for read-only on 11.0.2 servers", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Annotations[vapi.VersionAnnotation] = version.NodesHaveReadOnlyStateVersion
+		vdb.Annotations[vapi.VersionAnnotation] = vapi.NodesHaveReadOnlyStateVersion
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr := &cmds.FakePodRunner{
 			Results: cmds.CmdResults{

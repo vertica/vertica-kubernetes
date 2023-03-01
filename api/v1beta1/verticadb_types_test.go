@@ -62,4 +62,13 @@ var _ = Describe("verticadb_types", func() {
 		vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
 		Expect(vdb.IsHTTPServerEnabled()).Should(BeTrue())
 	})
+
+	It("should enable httpServer if auto is set and vertica version is new enough", func() {
+		vdb := MakeVDB()
+		vdb.Spec.HTTPServerMode = HTTPServerModeAuto
+		vdb.ObjectMeta.Annotations[VersionAnnotation] = "v11.0.2"
+		Expect(vdb.IsHTTPServerEnabled()).Should(BeFalse())
+		vdb.ObjectMeta.Annotations[VersionAnnotation] = "v12.0.4"
+		Expect(vdb.IsHTTPServerEnabled()).Should(BeTrue())
+	})
 })

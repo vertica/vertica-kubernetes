@@ -26,7 +26,6 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -135,7 +134,7 @@ func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *va
 	// In v11, when adding a subcluster it defaults to a secondary.  Prior
 	// versions default to a primary.  Use the correct switch, depending on what
 	// version we are using.
-	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
+	vinf, ok := d.Vdb.MakeVersionInfo()
 	const DefaultSecondarySubclusterCreationVersion = "v11.0.0"
 	if ok && vinf.IsEqualOrNewer(DefaultSecondarySubclusterCreationVersion) {
 		if sc.IsPrimary {

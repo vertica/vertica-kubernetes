@@ -795,14 +795,15 @@ func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList 
 func (v *VerticaDB) validateHTTPServerMode(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.HTTPServerMode == "" ||
 		v.Spec.HTTPServerMode == HTTPServerModeEnabled ||
-		v.Spec.HTTPServerMode == HTTPServerModeDisabled {
+		v.Spec.HTTPServerMode == HTTPServerModeDisabled ||
+		v.Spec.HTTPServerMode == HTTPServerModeAuto {
 		return allErrs
 	}
 
 	err := field.Invalid(field.NewPath("spec").Child("httpServerMode"),
 		v.Spec.HTTPServerMode,
-		fmt.Sprintf("Valid values are: %s, %s or an empty string",
-			HTTPServerModeEnabled, HTTPServerModeDisabled))
+		fmt.Sprintf("Valid values are: %s, %s, %s or an empty string",
+			HTTPServerModeAuto, HTTPServerModeEnabled, HTTPServerModeDisabled))
 	return append(allErrs, err)
 }
 

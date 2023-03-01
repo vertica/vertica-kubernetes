@@ -33,7 +33,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -620,8 +619,8 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf 
 	// The read-only state is a new state added in 11.0.2.  So we can only query
 	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
 	// disabled.
-	vinf, ok := version.MakeInfoFromVdb(vdb)
-	if ok && vinf.IsEqualOrNewer(version.NodesHaveReadOnlyStateVersion) {
+	vinf, ok := vdb.MakeVersionInfo()
+	if ok && vinf.IsEqualOrNewer(vapi.NodesHaveReadOnlyStateVersion) {
 		cols = fmt.Sprintf("%s, is_readonly", cols)
 	}
 	var sql string

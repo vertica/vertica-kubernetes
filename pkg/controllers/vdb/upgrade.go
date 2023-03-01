@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -298,8 +297,8 @@ func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	// Online upgrade can only be done if we are already on a server version
 	// that supports it.  It we are on an older version, we will fallback to
 	// offline even though online may have been specified in the vdb.
-	vinf, ok := version.MakeInfoFromVdb(vdb)
-	if ok && vinf.IsEqualOrNewer(version.OnlineUpgradeVersion) {
+	vinf, ok := vdb.MakeVersionInfo()
+	if ok && vinf.IsEqualOrNewer(vapi.OnlineUpgradeVersion) {
 		return true
 	}
 	return false

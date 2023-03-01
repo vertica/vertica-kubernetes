@@ -34,7 +34,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -727,8 +726,8 @@ func (r *RestartReconciler) genReIPCommand() []string {
 	// In 11.1, we added a --force option to re_ip to allow us to run it while
 	// some nodes are up.  This was done to support doing a reip while there are
 	// read-only secondary nodes.
-	vinf, ok := version.MakeInfoFromVdb(r.Vdb)
-	if ok && vinf.IsEqualOrNewer(version.ReIPAllowedWithUpNodesVersion) {
+	vinf, ok := r.Vdb.MakeVersionInfo()
+	if ok && vinf.IsEqualOrNewer(vapi.ReIPAllowedWithUpNodesVersion) {
 		cmd = append(cmd, "--force")
 	}
 

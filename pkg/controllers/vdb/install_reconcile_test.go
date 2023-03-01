@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -190,7 +189,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
 		Expect(len(cmds)).Should(Equal(0))
 
-		vdb.Annotations[vapi.VersionAnnotation] = version.HTTPServerMinVersion
+		vdb.Annotations[vapi.VersionAnnotation] = vapi.HTTPServerMinVersion
 		for _, val := range pfact.Detail {
 			Expect(drecon.genCreateConfigDirsScript(val)).Should(ContainSubstring(paths.HTTPTLSConfDir))
 		}
