@@ -6,11 +6,13 @@
 ARG BASE_OS_VERSION="focal-20220801"
 ARG BUILDER_OS_VERSION="7.9.2009"
 ARG MINIMAL=""
+ARG NO_SSH_KEYS=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
 FROM centos:centos${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL
+ARG NO_SSH_KEYS
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
@@ -69,14 +71,13 @@ RUN set -x \
 COPY dbadmin/.ssh /home/dbadmin/.ssh
 
 RUN set -x \
-  && mkdir -p /root/.ssh \
-  && cp -r /home/dbadmin/.ssh /root \
-  && chmod 700 /root/.ssh \
-  && chmod 600 /root/.ssh/* \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
-  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/*
+  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
+  && if [[ ($NO_SSH_KEYS == "YES" || $NO_SSH_KEYS == "yes") ]] ; then \
+    rm -rf /home/dbadmin/.ssh/*;  \
+  fi
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION}
@@ -92,7 +93,6 @@ ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder --chown=$DBADMIN_UID:$DBADMIN_GID /home/dbadmin /home/dbadmin
-COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 COPY --from=builder /etc/ssh/sshd_config.d/* /etc/ssh/sshd_config.d/
 COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
@@ -145,7 +145,6 @@ RUN set -x \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
   && mkdir -p /run/sshd \
-  && ssh-keygen -q -A \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   # Allow passwordless sudo access from dbadmin
@@ -160,7 +159,9 @@ RUN set -x \
   && chmod u+s /usr/sbin/cron \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
-  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
+  # delete old host keys
+  && rm -rf /etc/ssh/ssh_host* 
 
 ENTRYPOINT [ "/init" ]
 
