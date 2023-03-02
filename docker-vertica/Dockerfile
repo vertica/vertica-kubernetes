@@ -76,7 +76,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && mkdir -p /root/.ssh \
   && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
-    cp -r /home/dbadmin/.ssh /root \
+    cp -r /home/dbadmin/.ssh /root; \
   fi \
   && chmod 700 /root/.ssh \
   && chmod 600 /root/.ssh/* \
