@@ -33,9 +33,7 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/site-packages/pip \
    /opt/vertica/oss/python*/lib/python*/config-[0-9]* \
    /opt/vertica/oss/python*/lib/python*/tkinter \
-   /opt/vertica/oss/python*/lib/python*/idlelib \
-   /opt/vertica/oss/python*/lib/python*/site-packages/Cryptodome/SelfTest/PublicKey/test_vectors/ECC \
-   /opt/vertica/oss/python*/lib/python*/site-packages/future/backports/test
+   /opt/vertica/oss/python*/lib/python*/idlelib
 
 # cleanup all test directories for packages under site-package
 find /opt/vertica/oss/python*/lib/python*/site-packages/ -type d -name "*[Tt]est" -exec rm -rf {} +
