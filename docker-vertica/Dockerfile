@@ -74,11 +74,17 @@ COPY dbadmin/.ssh /home/dbadmin/.ssh
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
+  && mkdir -p /root/.ssh \
+  && if [[ ${NO_SSH_KEYS^^} == "YES" ]] ; then \
+    cp -r /home/dbadmin/.ssh /root \
+  fi \
+  && chmod 700 /root/.ssh \
+  && chmod 600 /root/.ssh/* \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
-  && if [[ ($NO_SSH_KEYS == "YES" || $NO_SSH_KEYS == "yes") ]] ; then \
+  && if [[ ${NO_SSH_KEYS^^} == "YES" ]] ; then \
     rm -rf /home/dbadmin/.ssh/*;  \
   fi
 
@@ -96,6 +102,7 @@ ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder --chown=$DBADMIN_UID:$DBADMIN_GID /home/dbadmin /home/dbadmin
+COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 COPY --from=builder /etc/ssh/sshd_config.d/* /etc/ssh/sshd_config.d/
 COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
@@ -141,7 +148,7 @@ RUN set -x \
   sudo \
   vim-tiny \
   # Install jre if not minimal
-  && if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") ]] ; then \
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
   fi \
   && rm -rf /var/lib/apt/lists/* \
@@ -154,7 +161,7 @@ RUN set -x \
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
   && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
   # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
-  && if [[ $MINIMAL != "YES" && $MINIMAL != "yes" ]]; then \
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     echo "JAVA_HOME=/usr" >> /etc/environment; \
   fi \
   # Create a symlink to python3 interpreter in vertica
