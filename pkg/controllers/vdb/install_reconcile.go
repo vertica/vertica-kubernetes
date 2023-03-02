@@ -31,7 +31,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -282,12 +281,12 @@ func (d *InstallReconciler) doHTTPInstall(logEvent bool) bool {
 	if !d.Vdb.IsHTTPServerEnabled() {
 		return false
 	}
-	vinf, ok := version.MakeInfoFromVdb(d.Vdb)
-	if !ok || vinf.IsOlder(version.HTTPServerMinVersion) {
+	vinf, ok := d.Vdb.MakeVersionInfo()
+	if !ok || vinf.IsOlder(vapi.HTTPServerMinVersion) {
 		if logEvent {
 			d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
 				"Skipping http server cert setup because the Vertica version doesn't have "+
-					"support for it. A Vertica version of '%s' or newer is needed", version.HTTPServerMinVersion)
+					"support for it. A Vertica version of '%s' or newer is needed", vapi.HTTPServerMinVersion)
 		}
 		return false
 	}

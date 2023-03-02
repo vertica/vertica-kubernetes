@@ -32,7 +32,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -260,8 +259,8 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 	}
 
 	if c.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {
-		vinf, ok := version.MakeInfoFromVdb(c.Vdb)
-		if ok && vinf.IsEqualOrNewer(version.CreateDBSkipPackageInstallVersion) {
+		vinf, ok := c.Vdb.MakeVersionInfo()
+		if ok && vinf.IsEqualOrNewer(vapi.CreateDBSkipPackageInstallVersion) {
 			cmd = append(cmd, "--skip-package-install")
 		}
 	}

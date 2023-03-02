@@ -23,7 +23,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -62,7 +61,7 @@ var _ = Describe("upgrade", func() {
 		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Correct version
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = version.OnlineUpgradeVersion
+		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = vapi.OnlineUpgradeVersion
 		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Missing license

@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -583,9 +582,9 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly)
 		r := act.(*RestartReconciler)
-		vdb.Annotations[vapi.VersionAnnotation] = version.MinimumVersion
+		vdb.Annotations[vapi.VersionAnnotation] = vapi.MinimumVersion
 		Expect(r.genReIPCommand()).ShouldNot(ContainElement("--force"))
-		vdb.Annotations[vapi.VersionAnnotation] = version.ReIPAllowedWithUpNodesVersion
+		vdb.Annotations[vapi.VersionAnnotation] = vapi.ReIPAllowedWithUpNodesVersion
 		Expect(r.genReIPCommand()).Should(ContainElement("--force"))
 	})
 
@@ -598,7 +597,7 @@ var _ = Describe("restart_reconciler", func() {
 			{podIP: "9.10.1.1"},
 			{podIP: "9.10.1.2"},
 		}
-		vdb.Annotations[vapi.VersionAnnotation] = version.MinimumVersion
+		vdb.Annotations[vapi.VersionAnnotation] = vapi.MinimumVersion
 		Expect(r.genStartDBCommand(downPods)).Should(ContainElements("--hosts", "9.10.1.1,9.10.1.2"))
 	})
 

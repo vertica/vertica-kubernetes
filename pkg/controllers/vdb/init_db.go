@@ -31,7 +31,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -530,7 +529,7 @@ func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
 // to run with a Kerberos config.  If it doesn't the ctrl.Result will have the
 // requeue bool set.
 func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Result {
-	vinf, ok := version.MakeInfoFromVdb(g.Vdb)
+	vinf, ok := g.Vdb.MakeVersionInfo()
 	const DefaultKerberosSupportedVersion = "v11.0.2"
 	if !ok || ok && vinf.IsEqualOrNewer(DefaultKerberosSupportedVersion) {
 		return ctrl.Result{}
