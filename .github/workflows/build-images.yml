@@ -192,11 +192,17 @@ jobs:
       image: ${{ steps.nosshkeys_vertica_image.outputs.value }}
     steps:
 
+    - name: set lower case owner name
+      env:
+        OWNER: '${{ github.repository_owner }}'
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+
     - name: Pick the name of the image
       uses: spilchen/switch-case-action@v2
       id: nosshkeys_vertica_image
       with:
-        default: ghcr.io/${{ github.repository_owner }}/vertica-k8s:${{ github.sha }}-nosshkeys
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-nosshkeys
         conditionals-with-values: |
           ${{ inputs.nosshkeys_vertica_image != '' }} => ${{ inputs.nosshkeys_vertica_image }}
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-nosshkeys
@@ -211,7 +217,7 @@ jobs:
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
-      if: ${{ inputs.full_vertica_image != '' && startsWith(inputs.full_vertica_image, 'docker.io') }}
+      if: ${{ inputs.nosshkeys_vertica_image != '' && startsWith(inputs.nosshkeys_vertica_image, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -294,7 +300,7 @@ jobs:
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
-      if: ${{ inputs.full_vertica_image != '' && startsWith(inputs.full_vertica_image, 'docker.io') }}
+      if: ${{ inputs.minimal_vertica_image != '' && startsWith(inputs.minimal_vertica_image, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
