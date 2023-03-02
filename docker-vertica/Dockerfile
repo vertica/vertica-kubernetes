@@ -151,6 +151,7 @@ RUN set -x \
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
   fi \
+  && apt-get -y upgrade \
   && rm -rf /var/lib/apt/lists/* \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
