@@ -75,7 +75,7 @@ COPY dbadmin/.ssh /home/dbadmin/.ssh
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && mkdir -p /root/.ssh \
-  && if [[ ${NO_SSH_KEYS^^} == "YES" ]] ; then \
+  && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
     cp -r /home/dbadmin/.ssh /root \
   fi \
   && chmod 700 /root/.ssh \
