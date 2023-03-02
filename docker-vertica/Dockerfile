@@ -77,9 +77,9 @@ RUN set -x \
   && mkdir -p /root/.ssh \
   && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
     cp -r /home/dbadmin/.ssh /root; \
+    chmod 700 /root/.ssh; \
+    chmod 600 /root/.ssh/*; \
   fi \
-  && chmod 700 /root/.ssh \
-  && chmod 600 /root/.ssh/* \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
