@@ -67,7 +67,9 @@ RUN set -x \
 # Copy in a stable ssh key.  This is done so that Vertica pods can communicate
 # with pods running an older image.  This is necessary when doing an online
 # image change as the Vertica cluster will be running with two container
-# versions at once.
+# versions at once. This step is required if not including SSH keys because
+# conditional copy isn't a thing in Docker. If no SSH keys are to be included, 
+# then the next RUN will remove the key we just added.
 COPY dbadmin/.ssh /home/dbadmin/.ssh
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

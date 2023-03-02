@@ -23,7 +23,8 @@
 #
 # wander around in the image looking for things you can remove
 rm -r -f \
-   /opt/vertica/config/* \
+   /opt/vertica/config/https_cert/*.key \
+   /opt/vertica/config/share/agent* \
    /opt/vertica/examples \
    /opt/vertica/packages/*/examples \
    /opt/vertica/oss/python*/lib/python*/test \
@@ -35,6 +36,9 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/idlelib \
    /opt/vertica/oss/python*/lib/python*/site-packages/Cryptodome/SelfTest/PublicKey/test_vectors/ECC \
    /opt/vertica/oss/python*/lib/python*/site-packages/future/backports/test
+
+# cleanup all test directories for packages under site-package
+find /opt/vertica/oss/python*/lib/python*/site-packages/ -type d -name "*[Tt]est" -exec rm -rf {} +
 
 # cleanup many of the __pycache__ directories 
 find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +
