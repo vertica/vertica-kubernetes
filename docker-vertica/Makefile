@@ -10,6 +10,7 @@ all: docker-build-vertica
 
 .PHONY: docker-build-vertica
 docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
+	docker pull ubuntu:focal ## make sure we use the latest focal image
 	docker build \
 		-f Dockerfile \
 		--label minimal=${MINIMAL_VERTICA_IMG} \
