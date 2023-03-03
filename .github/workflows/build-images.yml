@@ -11,6 +11,10 @@ on:
         description: 'Name of an existing full Vertica server image. If blank we will build one using the default name'
         type: string
         required: true
+      nosshkeys_vertica_image:
+        description: 'Name of an existing Vertica server image with no ssh keys inside. If blank we will build one using the default name'
+        type: string
+        required: true
       minimal_vertica_image:
         description: 'Name of an existing minimal Vertica server image. If blank we will build one using the default name'
         type: string
@@ -43,6 +47,9 @@ on:
       full-vertica-image:
         description: "The image name of the full vertica server image"
         value: ${{ jobs.build-server-full.outputs.image }}
+      nosshkeys-vertica-image:
+        description: "The image name of the vertica server image, but with no ssh keys inside"
+        value: ${{ jobs.build-server-nosshkeys.outputs.image }}
       minimal-vertica-image:
         description: "The image name of the vertica server, but with optional software removed"
         value: ${{ jobs.build-server-minimal.outputs.image }}
@@ -178,6 +185,89 @@ jobs:
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.full_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
+        
+  build-server-nosshkeys:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.nosshkeys_vertica_image.outputs.value }}
+    steps:
+
+    - name: set lower case owner name
+      env:
+        OWNER: '${{ github.repository_owner }}'
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+
+    - name: Pick the name of the image
+      uses: spilchen/switch-case-action@v2
+      id: nosshkeys_vertica_image
+      with:
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-nosshkeys
+        conditionals-with-values: |
+          ${{ inputs.nosshkeys_vertica_image != '' }} => ${{ inputs.nosshkeys_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-nosshkeys
+
+    - name: Login to GitHub Container registry for non-PRs
+      uses: docker/login-action@v2
+      if: ${{ github.event_name != 'pull_request' && inputs.nosshkeys_vertica_image == '' || startsWith(inputs.nosshkeys_vertica_image, 'ghcr.io') }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      if: ${{ inputs.nosshkeys_vertica_image != '' && startsWith(inputs.nosshkeys_vertica_image, 'docker.io') }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - uses: actions/checkout@v3
+      if: ${{ inputs.nosshkeys_vertica_image == '' }}
+
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.nosshkeys_vertica_image == '' }}
+      
+    - name: Build and optionally push nosshkeys server image
+      if: ${{ inputs.nosshkeys_vertica_image == '' }}
+      run: |
+        export VERTICA_IMG=${{ steps.nosshkeys_vertica_image.outputs.value }}
+        export NO_SSH_KEYS=yes
+        make docker-build-vertica
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+        then
+          make docker-push-vertica
+        fi
+
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.nosshkeys_vertica_image.outputs.value }} > nosshkeys-vertica-image.tar
+
+    - uses: actions/upload-artifact@v3
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: nosshkeys-vertica-image
+        path: nosshkeys-vertica-image.tar
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.nosshkeys_vertica_image != '' }}
+      run: |
+        docker pull ${{ inputs.nosshkeys_vertica_image }}
+
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.nosshkeys_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.nosshkeys_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.nosshkeys_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
+        echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.nosshkeys_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.nosshkeys_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.nosshkeys_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+        echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
+        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.nosshkeys_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
+        echo "**" >> $GITHUB_STEP_SUMMARY
 
   build-server-minimal:
     runs-on: ubuntu-latest
@@ -210,7 +300,7 @@ jobs:
 
     - name: Login to Docker Hub
       uses: docker/login-action@v2
-      if: ${{ inputs.full_vertica_image != '' && startsWith(inputs.full_vertica_image, 'docker.io') }}
+      if: ${{ inputs.minimal_vertica_image != '' && startsWith(inputs.minimal_vertica_image, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}

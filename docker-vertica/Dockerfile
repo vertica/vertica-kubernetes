@@ -6,11 +6,13 @@
 ARG BASE_OS_VERSION="focal-20220801"
 ARG BUILDER_OS_VERSION="7.9.2009"
 ARG MINIMAL=""
+ARG NO_SSH_KEYS=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
 FROM centos:centos${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL
+ARG NO_SSH_KEYS
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
@@ -65,18 +67,26 @@ RUN set -x \
 # Copy in a stable ssh key.  This is done so that Vertica pods can communicate
 # with pods running an older image.  This is necessary when doing an online
 # image change as the Vertica cluster will be running with two container
-# versions at once.
+# versions at once. This step is required if not including SSH keys because
+# conditional copy isn't a thing in Docker. If no SSH keys are to be included, 
+# then the next RUN will remove the key we just added.
 COPY dbadmin/.ssh /home/dbadmin/.ssh
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && mkdir -p /root/.ssh \
-  && cp -r /home/dbadmin/.ssh /root \
-  && chmod 700 /root/.ssh \
-  && chmod 600 /root/.ssh/* \
+  && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
+    cp -r /home/dbadmin/.ssh /root; \
+    chmod 700 /root/.ssh; \
+    chmod 600 /root/.ssh/*; \
+  fi \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
-  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/*
+  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
+  && if [[ ${NO_SSH_KEYS^^} == "YES" ]] ; then \
+    rm -rf /home/dbadmin/.ssh/*;  \
+  fi
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION}
@@ -138,21 +148,20 @@ RUN set -x \
   sudo \
   vim-tiny \
   # Install jre if not minimal
-  && if [[ ($MINIMAL != "YES" && $MINIMAL != "yes") ]] ; then \
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
   fi \
   && rm -rf /var/lib/apt/lists/* \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
   && mkdir -p /run/sshd \
-  && ssh-keygen -q -A \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
   && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
   # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
-  && if [[ $MINIMAL != "YES" && $MINIMAL != "yes" ]]; then \
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     echo "JAVA_HOME=/usr" >> /etc/environment; \
   fi \
   # Create a symlink to python3 interpreter in vertica
@@ -160,7 +169,9 @@ RUN set -x \
   && chmod u+s /usr/sbin/cron \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
-  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
+  # delete old host keys
+  && rm -rf /etc/ssh/ssh_host* 
 
 ENTRYPOINT [ "/init" ]
 
