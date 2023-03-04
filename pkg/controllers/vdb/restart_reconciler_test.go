@@ -639,6 +639,9 @@ var _ = Describe("restart_reconciler", func() {
 	It("should check container status to see if startupProbe is done", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
+		vdb.Spec.Sidecars = []corev1.Container{
+			{Name: "vlogger", Image: "vertica-vlogger:latest"},
+		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -654,11 +657,20 @@ var _ = Describe("restart_reconciler", func() {
 		pod := corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pn, &pod)).Should(Succeed())
 		startupProbeFinished := false
-		pod.Status.ContainerStatuses[0].Started = &startupProbeFinished
+		vloggerStarted := true
+		// Mimic container status. The of the list can be different from the
+		// container order in the spec.
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			{Name: "vlogger", Started: &vloggerStarted},
+			{Name: names.ServerContainer, Started: &startupProbeFinished},
+		}
 		Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
 		Expect(r.isStartupProbeActive(ctx, pn)).Should(BeTrue())
 		startupProbeFinished = true
-		pod.Status.ContainerStatuses[0].Started = &startupProbeFinished
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			{Name: "vlogger", Started: &vloggerStarted},
+			{Name: names.ServerContainer, Started: &startupProbeFinished},
+		}
 		Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
 		Expect(r.isStartupProbeActive(ctx, pn)).Should(BeFalse())
 	})
@@ -705,7 +717,9 @@ var _ = Describe("restart_reconciler", func() {
 			pod := &corev1.Pod{}
 			Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
 			started := true
-			pod.Status.ContainerStatuses[names.ServerContainerIndex].Started = &started
+			pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+				{Name: names.ServerContainer, Started: &started},
+			}
 			Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
 		}
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
@@ -735,7 +749,10 @@ var _ = Describe("restart_reconciler", func() {
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
 		started := true
-		pod.Status.ContainerStatuses[names.ServerContainerIndex].Started = &started
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			{Name: "vlogger", Started: nil},
+			{Name: names.ServerContainer, Started: &started},
+		}
 		Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
