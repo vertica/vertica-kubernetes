@@ -89,7 +89,20 @@ RUN set -x \
   fi
 
 ##############################################################################################
-FROM ubuntu:${BASE_OS_VERSION}
+FROM ubuntu:${BASE_OS_VERSION} as initial
+
+RUN set -x \
+  # Update is needed to be confident that we're picking up
+  # fixed libraries.
+  && apt-get -y update \
+  && apt-get -y upgrade \
+  && apt-get clean \
+  && apt-get autoremove \
+  && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old
+
+# this squashes the image
+FROM scratch
+COPY --from=initial / /
 
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
@@ -124,8 +137,7 @@ COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  # Update is needed to be confident that we're picking up
-  # fixed libraries. 
+  # update needed because we just did a clean
   && apt-get -y update \
   && apt-get install -y --no-install-recommends \
   ca-certificates \
@@ -151,7 +163,6 @@ RUN set -x \
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
   fi \
-  && apt-get -y upgrade \
   && apt-get clean \
   && apt-get autoremove \
   && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
