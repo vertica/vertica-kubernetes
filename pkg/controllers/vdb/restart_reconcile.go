@@ -606,11 +606,15 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 		return true, nil
 	}
 	// Check the container status of the server. There is a state in there
-	// (Started) that indicates if the startupProbe is still active.
-	if len(pod.Status.ContainerStatuses) > names.ServerContainerIndex {
-		cstat := &pod.Status.ContainerStatuses[names.ServerContainerIndex]
-		r.Log.Info("Pod container status", "started", cstat.Started)
-		return cstat.Started == nil || !*cstat.Started, nil
+	// (Started) that indicates if the startupProbe is still active. Note, the
+	// order of the containerStatusus can be in any order. They don't follow the
+	// container definition order.
+	for i := range pod.Status.ContainerStatuses {
+		if pod.Status.ContainerStatuses[i].Name == names.ServerContainer {
+			cstatStarted := pod.Status.ContainerStatuses[i].Started
+			r.Log.Info("Pod container status", "pod", nm, "started", cstatStarted)
+			return cstatStarted == nil || !*cstatStarted, nil
+		}
 	}
 	// If no container status, then we assume startupProbe hasn't completed yet.
 	return true, nil

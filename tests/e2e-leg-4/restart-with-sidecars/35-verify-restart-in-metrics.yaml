@@ -1,0 +1,59 @@
+# (c) Copyright [2021-2023] Micro Focus or one of its affiliates.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verifies restart by checking the prometheus metrics.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-verify-restart-in-metrics
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o pipefail
+
+    SVC_NAME=verticadb-operator-metrics-service
+    EXPECTED_RESTART_COUNT=1
+    TIMEOUT=10m
+    trap "echo '*** ERROR: Timeout waiting for expected metric value'; curl http://$SVC_NAME:8443/metrics" EXIT
+    set -o xtrace
+    timeout $TIMEOUT bash -c -- "\
+         while ! curl http://$SVC_NAME:8443/metrics 2> /dev/null | grep -e 'vertica_cluster_restart_attempted_total{.*} $EXPECTED_RESTART_COUNT'; \
+         do \
+           sleep 0.1; \
+         done"
+    trap - EXIT
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-restart-in-metrics
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-verify-restart-in-metrics
