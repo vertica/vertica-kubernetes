@@ -2,6 +2,10 @@ This repository contains the code for a Kubernetes operator that manages Vertica
 
 To deploy the operator and a Kubernetes cluster in a local test environment that requires minimal resources, see [DEVELOPER](https://github.com/vertica/vertica-kubernetes/blob/main/DEVELOPER.md).
 
+# Supported Platforms 
+
+See [Containerized Environments](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SupportedPlatforms/Containers.htm) for supported plaform information, including version, communal storage, and managed services support.
+
 # Prerequisites
 
 - Resources to deploy Kubernetes objects
