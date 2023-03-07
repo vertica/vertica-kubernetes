@@ -47,8 +47,10 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.Ve
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	const PKKeySize = 2048
-	// Early out if http server is not enabled, or we already have a TLS secret
-	if !h.Vdb.IsHTTPServerEnabled() || h.Vdb.Spec.HTTPServerTLSSecret != "" {
+	// Early out if http server is explicitly disabled or we already have a TLS secret.
+	// For auto, we continue even if the version may not support it. Assuming
+	// its needed will save a few reconcile iteration during bootstrap.
+	if h.Vdb.IsHTTPServerDisabled() || h.Vdb.Spec.HTTPServerTLSSecret != "" {
 		return ctrl.Result{}, nil
 	}
 	caCert, err := security.NewSelfSignedCACertificate(PKKeySize)
