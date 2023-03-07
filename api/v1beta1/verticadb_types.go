@@ -1020,9 +1020,10 @@ func MakeVDB() *VerticaDB {
 				DepotPath:   "/depot",
 				RequestSize: resource.MustParse("10Gi"),
 			},
-			KSafety:    KSafety1,
-			DBName:     "db",
-			ShardCount: 12,
+			KSafety:        KSafety1,
+			DBName:         "db",
+			ShardCount:     12,
+			HTTPServerMode: HTTPServerModeDisabled,
 			Subclusters: []Subcluster{
 				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, IsPrimary: true},
 			},
@@ -1218,15 +1219,23 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 	return SubclusterStatus{}, false
 }
 
-// IsHTTPServerEnabled will return true if the http server is enabled for this
-// instance of the vdb
+// IsHTTPServerDisabled explicitly checks if the http server is disabled. If set
+// to auto or enabled, this returns true.
+func (v *VerticaDB) IsHTTPServerDisabled() bool {
+	return v.Spec.HTTPServerMode == HTTPServerModeDisabled
+}
+
+// IsHTTPServerEnabled will return true if the http server is enabled to run for
+// this instance of the vdb.
 func (v *VerticaDB) IsHTTPServerEnabled() bool {
-	// An empty string defaults to auto.
-	if v.Spec.HTTPServerMode != HTTPServerModeAuto && v.Spec.HTTPServerMode != "" {
-		return v.Spec.HTTPServerMode == HTTPServerModeEnabled
+	if v.IsHTTPServerDisabled() {
+		return false
 	}
-	// For auto, we only enable the http server if we are on a vertica version
-	// that supports it.
+	if v.Spec.HTTPServerMode == HTTPServerModeEnabled {
+		return true
+	}
+	// For auto (or an empty string), we only use the http server if we are on a
+	// vertica version that supports it.
 	inf, ok := v.MakeVersionInfo()
 	// We cannot make any inference about the version, so assume https server
 	// isn't enabled

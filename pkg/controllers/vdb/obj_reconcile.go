@@ -132,7 +132,10 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.IsHTTPServerEnabled() {
+	// Skip if HTTP server is explicitly disabled. For auto, some of the work
+	// isn't needed here. But we don't know the version, so we assume we need
+	// it.
+	if !o.Vdb.IsHTTPServerDisabled() {
 		// When the HTTP server is enabled, a secret must exist that has the
 		// certs to use for it.  There is a reconciler that is run before this
 		// that will create the secret.  We will requeue if we find the Vdb
