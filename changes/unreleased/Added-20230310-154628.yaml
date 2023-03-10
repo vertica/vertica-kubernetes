@@ -1,0 +1,6 @@
+kind: Added
+body: Backdoor to run the Vertica agent. This is to be used for development purposes
+  only.
+time: 2023-03-10T15:46:28.916712564-04:00
+custom:
+  Issue: "349"
