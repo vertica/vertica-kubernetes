@@ -86,6 +86,7 @@ RUN set -x \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
   && if [[ ${NO_SSH_KEYS^^} == "YES" ]] ; then \
     rm -rf /home/dbadmin/.ssh/*;  \
+    rm -rf /opt/vertica/config/share/agent*; \
   fi
 
 ##############################################################################################
@@ -193,6 +194,8 @@ ENTRYPOINT [ "/init" ]
 EXPOSE 5433
 # vertica-http port
 EXPOSE 8443
+# agent port
+EXPOSE 5444
 USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
