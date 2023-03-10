@@ -77,6 +77,9 @@ const (
 	MgmtFailed                      = "MgmtFailed"
 	MgmtFailedDiskFull              = "MgmtFailedDiskfull"
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
+	StartAgentStart                 = "StartAgentStart"
+	StartAgentSucceeded             = "StartAgentSucceeded"
+	StartAgentFailed                = "StartAgentFailed"
 )
 
 // Constants for VerticaAutoscaler reconciler

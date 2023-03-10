@@ -154,6 +154,9 @@ type PodFact struct {
 	// StatefulSet. This is an indication that the pod is in the middle of a
 	// rolling update.
 	stsRevisionPending bool
+
+	// Is the agent running in this pod?
+	agentRunning bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -185,6 +188,7 @@ type GatherState struct {
 	VNodeName              string          `json:"vnodeName"`
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
+	AgentRunning           bool            `json:"agentRunning"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -293,6 +297,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkForSimpleGatherStateMapping,
 		p.checkShardSubscriptions,
 		p.queryDepotDetails,
+		p.checkIfAgentRunning,
 		// Override function must be last one as we can use it to override any
 		// of the facts set earlier.
 		p.OverrideFunc,
@@ -393,6 +398,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=size %s | tail -1
 		echo -n 'localDataAvail: '
 		df --block-size=1 --output=avail %s | tail -1
+		echo -n 'agentRunning: '
+		/opt/vertica/sbin/vertica_agent status | grep --quiet "running" && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -598,6 +605,16 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	}
 	pf.dbExists = gs.DBExists
 	pf.vnodeName = gs.VNodeName
+	return nil
+}
+
+// checkIfAgentRunning will check if the Vertica agent is running and set state in pf.agentRunning
+func (p *PodFacts) checkIfAgentRunning(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+	pf.agentRunning = false
+	if !pf.isPodRunning || !pf.dbExists || !gs.VerticaPIDRunning {
+		return nil
+	}
+	pf.agentRunning = gs.AgentRunning
 	return nil
 }
 

@@ -20,6 +20,7 @@ package v1beta1
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -964,6 +965,10 @@ const (
 	DefaultS3Region       = "us-east-1"
 	DefaultGCloudRegion   = "US-EAST1"
 	DefaultGCloudEndpoint = "https://storage.googleapis.com"
+
+	// VerticaDB.Spec.Annotation to enable the agent
+	StartAgent   = "start-agent"
+	AgentEnabled = "yes"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -1252,4 +1257,10 @@ func (v *VerticaDB) IsHTTPServerEnabled() bool {
 // overridden to take affect.
 func (v *VerticaDB) IsEON() bool {
 	return v.Spec.ShardCount > 0
+}
+
+// IsAgentEnabled returns true if the annotation to enable the argent
+// has been set to the correct value
+func (v *VerticaDB) IsAgentEnabled() bool {
+	return strings.EqualFold(v.Spec.Annotations[StartAgent], AgentEnabled)
 }
