@@ -18,6 +18,8 @@ metadata:
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
+  annotations: 
+    start-agent: "YES"
   communal:
     includeUIDInPath: true
   local:
