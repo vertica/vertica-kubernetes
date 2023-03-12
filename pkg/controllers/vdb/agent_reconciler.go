@@ -17,8 +17,8 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -30,16 +30,15 @@ import (
 // AgentReconciler will ensure the agent is running
 type AgentReconciler struct {
 	VRec    *VerticaDBReconciler
-	Log     logr.Logger
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
 }
 
 // MakeAgentReconciler will build a AgentReonciler object
-func MakeAgentReconciler(vrec *VerticaDBReconciler, log logr.Logger,
+func MakeAgentReconciler(vrec *VerticaDBReconciler,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &AgentReconciler{VRec: vrec, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	return &AgentReconciler{VRec: vrec, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
 }
 
 // Reconcile will ensure the agent is running and start it if it isn't
@@ -76,13 +75,13 @@ func (a *AgentReconciler) startAgentInPod(ctx context.Context, pod *PodFact) err
 	cmd := []string{
 		"sudo", "/opt/vertica/sbin/vertica_agent", "start",
 	}
-	a.VRec.Event(a.Vdb, corev1.EventTypeNormal, events.StartAgentStart,
-		"Calling '/opt/vertica/sbin/vertica_agent start'")
+	a.VRec.Event(a.Vdb, corev1.EventTypeNormal, events.RunAgentStart,
+		fmt.Sprintf("Calling '/opt/vertica/sbin/vertica_agent start' in pod %s", pod.name))
 	if _, _, err := a.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err != nil {
-		a.VRec.Event(a.Vdb, corev1.EventTypeWarning, events.StartAgentFailed, "Failed to start the agent")
+		a.VRec.Event(a.Vdb, corev1.EventTypeWarning, events.RunAgentFailed, fmt.Sprintf("Failed to start the agent in pod %s", pod.name))
 		return err
 	}
-	a.VRec.Event(a.Vdb, corev1.EventTypeNormal, events.StartAgentSucceeded,
-		"The agent is now running")
+	a.VRec.Event(a.Vdb, corev1.EventTypeNormal, events.RunAgentSucceeded,
+		fmt.Sprintf("The agent is now running in pod %s", pod.name))
 	return nil
 }

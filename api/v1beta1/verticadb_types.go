@@ -961,14 +961,13 @@ const (
 	BuildRefAnnotation  = "vertica.com/buildRef"
 	// Annotation for the database's revive_instance_id
 	ReviveInstanceIDAnnotation = "vertica.com/revive-instance-id"
+	// Annotation to enable the agent
+	RunAgentAnnotation             = "vertica.com/run-agent"
+	RunAgentAnnotationEnabledValue = "yes"
 
 	DefaultS3Region       = "us-east-1"
 	DefaultGCloudRegion   = "US-EAST1"
 	DefaultGCloudEndpoint = "https://storage.googleapis.com"
-
-	// VerticaDB.Spec.Annotation to enable the agent
-	StartAgent   = "start-agent"
-	AgentEnabled = "yes"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -1259,8 +1258,8 @@ func (v *VerticaDB) IsEON() bool {
 	return v.Spec.ShardCount > 0
 }
 
-// IsAgentEnabled returns true if the annotation to enable the argent
+// IsAgentEnabled returns true if the annotation to enable the agent
 // has been set to the correct value
 func (v *VerticaDB) IsAgentEnabled() bool {
-	return strings.EqualFold(v.Spec.Annotations[StartAgent], AgentEnabled)
+	return strings.EqualFold(v.ObjectMeta.Annotations[RunAgentAnnotation], RunAgentAnnotationEnabledValue)
 }

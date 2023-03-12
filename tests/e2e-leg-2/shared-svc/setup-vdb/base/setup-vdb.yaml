@@ -15,11 +15,11 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-shared-svc
+  annotations:
+    vertica.com/run-agent: "YES"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  annotations: 
-    start-agent: "YES"
   communal:
     includeUIDInPath: true
   local:

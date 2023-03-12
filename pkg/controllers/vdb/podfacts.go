@@ -297,7 +297,6 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkForSimpleGatherStateMapping,
 		p.checkShardSubscriptions,
 		p.queryDepotDetails,
-		p.checkIfAgentRunning,
 		// Override function must be last one as we can use it to override any
 		// of the facts set earlier.
 		p.OverrideFunc,
@@ -477,6 +476,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
+	pf.agentRunning = gs.AgentRunning
 	return nil
 }
 
@@ -605,16 +605,6 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	}
 	pf.dbExists = gs.DBExists
 	pf.vnodeName = gs.VNodeName
-	return nil
-}
-
-// checkIfAgentRunning will check if the Vertica agent is running and set state in pf.agentRunning
-func (p *PodFacts) checkIfAgentRunning(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
-	pf.agentRunning = false
-	if !pf.isPodRunning || !pf.dbExists || !gs.VerticaPIDRunning {
-		return nil
-	}
-	pf.agentRunning = gs.AgentRunning
 	return nil
 }
 
