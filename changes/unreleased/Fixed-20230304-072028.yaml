@@ -1,6 +1,0 @@
-kind: Fixed
-body: Regression in 1.10.0 that prevents the operator from restarting vertica if the
-  pod has sidecars.
-time: 2023-03-04T07:20:28.674367987-04:00
-custom:
-  Issue: "345"
