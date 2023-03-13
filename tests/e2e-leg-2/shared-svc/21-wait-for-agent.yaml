@@ -11,32 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-shared-svc
-  annotations:
-    vertica.com/run-agent: "YES"
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vertdb
-  subclusters:
-    - name: sc1
-      size: 1
-      serviceName: one
-    - name: sc2
-      size: 1
-      serviceName: one
-    - name: sc3
-      size: 1
-      serviceName: one
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # We are verifying that the agent is running in all pods  
+  - script: n=0 &&
+          until [ $n -eq 3 ]; do n=0; i=1; while [ $i -ne 4 ]; do sleep 2; n1=$(kubectl exec -n $NAMESPACE v-shared-svc-sc${i}-0 -- /opt/vertica/sbin/vertica_agent status 2> /dev/null | grep 'running' | wc -l); n=$((n+$n1)); i=$((i+1)); done; done &&
+          echo "Vertica Agent is running" &&
+          exit 0
+    timeout: 120

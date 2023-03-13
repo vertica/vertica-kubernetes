@@ -38,6 +38,7 @@ const (
 	SuperuserPasswordPath   = "superuser-passwd"
 	TestStorageClassName    = "test-storage-class"
 	VerticaClientPort       = 5433
+	VerticaAgentPort        = 5444
 	VerticaHTTPPort         = 8443
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
@@ -68,6 +69,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Ports: []corev1.ServicePort{
 				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.NodePort},
 				{Port: VerticaHTTPPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
+				{Port: VerticaAgentPort, Name: "agent"},
 			},
 			ExternalIPs:    sc.ExternalIPs,
 			LoadBalancerIP: sc.LoadBalancerIP,
@@ -483,6 +485,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 			{ContainerPort: VerticaClientPort, Name: "vertica"},
 			{ContainerPort: InternalVerticaCommPort, Name: "vertica-int"},
 			{ContainerPort: SSHPort, Name: "ssh"},
+			{ContainerPort: VerticaAgentPort, Name: "agent"},
 		},
 		ReadinessProbe:  makeReadinessProbe(vdb),
 		LivenessProbe:   makeLivenessProbe(vdb),

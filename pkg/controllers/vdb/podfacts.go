@@ -154,6 +154,9 @@ type PodFact struct {
 	// StatefulSet. This is an indication that the pod is in the middle of a
 	// rolling update.
 	stsRevisionPending bool
+
+	// Is the agent running in this pod?
+	agentRunning bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -185,6 +188,7 @@ type GatherState struct {
 	VNodeName              string          `json:"vnodeName"`
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
+	AgentRunning           bool            `json:"agentRunning"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -393,6 +397,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=size %s | tail -1
 		echo -n 'localDataAvail: '
 		df --block-size=1 --output=avail %s | tail -1
+		echo -n 'agentRunning: '
+		/opt/vertica/sbin/vertica_agent status | grep --quiet "running" && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -470,6 +476,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
+	pf.agentRunning = gs.AgentRunning
 	return nil
 }
 
