@@ -58,6 +58,8 @@ RUN set -x \
   && mkdir -p /home/dbadmin/logrotate \
   && cp -r /opt/vertica/config/logrotate /home/dbadmin/logrotate/  \
   && cp /opt/vertica/config/logrotate_base.conf /home/dbadmin/logrotate/ \
+  && mkdir -p /home/dbadmin/share \
+  && cp -r /opt/vertica/config/share/agent* /home/dbadmin/share/ \
   && chown -R dbadmin:verticadba /opt/vertica \
   # reduce the size of the final image
   && rm -rf /opt/vertica/lib64  \
@@ -86,6 +88,7 @@ RUN set -x \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
   && if [[ ${NO_SSH_KEYS^^} == "YES" ]] ; then \
     rm -rf /home/dbadmin/.ssh/*;  \
+    rm -rf /home/dbadmin/share; \
     rm -rf /opt/vertica/config/share/agent*; \
   fi
 

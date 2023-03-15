@@ -320,6 +320,12 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 		numCmds++
 	}
 
+	if !p.fileExists[paths.AgentKeyFile] || !p.fileExists[paths.AgentCertFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/share/%s %s\n", paths.AgentCertFileName, paths.AgentCertFile))
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/share/%s %s\n", paths.AgentKeyFileName, paths.AgentKeyFile))
+		numCmds += 2
+	}
+
 	if d.doHTTPInstall(false) && !p.dirExists[paths.HTTPTLSConfDir] {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 		numCmds++
