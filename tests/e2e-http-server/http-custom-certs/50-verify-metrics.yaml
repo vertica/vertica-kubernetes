@@ -27,8 +27,11 @@ data:
     set -o errexit
 
     # metrics can change only validate a portion of it
-    curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/v1/metrics | tee /tmp/curl.out
-    grep -cq 'vertica_build_info' /tmp/curl.out
+    for endpoint in metrics v1/metrics
+    do
+      curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/$endpoint | tee /tmp/curl.out
+      grep -cq 'vertica_build_info' /tmp/curl.out && break
+    done
 ---
 apiVersion: v1
 kind: Pod
