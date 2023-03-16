@@ -36,7 +36,7 @@ on:
         - none
         - s3
         - azb
-        - hdfs
+        - leg 2
         - server upgrade
         - operator upgrade
         - udx
@@ -111,10 +111,10 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  e2e-hdfs:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'hdfs' || inputs.e2e_test_suites == '' }}
+  e2e-leg-2:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 2' || inputs.e2e_test_suites == '' }}
     needs: [build] 
-    uses: ./.github/workflows/e2e-hdfs.yml
+    uses: ./.github/workflows/e2e-leg-2.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}

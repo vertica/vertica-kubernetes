@@ -22,7 +22,6 @@ set -o allexport
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 KUSTOMIZE=$REPO_DIR/bin/kustomize
-HDFS_NS=kuttl-e2e-hdfs
 
 function usage {
     echo "usage: $0 [-hv] [<configFile>]"
@@ -92,8 +91,6 @@ COMMUNAL_EP_CERT_SECRET_NS_COPY="communal-ep-cert"
 # repository.  If using a private repo, this secret is generated in each
 # namespace we test in.
 PRIVATE_REG_CERT_SERCET_NS_COPY="priv-reg-cred"
-# Similar hard coded name for namespace specific hadoopConfig
-HADOOP_CONF_CM_NS_COPY="hadoop-conf"
 # Name of the patch that you can use to mount paths to the server repository.
 SERVER_MOUNT_PATCH_NS_COPY="server-mount-patch.yaml"
 # Name of the patch that you can use to a communal host path mount
@@ -168,16 +165,6 @@ EOF
       path: /spec/communal/credentialSecret
       value: communal-creds
 EOF
-        elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
-        then
-            if [ -n "$HADOOP_CONF_CM" ]
-            then
-                cat <<EOF >> kustomization.yaml
-    - op: replace
-      path: /spec/communal/hadoopConfig
-      value: $HADOOP_CONF_CM_NS_COPY
-EOF
-            fi
         elif [ "$PATH_PROTOCOL" == "/" ]
         then
           # Using a POSIX path for communal storage. No extra setup is needed.
@@ -439,35 +426,6 @@ EOF
         name: AZURE_STORAGE_CONNECTION_STRING
         value: "DefaultEndpointsProtocol=$BLOB_ENDPOINT_PROTOCOL;AccountName=$BUCKET_OR_CLUSTER;AccountKey=$ACCOUNT_KEY;BlobEndpoint=$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST/$BUCKET_OR_CLUSTER;"
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ]
-    then
-      cat <<EOF >> kustomization.yaml
-    - op: replace
-      path: /spec/containers/0/command/2
-      value: "hadoop fs -rm -r -f -skipTrash ${PATH_PREFIX}${TESTCASE_NAME}"
-    - op: replace
-      path: /spec/containers/0/image
-      value: uhopper/hadoop:2.7.2
-    - op: add
-      path: /spec/containers/0/env
-      value:
-        - name: HADOOP_CONF_DIR
-          value: /etc/hadoop/conf
-        - name: HADOOP_USER_NAME
-          value: hdfs
-    - op: add
-      path: /spec/containers/0/volumeMounts
-      value:
-        - name: hdfs-config
-          mountPath: /etc/hadoop/conf
-          readOnly: true
-    - op: add
-      path: /spec/volumes
-      value:
-        - name: hdfs-config
-          configMap:
-            name: hadoop-conf
-EOF
     elif [ "$PATH_PROTOCOL" == "/" ]
     then
       cat <<EOF >> kustomization.yaml
@@ -535,22 +493,6 @@ function copy_communal_ep_cert {
         kubectl get secrets -o json -n $COMMUNAL_EP_CERT_NAMESPACE $COMMUNAL_EP_CERT_SECRET \
         | jq 'del(.metadata)' \
         | jq ".metadata += {name: \"$COMMUNAL_EP_CERT_SECRET_NS_COPY\"}" > communal-ep-cert.json
-    fi
-    popd > /dev/null
-}
-
-function copy_hadoop_conf {
-    pushd kustomize-base > /dev/null
-    if [ -z "$HADOOP_CONF_CM" ]
-    then
-        # No hadoop conf configMap is present.  We will just create an empty
-        # file so that kustomize doesn't complain about a missing resource.
-        echo "" > hadoop-conf.json
-    else
-        # Copy the secret over stripping out all of the metadata.
-        kubectl get configmap -o json -n $HADOOP_CONF_NAMESPACE $HADOOP_CONF_CM \
-        | jq 'del(.metadata)' \
-        | jq ".metadata += {name: \"$HADOOP_CONF_CM_NS_COPY\"}" > hadoop-conf.json
     fi
     popd > /dev/null
 }
@@ -643,7 +585,7 @@ EOF
 - $AZURITE_SVC
 EOF
       fi
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ] || [ "$PATH_PROTOCOL" == "/" ]
+    elif [ "$PATH_PROTOCOL" == "/" ]
     then
       cat <<EOF > kustomization.yaml
 resources:
@@ -691,8 +633,7 @@ patches:
       path: /spec/containers/0/env/4/value
       value: $ENDPOINT
 EOF
-    elif [ "$PATH_PROTOCOL" == "webhdfs://" ] || [ "$PATH_PROTOCOL" == "swebhdfs://" ] || \
-         [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ] || \
+    elif [ "$PATH_PROTOCOL" == "gs://" ] || [ "$PATH_PROTOCOL" == "azb://" ] || \
          [ "$PATH_PROTOCOL" == "/" ]
     then
       cat <<EOF > kustomization.yaml
@@ -775,8 +716,6 @@ cd $REPO_DIR/tests
 create_communal_cfg
 # Copy over the cert that was used to set up the communal endpoint
 copy_communal_ep_cert
-# Copy over the hadoop conf configMap.  This may be set for HDFS communal paths.
-copy_hadoop_conf
 # Setup the communal credentials according to the protocol used
 create_communal_creds
 # Setup an overlay for create-s3-bucket so it has access to the credentials

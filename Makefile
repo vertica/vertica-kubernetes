@@ -278,8 +278,6 @@ endif
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)
 	$(MAKE) setup-minio
-else ifeq ($(PATH_PROTOCOL), webhdfs://)
-	$(MAKE) setup-hadoop
 else ifeq ($(PATH_PROTOCOL), azb://)
 	$(MAKE) setup-azurite
 else ifeq ($(PATH_PROTOCOL), /)
@@ -292,10 +290,6 @@ endif
 .PHONY: setup-minio
 setup-minio: install-cert-manager ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
-
-.PHONY: setup-hadoop
-setup-hadoop: ## Setup hadoop cluster for use with the e2e tests
-	scripts/setup-hadoop.sh
 
 .PHONY: setup-azurite
 setup-azurite: ## Setup azurite for use with the e2e tests
