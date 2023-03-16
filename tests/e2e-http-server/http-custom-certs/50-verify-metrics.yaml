@@ -29,6 +29,8 @@ data:
     # metrics can change only validate a portion of it
     for endpoint in v1/metrics metrics
     do
+      # if the first endpoint is wrong, the script will not exit immediately because `curl` pipes to `tee`(which is a success)
+      # and we do not have `set -o pipefail`
       curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/$endpoint | tee /tmp/curl.out
       grep -cq 'vertica_build_info' /tmp/curl.out && break
     done
