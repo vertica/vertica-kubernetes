@@ -1,4 +1,4 @@
-name: e2e (hdfs) tests
+name: e2e (leg-2) tests
 
 on: 
   workflow_call:
@@ -55,15 +55,16 @@ jobs:
 
     - name: Run e2e tests
       run: |
-        export KUSTOMIZE_CFG=tests/kustomize-defaults-hdfs-ci.cfg
+        export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-leg-2
-        scripts/run-k8s-int-tests.sh -s -e tests/external-images-hdfs-ci.txt
+        mkdir -p $GITHUB_WORKSPACE/../host-path
+        scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-hdfs
+        name: logs-e2e-leg-2
         path: ${{ github.workspace }}/int-tests-output/*

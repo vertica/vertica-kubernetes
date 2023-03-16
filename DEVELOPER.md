@@ -318,46 +318,6 @@ Here are the steps on how to override them:
          BUCKET_OR_CLUSTER  | Fill in the account name | account-name
          PATH_PREFIX  | Include your user name here so that all dbs that we know who created the DBs.  It must begin and end with a slash. | /johndoe/
 
-      4. HDFS
-
-         If you have access to an HDFS cluster you can setup your dev environment so that it uses that cluster as communal storage for e2e tests.  Here are the steps on how to set that up.
-            1. If using the swebhdfs:// scheme, create a Secret that contains both the truststore and CA bundle.  This command assumes the namespace certs already exists.
-
-               ```shell
-               kubectl create generic -n certs hadoop-certs --from-file=keystore.jks --from-file=ca-bundle.pem
-               ```
-            2. If using a HA namenode or if setting up wire-encryption or kerberos, you need to create a configMap that contains the config files.  Copy the files in /etc/hadoop to your local machine. 
-            
-               If using swebhdfs://, the ssl-client.xml has the location of the trust store and must be updated to reflect the in-container path. For example, if the Secret is called hadoop-certs and the keystore is keystore.jks, it would be updated as follows:
-                ```xml
-               <property>
-                  <name>ssl.client.truststore.location</name>
-                  <value>/certs/hadoop-certs/keystore.jks</value>
-               </property>
-               ```
-               Assuming the config files are in $HOME/hadoop-conf, the configMap can be created as follows:
-               ```shell
-               $ ls $HOME/hadoop-conf
-               core-site.xml hdfs-site.xml ssl-client.xml
-               $ kubectl create cm hadoop-conf --from-file=$HOME/hadoop-conf
-               configmap/hadoop-conf created
-               ```
-
-            3. Edit my-defaults.cfg and fill in the details.
-
-               Env Name | Description | Sample value
-               | :--- | ---: | :---:
-               PATH_PROTOCOL  | Indicate that you are going to use a HDFS scheme. | webhdfs:// or swebhdfs://
-               BUCKET_OR_CLUSTER  | If not using HA namenode, you can put in the name node host.  If you are using an HA namenode, include the nameservice name. | hdp31ns or  hdfs-namenode-0.hdfs-namenode.kuttl-e2e-hdfs.svc.cluster.local:50070                              
-               PATH_PREFIX | Fill this in if you want to store the database in some subdirectory within the HDFS cluster. | / or /user/johndoe/                          
-               HADOOP_CONF_CM  | Name of the config map that contains the hadoop config director (i.e. /etc/hadoop).  This is the name of the configMap that you created at step 2.  This can be left blank if not using HA namenode. | hadoop-conf
-               HADOOP_CONF_NAMESPACE  | The k8s namespace that HADOOP_CONF_CM is in.  This can be blank if HADOOP_CONF_CM is blank. | eng-p9
-               COMMUNAL_EP_CERT_SECRET  | If using swebhdfs:// scheme, this is the name of the secret created at step 1 above. | hadoop-certs
-               COMMUNAL_EP_CERT_NAMESPACE  | If using swebhdfs://, the namespace that the Secret from step1 was created in. | certs
-
-
-
-
 
 5. Run the integration tests.
    ```shell
