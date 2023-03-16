@@ -28,6 +28,7 @@ const (
 	ConfigSharePath           = "/opt/vertica/config/share"
 	AgentKeyFile              = "/opt/vertica/config/share/agent.key"
 	AgentCertFile             = "/opt/vertica/config/share/agent.cert"
+	DBadminConfigSharePath    = "/home/dbadmin/share"
 	AgentKeyFileName          = "agent.key"
 	AgentCertFileName         = "agent.cert"
 	ConfigLogrotatePath       = "/opt/vertica/config/logrotate"

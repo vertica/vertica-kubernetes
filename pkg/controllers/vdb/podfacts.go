@@ -122,6 +122,9 @@ type PodFact struct {
 	dirExists  map[string]bool
 	fileExists map[string]bool
 
+	// Check if the pod has the agent keys
+	hasAgentKeys bool
+
 	// True if this pod is for a transient subcluster created for online upgrade
 	isTransient bool
 
@@ -189,6 +192,7 @@ type GatherState struct {
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
 	AgentRunning           bool            `json:"agentRunning"`
+	HasAgentKeys           bool            `json:"hasAgentKeys"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -403,6 +407,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=avail %s | tail -1
 		echo -n 'agentRunning: '
 		/opt/vertica/sbin/vertica_agent status | grep --quiet "running" && echo true || echo false
+		echo -n 'hasAgentKeys: '
+		test -d %s && test -f %s/agent.key && test -f %s/agent.cert && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -424,6 +430,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
+		paths.DBadminConfigSharePath, paths.DBadminConfigSharePath, paths.DBadminConfigSharePath,
 	))
 }
 
@@ -483,6 +490,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.agentRunning = gs.AgentRunning
+	pf.hasAgentKeys = gs.HasAgentKeys
 	return nil
 }
 

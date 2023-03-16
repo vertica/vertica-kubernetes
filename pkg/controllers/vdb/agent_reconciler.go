@@ -52,7 +52,7 @@ func (a *AgentReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 	}
 
 	for _, pod := range a.PFacts.Detail {
-		if pod.agentRunning {
+		if pod.agentRunning || !pod.hasAgentKeys {
 			continue
 		}
 		// Only start the agent for pods that have been added to a database
