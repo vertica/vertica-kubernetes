@@ -14,7 +14,6 @@
 resources:
   - e2e.yaml
   - communal-ep-cert.json
-  - hadoop-conf.json
 
 configurations:
   - crd-config.yaml
