@@ -52,7 +52,11 @@ func (a *AgentReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 	}
 
 	for _, pod := range a.PFacts.Detail {
-		if pod.agentRunning || !pod.hasAgentKeys {
+		if !pod.hasAgentKeys {
+			a.VRec.Log.Info("Skipping agent start because there are missing keys in pod", "pod", pod.name)
+			continue
+		}
+		if pod.agentRunning {
 			continue
 		}
 		// Only start the agent for pods that have been added to a database

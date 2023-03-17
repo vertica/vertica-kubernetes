@@ -28,9 +28,11 @@ const (
 	ConfigSharePath           = "/opt/vertica/config/share"
 	AgentKeyFile              = "/opt/vertica/config/share/agent.key"
 	AgentCertFile             = "/opt/vertica/config/share/agent.cert"
-	DBadminConfigSharePath    = "/home/dbadmin/share"
+	VerticaAPIKeysFile        = "/opt/vertica/config/apikeys.dat" // #nosec G101
+	DBadminSharePath          = "/home/dbadmin/share"
 	AgentKeyFileName          = "agent.key"
 	AgentCertFileName         = "agent.cert"
+	VerticaAPIKeysFileName    = "apikeys.dat"
 	ConfigLogrotatePath       = "/opt/vertica/config/logrotate"
 	LogrotateATFileName       = "admintool.logrotate"
 	LogrotateATFile           = "/opt/vertica/config/logrotate/admintool.logrotate"

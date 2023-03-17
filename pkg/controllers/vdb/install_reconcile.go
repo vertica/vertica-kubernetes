@@ -320,12 +320,11 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 		numCmds++
 	}
 
-	if p.hasAgentKeys {
-		if !p.fileExists[paths.AgentKeyFile] || !p.fileExists[paths.AgentCertFile] {
-			sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminConfigSharePath, paths.AgentCertFileName, paths.AgentCertFile))
-			sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminConfigSharePath, paths.AgentKeyFileName, paths.AgentKeyFile))
-			numCmds += 2
-		}
+	if needAgentKeysCopy(p) {
+		sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminSharePath, paths.AgentCertFileName, paths.AgentCertFile))
+		sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminSharePath, paths.AgentKeyFileName, paths.AgentKeyFile))
+		sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminSharePath, paths.VerticaAPIKeysFileName, paths.VerticaAPIKeysFile))
+		numCmds += 3
 	}
 
 	if d.doHTTPInstall(false) && !p.dirExists[paths.HTTPTLSConfDir] {
