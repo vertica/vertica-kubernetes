@@ -29,7 +29,7 @@ const (
 	AgentKeyFile              = "/opt/vertica/config/share/agent.key"
 	AgentCertFile             = "/opt/vertica/config/share/agent.cert"
 	VerticaAPIKeysFile        = "/opt/vertica/config/apikeys.dat" // #nosec G101
-	DBadminSharePath          = "/home/dbadmin/share"
+	DBadminAgentPath          = "/home/dbadmin/agent"
 	AgentKeyFileName          = "agent.key"
 	AgentCertFileName         = "agent.cert"
 	VerticaAPIKeysFileName    = "apikeys.dat"

@@ -60,9 +60,9 @@ RUN set -x \
   && cp -r /opt/vertica/config/logrotate /home/dbadmin/logrotate/  \
   && cp /opt/vertica/config/logrotate_base.conf /home/dbadmin/logrotate/ \
   && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
-    mkdir -p /home/dbadmin/share; \
-    cp -r /opt/vertica/config/share/agent* /home/dbadmin/share/; \
-    cp /opt/vertica/config/apikeys.dat /home/dbadmin/share/; \
+    mkdir -p /home/dbadmin/agent; \
+    cp -r /opt/vertica/config/share/agent* /home/dbadmin/agent/; \
+    cp /opt/vertica/config/apikeys.dat /home/dbadmin/agent/; \
   fi \
   && chown -R dbadmin:verticadba /opt/vertica \
   # reduce the size of the final image

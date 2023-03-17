@@ -124,7 +124,7 @@ func defaultPodFactOverrider(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 	pf.upNode = true
 	pf.subclusterOid = "123456"
 	pf.agentRunning = true
-	pf.hasAgentKeys = true
+	pf.imageHasAgentKeys = true
 	return nil
 }
 
@@ -196,12 +196,12 @@ func createPodFactsWithSlowStartup(ctx context.Context, vdb *vapi.VerticaDB, sc 
 }
 
 func createPodFactsWithAgentNotRunning(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner,
-	hasAgentkeys bool) *PodFacts {
+	imageHasAgentkeys bool) *PodFacts {
 	pfacts := createPodFactsDefault(fpr)
 	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, pod := range pfacts.Detail {
 		pod.agentRunning = false
-		pod.hasAgentKeys = hasAgentkeys
+		pod.imageHasAgentKeys = imageHasAgentkeys
 	}
 	return pfacts
 }
