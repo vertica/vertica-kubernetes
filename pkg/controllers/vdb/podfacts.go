@@ -158,8 +158,8 @@ type PodFact struct {
 	// Is the agent running in this pod?
 	agentRunning bool
 
-	// Check if the pod has the agent keys.
-	// "agent keys" also includes VerticaAPIKey, in apikeys.dat, used for agent calls
+	// Check if the pod has the agent keys
+	// and an API Key, in apikeys.dat, used for agent calls
 	hasAgentKeys bool
 }
 

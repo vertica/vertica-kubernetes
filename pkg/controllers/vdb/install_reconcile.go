@@ -321,10 +321,15 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	}
 
 	if needAgentKeysCopy(p) {
-		sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminSharePath, paths.AgentCertFileName, paths.AgentCertFile))
-		sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminSharePath, paths.AgentKeyFileName, paths.AgentKeyFile))
-		sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminSharePath, paths.VerticaAPIKeysFileName, paths.VerticaAPIKeysFile))
-		numCmds += 3
+		sb.WriteString(fmt.Sprintf("cp %s/%s %s 2>/dev/null || true\n", paths.DBadminSharePath, paths.AgentCertFileName, paths.AgentCertFile))
+		sb.WriteString(fmt.Sprintf("cp %s/%s %s 2>/dev/null || true\n", paths.DBadminSharePath, paths.AgentKeyFileName, paths.AgentKeyFile))
+		numCmds += 2
+		// Adding this because apikeys.dat, unlike agent*, is rw so we do not want to overwrite it
+		// if it already exists
+		if !p.fileExists[paths.VerticaAPIKeysFile] {
+			sb.WriteString(fmt.Sprintf("cp %s/%s %s\n", paths.DBadminSharePath, paths.VerticaAPIKeysFileName, paths.VerticaAPIKeysFile))
+			numCmds++
+		}
 	}
 
 	if d.doHTTPInstall(false) && !p.dirExists[paths.HTTPTLSConfDir] {
