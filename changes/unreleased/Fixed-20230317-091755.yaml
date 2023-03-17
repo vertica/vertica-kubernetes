@@ -1,0 +1,5 @@
+kind: Fixed
+body: Setup keys for client side agent access
+time: 2023-03-17T09:17:55.992539127-03:00
+custom:
+  Issue: "353"

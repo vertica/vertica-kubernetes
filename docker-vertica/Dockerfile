@@ -24,6 +24,7 @@ COPY ./packages/package-checksum-patcher.py /tmp/
 COPY ./packages/10-vertica-sshd.conf /etc/ssh/sshd_config.d/10-vertica-sshd.conf
 COPY ./packages/10-vertica-ssh.conf /etc/ssh/ssh_config.d/10-vertica-ssh.conf
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   # Update is needed to be confident that we're picking up
   # fixed libraries.
@@ -58,6 +59,11 @@ RUN set -x \
   && mkdir -p /home/dbadmin/logrotate \
   && cp -r /opt/vertica/config/logrotate /home/dbadmin/logrotate/  \
   && cp /opt/vertica/config/logrotate_base.conf /home/dbadmin/logrotate/ \
+  && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
+    mkdir -p /home/dbadmin/agent; \
+    cp -r /opt/vertica/config/share/agent* /home/dbadmin/agent/; \
+    cp /opt/vertica/config/apikeys.dat /home/dbadmin/agent/; \
+  fi \
   && chown -R dbadmin:verticadba /opt/vertica \
   # reduce the size of the final image
   && rm -rf /opt/vertica/lib64  \

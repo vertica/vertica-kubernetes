@@ -157,6 +157,9 @@ type PodFact struct {
 
 	// Is the agent running in this pod?
 	agentRunning bool
+
+	// Check if the image has agent keys saved in the dbadmin directory.
+	imageHasAgentKeys bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -189,6 +192,7 @@ type GatherState struct {
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
 	AgentRunning           bool            `json:"agentRunning"`
+	ImageHasAgentKeys      bool            `json:"imageHasAgentKeys"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -383,6 +387,12 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		test -f %s && echo true || echo false
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
 		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_catalog 2> /dev/null | grep --quiet . && echo true || echo false
 		echo -n 'compat21NodeName: '
@@ -399,6 +409,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=avail %s | tail -1
 		echo -n 'agentRunning: '
 		/opt/vertica/sbin/vertica_agent status | grep --quiet "running" && echo true || echo false
+		echo -n 'imageHasAgentKeys: '
+		ls --almost-all --hide-control-chars -1 %s 2> /dev/null | grep --quiet . && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -411,6 +423,9 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
 		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
+		paths.AgentCertFile, paths.AgentCertFile,
+		paths.AgentKeyFile, paths.AgentKeyFile,
+		paths.VerticaAPIKeysFile, paths.VerticaAPIKeysFile,
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
@@ -418,6 +433,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
+		paths.DBadminAgentPath,
 	))
 }
 
@@ -477,6 +493,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.agentRunning = gs.AgentRunning
+	pf.imageHasAgentKeys = gs.ImageHasAgentKeys
 	return nil
 }
 
@@ -1036,4 +1053,13 @@ func getHostList(podList []*PodFact) []string {
 		hostList = append(hostList, pod.podIP)
 	}
 	return hostList
+}
+
+// needAgentKeysCopy returns true if all agent keys are present in the image
+// and have not yet been copied to /opt/vertica/config/
+func (p *PodFact) needAgentKeysCopy() bool {
+	if !p.imageHasAgentKeys {
+		return false
+	}
+	return !p.fileExists[paths.AgentKeyFile] || !p.fileExists[paths.AgentCertFile] || !p.fileExists[paths.VerticaAPIKeysFile]
 }
