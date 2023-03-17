@@ -1,5 +1,0 @@
-# List of additional images that are needed to run hdfs endpoint in CI.
-# These are pushed to kind in run-k8s-int-tests.sh.
-#
-uhopper/hadoop-datanode:2.8.1
-uhopper/hadoop-namenode:2.8.1
