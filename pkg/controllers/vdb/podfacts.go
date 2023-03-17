@@ -1055,7 +1055,7 @@ func getHostList(podList []*PodFact) []string {
 	return hostList
 }
 
-// needAgentKeysCopy returns true if all agent keys are present in /home/dbadmin/share
+// needAgentKeysCopy returns true if all agent keys are present in the image
 // and have not yet been copied to /opt/vertica/config/
 func (p *PodFact) needAgentKeysCopy() bool {
 	if !p.imageHasAgentKeys {
