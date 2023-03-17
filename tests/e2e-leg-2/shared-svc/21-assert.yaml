@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# (c) Copyright [2021-2023] Micro Focus or one of its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,12 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  # We are verifying that the agent is running in all pods  
-  - script: n=0 &&
-          until [ $n -eq 3 ]; do n=0; i=1; while [ $i -ne 4 ]; do sleep 2; n1=$(kubectl exec -n $NAMESPACE v-shared-svc-sc${i}-0 -- /opt/vertica/sbin/vertica_agent status 2> /dev/null | grep 'running' | wc -l); n=$((n+$n1)); i=$((i+1)); done; done &&
-          echo "Vertica Agent is running" &&
-          exit 0
-    timeout: 120
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-agent-access
+status:
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0
