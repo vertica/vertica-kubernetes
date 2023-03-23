@@ -47,11 +47,6 @@ on:
         - hostpath
         - enterprise 
         - http server
-      security_scan_exit_code:
-        description: 'Set to 1 to fail the build for security vulnerabilities. Otherwise set to 0'
-        required: false
-        type: string
-        default: '0'
       run_security_scan:
         description: 'What images to scan?'
         type: choice
@@ -85,7 +80,6 @@ jobs:
       full_vertica_image: ${{ inputs.full_vertica_image }}
       nokeys_vertica_image: ${{ inputs.nokeys_vertica_image }}
       nosshkeys_vertica_image: ${{ inputs.nosshkeys_vertica_image }}
-      security_scan_exit_code: ${{ inputs.security_scan_exit_code }}
       run_security_scan: ${{ inputs.run_security_scan }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
