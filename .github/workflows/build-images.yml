@@ -27,6 +27,11 @@ on:
         description: 'Name of an existing vlogger image. If blank we will build one using the default name'
         type: string
         required: true
+      security_scan_exit_code:
+        description: 'The exit code to use for any security vulnerabilities found. Set this to 1 to fail the build if a vulnerability is found'
+        type: string
+        required: false
+        default: '0'
       run_security_scan:
         description: 'What images to scan?'
         type: string
@@ -144,6 +149,7 @@ jobs:
       if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.full_vertica_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         security-checks: vuln
         timeout: '20m0s'
@@ -161,6 +167,7 @@ jobs:
       if: ${{ inputs.run_security_scan == 'all' }}
       with:
         image-ref: ${{ steps.full_vertica_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         security-checks: vuln
         timeout: '20m0s'
@@ -502,6 +509,7 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.operator_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'sarif'
         output: 'trivy-results-verticadb-operator-image.sarif'
@@ -517,6 +525,7 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
         image-ref: ${{ steps.operator_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-verticadb-operator-image.out'
@@ -600,6 +609,7 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.vlogger_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'sarif'
         output: 'trivy-results-vertica-logger-image.sarif'
@@ -615,6 +625,7 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
         image-ref: ${{ steps.vlogger_image.outputs.value }}
+        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-vertica-logger-image.out'
