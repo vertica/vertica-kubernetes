@@ -6,13 +6,13 @@
 ARG BASE_OS_VERSION="focal"
 ARG BUILDER_OS_VERSION="7.9.2009"
 ARG MINIMAL=""
-ARG NO_SSH_KEYS=""
+ARG NO_KEYS=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
 FROM centos:centos${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL
-ARG NO_SSH_KEYS
+ARG NO_KEYS
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
@@ -59,7 +59,7 @@ RUN set -x \
   && mkdir -p /home/dbadmin/logrotate \
   && cp -r /opt/vertica/config/logrotate /home/dbadmin/logrotate/  \
   && cp /opt/vertica/config/logrotate_base.conf /home/dbadmin/logrotate/ \
-  && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
+  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
     mkdir -p /home/dbadmin/agent; \
     cp -r /opt/vertica/config/share/agent* /home/dbadmin/agent/; \
     cp /opt/vertica/config/apikeys.dat /home/dbadmin/agent/; \
@@ -74,14 +74,14 @@ RUN set -x \
 # with pods running an older image.  This is necessary when doing an online
 # image change as the Vertica cluster will be running with two container
 # versions at once. This step is required if not including SSH keys because
-# conditional copy isn't a thing in Docker. If no SSH keys are to be included, 
+# conditional copy isn't a thing in Docker. If no SSH keys are to be included,
 # then the next RUN will remove the key we just added.
 COPY dbadmin/.ssh /home/dbadmin/.ssh
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && mkdir -p /root/.ssh \
-  && if [[ ${NO_SSH_KEYS^^} != "YES" ]] ; then \
+  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
     cp -r /home/dbadmin/.ssh /root; \
     chmod 700 /root/.ssh; \
     chmod 600 /root/.ssh/*; \
@@ -90,7 +90,7 @@ RUN set -x \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
-  && if [[ ${NO_SSH_KEYS^^} == "YES" ]] ; then \
+  && if [[ ${NO_KEYS^^} == "YES" ]] ; then \
     rm -rf /home/dbadmin/.ssh/*;  \
     rm -rf /opt/vertica/config/share/agent*; \
   fi
@@ -192,7 +192,7 @@ RUN set -x \
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
   && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
   # delete old host keys
-  && rm -rf /etc/ssh/ssh_host* 
+  && rm -rf /etc/ssh/ssh_host*
 
 ENTRYPOINT [ "/init" ]
 
