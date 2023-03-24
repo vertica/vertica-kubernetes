@@ -296,9 +296,9 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.runGather,
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
+		p.checkForSimpleGatherStateMapping,
 		p.checkNodeStatus,
 		p.checkIfNodeIsDoingStartup,
-		p.checkForSimpleGatherStateMapping,
 		p.checkShardSubscriptions,
 		p.queryDepotDetails,
 		// Override function must be last one as we can use it to override any
@@ -494,6 +494,14 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.agentRunning = gs.AgentRunning
 	pf.imageHasAgentKeys = gs.ImageHasAgentKeys
+	// If the vertica process is running, then the database is UP. This is
+	// consistent with the liveness probe, which goes a bit further and checks
+	// if the client port is opened. If the vertica process dies, the liveness
+	// probe will kill the pod and we will be able to do proper restart logic.
+	// At one point, we ran a query against the nodes table. But it became
+	// tricker to decipher what query failure meant -- is vertica down or is it
+	// a problem with the query?
+	pf.upNode = pf.dbExists && gs.VerticaPIDRunning
 	return nil
 }
 
@@ -625,15 +633,13 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 	return nil
 }
 
-// checkNodeStatus will determine whether Vertica process is running
-// in the pod and whether it is in read-only mode.
+// checkNodeStatus will query node state
 func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
-	if !pf.dbExists || !pf.isPodRunning || !gs.VerticaPIDRunning {
-		pf.upNode = false
-		pf.readOnly = false
+	if !pf.upNode {
 		return nil
 	}
 
+	// The first two columns are just for informational purposes.
 	cols := "n.node_name, node_state"
 	if vdb.IsEON() {
 		cols = fmt.Sprintf("%s, subcluster_oid", cols)
@@ -680,19 +686,19 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.Vert
 // database exists and the pod is running.
 func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact, sql string) error {
 	cmd := []string{"-tAc", sql}
-	if stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...); err != nil {
-		pf.upNode = false
-		pf.readOnly = false
-	} else if pf.upNode, pf.readOnly, pf.subclusterOid, err = parseNodeStateAndReadOnly(stdout); err != nil {
+	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		// Skip parsing that happens next. But otherwise continue collecting facts.
+		return nil
+	}
+	if pf.readOnly, pf.subclusterOid, err = parseNodeStateAndReadOnly(stdout); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-// parseNodeStateAndReadOnly will parse query output to determine if a node is
-// up and read-only.
-func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, scOid string, err error) {
+// parseNodeStateAndReadOnly will parse query output from node state
+func parseNodeStateAndReadOnly(stdout string) (readOnly bool, scOid string, err error) {
 	// For testing purposes we early out with no error if there is no output
 	if stdout == "" {
 		return
@@ -702,6 +708,10 @@ func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, scOid stri
 	// This means upNode is true, subcluster oid is 41231232423 and readOnly is
 	// true. The node name is included in the output for debug purposes, but
 	// otherwise not used.
+	//
+	// The 2nd column for node state is ignored in here. It is just for
+	// informational purposes. The fact that we got something implies the node
+	// was up.
 	lines := strings.Split(stdout, "\n")
 	cols := strings.Split(lines[0], "|")
 	const MinExpectedCols = 3
@@ -709,7 +719,6 @@ func parseNodeStateAndReadOnly(stdout string) (upNode, readOnly bool, scOid stri
 		err = fmt.Errorf("expected at least %d columns from node query but only got %d", MinExpectedCols, len(cols))
 		return
 	}
-	upNode = cols[1] == "UP"
 	scOid = cols[2]
 	// Read-only can be missing on versions that don't support that state.
 	// Return false in those cases.

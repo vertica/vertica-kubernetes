@@ -209,7 +209,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// status updates after both of them.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Update the labels in pods so that Services route to nodes to them.
-		MakeClientRoutingLabelReconciler(r, vdb, pfacts, AddNodeApplyMethod, ""),
+		MakeClientRoutingLabelReconciler(r, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Ensure the vertica agent is running on each pod
 		MakeAgentReconciler(r, vdb, prunner, pfacts),
 		// Handle calls to admintools -t db_add_subcluster
