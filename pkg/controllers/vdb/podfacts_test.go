@@ -192,20 +192,14 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.upNode).Should(BeFalse())
 	})
 
-	It("should mark db is up if vsql succeeds", func() {
+	It("should mark db is up if vertica PID is running", func() {
 		vdb := vapi.MakeVDB()
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		fpr := &cmds.FakePodRunner{
-			Results: cmds.CmdResults{
-				pn: []cmds.CmdResult{
-					{Stdout: "v_db_node0003|UP|123456\n"},
-				},
-			},
-		}
+		fpr := &cmds.FakePodRunner{}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		gs := &GatherState{VerticaPIDRunning: true}
-		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
+		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
 
@@ -223,34 +217,32 @@ var _ = Describe("podfacts", func() {
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		gs := &GatherState{VerticaPIDRunning: true}
+		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeTrue())
 	})
 
 	It("should parse read-only state from node query", func() {
-		upNode1, readOnly1, oid1, err := parseNodeStateAndReadOnly("v_db_node0001|UP|123456|t\n")
+		readOnly1, oid1, err := parseNodeStateAndReadOnly("v_db_node0001|UP|123456|t\n")
 		Expect(err).Should(Succeed())
-		Expect(upNode1).Should(BeTrue())
 		Expect(readOnly1).Should(BeTrue())
 		Expect(oid1).Should(Equal("123456"))
 
-		upNode2, readOnly2, oid2, err := parseNodeStateAndReadOnly("v_db_node0001|UP|7890123|f\n")
+		readOnly2, oid2, err := parseNodeStateAndReadOnly("v_db_node0001|UP|7890123|f\n")
 		Expect(err).Should(Succeed())
-		Expect(upNode2).Should(BeTrue())
 		Expect(readOnly2).Should(BeFalse())
 		Expect(oid2).Should(Equal("7890123"))
 
-		upNode3, readOnly3, oid3, err := parseNodeStateAndReadOnly("v_db_node0001|UP|456789\n")
+		readOnly3, oid3, err := parseNodeStateAndReadOnly("v_db_node0001|UP|456789\n")
 		Expect(err).Should(Succeed())
-		Expect(upNode3).Should(BeTrue())
 		Expect(readOnly3).Should(BeFalse())
 		Expect(oid3).Should(Equal("456789"))
 
-		_, _, _, err = parseNodeStateAndReadOnly("")
+		_, _, err = parseNodeStateAndReadOnly("")
 		Expect(err).Should(Succeed())
 
-		_, _, _, err = parseNodeStateAndReadOnly("v_db_node0001|UP|123|t|garbage")
+		_, _, err = parseNodeStateAndReadOnly("v_db_node0001|UP|123|t|garbage")
 		Expect(err).Should(Succeed())
 	})
 
@@ -313,6 +305,7 @@ var _ = Describe("podfacts", func() {
 		pfs := MakePodFacts(vdbRec, fpr)
 		gs := &GatherState{VerticaPIDRunning: true}
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
+		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 		Expect(pf.readOnly).Should(BeFalse())
