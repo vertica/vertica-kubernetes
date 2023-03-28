@@ -1,0 +1,46 @@
+apiVersion: vertica.com/v1beta1
+kind: EventTrigger
+metadata:
+  labels:
+    app.kubernetes.io/name: eventtrigger
+    app.kubernetes.io/instance: eventtrigger-sample
+    app.kubernetes.io/part-of: verticadb-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: verticadb-operator
+  name: eventtrigger-sample
+spec:
+  references:
+  - object:
+      apiVersion: vertica.com/v1beta1
+      kind: VerticaDB
+      name: verticadb-sample
+  matches:
+  - condition:
+      type: DBInitialized
+      status: "True"
+  template:
+    metadata:
+      generateName: create-user-table-
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: main
+            image: "vertica/vertica-k8s:latest"
+            command: ["/opt/vertica/bin/vsql", "-h", "verticadb-sample-defaultsubcluster", "-f", "/sql/initial.sql"]
+            volumeMounts:
+            - name: sql
+              mountPath: /sql
+          volumes:
+          - name: sql
+            configMap:
+              name: create-user-table-sql
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: create-user-table-sql
+data:
+  initial.sql: |-
+    CREATE TABLE T1 (C1 INT);
