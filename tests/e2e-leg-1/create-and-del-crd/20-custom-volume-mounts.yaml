@@ -14,7 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "kubectl exec verticadb-sample-defaultsubcluster-0 -c vlogger -n $NAMESPACE -- touch mymountpath/emptyfile"
-  - command: sh -c "kubectl exec verticadb-sample-defaultsubcluster-0 -c server -n $NAMESPACE -- test -f /tenants/emptyfile"
-  - command: sh -c "kubectl exec verticadb-sample-defaultsubcluster-0 -c server -n $NAMESPACE -- sh -c 'echo hello > /tenants/ack'"
-  - command: sh -c "kubectl exec verticadb-sample-defaultsubcluster-0 -c vlogger -n $NAMESPACE -- cat mymountpath/ack | grep hello"
+  - command: sh -c "kubectl exec verticadb-sample-default-subcluster-0 -c vlogger -n $NAMESPACE -- touch mymountpath/emptyfile"
+  - command: sh -c "kubectl exec verticadb-sample-default-subcluster-0 -c server -n $NAMESPACE -- test -f /tenants/emptyfile"
+  - command: sh -c "kubectl exec verticadb-sample-default-subcluster-0 -c server -n $NAMESPACE -- sh -c 'echo hello > /tenants/ack'"
+  - command: sh -c "kubectl exec verticadb-sample-default-subcluster-0 -c vlogger -n $NAMESPACE -- cat mymountpath/ack | grep hello"

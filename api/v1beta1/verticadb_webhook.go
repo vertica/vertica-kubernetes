@@ -479,7 +479,9 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 		sc1 := &v.Spec.Subclusters[i]
 		for j := i + 1; j < countSc; j++ {
 			sc2 := &v.Spec.Subclusters[j]
-			if sc1.Name == sc2.Name {
+			// subcluster names like default-subcluster and default_subcluster
+			// are considered identical
+			if sc1.GenNameWithoutUnderscore() == sc2.GenNameWithoutUnderscore() {
 				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(j).Child("name"),
 					v.Spec.Subclusters[j].Name,
 					fmt.Sprintf("duplicates the name of subcluster[%d]", i))

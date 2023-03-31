@@ -36,6 +36,6 @@ spec:
     - mountPath: /tenants
       name: my-extra-vol1
   subclusters:
-    - name: defaultsubcluster
+    - name: default_subcluster
   certSecrets: []
   imagePullSecrets: []

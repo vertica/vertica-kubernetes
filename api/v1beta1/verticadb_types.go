@@ -1131,11 +1131,18 @@ func (s *Subcluster) GetType() string {
 	return SecondarySubclusterType
 }
 
+// GenNameWithoutUnderscore returns the subcluster name after
+// replacing all `_` occurrences with `-`
+func (s *Subcluster) GenNameWithoutUnderscore() string {
+	m := regexp.MustCompile(`_`)
+	return m.ReplaceAllString(s.Name, "-")
+}
+
 // GetServiceName returns the name of the service object that route traffic to
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
 	if s.ServiceName == "" {
-		return s.Name
+		return s.GenNameWithoutUnderscore()
 	}
 	return s.ServiceName
 }

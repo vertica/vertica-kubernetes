@@ -49,7 +49,7 @@ func GenHlSvcName(vdb *vapi.VerticaDB) types.NamespacedName {
 
 // GenStsName returns the name of the statefulset object
 func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
-	return GenNamespacedName(vdb, vdb.Name+"-"+sc.Name)
+	return GenNamespacedName(vdb, vdb.Name+"-"+sc.GenNameWithoutUnderscore())
 }
 
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3

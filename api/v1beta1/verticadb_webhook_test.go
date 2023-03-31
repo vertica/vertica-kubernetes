@@ -84,7 +84,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Communal.Endpoint = "s3://minio"
 		validateSpecValuesHaveErr(vdb, true)
 	})
-	It("should have invalid subcluster name", func() {
+	It("should have valid subcluster name", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Name = "default-subcluster"
@@ -291,6 +291,19 @@ var _ = Describe("verticadb_webhook", func() {
 		})
 		allErrs := vdb.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).ShouldNot(BeNil())
+	})
+
+	It("should not have two or more subclusters whose names only differ by `-` and `_`", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
+			Name: "default_subcluster",
+			Size: 3,
+		})
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
+			Name: "default-subcluster",
+			Size: 3,
+		})
+		validateSpecValuesHaveErr(vdb, true)
 	})
 
 	It("should only allow certain values for initPolicy", func() {
