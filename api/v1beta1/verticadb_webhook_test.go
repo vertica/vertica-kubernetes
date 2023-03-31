@@ -84,7 +84,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Communal.Endpoint = "s3://minio"
 		validateSpecValuesHaveErr(vdb, true)
 	})
-	It("should have valid subcluster name", func() {
+	It("should have invalid subcluster name", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Name = "default-subcluster"
@@ -93,7 +93,7 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not have invalid subcluster name", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
-		sc.Name = "default_subcluster"
+		sc.Name = "defaultsubcluster_"
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should be allowed to have empty credentialsecret", func() {
