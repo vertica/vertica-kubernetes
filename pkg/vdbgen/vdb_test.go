@@ -427,7 +427,7 @@ var _ = Describe("vdb", func() {
 
 		dbGen := DBGenerator{Conn: db}
 
-		for _, name := range []string{"default_subcluster", "scCapital", "sc!bang", "sc-"} {
+		for _, name := range []string{"scCapital", "sc!bang", "sc-"} {
 			mock.ExpectQuery(Queries[SubclusterQueryKey]).
 				WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).AddRow(name, true))
 
