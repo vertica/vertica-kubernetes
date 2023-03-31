@@ -1049,7 +1049,9 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 // about its name because it is included in the name of the statefulset, so we
 // must adhere to the Kubernetes rules for object names.
 func IsValidSubclusterName(scName string) bool {
-	r := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?$`)
+	// Although `_` is not a valid k8s domain name's character, it is included
+	// here as we now have a better support for it
+	r := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9\-\_]{0,61}[a-z0-9])?$`)
 	return r.MatchString(scName)
 }
 
