@@ -83,7 +83,7 @@ then
     if ! kubectl get -n $OLM_NS deployment olm-operator
     then
         # When changing the olm version, update the image in tests/external-images-build.txt
-        $OPERATOR_SDK olm install --version 0.18.3
+        $OPERATOR_SDK olm install --version 0.19.1
 
         # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
         kubectl delete catalogsource operatorhubio-catalog -n $OLM_NS || true

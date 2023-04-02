@@ -196,6 +196,7 @@ func (r *ETRefObjectStatus) IsSameObject(other *ETRefObjectStatus) bool {
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:categories=vertica,shortName=et
 //+kubebuilder:subresource:status
+// +operator-sdk:csv:customresourcedefinitions:resources={{Job,batch/v1,""}}
 
 // EventTrigger is the Schema for the eventtriggers API
 type EventTrigger struct {

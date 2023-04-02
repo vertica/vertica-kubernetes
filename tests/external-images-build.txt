@@ -14,4 +14,4 @@ kindest/node:v1.21.1
 registry:2
 
 # Images needed to setup for olm deployments
-quay.io/operator-framework/olm:v0.18.3
+quay.io/operator-framework/olm:v0.19.1
