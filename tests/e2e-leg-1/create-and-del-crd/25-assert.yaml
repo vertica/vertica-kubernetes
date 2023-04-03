@@ -14,6 +14,6 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: verticadb-sample-defaultsubcluster
+  name: verticadb-sample-default-subcluster
 status:
   replicas: 5

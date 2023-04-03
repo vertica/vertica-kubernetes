@@ -1131,11 +1131,18 @@ func (s *Subcluster) GetType() string {
 	return SecondarySubclusterType
 }
 
+// GenCompatibleFQDN returns a name of the subcluster that is
+// compatible inside a fully-qualified domain name.
+func (s *Subcluster) GenCompatibleFQDN() string {
+	m := regexp.MustCompile(`_`)
+	return m.ReplaceAllString(s.Name, "-")
+}
+
 // GetServiceName returns the name of the service object that route traffic to
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
 	if s.ServiceName == "" {
-		return s.Name
+		return s.GenCompatibleFQDN()
 	}
 	return s.ServiceName
 }

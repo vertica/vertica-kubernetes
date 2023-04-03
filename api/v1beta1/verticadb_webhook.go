@@ -401,7 +401,7 @@ func (v *VerticaDB) getClusterSize() int {
 func (v *VerticaDB) hasValidDomainName(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if !IsValidSubclusterName(sc.Name) {
+		if !IsValidSubclusterName(sc.GenCompatibleFQDN()) {
 			err := field.Invalid(field.NewPath("spec").Child("subcluster").Index(i).Child("name"),
 				v.Spec.Subclusters[i],
 				"is not a valid domain name")
@@ -479,7 +479,9 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 		sc1 := &v.Spec.Subclusters[i]
 		for j := i + 1; j < countSc; j++ {
 			sc2 := &v.Spec.Subclusters[j]
-			if sc1.Name == sc2.Name {
+			// subcluster names like default-subcluster and default_subcluster
+			// are considered identical
+			if sc1.GenCompatibleFQDN() == sc2.GenCompatibleFQDN() {
 				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(j).Child("name"),
 					v.Spec.Subclusters[j].Name,
 					fmt.Sprintf("duplicates the name of subcluster[%d]", i))

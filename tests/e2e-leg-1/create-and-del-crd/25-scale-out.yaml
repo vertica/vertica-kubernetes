@@ -17,5 +17,5 @@ metadata:
   name: verticadb-sample
 spec:
   subclusters:
-    - name: defaultsubcluster
+    - name: default_subcluster
       size: 5

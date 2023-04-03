@@ -41,4 +41,17 @@ var _ = Describe("k8s/names", func() {
 			types.NamespacedName{Namespace: "my-ns", Name: "name-test-my-sc-9"},
 		))
 	})
+
+	It("subcluster and external service generated names should not contain `_`", func() {
+		vdb := vapi.MakeVDB()
+		vdb.ObjectMeta.Name = "v"
+		vdb.ObjectMeta.Namespace = "v-ns"
+		vdb.Spec.Subclusters[0].Name = "my_sc"
+		Ω(GenStsName(vdb, &vdb.Spec.Subclusters[0])).Should(Equal(
+			types.NamespacedName{Namespace: "v-ns", Name: "v-my-sc"},
+		))
+		Ω(GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])).Should(Equal(
+			types.NamespacedName{Namespace: "v-ns", Name: "v-my-sc"},
+		))
+	})
 })
