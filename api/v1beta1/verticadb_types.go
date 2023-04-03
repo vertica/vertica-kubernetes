@@ -1051,7 +1051,7 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 func IsValidSubclusterName(scName string) bool {
 	// Although `_` is not a valid k8s domain name's character, it is included
 	// here as we now have a better support for it
-	r := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9\-\_]{0,61}[a-z0-9])?$`)
+	r := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?$`)
 	return r.MatchString(scName)
 }
 
@@ -1133,9 +1133,9 @@ func (s *Subcluster) GetType() string {
 	return SecondarySubclusterType
 }
 
-// GenNameWithoutUnderscore returns the subcluster name after
-// replacing all `_` occurrences with `-`
-func (s *Subcluster) GenNameWithoutUnderscore() string {
+// GenCompatibleFQDN returns a name of the subcluster that is
+// compatible inside a fully-qualified domain name.
+func (s *Subcluster) GenCompatibleFQDN() string {
 	m := regexp.MustCompile(`_`)
 	return m.ReplaceAllString(s.Name, "-")
 }
@@ -1144,7 +1144,7 @@ func (s *Subcluster) GenNameWithoutUnderscore() string {
 // this subcluster.
 func (s *Subcluster) GetServiceName() string {
 	if s.ServiceName == "" {
-		return s.GenNameWithoutUnderscore()
+		return s.GenCompatibleFQDN()
 	}
 	return s.ServiceName
 }

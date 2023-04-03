@@ -590,7 +590,10 @@ func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
 			return fmt.Errorf("failed running '%s': %w", q, err)
 		}
 
-		if !vapi.IsValidSubclusterName(name) {
+		sc := &vapi.Subcluster{
+			Name: name,
+		}
+		if !vapi.IsValidSubclusterName(sc.GenCompatibleFQDN()) {
 			return fmt.Errorf("subcluster names are included in the name of statefulsets, but the name "+
 				"'%s' cannot be used as it will violate Kubernetes naming.  Please rename the subcluster and "+
 				"retry this command again", name)
