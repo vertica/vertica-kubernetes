@@ -19,18 +19,15 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"mgmterrors Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "mgmterrors Suite")
 }
 
 type EventDetails struct {

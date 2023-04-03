@@ -18,7 +18,7 @@ package builder
 import (
 	"reflect"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	v1 "k8s.io/api/core/v1"

@@ -18,10 +18,9 @@ package names
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
@@ -29,9 +28,7 @@ import (
 func TestNames(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"names Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "names Suite")
 }
 
 var _ = Describe("k8s/names", func() {
