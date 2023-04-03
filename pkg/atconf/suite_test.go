@@ -18,15 +18,12 @@ package atconf
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 
 func TestCmds(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"atconf Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "atconf Suite")
 }
