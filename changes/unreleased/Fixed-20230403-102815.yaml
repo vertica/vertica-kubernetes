@@ -1,0 +1,5 @@
+kind: Fixed
+body: Support subcluster names with underscores, such as default_subcluster.
+time: 2023-04-03T10:28:15.600484948-03:00
+custom:
+  Issue: "362"
