@@ -302,7 +302,7 @@ setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-bui
 ##@ Build
 
 .PHONY: build
-build: generate fmt vet ## Build manager binary.
+build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/operator/main.go
 
 .PHONY: run
