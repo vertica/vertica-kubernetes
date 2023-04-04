@@ -59,7 +59,3 @@ status:
     started: true
     ready: true
     restartCount: 1
-    lastState:
-      terminated:
-        exitCode: 137
-        reason: Error
