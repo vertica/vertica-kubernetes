@@ -99,7 +99,7 @@ func (c *ClusterPodRunner) ExecInPod(ctx context.Context, podName types.Namespac
 		execErr bytes.Buffer
 	)
 
-	err = c.postExec(podName, contName, command, &execOut, &execErr, nil)
+	err = c.postExec(ctx, podName, contName, command, &execOut, &execErr, nil)
 	return execOut.String(), execErr.String(), err
 }
 
@@ -130,7 +130,7 @@ func (c *ClusterPodRunner) CopyToPod(ctx context.Context, podName types.Namespac
 	}
 	defer inFile.Close()
 
-	err = c.postExec(podName, contName, command, &execOut, &execErr, inFile)
+	err = c.postExec(ctx, podName, contName, command, &execOut, &execErr, inFile)
 	return execOut.String(), execErr.String(), err
 }
 
@@ -206,7 +206,7 @@ func getSupportingPasswdSlice() []string {
 }
 
 // postExec makes the actual POST call to the REST endpoint to do the exec
-func (c *ClusterPodRunner) postExec(podName types.NamespacedName, contName string, command []string,
+func (c *ClusterPodRunner) postExec(ctx context.Context, podName types.NamespacedName, contName string, command []string,
 	execOut, execErr *bytes.Buffer, execIn io.Reader) error {
 	c.logInfoCmd(podName, command...)
 
@@ -238,7 +238,7 @@ func (c *ClusterPodRunner) postExec(podName types.NamespacedName, contName strin
 		return fmt.Errorf("failed to init executor: %v", err)
 	}
 
-	err = exec.Stream(remotecommand.StreamOptions{
+	err = exec.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdout: execOut,
 		Stderr: execErr,
 		Stdin:  execIn,
