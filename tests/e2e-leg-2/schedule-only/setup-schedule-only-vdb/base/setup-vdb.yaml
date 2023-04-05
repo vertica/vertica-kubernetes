@@ -16,6 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-schedule-only
 spec:
+  autoRestartVertica: false
   initPolicy: ScheduleOnly
   communal: {}
   image: kustomize-vertica-image
