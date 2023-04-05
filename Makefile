@@ -122,7 +122,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.25.0
+ENVTEST_K8S_VERSION = 1.26.0
 
 # Image URL for the OLM catalog.  This is for testing purposes only.
 ifeq ($(shell $(KIND_CHECK)), 1)
@@ -302,7 +302,7 @@ setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-bui
 ##@ Build
 
 .PHONY: build
-build: generate fmt vet ## Build manager binary.
+build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/operator/main.go
 
 .PHONY: run
@@ -499,10 +499,10 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.5
-CONTROLLER_TOOLS_VERSION ?= v0.10.0
+CONTROLLER_TOOLS_VERSION ?= v0.11.1
 KIND_VERSION ?= v0.11.1
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
-GOLANGCI_LINT_VER ?= 1.50.1
+GOLANGCI_LINT_VER ?= 1.51.1
 
 # We replaced the default download script found in the operator-sdk with a
 # direct download. I was htting the GitHub rate limiter by using the
@@ -556,9 +556,10 @@ $(OPM):
 	chmod +x $(OPM)
 
 OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
+OPERATOR_SDK_VERSION = 1.28.0
 operator-sdk: $(OPERATOR_SDK)  ## Download operator-sdk locally if necessary
 $(OPERATOR_SDK):
-	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v1.18.0/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v$(OPERATOR_SDK_VERSION)/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
 
 ##@ Release

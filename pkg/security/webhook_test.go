@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -89,32 +89,32 @@ var _ = Describe("webhook", func() {
 })
 
 func createWebhookConfiguration(ctx context.Context) {
-	sideEffects := admissionv1.SideEffectClassNone
+	sideEffects := admissionregistrationv1.SideEffectClassNone
 	host := "https://127.0.0.1"
-	validatingCfg := admissionv1.ValidatingWebhookConfiguration{
+	validatingCfg := admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: getValidatingWebhookConfigName(prefixName, ns),
 		},
-		Webhooks: []admissionv1.ValidatingWebhook{
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{
 			{
 				AdmissionReviewVersions: []string{"v1"},
 				Name:                    "vcrd.kb.io",
 				SideEffects:             &sideEffects,
-				ClientConfig:            admissionv1.WebhookClientConfig{URL: &host},
+				ClientConfig:            admissionregistrationv1.WebhookClientConfig{URL: &host},
 			},
 		},
 	}
 	Expect(k8sClient.Create(ctx, &validatingCfg)).Should(Succeed())
-	mutatingCfg := admissionv1.MutatingWebhookConfiguration{
+	mutatingCfg := admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: getMutatingWebhookConfigName(prefixName, ns),
 		},
-		Webhooks: []admissionv1.MutatingWebhook{
+		Webhooks: []admissionregistrationv1.MutatingWebhook{
 			{
 				AdmissionReviewVersions: []string{"v1"},
 				Name:                    "mcrd.kb.io",
 				SideEffects:             &sideEffects,
-				ClientConfig:            admissionv1.WebhookClientConfig{URL: &host},
+				ClientConfig:            admissionregistrationv1.WebhookClientConfig{URL: &host},
 			},
 		},
 	}
@@ -125,13 +125,13 @@ func deleteWebhookConfiguration(ctx context.Context) {
 	nm := types.NamespacedName{
 		Name: getValidatingWebhookConfigName(prefixName, ns),
 	}
-	vcfg := &admissionv1.ValidatingWebhookConfiguration{}
+	vcfg := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, vcfg)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, vcfg)).Should(Succeed())
 	nm = types.NamespacedName{
 		Name: getMutatingWebhookConfigName(prefixName, ns),
 	}
-	mcfg := &admissionv1.MutatingWebhookConfiguration{}
+	mcfg := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, mcfg)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, mcfg)).Should(Succeed())
 }
@@ -161,7 +161,7 @@ func verifyCABundleEquals(ctx context.Context, prefixName, ns string, caCrt []by
 	nm := types.NamespacedName{
 		Name: getValidatingWebhookConfigName(prefixName, ns),
 	}
-	vcfg := &admissionv1.ValidatingWebhookConfiguration{}
+	vcfg := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, vcfg)).Should(Succeed())
 	if len(caCrt) > 0 {
 		Expect(len(vcfg.Webhooks)).Should(Equal(1))
@@ -173,7 +173,7 @@ func verifyCABundleEquals(ctx context.Context, prefixName, ns string, caCrt []by
 	nm = types.NamespacedName{
 		Name: getMutatingWebhookConfigName(prefixName, ns),
 	}
-	mcfg := &admissionv1.MutatingWebhookConfiguration{}
+	mcfg := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, mcfg)).Should(Succeed())
 	Expect(len(mcfg.Webhooks)).Should(Equal(1))
 	if len(caCrt) > 0 {
