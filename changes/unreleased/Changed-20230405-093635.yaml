@@ -1,0 +1,5 @@
+kind: Changed
+body: Use 12.0.4 as default vertica server image
+time: 2023-04-05T09:36:35.869216137-03:00
+custom:
+  Issue: "367"
