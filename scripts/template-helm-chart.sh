@@ -202,3 +202,13 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yam
         {{- toYaml .Values.tolerations | nindent 8 }}
 {{- end }}
 EOF
+
+# 19. There are clusterrole/clusterrolebinding that are only needed if the
+# operator is generating its own self-signed cert for webhook. Skip those to
+# allow for deployments where you don't have cluster admin privileges.
+for f in verticadb-operator-manager-role-cr.yaml \
+    verticadb-operator-manager-clusterrolebinding-crb.yaml
+do
+    sed -i '1s/^/{{- if and (eq .Values.webhook.certSource "internal") (.Values.webhook.enable) -}}\n/' $TEMPLATE_DIR/$f
+    echo "{{- end }}" >> $TEMPLATE_DIR/$f
+done
