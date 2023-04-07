@@ -32,6 +32,7 @@ spec:
     - --dev=false
     - --prefix-name=verticadb-operator
     - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
+    - --skip-webhook-patch
   - name: kube-rbac-proxy
 status:
   phase: Running
