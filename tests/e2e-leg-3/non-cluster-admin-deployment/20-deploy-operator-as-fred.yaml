@@ -16,4 +16,4 @@ kind: TestStep
 commands:
   # Key here is that KUBECONFIG is set so that we
   # log in as the user we created in an earlier step.
-  - command: sh -c "cd ../../.. && KUBECONFIG=/tmp/$NAMESPACE-config && make deploy-operator DEPLOY_WITH=helm WATCH_NAMESPACE=$NAMESPACE KUBECONFIG=/tmp/config-$NAMESPACE HELM_OVERRIDES='--skip-crds --set webhook.enable=false --set prometheus.createProxyRBAC=false --set skipRoleAndRoleBindingCreation=true --set serviceAccountNameOverride=verticadb-operator-controller-manager'"
+  - command: sh -c "cd ../../.. && KUBECONFIG=/tmp/$NAMESPACE-config && make deploy-operator DEPLOY_WITH=helm WATCH_NAMESPACE=$NAMESPACE HELM_IMAGE_PULL_POLICY=IfNotPresent KUBECONFIG=/tmp/config-$NAMESPACE HELM_OVERRIDES='--skip-crds --set webhook.enable=false --set prometheus.createProxyRBAC=false --set skipRoleAndRoleBindingCreation=true --set serviceAccountNameOverride=verticadb-operator-controller-manager'"
