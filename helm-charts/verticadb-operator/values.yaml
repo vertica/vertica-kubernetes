@@ -126,7 +126,7 @@ serviceAccountNameOverride: ""
 # Use this option if you are installing the helm chart with k8s privileges that
 # prevent you from creating Roles/RoleBindings. We provide the Roles and
 # RoleBindings that the operator needs as a artifact of the GitHub release. For
-# instance, have your cluster admin run this against the namespace you are
+# instance, have your cluster admin run this against the namespace you
 # want to deploy the operator in:
 # kubectl apply -n <namespace> -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/operator-rbac.yaml
 #
