@@ -68,3 +68,9 @@ do
         fi
     done
 done
+
+# Save off different k8s objects
+for obj in verticadbs pods statefulsets deployments
+do
+    kubectl get $obj -A -o yaml > $HOST_OP_DIR/$obj.yaml
+done
