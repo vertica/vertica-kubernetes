@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# (c) Copyright [2021-2023] Micro Focus or one of its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -16,26 +16,5 @@ kind: Pod
 metadata:
   labels:
     control-plane: controller-manager
-spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=false
-    - --prefix-name=verticadb-operator
-    - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
-    - --skip-webhook-patch
 status:
   phase: Running
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: verticadb-operator-webhook-service

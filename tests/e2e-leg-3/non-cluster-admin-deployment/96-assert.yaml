@@ -14,28 +14,6 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  labels:
-    control-plane: controller-manager
-spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --leader-elect
-    - --service-account-name=verticadb-operator-controller-manager
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=false
-    - --prefix-name=verticadb-operator
-    - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
-    - --skip-webhook-patch
+  name: clean-communal
 status:
-  phase: Running
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: verticadb-operator-webhook-service
+  phase: Succeeded

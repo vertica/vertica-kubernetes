@@ -1,0 +1,5 @@
+kind: Fixed
+body: Fix helm install without cluster admin priv
+time: 2023-04-06T14:23:14.546425596-03:00
+custom:
+  Issue: "369"
