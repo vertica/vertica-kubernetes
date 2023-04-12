@@ -34,11 +34,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
-	AWSRegionParm    = "awsregion"
-	GCloudRegionParm = "GCSRegion"
+	AWSRegionParm          = "awsregion"
+	GCloudRegionParm       = "GCSRegion"
+	S3SseCustomerAlgorithm = "S3SseCustomerAlgorithm"
+	S3ServerSideEncryption = "S3ServerSideEncryption"
+	S3SseCustomerKey       = "S3SseCustomerKey"
+	SseAlgorithmAES256     = "AES256"
+	SseAlgorithmAWSKMS     = "aws:kms"
 )
 
 type DatabaseInitializer interface {
@@ -210,6 +216,26 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 			%s`, content, g.getKerberosAuthParmsContent()))
 	}
 
+	if g.Vdb.IsS3() && g.Vdb.IsKnownSseType() {
+		if res = g.hasCompatibleVersionForServerSideEncryption(); verrors.IsReconcileAborted(res, nil) {
+			return res, nil
+		}
+		var sseContent string
+		sseContent, res, err = g.getServerSideEncryptionParmsContent(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+		content = dedent.Dedent(fmt.Sprintf(`
+			%s
+			%s`, content, sseContent))
+	}
+
+	if !g.Vdb.IsAdditionalConfigMapEmpty() {
+		content = dedent.Dedent(fmt.Sprintf(`
+			%s
+			%s`, content, g.getAdditionalConfigParmsContent(content)))
+	}
+
 	err = g.copyAuthFile(ctx, atPod, content)
 	return ctrl.Result{}, err
 }
@@ -358,6 +384,19 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	return dedent.Dedent(content), ctrl.Result{}, nil
 }
 
+// getAdditionalConfigParmsContent constructs a string containing additional server config parameters
+func (g *GenericDatabaseInitializer) getAdditionalConfigParmsContent(content string) string {
+	parmNames := genCommunalParmsMap(content)
+	acpContent := ""
+	for k, v := range g.Vdb.Spec.Communal.AdditionalConfig {
+		_, ok := parmNames[strings.ToLower(k)]
+		if !ok {
+			acpContent = fmt.Sprintf("%s\n%s = %s", acpContent, k, v)
+		}
+	}
+	return dedent.Dedent(acpContent)
+}
+
 // copyAuthFile will copy the auth file into the container
 func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod types.NamespacedName, content string) error {
 	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
@@ -455,6 +494,12 @@ func (g *GenericDatabaseInitializer) getCommunalCredsSecret(ctx context.Context)
 	return getSecret(ctx, g.VRec, g.Vdb, names.GenCommunalCredSecretName(g.Vdb))
 }
 
+// getS3SseCustomerKeySecret returns the content of the customer key secret
+// for server-side encryption. It handles if the secret is not found and will log an event.
+func (g *GenericDatabaseInitializer) getS3SseCustomerKeySecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
+	return getSecret(ctx, g.VRec, g.Vdb, names.GenS3SseCustomerKeySecretName(g.Vdb))
+}
+
 // getCommunalEndpoint get the communal endpoint for inclusion in the auth files.
 // Takes the endpoint from vdb and strips off the protocol.
 func (g *GenericDatabaseInitializer) getCommunalEndpoint() string {
@@ -481,6 +526,67 @@ func (g *GenericDatabaseInitializer) getCAFile() string {
 		return ""
 	}
 	return fmt.Sprintf("SystemCABundlePath = %s", g.Vdb.Spec.Communal.CaFile)
+}
+
+// getServerSideEncryptionParmsContent constructs a string for server-side encryption related auth
+// parms if that is setup.  Must have encryption type in the Vdb.
+func (g *GenericDatabaseInitializer) getServerSideEncryptionParmsContent(ctx context.Context) (string, reconcile.Result, error) {
+	clienKey, res, err := g.getS3SseCustomerKey(ctx)
+	if verrors.IsReconcileAborted(res, err) {
+		return "", res, err
+	}
+
+	content := fmt.Sprintf(`
+			%s
+			%s
+			%s
+		`, g.getServerSideEncryptionAlgorithm(), g.getS3SseKmsKeyID(), clienKey,
+	)
+	return dedent.Dedent(content), ctrl.Result{}, nil
+}
+
+// getServerSideEncryptionAlgorithm returns an entry for S3ServerSideEncryption
+// if sse type is SSE-S3|SSE-KMS or for S3SseCustomerAlgorithm if SSE-C.
+func (g *GenericDatabaseInitializer) getServerSideEncryptionAlgorithm() string {
+	if g.Vdb.IsSseC() {
+		return fmt.Sprintf("%s = %s", S3SseCustomerAlgorithm, SseAlgorithmAES256)
+	}
+	if g.Vdb.IsSseS3() {
+		return fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAES256)
+	}
+	if g.Vdb.IsSseKMS() {
+		return fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAWSKMS)
+	}
+	return ""
+}
+
+// getS3SseKmsKeyID returns an entry for S3SseKmsKeyId when SSE-KMS is enabled.
+func (g *GenericDatabaseInitializer) getS3SseKmsKeyID() string {
+	if !g.Vdb.IsSseKMS() {
+		return ""
+	}
+	return fmt.Sprintf("%s = %s", vapi.S3SseKmsKeyID, g.Vdb.Spec.Communal.AdditionalConfig[vapi.S3SseKmsKeyID])
+}
+
+// getS3SseCustomerKey returns an entry for S3SseCustomerKey, only when sse type is SSE-C
+func (g *GenericDatabaseInitializer) getS3SseCustomerKey(ctx context.Context) (string, ctrl.Result, error) {
+	if !g.Vdb.IsSseC() {
+		return "", ctrl.Result{}, nil
+	}
+
+	secret, res, err := g.getS3SseCustomerKeySecret(ctx)
+	if verrors.IsReconcileAborted(res, err) {
+		return "", res, err
+	}
+
+	clientKey, ok := secret.Data[cloud.S3SseCustomerKeyName]
+	if !ok {
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3SseCustomerWrongKey,
+			"The sseCustomerKey secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.S3SseCustomerKeySecret, cloud.S3SseCustomerKeyName)
+		return "", ctrl.Result{Requeue: true}, nil
+	}
+	content := fmt.Sprintf("%s = %s", S3SseCustomerKey, string(clientKey))
+	return content, ctrl.Result{}, nil
 }
 
 // getRegion will return an entry for region, specific to the cloud provider
@@ -539,4 +645,31 @@ func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Resu
 			"the container.  You must be on version %s or greater",
 		vinf.VdbVer, DefaultKerberosSupportedVersion)
 	return ctrl.Result{Requeue: true}
+}
+
+// hasCompatibleVersionForServerSideEncryption checks whether it has the required engine fix
+// to run with S3 server-side encryption.  If it doesn't the ctrl.Result will have the
+// requeue bool set.
+func (g *GenericDatabaseInitializer) hasCompatibleVersionForServerSideEncryption() ctrl.Result {
+	vinf, ok := g.Vdb.MakeVersionInfo()
+	const DefaultSseSupportedVersion = "v12.0.1"
+	if !ok || ok && vinf.IsEqualOrNewer(DefaultSseSupportedVersion) {
+		return ctrl.Result{}
+	}
+	g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		"The engine (%s) doesn't have the required change for server-side encryption. "+
+			"You must be on version %s or greater",
+		vinf.VdbVer, DefaultSseSupportedVersion)
+	return ctrl.Result{Requeue: true}
+}
+
+func genCommunalParmsMap(content string) map[string]string {
+	parmNames := map[string]string{}
+	for _, row := range strings.Split(content, "\n") {
+		if row != "" {
+			s := strings.Split(row, " = ")
+			parmNames[strings.ToLower(s[0])] = s[1]
+		}
+	}
+	return parmNames
 }

@@ -57,6 +57,12 @@ func GenCommunalCredSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.Communal.CredentialSecret)
 }
 
+// GenS3SseCustomerKeySecretName returns the name of the secret that has the client key
+// for SSE-C server-side encryption.
+func GenS3SseCustomerKeySecretName(vdb *vapi.VerticaDB) types.NamespacedName {
+	return GenNamespacedName(vdb, vdb.Spec.Communal.S3SseCustomerKeySecret)
+}
+
 // GenKrb5SecretName returns the name of the secret that has the Kerberos config and keytab
 func GenKrb5SecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.KerberosSecret)

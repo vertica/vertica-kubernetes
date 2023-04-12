@@ -90,6 +90,29 @@ func (v *VerticaDB) IsAzure() bool {
 	return strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix)
 }
 
+// IsSseS3 returns true if VerticaDB is setup for S3 SSE-S3 server-side encryption
+func (v *VerticaDB) IsSseS3() bool {
+	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseS3))
+}
+
+// IsSseKMS returns true if VerticaDB is setup for S3 SSE-KMS server-side encryption
+func (v *VerticaDB) IsSseKMS() bool {
+	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseKMS))
+}
+
+// IsSseC returns true if VerticaDB is setup for S3 SSE-C server-side encryption
+func (v *VerticaDB) IsSseC() bool {
+	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseC))
+}
+
+// IsKnownSseType returns true if VerticaDB is setup for S3 server-side encryption
+func (v *VerticaDB) IsKnownSseType() bool {
+	if v.IsSseS3() || v.IsSseKMS() || v.IsSseC() {
+		return true
+	}
+	return false
+}
+
 // IsKnownCommunalPrefix returns true if the communal has a known prefix that
 // indicates the type of communal storage. False means the communal path was
 // empty or is a POSIX path.
@@ -206,6 +229,13 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			"communal.endpoint cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
+	// communal.s3ServerSideEncryption cannot change after creation
+	if v.Spec.Communal.S3ServerSideEncryption != oldObj.Spec.Communal.S3ServerSideEncryption {
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("s3ServerSideEncryption"),
+			v.Spec.Communal.S3ServerSideEncryption,
+			"communal.s3ServerSideEncryption cannot change after creation")
+		allErrs = append(allErrs, err)
+	}
 	// local.storageClass cannot change after creation
 	if v.Spec.Local.StorageClass != oldObj.Spec.Local.StorageClass {
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("storageClass"),
@@ -243,6 +273,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
+	allErrs = v.validateS3ServerSideEncryption(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidDomainName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
@@ -305,6 +336,38 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 		v.Spec.Communal.Path,
 		"communal.path cannot be empty")
 	return append(allErrs, err)
+}
+
+func (v *VerticaDB) validateS3ServerSideEncryption(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsS3() || v.IsSseS3() || v.Spec.Communal.S3ServerSideEncryption == "" {
+		return allErrs
+	}
+	if !v.IsKnownSseType() {
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("s3ServerSideEncryption"),
+			v.Spec.Communal.S3ServerSideEncryption,
+			fmt.Sprintf("communal.s3ServerSideEncryption, if specified, can only be %s, %s or %s",
+				SseS3, SseKMS, SseC))
+		allErrs = append(allErrs, err)
+	}
+	if v.IsSseKMS() {
+		value, found := v.Spec.Communal.AdditionalConfig[S3SseKmsKeyID]
+		if !found || value == "" {
+			err := field.Invalid(field.NewPath("spec").Child("communal").Child("additionalConfig"),
+				v.Spec.Communal.AdditionalConfig,
+				fmt.Sprintf("communal.additionalconfig[%s] must be set when setting up SSE-KMS server-side encryption",
+					S3SseKmsKeyID))
+			allErrs = append(allErrs, err)
+		}
+	}
+	if v.IsSseC() {
+		if v.Spec.Communal.S3SseCustomerKeySecret == "" {
+			err := field.Invalid(field.NewPath("spec").Child("communal").Child("s3SseCustomerKeySecret"),
+				v.Spec.Communal.S3SseCustomerKeySecret,
+				"communal.3SseCustomerKeySecret must be set when setting up SSE-C server-side encryption")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
 }
 
 func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
