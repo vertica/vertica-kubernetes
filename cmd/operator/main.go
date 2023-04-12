@@ -162,7 +162,7 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, watchNamespace); err != nil {
 				return err
 			}
-		} else {
+		} else if !oc.SkipWebhookPatch {
 			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
 				oc.PrefixName, watchNamespace); err != nil {
 				return err

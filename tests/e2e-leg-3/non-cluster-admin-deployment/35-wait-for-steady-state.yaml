@@ -10,9 +10,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v2
-name: verticadb-operator
-description: An operator that can deploy and manage Vertica clusters
-type: application
-# Versions follow Semantic Versioning (https://semver.org/)
-version: 1.10.2
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE -t 360"

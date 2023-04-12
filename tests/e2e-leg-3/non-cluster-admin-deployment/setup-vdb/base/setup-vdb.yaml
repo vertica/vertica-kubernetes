@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# (c) Copyright [2021-2023] Micro Focus or one of its affiliates.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,9 +10,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v2
-name: verticadb-operator
-description: An operator that can deploy and manage Vertica clusters
-type: application
-# Versions follow Semantic Versioning (https://semver.org/)
-version: 1.10.2
+
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-non-cluster-admin-deployment
+spec:
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+  subclusters:
+    - name: main
+      size: 1
+  kSafety: "0"
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

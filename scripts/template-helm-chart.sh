@@ -134,12 +134,20 @@ do
 done
 
 # 10.  Template the webhook access enablement
-sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-validating-webhook-configuration-validatingwebhookconfiguration.yaml 
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-validating-webhook-configuration-validatingwebhookconfiguration.yaml
-sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-mutating-webhook-configuration-mutatingwebhookconfiguration.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-mutating-webhook-configuration-mutatingwebhookconfiguration.yaml
+for f in $TEMPLATE_DIR/verticadb-operator-validating-webhook-configuration-validatingwebhookconfiguration.yaml \
+    $TEMPLATE_DIR/verticadb-operator-mutating-webhook-configuration-mutatingwebhookconfiguration.yaml
+do
+    sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $f
+    echo "{{- end }}" >> $f
+    perl -i -0777 -pe 's/(  annotations:)/$1\n{{- if eq .Values.webhook.certSource "cert-manager" }}/' $f
+    perl -i -0777 -pe 's/(    cert-manager.io.*)/$1\n{{- else }}\n    \{\}\n{{- end }}/' $f
+done
 sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
+# Related to this change is the --skip-webhook-patch option. This is needed if
+# the helm chart provided the CA bundle or using cert-manager, which handles
+# the CA bundle update itself.
+perl -i -0777 -pe 's/(--webhook-cert-secret.*)/$1\n{{- if or (eq .Values.webhook.certSource "cert-manager") (.Values.webhook.caBundle) }}\n        - --skip-webhook-patch\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 11.  Template the prometheus metrics service
 sed -i '1s/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/' $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
@@ -202,3 +210,15 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yam
         {{- toYaml .Values.tolerations | nindent 8 }}
 {{- end }}
 EOF
+
+# 19. There are clusterrole/clusterrolebinding that are only needed if the
+# operator is going to patch the webhook. This is needed only if the operator
+# is generating its own self-signed cert for the webhook or a secret was
+# provided. For cert-manager, the cert-manager operator injects the CA and the
+# operator doesn't need to handle that.
+for f in verticadb-operator-manager-role-cr.yaml \
+    verticadb-operator-manager-clusterrolebinding-crb.yaml
+do
+    sed -i '1s/^/{{- if and (.Values.webhook.enable) (or (eq .Values.webhook.certSource "internal") (.Values.webhook.tlsSecret)) -}}\n/' $TEMPLATE_DIR/$f
+    echo "{{- end }}" >> $TEMPLATE_DIR/$f
+done

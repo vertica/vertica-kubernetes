@@ -64,9 +64,7 @@ for f in verticadb-operator-controller-manager-sa.yaml \
     verticadb-operator-leader-election-role-role.yaml \
     verticadb-operator-manager-role-role.yaml \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
-    verticadb-operator-manager-rolebinding-rb.yaml \
-    verticadb-operator-manager-clusterrolebinding-crb.yaml \
-    verticadb-operator-manager-role-cr.yaml
+    verticadb-operator-manager-rolebinding-rb.yaml
 do
     cat $MANIFEST_DIR/$f >> $OPERATOR_RBAC
     echo "---" >> $OPERATOR_RBAC
