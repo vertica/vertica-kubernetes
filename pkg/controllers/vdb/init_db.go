@@ -590,7 +590,7 @@ func (g *GenericDatabaseInitializer) getS3SseCustomerKey(ctx context.Context) (s
 	clientKey, ok := secret.Data[cloud.S3SseCustomerKeyName]
 	if !ok {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3SseCustomerWrongKey,
-			"The S3SseCustomerKey secret '%s' does not have a key named '%s'",
+			"The s3SseCustomerKey secret '%s' does not have a key named '%s'",
 			g.Vdb.Spec.Communal.S3SseCustomerKeySecret, cloud.S3SseCustomerKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
