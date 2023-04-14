@@ -875,7 +875,8 @@ func BuildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 	return secret
 }
 
-// BuildS3SseCustomerKeySecret builds a secret that is setup for S3 SSE-C server-side encryption
+// BuildS3SseCustomerKeySecret is a test helper that builds a secret that is setup for
+// S3 SSE-C server-side encryption
 func BuildS3SseCustomerKeySecret(vdb *vapi.VerticaDB, clientKey string) *corev1.Secret {
 	nm := names.GenS3SseCustomerKeySecretName(vdb)
 	secret := &corev1.Secret{

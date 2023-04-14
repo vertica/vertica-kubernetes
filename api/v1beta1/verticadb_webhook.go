@@ -229,13 +229,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 			"communal.endpoint cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
-	// communal.s3ServerSideEncryption cannot change after creation
-	if v.Spec.Communal.S3ServerSideEncryption != oldObj.Spec.Communal.S3ServerSideEncryption {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("s3ServerSideEncryption"),
-			v.Spec.Communal.S3ServerSideEncryption,
-			"communal.s3ServerSideEncryption cannot change after creation")
-		allErrs = append(allErrs, err)
-	}
 	// local.storageClass cannot change after creation
 	if v.Spec.Local.StorageClass != oldObj.Spec.Local.StorageClass {
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("storageClass"),
@@ -263,6 +256,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableEncryptSpreadComm(oldObj, allErrs)
 	allErrs = v.checkImmutableLocalPathChange(oldObj, allErrs)
 	allErrs = v.checkImmutableShardCount(oldObj, allErrs)
+	allErrs = v.checkImmutableS3ServerSideEncryption(oldObj, allErrs)
 	return allErrs
 }
 
@@ -274,6 +268,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
 	allErrs = v.validateS3ServerSideEncryption(allErrs)
+	allErrs = v.validateAdditionalConfigParms(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidDomainName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
@@ -339,7 +334,7 @@ func (v *VerticaDB) validateCommunalPath(allErrs field.ErrorList) field.ErrorLis
 }
 
 func (v *VerticaDB) validateS3ServerSideEncryption(allErrs field.ErrorList) field.ErrorList {
-	if !v.IsS3() || v.IsSseS3() || v.Spec.Communal.S3ServerSideEncryption == "" {
+	if !v.IsS3() || v.Spec.Communal.S3ServerSideEncryption == "" {
 		return allErrs
 	}
 	if !v.IsKnownSseType() {
@@ -366,6 +361,26 @@ func (v *VerticaDB) validateS3ServerSideEncryption(allErrs field.ErrorList) fiel
 				"communal.3SseCustomerKeySecret must be set when setting up SSE-C server-side encryption")
 			allErrs = append(allErrs, err)
 		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) validateAdditionalConfigParms(allErrs field.ErrorList) field.ErrorList {
+	if v.IsAdditionalConfigMapEmpty() {
+		return allErrs
+	}
+	additionalConfigKeysCopy := map[string]string{}
+	// additional config parms are case insensitive so we need to check that
+	// if, for example, awsauth and AWSauth are passed, they are seen as duplicates.
+	for k := range v.Spec.Communal.AdditionalConfig {
+		_, ok := additionalConfigKeysCopy[strings.ToLower(k)]
+		if ok {
+			err := field.Invalid(field.NewPath("spec").Child("communal").Child("additionalConfig"),
+				v.Spec.Communal.AdditionalConfig,
+				fmt.Sprintf("duplicates key %s", k))
+			allErrs = append(allErrs, err)
+		}
+		additionalConfigKeysCopy[strings.ToLower(k)] = ""
 	}
 	return allErrs
 }
@@ -979,6 +994,18 @@ func (v *VerticaDB) checkImmutableShardCount(oldObj *VerticaDB, allErrs field.Er
 		err := field.Invalid(field.NewPath("spec").Child("shardCount"),
 			v.Spec.ShardCount,
 			"shardCount cannot change after creation.")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// checkImmutableS3ServerSideEncryption will make sure communal.s3ServerSideEncryption
+// does not change after creation
+func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.Communal.S3ServerSideEncryption != oldObj.Spec.Communal.S3ServerSideEncryption {
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("s3ServerSideEncryption"),
+			v.Spec.Communal.S3ServerSideEncryption,
+			"communal.s3ServerSideEncryption cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

@@ -126,4 +126,17 @@ Call stack:\r
 			Expect(evlogr.LogFailure("revive_db", errStrings[i], fmt.Errorf("error"))).Should(Equal(ctrl.Result{Requeue: true}))
 		}
 	})
+
+	It("should generate a requeue error for various comunal storage parameters", func() {
+		vdb := vapi.MakeVDB()
+		errStrings := []string{
+			"Initialization thread logged exception:\\nInvalid configuration parameter wrongparm; aborting configuration change",
+			"Initialization thread logged exception:\\nInvalid S3SseCustomerKey: key",
+		}
+		for i := range errStrings {
+			tw := TestEVWriter{}
+			evlogr := MakeATErrors(&tw, vdb, events.CreateDBFailed)
+			Expect(evlogr.LogFailure("create_db", errStrings[i], fmt.Errorf("error"))).Should(Equal(ctrl.Result{Requeue: true}))
+		}
+	})
 })

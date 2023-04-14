@@ -568,12 +568,13 @@ type CommunalStorage struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:SSE-S3","urn:alm:descriptor:com.tectonic.ui:select:SSE-KMS","urn:alm:descriptor:com.tectonic.ui:select:SSE-C"}
 	// The server-side encryption type Vertica will use to read/write from encrypted S3 communal storage.
-	// Available values are: SSE-S3, SSE-KMS and SSE-C.
+	// Available values are: SSE-S3, SSE-KMS, SSE-C and empty string ("").
 	// - SSE-S3: the S3 service manages encryption keys.
 	// - SSE-KMS: encryption keys are managed by the Key Management Service (KMS).
 	// 	 KMS key identifier must be supplied through communal.additionalConfig map.
 	// - SSE-C: the client manages encryption keys and provides them to S3 for each operation.
 	// 	 The client key must be supplied through communal.s3SseCustomerKeySecret.
+	// - Empty string (""): No encryption. This is the default value.
 	// This value cannot change after the initial creation of the VerticaDB.
 	S3ServerSideEncryption ServerSideEncryptionType `json:"s3ServerSideEncryption,omitempty"`
 
@@ -584,8 +585,12 @@ type CommunalStorage struct {
 	S3SseCustomerKeySecret string `json:"s3SseCustomerKeySecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// Contains a map of server configuration parameters. These are set only during initial bootstrap.
-	// After the database has been initialized, changing the options in the CR will have no affect in the server.
+	// Contains a map of server configuration parameters.
+	// To avoid duplicate values, if a parameter is already set through another CR field,
+	// (like S3ServerSideEncryption through communal.s3ServerSideEncryption), the corresponding
+	// key/value pair is skipped.
+	// These are set only during initial bootstrap. After the database has been initialized,
+	// changing the options in the CR will have no affect in the server.
 	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
 }
 

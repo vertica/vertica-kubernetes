@@ -333,9 +333,10 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			Vdb: vdb,
+			VRec: vdbRec,
+			Vdb:  vdb,
 		}
-		result := "\nParm1 = parm1"
+		result := "Parm1 = parm1\n"
 		content := g.getAdditionalConfigParmsContent("")
 		Expect(content).Should(Equal(result))
 	})
@@ -348,12 +349,13 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			Vdb: vdb,
+			VRec: vdbRec,
+			Vdb:  vdb,
 		}
 		content := dedent.Dedent(`
 			Parm1 = value
 		`)
-		result := "\nParm2 = parm2"
+		result := "Parm2 = parm2\n"
 		content = g.getAdditionalConfigParmsContent(content)
 		Expect(content).Should(Equal(result))
 	})

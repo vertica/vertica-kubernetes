@@ -121,6 +121,21 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
+	It("should not have duplicate parms in communal.AdditionalConfig", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{
+			"awsauth":     "xxxx:xxxx",
+			"awsendpoint": "s3.amazonaws.com",
+			"AWSauth":     "xxxx:xxxx",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{
+			"awsauth":     "xxxx:xxxx",
+			"awsendpoint": "s3.amazonaws.com",
+		}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 	It("should have invalid subcluster name", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
