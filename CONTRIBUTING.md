@@ -64,7 +64,7 @@ At this point, you're ready to make your changes.
 Every file in this project must use the following Apache 2.0 header. Make sure that you replace the `[yyyy]` box on the first line with the appropriate year or years. If a copyright statement from another party is already present in the code, you should add the statement on top of the existing copyright statement:
 
 ```
-Copyright (c) [yyyy] Micro Focus or one of its affiliates.
+Copyright (c) [yyyy] Open Text.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
