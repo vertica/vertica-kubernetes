@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -44,6 +43,7 @@ import (
 type EventTriggerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Log    logr.Logger
 }
 
 const (
@@ -61,35 +61,35 @@ const (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *EventTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := log.FromContext(ctx).WithValues("et", req.NamespacedName)
-	lg.Info("starting reconcile of EventTrigger")
+	log := r.Log.WithValues("et", req.NamespacedName)
+	log.Info("starting reconcile of EventTrigger")
 
 	et := &vapi.EventTrigger{}
 	err := r.Get(ctx, req.NamespacedName, et)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, cound have been deleted after reconcile request.
-			lg.Info("EventTrigger resource not found.  Ignoring since object must be deleted")
+			log.Info("EventTrigger resource not found.  Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
-		lg.Error(err, "failed to get EventTrigger")
+		log.Error(err, "failed to get EventTrigger")
 		return ctrl.Result{}, err
 	}
 
 	// Iterate over each actor
-	actors := r.constructActors(lg, et)
+	actors := r.constructActors(et)
 	var res ctrl.Result
 	for _, act := range actors {
-		lg.Info("starting actor", "name", fmt.Sprintf("%T", act))
+		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
 		// Error or a request to requeue will stop the reconciliation.
 		if verrors.IsReconcileAborted(res, err) {
-			lg.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
+			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err
 		}
 	}
 
-	lg.Info("ending reconcile of EventTrigger", "result", res, "err", err)
+	log.Info("ending reconcile of EventTrigger", "result", res, "err", err)
 	return res, err
 }
 
@@ -156,7 +156,9 @@ func (r *EventTriggerReconciler) findObjectsForVerticaDB(vdb client.Object) []re
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
-func (r *EventTriggerReconciler) constructActors(lg logr.Logger, et *vapi.EventTrigger) []controllers.ReconcileActor {
+func (r *EventTriggerReconciler) constructActors(et *vapi.EventTrigger) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile an et.
-	return []controllers.ReconcileActor{}
+	return []controllers.ReconcileActor{
+		MakeCreateETReconciler(r, et),
+	}
 }
