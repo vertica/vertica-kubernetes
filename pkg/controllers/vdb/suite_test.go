@@ -205,6 +205,7 @@ func createPodFactsWithAgentNotRunning(ctx context.Context, vdb *vapi.VerticaDB,
 
 const testAccessKey = "dummy"
 const testSecretKey = "dummy"
+const testClientKey = "dummy"
 
 func createS3CredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
 	secret := builder.BuildS3CommunalCredSecret(vdb, testAccessKey, testSecretKey)
@@ -221,8 +222,17 @@ func createAzureSASCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 
+func createS3SseCustomerKeySecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	secret := builder.BuildS3SseCustomerKeySecret(vdb, testClientKey)
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
 func deleteCommunalCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
 	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
+}
+
+func deleteS3SseCustomerKeySecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	deleteSecret(ctx, vdb, vdb.Spec.Communal.S3SseCustomerKeySecret)
 }
 
 func deleteSecret(ctx context.Context, vdb *vapi.VerticaDB, secretName string) {

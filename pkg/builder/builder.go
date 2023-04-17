@@ -875,6 +875,22 @@ func BuildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 	return secret
 }
 
+// BuildS3SseCustomerKeySecret is a test helper that builds a secret that is setup for
+// S3 SSE-C server-side encryption
+func BuildS3SseCustomerKeySecret(vdb *vapi.VerticaDB, clientKey string) *corev1.Secret {
+	nm := names.GenS3SseCustomerKeySecretName(vdb)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		StringData: map[string]string{
+			cloud.S3SseCustomerKeyName: clientKey,
+		},
+	}
+	return secret
+}
+
 // BuildKerberosSecretBase is a test helper that creates the skeleton of a
 // Kerberos secret.  The caller's responsibility to add the necessary data.
 func BuildKerberosSecretBase(vdb *vapi.VerticaDB) *corev1.Secret {
