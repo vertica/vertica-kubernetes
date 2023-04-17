@@ -25,7 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("eventtrigger_controller", func() {
+var _ = Describe("createet_reconciler", func() {
 	ctx := context.Background()
 
 	It("should reconcile an EventTrigger with no errors if reference object doesn't exist", func() {
