@@ -26,7 +26,7 @@
 
 image:
   repo: docker.io
-  name: vertica/verticadb-operator:1.10.2
+  name: vertica/verticadb-operator:1.11.0
   pullPolicy: IfNotPresent
 
 rbac_proxy_image:
