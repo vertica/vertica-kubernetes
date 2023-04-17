@@ -351,6 +351,7 @@ var _ = Describe("init_db", func() {
 		g := GenericDatabaseInitializer{
 			VRec: vdbRec,
 			Vdb:  vdb,
+			Log:  logger,
 		}
 		content := dedent.Dedent(`
 			Parm1 = value

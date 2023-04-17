@@ -395,8 +395,7 @@ func (g *GenericDatabaseInitializer) getAdditionalConfigParmsContent(content str
 		// we skip to the next parm.
 		_, ok := parmNames[strings.ToLower(k)]
 		if ok {
-			g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AdditionalConfigParmIgnored,
-				"The additional config parameter '%s' has been ignored because it has already been set in previous steps", k)
+			g.Log.Info("additional config parameter ignored", "parameter", k)
 			continue
 		}
 		parms.WriteString(fmt.Sprintf("%s = %s\n", k, v))
@@ -645,10 +644,7 @@ func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
 // requeue bool set.
 func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Result {
 	const DefaultKerberosSupportedVersion = "v11.0.2"
-	// The '%s' are placeholders for the version extracted from a vdb
-	// and the minimum version you must be on to setup server side Kerberos.
-	eventMsg := "The engine (%s) doesn't have the required change to setup Kerberos in " +
-		"the container.  You must be on version %s or greater"
+	eventMsg := genUnsupportedVerticaVersionEventMsg("Kerberos in the container", DefaultKerberosSupportedVersion)
 	return g.hasCompatibleVersion(DefaultKerberosSupportedVersion, eventMsg)
 }
 
@@ -657,10 +653,7 @@ func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Resu
 // requeue bool set.
 func (g *GenericDatabaseInitializer) hasCompatibleVersionForServerSideEncryption() ctrl.Result {
 	const DefaultSseSupportedVersion = "v12.0.1"
-	// The '%s' are placeholders for the version extracted from a vdb
-	// and the minimum version you must be on to setup server side encryption.
-	eventMsg := "The engine (%s) doesn't have the required change for server-side encryption. " +
-		"You must be on version %s or greater"
+	eventMsg := genUnsupportedVerticaVersionEventMsg("server side encryption", DefaultSseSupportedVersion)
 	return g.hasCompatibleVersion(DefaultSseSupportedVersion, eventMsg)
 }
 
@@ -671,7 +664,7 @@ func (g *GenericDatabaseInitializer) hasCompatibleVersion(supportedVersion, even
 	if !ok || ok && vinf.IsEqualOrNewer(supportedVersion) {
 		return ctrl.Result{}
 	}
-	g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion, eventMsg, vinf.VdbVer, supportedVersion)
+	g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion, eventMsg, vinf.VdbVer)
 	return ctrl.Result{Requeue: true}
 }
 
@@ -688,4 +681,12 @@ func genCommunalParmsMap(content string) map[string]string {
 		}
 	}
 	return parmNames
+}
+
+// genUnsupportedVerticaVersionEventMsg returns a string that will be used as
+// essage for 'UnsupportedVerticaVersion' event log.
+func genUnsupportedVerticaVersionEventMsg(feature, supportedVersion string) string {
+	// The '%s' is a placeholder for the version extracted from a vdb
+	prefix := "The engine (%s) doesn't have the required change to setup"
+	return fmt.Sprintf("%s %s. You must be on version %s or greater", prefix, feature, supportedVersion)
 }

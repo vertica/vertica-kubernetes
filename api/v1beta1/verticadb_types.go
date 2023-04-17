@@ -588,9 +588,9 @@ type CommunalStorage struct {
 	// Contains a map of server configuration parameters.
 	// To avoid duplicate values, if a parameter is already set through another CR field,
 	// (like S3ServerSideEncryption through communal.s3ServerSideEncryption), the corresponding
-	// key/value pair is skipped.
-	// These are set only during initial bootstrap. After the database has been initialized,
-	// changing the options in the CR will have no affect in the server.
+	// key/value pair is skipped. If a config value is set that isn't supported by the server version
+	// you are running, the server will fail to start. These are set only during initial bootstrap. After
+	// the database has been initialized, changing the options in the CR will have no affect in the server.
 	AdditionalConfig map[string]string `json:"additionalConfig,omitempty"`
 }
 
