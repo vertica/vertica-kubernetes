@@ -39,7 +39,6 @@ const (
 	S3WrongRegion                   = "S3WrongRegion"
 	S3SseCustomerWrongKey           = "S3SseCustomerWrongKey"
 	InvalidS3SseCustomerKey         = "InvalidS3SseCustomerKey"
-	AdditionalConfigParmIgnored     = "AdditionalConfigParmIgnored"
 	InvalidConfigParm               = "InvalidConfigParm"
 	CommunalPathIsNotEmpty          = "CommunalPathIsNotEmpty"
 	RemoveNodesStart                = "RemoveNodesStart"
