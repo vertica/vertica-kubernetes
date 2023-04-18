@@ -144,8 +144,10 @@ COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
+  && [[ ${NO_KEYS^^} == YES ]] || also_install="vim-tiny" \
   # update needed because we just did a clean
   && apt-get -y update \
+  # install vim except in the -nokeys image
   && apt-get install -y --no-install-recommends \
   ca-certificates \
   cron \
@@ -165,7 +167,7 @@ RUN set -x \
   procps \
   sysstat \
   sudo \
-  vim-tiny \
+  ${also_install} \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
