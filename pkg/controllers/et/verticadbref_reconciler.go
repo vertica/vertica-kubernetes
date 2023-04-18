@@ -81,7 +81,10 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 				// Kick off the job
 				job := batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: r.Et.Spec.Template.Metadata.Name,
+						Name:         r.Et.Spec.Template.Metadata.Name,
+						GenerateName: r.Et.Spec.Template.Metadata.GenerateName,
+						Labels:       r.Et.Spec.Template.Metadata.Labels,
+						Annotations:  r.Et.Spec.Template.Metadata.Annotations,
 					},
 					Spec: r.Et.Spec.Template.Spec,
 				}
@@ -92,9 +95,14 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 
 				// Update status to fill in JobName,JobNamespace
 				refStatus := vapi.ETRefObjectStatus{
-					Kind:         ref.Object.Kind,
-					JobNamespace: r.Et.Namespace,
-					JobName:      job.Name,
+					APIVersion:      ref.Object.APIVersion,
+					Namespace:       ref.Object.Namespace,
+					Name:            ref.Object.Name,
+					Kind:            ref.Object.Kind,
+					ResourceVersion: r.Et.ResourceVersion,
+					UID:             string(r.Et.GetUID()),
+					JobNamespace:    r.Et.Namespace,
+					JobName:         job.Name,
 				}
 				if err := etstatus.Apply(ctx, r.VRec.Client, r.Et, &refStatus); err != nil {
 					return ctrl.Result{}, err
