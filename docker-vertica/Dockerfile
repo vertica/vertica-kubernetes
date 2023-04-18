@@ -144,10 +144,10 @@ COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
+  # install vim except in the -nokeys image
   && [[ ${NO_KEYS^^} == YES ]] || also_install="vim-tiny" \
   # update needed because we just did a clean
   && apt-get -y update \
-  # install vim except in the -nokeys image
   && apt-get install -y --no-install-recommends \
   ca-certificates \
   cron \
