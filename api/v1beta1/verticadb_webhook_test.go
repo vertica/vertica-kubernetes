@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -84,6 +84,58 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Communal.Endpoint = "s3://minio"
 		validateSpecValuesHaveErr(vdb, true)
 	})
+	It("should not have invalid server-side encryption type", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.S3ServerSideEncryption = "fakessetype"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+	It("should have s3SseKmsKeyId set when server-side encryption type is SSE-KMS", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.S3ServerSideEncryption = SseKMS
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{
+			S3SseKmsKeyID: "",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Communal.AdditionalConfig[S3SseKmsKeyID] = "randomid"
+		validateSpecValuesHaveErr(vdb, false)
+	})
+	It("should have s3SseCustomerKeySecret set when server-side encryption type is SSE-C", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.S3ServerSideEncryption = SseC
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Communal.S3SseCustomerKeySecret = "ssecustomersecret"
+		validateSpecValuesHaveErr(vdb, false)
+	})
+	It("should succeed when server-side encryption type is SSE-S3", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.S3ServerSideEncryption = SseS3
+		validateSpecValuesHaveErr(vdb, false)
+	})
+	It("should skip sse validation if communal storage is not s3 or sse type is not specified", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.S3ServerSideEncryption = ""
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Communal.S3ServerSideEncryption = "faketype"
+		vdb.Spec.Communal.Path = GCloudPrefix + "randompath"
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should not have duplicate parms in communal.AdditionalConfig", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{
+			"awsauth":     "xxxx:xxxx",
+			"awsendpoint": "s3.amazonaws.com",
+			"AWSauth":     "xxxx:xxxx",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{
+			"awsauth":     "xxxx:xxxx",
+			"awsendpoint": "s3.amazonaws.com",
+		}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 	It("should have invalid subcluster name", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
@@ -93,7 +145,7 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not have invalid subcluster name", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
-		sc.Name = "default_subcluster"
+		sc.Name = "defaultsubcluster_"
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should be allowed to have empty credentialsecret", func() {
@@ -270,6 +322,14 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.Communal.Endpoint = "https://minio"
 		validateImmutableFields(vdbUpdate, true)
 	})
+	It("should not change communal.endpoint after creation", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.S3ServerSideEncryption = SseS3
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Spec.Communal.S3ServerSideEncryption = SseKMS
+		allErrs := vdb.validateImmutableFields(vdbUpdate)
+		Expect(allErrs).ShouldNot(BeNil())
+	})
 	It("should not change local.storageClass after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.StorageClass = "MyStorageClass"
@@ -291,6 +351,19 @@ var _ = Describe("verticadb_webhook", func() {
 		})
 		allErrs := vdb.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).ShouldNot(BeNil())
+	})
+
+	It("should not have two or more subclusters whose names only differ by `-` and `_`", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
+			Name: "default_subcluster",
+			Size: 3,
+		})
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
+			Name: "default-subcluster",
+			Size: 3,
+		})
+		validateSpecValuesHaveErr(vdb, true)
 	})
 
 	It("should only allow certain values for initPolicy", func() {

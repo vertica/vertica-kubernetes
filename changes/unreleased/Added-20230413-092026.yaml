@@ -1,0 +1,5 @@
+kind: Added
+body: Allow any vertica server config parameter to be set in the CR
+time: 2023-04-13T09:20:26.290113445-03:00
+custom:
+  Issue: "372"

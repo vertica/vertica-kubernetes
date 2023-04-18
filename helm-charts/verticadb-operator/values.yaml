@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# (c) Copyright [2021-2023] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -26,12 +26,12 @@
 
 image:
   repo: docker.io
-  name: vertica/verticadb-operator:1.10.1
+  name: vertica/verticadb-operator:1.11.0
   pullPolicy: IfNotPresent
 
 rbac_proxy_image:
   repo: gcr.io
-  name: kubebuilder/kube-rbac-proxy:v0.13.0
+  name: kubebuilder/kube-rbac-proxy:v0.13.1
 
 imagePullSecrets: null
 
@@ -119,14 +119,19 @@ resources:
 # the default service account name.
 serviceAccountNameOverride: ""
 
-# Set this to true to force the helm chart to skip creation of any Roles and
-# RoleBindings. This can only be used when the ServiceAccount already exists,
-# so it expects serviceAccountNameOverride to have been used. 
+# Set this to true to force the helm chart to skip creation of any Roles,
+# RoleBindings and ServiceAccount. This assumes that the roles that the
+# operator relies on have been setup outside of this helm chart.
 #
 # Use this option if you are installing the helm chart with k8s privileges that
 # prevent you from creating Roles/RoleBindings. We provide the Roles and
-# RoleBindings that the operator needs as a artifact of the GitHub release (see
-# https://github.com/vertica/vertica-kubernetes/releases).
+# RoleBindings that the operator needs as a artifact of the GitHub release. For
+# instance, have your cluster admin run this against the namespace you
+# want to deploy the operator in:
+# kubectl apply -n <namespace> -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/operator-rbac.yaml
+#
+# See this for more info:
+# https://docs.vertica.com/12.0.x/en/containerized/db-operator/installing-db-operator/#granting-operator-privileges
 skipRoleAndRoleBindingCreation: false
 
 # Add specific node selector labels to control where the server pod is scheduled.

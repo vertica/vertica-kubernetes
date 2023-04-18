@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -590,7 +590,10 @@ func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
 			return fmt.Errorf("failed running '%s': %w", q, err)
 		}
 
-		if !vapi.IsValidSubclusterName(name) {
+		sc := &vapi.Subcluster{
+			Name: name,
+		}
+		if !vapi.IsValidSubclusterName(sc.GenCompatibleFQDN()) {
 			return fmt.Errorf("subcluster names are included in the name of statefulsets, but the name "+
 				"'%s' cannot be used as it will violate Kubernetes naming.  Please rename the subcluster and "+
 				"retry this command again", name)

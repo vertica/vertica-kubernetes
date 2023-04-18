@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lithammer/dedent"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
@@ -29,6 +30,10 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+const testS3SseCustomerKeySecret = "ssec-secret"
+const testS3SseKmsKeyID = "fakeid"
+const testSseVerticaOlderVersion = "v12.0.0"
 
 var _ = Describe("init_db", func() {
 	ctx := context.Background()
@@ -220,6 +225,141 @@ var _ = Describe("init_db", func() {
 
 	})
 
+	It("should create auth file with S3 server-side encryption SSE-S3", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		cmds := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(SseAlgorithmAWSKMS))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(SseAlgorithmAES256))
+	})
+
+	It("should create auth file with S3 server-side encryption SSE-KMS", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseKMS
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		cmds := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
+		Expect(len(cmds[0].Command)).Should(Equal(3))
+		Expect(cmds[0].Command[2]).Should(ContainSubstring(SseAlgorithmAWSKMS))
+		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(SseAlgorithmAES256))
+	})
+
+	It("should be able to read the sse-c clientkey from secret", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseC
+		vdb.Spec.Communal.S3SseCustomerKeySecret = testS3SseCustomerKeySecret
+		createS3SseCustomerKeySecret(ctx, vdb)
+		defer deleteS3SseCustomerKeySecret(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:    vdbRec,
+			Log:     logger,
+			Vdb:     vdb,
+			PRunner: fpr,
+		}
+		Expect(g.getS3SseCustomerKey(ctx)).Should(Equal(fmt.Sprintf("%s = %s", S3SseCustomerKey, testClientKey)))
+	})
+
+	It("should create auth file with S3 server-side encryption SSE-C", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseC
+		vdb.Spec.Communal.S3SseCustomerKeySecret = testS3SseCustomerKeySecret
+		createS3CredSecret(ctx, vdb)
+		createS3SseCustomerKeySecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+		defer deleteS3SseCustomerKeySecret(ctx, vdb)
+
+		_ = contructAuthParmsHelper(ctx, vdb, fmt.Sprintf("%s = %s", S3SseCustomerAlgorithm, SseAlgorithmAES256))
+	})
+
+	It("should include sseKmsKeyId when S3 server-side encryption is SSE-KMS", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseKMS
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{}
+		vdb.Spec.Communal.AdditionalConfig[vapi.S3SseKmsKeyID] = testS3SseKmsKeyID
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		_ = contructAuthParmsHelper(ctx, vdb, fmt.Sprintf("%s = %s", vapi.S3SseKmsKeyID, testS3SseKmsKeyID))
+	})
+
+	It("should requeue if trying to use S3 server-side encryption but have an older engine version", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
+		// Setting this annotation will set the version in the vdb.  The version
+		// was picked because it isn't compatible with server-side encryption.
+		vdb.Annotations[vapi.VersionAnnotation] = testSseVerticaOlderVersion
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:    vdbRec,
+			Log:     logger,
+			Vdb:     vdb,
+			PRunner: fpr,
+		}
+
+		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		res, err := g.ConstructAuthParms(ctx, atPod)
+		ExpectWithOffset(1, err).Should(Succeed())
+		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
+	})
+
+	It("should return correct parm/algorithm when calling getServerSideEncryptionAlgorithm", func() {
+		vdb := vapi.MakeVDB()
+
+		g := GenericDatabaseInitializer{
+			Vdb: vdb,
+		}
+		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
+		Expect(g.getServerSideEncryptionAlgorithm()).Should(Equal(fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAES256)))
+		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseKMS
+		Expect(g.getServerSideEncryptionAlgorithm()).Should(Equal(fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAWSKMS)))
+		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseC
+		Expect(g.getServerSideEncryptionAlgorithm()).Should(Equal(fmt.Sprintf("%s = %s", S3SseCustomerAlgorithm, SseAlgorithmAES256)))
+	})
+
+	It("should return additional server config parms in string format", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{
+			"Parm1": "parm1",
+		}
+
+		g := GenericDatabaseInitializer{
+			VRec: vdbRec,
+			Vdb:  vdb,
+		}
+		result := "Parm1 = parm1\n"
+		content := g.getAdditionalConfigParmsContent("")
+		Expect(content).Should(Equal(result))
+	})
+
+	It("should skip additional config parm if already present", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.AdditionalConfig = map[string]string{
+			"Parm1": "parm1",
+			"Parm2": "parm2",
+		}
+
+		g := GenericDatabaseInitializer{
+			VRec: vdbRec,
+			Vdb:  vdb,
+			Log:  logger,
+		}
+		content := dedent.Dedent(`
+			Parm1 = value
+		`)
+		result := "Parm2 = parm2\n"
+		content = g.getAdditionalConfigParmsContent(content)
+		Expect(content).Should(Equal(result))
+	})
 })
 
 func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {

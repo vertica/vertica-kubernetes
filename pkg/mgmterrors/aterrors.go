@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -85,6 +85,16 @@ func (a *ATErrors) LogFailure(cmd, op string, err error) (ctrl.Result, error) {
 			"You are trying to access your S3 bucket using the wrong region")
 		return ctrl.Result{Requeue: true}, nil
 
+	case isConfigParmWrong(op):
+		a.Writer.Event(a.VDB, corev1.EventTypeWarning, events.InvalidConfigParm,
+			"Invalid communal storage parameter")
+		return ctrl.Result{Requeue: true}, nil
+
+	case isS3SseCustomerKeyInvalid(op):
+		a.Writer.Event(a.VDB, corev1.EventTypeWarning, events.InvalidS3SseCustomerKey,
+			"Invalid key: should be either 32-character plaintext or 44-character base64-encoded")
+		return ctrl.Result{Requeue: true}, nil
+
 	case isKerberosAuthError(op):
 		a.Writer.Event(a.VDB, corev1.EventTypeWarning, events.KerberosAuthError,
 			"Error during keberos authentication")
@@ -161,6 +171,19 @@ func isWrongRegion(op string) bool {
 func isKerberosAuthError(op string) bool {
 	re := regexp.MustCompile(`An error occurred during kerberos authentication`)
 	return re.FindAllString(op, -1) != nil
+}
+
+// isConfigParmWrong will check the error to see if an  invalid parameter was passed to `auth_parms.conf`
+func isConfigParmWrong(op string) bool {
+	rs := `Invalid configuration parameter .*; aborting configuration change`
+	re := regexp.MustCompile(rs)
+	return re.FindAllString(op, -1) != nil
+}
+
+// isS3SseCustomerKeyInvalid will check the error to see if S3SseCustomerKey is
+// invalid(wrong format)
+func isS3SseCustomerKeyInvalid(op string) bool {
+	return strings.Contains(op, "Invalid S3SseCustomerKey")
 }
 
 // isClusterLeaseNotExpired will look at the AT output to see if the revive

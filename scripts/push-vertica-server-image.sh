@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# (c) Copyright [2021-2023] Micro Focus or one of its affiliates.
+# (c) Copyright [2021-2023] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -65,10 +65,12 @@ PUB_CE_IMAGE=vertica-ce
 logInfo "Pulling from private repo"
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal
+logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-nokeys
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_CE_IMAGE:$VERSION
 logInfo "Retag for public repo"
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION $PUB_REPO/$PUB_K8S_IMAGE:$VERSION
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-minimal
+logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-nokeys $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-nokeys
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal $PUB_REPO/$PUB_K8S_IMAGE:latest
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_CE_IMAGE:$VERSION $PUB_REPO/$PUB_CE_IMAGE:$VERSION
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_CE_IMAGE:$VERSION $PUB_REPO/$PUB_CE_IMAGE:latest
@@ -77,6 +79,7 @@ then
     logInfo "Push to public repo"
     logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:$VERSION
     logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-minimal
+    logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-nokeys
     logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:latest
     logAndRunCommand docker push $PUB_REPO/$PUB_CE_IMAGE:$VERSION
     logAndRunCommand docker push $PUB_REPO/$PUB_CE_IMAGE:latest

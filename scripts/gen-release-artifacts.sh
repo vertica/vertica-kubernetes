@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# (c) Copyright [2021-2023] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -64,9 +64,7 @@ for f in verticadb-operator-controller-manager-sa.yaml \
     verticadb-operator-leader-election-role-role.yaml \
     verticadb-operator-manager-role-role.yaml \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
-    verticadb-operator-manager-rolebinding-rb.yaml \
-    verticadb-operator-manager-clusterrolebinding-crb.yaml \
-    verticadb-operator-manager-role-cr.yaml
+    verticadb-operator-manager-rolebinding-rb.yaml
 do
     cat $MANIFEST_DIR/$f >> $OPERATOR_RBAC
     echo "---" >> $OPERATOR_RBAC

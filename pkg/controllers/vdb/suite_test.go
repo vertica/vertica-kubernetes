@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -205,6 +205,7 @@ func createPodFactsWithAgentNotRunning(ctx context.Context, vdb *vapi.VerticaDB,
 
 const testAccessKey = "dummy"
 const testSecretKey = "dummy"
+const testClientKey = "dummy"
 
 func createS3CredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
 	secret := builder.BuildS3CommunalCredSecret(vdb, testAccessKey, testSecretKey)
@@ -221,8 +222,17 @@ func createAzureSASCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 
+func createS3SseCustomerKeySecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	secret := builder.BuildS3SseCustomerKeySecret(vdb, testClientKey)
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
 func deleteCommunalCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
 	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
+}
+
+func deleteS3SseCustomerKeySecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	deleteSecret(ctx, vdb, vdb.Spec.Communal.S3SseCustomerKeySecret)
 }
 
 func deleteSecret(ctx context.Context, vdb *vapi.VerticaDB, secretName string) {

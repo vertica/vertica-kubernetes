@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -175,7 +175,7 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, watchNamespace); err != nil {
 				return err
 			}
-		} else {
+		} else if !oc.SkipWebhookPatch {
 			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
 				oc.PrefixName, watchNamespace); err != nil {
 				return err

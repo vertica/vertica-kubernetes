@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -39,7 +39,7 @@ func NewSelfSignedCACertificate(keySize int) (Certificate, error) {
 	caCrt := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			Organization: []string{"Micro Focus"}, Country: []string{"US"}, OrganizationalUnit: []string{"Vertica"}, CommonName: "rootca",
+			Organization: []string{"Open Text"}, Country: []string{"US"}, OrganizationalUnit: []string{"Vertica"}, CommonName: "rootca",
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(10 * 365 * 24 * time.Hour),
@@ -80,7 +80,7 @@ func NewCertificate(ca Certificate, keySize int, commonName string, dnsNames []s
 	crt := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			Organization:       []string{"Micro Focus"},
+			Organization:       []string{"Open Text"},
 			Country:            []string{"US"},
 			OrganizationalUnit: []string{"Vertica"},
 			CommonName:         commonName,
