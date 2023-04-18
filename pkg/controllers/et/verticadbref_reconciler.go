@@ -41,9 +41,9 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 }
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.Request) (reconcile.Result, error) {
-	for _, reference := range r.Et.Spec.References {
-		if reference.Object.Kind != "VerticaDB" {
-			err := fmt.Errorf("unexpected type: %s", reference.Object.Kind)
+	for _, ref := range r.Et.Spec.References {
+		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
+			err := fmt.Errorf("unexpected type or version: %s, %s", ref.Object.Kind, ref.Object.APIVersion)
 			r.VRec.Log.Error(err, "checking for reference")
 			return ctrl.Result{}, err
 		}
@@ -52,7 +52,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.R
 
 		nm := types.NamespacedName{
 			Namespace: r.Et.Namespace,
-			Name:      reference.Object.Name,
+			Name:      ref.Object.Name,
 		}
 
 		if err := r.VRec.Client.Get(ctx, nm, vdb); err != nil {
@@ -86,7 +86,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.R
 
 				// Update status to fill in JobName,JobNamespace
 				refStatus := vapi.ETRefObjectStatus{
-					Kind:         reference.Object.Kind,
+					Kind:         ref.Object.Kind,
 					JobNamespace: r.Et.Namespace,
 					JobName:      job.Name,
 				}
