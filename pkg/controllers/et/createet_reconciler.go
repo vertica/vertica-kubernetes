@@ -31,16 +31,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type CreateETReconciler struct {
+type VerticaDBRefReconciler struct {
 	VRec *EventTriggerReconciler
 	Et   *vapi.EventTrigger
 }
 
-func MakeCreateETReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger) controllers.ReconcileActor {
-	return &CreateETReconciler{VRec: r, Et: et}
+func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger) controllers.ReconcileActor {
+	return &VerticaDBRefReconciler{VRec: r, Et: et}
 }
 
-func (r *CreateETReconciler) Reconcile(ctx context.Context, req *reconcile.Request) (reconcile.Result, error) {
+func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.Request) (reconcile.Result, error) {
 	for _, reference := range r.Et.Spec.References {
 		if reference.Object.Kind != "VerticaDB" {
 			err := fmt.Errorf("unexpected type: %s", reference.Object.Kind)

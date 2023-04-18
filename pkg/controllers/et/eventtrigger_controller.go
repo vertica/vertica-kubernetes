@@ -159,6 +159,6 @@ func (r *EventTriggerReconciler) findObjectsForVerticaDB(vdb client.Object) []re
 func (r *EventTriggerReconciler) constructActors(et *vapi.EventTrigger) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile an et.
 	return []controllers.ReconcileActor{
-		MakeCreateETReconciler(r, et),
+		MakeVerticaDBRefReconciler(r, et),
 	}
 }
