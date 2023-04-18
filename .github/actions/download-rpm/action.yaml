@@ -7,5 +7,7 @@ runs:
       shell: bash
       env:
           VERTICA_CE_URL: "https://vertica-community-edition-for-testing.s3.amazonaws.com/XCz9cp7m/vertica-12.0.3-0.x86_64.RHEL6.rpm"
+          DBLINK_URL: "https://github.com/vertica/dblink/releases/download/v0.2.1/ldblink.so.ubuntu-v12.0.4"
       run: |
         curl $VERTICA_CE_URL -o docker-vertica/packages/vertica-x86_64.RHEL6.latest.rpm
+        curl $DBLINK_URL -o docker-vertica/packages/ldblink.so

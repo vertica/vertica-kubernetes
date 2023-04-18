@@ -78,6 +78,8 @@ RUN set -x \
 # then the next RUN will remove the key we just added.
 COPY dbadmin/.ssh /home/dbadmin/.ssh
 
+COPY packages/ldblink.so /opt/vertica/packages/ldblink.so
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && mkdir -p /root/.ssh \
@@ -167,6 +169,7 @@ RUN set -x \
   procps \
   sysstat \
   sudo \
+  unixodbc-dev \
   ${also_install} \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
