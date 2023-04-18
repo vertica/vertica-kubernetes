@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -46,7 +46,7 @@ const (
 	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	OperatorName         = "verticadb-operator" // The name of the operator
 
-	CurOperatorVersion = "1.10.1" // The version number of the operator
+	CurOperatorVersion = "1.11.0" // The version number of the operator
 	// If any of the operator versions are used in the code, add a const here.
 	// But it isn't necessary to create a const for each version.
 	OperatorVersion100 = "1.0.0"

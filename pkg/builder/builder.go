@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -870,6 +870,22 @@ func BuildAzureSASCommunalCredSecret(vdb *vapi.VerticaDB, blobEndpoint, sas stri
 		Data: map[string][]byte{
 			cloud.AzureBlobEndpoint:          []byte(blobEndpoint),
 			cloud.AzureSharedAccessSignature: []byte(sas),
+		},
+	}
+	return secret
+}
+
+// BuildS3SseCustomerKeySecret is a test helper that builds a secret that is setup for
+// S3 SSE-C server-side encryption
+func BuildS3SseCustomerKeySecret(vdb *vapi.VerticaDB, clientKey string) *corev1.Secret {
+	nm := names.GenS3SseCustomerKeySecretName(vdb)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+		},
+		StringData: map[string]string{
+			cloud.S3SseCustomerKeyName: clientKey,
 		},
 	}
 	return secret

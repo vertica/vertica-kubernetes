@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -124,6 +124,19 @@ Call stack:\r
 			tw := TestEVWriter{}
 			evlogr := MakeATErrors(&tw, vdb, events.ReviveDBFailed)
 			Expect(evlogr.LogFailure("revive_db", errStrings[i], fmt.Errorf("error"))).Should(Equal(ctrl.Result{Requeue: true}))
+		}
+	})
+
+	It("should generate a requeue error for various comunal storage parameters", func() {
+		vdb := vapi.MakeVDB()
+		errStrings := []string{
+			"Initialization thread logged exception:\\nInvalid configuration parameter wrongparm; aborting configuration change",
+			"Initialization thread logged exception:\\nInvalid S3SseCustomerKey: key",
+		}
+		for i := range errStrings {
+			tw := TestEVWriter{}
+			evlogr := MakeATErrors(&tw, vdb, events.CreateDBFailed)
+			Expect(evlogr.LogFailure("create_db", errStrings[i], fmt.Errorf("error"))).Should(Equal(ctrl.Result{Requeue: true}))
 		}
 	})
 })

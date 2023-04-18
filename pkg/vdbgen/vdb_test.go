@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -427,7 +427,7 @@ var _ = Describe("vdb", func() {
 
 		dbGen := DBGenerator{Conn: db}
 
-		for _, name := range []string{"default_subcluster", "scCapital", "sc!bang", "sc-"} {
+		for _, name := range []string{"scCapital", "sc!bang", "sc-"} {
 			mock.ExpectQuery(Queries[SubclusterQueryKey]).
 				WillReturnRows(sqlmock.NewRows([]string{"node_name", "location_path"}).AddRow(name, true))
 

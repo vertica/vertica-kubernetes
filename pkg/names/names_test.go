@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -39,6 +39,19 @@ var _ = Describe("k8s/names", func() {
 		vdb.Spec.Subclusters[0].Name = "my-sc"
 		Ω(GenPodName(vdb, &vdb.Spec.Subclusters[0], 9)).Should(Equal(
 			types.NamespacedName{Namespace: "my-ns", Name: "name-test-my-sc-9"},
+		))
+	})
+
+	It("subcluster and external service generated names should not contain `_`", func() {
+		vdb := vapi.MakeVDB()
+		vdb.ObjectMeta.Name = "v"
+		vdb.ObjectMeta.Namespace = "v-ns"
+		vdb.Spec.Subclusters[0].Name = "my_sc"
+		Ω(GenStsName(vdb, &vdb.Spec.Subclusters[0])).Should(Equal(
+			types.NamespacedName{Namespace: "v-ns", Name: "v-my-sc"},
+		))
+		Ω(GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])).Should(Equal(
+			types.NamespacedName{Namespace: "v-ns", Name: "v-my-sc"},
 		))
 	})
 })

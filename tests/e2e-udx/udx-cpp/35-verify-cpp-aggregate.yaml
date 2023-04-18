@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+# (c) Copyright [2021-2023] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -24,9 +24,24 @@ data:
     POD_NAME=v-udx-cpp-sc1-0
     UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f AggregateFunctions.sql 2>&1")
     echo "$UDX_OP"
+    # Get the vertica version so we pick the correct expected output that lines up with the version
+    MAJOR=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$1\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
+    MINOR=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$2\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
+    PATCH=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$3\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
+    # In 23.3, we changed the aggregate examples. However, the nightly build
+    # still reports 12.0.4. And we have no way of knowing if it's really 23.3 or
+    # 12.0.4. So, we'll just stop running the test if it's 12.0.4. We need to come
+    # back to this and pick the proper exp file.
+    if [ "$MAJOR" -ge 12 ] && [ "$MINOR" -ge 0 ] && [ "$PATCH" -ge 3 ]
+    then
+      exit 0
+    else
+      EXP=/opt/vertica/sdk/examples/expected-outputs/12.0.3/AggregateFunctionsOut.txt
+    fi
+
     # the row orders in the output might be unstable, so sort the entire output and then compare
-    kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - /opt/vertica/sdk/examples/expected-outputs/AggregateFunctionsOut.txt" \
-    || kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples/expected-outputs; sort ./AggregateFunctionsOut.txt > ./AggregateFunctionsOutSorted.txt; \
+    kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - $EXP" \
+    || kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples/expected-outputs; sort $EXP > ./AggregateFunctionsOutSorted.txt; \
     echo \"$UDX_OP\" | sort | diff - /opt/vertica/sdk/examples/expected-outputs/AggregateFunctionsOutSorted.txt"
 ---
 apiVersion: v1

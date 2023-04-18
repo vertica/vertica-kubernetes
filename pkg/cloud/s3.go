@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2022] Micro Focus or one of its affiliates.
+ (c) Copyright [2021-2023] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -22,6 +22,9 @@ const (
 	CommunalAccessKeyName = "accesskey"
 	// The name of the key in the communal credential secret that holds the secret key
 	CommunalSecretKeyName = "secretkey"
+	// The name of the key in the sseCustomerKey secret that holds the client key for S3 access
+	// if using SSE-C encryption
+	S3SseCustomerKeyName = "clientKey"
 )
 
 // IsEndpointBadError returns true if the given message text has the message aboud a bad endpoint

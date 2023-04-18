@@ -1,0 +1,48 @@
+# (c) Copyright [2021-2023] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # Setup the namespace for the operator
+  - script: kubectl apply -n $NAMESPACE -f ../../../config/release-manifests/operator-rbac.yaml
+  # Install the CRDs
+  - command: sh -c "cd ../../.. && make install"
+---
+# Give user 'fred' general access to edit things inside its namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fred-cluster-access
+subjects:
+- kind: User
+  name: fred
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io
+---
+# Give user 'fred' ability to read/modify the CR
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fred-vdb-access
+subjects:
+- kind: User
+  name: fred
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: verticadb-operator-manager-role
+  apiGroup: rbac.authorization.k8s.io
