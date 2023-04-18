@@ -62,17 +62,21 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.R
 			return ctrl.Result{}, err
 		}
 
-		if len(vdb.Status.Conditions) <= vapi.DBInitializedIndex {
-			return ctrl.Result{}, nil
-		}
-
 		for _, match := range r.Et.Spec.Matches {
-			if vdb.Status.Conditions[vapi.DBInitializedIndex].Status == match.Condition.Status {
+			// Grab the condition based on what was given.
+			conditionTypeIndex := vapi.VerticaDBConditionIndexMap[match.Condition.Type]
+
+			if len(vdb.Status.Conditions) <= conditionTypeIndex {
+				return ctrl.Result{}, nil
+			}
+
+			if vdb.Status.Conditions[conditionTypeIndex].Status == match.Condition.Status {
 				// Check if job already created.
 				if r.Et.Status.References != nil {
 					return ctrl.Result{}, nil
 				}
 
+				// Kick off the job
 				job := batchv1.Job{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: r.Et.Spec.Template.Metadata.Name,
