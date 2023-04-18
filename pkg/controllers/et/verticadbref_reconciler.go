@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type VerticaDBRefReconciler struct {
@@ -40,12 +39,10 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 	return &VerticaDBRefReconciler{VRec: r, Et: et}
 }
 
-func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.Request) (reconcile.Result, error) {
+func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	for _, ref := range r.Et.Spec.References {
 		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
-			err := fmt.Errorf("unexpected type or version: %s, %s", ref.Object.Kind, ref.Object.APIVersion)
-			r.VRec.Log.Error(err, "checking for reference")
-			return ctrl.Result{}, err
+			continue
 		}
 
 		vdb := &vapi.VerticaDB{}
@@ -57,23 +54,28 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.R
 
 		if err := r.VRec.Client.Get(ctx, nm, vdb); err != nil {
 			if errors.IsNotFound(err) {
-				return ctrl.Result{}, nil
+				continue
 			}
+
 			return ctrl.Result{}, err
 		}
 
 		for _, match := range r.Et.Spec.Matches {
 			// Grab the condition based on what was given.
-			conditionTypeIndex := vapi.VerticaDBConditionIndexMap[match.Condition.Type]
+			conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
+			conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
+			if !ok {
+				return ctrl.Result{}, fmt.Errorf("vertica DB condition '%s' missing from VerticaDBConditionType", conditionType)
+			}
 
 			if len(vdb.Status.Conditions) <= conditionTypeIndex {
-				return ctrl.Result{}, nil
+				continue
 			}
 
 			if vdb.Status.Conditions[conditionTypeIndex].Status == match.Condition.Status {
 				// Check if job already created.
 				if r.Et.Status.References != nil {
-					return ctrl.Result{}, nil
+					continue
 				}
 
 				// Kick off the job
@@ -101,7 +103,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *reconcile.R
 				r.VRec.Log.Info(
 					"status was not met",
 					"expected", match.Condition.Status,
-					"found", vdb.Status.Conditions[vapi.DBInitializedIndex].Status,
+					"found", vdb.Status.Conditions[conditionTypeIndex].Status,
 				)
 			}
 		}
