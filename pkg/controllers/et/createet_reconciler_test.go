@@ -28,18 +28,14 @@ import (
 var _ = Describe("createet_reconciler", func() {
 	ctx := context.Background()
 
-	It("should reconcile an EventTrigger with no errors if reference object doesn't exist", func() {
-		vdb := vapi.MakeVDB() // Intentionally not creating it as we want the reconcile to be a no-op
+	It("should reject objects types other than VerticaDB", func() {
 		et := vapi.MakeET()
-		et.Spec.References[0] = *makeETRefObjectOfVDB(vdb)
+		et.Spec.References[0].Object.Kind = "Pod"
+
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 
-		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
-	})
-
-	It("should reconcile an EventTrigger with no errors if ET doesn't exist", func() {
-		et := vapi.MakeET()
-		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+		_, err := etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})
+		Expect(err).ShouldNot(Succeed())
 	})
 })
