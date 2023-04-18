@@ -16,6 +16,8 @@ kind: TestStep
 delete:
   - apiVersion: vertica.com/v1beta1
     kind: VerticaDB
+  - apiVersion: vertica.com/v1beta1
+    kind: EventTrigger
   - apiVersion: v1
     kind: Secret
     name: http-server-tls-copy

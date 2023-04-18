@@ -11,29 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/managed-by: verticadb-operator
----
 apiVersion: vertica.com/v1beta1
-kind: VerticaDB
----
-apiVersion: v1
-kind: Secret
+kind: EventTrigger
 metadata:
-  labels:
-    app.kubernetes.io/name: vertica
-    app.kubernetes.io/component: database
-    vertica.com/database: vertdb
-    app.kubernetes.io/instance: v-http-generated-certs
+  name: hello-world
+status:
+  references:
+  - apiVersion: vertica.com/v1beta1
+    kind: VerticaDB
+    name: v-non-cluster-admin-deployment
+    jobName: hello-world
 ---
 apiVersion: batch/v1
 kind: Job
----
-apiVersion: vertica.com/v1beta1
-kind: EventTrigger
+metadata:
+  name: hello-world
+status:
+  succeeded: 1

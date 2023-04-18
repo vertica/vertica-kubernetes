@@ -11,29 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app.kubernetes.io/managed-by: verticadb-operator
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
----
-apiVersion: v1
-kind: Secret
-metadata:
-  labels:
-    app.kubernetes.io/name: vertica
-    app.kubernetes.io/component: database
-    vertica.com/database: vertdb
-    app.kubernetes.io/instance: v-http-generated-certs
----
 apiVersion: batch/v1
 kind: Job
----
-apiVersion: vertica.com/v1beta1
-kind: EventTrigger
+metadata:
+  name: test-query-nodes
+  labels:
+    event-trigger-name: query-nodes
+    stern: include
+  annotations:
+    test-name: revivedb-1-node
+status:
+  succeeded: 1

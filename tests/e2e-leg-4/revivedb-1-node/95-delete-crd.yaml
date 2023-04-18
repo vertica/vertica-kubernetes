@@ -18,5 +18,7 @@ delete:
     kind: VerticaDB
   - apiVersion: v1
     kind: PersistentVolumeClaim
+  - apiVersion: vertica.com/v1beta1
+    kind: EventTrigger
 commands:
   - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "

@@ -11,6 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Create an EventTrigger well before the vdb is created. We should react to the
+# db init after the vdb is created and db is created.
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,30 +25,30 @@ data:
     set -o xtrace
 
     # In order to use the certs as authentication, the server needs to be setup to use tls.
-    kubectl exec -it svc/v-http-custom-certs-main -- vsql -c "CREATE AUTHENTICATION tls_auth METHOD 'tls' HOST TLS '0.0.0.0/0'; GRANT AUTHENTICATION tls_auth TO PUBLIC;"
+    kubectl exec -it svc/v-http-generated-certs-sc -- vsql -w superuser -c "CREATE AUTHENTICATION tls_auth METHOD 'tls' HOST TLS '0.0.0.0/0'; GRANT AUTHENTICATION tls_auth TO PUBLIC;"
 ---
 apiVersion: vertica.com/v1beta1
 kind: EventTrigger
 metadata:
-  name: vdb-init
+  name: grant-tls-auth
 spec:
   references:
   - object:
       apiVersion: vertica.com/v1beta1
       kind: VerticaDB
-      name: v-http-custom-certs
+      name: v-http-generated-certs
   matches:
   - condition:
       type: DBInitialized
       status: "True"
   template:
     metadata:
-      name: test-grant-tls-auth
+      generateName: test-grant-tls-auth
       labels:
-        event-trigger-name: vdb-init
+        event-trigger-name: grant-tls-auth
         stern: include
       annotations:
-        test-name: http-custom-certs
+        test-name: http-generated-certs
     spec:
       template:
         spec:

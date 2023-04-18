@@ -14,38 +14,37 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-grant-tls-auth
+  name: script-query-nodes
 data:
   entrypoint.sh: |-
     #!/bin/bash
     set -o errexit
     set -o xtrace
 
-    # In order to use the certs as authentication, the server needs to be setup to use tls.
-    kubectl exec -it svc/v-http-custom-certs-main -- vsql -c "CREATE AUTHENTICATION tls_auth METHOD 'tls' HOST TLS '0.0.0.0/0'; GRANT AUTHENTICATION tls_auth TO PUBLIC;"
+    kubectl exec -it svc/v-revive-1-node-sc1 -- vsql -c "SELECT * FROM NODES;"
 ---
 apiVersion: vertica.com/v1beta1
 kind: EventTrigger
 metadata:
-  name: vdb-init
+  name: query-nodes
 spec:
   references:
   - object:
       apiVersion: vertica.com/v1beta1
       kind: VerticaDB
-      name: v-http-custom-certs
+      name: v-revive-1-node
   matches:
   - condition:
       type: DBInitialized
       status: "True"
   template:
     metadata:
-      name: test-grant-tls-auth
+      name: test-query-nodes
       labels:
-        event-trigger-name: vdb-init
+        event-trigger-name: query-nodes
         stern: include
       annotations:
-        test-name: http-custom-certs
+        test-name: revivedb-1-node
     spec:
       template:
         spec:
@@ -63,4 +62,4 @@ spec:
             - name: entrypoint-volume
               configMap:
                 defaultMode: 0777
-                name: script-grant-tls-auth
+                name: script-query-nodes

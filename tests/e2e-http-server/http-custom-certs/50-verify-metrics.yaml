@@ -11,11 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies external access through the service to the agent port 5444.  It
-# does this by invoking the REST API and doing basic sanity on what it
-# received.
-
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -35,31 +30,45 @@ data:
       grep -cq 'vertica_build_info' /tmp/curl.out && break
     done
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1beta1
+kind: EventTrigger
 metadata:
-  name: test-verify-metrics
-  labels:
-    stern: include
+  name: verify-metrics
 spec:
-  restartPolicy: Never
-  containers:
-    - name: test
-      image: bitnami/kubectl:1.20.4
-      command: ["/bin/entrypoint.sh"]
-      volumeMounts:
+  references:
+  - object:
+      apiVersion: vertica.com/v1beta1
+      kind: VerticaDB
+      name: v-http-custom-certs
+  matches:
+  - condition:
+      type: DBInitialized
+      status: "True"
+  template:
+    metadata:
+      generateName: test-verify-metrics
+      labels:
+        stern: include
+        event-trigger-name: test-verify-metrics
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: test
+          image: bitnami/kubectl:1.20.4
+          command: ["/bin/entrypoint.sh"]
+          volumeMounts:
+            - name: entrypoint-volume
+              mountPath: /bin/entrypoint.sh
+              readOnly: true
+              subPath: entrypoint.sh
+            - name: certs
+              mountPath: /certs
+      volumes:
         - name: entrypoint-volume
-          mountPath: /bin/entrypoint.sh
-          readOnly: true
-          subPath: entrypoint.sh
+          configMap:
+            defaultMode: 0777
+            name: script-verify-metrics
         - name: certs
-          mountPath: /certs
-  volumes:
-    - name: entrypoint-volume
-      configMap:
-        defaultMode: 0777
-        name: script-verify-metrics
-    - name: certs
-      secret:
-        secretName: custom-certs
-        defaultMode: 0777
+          secret:
+            secretName: custom-certs
+            defaultMode: 0777
