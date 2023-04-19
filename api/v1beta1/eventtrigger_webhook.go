@@ -18,7 +18,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -47,13 +52,25 @@ var _ webhook.Validator = &EventTrigger{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (e *EventTrigger) ValidateCreate() error {
 	eventtriggerlog.Info("validate create", "name", e.Name)
-	return nil
+
+	allErrs := e.validateVerticaDBRefSpec()
+	if allErrs == nil {
+		return nil
+	}
+
+	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: EventTriggerKind}, e.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (e *EventTrigger) ValidateUpdate(old runtime.Object) error {
 	eventtriggerlog.Info("validate update", "name", e.Name)
-	return nil
+
+	allErrs := e.validateVerticaDBRefSpec()
+	if allErrs == nil {
+		return nil
+	}
+
+	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: EventTriggerKind}, e.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -61,4 +78,37 @@ func (e *EventTrigger) ValidateDelete() error {
 	eventtriggerlog.Info("validate delete", "name", e.Name)
 
 	return nil
+}
+
+func (e *EventTrigger) validateVerticaDBRefSpec() field.ErrorList {
+	allErrs := e.validateVerticaDBReferences(field.ErrorList{})
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	return allErrs
+}
+
+func (e *EventTrigger) validateVerticaDBReferences(allErrs field.ErrorList) field.ErrorList {
+	for _, ref := range e.Spec.References {
+		if ref.Object.Kind != VerticaDBKind {
+			err := field.Invalid(
+				field.NewPath("spec").Child("reference").Child("object").Child("kind"),
+				ref.Object.Kind,
+				fmt.Sprintf("object.kind must be: %s", VerticaDBKind),
+			)
+			allErrs = append(allErrs, err)
+		}
+
+		if ref.Object.APIVersion != GroupVersion.String() {
+			err := field.Invalid(
+				field.NewPath("spec").Child("reference").Child("object").Child("apiVersion"),
+				ref.Object.APIVersion,
+				fmt.Sprintf("object.apiVersion must be: %s", GroupVersion.String()),
+			)
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
 }
