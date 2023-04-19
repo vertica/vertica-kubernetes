@@ -168,7 +168,7 @@ type ETRefObjectStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The uid of the reference object
-	UID string `json:"uid"`
+	UID types.UID `json:"uid"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// The last known resource version of the reference object

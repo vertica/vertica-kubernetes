@@ -100,7 +100,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 					Name:            ref.Object.Name,
 					Kind:            ref.Object.Kind,
 					ResourceVersion: r.Et.ResourceVersion,
-					UID:             string(r.Et.GetUID()),
+					UID:             r.Et.GetUID(),
 					JobNamespace:    r.Et.Namespace,
 					JobName:         job.Name,
 				}
