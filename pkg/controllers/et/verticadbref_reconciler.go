@@ -101,9 +101,9 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 					Namespace:       ref.Object.Namespace,
 					Name:            ref.Object.Name,
 					Kind:            ref.Object.Kind,
-					ResourceVersion: r.Et.ResourceVersion,
-					UID:             r.Et.GetUID(),
-					JobNamespace:    r.Et.Namespace,
+					ResourceVersion: vdb.ResourceVersion,
+					UID:             vdb.GetUID(),
+					JobNamespace:    job.Namespace,
 					JobName:         job.Name,
 				}
 				if err := etstatus.Apply(ctx, r.VRec.Client, r.Et, &refStatus); err != nil {
