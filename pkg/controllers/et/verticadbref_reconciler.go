@@ -40,6 +40,8 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 }
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+	log := r.VRec.Log.WithValues("et", req.NamespacedName)
+
 	for _, ref := range r.Et.Spec.References {
 		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
 			continue
@@ -65,7 +67,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 			conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
 			conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
 			if !ok {
-				return ctrl.Result{}, fmt.Errorf("vertica DB condition '%s' missing from VerticaDBConditionType", conditionType)
+				log.Info("reason", fmt.Sprintf("vertica DB condition %s missing from VerticaDBConditionType", match.Condition.Type))
 			}
 
 			if len(vdb.Status.Conditions) <= conditionTypeIndex {
