@@ -19,6 +19,9 @@
 
 TIMEOUT=30  # Default, can be overridden
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+source $SCRIPT_DIR/logging-utils.sh
+
 function usage() {
     echo "usage: $(basename $0) [-t <timeout>]"
     echo
@@ -47,6 +50,7 @@ done
 ERR_MSG="Init error message"
 
 START_TIME="$(date -u +%s)"
+logInfo "Begining cert-manager wait"
 while [[ $ERR_MSG != '' ]]; do
     END_TIME="$(date -u +%s)"
     ELAPSED="$(($END_TIME-$START_TIME))"
@@ -54,12 +58,15 @@ while [[ $ERR_MSG != '' ]]; do
         echo $START_TIME
         echo $END_TIME
         echo $ELAPSED
-        echo "Timed out waiting for cert-manager ready."
+        logError "Timed out waiting for cert-manager ready."
+        kubectl apply -f config/samples/test-cert-manager.yaml
         exit 1
     fi
     sleep 1
-    if kubectl apply -f config/samples/test-cert-manager.yaml 2>&1 1>/dev/null
+    if kubectl apply -f config/samples/test-cert-manager.yaml 2>/dev/null 1>/dev/null
     then
         break
     fi
 done
+logInfo "cert-manager is ready"
+exit 0
