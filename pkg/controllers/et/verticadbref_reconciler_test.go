@@ -29,7 +29,7 @@ import (
 var _ = Describe("createet_reconciler", func() {
 	ctx := context.Background()
 
-	It("should continue on objects types other than VerticaDB", func() {
+	It("should succeed with no-op on objects types other than VerticaDB", func() {
 		et := vapi.MakeET()
 		et.Spec.References[0].Object.Kind = "Pod"
 
@@ -39,7 +39,7 @@ var _ = Describe("createet_reconciler", func() {
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should continue on objects types other than VerticaDB APIVersion", func() {
+	It("should succeed with no-op on objects with unknown apiVersion", func() {
 		et := vapi.MakeET()
 		et.Spec.References[0].Object.APIVersion = "version"
 
@@ -49,7 +49,7 @@ var _ = Describe("createet_reconciler", func() {
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should continue when no VerticaDB is running", func() {
+	It("should succeed with no-op when no VerticaDB is running", func() {
 		et := vapi.MakeET()
 
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
@@ -58,7 +58,7 @@ var _ = Describe("createet_reconciler", func() {
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should error when VerticaDB condition type doesn't exist", func() {
+	It("should fail when VerticaDB condition type doesn't exist", func() {
 		vdb := vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -71,5 +71,25 @@ var _ = Describe("createet_reconciler", func() {
 
 		_, err := etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})
 		Expect(err).ShouldNot(Succeed())
+	})
+
+	It("should succeed with no-op when object already exists", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		et := vapi.MakeET()
+		et.Status.References = []vapi.ETRefObjectStatus{
+			{
+				Namespace: et.Spec.References[0].Object.Namespace,
+				Name:      et.Spec.References[0].Object.Name,
+				Kind:      et.Spec.References[0].Object.Kind,
+			},
+		}
+
+		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
+
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 })
