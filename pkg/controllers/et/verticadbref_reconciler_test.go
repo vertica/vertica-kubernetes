@@ -22,15 +22,49 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var _ = Describe("createet_reconciler", func() {
 	ctx := context.Background()
 
-	It("should reject objects types other than VerticaDB", func() {
+	It("should continue on objects types other than VerticaDB", func() {
 		et := vapi.MakeET()
 		et.Spec.References[0].Object.Kind = "Pod"
+
+		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
+
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+	})
+
+	It("should continue on objects types other than VerticaDB APIVersion", func() {
+		et := vapi.MakeET()
+		et.Spec.References[0].Object.APIVersion = "version"
+
+		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
+
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+	})
+
+	It("should continue when no VerticaDB is running", func() {
+		et := vapi.MakeET()
+
+		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
+
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+	})
+
+	It("should error when VerticaDB condition type doesn't exist", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		et := vapi.MakeET()
+		et.Spec.Matches[0].Condition.Type = "NotWorking"
 
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
