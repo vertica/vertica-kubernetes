@@ -22,6 +22,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -161,4 +162,24 @@ func (r *EventTriggerReconciler) constructActors(et *vapi.EventTrigger) []contro
 	return []controllers.ReconcileActor{
 		MakeVerticaDBRefReconciler(r, et),
 	}
+}
+
+// createJob will create a job, return the job and an error when the job could
+// not be created.
+func (r *EventTriggerReconciler) createJob(ctx context.Context, et *vapi.EventTrigger) (batchv1.Job, error) {
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:         et.Spec.Template.Metadata.Name,
+			GenerateName: et.Spec.Template.Metadata.GenerateName,
+			Labels:       et.Spec.Template.Metadata.Labels,
+			Annotations:  et.Spec.Template.Metadata.Annotations,
+		},
+		Spec: et.Spec.Template.Spec,
+	}
+
+	if err := r.Client.Create(ctx, &job); err != nil {
+		return job, err
+	}
+
+	return job, nil
 }

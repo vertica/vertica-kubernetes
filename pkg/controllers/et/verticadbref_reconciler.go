@@ -23,9 +23,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
-	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -81,13 +79,13 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 		}
 
 		// Check if job already created.
-		if r.Et.Status.References != nil && r.Et.Status.References[refIdx].JobName != "" {
+		if len(r.Et.Status.References) > 0 && r.Et.Status.References[refIdx].JobName != "" {
 			shouldCreateJob = false
 		}
 
 		if shouldCreateJob {
 			// Kick off the job
-			job, err := r.createJob(ctx)
+			job, err := r.VRec.createJob(ctx, r.Et)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -102,26 +100,6 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// createJob will create a job, return the job and an error when the job could
-// not be created.
-func (r *VerticaDBRefReconciler) createJob(ctx context.Context) (batchv1.Job, error) {
-	job := batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:         r.Et.Spec.Template.Metadata.Name,
-			GenerateName: r.Et.Spec.Template.Metadata.GenerateName,
-			Labels:       r.Et.Spec.Template.Metadata.Labels,
-			Annotations:  r.Et.Spec.Template.Metadata.Annotations,
-		},
-		Spec: r.Et.Spec.Template.Spec,
-	}
-
-	if err := r.VRec.Client.Create(ctx, &job); err != nil {
-		return job, err
-	}
-
-	return job, nil
 }
 
 // matchStatus will check if the matching condition given from the manifest
