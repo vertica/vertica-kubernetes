@@ -42,80 +42,93 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	log := r.VRec.Log.WithValues("et", req.NamespacedName)
 
-	for _, ref := range r.Et.Spec.References {
+	for refIdx, ref := range r.Et.Spec.References {
 		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
 			continue
 		}
 
-		vdb := &vapi.VerticaDB{}
-
-		nm := types.NamespacedName{
-			Namespace: r.Et.Namespace,
-			Name:      ref.Object.Name,
+		// Create the refStatus object as we need to update the status at the
+		// end regardless of what happens.
+		refStatus := vapi.ETRefObjectStatus{
+			APIVersion: ref.Object.APIVersion,
+			Namespace:  ref.Object.Namespace,
+			Name:       ref.Object.Name,
+			Kind:       ref.Object.Kind,
 		}
+
+		vdb := &vapi.VerticaDB{}
+		nm := types.NamespacedName{Namespace: r.Et.Namespace, Name: ref.Object.Name}
 
 		if err := r.VRec.Client.Get(ctx, nm, vdb); err != nil {
 			if errors.IsNotFound(err) {
+				if errs := etstatus.Apply(ctx, r.VRec.Client, r.Et, &refStatus); errs != nil {
+					return ctrl.Result{}, errs
+				}
+
 				continue
 			}
 
 			return ctrl.Result{}, err
 		}
 
+		refStatus.ResourceVersion = vdb.ResourceVersion
+		refStatus.UID = vdb.GetUID()
+
+		shouldCreateJob := true
 		for _, match := range r.Et.Spec.Matches {
 			// Grab the condition based on what was given.
 			conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
 			conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
 			if !ok {
-				log.Info("reason", fmt.Sprintf("vertica DB condition %s missing from VerticaDBConditionType", match.Condition.Type))
+				log.Info(fmt.Sprintf("vertica DB condition %s missing from VerticaDBConditionType", match.Condition.Type))
+				shouldCreateJob = false
+				break
 			}
 
 			if len(vdb.Status.Conditions) <= conditionTypeIndex {
-				continue
+				shouldCreateJob = false
+				break
 			}
 
-			if vdb.Status.Conditions[conditionTypeIndex].Status == match.Condition.Status {
-				// Check if job already created.
-				if r.Et.Status.References != nil {
-					continue
-				}
-
-				// Kick off the job
-				job := batchv1.Job{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:         r.Et.Spec.Template.Metadata.Name,
-						GenerateName: r.Et.Spec.Template.Metadata.GenerateName,
-						Labels:       r.Et.Spec.Template.Metadata.Labels,
-						Annotations:  r.Et.Spec.Template.Metadata.Annotations,
-					},
-					Spec: r.Et.Spec.Template.Spec,
-				}
-
-				if err := r.VRec.Client.Create(ctx, &job); err != nil {
-					return ctrl.Result{}, err
-				}
-
-				// Update status to fill in JobName,JobNamespace
-				refStatus := vapi.ETRefObjectStatus{
-					APIVersion:      ref.Object.APIVersion,
-					Namespace:       ref.Object.Namespace,
-					Name:            ref.Object.Name,
-					Kind:            ref.Object.Kind,
-					ResourceVersion: vdb.ResourceVersion,
-					UID:             vdb.GetUID(),
-					JobNamespace:    job.Namespace,
-					JobName:         job.Name,
-				}
-				if err := etstatus.Apply(ctx, r.VRec.Client, r.Et, &refStatus); err != nil {
-					return ctrl.Result{}, err
-				}
-			} else {
+			if vdb.Status.Conditions[conditionTypeIndex].Status != match.Condition.Status {
 				r.VRec.Log.Info(
 					"status was not met",
 					"expected", match.Condition.Status,
 					"found", vdb.Status.Conditions[conditionTypeIndex].Status,
+					"refObjectName", ref.Object.Name,
 				)
+				shouldCreateJob = false
+				break
 			}
+		}
+
+		// Check if job already created.
+		if r.Et.Status.References != nil && r.Et.Status.References[refIdx].JobName != "" {
+			shouldCreateJob = false
+		}
+
+		if shouldCreateJob {
+			// Kick off the job
+			job := batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:         r.Et.Spec.Template.Metadata.Name,
+					GenerateName: r.Et.Spec.Template.Metadata.GenerateName,
+					Labels:       r.Et.Spec.Template.Metadata.Labels,
+					Annotations:  r.Et.Spec.Template.Metadata.Annotations,
+				},
+				Spec: r.Et.Spec.Template.Spec,
+			}
+
+			if err := r.VRec.Client.Create(ctx, &job); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			refStatus.JobNamespace = job.Namespace
+			refStatus.JobName = job.Name
+		}
+
+		if err := etstatus.Apply(ctx, r.VRec.Client, r.Et, &refStatus); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 

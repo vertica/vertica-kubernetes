@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -58,7 +59,7 @@ var _ = Describe("createet_reconciler", func() {
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should fail when VerticaDB condition type doesn't exist", func() {
+	It("should succeed with no-op when VerticaDB condition type doesn't exist", func() {
 		vdb := vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -69,26 +70,26 @@ var _ = Describe("createet_reconciler", func() {
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 
-		_, err := etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})
-		Expect(err).ShouldNot(Succeed())
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should succeed with no-op when object already exists", func() {
+	It("should succeed with no-op when reference status job exists already exists", func() {
 		vdb := vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		et := vapi.MakeET()
-		et.Status.References = []vapi.ETRefObjectStatus{
-			{
-				Namespace: et.Spec.References[0].Object.Namespace,
-				Name:      et.Spec.References[0].Object.Name,
-				Kind:      et.Spec.References[0].Object.Kind,
-			},
+		status := vapi.ETRefObjectStatus{
+			Namespace: et.Spec.References[0].Object.Namespace,
+			Name:      et.Spec.References[0].Object.Name,
+			Kind:      et.Spec.References[0].Object.Kind,
+			JobName:   "test",
 		}
 
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
+
+		Expect(etstatus.Apply(ctx, k8sClient, et, &status)).Should(Succeed())
 
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
