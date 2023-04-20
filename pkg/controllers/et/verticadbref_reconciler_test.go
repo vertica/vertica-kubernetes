@@ -57,6 +57,12 @@ var _ = Describe("createet_reconciler", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+
+		etrigger := vapi.EventTrigger{}
+		nm := et.ExtractNamespacedName()
+		etStatus := k8sClient.Get(ctx, nm, &etrigger)
+		Expect(etStatus).Should(Succeed())
+		Expect(etrigger.Status.References).ShouldNot(BeNil())
 	})
 
 	It("should succeed with no-op when VerticaDB condition type doesn't exist", func() {
@@ -88,9 +94,30 @@ var _ = Describe("createet_reconciler", func() {
 
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
-
 		Expect(etstatus.Apply(ctx, k8sClient, et, &status)).Should(Succeed())
-
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+
+		etrigger := vapi.EventTrigger{}
+		nm := et.ExtractNamespacedName()
+		etStatus := k8sClient.Get(ctx, nm, &etrigger)
+		Expect(etStatus).Should(Succeed())
+		Expect(etrigger.Status.References).ShouldNot(BeNil())
+	})
+
+	It("should succeed with no-op when creating the job", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		et := vapi.MakeET()
+		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+
+		etrigger := vapi.EventTrigger{}
+		nm := et.ExtractNamespacedName()
+		etStatus := k8sClient.Get(ctx, nm, &etrigger)
+		Expect(etStatus).Should(Succeed())
+		Expect(etrigger.Status.References).ShouldNot(BeNil())
 	})
 })
