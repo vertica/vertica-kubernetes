@@ -40,8 +40,6 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 }
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	log := r.VRec.Log.WithValues("et", req.NamespacedName)
-
 	for refIdx, ref := range r.Et.Spec.References {
 		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
 			continue
@@ -76,27 +74,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 
 		shouldCreateJob := true
 		for _, match := range r.Et.Spec.Matches {
-			// Grab the condition based on what was given.
-			conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
-			conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
-			if !ok {
-				log.Info(fmt.Sprintf("vertica DB condition %s missing from VerticaDBConditionType", match.Condition.Type))
-				shouldCreateJob = false
-				break
-			}
-
-			if len(vdb.Status.Conditions) <= conditionTypeIndex {
-				shouldCreateJob = false
-				break
-			}
-
-			if vdb.Status.Conditions[conditionTypeIndex].Status != match.Condition.Status {
-				r.VRec.Log.Info(
-					"status was not met",
-					"expected", match.Condition.Status,
-					"found", vdb.Status.Conditions[conditionTypeIndex].Status,
-					"refObjectName", ref.Object.Name,
-				)
+			if !r.matchStatus(vdb, ref, match) {
 				shouldCreateJob = false
 				break
 			}
@@ -109,17 +87,8 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 
 		if shouldCreateJob {
 			// Kick off the job
-			job := batchv1.Job{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:         r.Et.Spec.Template.Metadata.Name,
-					GenerateName: r.Et.Spec.Template.Metadata.GenerateName,
-					Labels:       r.Et.Spec.Template.Metadata.Labels,
-					Annotations:  r.Et.Spec.Template.Metadata.Annotations,
-				},
-				Spec: r.Et.Spec.Template.Spec,
-			}
-
-			if err := r.VRec.Client.Create(ctx, &job); err != nil {
+			job, err := r.createJob(ctx)
+			if err != nil {
 				return ctrl.Result{}, err
 			}
 
@@ -133,4 +102,52 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// createJob will create a job, return the job and an error when the job could
+// not be created.
+func (r *VerticaDBRefReconciler) createJob(ctx context.Context) (batchv1.Job, error) {
+	job := batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:         r.Et.Spec.Template.Metadata.Name,
+			GenerateName: r.Et.Spec.Template.Metadata.GenerateName,
+			Labels:       r.Et.Spec.Template.Metadata.Labels,
+			Annotations:  r.Et.Spec.Template.Metadata.Annotations,
+		},
+		Spec: r.Et.Spec.Template.Spec,
+	}
+
+	if err := r.VRec.Client.Create(ctx, &job); err != nil {
+		return job, err
+	}
+
+	return job, nil
+}
+
+// matchStatus will check if the matching condition given from the manifest
+// matches with the reference object and return false when it doesn't match.
+func (r *VerticaDBRefReconciler) matchStatus(vdb *vapi.VerticaDB, ref vapi.ETReference, match vapi.ETMatch) bool {
+	// Grab the condition based on what was given.
+	conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
+	conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
+	if !ok {
+		r.VRec.Log.Info(fmt.Sprintf("vertica DB condition %s missing from VerticaDBConditionType", match.Condition.Type))
+		return false
+	}
+
+	if len(vdb.Status.Conditions) <= conditionTypeIndex {
+		return false
+	}
+
+	if vdb.Status.Conditions[conditionTypeIndex].Status != match.Condition.Status {
+		r.VRec.Log.Info(
+			"status was not met",
+			"expected", match.Condition.Status,
+			"found", vdb.Status.Conditions[conditionTypeIndex].Status,
+			"refObjectName", ref.Object.Name,
+		)
+		return false
+	}
+
+	return true
 }
