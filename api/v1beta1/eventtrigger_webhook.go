@@ -29,6 +29,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+const (
+	allowedNumberReferences = 1
+	allowedNumberMatches    = 1
+)
+
 // log is for logging in this package.
 var eventtriggerlog = logf.Log.WithName("eventtrigger-resource")
 
@@ -82,6 +87,8 @@ func (e *EventTrigger) ValidateDelete() error {
 
 func (e *EventTrigger) validateVerticaDBRefSpec() field.ErrorList {
 	allErrs := e.validateVerticaDBReferences(field.ErrorList{})
+	allErrs = e.validateVerticaDBReferencesSize(allErrs)
+	allErrs = e.validateVerticaDBMatchesSize(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -108,6 +115,34 @@ func (e *EventTrigger) validateVerticaDBReferences(allErrs field.ErrorList) fiel
 			)
 			allErrs = append(allErrs, err)
 		}
+	}
+
+	return allErrs
+}
+
+func (e *EventTrigger) validateVerticaDBReferencesSize(allErrs field.ErrorList) field.ErrorList {
+	ref := e.Spec.References
+	if len(ref) > allowedNumberReferences {
+		err := field.Invalid(
+			field.NewPath("spec").Child("reference"),
+			ref,
+			fmt.Sprintf("only %d referece object is allowed, number received: %d", allowedNumberReferences, len(ref)),
+		)
+		allErrs = append(allErrs, err)
+	}
+
+	return allErrs
+}
+
+func (e *EventTrigger) validateVerticaDBMatchesSize(allErrs field.ErrorList) field.ErrorList {
+	ref := e.Spec.Matches
+	if len(ref) > allowedNumberMatches {
+		err := field.Invalid(
+			field.NewPath("spec").Child("matches"),
+			ref,
+			fmt.Sprintf("only %d matches object is allowed, number received: %d", allowedNumberMatches, len(ref)),
+		)
+		allErrs = append(allErrs, err)
 	}
 
 	return allErrs
