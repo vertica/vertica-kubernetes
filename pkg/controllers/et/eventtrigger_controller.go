@@ -167,8 +167,19 @@ func (r *EventTriggerReconciler) constructActors(et *vapi.EventTrigger) []contro
 // createJob will create a job, return the job and an error when the job could
 // not be created.
 func (r *EventTriggerReconciler) createJob(ctx context.Context, et *vapi.EventTrigger) (*batchv1.Job, error) {
-	job := &batchv1.Job{
+	job := makeJob(et)
+
+	if err := r.Client.Create(ctx, job); err != nil {
+		return nil, err
+	}
+
+	return job, nil
+}
+
+func makeJob(et *vapi.EventTrigger) *batchv1.Job {
+	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    et.Namespace,
 			Name:         et.Spec.Template.Metadata.Name,
 			GenerateName: et.Spec.Template.Metadata.GenerateName,
 			Labels:       et.Spec.Template.Metadata.Labels,
@@ -176,10 +187,4 @@ func (r *EventTriggerReconciler) createJob(ctx context.Context, et *vapi.EventTr
 		},
 		Spec: et.Spec.Template.Spec,
 	}
-
-	if err := r.Client.Create(ctx, job); err != nil {
-		return nil, err
-	}
-
-	return job, nil
 }

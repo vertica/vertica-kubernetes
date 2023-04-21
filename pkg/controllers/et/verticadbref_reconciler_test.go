@@ -24,8 +24,11 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("createet_reconciler", func() {
@@ -56,6 +59,36 @@ var _ = Describe("createet_reconciler", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+
+		nm := et.ExtractNamespacedName()
+		etrigger := getEventTriggerStatus(ctx, nm)
+		Expect(etrigger.Status.References).ShouldNot(BeNil())
+	})
+
+	It("should succeed with no-op when VerticaDB condition type not match", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		cond := []vapi.VerticaDBCondition{
+			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
+			{Type: vapi.DBInitialized, Status: corev1.ConditionTrue},
+		}
+		Expect(setVerticaStatus(ctx, k8sClient, vdb, cond)).Should(Succeed())
+
+		et := vapi.MakeET()
+		et.Spec.Matches[0].Condition.Type = string(vapi.VerticaRestartNeeded)
+
+		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
+
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+
+		nm := et.ExtractNamespacedName()
+		etrigger := getEventTriggerStatus(ctx, nm)
+		Expect(etrigger.Status.References).ShouldNot(BeNil())
+		Expect(etrigger.Status.References[0].JobName).Should(BeEmpty())
+		Expect(etrigger.Status.References[0].JobNamespace).Should(BeEmpty())
 	})
 
 	It("should succeed with no-op when reference status job exists already exists", func() {
@@ -86,14 +119,24 @@ var _ = Describe("createet_reconciler", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
+		cond := []vapi.VerticaDBCondition{
+			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
+			{Type: vapi.DBInitialized, Status: corev1.ConditionTrue},
+		}
+		Expect(setVerticaStatus(ctx, k8sClient, vdb, cond)).Should(Succeed())
+
 		et := vapi.MakeET()
+		nm := et.ExtractNamespacedName()
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
-		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: nm})).Should(Equal(ctrl.Result{}))
 
-		nm := et.ExtractNamespacedName()
+		job := makeJob(et)
 		etrigger := getEventTriggerStatus(ctx, nm)
 		Expect(etrigger.Status.References).ShouldNot(BeNil())
+		Expect(etrigger.Status.References[0].JobName).Should(Equal(et.Spec.Template.Metadata.Name))
+		Expect(etrigger.Status.References[0].JobNamespace).Should(Equal(et.Namespace))
+		defer func() { Expect(k8sClient.Delete(ctx, job)).Should(Succeed()) }()
 	})
 })
 
@@ -103,4 +146,11 @@ func getEventTriggerStatus(ctx context.Context, nm types.NamespacedName) vapi.Ev
 	Expect(etStatus).Should(Succeed())
 
 	return etrigger
+}
+
+func setVerticaStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, conditions []vapi.VerticaDBCondition) error {
+	return vdbstatus.Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
+		vdb.Status.Conditions = conditions
+		return nil
+	})
 }
