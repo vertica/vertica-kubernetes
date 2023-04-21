@@ -101,10 +101,15 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
+// isJobCreated will traverse all the status references and return true only
+// when the job is already created.
 func (r *VerticaDBRefReconciler) isJobCreated(ref vapi.ETReference) bool {
 	for refStatusIdx := range r.Et.Status.References {
 		refStatus := r.Et.Status.References[refStatusIdx]
-		if refStatus.Name == ref.Object.Name && refStatus.JobName != "" {
+		if refStatus.Name == ref.Object.Name &&
+			refStatus.APIVersion == ref.Object.APIVersion &&
+			refStatus.Kind == ref.Object.Kind &&
+			refStatus.JobName != "" {
 			return true
 		}
 	}

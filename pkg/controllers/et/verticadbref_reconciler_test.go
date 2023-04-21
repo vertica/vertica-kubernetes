@@ -149,8 +149,11 @@ func getEventTriggerStatus(ctx context.Context, nm types.NamespacedName) vapi.Ev
 }
 
 func setVerticaStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, conditions []vapi.VerticaDBCondition) error {
-	return vdbstatus.Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
-		vdb.Status.Conditions = conditions
-		return nil
-	})
+	for idx := range conditions {
+		if err := vdbstatus.UpdateCondition(ctx, clnt, vdb, conditions[idx]); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
