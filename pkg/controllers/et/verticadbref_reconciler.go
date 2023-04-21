@@ -38,7 +38,7 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 }
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	for refIdx, ref := range r.Et.Spec.References {
+	for _, ref := range r.Et.Spec.References {
 		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
 			continue
 		}
@@ -79,7 +79,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 		}
 
 		// Check if job already created.
-		if len(r.Et.Status.References) > 0 && r.Et.Status.References[refIdx].JobName != "" {
+		if r.isJobCreated(ref) {
 			shouldCreateJob = false
 		}
 
@@ -100,6 +100,17 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *VerticaDBRefReconciler) isJobCreated(ref vapi.ETReference) bool {
+	for refStatusIdx := range r.Et.Status.References {
+		refStatus := r.Et.Status.References[refStatusIdx]
+		if refStatus.Name == ref.Object.Name && refStatus.JobName != "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // matchStatus will check if the matching condition given from the manifest
