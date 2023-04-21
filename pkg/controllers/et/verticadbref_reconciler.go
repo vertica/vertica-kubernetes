@@ -18,7 +18,6 @@ package et
 
 import (
 	"context"
-	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -120,7 +119,7 @@ func (r *VerticaDBRefReconciler) matchStatus(vdb *vapi.VerticaDB, ref vapi.ETRef
 	conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
 	conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
 	if !ok {
-		r.VRec.Log.Info(fmt.Sprintf("vertica DB condition %s missing from VerticaDBConditionType", match.Condition.Type))
+		r.VRec.Log.Info("vertica DB condition missing from VerticaDBConditionType", "condition", match.Condition.Type)
 		return false
 	}
 
