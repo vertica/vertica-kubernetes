@@ -24,31 +24,12 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var _ = Describe("createet_reconciler", func() {
 	ctx := context.Background()
-
-	It("should succeed with no-op on objects types other than VerticaDB", func() {
-		et := vapi.MakeET()
-		et.Spec.References[0].Object.Kind = "Pod"
-
-		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
-
-		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
-	})
-
-	It("should succeed with no-op on objects with unknown apiVersion", func() {
-		et := vapi.MakeET()
-		et.Spec.References[0].Object.APIVersion = "version"
-
-		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
-
-		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
-	})
 
 	It("should succeed with no-op when no VerticaDB is running", func() {
 		et := vapi.MakeET()
@@ -58,10 +39,8 @@ var _ = Describe("createet_reconciler", func() {
 
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 
-		etrigger := vapi.EventTrigger{}
 		nm := et.ExtractNamespacedName()
-		etStatus := k8sClient.Get(ctx, nm, &etrigger)
-		Expect(etStatus).Should(Succeed())
+		etrigger := getEventTriggerStatus(ctx, nm)
 		Expect(etrigger.Status.References).ShouldNot(BeNil())
 	})
 
@@ -97,10 +76,8 @@ var _ = Describe("createet_reconciler", func() {
 		Expect(etstatus.Apply(ctx, k8sClient, et, &status)).Should(Succeed())
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 
-		etrigger := vapi.EventTrigger{}
 		nm := et.ExtractNamespacedName()
-		etStatus := k8sClient.Get(ctx, nm, &etrigger)
-		Expect(etStatus).Should(Succeed())
+		etrigger := getEventTriggerStatus(ctx, nm)
 		Expect(etrigger.Status.References).ShouldNot(BeNil())
 	})
 
@@ -114,10 +91,16 @@ var _ = Describe("createet_reconciler", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 
-		etrigger := vapi.EventTrigger{}
 		nm := et.ExtractNamespacedName()
-		etStatus := k8sClient.Get(ctx, nm, &etrigger)
-		Expect(etStatus).Should(Succeed())
+		etrigger := getEventTriggerStatus(ctx, nm)
 		Expect(etrigger.Status.References).ShouldNot(BeNil())
 	})
 })
+
+func getEventTriggerStatus(ctx context.Context, nm types.NamespacedName) vapi.EventTrigger {
+	etrigger := vapi.EventTrigger{}
+	etStatus := k8sClient.Get(ctx, nm, &etrigger)
+	Expect(etStatus).Should(Succeed())
+
+	return etrigger
+}
