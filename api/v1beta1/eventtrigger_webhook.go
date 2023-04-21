@@ -22,7 +22,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -63,7 +62,7 @@ func (e *EventTrigger) ValidateCreate() error {
 		return nil
 	}
 
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: EventTriggerKind}, e.Name, allErrs)
+	return apierrors.NewInvalid(GkET, e.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -75,7 +74,7 @@ func (e *EventTrigger) ValidateUpdate(old runtime.Object) error {
 		return nil
 	}
 
-	return apierrors.NewInvalid(schema.GroupKind{Group: Group, Kind: EventTriggerKind}, e.Name, allErrs)
+	return apierrors.NewInvalid(GkET, e.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -126,7 +125,7 @@ func (e *EventTrigger) validateVerticaDBReferencesSize(allErrs field.ErrorList) 
 		err := field.Invalid(
 			field.NewPath("spec").Child("reference"),
 			ref,
-			fmt.Sprintf("only %d referece object is allowed, number received: %d", allowedNumberReferences, len(ref)),
+			fmt.Sprintf("only %d referece object allowed, number received: %d", allowedNumberReferences, len(ref)),
 		)
 		allErrs = append(allErrs, err)
 	}
@@ -140,7 +139,7 @@ func (e *EventTrigger) validateVerticaDBMatchesSize(allErrs field.ErrorList) fie
 		err := field.Invalid(
 			field.NewPath("spec").Child("matches"),
 			ref,
-			fmt.Sprintf("only %d matches object is allowed, number received: %d", allowedNumberMatches, len(ref)),
+			fmt.Sprintf("only %d matches object allowed, number received: %d", allowedNumberMatches, len(ref)),
 		)
 		allErrs = append(allErrs, err)
 	}
