@@ -125,7 +125,7 @@ func (e *EventTrigger) validateVerticaDBReferencesSize(allErrs field.ErrorList) 
 		err := field.Invalid(
 			field.NewPath("spec").Child("reference"),
 			ref,
-			fmt.Sprintf("only %d referece object allowed, number received: %d", allowedNumberReferences, len(ref)),
+			fmt.Sprintf("only %d reference object allowed, number received: %d", allowedNumberReferences, len(ref)),
 		)
 		allErrs = append(allErrs, err)
 	}

@@ -11,12 +11,14 @@ var _ = Describe("eventtrigger_webhook", func() {
 	It("should succeed with all valid fields", func() {
 		et := MakeET()
 		Expect(et.ValidateCreate()).Should(Succeed())
+		Expect(et.ValidateUpdate(et)).Should(Succeed())
 	})
 
 	It("should fail if reference object type is not VerticaDB", func() {
 		et := MakeET()
 		et.Spec.References[0].Object.Kind = "Pod"
 		Expect(et.ValidateCreate()).ShouldNot(Succeed())
+		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
 	})
 
 	It("should fail if reference object apiVersion is not known", func() {
@@ -39,6 +41,7 @@ var _ = Describe("eventtrigger_webhook", func() {
 		et.Spec.References = append(et.Spec.References, ref)
 
 		Expect(et.ValidateCreate()).ShouldNot(Succeed())
+		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
 	})
 
 	It("should fail on multiple matches conditions", func() {
@@ -52,5 +55,6 @@ var _ = Describe("eventtrigger_webhook", func() {
 		et.Spec.Matches = append(et.Spec.Matches, match)
 
 		Expect(et.ValidateCreate()).ShouldNot(Succeed())
+		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
 	})
 })
