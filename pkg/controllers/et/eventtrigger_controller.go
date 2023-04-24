@@ -54,7 +54,7 @@ const (
 //+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=eventtriggers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=eventtriggers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=eventtriggers/finalizers,verbs=update
-//+kubebuilder:rbac:groups="batch",namespace=WATCH_NAMESPACE,resources=jobs,verbs=get;list;watch
+//+kubebuilder:rbac:groups="batch",namespace=WATCH_NAMESPACE,resources=jobs,verbs=get;list;watch;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -184,6 +184,14 @@ func makeJob(et *vapi.EventTrigger) *batchv1.Job {
 			GenerateName: et.Spec.Template.Metadata.GenerateName,
 			Labels:       et.Spec.Template.Metadata.Labels,
 			Annotations:  et.Spec.Template.Metadata.Annotations,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: et.APIVersion,
+					Kind:       et.Kind,
+					Name:       et.Name,
+					UID:        et.GetUID(),
+				},
+			},
 		},
 		Spec: et.Spec.Template.Spec,
 	}

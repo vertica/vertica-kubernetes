@@ -82,7 +82,7 @@ var _ = Describe("status", func() {
 		refObj := mockETRefObjectStatus()
 		refObj.JobNamespace = "default"
 		refObj.JobName = "job1"
-		Expect(Apply(ctx, k8sClient, et, refObj)).Should(Succeed())
+		Expect(Apply(ctx, k8sClient, logger, et, refObj)).Should(Succeed())
 		verifyETRefObjectStatusInET(ctx, et.ExtractNamespacedName(), refObj, 0)
 	})
 
@@ -92,13 +92,13 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 
 		refObj := mockETRefObjectStatus()
-		Expect(Apply(ctx, k8sClient, et, refObj)).Should(Succeed())
+		Expect(Apply(ctx, k8sClient, logger, et, refObj)).Should(Succeed())
 		verifyETRefObjectStatusInET(ctx, et.ExtractNamespacedName(), refObj, 0)
 
 		// Now add the Job information.
 		refObj.JobNamespace = refObj.Namespace
 		refObj.JobName = "create-tables"
-		Expect(Apply(ctx, k8sClient, et, refObj)).Should(Succeed())
+		Expect(Apply(ctx, k8sClient, logger, et, refObj)).Should(Succeed())
 		verifyETRefObjectStatusInET(ctx, et.ExtractNamespacedName(), refObj, 0)
 	})
 
@@ -108,12 +108,12 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 
 		v1RefObj := mockETRefObjectStatus()
-		Expect(Apply(ctx, k8sClient, et, v1RefObj)).Should(Succeed())
+		Expect(Apply(ctx, k8sClient, logger, et, v1RefObj)).Should(Succeed())
 		verifyETRefObjectStatusInET(ctx, et.ExtractNamespacedName(), v1RefObj, 0)
 
 		v2RefObj := v1RefObj.DeepCopy()
 		v2RefObj.Name = "v2"
-		Expect(Apply(ctx, k8sClient, et, v2RefObj)).Should(Succeed())
+		Expect(Apply(ctx, k8sClient, logger, et, v2RefObj)).Should(Succeed())
 		verifyETRefObjectStatusInET(ctx, et.ExtractNamespacedName(), v1RefObj, 0)
 		verifyETRefObjectStatusInET(ctx, et.ExtractNamespacedName(), v2RefObj, 1)
 	})

@@ -44,19 +44,14 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 
 		// Create the refStatus object as we need to update the status at the
 		// end regardless of what happens.
-		refStatus := vapi.ETRefObjectStatus{
-			APIVersion: ref.Object.APIVersion,
-			Namespace:  ref.Object.Namespace,
-			Name:       ref.Object.Name,
-			Kind:       ref.Object.Kind,
-		}
+		refStatus := etstatus.Fetch(r.Et, ref.Object)
 
 		vdb := &vapi.VerticaDB{}
 		nm := types.NamespacedName{Namespace: r.Et.Namespace, Name: ref.Object.Name}
 
 		if err := r.VRec.Client.Get(ctx, nm, vdb); err != nil {
 			if errors.IsNotFound(err) {
-				if errs := etstatus.Apply(ctx, r.VRec.Client, r.Et, &refStatus); errs != nil {
+				if errs := etstatus.Apply(ctx, r.VRec.Client, r.VRec.Log, r.Et, refStatus); errs != nil {
 					return ctrl.Result{}, errs
 				}
 
@@ -88,12 +83,13 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 			if err != nil {
 				return ctrl.Result{}, err
 			}
+			r.VRec.Log.Info("job created", "job.Name", job.Name, "job.Namespace", job.Namespace)
 
 			refStatus.JobNamespace = job.Namespace
 			refStatus.JobName = job.Name
 		}
 
-		if err := etstatus.Apply(ctx, r.VRec.Client, r.Et, &refStatus); err != nil {
+		if err := etstatus.Apply(ctx, r.VRec.Client, r.VRec.Log, r.Et, refStatus); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

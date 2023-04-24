@@ -18,6 +18,7 @@ package etstatus
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,7 +27,7 @@ import (
 // Apply will handle updates of ETRefObjectStatus. If the object isn't already in
 // the status, a new entry will be added. If an object with the same GVK+name
 // exists, then it will update that in the list.
-func Apply(ctx context.Context, clnt client.Client, et *vapi.EventTrigger, stat *vapi.ETRefObjectStatus) error {
+func Apply(ctx context.Context, clnt client.Client, log logr.Logger, et *vapi.EventTrigger, stat *vapi.ETRefObjectStatus) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// We refresh the EventTrigger incase we need to do a retry. But we
 		// assume it's sufficiently populated to have a name.
@@ -42,6 +43,7 @@ func Apply(ctx context.Context, clnt client.Client, et *vapi.EventTrigger, stat 
 		for i := range et.Status.References {
 			if et.Status.References[i].IsSameObject(stat) {
 				stat.DeepCopyInto(&et.Status.References[i])
+				foundObj = true
 				break
 			}
 		}
@@ -49,6 +51,26 @@ func Apply(ctx context.Context, clnt client.Client, et *vapi.EventTrigger, stat 
 			et.Status.References = append(et.Status.References, *stat)
 		}
 
+		log.Info("apply status update", "stat", stat)
 		return clnt.Status().Update(ctx, et)
 	})
+}
+
+// Fetch returns the status for the reference object. If one is not in the ET object, it will create a new one.
+func Fetch(et *vapi.EventTrigger, objRef *vapi.ETRefObject) *vapi.ETRefObjectStatus {
+	for i := range et.Status.References {
+		if et.Status.References[i].Name == objRef.Name &&
+			et.Status.References[i].Namespace == objRef.Namespace &&
+			et.Status.References[i].APIVersion == objRef.APIVersion &&
+			et.Status.References[i].Kind == objRef.Kind {
+			return &et.Status.References[i]
+		}
+	}
+
+	return &vapi.ETRefObjectStatus{
+		APIVersion: objRef.APIVersion,
+		Namespace:  objRef.Namespace,
+		Name:       objRef.Name,
+		Kind:       objRef.Kind,
+	}
 }

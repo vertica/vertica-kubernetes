@@ -106,7 +106,7 @@ var _ = Describe("createet_reconciler", func() {
 
 		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
-		Expect(etstatus.Apply(ctx, k8sClient, et, &status)).Should(Succeed())
+		Expect(etstatus.Apply(ctx, k8sClient, logger, et, &status)).Should(Succeed())
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 
 		nm := et.ExtractNamespacedName()
