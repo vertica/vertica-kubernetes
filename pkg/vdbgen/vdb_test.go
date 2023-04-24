@@ -54,6 +54,7 @@ var _ = Describe("vdb", func() {
 			VdbName:            "vertdb",
 			Image:              "my-img:latest",
 			IgnoreClusterLease: true,
+			DepotVolume:        "EmptyDir",
 		}}
 		dbGen.setParmsFromOptions()
 		Expect(string(dbGen.Objs.Vdb.Spec.InitPolicy)).Should(Equal(vapi.CommunalInitPolicyRevive))
@@ -61,6 +62,7 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.Objs.Vdb.ObjectMeta.Name).Should(Equal("vertdb"))
 		Expect(dbGen.Objs.Vdb.Spec.IgnoreClusterLease).Should(BeTrue())
 		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("my-img:latest"))
+		Expect(dbGen.Objs.Vdb.Spec.Local.DepotVolume).Should(Equal(vapi.EmptyDir))
 	})
 
 	It("should call ping() when we connect", func() {

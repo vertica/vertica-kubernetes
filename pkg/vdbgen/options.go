@@ -33,4 +33,5 @@ type Options struct {
 	CACertName         string
 	Krb5Conf           string
 	Krb5Keytab         string
+	DepotVolume        string
 }
