@@ -463,6 +463,13 @@ const (
 	SseC   ServerSideEncryptionType = "SSE-C"
 )
 
+type DepotVolumeType string
+
+const (
+	EmptyDir         DepotVolumeType = "EmptyDir"
+	PersistentVolume DepotVolumeType = "PersistentVolume"
+)
+
 // Defines a number of pods for a specific subcluster
 type SubclusterPodCount struct {
 	// +kubebuilder:validation:required
@@ -602,6 +609,7 @@ type LocalStorage struct {
 	// set when creating the PVC. By default, it is not set. This means that
 	// that the PVC we create will have the default storage class set in
 	// Kubernetes.
+	// It only applies to persistent volumes and is ignored by the depot when depotVolume is 'EmptyDir'.
 	StorageClass string `json:"storageClass,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -610,6 +618,7 @@ type LocalStorage struct {
 	// The minimum size of the local data volume when picking a PV.  If changing
 	// this after the PV have been created, it will cause a resize of the PV to
 	// the new size.
+	// It only applies to persistent volumes and is ignored by the depot when depotVolume is 'EmptyDir'.
 	RequestSize resource.Quantity `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -628,6 +637,13 @@ type LocalStorage struct {
 	// When initializing the database with revive, this path must match the
 	// depot path used when the database was first created.
 	DepotPath string `json:"depotPath"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:=PersistentVolume
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:PersistentVolume","urn:alm:descriptor:com.tectonic.ui:select:EmptyDir"}
+	// The type of volume to use for the depot. Allowable values will be: EmptyDir and PersistentVolume.
+	// If omitted, the default value will be PersistentVolume.
+	DepotVolume DepotVolumeType `json:"depotVolume"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -1062,6 +1078,7 @@ func MakeVDB() *VerticaDB {
 			Local: LocalStorage{
 				DataPath:    "/data",
 				DepotPath:   "/depot",
+				DepotVolume: PersistentVolume,
 				RequestSize: resource.MustParse("10Gi"),
 			},
 			KSafety:        KSafety1,
@@ -1312,6 +1329,28 @@ func (v *VerticaDB) IsAgentEnabled() bool {
 }
 
 // IsAdditionalConfigMapEmpty returns true if there is no extra
+// config parameters.
 func (v *VerticaDB) IsAdditionalConfigMapEmpty() bool {
 	return len(v.Spec.Communal.AdditionalConfig) == 0
+}
+
+// IsDepotVolumeEmptyDir returns true if the depot volume's type
+// is emptyDir.
+func (v *VerticaDB) IsDepotVolumeEmptyDir() bool {
+	return v.Spec.Local.DepotVolume == EmptyDir
+}
+
+// IsDepotVolumePersistentVolume returns true if the depot volume's type
+// is persistentVolume.
+func (v *VerticaDB) IsDepotVolumePersistentVolume() bool {
+	return v.Spec.Local.DepotVolume == PersistentVolume
+}
+
+// IsknownDepotVolumeType returns true if the depot volume's type is
+// a valid one.
+func (v *VerticaDB) IsKnownDepotVolumeType() bool {
+	if v.IsDepotVolumeEmptyDir() || v.IsDepotVolumePersistentVolume() {
+		return true
+	}
+	return false
 }

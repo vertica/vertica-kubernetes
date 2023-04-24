@@ -103,7 +103,8 @@ func (r *ResizePVReconcile) reconcilePvc(ctx context.Context, pf *PodFact, pvc *
 	// isn't a strict equality check because the actual size of the PVC may be
 	// larger than what was requested.  GCP rounds up to the nearest GB for
 	// instance.
-	if pvc.Spec.Resources.Requests.Storage().Cmp(*pvc.Status.Capacity.Storage()) <= 0 {
+	if pvc.Spec.Resources.Requests.Storage().Cmp(*pvc.Status.Capacity.Storage()) <= 0 &&
+		r.Vdb.IsDepotVolumePersistentVolume() {
 		return r.updateDepotSize(ctx, pvc, pf)
 	}
 

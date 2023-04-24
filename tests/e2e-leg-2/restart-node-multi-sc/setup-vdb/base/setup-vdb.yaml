@@ -24,6 +24,7 @@ spec:
   communal:
     includeUIDInPath: true
   local:
+    depotVolume: EmptyDir
     requestSize: 100Mi
     catalogPath: /vertica/catalog
   dbName: vertdb

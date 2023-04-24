@@ -111,9 +111,18 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	// container. Otherwise, you will get multiple mount points shared the same
 	// path, which will prevent any pods from starting.
 	if vdb.Spec.Local.DataPath != vdb.Spec.Local.DepotPath {
-		volMnts = append(volMnts, corev1.VolumeMount{
-			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("depot"), MountPath: vdb.Spec.Local.DepotPath,
-		})
+		if vdb.IsDepotVolumeEmptyDir() {
+			// If depotVolume is EmptyDir, the depot is stored in its own 'emptyDir' volume
+			vmts := []corev1.VolumeMount{
+				{Name: vapi.DepotMountName, MountPath: fmt.Sprintf("%s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot"))},
+				{Name: vapi.DepotMountName, MountPath: vdb.Spec.Local.DepotPath},
+			}
+			volMnts = append(volMnts, vmts...)
+		} else {
+			volMnts = append(volMnts, corev1.VolumeMount{
+				Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("depot"), MountPath: vdb.Spec.Local.DepotPath,
+			})
+		}
 	}
 	if vdb.Spec.Local.GetCatalogPath() != vdb.Spec.Local.DataPath && vdb.Spec.Local.GetCatalogPath() != vdb.Spec.Local.DepotPath {
 		volMnts = append(volMnts, corev1.VolumeMount{
@@ -224,6 +233,9 @@ func buildVolumes(vdb *vapi.VerticaDB, deployNames *DeploymentNames) []corev1.Vo
 	}
 	if vdb.Spec.HTTPServerTLSSecret != "" {
 		vols = append(vols, buildHTTPServerSecretVolume(vdb))
+	}
+	if vdb.IsDepotVolumeEmptyDir() {
+		vols = append(vols, buildDepotVolume())
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -420,6 +432,21 @@ func buildHTTPServerSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 			},
 		},
 	}
+}
+
+// buildEmtyDirVolume returns a generic 'emptyDir' volume
+func buildEmtyDirVolume(volName string) corev1.Volume {
+	return corev1.Volume{
+		Name: volName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	}
+}
+
+// buildDepotVolume returns an 'emptyDir' volume for the depot
+func buildDepotVolume() corev1.Volume {
+	return buildEmtyDirVolume(vapi.DepotMountName)
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
