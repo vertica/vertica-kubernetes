@@ -28,19 +28,4 @@ spec:
           containers:
           - name: main
             image: "vertica/vertica-k8s:latest"
-            command: ["/opt/vertica/bin/vsql", "-h", "verticadb-sample-defaultsubcluster", "-f", "/sql/initial.sql"]
-            volumeMounts:
-            - name: sql
-              mountPath: /sql
-          volumes:
-          - name: sql
-            configMap:
-              name: create-user-table-sql
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: create-user-table-sql
-data:
-  initial.sql: |-
-    CREATE TABLE T1 (C1 INT);
+            command: ["/opt/vertica/bin/vsql", "-h", "verticadb-sample-defaultsubcluster", "-c", "CREATE TABLE T1 (C1 INT);"]
