@@ -288,7 +288,7 @@ else
 endif
 
 .PHONY: setup-minio
-setup-minio: install-cert-manager ## Setup minio for use with the e2e tests
+setup-minio: install-cert-manager install-kuttl-plugin ## Setup minio for use with the e2e tests
 	scripts/setup-minio.sh
 
 .PHONY: setup-azurite

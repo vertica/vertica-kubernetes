@@ -118,6 +118,7 @@ ARG DBADMIN_UID=5000
 # "apt-cache search jre | grep jre"
 ARG JRE_PKG=openjdk-8-jre-headless
 ARG MINIMAL
+ARG NO_KEYS
 ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
@@ -144,8 +145,6 @@ COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  # install vim except in the -nokeys image
-  && [[ ${NO_KEYS^^} == YES ]] || also_install="vim-tiny" \
   # update needed because we just did a clean
   && apt-get -y update \
   && apt-get install -y --no-install-recommends \
@@ -167,10 +166,13 @@ RUN set -x \
   procps \
   sysstat \
   sudo \
-  ${also_install} \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
+  fi \
+  # install vim except in the -nokeys image \
+  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
+    apt-get install -y --no-install-recommends vim-tiny; \
   fi \
   && apt-get clean \
   && apt-get autoremove \
