@@ -40,9 +40,15 @@ find /opt/vertica/oss/python*/lib/python*/site-packages/ -type d -name "*[Tt]est
 # cleanup many of the __pycache__ directories 
 find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +
    
+# Strip the /opt/vertica/bin. We only strip the vertica binary on the minimal
+# as we need the symbols for proper debugging like collecting vstacks.
+if [[ ${MINIMAL^^} = "YES" ]]
+then
+    strip --verbose /opt/vertica/bin/* 2> /dev/null
+fi
+
 # many of these directories contain things that aren't binaries
 # thus divert error output to /dev/null
-strip /opt/vertica/bin/* 2> /dev/null
 strip /opt/vertica/lib/*.so*
 strip /opt/vertica/oss/python*/bin/* 2> /dev/null
 strip /opt/vertica/oss/python*/lib/libpython*.a
@@ -55,7 +61,7 @@ strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
     /tmp/package-checksum-patcher.py /opt/vertica/packages/*
 
 # (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
-if [ "$MINIMAL" = "YES" ] || [ "$MINIMAL" = "yes" ]
+if [[ ${MINIMAL^^} = "YES" ]]
 then 
   cd /opt/vertica/packages
   for i in $(find . -name package.conf -exec grep Autoinstall=False {} + | cut -d"/" -f2)
