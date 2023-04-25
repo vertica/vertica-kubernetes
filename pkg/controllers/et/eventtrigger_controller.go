@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -193,6 +194,14 @@ func makeJob(et *vapi.EventTrigger) *batchv1.Job {
 				},
 			},
 		},
-		Spec: et.Spec.Template.Spec,
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      et.Spec.Template.Spec.Template.Metadata.GetLabels(),
+					Annotations: et.Spec.Template.Spec.Template.Metadata.GetAnnotations(),
+				},
+				Spec: et.Spec.Template.Spec.Template.Spec,
+			},
+		},
 	}
 }

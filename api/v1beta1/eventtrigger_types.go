@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -107,7 +106,28 @@ type JobTemplate struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:required
 	// The job spec that we will use when construting the job.
-	Spec batchv1.JobSpec `json:"spec"`
+	Spec JobSpec `json:"spec"`
+}
+
+type JobSpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:required
+	// The job's template. At a minimum, the name or generateName must
+	// be set.
+	Template PodTemplateSpec `json:"template"`
+}
+
+type PodTemplateSpec struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// The job's object meta data. At a minimum, the name or generateName must
+	// be set.
+	Metadata JobObjectMeta `json:"metadata"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:required
+	// The job's object spec. At a minimum, the name or generateName must be
+	// set.
+	Spec corev1.PodSpec `json:"spec"`
 }
 
 // JobObjectMeta is meta-data of the Job object that the operator constructs.
@@ -227,6 +247,14 @@ func (e *EventTrigger) ExtractNamespacedName() types.NamespacedName {
 	}
 }
 
+func (j *JobObjectMeta) GetLabels() map[string]string {
+	return j.Labels
+}
+
+func (j *JobObjectMeta) GetAnnotations() map[string]string {
+	return j.Annotations
+}
+
 func makeSampleETName() types.NamespacedName {
 	return types.NamespacedName{Name: "et-sample", Namespace: "default"}
 }
@@ -263,8 +291,8 @@ func MakeET() *EventTrigger {
 				Metadata: JobObjectMeta{
 					Name: "job1",
 				},
-				Spec: batchv1.JobSpec{
-					Template: corev1.PodTemplateSpec{
+				Spec: JobSpec{
+					Template: PodTemplateSpec{
 						Spec: corev1.PodSpec{
 							RestartPolicy: "OnFailure",
 							Containers: []corev1.Container{
