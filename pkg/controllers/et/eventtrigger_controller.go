@@ -186,8 +186,8 @@ func makeJob(et *vapi.EventTrigger) *batchv1.Job {
 			Annotations:  et.Spec.Template.Metadata.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: et.APIVersion,
-					Kind:       et.Kind,
+					APIVersion: vapi.GroupVersion.String(),
+					Kind:       vapi.EventTriggerKind,
 					Name:       et.Name,
 					UID:        et.GetUID(),
 				},
