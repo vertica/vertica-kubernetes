@@ -48,6 +48,12 @@ spec:
         test-name: http-custom-certs
     spec:
       template:
+        metadata:
+          labels:
+            event-trigger-name: vdb-init
+            stern: include
+          annotations:
+            test-name: http-custom-certs
         spec:
           restartPolicy: Never
           containers:
