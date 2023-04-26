@@ -51,6 +51,12 @@ spec:
         test-name: http-generated-certs
     spec:
       template:
+        metadata:
+          labels:
+            event-trigger-name: grant-tls-auth
+            stern: include
+          annotations:
+            test-name: http-generated-certs
         spec:
           restartPolicy: Never
           containers:

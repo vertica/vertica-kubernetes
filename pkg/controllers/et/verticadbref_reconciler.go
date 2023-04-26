@@ -19,6 +19,7 @@ package et
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
@@ -30,10 +31,11 @@ import (
 type VerticaDBRefReconciler struct {
 	VRec *EventTriggerReconciler
 	Et   *vapi.EventTrigger
+	Log  logr.Logger
 }
 
-func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger) controllers.ReconcileActor {
-	return &VerticaDBRefReconciler{VRec: r, Et: et}
+func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger, log logr.Logger) controllers.ReconcileActor {
+	return &VerticaDBRefReconciler{VRec: r, Et: et, Log: log}
 }
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
@@ -51,7 +53,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 
 		if err := r.VRec.Client.Get(ctx, nm, vdb); err != nil {
 			if errors.IsNotFound(err) {
-				if errs := etstatus.Apply(ctx, r.VRec.Client, r.VRec.Log, r.Et, refStatus); errs != nil {
+				if errs := etstatus.Apply(ctx, r.VRec.Client, r.Log, r.Et, refStatus); errs != nil {
 					return ctrl.Result{}, errs
 				}
 
@@ -83,13 +85,13 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			r.VRec.Log.Info("job created", "job.Name", job.Name, "job.Namespace", job.Namespace)
+			r.Log.Info("job created", "job.Name", job.Name, "job.Namespace", job.Namespace)
 
 			refStatus.JobNamespace = job.Namespace
 			refStatus.JobName = job.Name
 		}
 
-		if err := etstatus.Apply(ctx, r.VRec.Client, r.VRec.Log, r.Et, refStatus); err != nil {
+		if err := etstatus.Apply(ctx, r.VRec.Client, r.Log, r.Et, refStatus); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -120,7 +122,7 @@ func (r *VerticaDBRefReconciler) matchStatus(vdb *vapi.VerticaDB, ref vapi.ETRef
 	conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
 	conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
 	if !ok {
-		r.VRec.Log.Info("vertica DB condition missing from VerticaDBConditionType", "condition", match.Condition.Type)
+		r.Log.Info("vertica DB condition missing from VerticaDBConditionType", "condition", match.Condition.Type)
 		return false
 	}
 
@@ -129,7 +131,7 @@ func (r *VerticaDBRefReconciler) matchStatus(vdb *vapi.VerticaDB, ref vapi.ETRef
 	}
 
 	if vdb.Status.Conditions[conditionTypeIndex].Status != match.Condition.Status {
-		r.VRec.Log.Info(
+		r.Log.Info(
 			"status was not met",
 			"expected", match.Condition.Status,
 			"found", vdb.Status.Conditions[conditionTypeIndex].Status,

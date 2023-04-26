@@ -51,24 +51,30 @@ spec:
         stern: include
         event-trigger-name: test-verify-metrics
     spec:
-      restartPolicy: Never
-      containers:
-        - name: test
-          image: bitnami/kubectl:1.20.4
-          command: ["/bin/entrypoint.sh"]
-          volumeMounts:
+      template:
+        metadata:
+          labels:
+            stern: include
+            event-trigger-name: test-verify-metrics
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: test
+              image: bitnami/kubectl:1.20.4
+              command: ["/bin/entrypoint.sh"]
+              volumeMounts:
+                - name: entrypoint-volume
+                  mountPath: /bin/entrypoint.sh
+                  readOnly: true
+                  subPath: entrypoint.sh
+                - name: certs
+                  mountPath: /certs
+          volumes:
             - name: entrypoint-volume
-              mountPath: /bin/entrypoint.sh
-              readOnly: true
-              subPath: entrypoint.sh
+              configMap:
+                defaultMode: 0777
+                name: script-verify-metrics
             - name: certs
-              mountPath: /certs
-      volumes:
-        - name: entrypoint-volume
-          configMap:
-            defaultMode: 0777
-            name: script-verify-metrics
-        - name: certs
-          secret:
-            secretName: custom-certs
-            defaultMode: 0777
+              secret:
+                secretName: custom-certs
+                defaultMode: 0777
