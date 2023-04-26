@@ -62,18 +62,18 @@ const (
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *EventTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("et", req.NamespacedName)
-	log.Info("starting reconcile of EventTrigger")
+	r.Log = r.Log.WithValues("et", req.NamespacedName)
+	r.Log.Info("starting reconcile of EventTrigger")
 
 	et := &vapi.EventTrigger{}
 	err := r.Get(ctx, req.NamespacedName, et)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, cound have been deleted after reconcile request.
-			log.Info("EventTrigger resource not found.  Ignoring since object must be deleted")
+			r.Log.Info("EventTrigger resource not found.  Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
-		log.Error(err, "failed to get EventTrigger")
+		r.Log.Error(err, "failed to get EventTrigger")
 		return ctrl.Result{}, err
 	}
 
@@ -81,16 +81,16 @@ func (r *EventTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	actors := r.constructActors(et)
 	var res ctrl.Result
 	for _, act := range actors {
-		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
+		r.Log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
 		// Error or a request to requeue will stop the reconciliation.
 		if verrors.IsReconcileAborted(res, err) {
-			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
+			r.Log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err
 		}
 	}
 
-	log.Info("ending reconcile of EventTrigger", "result", res, "err", err)
+	r.Log.Info("ending reconcile of EventTrigger", "result", res, "err", err)
 	return res, err
 }
 
