@@ -27,8 +27,8 @@ spec:
       name: v-non-cluster-admin-deployment
   matches:
   - condition:
-      type: OnlineUpgradeInProgress
-      status: "False"
+      type: DBInitialized
+      status: "True"
   template:
     metadata:
       name: hello-world
