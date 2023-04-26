@@ -106,7 +106,9 @@ type JobTemplate struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:required
-	// The job spec that we will use when construting the job.
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// Specification of the desired behavior of the job.
 	Spec batchv1.JobSpec `json:"spec"`
 }
 
