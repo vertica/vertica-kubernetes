@@ -23,7 +23,8 @@ spec:
   initPolicy: Revive
   local:
     dataPath: /my-data
-    depotPath: /my-data
+    depotPath: /my-depot
+    depotVolume: EmptyDir
     requestSize: 100Mi
   dbName: vertdb
   requeueTime: 5
