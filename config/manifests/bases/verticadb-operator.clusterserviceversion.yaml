@@ -16,6 +16,110 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: EventTrigger is the Schema for the eventtriggers API
+      displayName: Event Trigger
+      kind: EventTrigger
+      name: eventtriggers.vertica.com
+      resources:
+      - kind: Job
+        name: ""
+        version: batch/v1
+      specDescriptors:
+      - description: List of things that must be matched in order for the Job to be
+          created. Multiple matches are combined with AND logic.
+        displayName: Matches
+        path: matches
+      - description: Details about a status condition that must match.
+        displayName: Condition
+        path: matches[0].condition
+      - description: The expected value of the status condition when a match occurs.
+        displayName: Status
+        path: matches[0].condition.status
+      - description: The name of the status condition to check.
+        displayName: Type
+        path: matches[0].condition.type
+      - description: Objects that this event trigger will apply too.
+        displayName: References
+        path: references
+      - description: A single object, given by GVK + namespace + name, that this event
+          trigger will apply too.
+        displayName: Object
+        path: references[0].object
+      - description: The API version of the reference object
+        displayName: APIVersion
+        path: references[0].object.apiVersion
+      - description: The kind of the reference object
+        displayName: Kind
+        path: references[0].object.kind
+      - description: The name of the reference object. This doesn't have to exist
+          prior to creating the CR.
+        displayName: Name
+        path: references[0].object.name
+      - description: The namespace that the reference object exists in.
+        displayName: Namespace
+        path: references[0].object.namespace
+      - description: A template of a Job that will get created when the conditions
+          are met for any reference object.
+        displayName: Template
+        path: template
+      - description: The job's object meta data. At a minimum, the name or generateName
+          must be set.
+        displayName: Metadata
+        path: template.metadata
+      - description: Annotations is an unstructured key value map stored with a resource
+          that may be set by external tools to store and retrieve arbitrary metadata.
+          They are not queryable and should be preserved when modifying objects.
+        displayName: Annotations
+        path: template.metadata.annotations
+      - description: GenerateName is an optional prefix, used by the server, to generate
+          a unique name ONLY IF the Name field has not been provided.
+        displayName: Generate Name
+        path: template.metadata.generateName
+      - description: Map of string keys and values that can be used to organize and
+          categorize (scope and select) objects.
+        displayName: Labels
+        path: template.metadata.labels
+      - description: Name must be unique within a namespace. Can be omitted if GenerateName
+          is provided.
+        displayName: Name
+        path: template.metadata.name
+      - description: The job spec that we will use when construting the job.
+        displayName: Spec
+        path: template.spec
+      statusDescriptors:
+      - description: Status about each of the reference objects
+        displayName: References
+        path: references
+      - description: The API version of the reference object
+        displayName: APIVersion
+        path: references[0].apiVersion
+      - description: If a job was created because a match was found for this reference
+          object, this is the name of that job. This pairs with the jobNamespace parameter
+          to uniquely identify the job.
+        displayName: Job Name
+        path: references[0].jobName
+      - description: If a job was created because a match was found for this reference
+          object, this is the namespace the job is found in. This pairs with the jobName
+          parameter to uniquely identify the job.
+        displayName: Job Namespace
+        path: references[0].jobNamespace
+      - description: The kind of the reference object
+        displayName: Kind
+        path: references[0].kind
+      - description: The name of the reference object. This doesn't have to exist
+          prior to creating the CR.
+        displayName: Name
+        path: references[0].name
+      - description: The namespace that the reference object exists in.
+        displayName: Namespace
+        path: references[0].namespace
+      - description: The last known resource version of the reference object
+        displayName: Resource Version
+        path: references[0].resourceVersion
+      - description: The uid of the reference object
+        displayName: UID
+        path: references[0].uid
+      version: v1beta1
     - description: VerticaAutoscaler is a CR that allows you to autoscale one or more
         subclusters in a VerticaDB.
       displayName: Vertica Autoscaler
@@ -457,6 +561,13 @@ spec:
         path: licenseSecret
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Allows tuning of the Vertica pods liveness probe. Each of the
+          values here are applied to the default liveness probe we create. If this
+          is omitted, we use the default probe.
+        displayName: Liveness Probe Override
+        path: livenessProbeOverride
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Contain details about the local storage
         displayName: Local
         path: local
@@ -490,6 +601,13 @@ spec:
         path: local.storageClass
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:StorageClass
+      - description: This can be used to override any pod-level securityContext for
+          the Vertica pod. It will be merged with the default context. If omitted,
+          then the default context is used.
+        displayName: Pod Security Context
+        path: podSecurityContext
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: Allows tuning of the Vertica pods readiness probe. Each of the
           values here are applied to the default readiness probe we create. If this
           is omitted, we use the default probe.
@@ -577,6 +695,13 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Allows tuning of the Vertica pods startup probe. Each of the
+          values here are applied to the default startup probe we create. If this
+          is omitted, we use the default probe.
+        displayName: Startup Probe Override
+        path: startupProbeOverride
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
       - displayName: Subclusters
         path: subclusters
       - description: 'Like nodeSelector this allows you to constrain the pod only

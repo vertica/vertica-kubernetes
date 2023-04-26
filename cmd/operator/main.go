@@ -36,11 +36,13 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	verticacomv1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
@@ -60,7 +62,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(verticacomv1beta1.AddToScheme(scheme))
+	utilruntime.Must(vapi.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -123,6 +125,14 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaAutoscaler")
 		os.Exit(1)
 	}
+	if err := (&et.EventTriggerReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Log:    ctrl.Log.WithName("controllers").WithName("EventTrigger"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "EventTrigger")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 }
 
@@ -138,12 +148,16 @@ func addWebhooksToManager(mgr manager.Manager) {
 	webhookServer := mgr.GetWebhookServer()
 	webhookServer.TLSMinVersion = "1.3"
 
-	if err := (&verticacomv1beta1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&vapi.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
 		os.Exit(1)
 	}
-	if err := (&verticacomv1beta1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&vapi.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler")
+		os.Exit(1)
+	}
+	if err := (&vapi.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EventTrigger")
 		os.Exit(1)
 	}
 }
@@ -225,6 +239,13 @@ func main() {
 		LeaderElectionID:       "5c1e6227.vertica.com",
 		Namespace:              watchNamespace,
 		CertDir:                CertDir,
+		Controller: v1alpha1.ControllerConfigurationSpec{
+			GroupKindConcurrency: map[string]int{
+				vapi.GkVDB.String(): 1,
+				vapi.GkVAS.String(): 1,
+				vapi.GkET.String():  1,
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

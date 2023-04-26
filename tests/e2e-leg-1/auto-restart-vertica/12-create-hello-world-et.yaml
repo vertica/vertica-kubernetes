@@ -1,0 +1,47 @@
+# (c) Copyright [2021-2023] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Create an EventTrigger that will just run a dummy container emitting "Hello
+# World". The purpose of the test is to make sure the EventTrigger can apply to
+# any condition type in VerticaDB -- in this case it is AutoRestartVertica.
+
+apiVersion: vertica.com/v1beta1
+kind: EventTrigger
+metadata:
+  name: hello-world
+spec:
+  references:
+  - object:
+      apiVersion: vertica.com/v1beta1
+      kind: VerticaDB
+      name: v-auto-restart-vertica
+  matches:
+  - condition:
+      type: AutoRestartVertica
+      status: "False"
+  template:
+    metadata:
+      name: hello-world
+      labels:
+        event-trigger-name: hello-world
+        stern: include
+      annotations:
+        test-name: auto-restart-vertica
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: test
+              image: bitnami/kubectl:1.20.4
+              command: ["echo", "Hello World!"]

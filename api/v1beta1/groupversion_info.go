@@ -30,6 +30,7 @@ const (
 
 	VerticaDBKind         = "VerticaDB"
 	VerticaAutoscalerKind = "VerticaAutoscaler"
+	EventTriggerKind      = "EventTrigger"
 )
 
 var (
@@ -41,4 +42,9 @@ var (
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
+
+	// All supported group/kind by this operator
+	GkVDB = schema.GroupKind{Group: Group, Kind: VerticaDBKind}
+	GkVAS = schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}
+	GkET  = schema.GroupKind{Group: Group, Kind: EventTriggerKind}
 )

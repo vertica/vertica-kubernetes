@@ -2,4 +2,5 @@
 resources:
 - v1beta1_verticadb.yaml
 - v1beta1_verticaautoscaler.yaml
+- v1beta1_eventtrigger.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

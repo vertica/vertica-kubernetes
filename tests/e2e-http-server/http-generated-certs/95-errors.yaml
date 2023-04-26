@@ -31,3 +31,9 @@ metadata:
     app.kubernetes.io/component: database
     vertica.com/database: vertdb
     app.kubernetes.io/instance: v-http-generated-certs
+---
+apiVersion: batch/v1
+kind: Job
+---
+apiVersion: vertica.com/v1beta1
+kind: EventTrigger
