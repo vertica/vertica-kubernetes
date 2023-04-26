@@ -150,6 +150,25 @@ var _ = Describe("analyze", func() {
 		Expect(vdb.Spec.Local.DepotPath).Should(Equal(origVdb.Spec.Local.DepotPath))
 	})
 
+	It("should update depotVolume when is EmptyDir and depot path is not unique", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Local.DepotPath = vdb.Spec.Local.DataPath
+		p := MakeATPlannerFromVDB(vdb, logger)
+
+		origVdb := vdb.DeepCopy()
+
+		// Change some things in vdb that the planner will change back
+		vdb.Spec.Local.DepotPath = "/depot-dir"
+		vdb.Spec.Local.DataPath = "/data-dir"
+		vdb.Spec.Local.DepotVolume = vapi.EmptyDir
+
+		Expect(p.ApplyChanges(vdb)).Should(BeTrue())
+		Expect(vdb.Spec.Local.DataPath).Should(Equal(origVdb.Spec.Local.DataPath))
+		Expect(vdb.Spec.Local.GetCatalogPath()).Should(Equal(origVdb.Spec.Local.GetCatalogPath()))
+		Expect(vdb.Spec.Local.DepotPath).Should(Equal(origVdb.Spec.Local.DepotPath))
+		Expect(vdb.Spec.Local.DepotVolume).Should(Equal(vapi.PersistentVolume))
+	})
+
 	It("should say revive isn't compatible if paths differ among nodes", func() {
 		p := ATPlanner{
 			Database: Database{

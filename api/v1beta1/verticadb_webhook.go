@@ -878,8 +878,7 @@ func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList 
 	}
 	// When depotVolume is EmptyDir, depotPath must be different from data and catalog paths.
 	if v.IsDepotVolumeEmptyDir() {
-		if v.Spec.Local.DepotPath == v.Spec.Local.DataPath ||
-			v.Spec.Local.DepotPath == v.Spec.Local.GetCatalogPath() {
+		if !v.Spec.Local.IsDepotPathUnique() {
 			err := field.Invalid(field.NewPath("spec").Child("local").Child("depotPath"),
 				v.Spec.Local.DepotPath, "depotPath cannot be equal to dataPath or catalogPath when depotVolume is EmptyDir")
 			allErrs = append(allErrs, err)
@@ -892,8 +891,7 @@ func (v *VerticaDB) validateDepotVolume(allErrs field.ErrorList) field.ErrorList
 	if !v.IsKnownDepotVolumeType() {
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("depotVolume"),
 			v.Spec.Local.DepotVolume,
-			fmt.Sprintf("local.depotVolume, if specified, can only be %s or %s",
-				EmptyDir, PersistentVolume))
+			fmt.Sprintf("valid values are %s and %s", EmptyDir, PersistentVolume))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -1039,12 +1037,15 @@ func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allE
 }
 
 // checkImmutableDepotVolume will make sure local.depotVolume
-// does not change after creation.
+// does not change after the db has been initialized.
 func (v *VerticaDB) checkImmutableDepotVolume(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if !v.isDBInitialized() {
+		return allErrs
+	}
 	if v.Spec.Local.DepotVolume != oldObj.Spec.Local.DepotVolume {
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("depotVolume"),
 			v.Spec.Local.DepotVolume,
-			"local.depotVolume cannot change after creation")
+			"cannot change after the db has been initialized")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

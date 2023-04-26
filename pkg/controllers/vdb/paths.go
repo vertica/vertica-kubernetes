@@ -42,8 +42,9 @@ func prepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRun
 	// directory are first mounted they are owned by root.  Vertica handles changing
 	// the ownership of the config, log and data directory.  This function exists to
 	// handle the depot directory. This can be skipped if the depotPath is
-	// shared with one of the data or catalog paths.
-	if vdb.Spec.Local.DepotPath != vdb.Spec.Local.DataPath && vdb.Spec.Local.DepotPath != vdb.Spec.Local.GetCatalogPath() {
+	// shared with one of the data or catalog paths or if the depot volume is not
+	// a PersistentVolume.
+	if vdb.IsDepotVolumePersistentVolume() && vdb.Spec.Local.IsDepotPathUnique() {
 		rmCmds.WriteString(fmt.Sprintf("sudo chown dbadmin:verticadba -R %s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")))
 	}
 

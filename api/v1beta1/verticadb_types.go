@@ -604,21 +604,23 @@ type CommunalStorage struct {
 type LocalStorage struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:StorageClass"
-	// The local data stores the local catalog, depot and config files. This
-	// defines the name of the storageClass to use for that volume. This will be
-	// set when creating the PVC. By default, it is not set. This means that
-	// that the PVC we create will have the default storage class set in
-	// Kubernetes.
-	// It only applies to persistent volumes and is ignored by the depot when depotVolume is 'EmptyDir'.
+	// The local data stores the local catalog, depot and config files. Portions
+	// of the local data are persisted with a persistent volume (PV) using a
+	// persistent volume claim (PVC). The catalog and config files are always
+	// stored in the PV. The depot may be include too if depotVolume is set to
+	// 'PersistentVolume'. This field is used to define the name of the storage
+	// class to use for the PV. This will be set when creating the PVC. By
+	// default, it is not set. This means that that the PVC we create will have
+	// the default storage class set in Kubernetes.
 	StorageClass string `json:"storageClass,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="500Gi"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The minimum size of the local data volume when picking a PV.  If changing
-	// this after the PV have been created, it will cause a resize of the PV to
-	// the new size.
-	// It only applies to persistent volumes and is ignored by the depot when depotVolume is 'EmptyDir'.
+	// this after the PV have been created, two things may happen. First, it
+	// will cause a resize of the PV to the new size. And, if depot is
+	// stored in the PV, a resize of the depot happens too.
 	RequestSize resource.Quantity `json:"requestSize,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -639,11 +641,12 @@ type LocalStorage struct {
 	DepotPath string `json:"depotPath"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=PersistentVolume
+	// +kubebuilder:default:=""
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:PersistentVolume","urn:alm:descriptor:com.tectonic.ui:select:EmptyDir"}
-	// The type of volume to use for the depot. Allowable values will be: EmptyDir and PersistentVolume.
-	// If omitted, the default value will be PersistentVolume.
-	DepotVolume DepotVolumeType `json:"depotVolume"`
+	// The type of volume to use for the depot.
+	// Allowable values will be: EmptyDir and PersistentVolume or an empty string.
+	// An empty string currently defaults to PersistentVolume.
+	DepotVolume DepotVolumeType `json:"depotVolume,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -662,6 +665,13 @@ func (l *LocalStorage) GetCatalogPath() string {
 		return l.DataPath
 	}
 	return l.CatalogPath
+}
+
+// IsDepotPathUnique returns true is depot path is different from
+// catalog and data paths.
+func (l *LocalStorage) IsDepotPathUnique() bool {
+	return l.DepotPath != l.DataPath &&
+		l.DepotPath != l.GetCatalogPath()
 }
 
 type Subcluster struct {
@@ -1343,7 +1353,8 @@ func (v *VerticaDB) IsDepotVolumeEmptyDir() bool {
 // IsDepotVolumePersistentVolume returns true if the depot volume's type
 // is persistentVolume.
 func (v *VerticaDB) IsDepotVolumePersistentVolume() bool {
-	return v.Spec.Local.DepotVolume == PersistentVolume
+	return v.Spec.Local.DepotVolume == PersistentVolume ||
+		v.Spec.Local.DepotVolume == ""
 }
 
 // IsknownDepotVolumeType returns true if the depot volume's type is

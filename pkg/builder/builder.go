@@ -114,7 +114,6 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		if vdb.IsDepotVolumeEmptyDir() {
 			// If depotVolume is EmptyDir, the depot is stored in its own 'emptyDir' volume
 			vmts := []corev1.VolumeMount{
-				{Name: vapi.DepotMountName, MountPath: fmt.Sprintf("%s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot"))},
 				{Name: vapi.DepotMountName, MountPath: vdb.Spec.Local.DepotPath},
 			}
 			volMnts = append(volMnts, vmts...)

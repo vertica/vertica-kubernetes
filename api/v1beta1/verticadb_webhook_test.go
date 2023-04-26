@@ -335,9 +335,14 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.Local.StorageClass = "MyStorageClass"
 		validateImmutableFields(vdbUpdate, true)
 	})
-	It("should not change local.depotVolume after creation", func() {
-		vdbUpdate := MakeVDB()
+	It("should not change local.depotVolume after DB init", func() {
+		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.DepotVolume = EmptyDir
+		validateImmutableFields(vdbUpdate, false)
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
 		validateImmutableFields(vdbUpdate, true)
 	})
 
@@ -633,6 +638,12 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should not have invalid depotVolume type", func() {
 		vdb := MakeVDB()
+		vdb.Spec.Local.DepotVolume = ""
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Local.DepotVolume = EmptyDir
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Local.DepotVolume = PersistentVolume
+		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Local.DepotVolume = "wrong"
 		validateSpecValuesHaveErr(vdb, true)
 	})
