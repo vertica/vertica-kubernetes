@@ -28,13 +28,12 @@ data:
     MAJOR=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$1\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
     MINOR=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$2\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
     PATCH=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$3\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
-    # In 23.3, we changed the aggregate examples. However, the nightly build
-    # still reports 12.0.4. And we have no way of knowing if it's really 23.3 or
-    # 12.0.4. So, we'll just stop running the test if it's 12.0.4. We need to come
-    # back to this and pick the proper exp file.
-    if [ "$MAJOR" -ge 12 ] && [ "$MINOR" -ge 0 ] && [ "$PATCH" -ge 3 ]
+    # In 23.3, we changed the aggregate examples.
+    if [ "$MAJOR" -gt 12 ] \
+        || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -gt 0 ]) \
+        || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -eq 0 ] && [ "$PATCH" -ge 3 ])
     then
-      exit 0
+      EXP=/opt/vertica/sdk/examples/expected-outputs/23.3.0/AggregateFunctionsOut.txt
     else
       EXP=/opt/vertica/sdk/examples/expected-outputs/12.0.3/AggregateFunctionsOut.txt
     fi
