@@ -158,7 +158,6 @@ var _ = Describe("analyze", func() {
 		origVdb := vdb.DeepCopy()
 
 		// Change some things in vdb that the planner will change back
-		vdb.Spec.Local.DepotPath = "/depot-dir"
 		vdb.Spec.Local.DataPath = "/data-dir"
 		vdb.Spec.Local.DepotVolume = vapi.EmptyDir
 

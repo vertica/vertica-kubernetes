@@ -23,6 +23,11 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-revive-3-node
+spec:
+  local:
+    dataPath: /my-data
+    depotPath: /my-data
+    depotVolume: PersistentVolume
 status:
   subclusters:
     - installCount: 3

@@ -891,7 +891,7 @@ func (v *VerticaDB) validateDepotVolume(allErrs field.ErrorList) field.ErrorList
 	if !v.IsKnownDepotVolumeType() {
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("depotVolume"),
 			v.Spec.Local.DepotVolume,
-			fmt.Sprintf("valid values are %s and %s", EmptyDir, PersistentVolume))
+			fmt.Sprintf("valid values are %s, %s or an empty string", EmptyDir, PersistentVolume))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
