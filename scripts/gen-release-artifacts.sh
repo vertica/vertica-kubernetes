@@ -51,7 +51,7 @@ do
   # supplied when applying the manifests.  For the ClusterRoleBinding it will
   # produce an error.  But this is better then substituting in some random
   # namespace that might not exist on the users system.
-  sed -i 's/.*namespace:.*//g' $RELEASE_ARTIFACT_TARGET_DIR/$f
+  sed -i '' 's/.*namespace:.*//g' $RELEASE_ARTIFACT_TARGET_DIR/$f
 done
 
 # Generate a single manifest that all of the rbac rules to run the operator.
@@ -70,4 +70,4 @@ do
     echo "---" >> $OPERATOR_RBAC
 done
 perl -i -0777 -pe 's/.*namespace:.*\n//g' $OPERATOR_RBAC
-sed -i '$ d' $OPERATOR_RBAC   # Remove the last line of the file
+sed -i '' '$ d' $OPERATOR_RBAC   # Remove the last line of the file
