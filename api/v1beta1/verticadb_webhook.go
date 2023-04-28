@@ -48,6 +48,7 @@ const (
 	Krb5SecretMountName      = "krb5"
 	SSHMountName             = "ssh"
 	HTTPServerCertsMountName = "http-server-certs"
+	DepotMountName           = "depot"
 	S3Prefix                 = "s3://"
 	GCloudPrefix             = "gs://"
 	AzurePrefix              = "azb://"
@@ -257,6 +258,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableLocalPathChange(oldObj, allErrs)
 	allErrs = v.checkImmutableShardCount(oldObj, allErrs)
 	allErrs = v.checkImmutableS3ServerSideEncryption(oldObj, allErrs)
+	allErrs = v.checkImmutableDepotVolume(oldObj, allErrs)
 	return allErrs
 }
 
@@ -283,7 +285,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.transientSubclusterMustMatchTemplate(allErrs)
 	allErrs = v.validateRequeueTimes(allErrs)
 	allErrs = v.validateEncryptSpreadComm(allErrs)
-	allErrs = v.validateLocalPaths(allErrs)
+	allErrs = v.validateLocalStorage(allErrs)
 	allErrs = v.validateHTTPServerMode(allErrs)
 	allErrs = v.hasValidShardCount(allErrs)
 	if len(allErrs) == 0 {
@@ -828,6 +830,11 @@ func (v *VerticaDB) validateEncryptSpreadComm(allErrs field.ErrorList) field.Err
 	return allErrs
 }
 
+func (v *VerticaDB) validateLocalStorage(allErrs field.ErrorList) field.ErrorList {
+	allErrs = v.validateLocalPaths(allErrs)
+	return v.validateDepotVolume(allErrs)
+}
+
 func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList {
 	// We cannot let any of the local paths be the same as important paths in
 	// the image.  Otherwise, we risk losing the contents of those directory in
@@ -867,6 +874,24 @@ func (v *VerticaDB) validateLocalPaths(allErrs field.ErrorList) field.ErrorList 
 		}
 		err := field.Invalid(field.NewPath("spec").Child("local").Child(fieldPathName),
 			fieldRef, fmt.Sprintf("%s cannot be set to %s. This is a restricted path.", fieldPathName, invalidPath))
+		allErrs = append(allErrs, err)
+	}
+	// When depotVolume is EmptyDir, depotPath must be different from data and catalog paths.
+	if v.IsDepotVolumeEmptyDir() {
+		if !v.Spec.Local.IsDepotPathUnique() {
+			err := field.Invalid(field.NewPath("spec").Child("local").Child("depotPath"),
+				v.Spec.Local.DepotPath, "depotPath cannot be equal to dataPath or catalogPath when depotVolume is EmptyDir")
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) validateDepotVolume(allErrs field.ErrorList) field.ErrorList {
+	if !v.IsKnownDepotVolumeType() {
+		err := field.Invalid(field.NewPath("spec").Child("local").Child("depotVolume"),
+			v.Spec.Local.DepotVolume,
+			fmt.Sprintf("valid values are %s, %s or an empty string", EmptyDir, PersistentVolume))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
@@ -1006,6 +1031,21 @@ func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allE
 		err := field.Invalid(field.NewPath("spec").Child("communal").Child("s3ServerSideEncryption"),
 			v.Spec.Communal.S3ServerSideEncryption,
 			"communal.s3ServerSideEncryption cannot change after creation")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// checkImmutableDepotVolume will make sure local.depotVolume
+// does not change after the db has been initialized.
+func (v *VerticaDB) checkImmutableDepotVolume(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if !v.isDBInitialized() {
+		return allErrs
+	}
+	if v.Spec.Local.DepotVolume != oldObj.Spec.Local.DepotVolume {
+		err := field.Invalid(field.NewPath("spec").Child("local").Child("depotVolume"),
+			v.Spec.Local.DepotVolume,
+			"cannot change after the db has been initialized")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

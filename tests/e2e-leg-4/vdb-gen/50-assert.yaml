@@ -23,6 +23,7 @@ spec:
   local:
     dataPath: /data
     depotPath: /depot
+    depotVolume: EmptyDir
     catalogPath: /catalog
   subclusters:
     - name: sc1

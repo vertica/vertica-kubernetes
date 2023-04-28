@@ -71,6 +71,8 @@ func main() {
 		"If the communal backend is authenticated with Kerberos, use this parameter to pass in the contents of the krb5.conf file")
 	flag.StringVar(&opts.Krb5Keytab, "krb5keytab", "",
 		"If the communal backend is authenticated with Kerberos, use this parameter to pass in the contents of the krb5.keytab file")
+	flag.StringVar(&opts.DepotVolume, "depotvolume", "PersistentVolume",
+		"The type of volume to use for the depot. Allowable values will be: EmptyDir and PersistentVolume.")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {

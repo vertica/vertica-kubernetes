@@ -37,4 +37,5 @@ fi
     -password superuser \
     -ignore-cluster-lease \
     $CA_CERT_OPT \
+    -depotvolume EmptyDir \
     v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb
