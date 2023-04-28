@@ -1,5 +1,5 @@
-VERTICA_RPM?=vertica-x86_64.RHEL6.latest.rpm
-BUILDER_OS_VERSION?=7.9.2009
+VERTICA_RPM?=vertica-aarch64.RHEL8.latest.rpm
+BUILDER_OS_VERSION?=stream8
 BASE_OS_VERSION?=focal-20220316
 VERTICA_IMG?=vertica-k8s
 MINIMAL_VERTICA_IMG?=
@@ -12,7 +12,6 @@ all: docker-build-vertica
 docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 	docker pull ubuntu:focal ## make sure we use the latest focal image
 	docker build \
-		--platform linux/amd64 \
 		-f Dockerfile \
 		--label minimal=${MINIMAL_VERTICA_IMG} \
 		--label os-version=${BASE_OS_VERSION} \

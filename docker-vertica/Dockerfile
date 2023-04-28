@@ -4,11 +4,11 @@
 #
 
 ARG BASE_OS_VERSION="focal"
-ARG BUILDER_OS_VERSION="7.9.2009"
+ARG BUILDER_OS_VERSION="stream8"
 ARG MINIMAL=""
 ARG NO_KEYS=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
-FROM centos:centos${BUILDER_OS_VERSION} as builder
+FROM quay.io/centos/centos:${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL
@@ -31,9 +31,10 @@ RUN set -x \
   && yum -q -y update \
   && yum install -y \
   cronie \
+  glibc \
+  glibc-langpack-en \
   dialog \
   iproute \
-  mcelog \
   openssh-server \
   openssh-clients \
   openssl \
