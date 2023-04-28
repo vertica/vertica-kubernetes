@@ -503,12 +503,14 @@ CONTROLLER_TOOLS_VERSION ?= v0.11.1
 KIND_VERSION ?= v0.11.1
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
 GOLANGCI_LINT_VER ?= 1.51.1
+GOOS?=$(shell go env GOOS)
+GOARCH?=$(shell go env GOARCH)
 
 # We replaced the default download script found in the operator-sdk with a
 # direct download. I was htting the GitHub rate limiter by using the
 # script available in the kustomize repo (install_kustomize.sh). A direct
 # download allows us to manage retries easier.
-KUSTOMIZE_DOWNLOAD_URL?=https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F$(KUSTOMIZE_VERSION)/kustomize_$(KUSTOMIZE_VERSION)_linux_amd64.tar.gz
+KUSTOMIZE_DOWNLOAD_URL?=https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F$(KUSTOMIZE_VERSION)/kustomize_$(KUSTOMIZE_VERSION)_$(GOOS)_$(GOARCH).tar.gz
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): $(LOCALBIN)
