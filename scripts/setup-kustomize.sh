@@ -129,7 +129,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - $BASE_DIR
-  - $(realpath --relative-to="." $REPO_DIR/tests/kustomize-base)
+  - $(grealpath --relative-to="." $REPO_DIR/tests/kustomize-base)
 
 EOF
     if [ -z "$ENTERPRISE" ]
@@ -276,7 +276,7 @@ EOF
         cat <<EOF > $PRIVATE_REG_SECRET_PATCH
         - op: add
           path: /spec/imagePullSecrets/-
-          value: 
+          value:
             name: $PRIVATE_REG_CERT_SERCET_NS_COPY
         - op: replace
           path: /spec/imagePullPolicy
@@ -595,7 +595,7 @@ EOF
       echo "*** Unknown protocol (create_communal_creds): $PATH_PROTOCOL"
       exit 1
     fi
-    
+
     popd > /dev/null
     popd > /dev/null
 }
@@ -643,7 +643,7 @@ EOF
       echo "*** Unknown protocol (setup_creds_for_create_s3_bucket): $PATH_PROTOCOL"
       exit 1
     fi
-    
+
     popd > /dev/null
     popd > /dev/null
 }
@@ -727,7 +727,7 @@ setup_creds_for_private_repo
 # The overlay is created in a directory like: overlay/<tc-name>
 for tdir in e2e-leg-*/*/*/base e2e-server-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base e2e-udx/*/*/base e2e-http-server/*/*/base e2e-enterprise/*/*/base
 do
-    create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
+    create_vdb_pod_kustomization $(dirname $tdir) $(basename $(grealpath $tdir/../..))
 done
 for tdir in e2e-leg-*/* e2e-server-upgrade/* e2e-operator-upgrade-overlays/* e2e-udx/* e2e-http-server/*
 do

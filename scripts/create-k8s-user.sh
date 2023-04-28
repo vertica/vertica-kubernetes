@@ -97,10 +97,10 @@ openssl x509 -req -in $local_user_csr -CA $local_ca_crt -CAkey $local_ca_key -CA
 logInfo "Write out new kubeconfig to $KUBECONFIG_OUT"
 cat <<EOF > $KUBECONFIG_OUT
 apiVersion: v1
-kind: Config 
+kind: Config
 clusters:
 - cluster:
-    certificate-authority-data: $(cat $local_ca_crt | base64 -w 0)
+    certificate-authority-data: $(cat $local_ca_crt | gbase64 -w 0)
     server: $k8s_server
   name: kind
 contexts:
@@ -112,6 +112,6 @@ current-context: user-$USER
 users:
 - name: $USER
   user:
-    client-certificate-data: $(cat $local_user_crt | base64 -w 0)
-    client-key-data: $(cat $local_user_key | base64 -w 0)
+    client-certificate-data: $(cat $local_user_crt | gbase64 -w 0)
+    client-key-data: $(cat $local_user_key | gbase64 -w 0)
 EOF
