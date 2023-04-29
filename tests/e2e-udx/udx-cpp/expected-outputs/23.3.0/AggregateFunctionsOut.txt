@@ -1,0 +1,49 @@
+CREATE LIBRARY
+CREATE AGGREGATE FUNCTION
+CREATE AGGREGATE FUNCTION
+CREATE AGGREGATE FUNCTION
+CREATE AGGREGATE FUNCTION
+CREATE TABLE
+ x |  z   | average 
+---+------+---------
+ 1 | 'A'  |    2.50
+ 2 | 'A'  |    2.20
+ 2 | 'B'  |    2.30
+ 3 | 'B'  |    4.50
+ 3 | 'C'  |    2.00
+ 4 | 'AB' |    7.50
+ 4 | 'BC' |    5.50
+(7 rows)
+
+ x | agg_longest_string 
+---+--------------------
+ 1 | 'A'
+ 2 | 'B'
+ 3 | 'C'
+ 4 | 'BC'
+(4 rows)
+
+ x | agg_longest_string 
+---+--------------------
+ 1 | 'A'
+ 2 | 'B'
+ 3 | 'C'
+ 4 | 'BC'
+(4 rows)
+
+ num_occurences 
+----------------
+              4
+(1 row)
+
+  z   | num_occurences 
+------+----------------
+ 'A'  |              2
+ 'AB' |              0
+ 'C'  |              0
+ 'B'  |              2
+ 'BC' |              0
+(5 rows)
+
+DROP TABLE
+DROP LIBRARY

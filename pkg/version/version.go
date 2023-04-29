@@ -44,6 +44,11 @@ var UpgradePaths = map[Components]Info{
 	{11, 0, 2}: {"v11.1.x", Components{11, 1, 0}},
 	{11, 1, 0}: {"v12.0.x", Components{12, 0, 0}},
 	{11, 1, 1}: {"v12.0.x", Components{12, 0, 0}},
+	{12, 0, 0}: {"v23.3.x", Components{23, 3, 0}},
+	{12, 0, 1}: {"v23.3.x", Components{23, 3, 0}},
+	{12, 0, 2}: {"v23.3.x", Components{23, 3, 0}},
+	{12, 0, 3}: {"v23.3.x", Components{23, 3, 0}},
+	{12, 0, 4}: {"v23.3.x", Components{23, 3, 0}},
 }
 
 // MakeInfoFromStr will construct an Info struct by parsing the version string

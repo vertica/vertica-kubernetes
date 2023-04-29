@@ -61,4 +61,15 @@ var _ = Describe("version", func() {
 		ok = cur.IsOlder("v13.1.1")
 		Expect(ok).Should(BeTrue())
 	})
+
+	It("should allow any v12 transitions to 23.3", func() {
+		const Server23_3 = "v23.3.0"
+		serverVersions := []string{"v12.0.1", "v12.0.2", "v12.0.3", "v12.0.4"}
+		for _, sver := range serverVersions {
+			cur, ok := MakeInfoFromStr(sver)
+			Expect(ok).Should(BeTrue())
+			ok, _ = cur.IsValidUpgradePath(Server23_3)
+			Expect(ok).Should(BeTrue())
+		}
+	})
 })
