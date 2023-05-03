@@ -416,7 +416,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n 'imageHasAgentKeys: '
 		ls --almost-all --hide-control-chars -1 %s 2> /dev/null | grep --quiet . && echo true || echo false
 		echo -n 'isHTTPServerRunning: '
-		vsql -tAc "%s;" 2> /dev/null | grep --quiet "Http server is running" && echo true || echo false
+		ss -tulpn 2> /dev/null | grep LISTEN | grep --quiet ":%s" && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -440,7 +440,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		pf.catalogPath,
 		pf.catalogPath,
 		paths.DBadminAgentPath,
-		genHTTPServerCtrlQuery("status"),
+		fmt.Sprintf("%d", builder.VerticaHTTPPort),
 	))
 }
 
