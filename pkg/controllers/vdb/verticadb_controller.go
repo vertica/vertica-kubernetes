@@ -212,6 +212,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, PodRescheduleApplyMethod, ""),
 		// Ensure the vertica agent is running on each pod
 		MakeAgentReconciler(r, vdb, prunner, pfacts),
+		// Ensure http server is running on each pod
+		MakeHTTPServerCtrlReconciler(r, vdb, prunner, pfacts),
 		// Handle calls to admintools -t db_add_subcluster
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),

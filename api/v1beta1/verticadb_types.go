@@ -323,8 +323,8 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// Control the Vertica's http server.  The http server provides a REST interface
 	// that can be used for management and monitoring of the server.  Valid
-	// values are: Enabled, Disabled or an empty string.  An empty string
-	// currently defaults to Disabled.
+	// values are: Enabled, Disabled, Auto or an empty string.  An empty string
+	// currently defaults to Auto.
 	HTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -1271,7 +1271,7 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 }
 
 // IsHTTPServerDisabled explicitly checks if the http server is disabled. If set
-// to auto or enabled, this returns true.
+// to auto or enabled, this returns false.
 func (v *VerticaDB) IsHTTPServerDisabled() bool {
 	return v.Spec.HTTPServerMode == HTTPServerModeDisabled
 }
@@ -1294,6 +1294,12 @@ func (v *VerticaDB) IsHTTPServerEnabled() bool {
 		return false
 	}
 	return inf.IsEqualOrNewer(HTTPServerAutoMinVersion)
+}
+
+// IsHTTPServerAuto returns true if http server is auto.
+func (v *VerticaDB) IsHTTPServerAuto() bool {
+	return v.Spec.HTTPServerMode == HTTPServerModeAuto ||
+		v.Spec.HTTPServerMode == ""
 }
 
 // IsEON returns true if the instance is an EON database. Officially, all

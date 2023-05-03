@@ -160,6 +160,9 @@ type PodFact struct {
 
 	// Check if the image has agent keys saved in the dbadmin directory.
 	imageHasAgentKeys bool
+
+	// Is the http server running in this pod?
+	isHTTPServerRunning bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -193,6 +196,7 @@ type GatherState struct {
 	LocalDataAvail         int             `json:"localDataAvail"`
 	AgentRunning           bool            `json:"agentRunning"`
 	ImageHasAgentKeys      bool            `json:"imageHasAgentKeys"`
+	IsHTTPServerRunning    bool            `json:"isHTTPServerRunning"`
 }
 
 // MakePodFacts will create a PodFacts object and return it
@@ -411,6 +415,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		/opt/vertica/sbin/vertica_agent status | grep --quiet "running" && echo true || echo false
 		echo -n 'imageHasAgentKeys: '
 		ls --almost-all --hide-control-chars -1 %s 2> /dev/null | grep --quiet . && echo true || echo false
+		echo -n 'isHTTPServerRunning: '
+		vsql -tAc "%s;" 2> /dev/null | grep --quiet "Http server is running" && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -434,6 +440,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		pf.catalogPath,
 		pf.catalogPath,
 		paths.DBadminAgentPath,
+		genHTTPServerCtrlQuery("status"),
 	))
 }
 
@@ -494,6 +501,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.agentRunning = gs.AgentRunning
 	pf.imageHasAgentKeys = gs.ImageHasAgentKeys
+	pf.isHTTPServerRunning = gs.IsHTTPServerRunning
 	// If the vertica process is running, then the database is UP. This is
 	// consistent with the liveness probe, which goes a bit further and checks
 	// if the client port is opened. If the vertica process dies, the liveness

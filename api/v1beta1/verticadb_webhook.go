@@ -257,6 +257,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableLocalPathChange(oldObj, allErrs)
 	allErrs = v.checkImmutableShardCount(oldObj, allErrs)
 	allErrs = v.checkImmutableS3ServerSideEncryption(oldObj, allErrs)
+	allErrs = v.checkImmutableHTTPServerMode(oldObj, allErrs)
 	return allErrs
 }
 
@@ -1008,6 +1009,24 @@ func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allE
 			"communal.s3ServerSideEncryption cannot change after creation")
 		allErrs = append(allErrs, err)
 	}
+	return allErrs
+}
+
+// checkImmutableHTTPServerMode will make sure httpServerMode does not changed in any
+// inappropriate way like Enabled -> Disabled, Auto -> Disabled, Enabled -> Auto.
+func (v *VerticaDB) checkImmutableHTTPServerMode(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	isTransitionAutoToDisabled := oldObj.IsHTTPServerAuto() && v.IsHTTPServerDisabled()
+	if v.Spec.HTTPServerMode != oldObj.Spec.HTTPServerMode {
+		if oldObj.Spec.HTTPServerMode == HTTPServerModeEnabled ||
+			isTransitionAutoToDisabled {
+			err := field.Invalid(field.NewPath("spec").Child("httpServerMode"),
+				v.Spec.HTTPServerMode,
+				fmt.Sprintf("transition from '%s' to '%s' not allowed",
+					oldObj.Spec.HTTPServerMode, v.Spec.HTTPServerMode))
+			allErrs = append(allErrs, err)
+		}
+	}
+
 	return allErrs
 }
 
