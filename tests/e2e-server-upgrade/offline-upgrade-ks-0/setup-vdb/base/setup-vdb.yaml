@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
 spec:
-  image: vertica/vertica-k8s:11.1.1-0-minimal
+  image: vertica/vertica-k8s:12.0.2-0-minimal
   imagePullPolicy: IfNotPresent
   superuserPasswordSecret: su-passwd
   communal:

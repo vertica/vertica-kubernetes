@@ -549,7 +549,7 @@ $(HOME)/.krew/bin/kubectl-krew:
 
 .PHONY: opm
 OPM = $(shell pwd)/bin/opm
-OPM_VERSION = 1.23.0
+OPM_VERSION = 1.26.5
 opm: $(OPM)  ## Download opm locally if necessary
 $(OPM):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/linux-amd64-opm" --output $(OPM)

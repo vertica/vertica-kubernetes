@@ -322,7 +322,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.Communal.Endpoint = "https://minio"
 		validateImmutableFields(vdbUpdate, true)
 	})
-	It("should not change communal.endpoint after creation", func() {
+	It("should not change communal.s3ServerSideEncryption after creation", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Communal.S3ServerSideEncryption = SseS3
 		vdbUpdate := createVDBHelper()
@@ -333,6 +333,16 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should not change local.storageClass after creation", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.StorageClass = "MyStorageClass"
+		validateImmutableFields(vdbUpdate, true)
+	})
+	It("should not change local.depotVolume after DB init", func() {
+		vdbUpdate := createVDBHelper()
+		vdbUpdate.Spec.Local.DepotVolume = EmptyDir
+		validateImmutableFields(vdbUpdate, false)
+		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
+		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
+			Status: v1.ConditionTrue,
+		}
 		validateImmutableFields(vdbUpdate, true)
 	})
 
@@ -623,6 +633,27 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Local.DepotPath = "/depot"
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Local.CatalogPath = "/opt/vertica/sbin"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should not have invalid depotVolume type", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Local.DepotVolume = ""
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Local.DepotVolume = EmptyDir
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Local.DepotVolume = PersistentVolume
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.Local.DepotVolume = "wrong"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should not have depotPath equal to dataPath or catalogPath when depot volume is emptyDir", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Local.DepotVolume = EmptyDir
+		vdb.Spec.Local.DataPath = "/vertica"
+		vdb.Spec.Local.CatalogPath = "/catalog"
+		vdb.Spec.Local.DepotPath = vdb.Spec.Local.DataPath
 		validateSpecValuesHaveErr(vdb, true)
 	})
 

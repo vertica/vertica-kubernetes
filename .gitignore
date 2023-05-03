@@ -25,6 +25,9 @@ hadoop-conf.json
 # Generate files from setup-operator-upgrade-testsuite.sh
 tests/e2e-operator-upgrade-overlays/*/
 
+# Generated directory for some e2e tests that use custom ssh keys
+ssh-keys/
+
 # Binaries for programs and plugins
 *.exe
 *.exe~

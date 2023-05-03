@@ -11,43 +11,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verifies external access through the service to the agent port 5444.  It
-# does this by invoking the REST API and doing basic sanity on what it
-# received.
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: script-grant-tls-auth
-data:
-  entrypoint.sh: |-
-    #!/bin/bash
-    set -o errexit
-    set -o xtrace
-
-    # In order to use the certs as authentication, the server needs to be setup to use tls.
-    kubectl exec -it svc/v-http-generated-certs-sc -- vsql -w superuser -c "CREATE AUTHENTICATION tls_auth METHOD 'tls' HOST TLS '0.0.0.0/0'; GRANT AUTHENTICATION tls_auth TO PUBLIC;"
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: test-grant-tls-auth
-  labels:
-    stern: include
-spec:
-  restartPolicy: Never
-  containers:
-    - name: test
-      image: bitnami/kubectl:1.20.4
-      command: ["/bin/entrypoint.sh"]
-      volumeMounts:
-        - name: entrypoint-volume
-          mountPath: /bin/entrypoint.sh
-          readOnly: true
-          subPath: entrypoint.sh
-  volumes:
-    - name: entrypoint-volume
-      configMap:
-        defaultMode: 0777
-        name: script-grant-tls-auth
+# Creation of the manifests to grant the TLS was done at an earlier step using
+# an EventTrigger. This is an empty manifests just to give this step a name.

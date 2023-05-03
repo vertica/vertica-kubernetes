@@ -29,7 +29,9 @@ data:
     MINOR=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$2\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
     PATCH=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$3\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
     # In 12.0.4, we changed the PythonTransformFunction. So pick the correct output.
-    if [ "$MAJOR" -ge 12 ] && [ "$MINOR" -ge 0 ] && [ "$PATCH" -ge 4 ]
+    if [ "$MAJOR" -gt 12 ] \
+        || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -gt 0 ]) \
+        || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -eq 0 ] && [ "$PATCH" -ge 4 ])
     then
       EXP=/opt/vertica/sdk/examples/expected-outputs/12.0.4/PythonTransformFunctionsOut.txt
     else

@@ -147,6 +147,12 @@ func (r *ResizePVReconcile) updatePVC(ctx context.Context, pvc *corev1.Persisten
 // updateDepotSize will call alter_location_size in vertica if necessary
 func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
 	pf *PodFact) (ctrl.Result, error) {
+	if r.Vdb.IsDepotVolumeEmptyDir() {
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.SkipDepotResize,
+			"Skipping depot resize for pod '%s' because its volume is an emptyDir.",
+			pf.name.Name)
+		return ctrl.Result{}, nil
+	}
 	if !pf.upNode {
 		r.VRec.Log.Info("Depot size needs to be checked in vertica. Requeue to wait for vertica to come up")
 		return ctrl.Result{Requeue: true}, nil

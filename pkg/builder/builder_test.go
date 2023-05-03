@@ -104,6 +104,18 @@ var _ = Describe("builder", func() {
 		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
 	})
 
+	It("should have a specific mount name and no subPath for depot if depotVolume is EmptyDir", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Local.DepotVolume = vapi.PersistentVolume
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(makeVolumeMountNames(&c)).ShouldNot(ContainElement(ContainSubstring(vapi.DepotMountName)))
+		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("depot")))
+		vdb.Spec.Local.DepotVolume = vapi.EmptyDir
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(makeVolumeMountNames(&c)).Should(ContainElement(ContainSubstring(vapi.DepotMountName)))
+		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("depot")))
+	})
+
 	It("should allow parts of the readiness probe to be overridden", func() {
 		vdb := vapi.MakeVDB()
 		NewCommand := []string{"new", "command"}
@@ -179,4 +191,13 @@ func makeSubPaths(c *v1.Container) []string {
 		sp = append(sp, c.VolumeMounts[i].SubPath)
 	}
 	return sp
+}
+
+// makeVolumeNames is a helper that extracts all of the volume mount names from the volume mounts.
+func makeVolumeMountNames(c *v1.Container) []string {
+	volNames := []string{}
+	for i := range c.VolumeMounts {
+		volNames = append(volNames, c.VolumeMounts[i].Name)
+	}
+	return volNames
 }

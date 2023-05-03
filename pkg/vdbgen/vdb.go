@@ -152,6 +152,7 @@ func (d *DBGenerator) setParmsFromOptions() {
 	// You cannot omit the RequestSize field.  If you do it shows up as "0", so
 	// we need to set the default.
 	d.Objs.Vdb.Spec.Local.RequestSize = resource.MustParse("100Mi")
+	d.Objs.Vdb.Spec.Local.DepotVolume = vapi.DepotVolumeType(d.Opts.DepotVolume)
 
 	if d.Opts.IgnoreClusterLease {
 		d.Objs.Vdb.Spec.IgnoreClusterLease = true

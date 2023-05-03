@@ -108,6 +108,14 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 		vdb.Spec.Local.DepotPath = depotPath
 		updated = true
 	}
+	if vdb.IsDepotVolumeEmptyDir() && !vdb.Spec.Local.IsDepotPathUnique() {
+		a.Log.Info("depot path not unique, depotVolume has to change to PersistentVolume")
+		// Because when depotVolume is EmptyDir, we cannot have depot path
+		// equal to catalog or data path. We will instead have PersistentVolume
+		// as depot volume.
+		vdb.Spec.Local.DepotVolume = vapi.PersistentVolume
+		updated = true
+	}
 
 	return updated, err
 }
