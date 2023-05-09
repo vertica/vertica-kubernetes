@@ -61,7 +61,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
 		pod.SetAnnotations(map[string]string{
-			builder.OperatorVersionLabel: "1.0.0",
+			vapi.OperatorVersionLabel: "1.0.0",
 		})
 		Expect(k8sClient.Update(ctx, pod)).Should(Succeed())
 
@@ -71,6 +71,6 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		Expect(pod.Labels[builder.OperatorVersionLabel]).Should(Equal(builder.CurOperatorVersion))
+		Expect(pod.Labels[vapi.OperatorVersionLabel]).Should(Equal(vapi.CurOperatorVersion))
 	})
 })

@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -118,7 +117,7 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 }
 
 func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.Pod, pf *PodFact) {
-	_, labelExists := pod.Labels[builder.ClientRoutingLabel]
+	_, labelExists := pod.Labels[vapi.ClientRoutingLabel]
 
 	// There are 4 cases this reconciler is used:
 	// 1) Called after add node
@@ -139,15 +138,15 @@ func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.P
 	switch c.ApplyMethod {
 	case AddNodeApplyMethod, PodRescheduleApplyMethod:
 		if !labelExists && pf.upNode && (pf.shardSubscriptions > 0 || !c.Vdb.IsEON()) && !pf.pendingDelete {
-			pod.Labels[builder.ClientRoutingLabel] = builder.ClientRoutingVal
+			pod.Labels[vapi.ClientRoutingLabel] = vapi.ClientRoutingVal
 			c.VRec.Log.Info("Adding client routing label", "pod",
-				pod.Name, "label", fmt.Sprintf("%s=%s", builder.ClientRoutingLabel, builder.ClientRoutingVal))
+				pod.Name, "label", fmt.Sprintf("%s=%s", vapi.ClientRoutingLabel, vapi.ClientRoutingVal))
 		}
 	case DelNodeApplyMethod:
 		if labelExists && pf.pendingDelete {
-			delete(pod.Labels, builder.ClientRoutingLabel)
+			delete(pod.Labels, vapi.ClientRoutingLabel)
 			c.VRec.Log.Info("Removing client routing label", "pod",
-				pod.Name, "label", fmt.Sprintf("%s=%s", builder.ClientRoutingLabel, builder.ClientRoutingVal))
+				pod.Name, "label", fmt.Sprintf("%s=%s", vapi.ClientRoutingLabel, vapi.ClientRoutingVal))
 		}
 	}
 }

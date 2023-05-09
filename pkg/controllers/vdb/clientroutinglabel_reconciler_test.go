@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -55,12 +54,12 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pfn1, pod)).Should(Succeed())
-		_, ok := pod.Labels[builder.ClientRoutingLabel]
+		_, ok := pod.Labels[vapi.ClientRoutingLabel]
 		Expect(ok).Should(BeFalse())
 		Expect(k8sClient.Get(ctx, pfn2, pod)).Should(Succeed())
-		v, ok := pod.Labels[builder.ClientRoutingLabel]
+		v, ok := pod.Labels[vapi.ClientRoutingLabel]
 		Expect(ok).Should(BeTrue())
-		Expect(v).Should(Equal(builder.ClientRoutingVal))
+		Expect(v).Should(Equal(vapi.ClientRoutingVal))
 	})
 
 	It("should ignore second subcluster when sc filter is used", func() {
@@ -86,11 +85,11 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pfn1, pod)).Should(Succeed())
-		v, ok := pod.Labels[builder.ClientRoutingLabel]
+		v, ok := pod.Labels[vapi.ClientRoutingLabel]
 		Expect(ok).Should(BeTrue())
-		Expect(v).Should(Equal(builder.ClientRoutingVal))
+		Expect(v).Should(Equal(vapi.ClientRoutingVal))
 		Expect(k8sClient.Get(ctx, pfn2, pod)).Should(Succeed())
-		_, ok = pod.Labels[builder.ClientRoutingLabel]
+		_, ok = pod.Labels[vapi.ClientRoutingLabel]
 		Expect(ok).Should(BeFalse())
 	})
 
@@ -118,12 +117,12 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		for i := int32(0); i < sc.Size; i++ {
 			pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], i)
 			Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-			v, ok := pod.Labels[builder.ClientRoutingLabel]
+			v, ok := pod.Labels[vapi.ClientRoutingLabel]
 			if i == 0 {
 				Expect(ok).Should(BeFalse())
 			} else {
 				Expect(ok).Should(BeTrue())
-				Expect(v).Should(Equal(builder.ClientRoutingVal))
+				Expect(v).Should(Equal(vapi.ClientRoutingVal))
 			}
 		}
 	})
@@ -148,16 +147,16 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		v, ok := pod.Labels[builder.ClientRoutingLabel]
+		v, ok := pod.Labels[vapi.ClientRoutingLabel]
 		Expect(ok).Should(BeTrue())
-		Expect(v).Should(Equal(builder.ClientRoutingVal))
+		Expect(v).Should(Equal(vapi.ClientRoutingVal))
 
 		pfacts.Detail[pn].pendingDelete = true
 		r.ApplyMethod = DelNodeApplyMethod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		_, ok = pod.Labels[builder.ClientRoutingLabel]
+		_, ok = pod.Labels[vapi.ClientRoutingLabel]
 		Expect(ok).Should(BeFalse())
 	})
 })

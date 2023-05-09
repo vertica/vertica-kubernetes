@@ -38,7 +38,7 @@ var _ = Describe("k8s/upgradeoperator120_reconciler", func() {
 		nm := names.GenStsName(vdb, sc)
 		sts := builder.BuildStsSpec(nm, vdb, sc, builder.DefaultDeploymentNames())
 		// Set an old operator version to force the upgrade
-		sts.Labels[builder.OperatorVersionLabel] = builder.OperatorVersion110
+		sts.Labels[vapi.OperatorVersionLabel] = vapi.OperatorVersion110
 		Expect(k8sClient.Create(ctx, sts)).Should(Succeed())
 		defer func() {
 			delSts := &appsv1.StatefulSet{}

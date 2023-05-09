@@ -129,7 +129,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		// only fill in the name.  Size is intentionally left zero as this is an
 		// indication the subcluster is being removed.
 		for i := range missingSts.Items {
-			scName := missingSts.Items[i].Labels[builder.SubclusterNameLabel]
+			scName := missingSts.Items[i].Labels[vapi.SubclusterNameLabel]
 			subclusters = append(subclusters, &vapi.Subcluster{Name: scName, Size: 0})
 		}
 	}
@@ -158,7 +158,7 @@ func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list 
 
 // hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
-	scName := objLabels[builder.SubclusterNameLabel]
+	scName := objLabels[vapi.SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
 	return ok
 }
@@ -206,14 +206,14 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 // hasSubclusterNameLabel returns true if there exists a label that indicates
 // the object is for a subcluster
 func hasSubclusterNameLabel(l map[string]string) bool {
-	_, ok := l[builder.SubclusterNameLabel]
+	_, ok := l[vapi.SubclusterNameLabel]
 	if ok {
 		return true
 	}
 	// Prior to 1.3.0, we had a different name for the subcluster name.  We
-	// renamed it as we added additional subcluster attributes to the labele.
+	// renamed it as we added additional subcluster attributes to the label.
 	// Check for this one too.
-	_, ok = l[builder.SubclusterLegacyNameLabel]
+	_, ok = l[vapi.SubclusterLegacyNameLabel]
 	return ok
 }
 

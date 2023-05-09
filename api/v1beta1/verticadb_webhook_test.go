@@ -657,6 +657,26 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 	})
 
+	It("should prevent internally generated labels to be overridden", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Labels = map[string]string{
+			SubclusterNameLabel: "sc-name",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Labels = map[string]string{
+			VDBInstanceLabel: "v",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Labels = map[string]string{
+			ClientRoutingLabel: ClientRoutingVal,
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Labels = map[string]string{
+			"vertica.com/good-label": "val",
+		}
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 	It("should verify httpServerMode is valid", func() {
 		vdb := MakeVDB()
 		vdb.Spec.HTTPServerMode = "bad-server-mode"

@@ -100,7 +100,7 @@ func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string
 // generateLabels will generate static labels that will be applied to each running pod
 func (s *AnnotateAndLabelPodReconciler) generateLabels() map[string]string {
 	return map[string]string{
-		builder.OperatorVersionLabel: builder.CurOperatorVersion,
+		vapi.OperatorVersionLabel: vapi.CurOperatorVersion,
 	}
 }
 

@@ -271,6 +271,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateCommunalPath(allErrs)
 	allErrs = v.validateS3ServerSideEncryption(allErrs)
 	allErrs = v.validateAdditionalConfigParms(allErrs)
+	allErrs = v.validateCustomLabels(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidDomainName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
@@ -383,6 +384,21 @@ func (v *VerticaDB) validateAdditionalConfigParms(allErrs field.ErrorList) field
 			allErrs = append(allErrs, err)
 		}
 		additionalConfigKeysCopy[strings.ToLower(k)] = ""
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) validateCustomLabels(allErrs field.ErrorList) field.ErrorList {
+	invalidLabels := make([]string, len(ProtectedLabels))
+	copy(invalidLabels, ProtectedLabels)
+	for _, invalidLabel := range invalidLabels {
+		_, ok := v.Spec.Labels[invalidLabel]
+		if ok {
+			err := field.Invalid(field.NewPath("spec").Child("labels"),
+				v.Spec.Labels,
+				fmt.Sprintf("'%s' is a restricted label.", invalidLabel))
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

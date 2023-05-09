@@ -284,7 +284,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 		pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 		pf.podIP = pod.Status.PodIP
-		pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
+		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vapi.SubclusterTransientLabel])
 		pf.pendingDelete = podIndex >= sc.Size
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
