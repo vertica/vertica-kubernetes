@@ -27,11 +27,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -277,20 +275,7 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 
 // doHTTPInstall will return true if the installer should setup for the http server
 func (d *InstallReconciler) doHTTPInstall(logEvent bool) bool {
-	// Early out if the http service isn't enabled
-	if !d.Vdb.IsHTTPServerEnabled() {
-		return false
-	}
-	vinf, ok := d.Vdb.MakeVersionInfo()
-	if !ok || vinf.IsOlder(vapi.HTTPServerMinVersion) {
-		if logEvent {
-			d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"Skipping http server cert setup because the Vertica version doesn't have "+
-					"support for it. A Vertica version of '%s' or newer is needed", vapi.HTTPServerMinVersion)
-		}
-		return false
-	}
-	return true
+	return hasCompatibleVersionForHTTPServer(d.VRec, d.Vdb, logEvent, "http server cert setup")
 }
 
 // genCreateConfigDirsScript will create a script to be run in a pod to create

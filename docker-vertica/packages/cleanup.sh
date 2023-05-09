@@ -70,3 +70,11 @@ then
   done
   rm -r -f /opt/vertica/sdk
 fi
+
+# Temporarily remove nma from our image. This is done because nma is a Go
+# binary. And it was compiled with 1.20.1. This Go version has security
+# vulnerabilities. The correct solution is to upgrade Go then rebuild nma.
+# However, this requries a server change. We don't use nma in k8s. So, to
+# expediate things, we are just going to remove it.  We need to add this back
+# when it has been addressed in the server rpm.
+rm /opt/vertica/bin/node_management_agent

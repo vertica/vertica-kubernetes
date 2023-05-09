@@ -1,0 +1,5 @@
+kind: Added
+body: Start http server if httpServerMode changes in the VerticaDB
+time: 2023-05-09T11:52:17.182913677-03:00
+custom:
+  Issue: "390"
