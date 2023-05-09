@@ -19,3 +19,31 @@ status:
   installCount: 3
   addedToDBCount: 3
   upNodeCount: 3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-base-upgrade-pri-0
+  labels:
+    app.kubernetes.io/name: e2e-server-upgrade
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-base-upgrade-pri-1
+  labels:
+    app.kubernetes.io/name: e2e-server-upgrade
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-base-upgrade-pri-2
+  labels:
+    app.kubernetes.io/name: e2e-server-upgrade
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-pri
+  labels:
+    app.kubernetes.io/name: e2e-server-upgrade
