@@ -562,6 +562,14 @@ $(OPERATOR_SDK):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/operator-framework/operator-sdk/releases/download/v$(OPERATOR_SDK_VERSION)/operator-sdk_linux_amd64" --output $(OPERATOR_SDK)
 	chmod +x $(OPERATOR_SDK)
 
+ISTIOCTL = $(shell pwd)/bin/istioctl
+ISTIOCTL_VERSION = 1.17.2
+istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
+$(ISTIOCTL):
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-linux-amd64.tar.gz" | tar xvfz - istio-1.17.2/bin/istioctl -O > $(ISTIOCTL)
+	chmod +x $(ISTIOCTL)
+
+
 ##@ Release
 
 change-operator-version: ## Change the operator version in source files. Override VERSION on command line to change the value in the Makefile.
