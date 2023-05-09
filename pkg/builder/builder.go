@@ -42,6 +42,8 @@ const (
 	VerticaHTTPPort         = 8443
 	InternalVerticaCommPort = 5434
 	SSHPort                 = 22
+	VerticaClusterCommPort  = 5434
+	SpreadClientPort        = 4803
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv        = "POD_IP"
@@ -92,7 +94,9 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
-				{Port: SSHPort, Name: "ssh"},
+				{Port: SSHPort, Name: "tcp-ssh"},
+				{Port: VerticaClusterCommPort, Name: "tcp-verticaclustercomm"},
+				{Port: SpreadClientPort, Name: "tcp-spreadclient"},
 			},
 		},
 	}
