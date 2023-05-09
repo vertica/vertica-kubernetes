@@ -63,7 +63,7 @@ func (h *HTTPServerCtrlReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		}
 		// Only start the http server for pods that have been added to a database
 		if !pod.upNode {
-			h.VRec.Log.Info("Not all pods are up.  Need to requeue httpserverctrl reconciler.", "pod", pod.name)
+			h.VRec.Log.Info("Skipping http server start on pod because vertica is not running", "pod", pod.name)
 			continue
 		}
 		// We need this config file for the http server.
@@ -75,7 +75,7 @@ func (h *HTTPServerCtrlReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 			return ctrl.Result{}, err
 		}
 
-		// Invalidate the pod facts cache since its out of date due to the agent starting
+		// Invalidate the pod facts cache because we started the http server
 		h.PFacts.Invalidate()
 	}
 
@@ -88,14 +88,12 @@ func (h *HTTPServerCtrlReconciler) startHTTPServerInPod(ctx context.Context, pod
 		"-tAc", genHTTPServerCtrlQuery("start"),
 	}
 	h.VRec.Event(h.Vdb, corev1.EventTypeNormal, events.HTTPServerStartStarted,
-		fmt.Sprintf("Calling select http_server_ctrl('start', '') in pod %s", pod.name))
+		fmt.Sprintf("Starting http server in pod %s", pod.name))
 	if _, _, err := h.PRunner.ExecVSQL(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 		h.VRec.Event(h.Vdb, corev1.EventTypeWarning, events.HTTPServerStartFailed,
 			fmt.Sprintf("Failed to start the http server in pod %s", pod.name))
 		return err
 	}
-	h.VRec.Event(h.Vdb, corev1.EventTypeNormal, events.HTTPServerStartSucceeded,
-		fmt.Sprintf("The http server is now running in pod %s", pod.name))
 	return nil
 }
 

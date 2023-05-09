@@ -66,7 +66,6 @@ const (
 	HTTPServerNotSetup              = "HTTPServerNotSetup"
 	HTTPServerStartStarted          = "HTTPServerStartStarted"
 	HTTPServerStartFailed           = "HTTPServerStartFailed"
-	HTTPServerStartSucceeded        = "HTTPServerStartSucceeded"
 	KerberosAuthError               = "KerberosAuthError"
 	OperatorUpgrade                 = "OperatorUpgrade"
 	InvalidUpgradePath              = "InvalidUpgradePath"

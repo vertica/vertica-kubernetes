@@ -26,8 +26,6 @@ import (
 // hasCompatibleVersionForHTTPServer checks, in case http server is enabled, if
 // the server has a required version for http server.
 func hasCompatibleVersionForHTTPServer(vrec *VerticaDBReconciler, vdb *vapi.VerticaDB, logEvent bool, action string) bool {
-	eventMsg := "Skipping %s because the Vertica version doesn't have " +
-		"support for it. A Vertica version of '%s' or newer is needed"
 	// Early out if the http service isn't enabled
 	if !vdb.IsHTTPServerEnabled() {
 		return false
@@ -35,6 +33,8 @@ func hasCompatibleVersionForHTTPServer(vrec *VerticaDBReconciler, vdb *vapi.Vert
 	vinf, ok := vdb.MakeVersionInfo()
 	if !ok || vinf.IsOlder(vapi.HTTPServerMinVersion) {
 		if logEvent {
+			eventMsg := "Skipping %s because the Vertica version doesn't have " +
+				"support for it. A Vertica version of '%s' or newer is needed"
 			vrec.Eventf(vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup, eventMsg, action, vapi.HTTPServerMinVersion)
 		}
 		return false
