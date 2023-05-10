@@ -61,6 +61,8 @@ func MakeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 // MakeCommonLabels returns the labels that are common to all objects.
 func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
 	labels := MakeOperatorLabels(vdb)
+	// This can be overridden through 'labels' in the CR.
+	labels[NameLabel] = "vertica"
 	if !forPod {
 		// Apply a label to indicate a version of the operator that created the
 		// object.  This is separate from MakeOperatorLabels as we don't want to
@@ -85,10 +87,6 @@ func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map
 // MakeLabelsForObjects constructs the labels for a new k8s object
 func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
 	labels := MakeCommonLabels(vdb, sc, forPod)
-
-	// This can be overridden if a different value is specified
-	// for this label on custom labels
-	labels[NameLabel] = "vertica"
 
 	// Add any custom labels that were in the spec.
 	for k, v := range vdb.Spec.Labels {

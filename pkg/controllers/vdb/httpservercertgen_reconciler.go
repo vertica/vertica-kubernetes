@@ -84,7 +84,7 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 			GenerateName: fmt.Sprintf("%s-http-server-tls-", h.Vdb.Name),
 			Namespace:    h.Vdb.Namespace,
 			Annotations:  builder.MakeAnnotationsForObject(h.Vdb),
-			Labels:       builder.MakeOperatorLabels(h.Vdb),
+			Labels:       builder.MakeCommonLabels(h.Vdb, nil, false),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         vapi.GroupVersion.String(),
