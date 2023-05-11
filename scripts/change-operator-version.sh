@@ -57,7 +57,7 @@ logInfo "Changing Makefile"
 perl -i -0777 -pe "s/^(VERSION \?= ).*/\${1}$VERSION/gm" $REPO_DIR/Makefile
 
 logInfo "Changing version in the operator controller"
-perl -i -0777 -pe "s/(CurOperatorVersion = \")[0-9\.]+(\")/\${1}$VERSION\${2}/g" $REPO_DIR/pkg/builder/labels_annotations.go
+perl -i -0777 -pe "s/(CurOperatorVersion = \")[0-9\.]+(\")/\${1}$VERSION\${2}/g" $REPO_DIR/pkg/meta/labels.go
 cd $REPO_DIR
 make fmt
 
