@@ -361,9 +361,43 @@ func buildOperatorConfigMapProjection(deployNames *DeploymentNames) *corev1.Conf
 	}
 }
 
+// probeContainsSuperuserPassword will check if the probe uses the superuser
+// password.
+func probeContainsSuperuserPassword(probe *corev1.Probe) bool {
+	if probe.Exec == nil {
+		return false
+	}
+	for _, v := range probe.Exec.Command {
+		if strings.Contains(v, SuperuserPasswordPath) {
+			return true
+		}
+	}
+	return false
+}
+
+// requiresSuperuserPasswordSecretMount returns true if the superuser password
+// needs to be mounted in the pod.
+func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
+	if vdb.Spec.SuperuserPasswordSecret == "" {
+		return false
+	}
+
+	// Construct each probe. If don't use the superuser password in them, then
+	// it is safe to not mount this in the downward API projection.
+	funcs := []func(*vapi.VerticaDB) *corev1.Probe{
+		makeReadinessProbe, makeStartupProbe, makeLivenessProbe,
+	}
+	for _, f := range funcs {
+		if probeContainsSuperuserPassword(f(vdb)) {
+			return true
+		}
+	}
+	return false
+}
+
 // buildSuperuserPasswordProjection creates a projection for inclusion in /etc/podinfo
 func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
-	if vdb.Spec.SuperuserPasswordSecret != "" {
+	if requiresSuperuserPasswordSecretMount(vdb) {
 		return &corev1.SecretProjection{
 			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
 			Items: []corev1.KeyToPath{
@@ -590,8 +624,33 @@ func overrideProbe(probe, ov *corev1.Probe) {
 		return
 	}
 	// Merge in parts of the override into the default probe
+	//
+	// You can only set one handler (exec, tcpSocket, httpGet or grpc). If the
+	// override has any one of those set, we always clear the other ones. A
+	// webhook exists that prevents setting more than one in the CR.
 	if ov.Exec != nil {
 		probe.Exec = ov.Exec
+		probe.TCPSocket = nil
+		probe.HTTPGet = nil
+		probe.GRPC = nil
+	}
+	if ov.TCPSocket != nil {
+		probe.Exec = nil
+		probe.TCPSocket = ov.TCPSocket
+		probe.HTTPGet = nil
+		probe.GRPC = nil
+	}
+	if ov.HTTPGet != nil {
+		probe.Exec = nil
+		probe.TCPSocket = nil
+		probe.HTTPGet = ov.HTTPGet
+		probe.GRPC = nil
+	}
+	if ov.GRPC != nil {
+		probe.Exec = nil
+		probe.TCPSocket = nil
+		probe.HTTPGet = nil
+		probe.GRPC = ov.GRPC
 	}
 	if ov.FailureThreshold > 0 {
 		probe.FailureThreshold = ov.FailureThreshold

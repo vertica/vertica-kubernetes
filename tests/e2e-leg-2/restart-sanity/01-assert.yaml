@@ -11,26 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
-  name: v-restart
-status:
-  subclusters:
-    - installCount: 3
-      addedToDBCount: 3
-      upNodeCount: 3
+  name: integration-test-role
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
 metadata:
-  name: v-restart-defsc-0
-spec:
-  containers:
-  - name: server
-    readinessProbe:
-      exec:
-        command: ["vsql", "-c", "select 1"]
-    startupProbe:
-      exec:
-        command: ["vsql", "-c", "select 1"]
+  name: integration-test-rb
+

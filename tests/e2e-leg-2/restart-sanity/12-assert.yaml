@@ -43,3 +43,10 @@ metadata:
 status:
   containerStatuses:
     - ready: true
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: grant-dbadmin-local-access
+status:
+  succeeded: 1

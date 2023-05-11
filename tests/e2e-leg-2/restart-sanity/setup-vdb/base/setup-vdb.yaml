@@ -35,3 +35,60 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-grant-dbadmin-local-access
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    # Allow local dbadmin access without a password
+    kubectl exec -it svc/v-restart-defsc -- vsql -w superuser -c "\
+          CREATE AUTHENTICATION v_dbadmin_trust METHOD 'trust' LOCAL; \
+          GRANT AUTHENTICATION v_dbadmin_trust TO dbadmin; \
+          ALTER AUTHENTICATION v_dbadmin_trust PRIORITY 10000; \
+          select sync_catalog(); "
+---
+apiVersion: vertica.com/v1beta1
+kind: EventTrigger
+metadata:
+  name: grant-dbadmin-local-access
+spec:
+  references:
+  - object:
+      apiVersion: vertica.com/v1beta1
+      kind: VerticaDB
+      name: v-restart
+  matches:
+  - condition:
+      type: DBInitialized
+      status: "True"
+  template:
+    metadata:
+      name: grant-dbadmin-local-access
+      labels:
+        stern: include
+      annotations:
+        test-name: v-restart
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: test
+              image: bitnami/kubectl:1.20.4
+              command: ["/bin/entrypoint.sh"]
+              volumeMounts:
+                - name: entrypoint-volume
+                  mountPath: /bin/entrypoint.sh
+                  readOnly: true
+                  subPath: entrypoint.sh
+          volumes:
+            - name: entrypoint-volume
+              configMap:
+                defaultMode: 0777
+                name: script-grant-dbadmin-local-access
