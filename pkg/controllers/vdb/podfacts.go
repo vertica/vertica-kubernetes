@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
@@ -288,7 +289,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
 		pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
 		pf.podIP = pod.Status.PodIP
-		pf.isTransient, _ = strconv.ParseBool(pod.Labels[builder.SubclusterTransientLabel])
+		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
 		pf.pendingDelete = podIndex >= sc.Size
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
@@ -578,7 +579,7 @@ func (p *PodFact) setDepotDetails(op string) error {
 // to populate the DC tables that we log at vertica start.
 func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 	// We just look for one annotation.  This works because they are always added together.
-	_, ok := pod.Annotations[builder.KubernetesVersionAnnotation]
+	_, ok := pod.Annotations[vmeta.KubernetesVersionAnnotation]
 	return ok
 }
 

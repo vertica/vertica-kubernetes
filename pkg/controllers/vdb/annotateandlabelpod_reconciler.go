@@ -19,8 +19,8 @@ import (
 	"context"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -91,16 +91,16 @@ func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string
 	s.VRec.Log.Info("Kubernetes server version", "version", ver.GitVersion, "gitCommit", ver.GitCommit, "buildDate", ver.BuildDate)
 
 	return map[string]string{
-		builder.KubernetesVersionAnnotation:   ver.GitVersion,
-		builder.KubernetesGitCommitAnnotation: ver.GitCommit,
-		builder.KubernetesBuildDateAnnotation: ver.BuildDate,
+		vmeta.KubernetesVersionAnnotation:   ver.GitVersion,
+		vmeta.KubernetesGitCommitAnnotation: ver.GitCommit,
+		vmeta.KubernetesBuildDateAnnotation: ver.BuildDate,
 	}, nil
 }
 
 // generateLabels will generate static labels that will be applied to each running pod
 func (s *AnnotateAndLabelPodReconciler) generateLabels() map[string]string {
 	return map[string]string{
-		builder.OperatorVersionLabel: builder.CurOperatorVersion,
+		vmeta.OperatorVersionLabel: vmeta.CurOperatorVersion,
 	}
 }
 

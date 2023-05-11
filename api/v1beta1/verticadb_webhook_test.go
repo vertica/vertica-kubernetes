@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -655,6 +656,26 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Local.CatalogPath = "/catalog"
 		vdb.Spec.Local.DepotPath = vdb.Spec.Local.DataPath
 		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should prevent internally generated labels to be overridden", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Labels = map[string]string{
+			vmeta.SubclusterNameLabel: "sc-name",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Labels = map[string]string{
+			vmeta.VDBInstanceLabel: "v",
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Labels = map[string]string{
+			vmeta.ClientRoutingLabel: vmeta.ClientRoutingVal,
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Labels = map[string]string{
+			"vertica.com/good-label": "val",
+		}
+		validateSpecValuesHaveErr(vdb, false)
 	})
 
 	It("should verify httpServerMode is valid", func() {

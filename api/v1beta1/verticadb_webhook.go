@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -272,6 +273,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateCommunalPath(allErrs)
 	allErrs = v.validateS3ServerSideEncryption(allErrs)
 	allErrs = v.validateAdditionalConfigParms(allErrs)
+	allErrs = v.validateCustomLabels(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
 	allErrs = v.hasValidDomainName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
@@ -384,6 +386,19 @@ func (v *VerticaDB) validateAdditionalConfigParms(allErrs field.ErrorList) field
 			allErrs = append(allErrs, err)
 		}
 		additionalConfigKeysCopy[strings.ToLower(k)] = ""
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) validateCustomLabels(allErrs field.ErrorList) field.ErrorList {
+	for _, invalidLabel := range vmeta.ProtectedLabels {
+		_, ok := v.Spec.Labels[invalidLabel]
+		if ok {
+			err := field.Invalid(field.NewPath("spec").Child("labels"),
+				v.Spec.Labels,
+				fmt.Sprintf("'%s' is a restricted label.", invalidLabel))
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

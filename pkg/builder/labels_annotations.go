@@ -19,60 +19,20 @@ import (
 	"strconv"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-)
-
-const (
-	SvcTypeLabel              = "vertica.com/svc-type"
-	SubclusterNameLabel       = "vertica.com/subcluster-name"
-	SubclusterLegacyNameLabel = "vertica.com/subcluster"
-	SubclusterTypeLabel       = "vertica.com/subcluster-type"
-	SubclusterSvcNameLabel    = "vertica.com/subcluster-svc"
-	SubclusterTransientLabel  = "vertica.com/subcluster-transient"
-
-	// ClientRoutingLabel is a label that must exist on the pod in
-	// order for Service objects to route to the pod.  This label isn't part of
-	// the template in the StatefulSet.  This label is added after the pod is
-	// scheduled.  There are a couple of uses for it:
-	// - after an add node, we only add the labels once the node has at least
-	// one shard subscription.  This saves routing to a pod that cannot fulfill
-	// a query request.
-	// - before we remove a node.  It allows us to drain out pods that are going
-	// to be removed by a pending node removal.
-	ClientRoutingLabel = "vertica.com/client-routing"
-	ClientRoutingVal   = "true"
-
-	VDBInstanceLabel     = "app.kubernetes.io/instance"
-	OperatorVersionLabel = "app.kubernetes.io/version"
-	ManagedByLabel       = "app.kubernetes.io/managed-by"
-	OperatorName         = "verticadb-operator" // The name of the operator
-
-	CurOperatorVersion = "1.11.0" // The version number of the operator
-	// If any of the operator versions are used in the code, add a const here.
-	// But it isn't necessary to create a const for each version.
-	OperatorVersion100 = "1.0.0"
-	OperatorVersion110 = "1.1.0"
-	OperatorVersion120 = "1.2.0"
-	OperatorVersion130 = "1.3.0"
-
-	// Annotations that we set in each of the pod.  These are set by the
-	// AnnotateAndLabelPodReconciler.  They are available in the pod with the
-	// downwardAPI so they can be picked up by the Vertica data collector (DC).
-	KubernetesVersionAnnotation   = "kubernetes.io/version"   // Version of the k8s server
-	KubernetesGitCommitAnnotation = "kubernetes.io/gitcommit" // Git commit of the k8s server
-	KubernetesBuildDateAnnotation = "kubernetes.io/buildDate" // Build date of the k8s server
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
 // MakeSubclusterLabels returns the labels added for the subcluster
 func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	m := map[string]string{
-		SubclusterNameLabel:      sc.Name,
-		SubclusterTypeLabel:      sc.GetType(),
-		SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient),
+		vmeta.SubclusterNameLabel:      sc.Name,
+		vmeta.SubclusterTypeLabel:      sc.GetType(),
+		vmeta.SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient),
 	}
 	// Transient subclusters never have the service name label set.  At various
 	// parts of the upgrade, it will accept traffic from all of the subclusters.
 	if !sc.IsTransient {
-		m[SubclusterSvcNameLabel] = sc.GetServiceName()
+		m[vmeta.SubclusterSvcNameLabel] = sc.GetServiceName()
 	}
 	return m
 }
@@ -80,24 +40,25 @@ func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 // MakeOperatorLabels returns the labels that all objects created by this operator will have
 func MakeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 	return map[string]string{
-		ManagedByLabel:                OperatorName,
-		"app.kubernetes.io/name":      "vertica",
-		VDBInstanceLabel:              vdb.Name,
-		"app.kubernetes.io/component": "database",
-		"vertica.com/database":        vdb.Spec.DBName,
+		vmeta.ManagedByLabel:   vmeta.OperatorName,
+		vmeta.VDBInstanceLabel: vdb.Name,
+		vmeta.ComponentLabel:   "database",
+		vmeta.DataBaseLabel:    vdb.Spec.DBName,
 	}
 }
 
 // MakeCommonLabels returns the labels that are common to all objects.
 func MakeCommonLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) map[string]string {
 	labels := MakeOperatorLabels(vdb)
+	// This can be overridden through 'labels' in the CR.
+	labels[vmeta.NameLabel] = "vertica"
 	if !forPod {
 		// Apply a label to indicate a version of the operator that created the
 		// object.  This is separate from MakeOperatorLabels as we don't want to
 		// set this for pods in the template.  We set the operator version in
 		// the pods as part of a reconciler so that we don't have to reschedule
 		// the pods.
-		labels[OperatorVersionLabel] = CurOperatorVersion
+		labels[vmeta.OperatorVersionLabel] = vmeta.CurOperatorVersion
 	}
 
 	// Remaining labels are for objects that are subcluster specific
@@ -137,7 +98,7 @@ func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string
 // MakeLabelsForSvcObject will create the set of labels for use with service objects
 func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType string) map[string]string {
 	labels := makeLabelsForObject(vdb, sc, false)
-	labels[SvcTypeLabel] = svcType
+	labels[vmeta.SvcTypeLabel] = svcType
 	return labels
 }
 
@@ -158,7 +119,7 @@ func MakeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 	// pods created from an older operator, we need to be more selective in the
 	// labels we choose.
 	return map[string]string{
-		VDBInstanceLabel: vdb.Name,
+		vmeta.VDBInstanceLabel: vdb.Name,
 	}
 }
 
@@ -167,10 +128,10 @@ func MakeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 // allows us to combine multiple subcluster under a single service object.
 func MakeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
-	m[SubclusterSvcNameLabel] = sc.GetServiceName()
+	m[vmeta.SubclusterSvcNameLabel] = sc.GetServiceName()
 	// Only route to nodes that have verified they own at least one shard and
 	// aren't pending delete
-	m[ClientRoutingLabel] = ClientRoutingVal
+	m[vmeta.ClientRoutingLabel] = vmeta.ClientRoutingVal
 	return m
 }
 
@@ -179,8 +140,8 @@ func MakeSvcSelectorLabelsForServiceNameRouting(vdb *vapi.VerticaDB, sc *vapi.Su
 func MakeSvcSelectorLabelsForSubclusterNameRouting(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
 	// Routing is done using the subcluster name rather than the service name.
-	m[SubclusterNameLabel] = sc.Name
-	m[ClientRoutingLabel] = ClientRoutingVal
+	m[vmeta.SubclusterNameLabel] = sc.Name
+	m[vmeta.ClientRoutingLabel] = vmeta.ClientRoutingVal
 
 	return m
 }
@@ -188,7 +149,7 @@ func MakeSvcSelectorLabelsForSubclusterNameRouting(vdb *vapi.VerticaDB, sc *vapi
 // MakeStsSelectorLabels will create the selector labels for use within a StatefulSet
 func MakeStsSelectorLabels(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	m := MakeBaseSvcSelectorLabels(vdb)
-	m[SubclusterNameLabel] = sc.Name
+	m[vmeta.SubclusterNameLabel] = sc.Name
 	return m
 }
 

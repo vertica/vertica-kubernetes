@@ -29,6 +29,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -146,7 +147,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 
 	// Function we call for each secondary subcluster
 	procFunc := func(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-		scName := sts.Labels[builder.SubclusterNameLabel]
+		scName := sts.Labels[vmeta.SubclusterNameLabel]
 		o.StatusMsgs = append(o.StatusMsgs,
 			fmt.Sprintf("Draining secondary subcluster '%s'", scName),
 			fmt.Sprintf("Recreating pods for secondary subcluster '%s'", scName),
@@ -390,11 +391,11 @@ func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *app
 // isMatchingSubclusterType will return true if the subcluster type matches the
 // input string.  Always returns false for the transient subcluster.
 func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) (bool, error) {
-	isTransient, err := strconv.ParseBool(sts.Labels[builder.SubclusterTransientLabel])
+	isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
 	if err != nil {
-		return false, fmt.Errorf("could not parse label %s: %w", builder.SubclusterTransientLabel, err)
+		return false, fmt.Errorf("could not parse label %s: %w", vmeta.SubclusterTransientLabel, err)
 	}
-	return sts.Labels[builder.SubclusterTypeLabel] == scType && !isTransient, nil
+	return sts.Labels[vmeta.SubclusterTypeLabel] == scType && !isTransient, nil
 }
 
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
@@ -403,7 +404,7 @@ func (o *OnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *apps
 	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 
 	if img != o.Vdb.Spec.Image {
-		scName := sts.Labels[builder.SubclusterNameLabel]
+		scName := sts.Labels[vmeta.SubclusterNameLabel]
 		o.Log.Info("rerouting client traffic from subcluster", "name", scName)
 		if err := o.routeClientTraffic(ctx, scName, true); err != nil {
 			return ctrl.Result{}, err
@@ -428,7 +429,7 @@ func (o *OnlineUpgradeReconciler) recreateSubclusterWithNewImage(ctx context.Con
 		o.PFacts.Invalidate()
 	}
 
-	scName := sts.Labels[builder.SubclusterNameLabel]
+	scName := sts.Labels[vmeta.SubclusterNameLabel]
 	podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, scName)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -450,7 +451,7 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	// We use a custom lookup function to only find pods for the subcluster we
 	// are working on.
 	vr := a.(*VersionReconciler)
-	scName := sts.Labels[builder.SubclusterNameLabel]
+	scName := sts.Labels[vmeta.SubclusterNameLabel]
 	vr.FindPodFunc = func() (*PodFact, bool) {
 		for _, v := range o.PFacts.Detail {
 			if v.isPodRunning && v.subclusterName == scName {
@@ -508,7 +509,7 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 		return res, err
 	}
 
-	scName := sts.Labels[builder.SubclusterNameLabel]
+	scName := sts.Labels[vmeta.SubclusterNameLabel]
 
 	actor = MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, PodRescheduleApplyMethod, scName)
 	res, err = actor.Reconcile(ctx, &ctrl.Request{})
@@ -606,7 +607,7 @@ func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error 
 	}
 	for i := range stss.Items {
 		sts := &stss.Items[i]
-		if sts.Labels[builder.SubclusterTypeLabel] == vapi.PrimarySubclusterType {
+		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubclusterType {
 			img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 			imageFound := false
 			for j := range o.PrimaryImages {

@@ -45,6 +45,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	//+kubebuilder:scaffold:imports
@@ -105,7 +106,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
 		Scheme: mgr.GetScheme(),
 		Cfg:    restCfg,
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 		OpCfg:  *oc,
 		DeploymentNames: builder.DeploymentNames{
 			ServiceAccountName: oc.ServiceAccountName,
@@ -119,7 +120,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 	if err := (&vas.VerticaAutoscalerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 		Log:    ctrl.Log.WithName("controllers").WithName("VerticaAutoscaler"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaAutoscaler")

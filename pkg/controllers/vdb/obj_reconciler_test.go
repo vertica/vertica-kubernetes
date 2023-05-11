@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
@@ -193,7 +194,7 @@ var _ = Describe("obj_reconcile", func() {
 				Expect(objectMeta.Annotations["gitRef"]).Should(Equal("1234abc"))
 				Expect(objectMeta.Labels["vertica.com/database"]).Should(Equal(vdb.Spec.DBName))
 				if isScSpecific {
-					Expect(objectMeta.Labels[builder.SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
+					Expect(objectMeta.Labels[vmeta.SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
 				}
 			}
 
@@ -218,10 +219,10 @@ var _ = Describe("obj_reconcile", func() {
 
 			svc := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-			svc.Labels[builder.OperatorVersionLabel] = builder.OperatorVersion100
+			svc.Labels[vmeta.OperatorVersionLabel] = vmeta.OperatorVersion100
 			Expect(k8sClient.Update(ctx, svc)).Should(Succeed())
 			Expect(k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)).Should(Succeed())
-			svc.Labels[builder.OperatorVersionLabel] = builder.OperatorVersion100
+			svc.Labels[vmeta.OperatorVersionLabel] = vmeta.OperatorVersion100
 			Expect(k8sClient.Update(ctx, svc)).Should(Succeed())
 
 			pfacts := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
@@ -229,9 +230,9 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(objr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 			Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-			Expect(svc.Labels[builder.OperatorVersionLabel]).Should(Equal(builder.CurOperatorVersion))
+			Expect(svc.Labels[vmeta.OperatorVersionLabel]).Should(Equal(vmeta.CurOperatorVersion))
 			Expect(k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)).Should(Succeed())
-			Expect(svc.Labels[builder.OperatorVersionLabel]).Should(Equal(builder.CurOperatorVersion))
+			Expect(svc.Labels[vmeta.OperatorVersionLabel]).Should(Equal(vmeta.CurOperatorVersion))
 		})
 
 		It("should create a statefulset with the configured size", func() {

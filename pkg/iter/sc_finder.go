@@ -22,6 +22,7 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -129,7 +130,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 		// only fill in the name.  Size is intentionally left zero as this is an
 		// indication the subcluster is being removed.
 		for i := range missingSts.Items {
-			scName := missingSts.Items[i].Labels[builder.SubclusterNameLabel]
+			scName := missingSts.Items[i].Labels[vmeta.SubclusterNameLabel]
 			subclusters = append(subclusters, &vapi.Subcluster{Name: scName, Size: 0})
 		}
 	}
@@ -158,7 +159,7 @@ func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list 
 
 // hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
-	scName := objLabels[builder.SubclusterNameLabel]
+	scName := objLabels[vmeta.SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
 	return ok
 }
@@ -206,14 +207,14 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 // hasSubclusterNameLabel returns true if there exists a label that indicates
 // the object is for a subcluster
 func hasSubclusterNameLabel(l map[string]string) bool {
-	_, ok := l[builder.SubclusterNameLabel]
+	_, ok := l[vmeta.SubclusterNameLabel]
 	if ok {
 		return true
 	}
 	// Prior to 1.3.0, we had a different name for the subcluster name.  We
-	// renamed it as we added additional subcluster attributes to the labele.
+	// renamed it as we added additional subcluster attributes to the label.
 	// Check for this one too.
-	_, ok = l[builder.SubclusterLegacyNameLabel]
+	_, ok = l[vmeta.SubclusterLegacyNameLabel]
 	return ok
 }
 
