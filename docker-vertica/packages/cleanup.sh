@@ -29,7 +29,8 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/test \
    /opt/vertica/oss/python*/lib/python*/unittest/test \
    /opt/vertica/oss/python*/lib/python*/pip \
-   /opt/vertica/oss/python*/lib/python*/site-packages/pip \
+   /opt/vertica/oss/python*/lib/python*/site-packages/pip* \
+   /opt/vertica/oss/python*/bin/pip* \
    /opt/vertica/oss/python*/lib/python*/config-[0-9]* \
    /opt/vertica/oss/python*/lib/python*/tkinter \
    /opt/vertica/oss/python*/lib/python*/idlelib
