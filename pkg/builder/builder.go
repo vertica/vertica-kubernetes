@@ -24,6 +24,7 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
@@ -331,19 +332,19 @@ func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
 			{
 				Path: "k8s-version",
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesVersionAnnotation),
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", vmeta.KubernetesVersionAnnotation),
 				},
 			},
 			{
 				Path: "k8s-git-commit",
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesGitCommitAnnotation),
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", vmeta.KubernetesGitCommitAnnotation),
 				},
 			},
 			{
 				Path: "k8s-build-date",
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: fmt.Sprintf("metadata.annotations['%s']", KubernetesBuildDateAnnotation),
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", vmeta.KubernetesBuildDateAnnotation),
 				},
 			},
 		},
@@ -774,9 +775,9 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test
 	// purposes, and we have a few dependencies on these annotations.  Rather
 	// than having many tests run the reconciler, we will add in sample values.
-	pod.Annotations[KubernetesBuildDateAnnotation] = "2022-03-16T15:58:47Z"
-	pod.Annotations[KubernetesGitCommitAnnotation] = "c285e781331a3785a7f436042c65c5641ce8a9e9"
-	pod.Annotations[KubernetesVersionAnnotation] = "v1.23.5"
+	pod.Annotations[vmeta.KubernetesBuildDateAnnotation] = "2022-03-16T15:58:47Z"
+	pod.Annotations[vmeta.KubernetesGitCommitAnnotation] = "c285e781331a3785a7f436042c65c5641ce8a9e9"
+	pod.Annotations[vmeta.KubernetesVersionAnnotation] = "v1.23.5"
 	// Set a few things in the spec that are normally done by the statefulset
 	// controller. Again, this is for testing purposes only as the statefulset
 	// controller handles adding of the PVC to the volume list.

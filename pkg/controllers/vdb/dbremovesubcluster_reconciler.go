@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
@@ -150,7 +151,7 @@ func (d *DBRemoveSubclusterReconciler) resetDefaultSubcluster(ctx context.Contex
 		// remove the default subcluster that we do later will fail.  That
 		// provides a better error message than anything we do here.
 		if len(svcs.Items) > 0 {
-			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[vapi.SubclusterNameLabel])
+			return d.changeDefaultSubcluster(ctx, svcs.Items[0].Labels[vmeta.SubclusterNameLabel])
 		}
 	}
 	return nil

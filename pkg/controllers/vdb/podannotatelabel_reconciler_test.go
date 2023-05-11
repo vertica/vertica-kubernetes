@@ -21,8 +21,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -45,9 +45,9 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		pod := &corev1.Pod{}
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		Expect(pod.Annotations[builder.KubernetesBuildDateAnnotation]).ShouldNot(Equal(""))
-		Expect(pod.Annotations[builder.KubernetesGitCommitAnnotation]).ShouldNot(Equal(""))
-		Expect(pod.Annotations[builder.KubernetesVersionAnnotation]).ShouldNot(Equal(""))
+		Expect(pod.Annotations[vmeta.KubernetesBuildDateAnnotation]).ShouldNot(Equal(""))
+		Expect(pod.Annotations[vmeta.KubernetesGitCommitAnnotation]).ShouldNot(Equal(""))
+		Expect(pod.Annotations[vmeta.KubernetesVersionAnnotation]).ShouldNot(Equal(""))
 	})
 
 	It("should include operator version in the pod", func() {
@@ -61,7 +61,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
 		pod.SetAnnotations(map[string]string{
-			vapi.OperatorVersionLabel: "1.0.0",
+			vmeta.OperatorVersionLabel: "1.0.0",
 		})
 		Expect(k8sClient.Update(ctx, pod)).Should(Succeed())
 
@@ -71,6 +71,6 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		Expect(k8sClient.Get(ctx, pn, pod)).Should(Succeed())
-		Expect(pod.Labels[vapi.OperatorVersionLabel]).Should(Equal(vapi.CurOperatorVersion))
+		Expect(pod.Labels[vmeta.OperatorVersionLabel]).Should(Equal(vmeta.CurOperatorVersion))
 	})
 })

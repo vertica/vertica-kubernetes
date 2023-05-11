@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -55,15 +56,15 @@ func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, req *ctrl.
 	// delete any sts created in prior releases.
 	for i := range stss.Items {
 		sts := &stss.Items[i]
-		opVer, ok := sts.ObjectMeta.Labels[vapi.OperatorVersionLabel]
+		opVer, ok := sts.ObjectMeta.Labels[vmeta.OperatorVersionLabel]
 		if !ok {
 			continue
 		}
 		switch opVer {
-		case vapi.OperatorVersion120, vapi.OperatorVersion110, vapi.OperatorVersion100:
+		case vmeta.OperatorVersion120, vmeta.OperatorVersion110, vmeta.OperatorVersion100:
 			u.VRec.Event(u.Vdb, corev1.EventTypeNormal, events.OperatorUpgrade,
 				fmt.Sprintf("Deleting statefulset '%s' because it was created by an old operator (pre-%s)",
-					sts.Name, vapi.OperatorVersion130))
+					sts.Name, vmeta.OperatorVersion130))
 			if err := u.VRec.Client.Delete(ctx, sts); err != nil {
 				u.Log.Info("Error deleting old statefulset", "opVer", opVer)
 				return ctrl.Result{}, err

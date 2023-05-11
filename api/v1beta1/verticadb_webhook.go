@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -390,9 +391,7 @@ func (v *VerticaDB) validateAdditionalConfigParms(allErrs field.ErrorList) field
 }
 
 func (v *VerticaDB) validateCustomLabels(allErrs field.ErrorList) field.ErrorList {
-	invalidLabels := make([]string, len(ProtectedLabels))
-	copy(invalidLabels, ProtectedLabels)
-	for _, invalidLabel := range invalidLabels {
+	for _, invalidLabel := range vmeta.ProtectedLabels {
 		_, ok := v.Spec.Labels[invalidLabel]
 		if ok {
 			err := field.Invalid(field.NewPath("spec").Child("labels"),

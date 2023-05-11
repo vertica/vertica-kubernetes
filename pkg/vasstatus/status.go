@@ -22,7 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
@@ -110,11 +110,11 @@ func vasStatusUpdater(ctx context.Context, c client.Client, log logr.Logger,
 // getLabelSelector will generate the label for use in the vas status field
 func getLabelSelector(vas *vapi.VerticaAutoscaler) string {
 	return fmt.Sprintf("%s=%s,%s=%s,%s=%s",
-		vapi.SubclusterSvcNameLabel,
+		vmeta.SubclusterSvcNameLabel,
 		vas.Spec.ServiceName,
-		vapi.VDBInstanceLabel,
+		vmeta.VDBInstanceLabel,
 		vas.Spec.VerticaDBName,
-		vapi.ManagedByLabel,
-		builder.OperatorName,
+		vmeta.ManagedByLabel,
+		vmeta.OperatorName,
 	)
 }

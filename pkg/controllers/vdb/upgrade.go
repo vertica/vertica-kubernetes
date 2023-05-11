@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -175,7 +176,7 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, ct
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		isTransient, err := strconv.ParseBool(sts.Labels[vapi.SubclusterTransientLabel])
+		isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
 		if err != nil {
 			return numStsChanged, ctrl.Result{}, err
 		}
@@ -232,7 +233,7 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 
 		// If scName was passed in, we only delete for a specific subcluster
 		if scName != "" {
-			scNameFromLabel, ok := pod.Labels[vapi.SubclusterNameLabel]
+			scNameFromLabel, ok := pod.Labels[vmeta.SubclusterNameLabel]
 			if ok && scNameFromLabel != scName {
 				continue
 			}

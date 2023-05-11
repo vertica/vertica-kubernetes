@@ -28,6 +28,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
@@ -78,7 +79,7 @@ var _ = BeforeSuite(func() {
 		Log:             logger,
 		Scheme:          scheme.Scheme,
 		Cfg:             restCfg,
-		EVRec:           mgr.GetEventRecorderFor(builder.OperatorName),
+		EVRec:           mgr.GetEventRecorderFor(vmeta.OperatorName),
 		DeploymentNames: *builder.DefaultDeploymentNames(),
 	}
 })

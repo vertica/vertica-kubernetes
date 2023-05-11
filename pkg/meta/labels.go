@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package v1beta1
+package meta
 
 const (
 	SvcTypeLabel              = "vertica.com/svc-type"
@@ -40,6 +40,9 @@ const (
 	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	ComponentLabel       = "app.kubernetes.io/component"
 	DataBaseLabel        = "vertica.com/database"
+
+	NameLabel    = "app.kubernetes.io/name"
+	OperatorName = "verticadb-operator" // The name of the operator
 
 	CurOperatorVersion = "1.11.0" // The version number of the operator
 	// If any of the operator versions are used in the code, add a const here.

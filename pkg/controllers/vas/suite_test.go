@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 		Client: k8sClient,
 		Log:    logger,
 		Scheme: scheme.Scheme,
-		EVRec:  mgr.GetEventRecorderFor(builder.OperatorName),
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 	}
 })
 
