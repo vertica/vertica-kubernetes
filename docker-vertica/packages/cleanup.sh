@@ -72,10 +72,11 @@ then
   rm -r -f /opt/vertica/sdk
 fi
 
-# Temporarily remove nma from our image. This is done because nma is a Go
-# binary. And it was compiled with 1.20.1. This Go version has security
-# vulnerabilities. The correct solution is to upgrade Go then rebuild nma.
+# Temporarily remove nma binaries from our image. This is done because they are
+# Go binaries. And it was compiled with 1.20.1. This Go version has security
+# vulnerabilities. The correct solution is to upgrade Go then rebuild them.
 # However, this requries a server change. We don't use nma in k8s. So, to
 # expediate things, we are just going to remove it.  We need to add this back
 # when it has been addressed in the server rpm.
-rm /opt/vertica/bin/node_management_agent
+rm /opt/vertica/bin/node_management_agent || true # nma is only in 12.0.0+
+rm /opt/vertica/bin/vcluster || true # vcluster is only in 23.3.x+

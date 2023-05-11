@@ -64,6 +64,8 @@ const (
 	ReipFailed                      = "ReipFailed"
 	MissingSecretKeys               = "MissingSecretKeys"
 	HTTPServerNotSetup              = "HTTPServerNotSetup"
+	HTTPServerStartStarted          = "HTTPServerStartStarted"
+	HTTPServerStartFailed           = "HTTPServerStartFailed"
 	KerberosAuthError               = "KerberosAuthError"
 	OperatorUpgrade                 = "OperatorUpgrade"
 	InvalidUpgradePath              = "InvalidUpgradePath"
