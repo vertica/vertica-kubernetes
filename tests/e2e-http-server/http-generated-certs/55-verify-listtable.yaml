@@ -28,8 +28,11 @@ data:
 
     kubectl exec -it svc/v-http-generated-certs-sc -- vsql -w superuser -c "create table IF NOT EXISTS t1 (c1 int)"
 
-    curl -k --user dbadmin:superuser https://v-http-generated-certs-sc-0.v-http-generated-certs:8443/test/listtable | tee /tmp/curl.out
-    grep -cq "public.t1" /tmp/curl.out
+    for endpoint in test/listtable v1/test/listtable
+    do
+      curl -k --user dbadmin:superuser https://v-http-generated-certs-sc-0.v-http-generated-certs:8443/$endpoint | tee /tmp/curl.out
+      grep -cq "public.t1" /tmp/curl.out && break
+    done
 ---
 apiVersion: v1
 kind: Pod
