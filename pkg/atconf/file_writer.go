@@ -230,14 +230,15 @@ func (f *FileWriter) removeFromClusterHosts(ips []string) error {
 // addNodes will add the given set of installIPs as new nodes in the Nodes
 // section.  The updates are done in-place in the ConfigParser.
 func (f *FileWriter) addNodes(oldHosts map[string]bool, installIPs []string) error {
-	nextNodeNumber := f.getNextNodeNumber()
+	nodes := f.buildNodeSlice()
+	var nextNodeNumber int
 	for _, ip := range installIPs {
 		// If host already exists, we treat as a no-op and skip the host
 		if _, ok := oldHosts[ip]; ok {
 			continue
 		}
+		nextNodeNumber, nodes = f.getNextNodeNumber(nodes)
 		nodeName := fmt.Sprintf("node%04d", nextNodeNumber)
-		nextNodeNumber++
 		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, f.Vdb.Spec.Local.GetCatalogPath(), f.Vdb.Spec.Local.DataPath)
 		err := f.Cfg.Set(NodesSection, nodeName, nodeInfo)
 		if err != nil {
@@ -280,11 +281,10 @@ func (f *FileWriter) getHosts() map[string]bool {
 	return lk
 }
 
-// getNextNodeNumber returns the number to use for the next vertica node.  It
-// determines this by parsing the current config.
-func (f *FileWriter) getNextNodeNumber() int {
+// buildNodeSlice determines all of the node names currently in use in the AT
+func (f *FileWriter) buildNodeSlice() []bool {
+	nodes := []bool{true} // node 0 is reserved
 	const NodePrefix = "node"
-	var nextNodeNumber = 1
 	items, err := f.Cfg.Items(NodesSection)
 	if err == nil {
 		for k := range items {
@@ -293,13 +293,28 @@ func (f *FileWriter) getNextNodeNumber() int {
 				if e2 != nil {
 					continue
 				}
-				if i >= nextNodeNumber {
-					nextNodeNumber = i + 1
+				if i >= len(nodes) {
+					nodes = append(nodes, make([]bool, i-len(nodes)+1)...)
 				}
+				nodes[i] = true
 			}
 		}
 	}
-	return nextNodeNumber
+	return nodes
+}
+
+// getNextNodeNumber returns the number to use for the next vertica node.  It
+// determines this by finding a free spot in the nodes slice.
+func (f *FileWriter) getNextNodeNumber(nodes []bool) (nextNodeNumber int, newNodes []bool) {
+	for i := 0; i < len(nodes); i++ {
+		if !nodes[i] {
+			nodes[i] = true
+			return i, nodes
+		}
+	}
+	nodes = append(nodes, make([]bool, 1)...)
+	nodes[len(nodes)-1] = true
+	return len(nodes) - 1, nodes
 }
 
 // writeDefaultAdmintoolsConf will write out the default admintools.conf for when nothing exists.
