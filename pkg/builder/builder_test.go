@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("builder", func() {
@@ -166,6 +167,53 @@ var _ = Describe("builder", func() {
 		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
 	})
 
+	It("should not mount superuser password if probe's overridden", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.SuperuserPasswordSecret = "some-secret"
+		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				TCPSocket: &v1.TCPSocketAction{
+					Port: intstr.FromInt(5433),
+				},
+			},
+		}
+		vdb.Spec.StartupProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				Exec: &v1.ExecAction{
+					Command: []string{"vsql", "-c", "select 1"},
+				},
+			},
+		}
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
+		vdb.Spec.StartupProbeOverride = nil
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeTrue())
+	})
+
+	It("should allow override of probe with grpc and httpget", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				GRPC: &v1.GRPCAction{
+					Port: 5433,
+				},
+			},
+		}
+		vdb.Spec.LivenessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Path: "/health",
+				},
+			},
+		}
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		Expect(c.Containers[0].ReadinessProbe.Exec).Should(BeNil())
+		Expect(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
+		Expect(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
+		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+	})
+
 	It("should override some of the pod securityContext settings", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PodSecurityContext = &v1.PodSecurityContext{
@@ -200,4 +248,25 @@ func makeVolumeMountNames(c *v1.Container) []string {
 		volNames = append(volNames, c.VolumeMounts[i].Name)
 	}
 	return volNames
+}
+
+func getPodInfoVolume(vols []v1.Volume) *v1.Volume {
+	for i := range vols {
+		if vols[i].Name == vapi.PodInfoMountName {
+			return &vols[i]
+		}
+	}
+	return nil
+}
+
+func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {
+	v := getPodInfoVolume(podSpec.Volumes)
+	for i := range v.Projected.Sources {
+		if v.Projected.Sources[i].Secret != nil {
+			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == vdb.Spec.SuperuserPasswordSecret {
+				return true
+			}
+		}
+	}
+	return false
 }

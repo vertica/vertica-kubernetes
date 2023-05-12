@@ -15,22 +15,13 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-restart
-status:
-  subclusters:
-    - installCount: 3
-      addedToDBCount: 3
-      upNodeCount: 3
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-restart-defsc-0
 spec:
-  containers:
-  - name: server
-    readinessProbe:
-      exec:
-        command: ["vsql", "-c", "select 1"]
-    startupProbe:
-      exec:
-        command: ["vsql", "-c", "select 1"]
+  # Change the probes so that they no longer reference password. This will
+  # cause the operator to change the sts so that we don't mount the password
+  # anymore .
+  readinessProbeOverride:
+    exec:
+      command: ["vsql", "-c", "select 1"]
+  startupProbeOverride:
+    exec:
+      command: ["vsql", "-c", "select 1"]

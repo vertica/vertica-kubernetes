@@ -1,0 +1,5 @@
+kind: Fixed
+body: Avoid mounting dbadmin password if not needed
+time: 2023-05-11T15:15:13.987801525-03:00
+custom:
+  Issue: "396"

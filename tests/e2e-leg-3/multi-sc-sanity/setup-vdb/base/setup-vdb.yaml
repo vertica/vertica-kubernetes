@@ -31,6 +31,17 @@ spec:
       size: 1
       isPrimary: true
   kSafety: "0"
+  # Override the readiness/startup probes to not use the dbadmin password. This
+  # will cause the dbadmin password not to be mounted in the container.
+  readinessProbeOverride:
+    tcpSocket:
+      port: 5433
+  startupProbeOverride:
+    tcpSocket:
+      port: 5433
+  livenessProbeOverride:
+    periodSeconds: 10
+    initialDelaySeconds: 5
   encryptSpreadComm: vertica
   certSecrets: []
   imagePullSecrets: []

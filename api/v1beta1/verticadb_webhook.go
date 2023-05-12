@@ -291,6 +291,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateLocalStorage(allErrs)
 	allErrs = v.validateHTTPServerMode(allErrs)
 	allErrs = v.hasValidShardCount(allErrs)
+	allErrs = v.hasValidProbeOverrides(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -937,6 +938,39 @@ func (v *VerticaDB) hasValidShardCount(allErrs field.ErrorList) field.ErrorList 
 		v.Spec.ShardCount,
 		"Shard count must be > 0")
 	return append(allErrs, err)
+}
+
+func (v *VerticaDB) hasValidProbeOverrides(allErrs field.ErrorList) field.ErrorList {
+	parentField := field.NewPath("spec")
+	allErrs = v.hasValidProbeOverride(allErrs, parentField.Child("readinessProbeOverride"), v.Spec.ReadinessProbeOverride)
+	allErrs = v.hasValidProbeOverride(allErrs, parentField.Child("startupProbeOverride"), v.Spec.StartupProbeOverride)
+	allErrs = v.hasValidProbeOverride(allErrs, parentField.Child("livenessProbeOverride"), v.Spec.LivenessProbeOverride)
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidProbeOverride(allErrs field.ErrorList, fieldPath *field.Path, probe *v1.Probe) field.ErrorList {
+	if probe == nil {
+		return allErrs
+	}
+	// There are different kinds of handlers. You are only allowed to specify no more than one.
+	handlerCount := 0
+	if probe.Exec != nil {
+		handlerCount++
+	}
+	if probe.TCPSocket != nil {
+		handlerCount++
+	}
+	if probe.GRPC != nil {
+		handlerCount++
+	}
+	if probe.HTTPGet != nil {
+		handlerCount++
+	}
+	if handlerCount > 1 {
+		err := field.Invalid(fieldPath, probe, "can only specify one handler in the override")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
 }
 
 func (v *VerticaDB) isImageChangeInProgress() bool {
