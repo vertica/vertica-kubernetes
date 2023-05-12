@@ -26,8 +26,11 @@ data:
     set -o xtrace
     set -o errexit
 
-    curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/nodes | tee /tmp/curl.out
-    grep -cq 'v_vertdb_node0001' /tmp/curl.out
+    for endpoint in v1/nodes nodes
+    do
+      curl --insecure --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-custom-certs-main-0.v-http-custom-certs:8443/$endpoint | tee /tmp/curl.out
+      grep -cq 'v_vertdb_node0001' /tmp/curl.out && break
+    done
 ---
 apiVersion: v1
 kind: Pod
