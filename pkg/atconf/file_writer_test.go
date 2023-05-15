@@ -144,6 +144,26 @@ var _ = Describe("file_writer", func() {
 		Expect(err).Should(Succeed())
 		Expect(cnts).Should(ContainSubstring(fmt.Sprintf("%s,%s", vdb.Spec.Local.CatalogPath, vdb.Spec.Local.DataPath)))
 	})
+
+	It("should reuse node names", func() {
+		vdb := vapi.MakeVDB()
+		w := &FileWriter{Log: logger, Vdb: vdb, PRunner: prunner}
+		Expect(w.createAdmintoolsConfBase(context.TODO(), types.NamespacedName{})).Should(Succeed())
+		Expect(w.loadATConf()).Should(Succeed())
+		Expect(w.addNewHosts([]string{"10.1.1.1", "10.1.1.2"})).Should(Succeed())
+		// Make node0001 available for reuse
+		Expect(w.removeNodes([]string{"10.1.1.1"})).Should(Succeed())
+		Expect(w.addNewHosts([]string{"10.1.1.3", "10.1.1.4"})).Should(Succeed())
+		fn, err := w.saveATConf()
+		defer os.Remove(fn)
+		Expect(err).Should(Succeed())
+		rawCnts, err := os.ReadFile(fn)
+		Expect(err).Should(Succeed())
+		s := string(rawCnts)
+		Expect(s).Should(ContainSubstring("node0002 = 10.1.1.2"))
+		Expect(s).Should(ContainSubstring("node0001 = 10.1.1.3"))
+		Expect(s).Should(ContainSubstring("node0003 = 10.1.1.4"))
+	})
 })
 
 // genAtConfWithAdd is a helper that will generate a new admintools.conf with the given IPs in it
@@ -160,7 +180,7 @@ func genAtConfWithAdd(w Writer, pn types.NamespacedName, ips []string) (string, 
 	return string(rawCnts), nil
 }
 
-// genAtConfWithDel is a helper that will generate a new admintools.conf with the given IPs in it
+// genAtConfWithDel is a helper that will generate a new admintools.conf with the given IPs removed
 func genAtConfWithDel(w Writer, pn types.NamespacedName, ips []string) (string, error) {
 	fn, err := w.RemoveHosts(context.TODO(), pn, ips)
 	defer os.Remove(fn)
