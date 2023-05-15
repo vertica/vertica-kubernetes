@@ -83,7 +83,7 @@ spec:
           is provided.
         displayName: Name
         path: template.metadata.name
-      - description: The job spec that we will use when construting the job.
+      - description: Specification of the desired behavior of the job.
         displayName: Spec
         path: template.spec
       statusDescriptors:
@@ -94,8 +94,8 @@ spec:
         displayName: APIVersion
         path: references[0].apiVersion
       - description: If a job was created because a match was found for this reference
-          object, this is the name of that job. This pairs with the jobNamespace parameter
-          to uniquely identify the job.
+          object, this is the name of the last job that was created. This pairs with
+          the jobNamespace parameter to uniquely identify the job.
         displayName: Job Name
         path: references[0].jobName
       - description: If a job was created because a match was found for this reference
@@ -103,6 +103,10 @@ spec:
           parameter to uniquely identify the job.
         displayName: Job Namespace
         path: references[0].jobNamespace
+      - description: The number of jobs that have been created for this reference
+          object.
+        displayName: Jobs Created
+        path: references[0].jobsCreated
       - description: The kind of the reference object
         displayName: Kind
         path: references[0].kind
@@ -371,6 +375,15 @@ spec:
       - description: Contains details about the communal storage.
         displayName: Communal
         path: communal
+      - description: Contains a map of server configuration parameters. To avoid duplicate
+          values, if a parameter is already set through another CR field, (like S3ServerSideEncryption
+          through communal.s3ServerSideEncryption), the corresponding key/value pair
+          is skipped. If a config value is set that isn't supported by the server
+          version you are running, the server will fail to start. These are set only
+          during initial bootstrap. After the database has been initialized, changing
+          the options in the CR will have no affect in the server.
+        displayName: Additional Config
+        path: communal.additionalConfig
       - description: The absolute path to a certificate bundle of trusted CAs. This
           CA bundle is used when establishing TLS connections to external services
           such as AWS, Azure or swebhdf:// scheme.  Typically this would refer to
@@ -442,6 +455,28 @@ spec:
           Vertica retries several times before giving up.
         displayName: Region
         path: communal.region
+      - description: 'The server-side encryption type Vertica will use to read/write
+          from encrypted S3 communal storage. Available values are: SSE-S3, SSE-KMS,
+          SSE-C and empty string (""). - SSE-S3: the S3 service manages encryption
+          keys. - SSE-KMS: encryption keys are managed by the Key Management Service
+          (KMS). KMS key identifier must be supplied through communal.additionalConfig
+          map. - SSE-C: the client manages encryption keys and provides them to S3
+          for each operation. The client key must be supplied through communal.s3SseCustomerKeySecret.
+          - Empty string (""): No encryption. This is the default value. This value
+          cannot change after the initial creation of the VerticaDB.'
+        displayName: S3 Server Side Encryption
+        path: communal.s3ServerSideEncryption
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:SSE-S3
+        - urn:alm:descriptor:com.tectonic.ui:select:SSE-KMS
+        - urn:alm:descriptor:com.tectonic.ui:select:SSE-C
+      - description: The name of a secret that contains the key to use for the S3SseCustomerKey
+          config option in the server. It is required when S3ServerSideEncryption
+          is SSE-C. When set, the secret must have a key named clientKey.
+        displayName: S3 Sse Customer Key Secret
+        path: communal.s3SseCustomerKeySecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: The name of the database.  This cannot be updated once the CRD
           is created.
         displayName: DBName
@@ -459,8 +494,8 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'Control the Vertica''s http server.  The http server provides
           a REST interface that can be used for management and monitoring of the server.  Valid
-          values are: Enabled, Disabled or an empty string.  An empty string currently
-          defaults to Disabled.'
+          values are: Enabled, Disabled, Auto or an empty string.  An empty string
+          currently defaults to Auto.'
         displayName: HTTPServer Mode
         path: httpServerMode
         x-descriptors:
@@ -588,15 +623,28 @@ spec:
           the depot path used when the database was first created.
         displayName: Depot Path
         path: local.depotPath
+      - description: 'The type of volume to use for the depot. Allowable values will
+          be: EmptyDir and PersistentVolume or an empty string. An empty string currently
+          defaults to PersistentVolume.'
+        displayName: Depot Volume
+        path: local.depotVolume
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:PersistentVolume
+        - urn:alm:descriptor:com.tectonic.ui:select:EmptyDir
       - description: The minimum size of the local data volume when picking a PV.  If
-          changing this after the PV have been created, it will cause a resize of
-          the PV to the new size.
+          changing this after the PV have been created, two things may happen. First,
+          it will cause a resize of the PV to the new size. And, if depot is stored
+          in the PV, a resize of the depot happens too.
         displayName: Request Size
         path: local.requestSize
       - description: The local data stores the local catalog, depot and config files.
-          This defines the name of the storageClass to use for that volume. This will
-          be set when creating the PVC. By default, it is not set. This means that
-          that the PVC we create will have the default storage class set in Kubernetes.
+          Portions of the local data are persisted with a persistent volume (PV) using
+          a persistent volume claim (PVC). The catalog and config files are always
+          stored in the PV. The depot may be include too if depotVolume is set to
+          'PersistentVolume'. This field is used to define the name of the storage
+          class to use for the PV. This will be set when creating the PVC. By default,
+          it is not set. This means that that the PVC we create will have the default
+          storage class set in Kubernetes.
         displayName: Storage Class
         path: local.storageClass
         x-descriptors:

@@ -184,9 +184,13 @@ type ETRefObjectStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// If a job was created because a match was found for this reference object,
-	// this is the name of that job. This pairs with the jobNamespace parameter
-	// to uniquely identify the job.
+	// this is the name of the last job that was created. This pairs with the
+	// jobNamespace parameter to uniquely identify the job.
 	JobName string `json:"jobName"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The number of jobs that have been created for this reference object.
+	JobsCreated int `json:"jobsCreated,omitempty"`
 }
 
 // IsSameObject will compare two ETRefObjectStatus objects and return true if they
