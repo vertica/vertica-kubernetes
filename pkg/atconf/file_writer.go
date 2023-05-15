@@ -230,14 +230,14 @@ func (f *FileWriter) removeFromClusterHosts(ips []string) error {
 // addNodes will add the given set of installIPs as new nodes in the Nodes
 // section.  The updates are done in-place in the ConfigParser.
 func (f *FileWriter) addNodes(oldHosts map[string]bool, installIPs []string) error {
-	nodes := f.buildNodeSlice()
+	nodesInUse := f.buildNodesInUse()
 	var nextNodeNumber int
 	for _, ip := range installIPs {
 		// If host already exists, we treat as a no-op and skip the host
 		if _, ok := oldHosts[ip]; ok {
 			continue
 		}
-		nextNodeNumber, nodes = f.getNextNodeNumber(nodes)
+		nextNodeNumber, nodesInUse = f.getNextNodeNumber(nodesInUse)
 		nodeName := fmt.Sprintf("node%04d", nextNodeNumber)
 		nodeInfo := fmt.Sprintf("%s,%s,%s", ip, f.Vdb.Spec.Local.GetCatalogPath(), f.Vdb.Spec.Local.DataPath)
 		err := f.Cfg.Set(NodesSection, nodeName, nodeInfo)
@@ -281,22 +281,27 @@ func (f *FileWriter) getHosts() map[string]bool {
 	return lk
 }
 
-// buildNodeSlice determines all of the node names currently in use in the AT
-func (f *FileWriter) buildNodeSlice() []bool {
-	nodes := []bool{true} // node 0 is reserved
+// buildNodesInUse determines all of the node names currently in use in the AT.
+// The index of this slice is the node number. If the value is true, this means
+// the node number is currently in use.
+func (f *FileWriter) buildNodesInUse() []bool {
+	// node0000 is never used in Vertica, so we mark that as in use.
+	nodes := []bool{true}
 	const NodePrefix = "node"
 	items, err := f.Cfg.Items(NodesSection)
 	if err == nil {
 		for k := range items {
 			if strings.HasPrefix(k, NodePrefix) {
-				i, e2 := strconv.Atoi(k[len(NodePrefix):])
+				nodeNumber, e2 := strconv.Atoi(k[len(NodePrefix):])
 				if e2 != nil {
 					continue
 				}
-				if i >= len(nodes) {
-					nodes = append(nodes, make([]bool, i-len(nodes)+1)...)
+				// Extend nodes if nodeNumber would be out of bounds.  All new
+				// entries added default to false (node numbers aren't in use).
+				if nodeNumber >= len(nodes) {
+					nodes = append(nodes, make([]bool, nodeNumber-len(nodes)+1)...)
 				}
-				nodes[i] = true
+				nodes[nodeNumber] = true
 			}
 		}
 	}
@@ -304,17 +309,20 @@ func (f *FileWriter) buildNodeSlice() []bool {
 }
 
 // getNextNodeNumber returns the number to use for the next vertica node.  It
-// determines this by finding a free spot in the nodes slice.
-func (f *FileWriter) getNextNodeNumber(nodes []bool) (nextNodeNumber int, newNodes []bool) {
-	for i := 0; i < len(nodes); i++ {
-		if !nodes[i] {
-			nodes[i] = true
-			return i, nodes
+// determines this by finding a free spot in the nodes in use slice.
+func (f *FileWriter) getNextNodeNumber(nodesInUse []bool) (nextNodeNumber int, newNodesInUse []bool) {
+	// Find a gap in the nodes in use slice
+	for i := 0; i < len(nodesInUse); i++ {
+		if !nodesInUse[i] {
+			nodesInUse[i] = true
+			return i, nodesInUse
 		}
 	}
-	nodes = append(nodes, make([]bool, 1)...)
-	nodes[len(nodes)-1] = true
-	return len(nodes) - 1, nodes
+	// No gaps found. Extend the nodesInUse by 1 and use the last entry as the
+	// next node number.
+	nodesInUse = append(nodesInUse, make([]bool, 1)...)
+	nodesInUse[len(nodesInUse)-1] = true
+	return len(nodesInUse) - 1, nodesInUse
 }
 
 // writeDefaultAdmintoolsConf will write out the default admintools.conf for when nothing exists.
