@@ -1,5 +1,0 @@
-kind: Added
-body: Support for s3 server side encryption
-time: 2023-04-13T09:12:59.85790521-03:00
-custom:
-  Issue: "372"
