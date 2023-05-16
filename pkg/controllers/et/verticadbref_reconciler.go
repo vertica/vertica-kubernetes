@@ -89,6 +89,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, req *ctrl.Reques
 
 			refStatus.JobNamespace = job.Namespace
 			refStatus.JobName = job.Name
+			refStatus.JobsCreated = 1
 		}
 
 		if err := etstatus.Apply(ctx, r.VRec.Client, r.Log, r.Et, refStatus); err != nil {

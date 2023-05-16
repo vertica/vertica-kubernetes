@@ -21,6 +21,7 @@ status:
     kind: VerticaDB
     name: v-non-cluster-admin-deployment
     jobName: hello-world
+    jobsCreated: 1
 ---
 apiVersion: batch/v1
 kind: Job
