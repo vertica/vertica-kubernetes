@@ -1,6 +1,0 @@
-kind: Added
-body: Additional ports added to headless service. This is to support istio with TPROXY
-  and strict mTLS.
-time: 2023-05-09T10:52:06.236086735-03:00
-custom:
-  Issue: "392"

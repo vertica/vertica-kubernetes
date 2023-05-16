@@ -1,5 +1,0 @@
-kind: Fixed
-body: Allow app.kubernetes.io/name to be overridden
-time: 2023-05-11T14:17:46.053871313-03:00
-custom:
-  Issue: "394"
