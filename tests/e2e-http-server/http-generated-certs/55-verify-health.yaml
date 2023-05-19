@@ -19,25 +19,24 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: script-verify-listtable
+  name: script-verify-health
 data:
   entrypoint.sh: |-
     #!/bin/bash
     set -o errexit
     set -o xtrace
+    set -o pipefail
 
-    kubectl exec -it svc/v-http-generated-certs-sc -- vsql -w superuser -c "create table IF NOT EXISTS t1 (c1 int)"
-
-    for endpoint in test/listtable v1/test/listtable
+    # Before we had the health endpoint, we used listtable endpoint
+    for endpoint in v1/health test/listtable v1/test/listtable
     do
-      curl -k --user dbadmin:superuser https://v-http-generated-certs-sc-0.v-http-generated-certs:8443/$endpoint | tee /tmp/curl.out
-      grep -cq "public.t1" /tmp/curl.out && break
+      curl -k --fail --verbose --user dbadmin:superuser https://v-http-generated-certs-sc-0.v-http-generated-certs:8443/$endpoint && break
     done
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: test-verify-listtable
+  name: test-verify-health
   labels:
     stern: include
 spec:
@@ -55,4 +54,4 @@ spec:
     - name: entrypoint-volume
       configMap:
         defaultMode: 0777
-        name: script-verify-listtable
+        name: script-verify-health
