@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -40,6 +41,14 @@ var _ = Describe("eventtrigger_controller", func() {
 
 	It("should reconcile an EventTrigger with no errors if ET doesn't exist", func() {
 		et := vapi.MakeET()
+		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+	})
+
+	It("should suspend the reconcile if pause annotation is set", func() {
+		et := vapi.MakeET()
+		et.Annotations = map[string]string{meta.PauseOperatorAnnotation: "1"}
+		Expect(k8sClient.Create(ctx, et)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, et)).Should(Succeed()) }()
 		Expect(etRec.Reconcile(ctx, ctrl.Request{NamespacedName: et.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 })

@@ -1,0 +1,5 @@
+kind: Added
+body: Ability to pause the reconciler for individual CRs
+time: 2023-05-23T14:24:08.039581226-03:00
+custom:
+  Issue: "404"

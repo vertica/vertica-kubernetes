@@ -238,7 +238,7 @@ func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 		"--sql=" + PostDBCreateSQLFile,
 		"--catalog_path=" + c.Vdb.Spec.Local.GetCatalogPath(),
 		"--database", c.Vdb.Spec.DBName,
-		"--force-cleanup-on-failure",
+		"--force-removal-at-creation",
 		"--noprompt",
 		"--license", licPath,
 		"--depot-path=" + c.Vdb.Spec.Local.DepotPath,

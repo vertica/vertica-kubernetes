@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
@@ -95,6 +96,12 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		log.Error(err, "failed to get VerticaDB")
 		return ctrl.Result{}, err
+	}
+
+	if meta.IsPauseAnnotationSet(vdb.Annotations) {
+		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
+			"result", ctrl.Result{}, "err", nil)
+		return ctrl.Result{}, nil
 	}
 
 	passwd, err := r.GetSuperuserPassword(ctx, vdb, log)

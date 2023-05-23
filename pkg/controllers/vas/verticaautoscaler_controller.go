@@ -30,6 +30,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
 // VerticaAutoscalerReconciler reconciles a VerticaAutoscaler object
@@ -65,6 +66,12 @@ func (r *VerticaAutoscalerReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 		log.Error(err, "failed to get VerticaAutoscaler")
 		return ctrl.Result{}, err
+	}
+
+	if meta.IsPauseAnnotationSet(vas.Annotations) {
+		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
+			"result", ctrl.Result{}, "err", nil)
+		return ctrl.Result{}, nil
 	}
 
 	// The actors that will be applied, in sequence, to reconcile a vas.

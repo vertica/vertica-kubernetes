@@ -38,6 +38,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
 // EventTriggerReconciler reconciles a EventTrigger object
@@ -75,6 +76,12 @@ func (r *EventTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 		log.Error(err, "failed to get EventTrigger")
 		return ctrl.Result{}, err
+	}
+
+	if meta.IsPauseAnnotationSet(et.Annotations) {
+		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
+			"result", ctrl.Result{}, "err", nil)
+		return ctrl.Result{}, nil
 	}
 
 	// Iterate over each actor
