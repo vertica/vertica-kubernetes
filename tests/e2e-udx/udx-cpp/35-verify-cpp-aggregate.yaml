@@ -31,7 +31,7 @@ data:
     # In 23.3, we changed the aggregate examples.
     if [ "$MAJOR" -gt 12 ] \
         || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -gt 0 ]) \
-        || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -eq 0 ] && [ "$PATCH" -gt 3 ])
+        || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -eq 0 ] && [ "$PATCH" -gt 4 ])
     then
       EXP=/opt/vertica/sdk/examples/expected-outputs/23.3.0/AggregateFunctionsOut.txt
     else
