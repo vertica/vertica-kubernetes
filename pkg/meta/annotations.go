@@ -15,6 +15,8 @@
 
 package meta
 
+import "strconv"
+
 const (
 	// Annotations that we set in each of the pod.  These are set by the
 	// AnnotateAndLabelPodReconciler.  They are available in the pod with the
@@ -22,4 +24,20 @@ const (
 	KubernetesVersionAnnotation   = "kubernetes.io/version"   // Version of the k8s server
 	KubernetesGitCommitAnnotation = "kubernetes.io/gitcommit" // Git commit of the k8s server
 	KubernetesBuildDateAnnotation = "kubernetes.io/buildDate" // Build date of the k8s server
+
+	// If this label is on any CR, the operator will skip processing. This can
+	// be used to avoid getting in an infinity error-retry loop. Or, if you know
+	// no additional work will ever exist for an object. Just set this to a
+	// true|ON|1 value.
+	PauseOperatorAnnotation = "vertica.com/pause"
 )
+
+// IsPauseAnnotationSet will check the annotations for a special value that will
+// pause the operator for the CR.
+func IsPauseAnnotationSet(annotations map[string]string) bool {
+	if val, ok := annotations[PauseOperatorAnnotation]; ok {
+		varAsBool, _ := strconv.ParseBool(val)
+		return varAsBool
+	}
+	return false
+}
