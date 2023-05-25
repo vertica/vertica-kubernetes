@@ -3,7 +3,7 @@ This helm chart will install the operator and an admission controller webhook.  
 | Parameter Name | Description | Default Value |
 |----------------|-------------|---------------|
 | affinity | The [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) parameter allows you to constrain the operator pod only to specific nodes. If this parameter is not set, then no affinity setting is used with the operator pod. | Not set |
-| image.name | The name of image that runs the operator. | vertica/verticadb-operator:1.11.0 |
+| image.name | The name of image that runs the operator. | vertica/verticadb-operator:1.11.1 |
 | image.repo | Repo server hosting image.name | docker.io |
 | image.pullPolicy | The pull policy for the image that runs the operator  | IfNotPresent |
 | imagePullSecrets | List of Secret names containing login credentials for above repos | null (pull images anonymously) |
