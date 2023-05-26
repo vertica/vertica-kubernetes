@@ -24,7 +24,7 @@ NC='\033[0m'  # No color
 set -o errexit
 set -o pipefail
 
-LINT_IMAGE=hadolint/hadolint:2.9.2
+LINT_IMAGE=hadolint/hadolint:2.12.0
 docker pull $LINT_IMAGE
 
 for dir in docker-operator docker-vertica docker-vlogger

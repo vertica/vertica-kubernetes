@@ -38,13 +38,13 @@ fi
 
 # Add in the templating
 # 1. Template the namespace
-sed -i 's/verticadb-operator-system/{{ .Release.Namespace }}/g' $TEMPLATE_DIR/*
+perl -i -0777 -pe 's/verticadb-operator-system/{{ .Release.Namespace }}/g' $TEMPLATE_DIR/*
 perl -i -0777 -pe 's/(verticadb-operator)(-.*-webhook-configuration)/$1-{{ .Release.Namespace }}$2/' $TEMPLATE_DIR/*
 # 2. Template image names
-sed -i "s|image: controller|image: '{{ with .Values.image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i "s|image: gcr.io/kubebuilder/kube-rbac-proxy:v.*|image: '{{ with .Values.rbac_proxy_image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s|image: controller|image: '{{ with .Values.image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s|image: gcr.io/kubebuilder/kube-rbac-proxy:v.*|image: '{{ with .Values.rbac_proxy_image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 # 3. Template imagePullPolicy
-sed -i 's/imagePullPolicy: IfNotPresent/imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe 's/imagePullPolicy: IfNotPresent/imagePullPolicy: {{ default "IfNotPresent" .Values.image.pullPolicy }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 # 4. Append imagePullSecrets
 cat >>$TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml << END
 {{ if .Values.imagePullSecrets }}
@@ -56,7 +56,7 @@ END
 for fn in verticadb-operator-controller-manager-deployment.yaml \
     verticadb-operator-serving-cert-certificate.yaml
 do
-  sed -i 's/secretName: webhook-server-cert/secretName: {{ include "vdb-op.certSecret" . }}/' $TEMPLATE_DIR/$fn
+  perl -i -0777 -pe 's/secretName: webhook-server-cert/secretName: {{ include "vdb-op.certSecret" . }}/' $TEMPLATE_DIR/$fn
 done
 for fn in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 do
@@ -71,7 +71,7 @@ done
 for fn in verticadb-operator-selfsigned-issuer-issuer.yaml \
     verticadb-operator-serving-cert-certificate.yaml
 do
-  sed -i '1s/^/{{- if eq .Values.webhook.certSource "cert-manager" }}\n/' $TEMPLATE_DIR/$fn
+  perl -i -pe 's/^/{{- if eq .Values.webhook.certSource "cert-manager" }}\n/ if 1 .. 1' $TEMPLATE_DIR/$fn
   echo "{{- end -}}" >> $TEMPLATE_DIR/$fn
 done
 # Include WEBHOOK_CERT_SOURCE in the config map
@@ -79,25 +79,25 @@ perl -i -0777 -pe 's/(\ndata:)/$1\n  WEBHOOK_CERT_SOURCE: {{ include "vdb-op.cer
 # 6. Template the caBundle
 for fn in $(ls $TEMPLATE_DIR/*webhookconfiguration.yaml)
 do
-  sed -i 's/clientConfig:/clientConfig:\n    caBundle: {{ .Values.webhook.caBundle }}/' $fn
+  perl -i -pe 's/clientConfig:/clientConfig:\n    caBundle: {{ .Values.webhook.caBundle }}/' $fn
 done
 # 7. Template the resource limits and requests
-sed -i 's/resources: template-placeholder/resources:\n          {{- toYaml .Values.resources | nindent 10 }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe 's/resources: template-placeholder/resources:\n          {{- toYaml .Values.resources | nindent 10 }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 8.  Template the logging
-sed -i "s/--filepath=.*/--filepath={{ .Values.logging.filePath }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i "s/--maxfilesize=.*/--maxfilesize={{ .Values.logging.maxFileSize }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i "s/--maxfileage=.*/--maxfileage={{ .Values.logging.maxFileAge }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i "s/--maxfilerotation=.*/--maxfilerotation={{ .Values.logging.maxFileRotation }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i "s/--level=.*/--level={{ .Values.logging.level }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s/--filepath=.*/--filepath={{ .Values.logging.filePath }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s/--maxfilesize=.*/--maxfilesize={{ .Values.logging.maxFileSize }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s/--maxfileage=.*/--maxfileage={{ .Values.logging.maxFileAge }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s/--maxfilerotation=.*/--maxfilerotation={{ .Values.logging.maxFileRotation }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s/--level=.*/--level={{ .Values.logging.level }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 9.  Template the serviceaccount, roles and rolebindings
-sed -i 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-sed -i 's/--service-account-name=.*/--service-account-name={{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe 's/--service-account-name=.*/--service-account-name={{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 for f in verticadb-operator-controller-manager-sa.yaml
 do
-    sed -i '1s/^/{{- if not .Values.serviceAccountNameOverride -}}\n/' $TEMPLATE_DIR/$f
+    perl -i -pe 's/^/{{- if not .Values.serviceAccountNameOverride -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
 done
 for f in verticadb-operator-manager-role-role.yaml \
@@ -105,7 +105,7 @@ for f in verticadb-operator-manager-role-role.yaml \
     verticadb-operator-leader-election-role-role.yaml \
     verticadb-operator-leader-election-rolebinding-rb.yaml
 do
-    sed -i '1s/^/{{- if not .Values.skipRoleAndRoleBindingCreation -}}\n/' $TEMPLATE_DIR/$f
+    perl -i -pe 's/^/{{- if not .Values.skipRoleAndRoleBindingCreation -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
 done
 for f in verticadb-operator-manager-rolebinding-rb.yaml \
@@ -137,12 +137,12 @@ done
 for f in $TEMPLATE_DIR/verticadb-operator-validating-webhook-configuration-validatingwebhookconfiguration.yaml \
     $TEMPLATE_DIR/verticadb-operator-mutating-webhook-configuration-mutatingwebhookconfiguration.yaml
 do
-    sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $f
+    perl -i -pe 's/^/{{- if .Values.webhook.enable -}}\n/ if 1 .. 1' $f
     echo "{{- end }}" >> $f
     perl -i -0777 -pe 's/(  annotations:)/$1\n{{- if eq .Values.webhook.certSource "cert-manager" }}/' $f
     perl -i -0777 -pe 's/(    cert-manager.io.*)/$1\n{{- else }}\n    \{\}\n{{- end }}/' $f
 done
-sed -i '1s/^/{{- if .Values.webhook.enable -}}\n/' $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
+perl -i -pe 's/^/{{- if .Values.webhook.enable -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 # Related to this change is the --skip-webhook-patch option. This is needed if
 # the helm chart provided the CA bundle or using cert-manager, which handles
@@ -150,7 +150,7 @@ echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 perl -i -0777 -pe 's/(--webhook-cert-secret.*)/$1\n{{- if or (eq .Values.webhook.certSource "cert-manager") (.Values.webhook.caBundle) }}\n        - --skip-webhook-patch\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 11.  Template the prometheus metrics service
-sed -i '1s/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/' $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
+perl -i -pe 's/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
 
 # 12.  Template the roles/rolebindings for access to the rbac proxy
@@ -159,18 +159,18 @@ for f in verticadb-operator-proxy-rolebinding-crb.yaml \
     verticadb-operator-metrics-reader-cr.yaml \
     verticadb-operator-metrics-reader-crb.yaml
 do
-    sed -i '1s/^/{{- if and (.Values.prometheus.createProxyRBAC) (eq .Values.prometheus.expose "EnableWithAuthProxy") -}}\n/' $TEMPLATE_DIR/$f
+    perl -i -pe 's/^/{{- if and (.Values.prometheus.createProxyRBAC) (eq .Values.prometheus.expose "EnableWithAuthProxy") -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
 done
 
 # 13.  Template the ServiceMonitor object for Promtheus operator
-sed -i '1s/^/{{- if .Values.prometheus.createServiceMonitor -}}\n/' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
+perl -i -pe 's/^/{{- if .Values.prometheus.createServiceMonitor -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 perl -i -0777 -pe 's/(.*endpoints:)/$1\n{{- if eq "EnableWithAuthProxy" .Values.prometheus.expose }}/g' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 perl -i -0777 -pe 's/(.*insecureSkipVerify:.*)/$1\n{{- else }}\n  - path: \/metrics\n    port: metrics\n    scheme: http\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 
 # 14.  Template the metrics bind address
-sed -i 's/- --metrics-bind-address=.*/- --metrics-bind-address={{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+perl -i -0777 -pe 's/- --metrics-bind-address=.*/- --metrics-bind-address={{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 perl -i -0777 -pe 's/(.*metrics-bind-address.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 perl -i -0777 -pe 's/(.*ports:\n.*containerPort: 9443\n.*webhook-server.*\n.*)/$1\n{{- if hasPrefix "EnableWithoutAuth" .Values.prometheus.expose }}\n        - name: metrics\n          containerPort: 8443\n          protocol: TCP\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
@@ -182,7 +182,7 @@ perl -i -0777 -pe 's/(memory: 64Mi)/$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-op
 # 16.  Template places that refer to objects by name.  Do this in all files.
 # In the config/ directory we hardcoded everything to start with
 # verticadb-operator.
-sed -i 's/verticadb-operator/{{ include "vdb-op.name" . }}/g' $TEMPLATE_DIR/*yaml
+perl -i -0777 -pe 's/verticadb-operator/{{ include "vdb-op.name" . }}/g' $TEMPLATE_DIR/*yaml
 
 # 17.  Mount TLS certs in the rbac proxy
 for f in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
@@ -219,6 +219,6 @@ EOF
 for f in verticadb-operator-manager-role-cr.yaml \
     verticadb-operator-manager-clusterrolebinding-crb.yaml
 do
-    sed -i '1s/^/{{- if and (.Values.webhook.enable) (or (eq .Values.webhook.certSource "internal") (.Values.webhook.tlsSecret)) -}}\n/' $TEMPLATE_DIR/$f
+    perl -i -pe 's/^/{{- if and (.Values.webhook.enable) (or (eq .Values.webhook.certSource "internal") (.Values.webhook.tlsSecret)) -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
 done

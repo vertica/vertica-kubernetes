@@ -91,9 +91,9 @@ cd $SDK_HOME/examples
 export CXX=c++  # Ensure we go through linux alternatives to find the compiler
 export JAVA_BUILDINFO=$REPO_DIR/sdk/BuildInfo.java
 # Hack to get around non-standard location of the sdk.  The makefile doesn't
-# allow us to override the location of the BuildInfo.java.  This sed command
+# allow us to override the location of the BuildInfo.java.  This perl command
 # will let us control that from the command line.
-sed -i 's/JAVA_BUILDINFO :=/JAVA_BUILDINFO ?=/g' makefile
+perl -i -0777 -pe 's/JAVA_BUILDINFO :=/JAVA_BUILDINFO ?=/g' makefile
 make
 
 # Show the contents of the files we copied over and built

@@ -80,8 +80,8 @@ cd $REPO_DIR
 $KUSTOMIZE build config/overlays/csv | $OPERATOR_SDK generate bundle $BUNDLE_GEN_FLAGS
 
 # Fill in the placeholders
-sed -i "s/CREATED_AT_PLACEHOLDER/$(date +"%FT%H:%M:%SZ")/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
-sed -i "s+OPERATOR_IMG_PLACEHOLDER+$(make echo-images | grep OPERATOR_IMG | cut -d'=' -f2)+g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
+perl -i -0777 -pe "s/CREATED_AT_PLACEHOLDER/$(date +"%FT%H:%M:%SZ")/g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
+perl -i -0777 -pe "s+OPERATOR_IMG_PLACEHOLDER+$(make echo-images | grep OPERATOR_IMG | cut -d'=' -f2)+g" bundle/manifests/verticadb-operator.clusterserviceversion.yaml
 
 # Delete the ServiceMonitor object from the bundle.  This puts a
 # requirement on having the Prometheus Operator installed.  We are only

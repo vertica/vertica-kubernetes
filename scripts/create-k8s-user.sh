@@ -100,7 +100,7 @@ apiVersion: v1
 kind: Config 
 clusters:
 - cluster:
-    certificate-authority-data: $(cat $local_ca_crt | base64 -w 0)
+    certificate-authority-data: $(cat $local_ca_crt | base64 | tr -d '\n')
     server: $k8s_server
   name: kind
 contexts:
@@ -112,6 +112,6 @@ current-context: user-$USER
 users:
 - name: $USER
   user:
-    client-certificate-data: $(cat $local_user_crt | base64 -w 0)
-    client-key-data: $(cat $local_user_key | base64 -w 0)
+    client-certificate-data: $(cat $local_user_crt | base64 | tr -d '\n')
+    client-key-data: $(cat $local_user_key | base64 | tr -d '\n')
 EOF
