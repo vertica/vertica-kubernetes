@@ -57,7 +57,7 @@ var _ webhook.Validator = &EventTrigger{}
 func (e *EventTrigger) ValidateCreate() error {
 	eventtriggerlog.Info("validate create", "name", e.Name)
 
-	allErrs := e.validateVerticaDBRefSpec()
+	allErrs := e.validateSpec()
 	if allErrs == nil {
 		return nil
 	}
@@ -69,7 +69,7 @@ func (e *EventTrigger) ValidateCreate() error {
 func (e *EventTrigger) ValidateUpdate(old runtime.Object) error {
 	eventtriggerlog.Info("validate update", "name", e.Name)
 
-	allErrs := e.validateVerticaDBRefSpec()
+	allErrs := e.validateSpec()
 	if allErrs == nil {
 		return nil
 	}
@@ -84,10 +84,11 @@ func (e *EventTrigger) ValidateDelete() error {
 	return nil
 }
 
-func (e *EventTrigger) validateVerticaDBRefSpec() field.ErrorList {
+func (e *EventTrigger) validateSpec() field.ErrorList {
 	allErrs := e.validateVerticaDBReferences(field.ErrorList{})
 	allErrs = e.validateVerticaDBReferencesSize(allErrs)
 	allErrs = e.validateVerticaDBMatchesSize(allErrs)
+	allErrs = e.validateTemplateJobName(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -144,5 +145,17 @@ func (e *EventTrigger) validateVerticaDBMatchesSize(allErrs field.ErrorList) fie
 		allErrs = append(allErrs, err)
 	}
 
+	return allErrs
+}
+
+func (e *EventTrigger) validateTemplateJobName(allErrs field.ErrorList) field.ErrorList {
+	if e.Spec.Template.Metadata.Name == "" && e.Spec.Template.Metadata.GenerateName == "" {
+		err := field.Invalid(
+			field.NewPath("spec").Child("template").Child("metadata"),
+			e.Spec.Template.Metadata,
+			"job name must be specified in template",
+		)
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
