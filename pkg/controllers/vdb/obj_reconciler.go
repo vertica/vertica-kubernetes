@@ -97,10 +97,8 @@ func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.
 
 	// Check the objects for subclusters that should exist.  This will create
 	// missing objects and update existing objects to match the vdb.
-	for i := range o.Vdb.Spec.Subclusters {
-		if res, err := o.checkForCreatedSubcluster(ctx, &o.Vdb.Spec.Subclusters[i]); verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
+	if res, err := o.checkForCreatedSubclusters(ctx); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 
 	// Check to see if we need to remove any objects for deleted subclusters
@@ -194,19 +192,32 @@ func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secr
 	return ctrl.Result{}, nil
 }
 
-// checkForCreatedSubcluster handles reconciliation of one subcluster that should exist
-func (o *ObjReconciler) checkForCreatedSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	// Transient subclusters never have their own service objects.  They always
-	// reuse ones we have for other primary/secondary subclusters.
-	if !sc.IsTransient {
-		svcName := names.GenExtSvcName(o.Vdb, sc)
-		expSvc := builder.BuildExtSvc(svcName, o.Vdb, sc, builder.MakeSvcSelectorLabelsForServiceNameRouting)
-		if err := o.reconcileExtSvc(ctx, expSvc, sc); err != nil {
-			return ctrl.Result{}, err
+// checkForCreatedSubclusters handles reconciliation of subclusters that should exist
+func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Result, error) {
+	processedExtSvc := map[string]bool{} // Keeps track of service names we have reconciled
+	for i := range o.Vdb.Spec.Subclusters {
+		sc := &o.Vdb.Spec.Subclusters[i]
+		// Transient subclusters never have their own service objects.  They always
+		// reuse ones we have for other primary/secondary subclusters.
+		if !sc.IsTransient {
+			// Multiple subclusters may share the same service name. Only
+			// reconcile for the first subcluster.
+			svcName := names.GenExtSvcName(o.Vdb, sc)
+			_, ok := processedExtSvc[svcName.Name]
+			if !ok {
+				expSvc := builder.BuildExtSvc(svcName, o.Vdb, sc, builder.MakeSvcSelectorLabelsForServiceNameRouting)
+				if err := o.reconcileExtSvc(ctx, expSvc, sc); err != nil {
+					return ctrl.Result{}, err
+				}
+				processedExtSvc[svcName.Name] = true
+			}
+		}
+
+		if res, err := o.reconcileSts(ctx, sc); verrors.IsReconcileAborted(res, err) {
+			return res, err
 		}
 	}
-
-	return o.reconcileSts(ctx, sc)
+	return ctrl.Result{}, nil
 }
 
 // checkForDeletedSubcluster will remove any objects that were created for
@@ -297,7 +308,7 @@ func (o ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service,
 func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
 	updated := false
 
-	if !reflect.DeepEqual(expSvc.ObjectMeta.Annotations, curSvc.ObjectMeta.Annotations) {
+	if stringMapDiffer(expSvc.ObjectMeta.Annotations, curSvc.ObjectMeta.Annotations) {
 		updated = true
 		curSvc.ObjectMeta.Annotations = expSvc.ObjectMeta.Annotations
 	}
@@ -344,12 +355,12 @@ func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc 
 	}
 
 	// Check if the selectors are changing
-	if !reflect.DeepEqual(expSvc.Spec.Selector, curSvc.Spec.Selector) {
+	if stringMapDiffer(expSvc.Spec.Selector, curSvc.Spec.Selector) {
 		curSvc.Spec.Selector = expSvc.Spec.Selector
 		updated = true
 	}
 
-	if !reflect.DeepEqual(expSvc.Labels, curSvc.Labels) {
+	if stringMapDiffer(expSvc.Labels, curSvc.Labels) {
 		updated = true
 		curSvc.Labels = expSvc.Labels
 	}
@@ -358,6 +369,18 @@ func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc 
 		return curSvc
 	}
 	return nil
+}
+
+// stringMapDiffer will return true if the two maps are different. false means
+// they are the same.
+func stringMapDiffer(exp, cur map[string]string) bool {
+	// The len() check is needed to compare against an empty map and a nil map.
+	// We treat them the same for purpose of this comparison, but they are
+	// different when comparing reflect.DeepEqual.
+	if len(exp) == 0 && len(cur) == 0 {
+		return false
+	}
+	return !reflect.DeepEqual(exp, cur)
 }
 
 // reconcileHlSvcFields merges relevant service fields into curSvc. This assumes
