@@ -28,3 +28,6 @@ kind: Job
 ---
 apiVersion: vertica.com/v1beta1
 kind: EventTrigger
+---
+apiVersion: v1
+kind: PersistentVolumeClaim

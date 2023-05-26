@@ -775,6 +775,24 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, nm1, svc)).Should(Succeed())
 			Expect(svc.Labels[vmeta.SubclusterNameLabel]).Should(Equal("sc1"))
 		})
+
+		It("should set ownerReferencese in PVC", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters[0].Size = 1
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sc := &vdb.Spec.Subclusters[0]
+			nm := names.GenStsName(vdb, sc)
+			sts := &appsv1.StatefulSet{}
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(len(sts.Spec.VolumeClaimTemplates)).Should(Equal(1))
+			Expect(len(sts.Spec.VolumeClaimTemplates[0].OwnerReferences)).Should(Equal(1))
+			Expect(sts.Spec.VolumeClaimTemplates[0].OwnerReferences[0].APIVersion).Should(Equal(vapi.GroupVersion.String()))
+			Expect(sts.Spec.VolumeClaimTemplates[0].OwnerReferences[0].Kind).Should(Equal(vapi.VerticaDBKind))
+			Expect(sts.Spec.VolumeClaimTemplates[0].OwnerReferences[0].Name).Should(Equal(vdb.Name))
+			Expect(sts.Spec.VolumeClaimTemplates[0].OwnerReferences[0].UID).Should(Equal(vdb.UID))
+		})
 	})
 })
 
