@@ -530,7 +530,7 @@ EOF
         if [ -n "$BLOB_ENDPOINT_HOST" ]
         then
           cat <<EOF >> creds.yaml
-  blobEndpoint: $(echo -n "$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST" | base64 --wrap 0)
+  blobEndpoint: $(echo -n "$BLOB_ENDPOINT_PROTOCOL://$BLOB_ENDPOINT_HOST" | base64 | tr -d '\n')
 EOF
 
           # When using Azurite you can only connect using a single word hostname
@@ -558,12 +558,12 @@ EOF
         if [ -n "$ACCOUNT_KEY" ]
         then
           cat <<EOF >> creds.yaml
-  accountKey: $(echo -n "$ACCOUNT_KEY" | base64 --wrap 0)
+  accountKey: $(echo -n "$ACCOUNT_KEY" | base64 | tr -d '\n')
 EOF
         elif [ -n "$SHARED_ACCESS_SIGNATURE" ]
         then
           cat <<EOF >> creds.yaml
-  sharedAccessSignature: $(echo -n "$SHARED_ACCESS_SIGNATURE" | base64 --wrap 0)
+  sharedAccessSignature: $(echo -n "$SHARED_ACCESS_SIGNATURE" | base64 | tr -d '\n')
 EOF
         else
           echo "*** No credentials setup for azb://"
@@ -656,9 +656,9 @@ function setup_creds_for_private_repo {
 
     if [ -n "$PRIVATE_REG_SERVER" ]
     then
-        AUTH_ENC=$(echo -n "$PRIVATE_REG_USERNAME:$PRIVATE_REG_PASSWORD" | base64 --wrap=0)
+        AUTH_ENC=$(echo -n "$PRIVATE_REG_USERNAME:$PRIVATE_REG_PASSWORD" | base64 | tr -d '\n')
         DOCKER_CONFIG_JSON="{\"auths\":{\"$PRIVATE_REG_SERVER\":{\"username\":\"$PRIVATE_REG_USERNAME\",\"password\":\"$PRIVATE_REG_PASSWORD\",\"auth\":\"$AUTH_ENC\"}}}"
-        DOCKER_CONFIG_JSON_ENC=$(echo $DOCKER_CONFIG_JSON | base64 --wrap=0)
+        DOCKER_CONFIG_JSON_ENC=$(echo $DOCKER_CONFIG_JSON | base64 | tr -d '\n')
         cat <<EOF > priv-container-cred-secret.yaml
 apiVersion: v1
 kind: Secret

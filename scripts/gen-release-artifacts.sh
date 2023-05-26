@@ -51,7 +51,7 @@ do
   # supplied when applying the manifests.  For the ClusterRoleBinding it will
   # produce an error.  But this is better then substituting in some random
   # namespace that might not exist on the users system.
-  sed -i 's/.*namespace:.*//g' $RELEASE_ARTIFACT_TARGET_DIR/$f
+  perl -i -0777 -pe 's/.*namespace:.*\n//g' $RELEASE_ARTIFACT_TARGET_DIR/$f
 done
 
 # Generate a single manifest that all of the rbac rules to run the operator.
@@ -63,11 +63,10 @@ chmod +x $OPERATOR_RBAC
 for f in verticadb-operator-controller-manager-sa.yaml \
     verticadb-operator-leader-election-role-role.yaml \
     verticadb-operator-manager-role-role.yaml \
-    verticadb-operator-leader-election-rolebinding-rb.yaml \
-    verticadb-operator-manager-rolebinding-rb.yaml
+    verticadb-operator-leader-election-rolebinding-rb.yaml
 do
     cat $MANIFEST_DIR/$f >> $OPERATOR_RBAC
     echo "---" >> $OPERATOR_RBAC
 done
+cat $MANIFEST_DIR/verticadb-operator-manager-rolebinding-rb.yaml >> $OPERATOR_RBAC
 perl -i -0777 -pe 's/.*namespace:.*\n//g' $OPERATOR_RBAC
-sed -i '$ d' $OPERATOR_RBAC   # Remove the last line of the file
