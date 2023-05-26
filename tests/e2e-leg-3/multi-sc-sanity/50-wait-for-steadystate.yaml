@@ -11,10 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Service
-metadata:
-  name: v-multi-sc-connections
-  labels:
-    vertica.com/subcluster-name: sc-1
-
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE -t 360"

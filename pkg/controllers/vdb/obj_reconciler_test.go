@@ -759,6 +759,23 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(svc.Spec.Ports[1].NodePort).Should(Equal(HTTPNodePort))
 		})
 
+		It("should have consistent labels if multiple subclusters share a service object", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters = []vapi.Subcluster{
+				{Name: "sc1", Size: 1, ServiceName: "conn"},
+				{Name: "sc2", Size: 1, ServiceName: "conn"},
+			}
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			nm1 := names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])
+			nm2 := names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[1])
+			Expect(nm1).Should(Equal(nm2))
+			svc := &corev1.Service{}
+			Expect(k8sClient.Get(ctx, nm1, svc)).Should(Succeed())
+			Expect(svc.Labels[vmeta.SubclusterNameLabel]).Should(Equal("sc1"))
+		})
+
 		It("should set ownerReferencese in PVC", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.Subclusters[0].Size = 1

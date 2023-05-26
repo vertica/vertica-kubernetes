@@ -1,0 +1,5 @@
+kind: Fixed
+body: Avoid infinite reconcile if subclusters share svc
+time: 2023-05-26T09:28:33.00215835-03:00
+custom:
+  Issue: "408"
