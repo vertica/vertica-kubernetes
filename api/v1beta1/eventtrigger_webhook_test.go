@@ -57,4 +57,16 @@ var _ = Describe("eventtrigger_webhook", func() {
 		Expect(et.ValidateCreate()).ShouldNot(Succeed())
 		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
 	})
+
+	It("should fail if job name is not specified", func() {
+		et := MakeET()
+		et.Spec.Template.Metadata.Name = ""
+		et.Spec.Template.Metadata.GenerateName = ""
+		Expect(et.ValidateCreate()).ShouldNot(Succeed())
+		et.Spec.Template.Metadata.GenerateName = "job1-"
+		Expect(et.ValidateCreate()).Should(Succeed())
+		et.Spec.Template.Metadata.Name = "job1"
+		et.Spec.Template.Metadata.GenerateName = ""
+		Expect(et.ValidateCreate()).Should(Succeed())
+	})
 })
