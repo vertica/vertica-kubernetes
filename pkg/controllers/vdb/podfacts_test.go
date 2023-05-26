@@ -100,48 +100,6 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.doesDBExist()).Should(BeTrue())
 	})
 
-	It("should verify findPodsWithMissingDB return codes", func() {
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
-		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: true, subclusterName: "sc1", isPodRunning: true}
-		pods, somePodsNotRunning := pf.findPodsWithMissingDB("sc1")
-		Expect(len(pods)).Should(Equal(0))
-		Expect(somePodsNotRunning).Should(Equal(false))
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: false, subclusterName: "sc1", isPodRunning: true}
-		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc1")
-		Expect(len(pods)).Should(Equal(1))
-		Expect(somePodsNotRunning).Should(Equal(false))
-		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{dbExists: false, subclusterName: "sc2", isPodRunning: false}
-		pods, somePodsNotRunning = pf.findPodsWithMissingDB("sc2")
-		Expect(len(pods)).Should(Equal(1))
-		Expect(somePodsNotRunning).Should(Equal(true))
-	})
-
-	It("should verify return of findPodsWithMissingDB", func() {
-		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
-		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-			dnsName: "p1", subclusterName: "sc1", dbExists: true,
-		}
-		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
-			dnsName: "p2", subclusterName: "sc1", dbExists: false,
-		}
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
-			dnsName: "p3", subclusterName: "sc1", dbExists: false,
-		}
-		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
-			dnsName: "p4", subclusterName: "sc2", dbExists: false,
-		}
-		pf.Detail[types.NamespacedName{Name: "p5"}] = &PodFact{
-			dnsName: "p5", subclusterName: "sc2", dbExists: false,
-		}
-		pods, _ := pf.findPodsWithMissingDB("sc1")
-		Expect(len(pods)).Should(Equal(2))
-		Expect(pods[0].dnsName).Should(Equal("p2"))
-		pods, _ = pf.findPodsWithMissingDB("sc2")
-		Expect(len(pods)).Should(Equal(2))
-		Expect(pods[0].dnsName).Should(Equal("p4"))
-		Expect(pods[1].dnsName).Should(Equal("p5"))
-	})
-
 	It("should verify return of countNotReadOnlyWithOldImage", func() {
 		const OldImage = "image:v1"
 		const NewImage = "image:v2"
