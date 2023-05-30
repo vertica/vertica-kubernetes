@@ -149,13 +149,20 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		pfacts.Detail[podWithNoDB].dbExists = false
 		pfacts.Detail[podWithNoDB].upNode = false
 		pfacts.Detail[podWithNoDB].isPodRunning = false
+		pfacts.Detail[podWithNoDB].isInstalled = false
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(0))
 
-		// Retry reconcile but make pod running
+		// Retry reconcile but make pod running. This should still fail because
+		// install hasn't completed.
 		pfacts.Detail[podWithNoDB].isPodRunning = true
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		lastCall = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
+		Expect(len(lastCall)).Should(Equal(0))
+
+		pfacts.Detail[podWithNoDB].isInstalled = true
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(1))

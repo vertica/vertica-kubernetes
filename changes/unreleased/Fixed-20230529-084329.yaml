@@ -1,0 +1,5 @@
+kind: Fixed
+body: Fix timing that causes db add node before install
+time: 2023-05-29T08:43:29.63332563-03:00
+custom:
+  Issue: "411"

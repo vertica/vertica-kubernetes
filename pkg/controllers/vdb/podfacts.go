@@ -778,32 +778,6 @@ func (p *PodFacts) doesDBExist() bool {
 	return false
 }
 
-// findPodsWithMisstingDB will return a list of pods facts that have a missing DB.
-// It will only return pods that are running and that match the given
-// subcluster. If no pods are found an empty list is returned. The list will be
-// ordered by pod index.  We also return a bool indicating if at least one pod
-// that has a missing DB wasn't running.
-func (p *PodFacts) findPodsWithMissingDB(scName string) ([]*PodFact, bool) {
-	podsHaveMissingDBAndNotRunning := false
-	hostList := []*PodFact{}
-	for _, v := range p.Detail {
-		if v.subclusterName != scName {
-			continue
-		}
-		if !v.dbExists {
-			if !v.isPodRunning {
-				podsHaveMissingDBAndNotRunning = true
-			}
-			hostList = append(hostList, v)
-		}
-	}
-	// Return an ordered list by pod index for easier debugging
-	sort.Slice(hostList, func(i, j int) bool {
-		return hostList[i].dnsName < hostList[j].dnsName
-	})
-	return hostList, podsHaveMissingDBAndNotRunning
-}
-
 // findPodToRunVsql returns the name of the pod we will exec into in
 // order to run vsql
 // Will return false for second parameter if no pod could be found.

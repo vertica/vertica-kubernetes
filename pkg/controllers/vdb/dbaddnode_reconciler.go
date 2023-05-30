@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -73,21 +74,46 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
+// findAddNodePods will return a list of pods facts that require add node.
+// It will only return pods if all of the ones with a missing DB can run add node.
+// If at least one pod is found that is unavailable for add node, the search
+// will abort.  The list will be ordered by pod index.
+func (d *DBAddNodeReconciler) findAddNodePods(scName string) ([]*PodFact, ctrl.Result) {
+	podList := []*PodFact{}
+	for _, v := range d.PFacts.Detail {
+		if v.subclusterName != scName {
+			continue
+		}
+		if !v.dbExists {
+			if !v.isPodRunning || !v.isInstalled {
+				// We want to group all of the add nodes in a single admintools call.
+				// Doing so limits the impact on any running queries.  So if there is at
+				// least one pod that cannot run add node, we requeue until that pod is
+				// available before we proceed with the admintools call.
+				d.Log.Info("Requeue add node because some pods were not available", "pod", v.name, "isPodRunning",
+					v.isPodRunning, "installed", v.isInstalled)
+				return nil, ctrl.Result{Requeue: true}
+			}
+			podList = append(podList, v)
+		}
+	}
+	// Return an ordered list by pod index for easier debugging
+	sort.Slice(podList, func(i, j int) bool {
+		return podList[i].dnsName < podList[j].dnsName
+	})
+	return podList, ctrl.Result{}
+}
+
 // reconcileSubcluster will reconcile a single subcluster.  Add node will be
 // triggered if we determine that it hasn't been run.
 func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
-	addNodePods, somePodsNotRunning := d.PFacts.findPodsWithMissingDB(sc.Name)
-
-	// We want to group all of the add nodes in a single admintools call.
-	// Doing so limits the impact on any running queries.  So if there is at
-	// least one pod with unknown state, we requeue until that pod is
-	// running before we proceed with the admintools call.
-	if somePodsNotRunning {
-		d.Log.Info("Requeue add node because some pods were not running")
-		return ctrl.Result{Requeue: true}, nil
+	addNodePods, res := d.findAddNodePods(sc.Name)
+	if verrors.IsReconcileAborted(res, nil) {
+		return res, nil
 	}
 	if len(addNodePods) > 0 {
-		res, err := d.runAddNode(ctx, addNodePods)
+		var err error
+		res, err = d.runAddNode(ctx, addNodePods)
 		return res, err
 	}
 	return ctrl.Result{}, nil
