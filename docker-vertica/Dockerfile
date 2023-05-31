@@ -29,7 +29,10 @@ RUN set -x \
   # Update is needed to be confident that we're picking up
   # fixed libraries.
   && yum -q -y update \
-  && yum install -y \
+  # Using --nobest to make it easier yum install to work. This stage isn't used
+  # for the final image, so any package is good enough. We just need to install
+  # the vertica rpm and copy that over.
+  && yum install -y --nobest \
   cronie \
   dialog \
   glibc \
