@@ -42,4 +42,9 @@ var _ = Describe("annotations", func() {
 		ann[PauseOperatorAnnotation] = "not a bool"
 		Ω(IsPauseAnnotationSet(ann)).Should(BeFalse())
 	})
+
+	It("should treat vclusterOps annotation as a bool", func() {
+		ann := map[string]string{VClusterOpsAnnotation: "true"}
+		Ω(UseVClusterOps(ann)).Should(BeTrue())
+	})
 })

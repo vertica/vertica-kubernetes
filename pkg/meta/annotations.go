@@ -25,19 +25,40 @@ const (
 	KubernetesGitCommitAnnotation = "kubernetes.io/gitcommit" // Git commit of the k8s server
 	KubernetesBuildDateAnnotation = "kubernetes.io/buildDate" // Build date of the k8s server
 
-	// If this label is on any CR, the operator will skip processing. This can
+	// If this annotation is on any CR, the operator will skip processing. This can
 	// be used to avoid getting in an infinity error-retry loop. Or, if you know
 	// no additional work will ever exist for an object. Just set this to a
 	// true|ON|1 value.
 	PauseOperatorAnnotation = "vertica.com/pause"
+
+	// This is a feature flag for using vertica without admintools. Set this
+	// annotation in the VerticaDB that you want to use the new vclusterOps
+	// library for any vertica admin task. The value of this annotation is
+	// treated as a boolean.
+	VClusterOpsAnnotation = "vertica.com/vcluster-ops"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
 // pause the operator for the CR.
 func IsPauseAnnotationSet(annotations map[string]string) bool {
-	if val, ok := annotations[PauseOperatorAnnotation]; ok {
-		varAsBool, _ := strconv.ParseBool(val)
+	return lookupBoolAnnotation(annotations, PauseOperatorAnnotation, false)
+}
+
+// UseVClusterOps returns true if all admin commands should use the vclusterOps
+// library rather than admintools.
+func UseVClusterOps(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, VClusterOpsAnnotation, false)
+}
+
+// lookupBoolAnnotation is a helper function to lookup a specific annotation and
+// treat it as if it were a boolean.
+func lookupBoolAnnotation(annotations map[string]string, annotation string, defaultValue bool) bool {
+	if val, ok := annotations[annotation]; ok {
+		varAsBool, err := strconv.ParseBool(val)
+		if err != nil {
+			return defaultValue
+		}
 		return varAsBool
 	}
-	return false
+	return defaultValue
 }

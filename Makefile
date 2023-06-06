@@ -336,13 +336,23 @@ else
 	scripts/push-to-kind.sh -i ${VLOGGER_IMG}
 endif
 
+# We have two versions of the vertica-k8s image. This is a staging effort. A
+# new version is being created that has no admintools and relies exclusively on
+# http REST interfaces. Eventually, we will go back to one version using the
+# next generation one as *THE* vertica-k8s image.
+
 .PHONY: docker-build-vertica
 docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker image
 	cd docker-vertica \
 	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
 
+.PHONY: docker-build-vertica-v2
+docker-build-vertica-v2: docker-vertica/Dockerfile ## Build next generation vertica server docker image
+	cd docker-vertica-v2 \
+	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
+
 .PHONY: docker-push
-docker-push-vertica:  ## Push vertica server docker image
+docker-push-vertica:  ## Push vertica server image -- either v1 or v2.
 ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VERTICA_IMG}
 else
