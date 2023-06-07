@@ -540,6 +540,14 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
 		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
 	}...)
+
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		envVars = append(envVars, []corev1.EnvVar{
+			{Name: "NMA_ROOTCA_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, paths.HTTPServerCACrtName)},
+			{Name: "NMA_CERT_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSCertKey)},
+			{Name: "NMA_KEY_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSPrivateKeyKey)},
+		}...)
+	}
 	return corev1.Container{
 		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
