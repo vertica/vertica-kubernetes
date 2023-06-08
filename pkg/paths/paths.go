@@ -57,7 +57,8 @@ const (
 	HTTPServerCertsRoot       = "/certs/http-server"
 	Krb5Conf                  = "/etc/krb5.conf"
 	Krb5Keytab                = "/etc/krb5/krb5.keytab"
-	SSHPath                   = "/home/dbadmin/.ssh"
+	DBAdminSSHPath            = "/home/dbadmin/.ssh"
+	RootSSHPath               = "/root/.ssh"
 	HTTPServerCACrtName       = "ca.crt"
 )
 
@@ -65,7 +66,7 @@ const (
 var MountPaths = []string{LocalDataPath, CELicensePath, MountedLicensePath,
 	HadoopConfPath, ConfigPath, ConfigSharePath, ConfigLogrotatePath,
 	LogPath, PodInfoPath, AdminToolsConf, AuthParmsFile, EulaAcceptanceFile,
-	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab, SSHPath}
+	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab, DBAdminSSHPath}
 
 // SSHKeyPaths is a list of keys that must exist in the SSHSecret
 var SSHKeyPaths = []string{"id_rsa", "id_rsa.pub", "authorized_keys"}

@@ -186,15 +186,17 @@ func buildKerberosVolumeMounts() []corev1.VolumeMount {
 }
 
 func buildSSHVolumeMounts() []corev1.VolumeMount {
-	mnts := []corev1.VolumeMount{}
-	for _, p := range paths.SSHKeyPaths {
-		mnts = append(mnts, corev1.VolumeMount{
+	// Mount the ssh key in both the dbadmin and root account. Root is needed
+	// for any calls in the pod from the installer.
+	return []corev1.VolumeMount{
+		{
 			Name:      vapi.SSHMountName,
-			MountPath: fmt.Sprintf("%s/%s", paths.SSHPath, p),
-			SubPath:   p,
-		})
+			MountPath: paths.DBAdminSSHPath,
+		}, {
+			Name:      vapi.SSHMountName,
+			MountPath: paths.RootSSHPath,
+		},
 	}
-	return mnts
 }
 
 func buildHTTPServerVolumeMount() []corev1.VolumeMount {

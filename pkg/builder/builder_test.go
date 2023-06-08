@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -230,7 +231,28 @@ var _ = Describe("builder", func() {
 		Expect(c.SecurityContext.Sysctls[1].Name).Should(Equal("net.ipv4.tcp_keepalive_intvl"))
 		Expect(c.SecurityContext.Sysctls[1].Value).Should(Equal("5"))
 	})
+
+	It("should mount ssh secret for dbadmin and root", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.SSHSecret = "my-secret"
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		cnt := &c.Containers[0]
+		i, ok := getFirstSSHSecretVolumeMountIndex(cnt)
+		Expect(ok).Should(BeTrue())
+		Expect(cnt.VolumeMounts[i].MountPath).Should(Equal(paths.DBAdminSSHPath))
+		Expect(len(cnt.VolumeMounts)).Should(BeNumerically(">", i+1))
+		Expect(cnt.VolumeMounts[i+1].MountPath).Should(Equal(paths.RootSSHPath))
+	})
 })
+
+func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {
+	for i := range c.VolumeMounts {
+		if c.VolumeMounts[i].Name == vapi.SSHMountName {
+			return i, true
+		}
+	}
+	return 0, false
+}
 
 // makeSubPaths is a helper that extracts all of the subPaths from the volume mounts.
 func makeSubPaths(c *v1.Container) []string {
