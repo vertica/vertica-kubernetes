@@ -66,7 +66,7 @@ const (
 var MountPaths = []string{LocalDataPath, CELicensePath, MountedLicensePath,
 	HadoopConfPath, ConfigPath, ConfigSharePath, ConfigLogrotatePath,
 	LogPath, PodInfoPath, AdminToolsConf, AuthParmsFile, EulaAcceptanceFile,
-	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab, DBAdminSSHPath}
+	EulaAcceptanceScript, CertsRoot, Krb5Conf, Krb5Keytab, DBAdminSSHPath, RootSSHPath}
 
 // SSHKeyPaths is a list of keys that must exist in the SSHSecret
 var SSHKeyPaths = []string{"id_rsa", "id_rsa.pub", "authorized_keys"}

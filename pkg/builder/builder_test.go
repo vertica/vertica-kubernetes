@@ -239,9 +239,14 @@ var _ = Describe("builder", func() {
 		cnt := &c.Containers[0]
 		i, ok := getFirstSSHSecretVolumeMountIndex(cnt)
 		Expect(ok).Should(BeTrue())
-		Expect(cnt.VolumeMounts[i].MountPath).Should(Equal(paths.DBAdminSSHPath))
-		Expect(len(cnt.VolumeMounts)).Should(BeNumerically(">", i+1))
-		Expect(cnt.VolumeMounts[i+1].MountPath).Should(Equal(paths.RootSSHPath))
+		const ExpectedPathsPerMount = 3
+		Expect(len(cnt.VolumeMounts)).Should(BeNumerically(">=", i+2*ExpectedPathsPerMount))
+		for j := 0; i < ExpectedPathsPerMount; i++ {
+			Expect(cnt.VolumeMounts[i+j].MountPath).Should(ContainSubstring(paths.DBAdminSSHPath))
+		}
+		for j := 0; i < ExpectedPathsPerMount; i++ {
+			Expect(cnt.VolumeMounts[i+ExpectedPathsPerMount+j].MountPath).Should(ContainSubstring(paths.RootSSHPath))
+		}
 	})
 })
 
