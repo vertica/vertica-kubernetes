@@ -187,16 +187,26 @@ func buildKerberosVolumeMounts() []corev1.VolumeMount {
 
 func buildSSHVolumeMounts() []corev1.VolumeMount {
 	// Mount the ssh key in both the dbadmin and root account. Root is needed
-	// for any calls in the pod from the installer.
-	return []corev1.VolumeMount{
-		{
-			Name:      vapi.SSHMountName,
-			MountPath: paths.DBAdminSSHPath,
-		}, {
-			Name:      vapi.SSHMountName,
-			MountPath: paths.RootSSHPath,
-		},
+	// for any calls in the pod from the installer. Ideally, it would be nice to
+	// mount the secret without using SubPath, since a change in the secret
+	// wouldn't require a pod restart. However, admintools needs to create the
+	// known_hosts file in the ssh directory. So, the ssh directory needs to be
+	// writable. Mounting with SubPath is the only way to keep that path writable.
+	mnts := []corev1.VolumeMount{}
+	for _, p := range paths.SSHKeyPaths {
+		mnts = append(mnts, []corev1.VolumeMount{
+			{
+				Name:      vapi.SSHMountName,
+				MountPath: fmt.Sprintf("%s/%s", paths.DBAdminSSHPath, p),
+				SubPath:   p,
+			}, {
+				Name:      vapi.SSHMountName,
+				MountPath: fmt.Sprintf("%s/%s", paths.RootSSHPath, p),
+				SubPath:   p,
+			},
+		}...)
 	}
+	return mnts
 }
 
 func buildHTTPServerVolumeMount() []corev1.VolumeMount {
