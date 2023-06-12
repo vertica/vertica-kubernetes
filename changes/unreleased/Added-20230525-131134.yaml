@@ -1,5 +1,0 @@
-kind: Added
-body: Auto delete PVC on VerticaDB deletion
-time: 2023-05-25T13:11:34.683066801-03:00
-custom:
-  Issue: "407"
