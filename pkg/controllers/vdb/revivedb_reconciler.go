@@ -85,7 +85,8 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 
 // execCmd will do the actual execution of admintools -t revive_db.
 // This handles logging of necessary events.
-func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error) {
+func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
+	cmd := r.genCmd(hostList)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart,
 		"Calling 'admintools -t revive_db'")
 	start := time.Now()
@@ -203,7 +204,7 @@ func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
 }
 
 // genCmd will return the command to run in the pod to revive the database
-func (r *ReviveDBReconciler) genCmd(ctx context.Context, hostList []string) ([]string, error) {
+func (r *ReviveDBReconciler) genCmd(hostList []string) []string {
 	cmd := []string{
 		"-t", "revive_db",
 		"--hosts=" + strings.Join(hostList, ","),
@@ -217,18 +218,15 @@ func (r *ReviveDBReconciler) genCmd(ctx context.Context, hostList []string) ([]s
 	if r.Vdb.Spec.IgnoreClusterLease {
 		cmd = append(cmd, "--ignore-cluster-lease")
 	}
-	return cmd, nil
+	return cmd
 }
 
 // genValidateCmd will return the command to run in the pod to validate some
 // options with revive
-func (r *ReviveDBReconciler) genValidateCmd(ctx context.Context, hostList []string) ([]string, error) {
-	cmd, err := r.genCmd(ctx, hostList)
-	if err != nil {
-		return []string{}, err
-	}
+func (r *ReviveDBReconciler) genValidateCmd(hostList []string) []string {
+	cmd := r.genCmd(hostList)
 	cmd = append(cmd, "--display-only")
-	return cmd, nil
+	return cmd
 }
 
 // deleteRevisionPendingPods will delete any pods that have a pending revision update from the sts.
@@ -260,10 +258,7 @@ func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podL
 // can be analyzed by the revive planner.
 func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, atPod types.NamespacedName,
 	podList []*PodFact) (string, ctrl.Result, error) {
-	cmd, err := r.genValidateCmd(ctx, getHostList(podList))
-	if err != nil {
-		return "", ctrl.Result{}, err
-	}
+	cmd := r.genValidateCmd(getHostList(podList))
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		res, err2 := r.EVLogr.LogFailure("revive_db", stdout, err)

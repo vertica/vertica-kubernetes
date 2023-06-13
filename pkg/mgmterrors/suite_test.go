@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestAPIs(t *testing.T) {
@@ -40,7 +40,7 @@ type TestEVWriter struct {
 	RecordedEvents []EventDetails
 }
 
-func (t *TestEVWriter) Event(vdb *vapi.VerticaDB, eventtype, reason, message string) {
+func (t *TestEVWriter) Event(vdb runtime.Object, eventtype, reason, message string) {
 	d := EventDetails{
 		EventType: eventtype,
 		Reason:    reason,
@@ -52,7 +52,7 @@ func (t *TestEVWriter) Event(vdb *vapi.VerticaDB, eventtype, reason, message str
 	t.RecordedEvents = append(t.RecordedEvents, d)
 }
 
-func (t *TestEVWriter) Eventf(vdb *vapi.VerticaDB, eventtype, reason, messageFmt string, args ...interface{}) {
+func (t *TestEVWriter) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
 	msg := fmt.Sprintf(messageFmt, args...)
 	t.Event(vdb, eventtype, reason, msg)
 }

@@ -50,8 +50,7 @@ const (
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
 	findPodToRunInit() (*PodFact, bool)
-	genCmd(ctx context.Context, hostList []string) ([]string, error)
-	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
+	execCmd(ctx context.Context, atPod types.NamespacedName, hostList []string) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
@@ -118,11 +117,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
 	}
 
-	cmd, err := g.initializer.genCmd(ctx, getHostList(podList))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if res, err := g.initializer.execCmd(ctx, atPod, cmd); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.execCmd(ctx, atPod, getHostList(podList)); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 

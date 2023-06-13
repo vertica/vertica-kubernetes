@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -43,7 +44,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vadmin.Fake{}
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
 		Expect(lastCall.Command).ShouldNot(ContainElements("/opt/vertica/bin/admintools", "create_db"))
@@ -61,7 +63,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vadmin.Fake{}
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("/opt/vertica/bin/admintools -t create_db")
 		Expect(len(hist)).Should(Equal(1))
@@ -78,7 +81,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-		act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vadmin.Fake{}
+		act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*CreateDBReconciler)
 		hostList, ok := r.getPodList()
 		Expect(ok).Should(BeTrue())
@@ -105,7 +109,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vadmin.Fake{}
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
 	})
@@ -122,7 +127,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vadmin.Fake{}
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		hist := fpr.FindCommands("alter database default set parameter EncryptSpreadComm")
 		Expect(len(hist)).Should(Equal(1))
@@ -139,7 +145,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vadmin.Fake{}
+		act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*CreateDBReconciler)
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 
@@ -192,7 +199,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size+vdb.Spec.Subclusters[1].Size))
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vadmin.Fake{}
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
 		hist := fpr.FindCommands("-t create_db")
@@ -213,7 +221,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vadmin.Fake{}
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
 		hist := fpr.FindCommands("-t create_db")
@@ -232,7 +241,8 @@ var _ = Describe("createdb_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vadmin.Fake{}
+		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(BeNumerically(">", 0))
 		hist := fpr.FindCommands("mkdir")
@@ -251,7 +261,8 @@ func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe vapi.KSafetyTyp
 
 	fpr := &cmds.FakePodRunner{}
 	pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-	act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+	dispatcher := vadmin.Fake{}
+	act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 	r := act.(*CreateDBReconciler)
 	hostList, ok := r.getPodList()
 	Expect(ok).Should(BeTrue())

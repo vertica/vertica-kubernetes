@@ -145,9 +145,9 @@ var _ = Describe("revivedb_reconcile", func() {
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
 		r := act.(*ReviveDBReconciler)
 		vdb.Spec.IgnoreClusterLease = false
-		Expect(r.genCmd(ctx, []string{"hostA"})).ShouldNot(ContainElement("--ignore-cluster-lease"))
+		Expect(r.genCmd([]string{"hostA"})).ShouldNot(ContainElement("--ignore-cluster-lease"))
 		vdb.Spec.IgnoreClusterLease = true
-		Expect(r.genCmd(ctx, []string{"hostA"})).Should(ContainElement("--ignore-cluster-lease"))
+		Expect(r.genCmd([]string{"hostA"})).Should(ContainElement("--ignore-cluster-lease"))
 	})
 
 	It("should use reviveOrder to order the host list", func() {
