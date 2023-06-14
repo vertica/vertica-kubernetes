@@ -21,10 +21,10 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -45,10 +45,21 @@ type Dispatcher interface {
 // sent to a process that runs admintools. The output is then parsed out of the
 // stdout/stderr output that is captured.
 type Admintools struct {
-	PRunner cmds.PodRunner
-	Log     logr.Logger
-	EVRec   record.EventRecorder
-	VDB     *vapi.VerticaDB
+	PRunner  cmds.PodRunner
+	Log      logr.Logger
+	EVWriter mgmterrors.EVWriter
+	VDB      *vapi.VerticaDB
+}
+
+// MakeAdmintools will create a dispatcher that uses admintools to call the
+// admin commands.
+func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter mgmterrors.EVWriter) Dispatcher {
+	return Admintools{
+		PRunner:  prunner,
+		VDB:      vdb,
+		Log:      log,
+		EVWriter: evWriter,
+	}
 }
 
 // VClusterOps is the new style of running admin commands. It makes use of the
@@ -57,4 +68,12 @@ type Admintools struct {
 type VClusterOps struct {
 	Log logr.Logger
 	VDB *vapi.VerticaDB
+}
+
+// MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
+func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB) Dispatcher {
+	return VClusterOps{
+		Log: log,
+		VDB: vdb,
+	}
 }

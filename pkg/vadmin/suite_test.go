@@ -16,11 +16,22 @@
 package vadmin
 
 import (
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"testing"
+
+	"github.com/go-logr/logr"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-func (a Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
-	evLogr := mgmterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
-	return evLogr.LogFailure(cmd, op, err)
+var logger logr.Logger
+
+var _ = BeforeSuite(func() {
+	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+})
+
+func TestAPIs(t *testing.T) {
+	RegisterFailHandler(Fail)
+
+	RunSpecs(t, "vadmin Suite")
 }
