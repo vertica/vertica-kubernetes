@@ -34,7 +34,6 @@ func (a Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl
 	cmd := a.genCreateDBCmd(&s)
 	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...)
 	if err != nil {
-		// SPILLY - refactor so that we don't log but generate a message (maybe?)
 		return a.logFailure("create_db", events.CreateDBFailed, stdout, err)
 	}
 	return ctrl.Result{}, nil
@@ -43,7 +42,7 @@ func (a Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl
 // CreateDB will construct a new DB using the vcluster-ops library
 func (v VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster CreateDB")
-	return ctrl.Result{}, fmt.Errorf("not implemented %v", v)
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }
 
 // genCreateDBCmd will generate the command line options for calling admintools -t create_db

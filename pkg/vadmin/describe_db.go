@@ -43,7 +43,7 @@ func (a Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (
 
 func (v VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
 	v.Log.Info("Starting vcluster DescribeDB")
-	return "", ctrl.Result{}, fmt.Errorf("not implemented %v", v)
+	return "", ctrl.Result{}, fmt.Errorf("not implemented")
 }
 
 // genDescribeCmd will generate the command line options for calling

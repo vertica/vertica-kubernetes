@@ -234,7 +234,8 @@ func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
 }
 
 // genOptions will return the options to use for the create db command
-func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) ([]createdb.Option, error) {
+func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName,
+	hostList []string) ([]createdb.Option, error) {
 	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
 	if err != nil {
 		return nil, err

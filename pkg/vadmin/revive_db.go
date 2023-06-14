@@ -44,7 +44,7 @@ func (a Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl
 // this using the vclusterops library.
 func (v VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster ReviveDB")
-	return ctrl.Result{}, fmt.Errorf("not implemented %v", v)
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }
 
 // genReviveCmd will generate the command line options for calling admintools -t revive_db
