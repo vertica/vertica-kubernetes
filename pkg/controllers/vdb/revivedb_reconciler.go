@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -31,6 +30,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,26 +42,29 @@ import (
 
 // ReviveDBReconciler will revive a database if one doesn't exist in the vdb yet.
 type ReviveDBReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	EVLogr  mgmterrors.EventLogger
-	Planr   reviveplanner.Planner
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	EVLogr     mgmterrors.EventLogger
+	Planr      reviveplanner.Planner
+	Dispatcher vadmin.Dispatcher
 }
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
 func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReviveDBReconciler{
-		VRec:    vdbrecon,
-		Log:     log,
-		Vdb:     vdb,
-		PRunner: prunner,
-		PFacts:  pfacts,
-		EVLogr:  mgmterrors.MakeATErrors(vdbrecon, vdb, events.ReviveDBFailed),
-		Planr:   reviveplanner.MakeATPlanner(log),
+		VRec:       vdbrecon,
+		Log:        log,
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
+		EVLogr:     mgmterrors.MakeATErrors(vdbrecon, vdb, events.ReviveDBFailed),
+		Planr:      reviveplanner.MakeATPlanner(log),
+		Dispatcher: dispatcher,
 	}
 }
 
@@ -86,13 +91,12 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 // execCmd will do the actual execution of admintools -t revive_db.
 // This handles logging of necessary events.
 func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
-	cmd := r.genCmd(hostList)
+	opts := r.genCmd(atPod, hostList)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart,
 		"Calling 'admintools -t revive_db'")
 	start := time.Now()
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
-	if err != nil {
-		return r.EVLogr.LogFailure("revive_db", stdout, err)
+	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,
 		"Successfully revived database. It took %s", time.Since(start))
@@ -113,7 +117,7 @@ func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	}
 
 	// Generate output to feed into the revive planner
-	stdout, res, err := r.runRevivePrepass(ctx, atPod, podList)
+	stdout, res, err := r.runRevivePrepass(ctx, atPod)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -204,29 +208,35 @@ func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
 }
 
 // genCmd will return the command to run in the pod to revive the database
-func (r *ReviveDBReconciler) genCmd(hostList []string) []string {
-	cmd := []string{
-		"-t", "revive_db",
-		"--hosts=" + strings.Join(hostList, ","),
-		"--database", r.Vdb.Spec.DBName,
+// SPILLY - rename atPod to be vadminPod or initiator?
+// SPILLY - rename function to be opts + revive specific
+func (r *ReviveDBReconciler) genCmd(atPod types.NamespacedName, hostList []string) []revivedb.Option {
+	opts := []revivedb.Option{
+		revivedb.WithInitiator(atPod),
+		revivedb.WithHosts(hostList),
+		revivedb.WithDBName(r.Vdb.Spec.DBName),
 	}
 	if r.Vdb.IsEON() {
-		cmd = append(cmd,
-			"--communal-storage-location="+r.Vdb.GetCommunalPath(),
-			"--communal-storage-params="+paths.AuthParmsFile)
+		opts = append(opts,
+			revivedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
+			revivedb.WithCommunalStorageParams(paths.AuthParmsFile),
+		)
 	}
 	if r.Vdb.Spec.IgnoreClusterLease {
-		cmd = append(cmd, "--ignore-cluster-lease")
+		opts = append(opts, revivedb.WithIgnoreClusterLease())
 	}
-	return cmd
+	return opts
 }
 
 // genValidateCmd will return the command to run in the pod to validate some
 // options with revive
-func (r *ReviveDBReconciler) genValidateCmd(hostList []string) []string {
-	cmd := r.genCmd(hostList)
-	cmd = append(cmd, "--display-only")
-	return cmd
+func (r *ReviveDBReconciler) genValidateCmd(atPod types.NamespacedName) []describedb.Option {
+	return []describedb.Option{
+		describedb.WithInitiator(atPod),
+		describedb.WithDBName(r.Vdb.Spec.DBName),
+		describedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
+		describedb.WithCommunalStorageParams(paths.AuthParmsFile),
+	}
 }
 
 // deleteRevisionPendingPods will delete any pods that have a pending revision update from the sts.
@@ -256,15 +266,9 @@ func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podL
 // runRevivePrepass will run revive with --display-only to check for any
 // preconditions that need to be met. The output of the run is returned so it
 // can be analyzed by the revive planner.
-func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, atPod types.NamespacedName,
-	podList []*PodFact) (string, ctrl.Result, error) {
-	cmd := r.genValidateCmd(getHostList(podList))
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
-	if err != nil {
-		res, err2 := r.EVLogr.LogFailure("revive_db", stdout, err)
-		return "", res, err2
-	}
-	return stdout, ctrl.Result{}, nil
+func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, atPod types.NamespacedName) (string, ctrl.Result, error) {
+	opts := r.genValidateCmd(atPod)
+	return r.Dispatcher.DescribeDB(ctx, opts...)
 }
 
 func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (ctrl.Result, error) {

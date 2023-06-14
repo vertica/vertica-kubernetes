@@ -36,7 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
@@ -99,8 +99,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if meta.IsPauseAnnotationSet(vdb.Annotations) {
-		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
+	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
+		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
 		return ctrl.Result{}, nil
 	}
@@ -114,13 +114,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
 	pfacts := MakePodFacts(r, prunner)
-	// SPILLY - pick dispatcher based on feature flag
-	dispatcher := vadmin.Admintools{
-		PRunner: prunner,
-		VDB:     vdb,
-		Log:     log,
-		EVRec:   r.EVRec,
-	}
+	dispatcher := r.makeDispatcher(log, vdb, prunner)
 	var res ctrl.Result
 
 	// Iterate over each actor
@@ -214,7 +208,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle calls to admintools -t create_db
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to admintools -t revive_db
-		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts),
+		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
@@ -282,6 +276,19 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 		r.Eventf(vdb, corev1.EventTypeWarning, events.SuboptimalNodeCount,
 			"Subcluster '%s' has a suboptimal node count.  Consider increasing its size so that the shard to node ratio is %d:1 or less.",
 			sc.Name, int(SuboptimalRatio))
+	}
+}
+
+// makeDispatcher will create a Dispatcher object based on the feature flags set.
+func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner) vadmin.Dispatcher {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return vadmin.VClusterOps{}
+	}
+	return vadmin.Admintools{
+		PRunner: prunner,
+		VDB:     vdb,
+		Log:     log,
+		EVRec:   r.EVRec,
 	}
 }
 

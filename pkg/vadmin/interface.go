@@ -22,6 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,6 +35,10 @@ type Dispatcher interface {
 
 	// ReviveDB will initialize a database using a pre-populated communal path.
 	ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error)
+
+	// DescribeDB will read state information about the database in communal
+	// storage and return it back to the caller.
+	DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error)
 }
 
 // Admintools is the legacy style of running admin commands. All commands are
@@ -52,4 +57,5 @@ type Admintools struct {
 type VClusterOps struct{}
 
 // Fake is used for dependency injection during test. All operations run as no-ops.
+// SPILLY - can we remove this?
 type Fake struct{}
