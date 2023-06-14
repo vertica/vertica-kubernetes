@@ -90,8 +90,8 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 
 // execCmd will do the actual execution of admintools -t revive_db.
 // This handles logging of necessary events.
-func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
-	opts := r.genCmd(atPod, hostList)
+func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
+	opts := r.genReviveOpts(initiatorPod, hostList)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart,
 		"Calling 'admintools -t revive_db'")
 	start := time.Now()
@@ -105,7 +105,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 
 // preCmdSetup is going to run revive with --display-only then validate and
 // fix-up any mismatch it finds.
-func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
+func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
 	// We need to delete any pods that have a pending revision. This can happen
 	// if in an earlier iteration we changed the paths in pod. Normally, these
 	// types of changes are rolled out via rolling upgrade. But that depends on
@@ -117,7 +117,7 @@ func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 	}
 
 	// Generate output to feed into the revive planner
-	stdout, res, err := r.runRevivePrepass(ctx, atPod)
+	stdout, res, err := r.runRevivePrepass(ctx, initiatorPod)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -207,12 +207,10 @@ func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
 	return r.PFacts.findPodToRunAdmintoolsOffline()
 }
 
-// genCmd will return the command to run in the pod to revive the database
-// SPILLY - rename atPod to be vadminPod or initiator?
-// SPILLY - rename function to be opts + revive specific
-func (r *ReviveDBReconciler) genCmd(atPod types.NamespacedName, hostList []string) []revivedb.Option {
+// genReviveOpts will return the options to use with the revive command
+func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName, hostList []string) []revivedb.Option {
 	opts := []revivedb.Option{
-		revivedb.WithInitiator(atPod),
+		revivedb.WithInitiator(initiatorPod),
 		revivedb.WithHosts(hostList),
 		revivedb.WithDBName(r.Vdb.Spec.DBName),
 	}
@@ -228,11 +226,10 @@ func (r *ReviveDBReconciler) genCmd(atPod types.NamespacedName, hostList []strin
 	return opts
 }
 
-// genValidateCmd will return the command to run in the pod to validate some
-// options with revive
-func (r *ReviveDBReconciler) genValidateCmd(atPod types.NamespacedName) []describedb.Option {
+// genDescribeOpts will return the options to use with the describe db function
+func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName) []describedb.Option {
 	return []describedb.Option{
-		describedb.WithInitiator(atPod),
+		describedb.WithInitiator(initiatorPod),
 		describedb.WithDBName(r.Vdb.Spec.DBName),
 		describedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 		describedb.WithCommunalStorageParams(paths.AuthParmsFile),
@@ -266,8 +263,8 @@ func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podL
 // runRevivePrepass will run revive with --display-only to check for any
 // preconditions that need to be met. The output of the run is returned so it
 // can be analyzed by the revive planner.
-func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, atPod types.NamespacedName) (string, ctrl.Result, error) {
-	opts := r.genValidateCmd(atPod)
+func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod types.NamespacedName) (string, ctrl.Result, error) {
+	opts := r.genDescribeOpts(initiatorPod)
 	return r.Dispatcher.DescribeDB(ctx, opts...)
 }
 

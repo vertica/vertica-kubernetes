@@ -42,11 +42,8 @@ func (a Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl
 
 // CreateDB will construct a new DB using the vcluster-ops library
 func (v VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
+	v.Log.Info("Starting vcluster CreateDB")
 	return ctrl.Result{}, fmt.Errorf("not implemented %v", v)
-}
-
-func (v Fake) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
 }
 
 // genCreateDBCmd will generate the command line options for calling admintools -t create_db

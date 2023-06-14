@@ -95,8 +95,8 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 
 // execCmd will do the actual execution of admintools -t create_db.
 // This handles logging of necessary events.
-func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
-	opts, err := c.genOptions(ctx, atPod, hostList)
+func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
+	opts, err := c.genOptions(ctx, initiatorPod, hostList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -114,7 +114,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
-func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
+func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
@@ -133,7 +133,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
 		`, c.Vdb.Spec.EncryptSpreadComm))
 	}
-	_, _, err := c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
 	if err != nil {
@@ -147,7 +147,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 		// directory, this will manifest itself later when we attempt the
 		// created. That error will have better reporting than if we were
 		// handle it here.
-		_, _, _ = c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+		_, _, _ = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"bash", "-c", fmt.Sprintf("mkdir -p %s", c.Vdb.GetCommunalPath()),
 		)
 	}
@@ -234,14 +234,14 @@ func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
 }
 
 // genOptions will return the options to use for the create db command
-func (c *CreateDBReconciler) genOptions(ctx context.Context, atPod types.NamespacedName, hostList []string) ([]createdb.Option, error) {
+func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) ([]createdb.Option, error) {
 	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
 	if err != nil {
 		return nil, err
 	}
 
 	opts := []createdb.Option{
-		createdb.WithInitiator(atPod),
+		createdb.WithInitiator(initiatorPod),
 		createdb.WithHosts(hostList),
 		createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile),
 		createdb.WithCatalogPath(c.Vdb.Spec.Local.GetCatalogPath()),

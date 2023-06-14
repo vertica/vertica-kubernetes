@@ -282,7 +282,10 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return vadmin.VClusterOps{}
+		return vadmin.VClusterOps{
+			VDB: vdb,
+			Log: log,
+		}
 	}
 	return vadmin.Admintools{
 		PRunner: prunner,

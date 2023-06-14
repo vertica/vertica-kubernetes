@@ -99,12 +99,12 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		// Could not find a runable pod to run from.
 		return ctrl.Result{Requeue: true}, nil
 	}
-	atPod := atPodFact.name
+	initiatorPod := atPodFact.name
 
-	if res, err := g.ConstructAuthParms(ctx, atPod); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.ConstructAuthParms(ctx, initiatorPod); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if res, err := g.initializer.preCmdSetup(ctx, atPod, podList); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, podList); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -114,15 +114,16 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 
 	if g.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+		debugDumpAdmintoolsConf(ctx, g.PRunner, initiatorPod)
 	}
 
-	if res, err := g.initializer.execCmd(ctx, atPod, getHostList(podList)); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.execCmd(ctx, initiatorPod,
+		getHostList(podList)); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	if g.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+		debugDumpAdmintoolsConf(ctx, g.PRunner, initiatorPod)
 	}
 
 	cond := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
@@ -130,7 +131,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	if err := g.DestroyAuthParms(ctx, atPod); err != nil {
+	if err := g.DestroyAuthParms(ctx, initiatorPod); err != nil {
 		// Destroying the auth parms is a best effort. If we fail to delete it,
 		// the reconcile will continue on.
 		g.Log.Info("failed to destroy auth parms, ignoring failure", "err", err)

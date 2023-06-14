@@ -54,8 +54,7 @@ type Admintools struct {
 // VClusterOps is the new style of running admin commands. It makes use of the
 // vclusterops library to perform all of the admin operations via RESTful
 // interfaces.
-type VClusterOps struct{}
-
-// Fake is used for dependency injection during test. All operations run as no-ops.
-// SPILLY - can we remove this?
-type Fake struct{}
+type VClusterOps struct {
+	Log logr.Logger
+	VDB *vapi.VerticaDB
+}

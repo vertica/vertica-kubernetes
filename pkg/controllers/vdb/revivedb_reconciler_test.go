@@ -152,12 +152,12 @@ var _ = Describe("revivedb_reconcile", func() {
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		vdb.Spec.IgnoreClusterLease = false
-		opts := r.genCmd(types.NamespacedName{}, []string{"hostA"})
+		opts := r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
 		parms := revivedb.Parms{}
 		parms.Make(opts...)
 		Expect(parms.IgnoreClusterLease).Should(BeFalse())
 		vdb.Spec.IgnoreClusterLease = true
-		opts = r.genCmd(types.NamespacedName{}, []string{"hostA"})
+		opts = r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
 		parms = revivedb.Parms{}
 		parms.Make(opts...)
 		Expect(parms.IgnoreClusterLease).Should(BeTrue())
