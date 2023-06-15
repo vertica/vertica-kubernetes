@@ -103,11 +103,27 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	}
 }
 
+// buildConfigVolumeMount returns the volume mount for config.
+// If vclusterops flag is enabled we mount only /opt/vertica/config/https_certs
+func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
+	subPath := "config"
+	mountPath := paths.ConfigPath
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		subPath = "config/https_certs"
+		mountPath = paths.HTTPTLSConfDir
+	}
+	return corev1.VolumeMount{
+		Name:      vapi.LocalDataPVC,
+		SubPath:   vdb.GetPVSubPath(subPath),
+		MountPath: mountPath,
+	}
+}
+
 // buildVolumeMounts returns the volume mounts to include in the sts pod spec
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
-		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("config"), MountPath: paths.ConfigPath},
+		buildConfigVolumeMount(vdb),
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("data"), MountPath: vdb.Spec.Local.DataPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},

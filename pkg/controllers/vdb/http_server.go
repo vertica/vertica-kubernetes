@@ -20,12 +20,16 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	corev1 "k8s.io/api/core/v1"
 )
 
 // hasCompatibleVersionForHTTPServer checks, in case http server is enabled, if
 // the server has a required version for http server.
 func hasCompatibleVersionForHTTPServer(vrec *VerticaDBReconciler, vdb *vapi.VerticaDB, logEvent bool, action string) bool {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return true
+	}
 	// Early out if the http service isn't enabled
 	if !vdb.IsHTTPServerEnabled() {
 		return false

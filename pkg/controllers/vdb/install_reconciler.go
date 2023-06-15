@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,6 +70,12 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
+	// We generate https conf file and skip the install phase when running
+	// the vclusterOps feature flag
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		return ctrl.Result{}, d.generateHTTPCerts(ctx)
+	}
+
 	return d.analyzeFacts(ctx)
 }
 
