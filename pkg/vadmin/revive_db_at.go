@@ -18,42 +18,40 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// DescribeDB will get information about a database from communal storage. For
-// the admintools implementation, this is running the revive with the
-// --display-only option.
-func (a Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
-	s := describedb.Parms{}
+// ReviveDB will initialize a database from an existing communal path.
+// Admintools is used to run the revive.
+func (a Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
+	s := revivedb.Parms{}
 	s.Make(opts...)
-	cmd := a.genDescribeCmd(&s)
+	cmd := a.genReviveCmd(&s)
 	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...)
 	if err != nil {
-		res, err2 := a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
-		return "", res, err2
+		return a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
 	}
-	return stdout, ctrl.Result{}, nil
+	return ctrl.Result{}, nil
 }
 
-func (v VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
-	v.Log.Info("Starting vcluster DescribeDB")
-	return "", ctrl.Result{}, fmt.Errorf("not implemented")
-}
-
-// genDescribeCmd will generate the command line options for calling
-// admintools -t revive_db --display-only.
-func (a Admintools) genDescribeCmd(s *describedb.Parms) []string {
-	return []string{
+// genReviveCmd will generate the command line options for calling admintools -t revive_db
+func (a Admintools) genReviveCmd(s *revivedb.Parms) []string {
+	cmd := []string{
 		"-t", "revive_db",
-		"--display-only",
+		"--hosts=" + strings.Join(s.Hosts, ","),
 		"--database", s.DBName,
 		fmt.Sprintf("--communal-storage-location=%s", s.CommunalPath),
 		fmt.Sprintf("--communal-storage-params=%s", paths.AuthParmsFile),
 	}
+
+	if s.IgnoreClusterLease {
+		cmd = append(cmd, "--ignore-cluster-lease")
+	}
+	return cmd
 }

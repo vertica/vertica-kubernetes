@@ -16,15 +16,15 @@
 package vadmin
 
 import (
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
+	"context"
+	"fmt"
+
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// Use this as a utility file that has functions common for multiple admintools
-// commands.
-
-// logFailure will log and record an event for an admintools failure
-func (a Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
-	evLogr := mgmterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
-	return evLogr.LogFailure(cmd, op, err)
+// CreateDB will construct a new DB using the vcluster-ops library
+func (v VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
+	v.Log.Info("Starting vcluster CreateDB")
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }

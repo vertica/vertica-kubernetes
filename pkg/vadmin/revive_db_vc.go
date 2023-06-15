@@ -16,15 +16,16 @@
 package vadmin
 
 import (
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
+	"context"
+	"fmt"
+
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// Use this as a utility file that has functions common for multiple admintools
-// commands.
-
-// logFailure will log and record an event for an admintools failure
-func (a Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
-	evLogr := mgmterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
-	return evLogr.LogFailure(cmd, op, err)
+// ReviveDB will initialized a database using an existing communal path. It does
+// this using the vclusterops library.
+func (v VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
+	v.Log.Info("Starting vcluster ReviveDB")
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }

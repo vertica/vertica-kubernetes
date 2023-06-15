@@ -18,47 +18,37 @@ package vadmin
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// ReviveDB will initialize a database from an existing communal path.
-// Admintools is used to run the revive.
-func (a Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
-	s := revivedb.Parms{}
+// DescribeDB will get information about a database from communal storage. For
+// the admintools implementation, this is running the revive with the
+// --display-only option.
+func (a Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
+	s := describedb.Parms{}
 	s.Make(opts...)
-	cmd := a.genReviveCmd(&s)
+	cmd := a.genDescribeCmd(&s)
 	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...)
 	if err != nil {
-		return a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
+		res, err2 := a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
+		return "", res, err2
 	}
-	return ctrl.Result{}, nil
+	return stdout, ctrl.Result{}, nil
 }
 
-// ReviveDB will initialized a database using an existing communal path. It does
-// this using the vclusterops library.
-func (v VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
-	v.Log.Info("Starting vcluster ReviveDB")
-	return ctrl.Result{}, fmt.Errorf("not implemented")
-}
-
-// genReviveCmd will generate the command line options for calling admintools -t revive_db
-func (a Admintools) genReviveCmd(s *revivedb.Parms) []string {
-	cmd := []string{
+// genDescribeCmd will generate the command line options for calling
+// admintools -t revive_db --display-only.
+func (a Admintools) genDescribeCmd(s *describedb.Parms) []string {
+	return []string{
 		"-t", "revive_db",
-		"--hosts=" + strings.Join(s.Hosts, ","),
+		"--display-only",
 		"--database", s.DBName,
 		fmt.Sprintf("--communal-storage-location=%s", s.CommunalPath),
 		fmt.Sprintf("--communal-storage-params=%s", paths.AuthParmsFile),
 	}
-
-	if s.IgnoreClusterLease {
-		cmd = append(cmd, "--ignore-cluster-lease")
-	}
-	return cmd
 }
