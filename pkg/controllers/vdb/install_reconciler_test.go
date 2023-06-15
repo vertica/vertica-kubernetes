@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -31,6 +32,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+const VClusterOpsAnnotationTrue = "true"
 
 var _ = Describe("k8s/install_reconcile_test", func() {
 	ctx := context.Background()
@@ -113,6 +116,55 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(vdbRec, fpr)
 		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
+		drecon := actor.(*InstallReconciler)
+		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeTrue())
+	})
+
+	It("should have a successful installer reconcile when running vclusterOps feature flag", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = VClusterOpsAnnotationTrue
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		secret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: vdb.Namespace,
+			},
+			Data: map[string][]byte{
+				corev1.TLSPrivateKeyKey:   []byte("pk"),
+				corev1.TLSCertKey:         []byte("cert"),
+				paths.HTTPServerCACrtName: []byte("ca"),
+			},
+		}
+		Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
+		vdb.Spec.HTTPServerTLSSecret = secret.Name
+
+		fpr := &cmds.FakePodRunner{}
+		pfact := MakePodFacts(vdbRec, fpr)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
+		drecon := actor.(*InstallReconciler)
+		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
+		Expect(err).Should(Succeed())
+		Expect(res.Requeue).Should(BeFalse())
+		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
+		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
+	})
+
+	It("should requeue if pod not running and vclusterOps feature flag is set", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = VClusterOpsAnnotationTrue
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		sc := &vdb.Spec.Subclusters[0]
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsDefault(fpr)
+		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
+		pfact.Detail[names.GenPodName(vdb, sc, 1)].isPodRunning = false
+
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
 		drecon := actor.(*InstallReconciler)
 		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())

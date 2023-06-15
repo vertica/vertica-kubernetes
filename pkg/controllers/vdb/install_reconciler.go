@@ -73,6 +73,10 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	// We generate https conf file and skip the install phase when running
 	// the vclusterOps feature flag
 	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		if ok, podNotRunning := d.PFacts.anyPodsNotRunning(); ok {
+			d.Log.Info("At least one pod isn't running.  Aborting the install.", "pod", podNotRunning)
+			return ctrl.Result{Requeue: true}, nil
+		}
 		return ctrl.Result{}, d.generateHTTPCerts(ctx)
 	}
 
