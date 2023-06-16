@@ -170,6 +170,14 @@ func DeleteStorageClass(ctx context.Context, c client.Client) {
 	}
 }
 
+func DeleteSecret(ctx context.Context, c client.Client, name string) {
+	secret := &corev1.Secret{}
+	err := c.Get(ctx, types.NamespacedName{Name: name}, secret)
+	if !kerrors.IsNotFound(err) {
+		Expect(c.Delete(ctx, secret))
+	}
+}
+
 func DeleteSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, offset int) {
 	for j := int32(0); j < sc.Size; j++ {
 		pod := &corev1.Pod{}

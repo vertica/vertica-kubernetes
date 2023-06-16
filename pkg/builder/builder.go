@@ -106,16 +106,20 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 // buildConfigVolumeMount returns the volume mount for config.
 // If vclusterops flag is enabled we mount only /opt/vertica/config/https_certs
 func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
-	subPath := "config"
-	mountPath := paths.ConfigPath
+	// When using vclusterOps, we don't have any state in /opt/vertica/config to preserve. There is no
+	// equivalent file like admintools.conf. The only state we need to preserve is the the contents of
+	// the https_certs directory.
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		subPath = "config/https_certs"
-		mountPath = paths.HTTPTLSConfDir
+		return corev1.VolumeMount{
+			Name:      vapi.LocalDataPVC,
+			SubPath:   vdb.GetPVSubPath("config/https_certs"),
+			MountPath: paths.HTTPTLSConfDir,
+		}
 	}
 	return corev1.VolumeMount{
 		Name:      vapi.LocalDataPVC,
-		SubPath:   vdb.GetPVSubPath(subPath),
-		MountPath: mountPath,
+		SubPath:   vdb.GetPVSubPath("config"),
+		MountPath: paths.ConfigPath,
 	}
 }
 

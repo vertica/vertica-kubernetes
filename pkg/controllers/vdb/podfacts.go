@@ -1027,17 +1027,6 @@ func (p *PodFacts) anyInstalledPodsNotRunning() (bool, types.NamespacedName) {
 	return false, types.NamespacedName{}
 }
 
-// anyIPodsNotRunning returns true if any pod isn't running.  It will
-// return the name of the first pod that isn't running.
-func (p *PodFacts) anyPodsNotRunning() (bool, types.NamespacedName) {
-	for _, v := range p.Detail {
-		if !v.isPodRunning {
-			return true, v.name
-		}
-	}
-	return false, types.NamespacedName{}
-}
-
 // anyUninstalledTransientPodsNotRunning will return true if it finds at least
 // one transient pod that doesn't have an installation and isn't running.
 func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.NamespacedName) {

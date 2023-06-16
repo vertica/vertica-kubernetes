@@ -123,52 +123,36 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	})
 
 	It("should have a successful installer reconcile when running vclusterOps feature flag", func() {
-		vdb := vapi.MakeVDB()
+		vdb := vapi.MakeVDBForHTTP()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = VClusterOpsAnnotationTrue
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		secret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test",
-				Namespace: vdb.Namespace,
-			},
-			Data: map[string][]byte{
-				corev1.TLSPrivateKeyKey:   []byte("pk"),
-				corev1.TLSCertKey:         []byte("cert"),
-				paths.HTTPServerCACrtName: []byte("ca"),
-			},
-		}
-		Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
+		secret := createTLSSecret(ctx, vdb, "tls-1")
+		defer test.DeleteSecret(ctx, k8sClient, secret.Name)
 		vdb.Spec.HTTPServerTLSSecret = secret.Name
 
 		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(vdbRec, fpr)
-		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, &pfact)
-		drecon := actor.(*InstallReconciler)
-		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
-		Expect(res.Requeue).Should(BeFalse())
-		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
+		cmds := reconcileAndFindHTTPTLSConfFileName(ctx, vdb, fpr, &pfact, false)
 		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
 	})
 
-	It("should requeue if pod not running and vclusterOps feature flag is set", func() {
-		vdb := vapi.MakeVDB()
+	It("should not wait for all pods to be running to install when vclusterOps is set", func() {
+		vdb := vapi.MakeVDBForHTTP()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = VClusterOpsAnnotationTrue
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		secret := createTLSSecret(ctx, vdb, "tls-2")
+		defer test.DeleteSecret(ctx, k8sClient, secret.Name)
+		vdb.Spec.HTTPServerTLSSecret = secret.Name
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
-		pfact := createPodFactsDefault(fpr)
+		pfact := MakePodFacts(vdbRec, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
 		pfact.Detail[names.GenPodName(vdb, sc, 1)].isPodRunning = false
-
-		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
-		drecon := actor.(*InstallReconciler)
-		res, err := drecon.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
-		Expect(res.Requeue).Should(BeTrue())
+		cmds := reconcileAndFindHTTPTLSConfFileName(ctx, vdb, fpr, &pfact, true)
+		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size) - 1))
 	})
 
 	It("install should accept eula", func() {
@@ -212,19 +196,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 
 	It("should generate certs only on supported vertica versions", func() {
 		vdb := vapi.MakeVDB()
-		secret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "tls-secret",
-				Namespace: vdb.Namespace,
-			},
-			Data: map[string][]byte{
-				corev1.TLSPrivateKeyKey:   []byte("pk"),
-				corev1.TLSCertKey:         []byte("cert"),
-				paths.HTTPServerCACrtName: []byte("ca"),
-			},
-		}
-		Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, &secret)) }()
+		secret := createTLSSecret(ctx, vdb, "tls-secret")
+		defer test.DeleteSecret(ctx, k8sClient, secret.Name)
 		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
 		vdb.Spec.HTTPServerTLSSecret = secret.Name
 		vdb.Annotations[vapi.VersionAnnotation] = "v12.0.0"
@@ -236,7 +209,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		for _, val := range pfact.Detail {
 			Expect(drecon.genCreateConfigDirsScript(val)).ShouldNot(ContainSubstring(paths.HTTPTLSConfDir))
 		}
-		err := drecon.generateHTTPCerts(ctx)
+		err := drecon.generateHTTPCertsForAdmintools(ctx)
 		Expect(err).Should(Succeed())
 		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
 		Expect(len(cmds)).Should(Equal(0))
@@ -245,9 +218,39 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		for _, val := range pfact.Detail {
 			Expect(drecon.genCreateConfigDirsScript(val)).Should(ContainSubstring(paths.HTTPTLSConfDir))
 		}
-		err = drecon.generateHTTPCerts(ctx)
+		err = drecon.generateHTTPCertsForAdmintools(ctx)
 		Expect(err).Should(Succeed())
 		cmds = fpr.FindCommands(paths.HTTPTLSConfFileName)
 		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
 	})
 })
+
+func createTLSSecret(ctx context.Context, vdb *vapi.VerticaDB, name string) corev1.Secret {
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: vdb.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.TLSPrivateKeyKey:   []byte("pk"),
+			corev1.TLSCertKey:         []byte("cert"),
+			paths.HTTPServerCACrtName: []byte("ca"),
+		},
+	}
+	Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
+	return secret
+}
+
+func reconcileAndFindHTTPTLSConfFileName(ctx context.Context, vdb *vapi.VerticaDB,
+	fpr *cmds.FakePodRunner, pf *PodFacts, requeue bool) []cmds.CmdHistory {
+	actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pf)
+	drecon := actor.(*InstallReconciler)
+	res, err := drecon.Reconcile(ctx, &ctrl.Request{})
+	Expect(err).Should(Succeed())
+	if requeue {
+		Expect(res.Requeue).Should(BeTrue())
+	} else {
+		Expect(res.Requeue).Should(BeFalse())
+	}
+	return fpr.FindCommands(paths.HTTPTLSConfFileName)
+}
