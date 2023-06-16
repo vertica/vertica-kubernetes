@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -104,6 +105,13 @@ var _ = Describe("builder", func() {
 		vdb.Spec.Local.CatalogPath = "/vertica/catalog"
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
+	})
+
+	It("should mount config/https_certs if vclusterops flag is set to true", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = "true"
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("config/https_certs")))
 	})
 
 	It("should have a specific mount name and no subPath for depot if depotVolume is EmptyDir", func() {

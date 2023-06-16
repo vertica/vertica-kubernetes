@@ -1102,6 +1102,15 @@ func MakeVDB() *VerticaDB {
 	}
 }
 
+// MakeVDBForHTTP is a helper that constructs a VerticaDB struct with http enabled.
+// This is intended for test purposes.
+func MakeVDBForHTTP() *VerticaDB {
+	vdb := MakeVDB()
+	vdb.Annotations[VersionAnnotation] = HTTPServerMinVersion
+	vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
+	return vdb
+}
+
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	scMap := map[string]*Subcluster{}
