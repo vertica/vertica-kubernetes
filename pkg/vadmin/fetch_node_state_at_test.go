@@ -47,7 +47,7 @@ var _ = Describe("fetch_node_state_at", func() {
 		evWriter := mgmterrors.TestEVWriter{}
 		d := MakeAdmintools(logger, vdb, fpr, &evWriter)
 		state, res, err := d.FetchNodeState(ctx,
-			fetchnodestate.WithInitiator(atPod),
+			fetchnodestate.WithInitiator(atPod, "10.244.1.6"),
 			fetchnodestate.WithHost("v_d_node0001", "10.244.1.6"),
 			fetchnodestate.WithHost("v_d_node0002", "10.244.1.7"),
 		)

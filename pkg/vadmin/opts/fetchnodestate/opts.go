@@ -19,8 +19,9 @@ import "k8s.io/apimachinery/pkg/types"
 
 // Parms holds all of the options for FetchNodeState API call.
 type Parms struct {
-	Initiator types.NamespacedName
-	Hosts     []Host
+	Initiator   types.NamespacedName
+	InitiatorIP string
+	Hosts       []Host
 }
 
 // Host has information about a single host to get state for
@@ -38,9 +39,10 @@ func (s *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithInitiator(nm types.NamespacedName) Option {
+func WithInitiator(nm types.NamespacedName, ip string) Option {
 	return func(s *Parms) {
 		s.Initiator = nm
+		s.InitiatorIP = ip
 	}
 }
 

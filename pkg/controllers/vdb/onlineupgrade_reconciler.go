@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +50,7 @@ type OnlineUpgradeReconciler struct {
 	PFacts        *PodFacts
 	Finder        iter.SubclusterFinder
 	Manager       UpgradeManager
+	Dispatcher    vadmin.Dispatcher
 	PrimaryImages []string // Known images in the primaries.  Should be of length 1 or 2.
 	StatusMsgs    []string // Precomputed status messages
 	MsgIndex      int      // Current index in StatusMsgs
@@ -56,10 +58,11 @@ type OnlineUpgradeReconciler struct {
 
 // MakeOnlineUpgradeReconciler will build an OnlineUpgradeReconciler object
 func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OnlineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
-		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
+		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
+		Dispatcher: dispatcher,
 	}
 }
 
@@ -502,7 +505,7 @@ func (o *OnlineUpgradeReconciler) waitForReadOnly(ctx context.Context, sts *apps
 // bringSubclusterOnline will bring up a subcluster and reroute traffic back to the subcluster.
 func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	const DoNotRestartReadOnly = false
-	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly)
+	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly, o.Dispatcher)
 	o.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {

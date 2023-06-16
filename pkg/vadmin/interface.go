@@ -46,6 +46,11 @@ type Dispatcher interface {
 	FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error)
 }
 
+const (
+	// Constant for an up node, this is taken from the STATE column in NODES table
+	StateUp = "UP"
+)
+
 // Admintools is the legacy style of running admin commands. All commands are
 // sent to a process that runs admintools. The output is then parsed out of the
 // stdout/stderr output that is captured.
