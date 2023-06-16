@@ -385,7 +385,6 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	// use the vnode because they are only set _after_ a node is added to a DB.
 	// ReIP can be dealing with a mix -- some nodes that have been added to the
 	// db and some that aren't.
-	// SPILLY - admintools call here?
 	oldIPs, err := r.fetchOldIPsFromNode(ctx, r.InitiatorPod)
 	if err != nil {
 		return ctrl.Result{}, err
