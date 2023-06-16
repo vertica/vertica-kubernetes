@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -39,6 +40,10 @@ type Dispatcher interface {
 	// DescribeDB will read state information about the database in communal
 	// storage and return it back to the caller.
 	DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error)
+
+	// FetchNodeState will determine if the given set of nodes are considered UP
+	// or DOWN in our consensous state. It returns a map of vnode to its node state.
+	FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error)
 }
 
 // Admintools is the legacy style of running admin commands. All commands are

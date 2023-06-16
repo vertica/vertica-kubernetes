@@ -337,29 +337,6 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(len(restart)).Should(Equal(1))
 	})
 
-	It("should parse the list_allnodes output", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.DBName = "d"
-
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly)
-		r := act.(*RestartReconciler)
-		stateMap := r.parseClusterNodeStatus(
-			" Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_d_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_d_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				"\n",
-		)
-		n1, ok := stateMap["v_d_node0001"]
-		Expect(ok).Should(BeTrue())
-		Expect(n1).Should(Equal("UP"))
-		n2, ok := stateMap["v_d_node0002"]
-		Expect(ok).Should(BeTrue())
-		Expect(n2).Should(Equal("DOWN"))
-	})
-
 	It("should do full cluster restart if none of the nodes are UP and not read-only", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
