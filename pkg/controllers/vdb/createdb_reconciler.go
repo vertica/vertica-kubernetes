@@ -26,11 +26,14 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,24 +48,27 @@ const (
 
 // CreateDBReconciler will create a database if one wasn't created yet.
 type CreateDBReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	EVLogr  mgmterrors.EventLogger
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	EVLogr     mgmterrors.EventLogger
+	Dispatcher vadmin.Dispatcher
 }
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
 func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &CreateDBReconciler{
-		VRec:    vdbrecon,
-		Log:     log,
-		Vdb:     vdb,
-		PRunner: prunner,
-		PFacts:  pfacts,
-		EVLogr:  mgmterrors.MakeATErrors(vdbrecon, vdb, events.CreateDBFailed),
+		VRec:       vdbrecon,
+		Log:        log,
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
+		EVLogr:     mgmterrors.MakeATErrors(vdbrecon, vdb, events.CreateDBFailed),
+		Dispatcher: dispatcher,
 	}
 }
 
@@ -89,13 +95,16 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 
 // execCmd will do the actual execution of admintools -t create_db.
 // This handles logging of necessary events.
-func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error) {
+func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
+	opts, err := c.genOptions(ctx, initiatorPod, hostList)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart,
 		"Calling 'admintools -t create_db'")
 	start := time.Now()
-	stdout, _, err := c.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
-	if err != nil {
-		return c.EVLogr.LogFailure("create_db", stdout, err)
+	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 	sc := c.getFirstPrimarySubcluster()
 	c.VRec.Eventf(c.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
@@ -105,7 +114,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, atPod types.Namespaced
 
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
-func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
+func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
 	// We include SQL to rename the default subcluster to match the name of the
 	// first subcluster in the spec -- any remaining subclusters will be added
 	// by DBAddSubclusterReconciler.
@@ -124,7 +133,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
 		`, c.Vdb.Spec.EncryptSpreadComm))
 	}
-	_, _, err := c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)
 	if err != nil {
@@ -138,7 +147,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, atPod types.Namesp
 		// directory, this will manifest itself later when we attempt the
 		// created. That error will have better reporting than if we were
 		// handle it here.
-		_, _, _ = c.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+		_, _, _ = c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 			"bash", "-c", fmt.Sprintf("mkdir -p %s", c.Vdb.GetCommunalPath()),
 		)
 	}
@@ -224,45 +233,43 @@ func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
 	return &c.Vdb.Spec.Subclusters[0]
 }
 
-// genCmd will return the command to run in the pod to create the database
-func (c *CreateDBReconciler) genCmd(ctx context.Context, hostList []string) ([]string, error) {
+// genOptions will return the options to use for the create db command
+func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName,
+	hostList []string) ([]createdb.Option, error) {
 	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
-	cmd := []string{
-		"-t", "create_db",
-		"--skip-fs-checks",
-		"--hosts=" + strings.Join(hostList, ","),
-		"--sql=" + PostDBCreateSQLFile,
-		"--catalog_path=" + c.Vdb.Spec.Local.GetCatalogPath(),
-		"--database", c.Vdb.Spec.DBName,
-		"--force-removal-at-creation",
-		"--noprompt",
-		"--license", licPath,
-		"--depot-path=" + c.Vdb.Spec.Local.DepotPath,
+	opts := []createdb.Option{
+		createdb.WithInitiator(initiatorPod),
+		createdb.WithHosts(hostList),
+		createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile),
+		createdb.WithCatalogPath(c.Vdb.Spec.Local.GetCatalogPath()),
+		createdb.WithDBName(c.Vdb.Spec.DBName),
+		createdb.WithLicensePath(licPath),
+		createdb.WithDepotPath(c.Vdb.Spec.Local.DepotPath),
 	}
 
 	// If a communal path is set, include all of the EON parameters.
 	if c.Vdb.Spec.Communal.Path != "" {
-		cmd = append(cmd,
-			"--communal-storage-location="+c.Vdb.GetCommunalPath(),
-			"--communal-storage-params="+paths.AuthParmsFile,
+		opts = append(opts,
+			createdb.WithCommunalPath(c.Vdb.GetCommunalPath()),
+			createdb.WithCommunalStorageParams(paths.AuthParmsFile),
 		)
 	}
 
 	if c.Vdb.Spec.ShardCount > 0 {
-		cmd = append(cmd,
-			fmt.Sprintf("--shard-count=%d", c.Vdb.Spec.ShardCount),
+		opts = append(opts,
+			createdb.WithShardCount(c.Vdb.Spec.ShardCount),
 		)
 	}
 
 	if c.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {
 		vinf, ok := c.Vdb.MakeVersionInfo()
 		if ok && vinf.IsEqualOrNewer(vapi.CreateDBSkipPackageInstallVersion) {
-			cmd = append(cmd, "--skip-package-install")
+			opts = append(opts, createdb.WithSkipPackageInstall())
 		}
 	}
-	return cmd, nil
+	return opts, nil
 }

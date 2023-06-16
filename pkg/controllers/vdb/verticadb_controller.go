@@ -36,10 +36,11 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 )
 
 // VerticaDBReconciler reconciles a VerticaDB object
@@ -98,8 +99,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if meta.IsPauseAnnotationSet(vdb.Annotations) {
-		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
+	if vmeta.IsPauseAnnotationSet(vdb.Annotations) {
+		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", vmeta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
 		return ctrl.Result{}, nil
 	}
@@ -113,10 +114,11 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
 	pfacts := MakePodFacts(r, prunner)
+	dispatcher := r.makeDispatcher(log, vdb, prunner)
 	var res ctrl.Result
 
 	// Iterate over each actor
-	actors := r.constructActors(log, vdb, prunner, &pfacts)
+	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
@@ -143,7 +145,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
 func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner *cmds.ClusterPodRunner,
-	pfacts *PodFacts) []controllers.ReconcileActor {
+	pfacts *PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vdb.
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
@@ -204,9 +206,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to admintools -t create_db
-		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts),
+		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Handle calls to admintools -t revive_db
-		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts),
+		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
 		// status updates after both of them.
@@ -277,14 +279,28 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 	}
 }
 
+// makeDispatcher will create a Dispatcher object based on the feature flags set.
+func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner) vadmin.Dispatcher {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return vadmin.MakeVClusterOps(log, vdb)
+	}
+	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
+}
+
 // Event a wrapper for Event() that also writes a log entry
-func (r *VerticaDBReconciler) Event(vdb *vapi.VerticaDB, eventtype, reason, message string) {
-	r.Log.Info("Event logging", "eventtype", eventtype, "reason", reason, "message", message)
-	r.EVRec.Event(vdb, eventtype, reason, message)
+func (r *VerticaDBReconciler) Event(vdb runtime.Object, eventtype, reason, message string) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Event(vdb, eventtype, reason, message)
 }
 
 // Eventf is a wrapper for Eventf() that also writes a log entry
-func (r *VerticaDBReconciler) Eventf(vdb *vapi.VerticaDB, eventtype, reason, messageFmt string, args ...interface{}) {
-	r.Log.Info("Event logging", "eventtype", eventtype, "reason", reason, "message", fmt.Sprintf(messageFmt, args...))
-	r.EVRec.Eventf(vdb, eventtype, reason, messageFmt, args...)
+func (r *VerticaDBReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
 }

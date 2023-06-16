@@ -13,17 +13,18 @@
  limitations under the License.
 */
 
-package mgmterrors
+package vadmin
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
+// Use this as a utility file that has functions common for multiple admintools
+// commands.
 
-	RunSpecs(t, "mgmterrors Suite")
+// logFailure will log and record an event for an admintools failure
+func (a Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
+	evLogr := mgmterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
+	return evLogr.LogFailure(cmd, op, err)
 }

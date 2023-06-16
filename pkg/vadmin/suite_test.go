@@ -13,17 +13,25 @@
  limitations under the License.
 */
 
-package mgmterrors
+package vadmin
 
 import (
 	"testing"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
+
+var logger logr.Logger
+
+var _ = BeforeSuite(func() {
+	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+})
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "mgmterrors Suite")
+	RunSpecs(t, "vadmin Suite")
 }

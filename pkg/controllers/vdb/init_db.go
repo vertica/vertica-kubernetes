@@ -50,9 +50,8 @@ const (
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
 	findPodToRunInit() (*PodFact, bool)
-	genCmd(ctx context.Context, hostList []string) ([]string, error)
-	execCmd(ctx context.Context, atPod types.NamespacedName, cmd []string) (ctrl.Result, error)
-	preCmdSetup(ctx context.Context, atPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error)
+	execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error)
+	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
 
@@ -95,17 +94,17 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	atPodFact, ok := g.initializer.findPodToRunInit()
+	initPodFact, ok := g.initializer.findPodToRunInit()
 	if !ok {
 		// Could not find a runable pod to run from.
 		return ctrl.Result{Requeue: true}, nil
 	}
-	atPod := atPodFact.name
+	initiatorPod := initPodFact.name
 
-	if res, err := g.ConstructAuthParms(ctx, atPod); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.ConstructAuthParms(ctx, initiatorPod); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if res, err := g.initializer.preCmdSetup(ctx, atPod, podList); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, podList); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -115,19 +114,16 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 
 	if g.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+		debugDumpAdmintoolsConf(ctx, g.PRunner, initiatorPod)
 	}
 
-	cmd, err := g.initializer.genCmd(ctx, getHostList(podList))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if res, err := g.initializer.execCmd(ctx, atPod, cmd); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.execCmd(ctx, initiatorPod,
+		getHostList(podList)); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	if g.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, g.PRunner, atPod)
+		debugDumpAdmintoolsConf(ctx, g.PRunner, initiatorPod)
 	}
 
 	cond := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
@@ -135,7 +131,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	if err := g.DestroyAuthParms(ctx, atPod); err != nil {
+	if err := g.DestroyAuthParms(ctx, initiatorPod); err != nil {
 		// Destroying the auth parms is a best effort. If we fail to delete it,
 		// the reconcile will continue on.
 		g.Log.Info("failed to destroy auth parms, ignoring failure", "err", err)
@@ -177,7 +173,7 @@ func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, po
 }
 
 // ConstructAuthParms builds the authentication parms and ensure it exists in the pod
-func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atPod types.NamespacedName) (ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
 	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
 
 	if g.Vdb.Spec.Communal.Path == "" {
@@ -225,13 +221,13 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, atP
 		content = fmt.Sprintf("%s\n%s", content, g.getAdditionalConfigParmsContent(content))
 	}
 
-	err = g.copyAuthFile(ctx, atPod, content)
+	err = g.copyAuthFile(ctx, initiatorPod, content)
 	return ctrl.Result{}, err
 }
 
 // DestroyAuthParms will remove the auth parms file that was created in the pod
-func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, atPod types.NamespacedName) error {
-	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, initiatorPod types.NamespacedName) error {
+	_, _, err := g.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"rm", paths.AuthParmsFile,
 	)
 	return err
@@ -404,8 +400,8 @@ func (g *GenericDatabaseInitializer) getAdditionalConfigParmsContent(content str
 }
 
 // copyAuthFile will copy the auth file into the container
-func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod types.NamespacedName, content string) error {
-	_, _, err := g.PRunner.ExecInPod(ctx, atPod, names.ServerContainer,
+func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, initiatorPod types.NamespacedName, content string) error {
+	_, _, err := g.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, content))
 
 	// We log an event for this error because it could be caused by bad values
@@ -413,7 +409,7 @@ func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, atPod typ
 	// characters then we won't even be able to copy the file.
 	if err != nil {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
-			"Failed to copy auth parms to the pod '%s'", atPod)
+			"Failed to copy auth parms to the pod '%s'", initiatorPod)
 	}
 	return err
 }

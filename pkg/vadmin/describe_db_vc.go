@@ -13,17 +13,18 @@
  limitations under the License.
 */
 
-package mgmterrors
+package vadmin
 
 import (
-	"testing"
+	"context"
+	"fmt"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecs(t, "mgmterrors Suite")
+// DescribeDB will get information about a database from communal storage.
+func (v VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
+	v.Log.Info("Starting vcluster DescribeDB")
+	return "", ctrl.Result{}, fmt.Errorf("not implemented")
 }

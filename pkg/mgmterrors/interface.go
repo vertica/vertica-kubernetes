@@ -16,7 +16,7 @@
 package mgmterrors
 
 import (
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -31,6 +31,6 @@ type EventLogger interface {
 
 // EVWriter is an interface for writing k8s events
 type EVWriter interface {
-	Event(vdb *vapi.VerticaDB, eventtype, reason, message string)
-	Eventf(vdb *vapi.VerticaDB, eventtype, reason, messageFmt string, args ...interface{})
+	Event(vdb runtime.Object, eventtype, reason, message string)
+	Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{})
 }

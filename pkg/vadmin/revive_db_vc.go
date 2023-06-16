@@ -13,17 +13,19 @@
  limitations under the License.
 */
 
-package mgmterrors
+package vadmin
 
 import (
-	"testing"
+	"context"
+	"fmt"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecs(t, "mgmterrors Suite")
+// ReviveDB will initialized a database using an existing communal path. It does
+// this using the vclusterops library.
+func (v VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
+	v.Log.Info("Starting vcluster ReviveDB")
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }

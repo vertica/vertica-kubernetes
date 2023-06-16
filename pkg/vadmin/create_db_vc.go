@@ -13,17 +13,18 @@
  limitations under the License.
 */
 
-package mgmterrors
+package vadmin
 
 import (
-	"testing"
+	"context"
+	"fmt"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecs(t, "mgmterrors Suite")
+// CreateDB will construct a new DB using the vcluster-ops library
+func (v VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
+	v.Log.Info("Starting vcluster CreateDB")
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }
