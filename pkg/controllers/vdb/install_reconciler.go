@@ -89,6 +89,7 @@ func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Res
 	if hasUninstalledPods {
 		// We do not proceed to the next actor until
 		// all pods have done the install
+		d.Log.Info("Requeue reconcile cycle because not all nodes have done the install for vclusterOps")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
