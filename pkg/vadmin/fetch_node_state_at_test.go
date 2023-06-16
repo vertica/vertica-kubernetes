@@ -75,11 +75,11 @@ var _ = Describe("fetch_node_state_at", func() {
 			map[string]bool{"v_d_node0001": true, "v_d_node0002": true},
 		)
 		n1, ok := stateMap["v_d_node0001"]
-		Expect(ok).Should(BeTrue())
-		Expect(n1).Should(Equal("UP"))
+		Ω(ok).Should(BeTrue())
+		Ω(n1).Should(Equal("UP"))
 		n2, ok := stateMap["v_d_node0002"]
-		Expect(ok).Should(BeTrue())
-		Expect(n2).Should(Equal("DOWN"))
+		Ω(ok).Should(BeTrue())
+		Ω(n2).Should(Equal("DOWN"))
 	})
 
 })
