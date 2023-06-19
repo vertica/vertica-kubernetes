@@ -29,7 +29,9 @@ import (
 // or DOWN in our consensous state. It returns a map of vnode to its node state.
 func (a Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
 	s := fetchnodestate.Parms{}
-	s.Make(opts...)
+	if err := s.Make(opts...); err != nil {
+		return nil, ctrl.Result{}, err
+	}
 	cmd := []string{
 		"-t", "list_allnodes",
 	}
@@ -38,15 +40,15 @@ func (a Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.O
 		res, err2 := a.logFailure("list_allnodes", events.MgmtFailed, stdout, err)
 		return nil, res, err2
 	}
-	return a.parseClusterNodeStatus(stdout, a.buildHostsNeededSet(s.Hosts)), ctrl.Result{}, nil
+	return a.parseClusterNodeStatus(stdout, s.HostsNeeded), ctrl.Result{}, nil
 }
 
 // parseClusterNodeStatus will parse the output from a AT -t list_allnodes call
 func (a Admintools) parseClusterNodeStatus(stdout string, hostsNeeded map[string]bool) map[string]string {
 	stateMap := map[string]string{}
 	lines := strings.Split(stdout, "\n")
-	const ColHeaderCount = 2
-	if len(lines) <= ColHeaderCount {
+	const HeaderRowCount = 2
+	if len(lines) <= HeaderRowCount {
 		// Nothing to parse, return empty map
 		return stateMap
 	}
@@ -54,7 +56,7 @@ func (a Admintools) parseClusterNodeStatus(stdout string, hostsNeeded map[string
 	// output. The output that we are omitting looks like this:
 	//  Node          | Host       | State | Version                 | DB
 	// ---------------+------------+-------+-------------------------+----
-	for _, line := range lines[ColHeaderCount:] {
+	for _, line := range lines[HeaderRowCount:] {
 		// Line is something like this:
 		//   v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db
 		cols := strings.Split(line, "|")
@@ -71,14 +73,4 @@ func (a Admintools) parseClusterNodeStatus(stdout string, hostsNeeded map[string
 		}
 	}
 	return stateMap
-}
-
-// buildHostsNeededSet will remap the hosts list to a set. It will return a set
-// of all of the hosts needed for state lookup.
-func (a Admintools) buildHostsNeededSet(hosts []fetchnodestate.Host) map[string]bool {
-	s := map[string]bool{}
-	for i := range hosts {
-		s[hosts[i].VNode] = true
-	}
-	return s
 }

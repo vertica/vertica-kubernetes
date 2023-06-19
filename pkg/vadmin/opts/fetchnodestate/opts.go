@@ -15,13 +15,18 @@
 
 package fetchnodestate
 
-import "k8s.io/apimachinery/pkg/types"
+import (
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/types"
+)
 
 // Parms holds all of the options for FetchNodeState API call.
 type Parms struct {
 	Initiator   types.NamespacedName
 	InitiatorIP string
 	Hosts       []Host
+	HostsNeeded map[string]bool // The set of hosts that are in the Hosts list
 }
 
 // Host has information about a single host to get state for
@@ -33,10 +38,24 @@ type Host struct {
 type Option func(*Parms)
 
 // Make will fill in the Parms based on the options chosen
-func (s *Parms) Make(opts ...Option) {
+func (s *Parms) Make(opts ...Option) error {
 	for _, opt := range opts {
 		opt(s)
 	}
+
+	return s.buildHostsNeededSet()
+}
+
+// buildHostsNeededSet will validate that a host only shows up at most once.
+func (s *Parms) buildHostsNeededSet() error {
+	s.HostsNeeded = map[string]bool{}
+	for i := range s.Hosts {
+		if _, ok := s.HostsNeeded[s.Hosts[i].VNode]; ok {
+			return fmt.Errorf("the same vnode was passed in twice: %s", s.Hosts[i].VNode)
+		}
+		s.HostsNeeded[s.Hosts[i].VNode] = true
+	}
+	return nil
 }
 
 func WithInitiator(nm types.NamespacedName, ip string) Option {

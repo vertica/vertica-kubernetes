@@ -82,4 +82,18 @@ var _ = Describe("fetch_node_state_at", func() {
 		Ω(n2).Should(Equal("DOWN"))
 	})
 
+	It("should fail if the same vnode is given twice", func() {
+		vdb := vapi.MakeVDB()
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
+		evWriter := mgmterrors.TestEVWriter{}
+		d := MakeAdmintools(logger, vdb, fpr, &evWriter)
+		_, _, err := d.FetchNodeState(ctx,
+			fetchnodestate.WithInitiator(atPod, "10.244.1.6"),
+			fetchnodestate.WithHost("v_d_node0001", "10.244.1.6"),
+			fetchnodestate.WithHost("v_d_node0001", "10.244.1.7"),
+		)
+		Ω(err).ShouldNot(Succeed())
+	})
+
 })
