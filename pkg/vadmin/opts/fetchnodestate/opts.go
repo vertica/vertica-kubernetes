@@ -50,6 +50,10 @@ func (s *Parms) Make(opts ...Option) error {
 func (s *Parms) buildHostsNeededSet() error {
 	s.HostsNeeded = map[string]bool{}
 	for i := range s.Hosts {
+		// For test purposes, we will skip any empty vnode
+		if s.Hosts[i].VNode == "" {
+			continue
+		}
 		if _, ok := s.HostsNeeded[s.Hosts[i].VNode]; ok {
 			return fmt.Errorf("the same vnode was passed in twice: %s", s.Hosts[i].VNode)
 		}
