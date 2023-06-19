@@ -26,7 +26,7 @@ import (
 )
 
 // FetchNodeState will determine if the given set of nodes are considered UP
-// or DOWN in our consensous state. It returns a map of vnode to its node state.
+// or DOWN in our consensus state. It returns a map of vnode and its node state.
 func (a Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
 	s := fetchnodestate.Parms{}
 	s.Make(opts...)
