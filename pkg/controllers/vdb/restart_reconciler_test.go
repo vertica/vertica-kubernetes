@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -156,55 +155,13 @@ var _ = Describe("restart_reconciler", func() {
 		))
 	})
 
-	It("should parse admintools.conf correctly in parseNodesFromAdmintoolsConf", func() {
-		ips := parseNodesFromAdmintoolConf(
-			"node0001 = 10.244.1.95,/home/dbadmin/local-data/data/ee65657f-a5f3,/home/dbadmin/local-data/data/ee65657f-a5f3\n" +
-				"node0002 = 10.244.1.96,/home/dbadmin/local-data/data/ee65657f-a5f3,/home/dbadmin/local-data/data/ee65657f-a5f3\n" +
-				"node0003 = 10.244.1.97,/home/dbadmin/local-data/data/ee65657f-a5f3,/home/dbadmin/local-data/data/ee65657f-a5f3\n" +
-				"node0blah = no-ip,/data,/data\n" +
-				"node0000 =badly formed\n",
-		)
-		Expect(ips["node0001"]).Should(Equal("10.244.1.95"))
-		Expect(ips["node0002"]).Should(Equal("10.244.1.96"))
-		Expect(ips["node0003"]).Should(Equal("10.244.1.97"))
-		_, ok := ips["node0004"] // Will not find
-		Expect(ok).Should(BeFalse())
-		_, ok = ips["node0000"] // Will not find since it was badly formed
-		Expect(ok).Should(BeFalse())
-	})
-
-	It("should successfully generate a map file from vnodes", func() {
-		vdb := vapi.MakeVDB()
-		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 3
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1, 2}, PodNotReadOnly)
-		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
-		r := act.(*RestartReconciler)
-		oldIPs := make(verticaIPLookup)
-		oldIPs["node0001"] = Node1OldIP
-		oldIPs["node0002"] = Node2OldIP
-		oldIPs["node0003"] = Node3OldIP
-		mapFileContents, ipChanging, ok := r.genMapFile(oldIPs, pfacts.findReIPPods(false))
-		Expect(ok).Should(BeTrue())
-		Expect(ipChanging).Should(BeTrue())
-		Expect(mapFileContents).Should(ContainElements(
-			fmt.Sprintf("%s %s", Node1OldIP, test.FakeIPForPod(0, 0)),
-			fmt.Sprintf("%s %s", Node2OldIP, test.FakeIPForPod(0, 1)),
-			fmt.Sprintf("%s %s", Node3OldIP, test.FakeIPForPod(0, 2)),
-		))
-	})
-
 	It("should requeue restart if pods are not running", func() {
 		vdb := vapi.MakeVDB()
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -213,102 +170,7 @@ var _ = Describe("restart_reconciler", func() {
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
-		r := act.(*RestartReconciler)
-		oldIPs := make(verticaIPLookup)
-		oldIPs["node0001"] = Node1OldIP
-		oldIPs["node0002"] = Node2OldIP
-		_, _, ok := r.genMapFile(oldIPs, pfacts.findReIPPods(false))
-		Expect(ok).Should(BeFalse())
-	})
-
-	It("should only generate a map file for installed pods", func() {
-		vdb := vapi.MakeVDB()
-		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 2
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
-		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		// Mark one of the pods as uninstalled.  This pod won't be included in the map file
-		uninstallPod := names.GenPodName(vdb, sc, 1)
-		pfacts.Detail[uninstallPod].isInstalled = false
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
-		r := act.(*RestartReconciler)
-		atPod := names.GenPodName(vdb, sc, 0)
-		fpr.Results = cmds.CmdResults{
-			atPod: []cmds.CmdResult{
-				{Stdout: "node0001 = 10.10.2.1,/d/d\n"},
-			},
-		}
-		oldIPs, err := r.fetchOldIPsFromNode(ctx, atPod)
-		Expect(err).Should(Succeed())
-		mapFileContents, ipChanging, ok := r.genMapFile(oldIPs, pfacts.findReIPPods(false))
-		Expect(ok).Should(BeTrue())
-		Expect(ipChanging).Should(BeTrue())
-		Expect(len(mapFileContents)).Should(Equal(1))
-		Expect(mapFileContents).Should(ContainElement(
-			"10.10.2.1 " + test.FakeIPForPod(0, 0),
-		))
-	})
-
-	It("should successfully generate a map file from compat21 nodes", func() {
-		vdb := vapi.MakeVDB()
-		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 3
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		atPod := names.GenPodName(vdb, sc, 0)
-		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1, 2}, PodNotReadOnly)
-		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
-		r := act.(*RestartReconciler)
-		fpr.Results = cmds.CmdResults{
-			atPod: []cmds.CmdResult{
-				{Stdout: "node0001 = 10.10.2.1,/d/d\nnode0002 = 10.10.2.2,/d,/d\nnode0003 = 10.10.2.3,/d,/d\n"},
-			},
-		}
-		oldIPs, err := r.fetchOldIPsFromNode(ctx, atPod)
-		Expect(err).Should(Succeed())
-		mapFileContents, ipChanging, ok := r.genMapFile(oldIPs, pfacts.findReIPPods(false))
-		Expect(ok).Should(BeTrue())
-		Expect(ipChanging).Should(BeTrue())
-		Expect(mapFileContents).Should(ContainElements(
-			"10.10.2.1 "+test.FakeIPForPod(0, 0),
-			"10.10.2.2 "+test.FakeIPForPod(0, 1),
-			"10.10.2.3 "+test.FakeIPForPod(0, 2),
-		))
-	})
-
-	It("should not detect that map file has no IPs that are changing", func() {
-		vdb := vapi.MakeVDB()
-		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 2
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		atPod := names.GenPodName(vdb, sc, 0)
-		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
-		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
-		r := act.(*RestartReconciler)
-		fpr.Results = cmds.CmdResults{
-			atPod: []cmds.CmdResult{
-				{Stdout: fmt.Sprintf("node0001 = %s,/d/d\nnode0002 = %s,/d,/d\n", test.FakeIPForPod(0, 0), test.FakeIPForPod(0, 1))},
-			},
-		}
-		oldIPs, err := r.fetchOldIPsFromNode(ctx, atPod)
-		Expect(err).Should(Succeed())
-		_, ipChanging, ok := r.genMapFile(oldIPs, pfacts.findReIPPods(false))
-		Expect(ok).Should(BeTrue())
-		Expect(ipChanging).Should(BeFalse())
+		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
 	It("should upload a map file, call re_ip then start_db", func() {
@@ -570,18 +432,6 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
-	})
-
-	It("should use --force option in reip if on version that supports it", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly, dispatcher)
-		r := act.(*RestartReconciler)
-		vdb.Annotations[vapi.VersionAnnotation] = vapi.MinimumVersion
-		Expect(r.genReIPCommand()).ShouldNot(ContainElement("--force"))
-		vdb.Annotations[vapi.VersionAnnotation] = vapi.ReIPAllowedWithUpNodesVersion
-		Expect(r.genReIPCommand()).Should(ContainElement("--force"))
 	})
 
 	It("should use --hosts option in start_db if on earliest version that we support", func() {

@@ -21,6 +21,9 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -34,4 +37,14 @@ func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "vadmin Suite")
+}
+
+// mockAdmintoolsDispatcher will create an admintools dispatcher for test
+// purposes.
+func mockAdmintoolsDispatcher() (Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
+	vdb := vapi.MakeVDB()
+	fpr := &cmds.FakePodRunner{}
+	evWriter := mgmterrors.TestEVWriter{}
+	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter)
+	return dispatcher.(Admintools), vdb, fpr
 }
