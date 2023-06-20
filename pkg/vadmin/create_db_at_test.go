@@ -20,9 +20,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -31,10 +28,7 @@ var _ = Describe("create_db_at", func() {
 	ctx := context.Background()
 
 	It("should call admintools with create_db task", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{}
-		evWriter := mgmterrors.TestEVWriter{}
-		dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter)
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
 		Ω(dispatcher.CreateDB(ctx,
 			createdb.WithHosts([]string{"pod-1", "pod-2", "pod-3"}),
 			createdb.WithCommunalPath("/communal"),

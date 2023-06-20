@@ -43,7 +43,7 @@ func TestAPIs(t *testing.T) {
 // purposes.
 func mockAdmintoolsDispatcher() (Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
 	vdb := vapi.MakeVDB()
-	fpr := &cmds.FakePodRunner{}
+	fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 	evWriter := mgmterrors.TestEVWriter{}
 	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter)
 	return dispatcher.(Admintools), vdb, fpr
