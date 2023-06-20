@@ -83,6 +83,7 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("verticadb", req.NamespacedName)
 	log.Info("starting reconcile of VerticaDB test")
+	log.Info("Hello")
 
 	vdb := &vapi.VerticaDB{}
 	err := r.Get(ctx, req.NamespacedName, vdb)
