@@ -26,6 +26,10 @@ on:
         description: 'Name of an existing vlogger image. Leave blank to build oe with the default name'
         type: string
         required: false
+      v2_vertica_image:
+        description: 'Name of a v2 Vertica server image. If blank we will build one using the default name'
+        type: string
+        required: false
       e2e_test_suites:
         description: 'E2E test suites to run'
         required: false
@@ -43,11 +47,7 @@ on:
         - hostpath
         - enterprise 
         - http server
-      security_scan_exit_code:
-        description: 'Set to 1 to fail the build for security vulnerabilities. Otherwise set to 0'
-        required: false
-        type: string
-        default: '0'
+        - vcluster
       run_security_scan:
         description: 'What images to scan?'
         type: choice
@@ -80,7 +80,7 @@ jobs:
       minimal_vertica_image: ${{ inputs.minimal_vertica_image }}
       full_vertica_image: ${{ inputs.full_vertica_image }}
       nokeys_vertica_image: ${{ inputs.nokeys_vertica_image }}
-      security_scan_exit_code: ${{ inputs.security_scan_exit_code }}
+      v2_vertica_image: ${{ inputs.v2_vertica_image }}
       run_security_scan: ${{ inputs.run_security_scan }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -139,6 +139,18 @@ jobs:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'hostpath' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-hostpath.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-vcluster:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'hostpath' || inputs.e2e_test_suites == '' }}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-vcluster.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
