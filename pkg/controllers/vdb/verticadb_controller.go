@@ -82,7 +82,7 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.2/pkg/reconcile
 func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("verticadb", req.NamespacedName)
-	log.Info("starting reconcile of VerticaDB")
+	log.Info("starting reconcile of VerticaDB test")
 
 	vdb := &vapi.VerticaDB{}
 	err := r.Get(ctx, req.NamespacedName, vdb)
