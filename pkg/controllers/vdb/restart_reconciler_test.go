@@ -33,9 +33,6 @@ import (
 
 var _ = Describe("restart_reconciler", func() {
 	ctx := context.Background()
-	const Node1OldIP = "10.10.1.1"
-	const Node2OldIP = "10.10.1.2"
-	const Node3OldIP = "10.10.1.3"
 	const RestartProcessReadOnly = true
 	const RestartSkipReadOnly = false
 	const PodNotReadOnly = false
