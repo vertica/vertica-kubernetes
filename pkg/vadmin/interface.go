@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -48,6 +49,9 @@ type Dispatcher interface {
 
 	// ReIP will update the catalog on disk with new IPs for all of the nodes given.
 	ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error)
+
+	// StopDB will stop all the vertica hosts of a running cluster
+	StopDB(ctx context.Context, opts ...stopdb.Option) error
 }
 
 const (

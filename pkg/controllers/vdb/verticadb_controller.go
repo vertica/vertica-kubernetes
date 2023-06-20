@@ -175,7 +175,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Stop vertica if the status condition indicates
-		MakeStopDBReconciler(r, vdb, prunner, pfacts),
+		MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),

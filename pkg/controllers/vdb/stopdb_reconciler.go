@@ -23,7 +23,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,21 +33,25 @@ import (
 
 // StopDBReconciler will stop the cluster and clear the restart needed status condition
 type StopDBReconciler struct {
-	VRec    *VerticaDBReconciler
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	VRec       *VerticaDBReconciler
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	Dispatcher vadmin.Dispatcher
 }
 
 // MakeStopDBReconciler will build a StopDBReconciler object
 func MakeStopDBReconciler(
 	vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	dispatcher vadmin.Dispatcher,
 ) controllers.ReconcileActor {
 	return &StopDBReconciler{
 		VRec:    vdbrecon,
 		Vdb:     vdb,
 		PRunner: prunner,
 		PFacts:  pfacts,
+		// SPILLY - use a pointer??
+		Dispatcher: dispatcher,
 	}
 }
 
@@ -93,7 +98,7 @@ func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
 	}
 
 	// Run the stop_db command
-	err := s.runATCmd(ctx, pf.name)
+	err := s.runATCmd(ctx, pf.name, pf.podIP)
 
 	// Invalidate the pod facts now that vertica daemon has been stopped on all of the pods
 	s.PFacts.Invalidate()
@@ -101,26 +106,15 @@ func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
 }
 
 // runATCmd issues the admintools command to stop the database
-func (s *StopDBReconciler) runATCmd(ctx context.Context, atPod types.NamespacedName) error {
-	cmd := s.genCmd()
+func (s *StopDBReconciler) runATCmd(ctx context.Context, initiatorName types.NamespacedName, initiatorIP string) error {
 	s.VRec.Event(s.Vdb, corev1.EventTypeNormal, events.StopDBStart,
 		"Calling 'admintools -t stop_db'")
 	start := time.Now()
-	_, _, err := s.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...)
-	if err != nil {
+	if err := s.Dispatcher.StopDB(ctx, stopdb.WithInitiator(initiatorName, initiatorIP)); err != nil {
 		s.VRec.Event(s.Vdb, corev1.EventTypeWarning, events.StopDBFailed, "Failed to stop the database")
 		return err
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.StopDBSucceeded,
 		"Successfully stopped the database.  It took %ds", int(time.Since(start).Seconds()))
 	return nil
-}
-
-// genCmd will return the command to run in the pod to stop the database
-func (s *StopDBReconciler) genCmd() []string {
-	return []string{
-		"-t", "stop_db",
-		"--database", s.Vdb.Spec.DBName,
-		"--force",
-	}
 }
