@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,13 +37,14 @@ import (
 // OfflineUpgradeReconciler will handle the process of doing an offline upgrade
 // of the Vertica server.
 type OfflineUpgradeReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	Finder  iter.SubclusterFinder
-	Manager UpgradeManager
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	Finder     iter.SubclusterFinder
+	Manager    UpgradeManager
+	Dispatcher vadmin.Dispatcher
 }
 
 const (
@@ -59,10 +61,11 @@ var OfflineUpgradeStatusMsgs = []string{
 
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
 func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OfflineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
-		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
+		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
+		Dispatcher: dispatcher,
 	}
 }
 
@@ -274,7 +277,7 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
-	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true)
+	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true, o.Dispatcher)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

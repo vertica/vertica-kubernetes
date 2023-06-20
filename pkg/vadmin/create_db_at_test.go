@@ -27,7 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("create_db", func() {
+var _ = Describe("create_db_at", func() {
 	ctx := context.Background()
 
 	It("should call admintools with create_db task", func() {

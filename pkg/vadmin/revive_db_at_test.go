@@ -27,7 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("revive_db", func() {
+var _ = Describe("revive_db_at", func() {
 	ctx := context.Background()
 
 	It("should call admintools -t revive_db", func() {
