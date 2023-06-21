@@ -20,9 +20,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -31,10 +28,7 @@ var _ = Describe("revive_db_at", func() {
 	ctx := context.Background()
 
 	It("should call admintools -t revive_db", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{}
-		evWriter := mgmterrors.TestEVWriter{}
-		dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter)
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
 		Ω(dispatcher.ReviveDB(ctx,
 			revivedb.WithCommunalPath("/communal-1"),
 			revivedb.WithDBName("testdb"),

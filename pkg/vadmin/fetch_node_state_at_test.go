@@ -20,9 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,8 +30,7 @@ var _ = Describe("fetch_node_state_at", func() {
 	ctx := context.Background()
 
 	It("should call list_allnodes", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		d, vdb, fpr := mockAdmintoolsDispatcher()
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		fpr.Results[atPod] = []cmds.CmdResult{
 			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
@@ -44,8 +41,6 @@ var _ = Describe("fetch_node_state_at", func() {
 				"\n",
 			},
 		}
-		evWriter := mgmterrors.TestEVWriter{}
-		d := MakeAdmintools(logger, vdb, fpr, &evWriter)
 		state, res, err := d.FetchNodeState(ctx,
 			fetchnodestate.WithInitiator(atPod, "10.244.1.6"),
 			fetchnodestate.WithHost("v_d_node0001", "10.244.1.6"),
@@ -61,11 +56,7 @@ var _ = Describe("fetch_node_state_at", func() {
 	})
 
 	It("should parse the list_allnodes output", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		evWriter := mgmterrors.TestEVWriter{}
-		d := MakeAdmintools(logger, vdb, fpr, &evWriter)
-		at := d.(Admintools)
+		at, _, _ := mockAdmintoolsDispatcher()
 		stateMap := at.parseClusterNodeStatus(
 			" Node          | Host       | State | Version                 | DB \n"+
 				"---------------+------------+-------+-------------------------+----\n"+
@@ -83,11 +74,8 @@ var _ = Describe("fetch_node_state_at", func() {
 	})
 
 	It("should fail if the same vnode is given twice", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		d, vdb, _ := mockAdmintoolsDispatcher()
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
-		evWriter := mgmterrors.TestEVWriter{}
-		d := MakeAdmintools(logger, vdb, fpr, &evWriter)
 		_, _, err := d.FetchNodeState(ctx,
 			fetchnodestate.WithInitiator(atPod, "10.244.1.6"),
 			fetchnodestate.WithHost("v_d_node0001", "10.244.1.6"),

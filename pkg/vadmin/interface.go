@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -44,6 +45,9 @@ type Dispatcher interface {
 	// FetchNodeState will determine if the given set of nodes are considered UP
 	// or DOWN in our consensous state. It returns a map of vnode to its node state.
 	FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error)
+
+	// ReIP will update the catalog on disk with new IPs for all of the nodes given.
+	ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error)
 }
 
 const (

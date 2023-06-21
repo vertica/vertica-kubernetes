@@ -16,7 +16,13 @@
 package vadmin
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -27,4 +33,17 @@ import (
 func (a Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
 	evLogr := mgmterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
 	return evLogr.LogFailure(cmd, op, err)
+}
+
+// debugDumpAdmintoolsConf will dump specific info from admintools.conf for logging purposes
+// +nolint
+func (a Admintools) debugDumpAdmintoolsConf(ctx context.Context, atPod types.NamespacedName) {
+	// Dump out vital informating from admintools.conf for logging purposes. We
+	// rely on the logging that is done inside ExecInPod.
+	cmd := []string{
+		"bash", "-c",
+		fmt.Sprintf(`ls -l %s && grep '^node\|^v_\|^host' %s`, paths.AdminToolsConf, paths.AdminToolsConf),
+	}
+	// Since this is for debugging purposes all errors are ignored
+	a.PRunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...) //nolint:errcheck
 }

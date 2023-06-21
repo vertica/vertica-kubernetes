@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"regexp"
 	"strings"
 	"time"
 
@@ -32,9 +31,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,16 +44,11 @@ import (
 const (
 	// Amount of time to wait after a restart failover before doing another requeue.
 	RequeueWaitTimeInSeconds = 10
-	// The name of the IP map file that is used by re_ip.  re_ip is only ever used if the entire cluster is down.
-	AdminToolsMapFile = "/opt/vertica/config/ipMap.txt"
 	// Percent of livenessProbe time to wait when requeuing due to waiting on
 	// livenessProbe. This is just a heuristic we use to avoid going into a long
 	// exponential backoff wait for the livenessProbe to fail.
 	PctOfLivenessProbeWait = 0.25
 )
-
-// A map that does a lookup of a vertica node name to an IP address
-type verticaIPLookup map[string]string
 
 // RestartReconciler will ensure each pod has a running vertica process
 type RestartReconciler struct {
@@ -379,47 +373,24 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 // reipNodes will run admintools -t re_ip against a set of pods.
 // If it detects that no IPs are changing, then no re_ip is done.
 func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
-	var mapFileContents []string
-
-	// We always use the compat21 nodes when generating the IP map.  We cannot
-	// use the vnode because they are only set _after_ a node is added to a DB.
-	// ReIP can be dealing with a mix -- some nodes that have been added to the
-	// db and some that aren't.
-	oldIPs, err := r.fetchOldIPsFromNode(ctx, r.InitiatorPod)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	mapFileContents, ipChanging, ok := r.genMapFile(oldIPs, pods)
-	if !ok {
-		r.Log.Info("Could not generate the map file contents from nodes.  Requeue reconciliation.")
+	if len(pods) == 0 {
+		r.Log.Info("No pods qualify for possible re-ip. Need to requeue restart reconciler.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if !ipChanging {
-		// no re-ip is necessary, the IP are not changing
-		return ctrl.Result{}, nil
+	opts := []reip.Option{
+		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
-
-	cmd := genMapFileUploadCmd(mapFileContents)
-	if _, _, err := r.PRunner.ExecInPod(ctx, r.InitiatorPod, names.ServerContainer, cmd...); err != nil {
-		return ctrl.Result{}, err
+	for i := range pods {
+		if !pods[i].isPodRunning {
+			r.Log.Info("Not all pods are running. Need to requeue restart reconciler.", "pod", pods[i].name)
+			return ctrl.Result{Requeue: true}, nil
+		}
+		// Add the current host. Note, when using vclusterOps integration,
+		// compat21NodeName won't be available. It is passed in incase we need
+		// to use legacy admintools APIs.
+		opts = append(opts, reip.WithHost(pods[i].vnodeName, pods[i].compat21NodeName, pods[i].podIP))
 	}
-
-	// Prior to calling re_ip, dump out the state of admintools.conf for PD purposes
-	debugDumpAdmintoolsConf(ctx, r.PRunner, r.InitiatorPod)
-
-	cmd = r.genReIPCommand()
-	if _, _, err := r.PRunner.ExecAdmintools(ctx, r.InitiatorPod, names.ServerContainer, cmd...); err != nil {
-		// Log an event as failure to re_ip means we won't be able to bring up the database.
-		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReipFailed,
-			"Attempt to run 'admintools -t re_ip' failed")
-		return ctrl.Result{}, err
-	}
-
-	// Now that re_ip is done, dump out the state of admintools.conf to the log.
-	debugDumpAdmintoolsConf(ctx, r.PRunner, r.InitiatorPod)
-
-	return ctrl.Result{}, nil
+	return r.Dispatcher.ReIP(ctx, opts...)
 }
 
 // restartCluster will call admintools -t start_db
@@ -606,109 +577,6 @@ func (r *RestartReconciler) genRestartNodeCmd(vnodeList, ipList []string) []stri
 	if r.Vdb.Spec.RestartTimeout != 0 {
 		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
 	}
-	return cmd
-}
-
-// parseNodesFromAdmintoolConf will parse out the vertica node and IP from admintools.conf output.
-// The nodeText passed in is taken from a grep output of the node columns. As
-// such, multiple lines are concatenated together with '\n'.
-func parseNodesFromAdmintoolConf(nodeText string) verticaIPLookup {
-	ips := make(verticaIPLookup)
-	rs := `^(node\d{4}) = ([\d.:a-fA-F]+),`
-
-	re := regexp.MustCompile(rs)
-	for _, line := range strings.Split(nodeText, "\n") {
-		match := re.FindAllStringSubmatch(line, 1)
-		if len(match) > 0 && len(match[0]) >= 3 {
-			ips[match[0][1]] = match[0][2]
-		}
-	}
-	return ips
-}
-
-// fetchOldIPsFromNode will read a local admintools.conf and get the IPs from it.
-// The IPs from an admintools.conf represent the *old* IPs. We store them in a
-// map, where the lookup is by the node name. This function only handles
-// compat21 node names.
-func (r *RestartReconciler) fetchOldIPsFromNode(ctx context.Context, atPod types.NamespacedName) (verticaIPLookup, error) {
-	cmd := r.genGrepNodeCmd()
-	stdout, _, err := r.PRunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...)
-	if err != nil {
-		return verticaIPLookup{}, err
-	}
-	return parseNodesFromAdmintoolConf(stdout), nil
-}
-
-// genGrepNodeCmd returns the command to run to get the nodes from admintools.conf
-// This function only handles grepping compat21 nodes.
-func (r *RestartReconciler) genGrepNodeCmd() []string {
-	return []string{
-		"bash", "-c", fmt.Sprintf("grep --regexp='^node[0-9]' %s", paths.AdminToolsConf),
-	}
-}
-
-// genMapFile generates the map file used by re_ip
-// The list of old IPs are passed in. We combine that with the new IPs in the
-// podfacts to generate the map file. The map file is returned as a list of
-// strings. Its format is what is expected by admintools -t re_ip.
-func (r *RestartReconciler) genMapFile(
-	oldIPs verticaIPLookup, pods []*PodFact) (mapContents []string, ipChanging, ok bool) {
-	mapContents = []string{}
-	ipChanging = false
-	ok = true
-
-	if len(pods) == 0 {
-		r.Log.Info("No pods qualify.  Need to requeue restart reconciler.")
-		return mapContents, ipChanging, false
-	}
-
-	for _, pod := range pods {
-		// If the pod is not running, then a re_ip is not possible because we won't know the new IP yet.
-		if !pod.isPodRunning {
-			r.Log.Info("Not all pods are running.  Need to requeue restart reconciler.", "pod", pod.name)
-			return mapContents, ipChanging, false
-		}
-		nodeName := pod.compat21NodeName
-		var oldIP string
-		oldIP, ok = oldIPs[nodeName]
-		// If we are missing the old IP, we skip and don't fail.  Re-ip allows
-		// for a subset of the nodes and the host may already be removed from
-		// the cluster anyway.
-		if !ok {
-			ok = true // reset to true in case this is the last pod
-			continue
-		}
-		if oldIP != pod.podIP {
-			ipChanging = true
-		}
-		mapContents = append(mapContents, fmt.Sprintf("%s %s", oldIP, pod.podIP))
-	}
-	return mapContents, ipChanging, ok
-}
-
-// genMapFileUploadCmd returns the command to run to upload the map file
-func genMapFileUploadCmd(mapFileContents []string) []string {
-	return []string{
-		"bash", "-c", "cat > " + AdminToolsMapFile + "<<< '" + strings.Join(mapFileContents, "\n") + "'",
-	}
-}
-
-// genReIPCommand will return the command to run for the re_ip command
-func (r *RestartReconciler) genReIPCommand() []string {
-	cmd := []string{
-		"-t", "re_ip",
-		"--file=" + AdminToolsMapFile,
-		"--noprompt",
-	}
-
-	// In 11.1, we added a --force option to re_ip to allow us to run it while
-	// some nodes are up.  This was done to support doing a reip while there are
-	// read-only secondary nodes.
-	vinf, ok := r.Vdb.MakeVersionInfo()
-	if ok && vinf.IsEqualOrNewer(vapi.ReIPAllowedWithUpNodesVersion) {
-		cmd = append(cmd, "--force")
-	}
-
 	return cmd
 }
 
