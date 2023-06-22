@@ -19,13 +19,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 )
 
-// StopDB will stop all the vertica hosts of a running cluster
-func (v VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
-	v.Log.Info("Starting vcluster StopDB")
-	s := stopdb.Parms{}
+// AddNode will add a new vertica node to the cluster
+func (v VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error {
+	v.Log.Info("Starting vcluster AddNode")
+	s := addnode.Parms{}
 	s.Make(opts...)
 	return fmt.Errorf("not implemented")
 }

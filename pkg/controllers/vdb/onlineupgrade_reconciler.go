@@ -279,7 +279,7 @@ func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
 	o.traceActorReconcile(actor)
 	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err

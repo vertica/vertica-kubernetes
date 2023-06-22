@@ -224,7 +224,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to admintools -t db_add_node
-		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to rebalance_shards
 		MakeRebalanceShardsReconciler(r, log, vdb, prunner, pfacts, "" /* all subclusters */),
@@ -284,7 +284,7 @@ func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaD
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		return vadmin.MakeVClusterOps(log, vdb)
 	}
-	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
+	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec, r.OpCfg.DevMode)
 }
 
 // Event a wrapper for Event() that also writes a log entry

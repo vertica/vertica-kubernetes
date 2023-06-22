@@ -13,19 +13,10 @@
  limitations under the License.
 */
 
-package vadmin
+package addnode
 
-import (
-	"context"
-	"fmt"
-
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
-)
-
-// StopDB will stop all the vertica hosts of a running cluster
-func (v VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
-	v.Log.Info("Starting vcluster StopDB")
-	s := stopdb.Parms{}
-	s.Make(opts...)
-	return fmt.Errorf("not implemented")
+type LicenseLimitError struct {
+	Msg string // description of error
 }
+
+func (e *LicenseLimitError) Error() string { return e.Msg }

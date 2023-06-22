@@ -46,11 +46,10 @@ func MakeStopDBReconciler(
 	dispatcher vadmin.Dispatcher,
 ) controllers.ReconcileActor {
 	return &StopDBReconciler{
-		VRec:    vdbrecon,
-		Vdb:     vdb,
-		PRunner: prunner,
-		PFacts:  pfacts,
-		// SPILLY - use a pointer??
+		VRec:       vdbrecon,
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
 		Dispatcher: dispatcher,
 	}
 }

@@ -22,8 +22,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
 
-// ReviveDB will initialize a database from an existing communal path.
-// Admintools is used to run the revive.
+// StopDB will stop all the vertica hosts of a running cluster
 func (a Admintools) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 	s := stopdb.Parms{}
 	s.Make(opts...)
