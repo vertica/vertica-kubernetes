@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -138,7 +139,7 @@ func (o *OfflineUpgradeReconciler) postStoppingClusterMsg(ctx context.Context) (
 	return o.postNextStatusMsg(ctx, ClusterShutdownOfflineMsgIndex)
 }
 
-// stopCluster will shutdown the entire cluster using 'admintools -t stop_db'
+// stopCluster will shutdown the entire cluster
 func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result, error) {
 	pf, found := o.PFacts.findRunningPod()
 	if !found {
@@ -167,9 +168,7 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 	start := time.Now()
 	o.VRec.Event(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
 		"Calling 'admintools -t stop_db'")
-
-	_, _, err := o.PRunner.ExecAdmintools(ctx, pf.name, names.ServerContainer,
-		"-t", "stop_db", "-F", "-d", o.Vdb.Spec.DBName)
+	err := o.Dispatcher.StopDB(ctx, stopdb.WithInitiator(pf.name, pf.podIP))
 	if err != nil {
 		o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
 			"Failed to shutdown the cluster")
