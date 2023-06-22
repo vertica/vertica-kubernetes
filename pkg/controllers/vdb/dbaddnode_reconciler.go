@@ -174,7 +174,6 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodF
 		addnode.WithSubcluster(pods[0].subclusterName),
 	}
 	for i := range pods {
-		d.Log.Info("adding pod", "dnsName", pods[i].dnsName, "name", pods[i].name) // SPILLY
 		opts = append(opts, addnode.WithHost(pods[i].dnsName))
 	}
 	err := d.Dispatcher.AddNode(ctx, opts...)
