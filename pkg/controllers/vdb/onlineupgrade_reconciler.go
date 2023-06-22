@@ -576,7 +576,7 @@ func (o *OnlineUpgradeReconciler) removeTransientSubclusters(ctx context.Context
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }

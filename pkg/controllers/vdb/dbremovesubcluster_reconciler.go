@@ -29,24 +29,34 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // DBRemoveSubclusterReconciler will remove subclusters from the database
 type DBRemoveSubclusterReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	ATPod   *PodFact // The pod that we run admintools from
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	ATPod      *PodFact // The pod that we run admintools from
+	Dispatcher vadmin.Dispatcher
 }
 
 // MakeDBRemoveSubclusterReconciler will build a DBRemoveSubclusterReconciler object
 func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &DBRemoveSubclusterReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	return &DBRemoveSubclusterReconciler{
+		VRec:       vdbrecon,
+		Log:        log,
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
+		Dispatcher: dispatcher,
+	}
 }
 
 // Reconcile will remove any subcluster that no longer exists in the vdb.
@@ -103,22 +113,13 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
-// removeSubcluster will call admintools to remove the given subcluster from vertica
+// removeSubcluster will call an admin function to remove the given subcluster from vertica
 func (d *DBRemoveSubclusterReconciler) removeSubcluster(ctx context.Context, scName string) error {
-	cmd := []string{
-		"-t", "db_remove_subcluster",
-		"--database", d.Vdb.Spec.DBName,
-		"--subcluster", scName,
-		"--noprompts",
-	}
-
-	stdout, _, err := d.PRunner.ExecAdmintools(ctx, d.ATPod.name, names.ServerContainer, cmd...)
+	err := d.Dispatcher.RemoveSubcluster(ctx,
+		removesc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
+		removesc.WithSubcluster(scName),
+	)
 	if err != nil {
-		if strings.Contains(stdout, "No subcluster found") {
-			// Nothing to do if the subcluster is already gone.
-			d.Log.Info("Attempted to remove a subcluster that was already gone", "subcluster", scName)
-			return nil
-		}
 		return err
 	}
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterRemoved,

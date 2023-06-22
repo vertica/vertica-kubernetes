@@ -188,10 +188,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Wait for any nodes that are pending delete with active connections to leave.
 		MakeDrainNodeReconciler(r, vdb, prunner, pfacts),
 		// Handles calls to admintools -t db_remove_subcluster
-		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handles calls to admintools -t db_remove_node
-		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to remove hosts from admintools.conf

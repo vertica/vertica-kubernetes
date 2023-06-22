@@ -27,6 +27,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,6 +59,12 @@ type Dispatcher interface {
 	// AddNode will add a new vertica node to the cluster. If add node fails due to
 	// a license limit, the error will be of type addnode.LicenseLimitError.
 	AddNode(ctx context.Context, opts ...addnode.Option) error
+
+	// RemoveNode will remove an existng vertica node from the cluster.
+	RemoveNode(ctx context.Context, opts ...removenode.Option) error
+
+	// RemoveSubcluster will remove the given subcluster from the vertica cluster.
+	RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error
 }
 
 const (
