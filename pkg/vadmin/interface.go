@@ -23,6 +23,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
@@ -53,12 +54,15 @@ type Dispatcher interface {
 	// ReIP will update the catalog on disk with new IPs for all of the nodes given.
 	ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error)
 
-	// StopDB will stop all the vertica hosts of a running cluster
+	// StopDB will stop all the vertica hosts of a running cluster.
 	StopDB(ctx context.Context, opts ...stopdb.Option) error
 
 	// AddNode will add a new vertica node to the cluster. If add node fails due to
 	// a license limit, the error will be of type addnode.LicenseLimitError.
 	AddNode(ctx context.Context, opts ...addnode.Option) error
+
+	// AddSubcluster will create a subcluster in the vertica cluster.
+	AddSubcluster(ctx context.Context, opts ...addsc.Option) error
 
 	// RemoveNode will remove an existng vertica node from the cluster.
 	RemoveNode(ctx context.Context, opts ...removenode.Option) error

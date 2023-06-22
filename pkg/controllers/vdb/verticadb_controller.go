@@ -220,7 +220,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Ensure http server is running on each pod
 		MakeHTTPServerCtrlReconciler(r, vdb, prunner, pfacts),
 		// Handle calls to admintools -t db_add_subcluster
-		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to admintools -t db_add_node

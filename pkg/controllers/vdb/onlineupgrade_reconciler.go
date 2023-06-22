@@ -263,7 +263,7 @@ func (o *OnlineUpgradeReconciler) addTransientSubcluster(ctx context.Context) (c
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
 	o.traceActorReconcile(actor)
 	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err

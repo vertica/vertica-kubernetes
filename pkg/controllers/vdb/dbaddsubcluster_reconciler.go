@@ -26,26 +26,36 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // DBAddSubclusterReconciler will create a new subcluster if necessary
 type DBAddSubclusterReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
-	ATPod   *PodFact // The pod that we run admintools from
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	ATPod      *PodFact // The pod that we run admintools from
+	Dispatcher vadmin.Dispatcher
 }
 
 type SubclustersSet map[string]bool
 
 // MakeDBAddSubclusterReconciler will build a DBAddSubclusterReconciler object
 func MakeDBAddSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &DBAddSubclusterReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	return &DBAddSubclusterReconciler{
+		VRec:       vdbrecon,
+		Log:        log,
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
+		Dispatcher: dispatcher,
+	}
 }
 
 // Reconcile will ensure a subcluster exists for each one defined in the vdb.
@@ -125,29 +135,15 @@ func (d *DBAddSubclusterReconciler) parseFetchSubclusterVsql(stdout string) Subc
 
 // createSubcluster will create the given subcluster
 func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *vapi.Subcluster) error {
-	cmd := []string{
-		"-t", "db_add_subcluster",
-		"--database", d.Vdb.Spec.DBName,
-		"--subcluster", sc.Name,
+	err := d.Dispatcher.AddSubcluster(ctx,
+		addsc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
+		addsc.WithSubcluster(sc.Name),
+		addsc.WithIsPrimary(sc.IsPrimary),
+	)
+	if err != nil {
+		return err
 	}
-
-	// In v11, when adding a subcluster it defaults to a secondary.  Prior
-	// versions default to a primary.  Use the correct switch, depending on what
-	// version we are using.
-	vinf, ok := d.Vdb.MakeVersionInfo()
-	const DefaultSecondarySubclusterCreationVersion = "v11.0.0"
-	if ok && vinf.IsEqualOrNewer(DefaultSecondarySubclusterCreationVersion) {
-		if sc.IsPrimary {
-			cmd = append(cmd, "--is-primary")
-		}
-	} else {
-		if !sc.IsPrimary {
-			cmd = append(cmd, "--is-secondary")
-		}
-	}
-
-	_, _, err := d.PRunner.ExecAdmintools(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.SubclusterAdded,
 		"Added new subcluster '%s'", sc.Name)
-	return err
+	return nil
 }
