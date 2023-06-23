@@ -42,7 +42,7 @@ var _ = Describe("add_node_at", func() {
 		Ω(hist[0].Command).Should(ContainElement("v-main-1,v-main-2"))
 	})
 
-	It("should return a special error when the licenese limit was reached", func() {
+	It("should return a special error when the license limit was reached", func() {
 		dispatcher, vdb, fpr := mockAdmintoolsDispatcher()
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results[nm] = []cmds.CmdResult{
