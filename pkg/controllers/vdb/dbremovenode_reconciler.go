@@ -114,14 +114,14 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToRemove, requeueNeeded := d.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
 	if len(podsToRemove) > 0 {
-		atPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
+		initiatorPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
 		if !ok {
 			// Requeue since we couldn't find a running pod
 			d.Log.Info("Requeue since we could not find a pod to run admintools")
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		if err := d.execAdminCmd(ctx, atPod, podsToRemove); err != nil {
+		if err := d.runRemoveNode(ctx, initiatorPod, podsToRemove); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to call remove node: %w", err)
 		}
 
@@ -136,15 +136,15 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 	return ctrl.Result{Requeue: requeueNeeded}, nil
 }
 
-// execAdminCmd will run the admin command to remove the node
+// runRemoveNode will run the admin command to remove the node
 // This handles recording of the events.
-func (d *DBRemoveNodeReconciler) execAdminCmd(ctx context.Context, atPod *PodFact, pods []*PodFact) error {
+func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod *PodFact, pods []*PodFact) error {
 	podNames := genPodNames(pods)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesStart,
 		"Calling 'admintools -t db_remove_node' for pods '%s'", podNames)
 	start := time.Now()
 	opts := []removenode.Option{
-		removenode.WithInitiator(atPod.name, atPod.podIP),
+		removenode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
 	}
 	for i := range pods {
 		opts = append(opts, removenode.WithHost(pods[i].dnsName))

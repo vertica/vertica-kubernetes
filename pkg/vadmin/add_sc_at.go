@@ -32,19 +32,10 @@ func (a Admintools) AddSubcluster(ctx context.Context, opts ...addsc.Option) err
 		"--subcluster", s.Subcluster,
 	}
 
-	// In v11, when adding a subcluster it defaults to a secondary.  Prior
-	// versions default to a primary.  Use the correct switch, depending on what
-	// version we are using.
-	vinf, ok := a.VDB.MakeVersionInfo()
-	const DefaultSecondarySubclusterCreationVersion = "v11.0.0"
-	if ok && vinf.IsEqualOrNewer(DefaultSecondarySubclusterCreationVersion) {
-		if s.IsPrimary {
-			cmd = append(cmd, "--is-primary")
-		}
+	if s.IsPrimary {
+		cmd = append(cmd, "--is-primary")
 	} else {
-		if !s.IsPrimary {
-			cmd = append(cmd, "--is-secondary")
-		}
+		cmd = append(cmd, "--is-secondary")
 	}
 
 	_, _, err := a.PRunner.ExecAdmintools(ctx, s.InitiatorName, names.ServerContainer, cmd...)

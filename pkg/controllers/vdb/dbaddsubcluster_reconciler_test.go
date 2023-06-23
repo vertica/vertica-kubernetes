@@ -87,9 +87,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		))
 	})
 
-	It("should use the proper subcluster type switch for v10.1.1 versions", func() {
+	It("should use the proper subcluster type switch", func() {
 		vdb := vapi.MakeVDB()
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v10.1.1-0"
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -112,7 +111,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		Expect(r.createSubcluster(ctx, &vdb.Spec.Subclusters[0])).Should(Succeed())
 		hists = fpr.FindCommands("db_add_subcluster")
 		Expect(len(hists)).Should(Equal(1))
-		Expect(hists[0].Command).ShouldNot(ContainElement("--is-primary"))
+		Expect(hists[0].Command).Should(ContainElement("--is-primary"))
 	})
 
 	It("should exit without error if not using an EON database", func() {
