@@ -31,14 +31,17 @@ var _ = Describe("remove_sc_at", func() {
 
 	It("should call admintools -t db_remove_subcluster", func() {
 		dispatcher, vdb, fpr := mockAdmintoolsDispatcher()
-		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		Ω(dispatcher.RemoveSubcluster(ctx,
 			removesc.WithInitiator(nm, "10.9.1.92"),
 			removesc.WithSubcluster(vdb.Spec.Subclusters[0].Name),
 		)).Should(Succeed())
 		hist := fpr.FindCommands("-t db_remove_subcluster")
 		Ω(len(hist)).Should(Equal(1))
-		Ω(hist[0].Command).Should(ContainElement(vdb.Spec.Subclusters[0].Name))
+		Ω(hist[0].Command).Should(ContainElements(
+			"--subcluster",
+			vdb.Spec.Subclusters[0].Name,
+		))
 	})
 
 	It("should be a no-op if the subcluster is already gone", func() {
