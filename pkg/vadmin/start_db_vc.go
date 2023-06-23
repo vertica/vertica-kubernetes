@@ -17,15 +17,16 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// RemoveNode will remove an existng vertica node from the cluster.
-func (v VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option) error {
-	v.Log.Info("Starting vcluster RemoveNode")
-	s := removenode.Parms{}
+// StartDB will start a subset of nodes. Use this when vertica has lost
+// cluster quorum. The IP given for each vnode *must* match the current IP
+// in the vertica catalog. If they aren't a call to ReIP is necessary.
+func (v VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
+	s := startdb.Parms{}
 	s.Make(opts...)
-	return fmt.Errorf("not implemented")
+	return ctrl.Result{}, nil
 }
