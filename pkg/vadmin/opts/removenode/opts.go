@@ -13,23 +13,17 @@
  limitations under the License.
 */
 
-package reip
+package removenode
 
 import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// Parms holds all of the option for a re_ip invocation.
+// Parms holds all of the option for a revive DB invocation.
 type Parms struct {
-	Initiator   types.NamespacedName
-	InitiatorIP string
-	Hosts       []Host
-}
-
-type Host struct {
-	VNode        string // Vertica node. In the format of v_<db>_node####
-	Compat21Node string // node name without the v_<db>_* prefix
-	IP           string // Current IP address of this host/pod
+	InitiatorName types.NamespacedName
+	InitiatorIP   string
+	Hosts         []string
 }
 
 type Option func(*Parms)
@@ -43,20 +37,16 @@ func (s *Parms) Make(opts ...Option) {
 
 func WithInitiator(nm types.NamespacedName, ip string) Option {
 	return func(s *Parms) {
-		s.Initiator = nm
+		s.InitiatorName = nm
 		s.InitiatorIP = ip
 	}
 }
 
-func WithHost(vnode, compat21node, ip string) Option {
+func WithHost(fqdn string) Option {
 	return func(s *Parms) {
 		if s.Hosts == nil {
-			s.Hosts = make([]Host, 0)
+			s.Hosts = make([]string, 0)
 		}
-		s.Hosts = append(s.Hosts, Host{
-			VNode:        vnode,
-			Compat21Node: compat21node,
-			IP:           ip,
-		})
+		s.Hosts = append(s.Hosts, fqdn)
 	}
 }

@@ -22,11 +22,16 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -48,6 +53,22 @@ type Dispatcher interface {
 
 	// ReIP will update the catalog on disk with new IPs for all of the nodes given.
 	ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error)
+
+	// StopDB will stop all the vertica hosts of a running cluster.
+	StopDB(ctx context.Context, opts ...stopdb.Option) error
+
+	// AddNode will add a new vertica node to the cluster. If add node fails due to
+	// a license limit, the error will be of type addnode.LicenseLimitError.
+	AddNode(ctx context.Context, opts ...addnode.Option) error
+
+	// AddSubcluster will create a subcluster in the vertica cluster.
+	AddSubcluster(ctx context.Context, opts ...addsc.Option) error
+
+	// RemoveNode will remove an existng vertica node from the cluster.
+	RemoveNode(ctx context.Context, opts ...removenode.Option) error
+
+	// RemoveSubcluster will remove the given subcluster from the vertica cluster.
+	RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error
 }
 
 const (
@@ -63,16 +84,18 @@ type Admintools struct {
 	Log      logr.Logger
 	EVWriter mgmterrors.EVWriter
 	VDB      *vapi.VerticaDB
+	DevMode  bool // true to include verbose logging for some operations
 }
 
 // MakeAdmintools will create a dispatcher that uses admintools to call the
 // admin commands.
-func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter mgmterrors.EVWriter) Dispatcher {
+func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter mgmterrors.EVWriter, devMode bool) Dispatcher {
 	return Admintools{
 		PRunner:  prunner,
 		VDB:      vdb,
 		Log:      log,
 		EVWriter: evWriter,
+		DevMode:  devMode,
 	}
 }
 

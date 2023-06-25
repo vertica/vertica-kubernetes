@@ -175,7 +175,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Stop vertica if the status condition indicates
-		MakeStopDBReconciler(r, vdb, prunner, pfacts),
+		MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
@@ -188,10 +188,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Wait for any nodes that are pending delete with active connections to leave.
 		MakeDrainNodeReconciler(r, vdb, prunner, pfacts),
 		// Handles calls to admintools -t db_remove_subcluster
-		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handles calls to admintools -t db_remove_node
-		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to remove hosts from admintools.conf
@@ -220,11 +220,11 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Ensure http server is running on each pod
 		MakeHTTPServerCtrlReconciler(r, vdb, prunner, pfacts),
 		// Handle calls to admintools -t db_add_subcluster
-		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to admintools -t db_add_node
-		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts),
+		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to rebalance_shards
 		MakeRebalanceShardsReconciler(r, log, vdb, prunner, pfacts, "" /* all subclusters */),
@@ -284,7 +284,7 @@ func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaD
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		return vadmin.MakeVClusterOps(log, vdb)
 	}
-	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
+	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec, r.OpCfg.DevMode)
 }
 
 // Event a wrapper for Event() that also writes a log entry

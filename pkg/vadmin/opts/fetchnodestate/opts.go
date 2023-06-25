@@ -72,7 +72,7 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 func WithHost(vnode, ip string) Option {
 	return func(s *Parms) {
 		if s.Hosts == nil {
-			s.Hosts = make([]Host, 1)
+			s.Hosts = make([]Host, 0)
 		}
 		s.Hosts = append(s.Hosts, Host{VNode: vnode, IP: ip})
 	}

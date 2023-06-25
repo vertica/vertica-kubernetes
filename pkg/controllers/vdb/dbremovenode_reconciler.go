@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -29,30 +28,33 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // DBRemoveNodeReconciler will handle removing a node from the database during scale down.
 type DBRemoveNodeReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	Dispatcher vadmin.Dispatcher
 }
 
 // MakeDBRemoveNodeReconciler will build and return the DBRemoveNodeReconciler object.
 func MakeDBRemoveNodeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &DBRemoveNodeReconciler{
-		VRec:    vdbrecon,
-		Log:     log,
-		Vdb:     vdb,
-		PRunner: prunner,
-		PFacts:  pfacts,
+		VRec:       vdbrecon,
+		Log:        log,
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
+		Dispatcher: dispatcher,
 	}
 }
 
@@ -112,16 +114,15 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToRemove, requeueNeeded := d.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
 	if len(podsToRemove) > 0 {
-		cmd := d.genCmdRemoveNode(podsToRemove)
-		atPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
+		initiatorPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
 		if !ok {
 			// Requeue since we couldn't find a running pod
 			d.Log.Info("Requeue since we could not find a pod to run admintools")
 			return ctrl.Result{Requeue: true}, nil
 		}
 
-		if err := d.execATCmd(ctx, atPod.name, genPodNames(podsToRemove), cmd); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to call admintools -t db_remove_node: %w", err)
+		if err := d.runRemoveNode(ctx, initiatorPod, podsToRemove); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to call remove node: %w", err)
 		}
 
 		// We successfully called db_remove_node, invalidate the pod facts cache
@@ -135,13 +136,20 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 	return ctrl.Result{Requeue: requeueNeeded}, nil
 }
 
-// execATCmd will run the admintools command to remove the node
+// runRemoveNode will run the admin command to remove the node
 // This handles recording of the events.
-func (d *DBRemoveNodeReconciler) execATCmd(ctx context.Context, atPod types.NamespacedName, podNames string, cmd []string) error {
+func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod *PodFact, pods []*PodFact) error {
+	podNames := genPodNames(pods)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesStart,
 		"Calling 'admintools -t db_remove_node' for pods '%s'", podNames)
 	start := time.Now()
-	if _, _, err := d.PRunner.ExecAdmintools(ctx, atPod, names.ServerContainer, cmd...); err != nil {
+	opts := []removenode.Option{
+		removenode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
+	}
+	for i := range pods {
+		opts = append(opts, removenode.WithHost(pods[i].dnsName))
+	}
+	if err := d.Dispatcher.RemoveNode(ctx, opts...); err != nil {
 		d.VRec.Event(d.Vdb, corev1.EventTypeWarning, events.RemoveNodesFailed,
 			"Failed when calling 'admintools -t db_remove_node'")
 		return err
@@ -178,18 +186,4 @@ func (d *DBRemoveNodeReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluste
 		pods = append(pods, podFact)
 	}
 	return pods, requeueNeeded
-}
-
-// genCmdUninstall generates the command to use to uninstall a single host
-func (d *DBRemoveNodeReconciler) genCmdRemoveNode(pods []*PodFact) []string {
-	hostNames := make([]string, 0, len(pods))
-	for _, pod := range pods {
-		hostNames = append(hostNames, pod.dnsName)
-	}
-	return []string{
-		"-t", "db_remove_node",
-		"--database", d.Vdb.Spec.DBName,
-		"--hosts=" + strings.Join(hostNames, ","),
-		"--noprompts",
-	}
 }

@@ -38,7 +38,8 @@ var _ = Describe("stopdb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
 	})
@@ -52,7 +53,8 @@ var _ = Describe("stopdb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, &pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("stop_db")
 		Expect(len(hist)).Should(Equal(0))
@@ -72,7 +74,8 @@ var _ = Describe("stopdb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		hist := fpr.FindCommands("stop_db")
 		Expect(len(hist)).Should(Equal(1))
