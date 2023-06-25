@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,7 +32,7 @@ func (a Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl
 	s := revivedb.Parms{}
 	s.Make(opts...)
 	cmd := a.genReviveCmd(&s)
-	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...)
+	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
 		return a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
 	}

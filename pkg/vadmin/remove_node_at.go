@@ -19,7 +19,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 )
 
@@ -33,6 +32,6 @@ func (a Admintools) RemoveNode(ctx context.Context, opts ...removenode.Option) e
 		"--hosts", strings.Join(s.Hosts, ","),
 		"--noprompts",
 	}
-	_, _, err := a.PRunner.ExecAdmintools(ctx, s.InitiatorName, names.ServerContainer, cmd...)
+	_, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
 	return err
 }

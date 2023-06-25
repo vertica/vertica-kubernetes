@@ -18,7 +18,6 @@ package vadmin
 import (
 	"context"
 
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
 
@@ -31,6 +30,6 @@ func (a Admintools) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 		"--database", a.VDB.Spec.DBName,
 		"--force",
 	}
-	_, _, err := a.PRunner.ExecAdmintools(ctx, s.InitiatorName, names.ServerContainer, cmd...)
+	_, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
 	return err
 }

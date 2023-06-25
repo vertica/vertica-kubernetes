@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -35,7 +34,7 @@ func (a Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.O
 	cmd := []string{
 		"-t", "list_allnodes",
 	}
-	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...)
+	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
 		res, err2 := a.logFailure("list_allnodes", events.MgmtFailed, stdout, err)
 		return nil, res, err2

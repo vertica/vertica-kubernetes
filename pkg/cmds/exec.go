@@ -25,6 +25,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -39,6 +41,7 @@ type PodRunner interface {
 	ExecAdmintools(ctx context.Context, podName types.NamespacedName, contName string, command ...string) (string, string, error)
 	CopyToPod(ctx context.Context, podName types.NamespacedName, contName string, sourceFile string,
 		destFile string, executeCmd ...string) (stdout, stderr string, err error)
+	DumpAdmintoolsConf(ctx context.Context, podName types.NamespacedName)
 }
 
 type ClusterPodRunner struct {
@@ -146,6 +149,18 @@ func (c *ClusterPodRunner) ExecAdmintools(ctx context.Context, podName types.Nam
 	contName string, command ...string) (stdout, stderr string, err error) {
 	command = UpdateAdmintoolsCmd(c.SUPassword, command...)
 	return c.ExecInPod(ctx, podName, contName, command...)
+}
+
+// DumpAdmintoolsConf will log relenvant portions of the admintools.conf for debug purposes.
+func (c *ClusterPodRunner) DumpAdmintoolsConf(ctx context.Context, podName types.NamespacedName) {
+	// Dump out vital informating from admintools.conf for logging purposes. We
+	// rely on the logging that is done inside ExecInPod.
+	cmd := []string{
+		"bash", "-c",
+		fmt.Sprintf(`ls -l %s && grep '^node\|^v_\|^host' %s`, paths.AdminToolsConf, paths.AdminToolsConf),
+	}
+	// Since this is for debugging purposes all errors are ignored
+	c.ExecInPod(ctx, podName, names.ServerContainer, cmd...) //nolint:errcheck
 }
 
 // UpdateVsqlCmd generates a vsql command appending the options we need

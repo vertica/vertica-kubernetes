@@ -19,7 +19,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 )
 
@@ -33,7 +32,7 @@ func (a Admintools) RemoveSubcluster(ctx context.Context, opts ...removesc.Optio
 		"--subcluster", s.Subcluster,
 		"--noprompts",
 	}
-	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.InitiatorName, names.ServerContainer, cmd...)
+	stdout, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
 	if err != nil {
 		if strings.Contains(stdout, "No subcluster found") {
 			// Nothing to do if the subcluster is already gone.

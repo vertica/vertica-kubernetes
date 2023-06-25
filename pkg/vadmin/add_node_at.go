@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -32,11 +31,7 @@ func (a Admintools) AddNode(ctx context.Context, opts ...addnode.Option) error {
 	s.Make(opts...)
 	cmd := a.genAddNodeCommand(&s)
 
-	if a.DevMode {
-		a.debugDumpAdmintoolsConf(ctx, s.InitiatorName)
-	}
-
-	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.InitiatorName, names.ServerContainer, cmd...)
+	stdout, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
 	if err != nil {
 		switch {
 		case isLicenseLimitError(stdout):
@@ -51,10 +46,6 @@ func (a Admintools) AddNode(ctx context.Context, opts ...addnode.Option) error {
 			a.EVWriter.Eventf(a.VDB, corev1.EventTypeWarning, events.AddNodeFailed,
 				"Failed when calling 'admintools -t db_add_node' for pod(s) '%s'", strings.Join(s.Hosts, ","))
 		}
-	}
-
-	if a.DevMode {
-		a.debugDumpAdmintoolsConf(ctx, s.InitiatorName)
 	}
 
 	return err
