@@ -113,17 +113,9 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	if g.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, g.PRunner, initiatorPod)
-	}
-
 	if res, err := g.initializer.execCmd(ctx, initiatorPod,
 		getHostList(podList)); verrors.IsReconcileAborted(res, err) {
 		return res, err
-	}
-
-	if g.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, g.PRunner, initiatorPod)
 	}
 
 	cond := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}

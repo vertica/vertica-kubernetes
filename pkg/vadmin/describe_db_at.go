@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,7 +32,7 @@ func (a Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (
 	s := describedb.Parms{}
 	s.Make(opts...)
 	cmd := a.genDescribeCmd(&s)
-	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...)
+	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
 		res, err2 := a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
 		return "", res, err2

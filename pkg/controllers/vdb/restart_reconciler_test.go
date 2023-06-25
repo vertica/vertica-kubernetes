@@ -130,7 +130,6 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 3)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
 			{}, // check up node status via -t list_allnodes
-			{}, // command that will dump admintools.conf vitals
 			{
 				Err:    errors.New("all nodes are not down"),
 				Stdout: "All nodes in the input are not down, can't restart",

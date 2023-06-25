@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,7 +31,7 @@ func (a Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl
 	s := createdb.Parms{}
 	s.Make(opts...)
 	cmd := a.genCreateDBCmd(&s)
-	stdout, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...)
+	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
 		return a.logFailure("create_db", events.CreateDBFailed, stdout, err)
 	}

@@ -288,16 +288,12 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 		return r.makeResultForLivenessProbeWait(ctx)
 	}
 
-	debugDumpAdmintoolsConf(ctx, r.PRunner, r.InitiatorPod)
-
 	vnodeList := genRestartVNodeList(downPods)
 	ipList := genRestartIPList(downPods)
 	cmd := r.genRestartNodeCmd(vnodeList, ipList)
 	if res, err := r.execRestartPods(ctx, downPods, cmd); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
-	debugDumpAdmintoolsConf(ctx, r.PRunner, r.InitiatorPod)
 
 	// Invalidate the cached pod facts now that some pods have restarted.
 	r.PFacts.Invalidate()

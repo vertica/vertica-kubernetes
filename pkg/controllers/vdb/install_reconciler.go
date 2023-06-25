@@ -401,3 +401,10 @@ func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Contex
 	}
 	return nil
 }
+
+// debugDumpAdmintoolsConfForPods will dump debug information for admintools.conf for a list of pods
+func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner, pods []*PodFact) {
+	for _, pod := range pods {
+		prunner.DumpAdmintoolsConf(ctx, pod.name)
+	}
+}

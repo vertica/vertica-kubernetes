@@ -27,7 +27,7 @@ set -o pipefail
 LINT_IMAGE=hadolint/hadolint:2.12.0
 docker pull $LINT_IMAGE
 
-for dir in docker-operator docker-vertica docker-vlogger
+for dir in docker-operator docker-vertica docker-vlogger docker-vertica-v2
 do
     F=$dir/Dockerfile
     printf "Checking ${YELLOW}$F${NC}\n"

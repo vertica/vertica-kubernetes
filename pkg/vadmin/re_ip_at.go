@@ -68,19 +68,13 @@ func (a Admintools) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result,
 		return ctrl.Result{}, err
 	}
 
-	// Prior to calling re_ip, dump out the state of admintools.conf for PD purposes
-	a.debugDumpAdmintoolsConf(ctx, s.Initiator)
-
 	cmd = a.genReIPCommand()
-	if _, _, err := a.PRunner.ExecAdmintools(ctx, s.Initiator, names.ServerContainer, cmd...); err != nil {
+	if _, err := a.execAdmintools(ctx, s.Initiator, cmd...); err != nil {
 		// Log an event as failure to re_ip means we won't be able to bring up the database.
 		a.EVWriter.Event(a.VDB, corev1.EventTypeWarning, events.ReipFailed,
 			"Attempt to run 'admintools -t re_ip' failed")
 		return ctrl.Result{}, err
 	}
-
-	// Now that re_ip is done, dump out the state of admintools.conf to the log.
-	a.debugDumpAdmintoolsConf(ctx, s.Initiator)
 
 	return ctrl.Result{}, nil
 }
