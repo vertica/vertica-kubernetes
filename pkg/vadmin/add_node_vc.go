@@ -23,7 +23,7 @@ import (
 )
 
 // AddNode will add a new vertica node to the cluster
-func (v VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error {
+func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error {
 	v.Log.Info("Starting vcluster AddNode")
 	s := addnode.Parms{}
 	s.Make(opts...)

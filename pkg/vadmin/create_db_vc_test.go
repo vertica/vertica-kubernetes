@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +40,6 @@ const (
 	TestLicensePath        = "/root/license.key"
 	TestShardCount         = 11
 	TestSkipPackageInstall = true
-	TestUserName           = "dbadmin"
 )
 
 // mock version of VCreateDatabase() that is invoked inside VClusterOps.CreateDB()
@@ -76,7 +76,10 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	// verify auth options
-	if *options.UserName != TestUserName {
+	if *options.UserName != vapi.SuperUser {
+		return vdb, fmt.Errorf("failed to retrieve Vertica username")
+	}
+	if *options.Password != TestPassword {
 		return vdb, fmt.Errorf("failed to retrieve Vertica username")
 	}
 	if options.Key != test.TestKeyValue {

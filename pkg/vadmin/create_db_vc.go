@@ -27,7 +27,7 @@ import (
 )
 
 // CreateDB will construct a new DB using the vcluster-ops library
-func (v VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
+func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster CreateDB")
 
 	// get the certs
@@ -52,7 +52,7 @@ func (v VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctr
 	return ctrl.Result{}, nil
 }
 
-func (v VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) vops.VCreateDatabaseOptions {
+func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) vops.VCreateDatabaseOptions {
 	opts := vops.VCreateDatabaseOptionsFactory()
 
 	opts.RawHosts = s.Hosts
@@ -82,6 +82,9 @@ func (v VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) vo
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 	*opts.UserName = vapi.SuperUser
+	if v.Password != "" {
+		opts.Password = &v.Password
+	}
 
 	return opts
 }

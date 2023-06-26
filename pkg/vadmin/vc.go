@@ -24,7 +24,7 @@ import (
 )
 
 // retrieveHTTPSCerts will retrieve the certs from HTTPServerTLSSecret for calling NMA endpoints
-func (v VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
+func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
 	certs := HTTPSCerts{}
 
 	nm := types.NamespacedName{

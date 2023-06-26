@@ -85,10 +85,12 @@ func mockAdmintoolsDispatcher() (Admintools, *vapi.VerticaDB, *cmds.FakePodRunne
 type MockVClusterOps struct {
 }
 
+const TestPassword = "test-pw"
+
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
-func mockVClusterOpsDispatcher() VClusterOps {
+func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDBForHTTP("test-secret")
 	mockVops := MockVClusterOps{}
-	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops)
-	return dispatcher.(VClusterOps)
+	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword)
+	return dispatcher.(*VClusterOps)
 }

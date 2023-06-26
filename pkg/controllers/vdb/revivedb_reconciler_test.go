@@ -41,7 +41,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
@@ -60,7 +60,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "revive_db")
@@ -82,7 +82,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, ScSize)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
@@ -96,7 +96,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
@@ -148,7 +148,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		vdb.Spec.IgnoreClusterLease = false
@@ -184,7 +184,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		pods, ok := r.getPodList()
@@ -213,7 +213,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		pods, ok := r.getPodList()
@@ -232,7 +232,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 
@@ -254,7 +254,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
@@ -282,7 +282,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
@@ -324,7 +324,7 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pn].stsRevisionPending = true
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)

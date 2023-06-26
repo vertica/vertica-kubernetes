@@ -34,7 +34,7 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -63,7 +63,7 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, lookupVdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// One command should be AT -t db_remove_subcluster and one should be

@@ -115,7 +115,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
 	pfacts := MakePodFacts(r, prunner)
-	dispatcher := r.makeDispatcher(log, vdb, prunner)
+	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
 	// Iterate over each actor
@@ -281,9 +281,10 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 }
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
-func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner) vadmin.Dispatcher {
+func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
+	passwd string) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return vadmin.MakeVClusterOps(log, vdb, r.Client, &vops.VClusterCommands{})
+		return vadmin.MakeVClusterOps(log, vdb, r.Client, &vops.VClusterCommands{}, passwd)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec, r.OpCfg.DevMode)
 }

@@ -38,7 +38,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
@@ -54,7 +54,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		recon := actor.(*DBRemoveNodeReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
@@ -82,7 +82,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -110,7 +110,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
@@ -132,7 +132,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		removePod := names.GenPodName(vdb, sc, 2)
 		pfacts.Detail[removePod].dbExists = false
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())

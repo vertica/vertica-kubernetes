@@ -471,7 +471,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := MakePodFacts(vdbRec, fpr)
-	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 	r := actor.(*OnlineUpgradeReconciler)
 
