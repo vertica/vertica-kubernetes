@@ -30,7 +30,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -69,6 +71,16 @@ type Dispatcher interface {
 
 	// RemoveSubcluster will remove the given subcluster from the vertica cluster.
 	RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error
+
+	// RestartNode will restart a subset of nodes. Use this when vertica has not
+	// lost cluster quorum. The IP given for each vnode may not match the current IP
+	// in the vertica catalogs.
+	RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error)
+
+	// StartDB will start a subset of nodes. Use this when vertica has lost
+	// cluster quorum. The IP given for each vnode *must* match the current IP
+	// in the vertica catalog. If they aren't a call to ReIP is necessary.
+	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
 }
 
 const (
