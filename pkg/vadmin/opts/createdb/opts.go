@@ -26,6 +26,7 @@ type Parms struct {
 	PostDBCreateSQLFile   string
 	CatalogPath           string
 	DepotPath             string
+	DataPath              string
 	DBName                string
 	LicensePath           string
 	CommunalPath          string
@@ -70,6 +71,12 @@ func WithCatalogPath(path string) Option {
 func WithDepotPath(path string) Option {
 	return func(s *Parms) {
 		s.DepotPath = path
+	}
+}
+
+func WithDataPath(path string) Option {
+	return func(s *Parms) {
+		s.DataPath = path
 	}
 }
 

@@ -17,8 +17,10 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
+	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
@@ -34,7 +36,10 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Dispatcher interface {
@@ -115,14 +120,64 @@ func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner
 // vclusterops library to perform all of the admin operations via RESTful
 // interfaces.
 type VClusterOps struct {
-	Log logr.Logger
-	VDB *vapi.VerticaDB
+	Log    logr.Logger
+	VDB    *vapi.VerticaDB
+	Client client.Client
+	VClusterOpsInterface
 }
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
-func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB) Dispatcher {
+func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client, vopsi VClusterOpsInterface) Dispatcher {
 	return VClusterOps{
-		Log: log,
-		VDB: vdb,
+		Log:                  log,
+		VDB:                  vdb,
+		Client:               cli,
+		VClusterOpsInterface: vopsi,
 	}
+}
+
+type HTTPSCerts struct {
+	Key    string
+	Cert   string
+	CaCert string
+}
+
+// retrieve the certs from HTTPServerTLSSecret for calling NMA endpoints
+func (v VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
+	certs := HTTPSCerts{}
+
+	nm := types.NamespacedName{
+		Namespace: v.VDB.Namespace,
+		Name:      v.VDB.Spec.HTTPServerTLSSecret,
+	}
+	tlsCerts := &corev1.Secret{}
+	err := v.Client.Get(ctx, nm, tlsCerts)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsKey, ok := tlsCerts.Data[corev1.TLSPrivateKeyKey]
+	if !ok {
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, tlsCerts.Name)
+	}
+	tlsCrt, ok := tlsCerts.Data[corev1.TLSCertKey]
+	if !ok {
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, tlsCerts.Name)
+	}
+	tlsCaCrt, ok := tlsCerts.Data[corev1.ServiceAccountRootCAKey]
+	if !ok {
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, tlsCerts.Name)
+	}
+	certs.Key = string(tlsKey)
+	certs.Cert = string(tlsCrt)
+	certs.CaCert = string(tlsCaCrt)
+
+	return &certs, nil
+}
+
+// VClusterOpsInterface is for mocking test
+// We will have two concrete implementations for the interface
+// 1. real implementation in vcluster-ops library 2. mock implementation for unit test
+type VClusterOpsInterface interface {
+	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
 }

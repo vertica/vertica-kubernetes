@@ -1104,10 +1104,11 @@ func MakeVDB() *VerticaDB {
 
 // MakeVDBForHTTP is a helper that constructs a VerticaDB struct with http enabled.
 // This is intended for test purposes.
-func MakeVDBForHTTP() *VerticaDB {
+func MakeVDBForHTTP(name string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[VersionAnnotation] = HTTPServerMinVersion
 	vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
+	vdb.Spec.HTTPServerTLSSecret = name
 	return vdb
 }
 
