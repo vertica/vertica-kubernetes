@@ -17,8 +17,11 @@ package vadmin
 
 import (
 	"context"
+	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -53,6 +56,10 @@ func (v VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) vo
 	opts := vops.VCreateDatabaseOptionsFactory()
 
 	opts.RawHosts = s.Hosts
+	v.Log.Info("Create database on the hosts: " + strings.Join(s.Hosts, ","))
+	if len(opts.RawHosts) > 0 {
+		*opts.Ipv6 = net.IsIPv6(opts.RawHosts[0])
+	}
 	opts.CatalogPrefix = &s.CatalogPath
 	opts.Name = &s.DBName
 	opts.LicensePathOnNode = &s.LicensePath
@@ -64,10 +71,6 @@ func (v VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) vo
 	if s.CommunalPath != "" {
 		opts.DepotPrefix = &s.DepotPath
 		opts.CommunalStorageLocation = &s.CommunalPath
-		// TODO: uncommented this line after vcluster-ops library implemented CommunalStorageParamsPath
-		// TODO: might need to create a new NMA endpoint for this option
-		// TODO: might need to use paths.AuthParmsFile instead of s.CommunalStorageParams
-		// opts.CommunalStorageParamsPath = &s.CommunalStorageParams
 	}
 
 	if s.ShardCount > 0 {
@@ -78,32 +81,7 @@ func (v VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) vo
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	// the value of this one needs to be the same as vertica pod's username,
-	// otherwise we cannot access vertica HTTPS server
-	// TODO: check if we need to add UserName to CRD
-	*opts.UserName = "dbadmin"
-
-	// TODO: uncomment this line after vcluster-ops implemented PostDBCreateSQLFile
-	// opts.SQLFile = &s.PostDBCreateSQLFile
-
-	// TODO low priority: add this option in vcluster-ops library
-	// "`--skip-fs-checks`"
-
-	// TODO low priority: check if we need to add the new options of vcluster-ops create_db to CRD
-	// opts.GetAwsCredentialsFromEnv
-	// opts.Policy
-	// opts.Broadcast
-	// opts.P2p
-	// opts.LargeCluster
-	// opts.Ipv6
-	// opts.ClientPort
-	// opts.SkipStartupPolling
-	// opts.SpreadLogging
-	// opts.SpreadLoggingLevel
-	// opts.ForceCleanupOnFailure
-	// opts.TimeoutNodeStartupSeconds
-	// opts.Password
-	// opts.ConfigurationParameters
+	*opts.UserName = vapi.SuperUser
 
 	return opts
 }

@@ -447,6 +447,9 @@ const (
 	AutoUpgrade UpgradePolicyType = "Auto"
 )
 
+// SuperUser is an automatically-created user in database creation
+const SuperUser = "dbadmin"
+
 type HTTPServerModeType string
 
 const (
@@ -1104,11 +1107,11 @@ func MakeVDB() *VerticaDB {
 
 // MakeVDBForHTTP is a helper that constructs a VerticaDB struct with http enabled.
 // This is intended for test purposes.
-func MakeVDBForHTTP(name string) *VerticaDB {
+func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[VersionAnnotation] = HTTPServerMinVersion
 	vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
-	vdb.Spec.HTTPServerTLSSecret = name
+	vdb.Spec.HTTPServerTLSSecret = httpServerTLSSecretName
 	return vdb
 }
 

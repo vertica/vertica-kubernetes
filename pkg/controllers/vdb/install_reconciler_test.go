@@ -28,8 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -126,8 +124,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		secret := createTLSSecret(ctx, vdb, secretName)
-		defer test.DeleteSecret(ctx, k8sClient, secret.Name)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
 		fpr := &cmds.FakePodRunner{}
 		pfact := MakePodFacts(vdbRec, fpr)
@@ -141,8 +139,8 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		secret := createTLSSecret(ctx, vdb, secretName)
-		defer test.DeleteSecret(ctx, k8sClient, secret.Name)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
@@ -193,11 +191,10 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	})
 
 	It("should generate certs only on supported vertica versions", func() {
-		vdb := vapi.MakeVDB()
-		secret := createTLSSecret(ctx, vdb, "tls-secret")
-		defer test.DeleteSecret(ctx, k8sClient, secret.Name)
-		vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
-		vdb.Spec.HTTPServerTLSSecret = secret.Name
+		secretName := "tls-secret"
+		vdb := vapi.MakeVDBForHTTP(secretName)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
 		vdb.Annotations[vapi.VersionAnnotation] = "v12.0.0"
 
 		fpr := &cmds.FakePodRunner{}
@@ -222,22 +219,6 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
 	})
 })
-
-func createTLSSecret(ctx context.Context, vdb *vapi.VerticaDB, name string) corev1.Secret {
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: vdb.Namespace,
-		},
-		Data: map[string][]byte{
-			corev1.TLSPrivateKeyKey:   []byte("pk"),
-			corev1.TLSCertKey:         []byte("cert"),
-			paths.HTTPServerCACrtName: []byte("ca"),
-		},
-	}
-	Expect(k8sClient.Create(ctx, &secret)).Should(Succeed())
-	return secret
-}
 
 func reconcileAndFindHTTPTLSConfFileName(ctx context.Context, vdb *vapi.VerticaDB,
 	fpr *cmds.FakePodRunner, pf *PodFacts, requeue bool) []cmds.CmdHistory {
