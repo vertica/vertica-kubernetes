@@ -165,6 +165,7 @@ func updateVdbToCauseUpgrade(ctx context.Context, vdb *vapi.VerticaDB, newImage 
 func createOfflineUpgradeReconciler(vdb *vapi.VerticaDB) (*OfflineUpgradeReconciler, *cmds.FakePodRunner, *PodFacts) {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := createPodFactsDefault(fpr)
-	actor := MakeOfflineUpgradeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+	actor := MakeOfflineUpgradeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 	return actor.(*OfflineUpgradeReconciler), fpr, pfacts
 }

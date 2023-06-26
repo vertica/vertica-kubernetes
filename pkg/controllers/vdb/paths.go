@@ -55,23 +55,3 @@ func prepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRun
 	}
 	return nil
 }
-
-// debugDumpAdmintoolsConf will dump specific info from admintools.conf for logging purposes
-// +nolint
-func debugDumpAdmintoolsConf(ctx context.Context, prunner cmds.PodRunner, atPod types.NamespacedName) {
-	// Dump out vital informating from admintools.conf for logging purposes. We
-	// rely on the logging that is done inside ExecInPod.
-	cmd := []string{
-		"bash", "-c",
-		fmt.Sprintf(`ls -l %s && grep '^node\|^v_\|^host' %s`, paths.AdminToolsConf, paths.AdminToolsConf),
-	}
-	// Since this is for debugging purposes all errors are ignored
-	prunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...) //nolint:errcheck
-}
-
-// debugDumpAdmintoolsConfForPods will dump debug information for admintools.conf for a list of pods
-func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner, pods []*PodFact) {
-	for _, pod := range pods {
-		debugDumpAdmintoolsConf(ctx, prunner, pod.name)
-	}
-}

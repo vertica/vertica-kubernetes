@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,11 +70,34 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
-	return d.analyzeFacts(ctx)
+	// We generate https conf file and skip the install phase when running
+	// the vclusterOps feature flag
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		return d.installForVClusterOps(ctx)
+	}
+
+	return d.installForAdmintools(ctx)
 }
 
-// analyzeFacts will look at the collected facts and determine the course of action
-func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, error) {
+// installForVClusterOps will go through the install phase for vclusterOps.
+// It only generates the http certs and requeue if at least one pod has not done the install
+func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Result, error) {
+	hasUninstalledPods, err := d.generateHTTPCerts(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if hasUninstalledPods {
+		// We do not proceed to the next actor until
+		// all pods have done the install
+		d.Log.Info("Requeue reconcile cycle because not all nodes have done the install for vclusterOps")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
+}
+
+// installForAdmintools will go through the install phase for admintools.
+// It will look at the collected facts and determine the course of action
+func (d *InstallReconciler) installForAdmintools(ctx context.Context) (ctrl.Result, error) {
 	// We can only proceed with install if all of the installed pods are
 	// running.  This ensures we can properly sync admintools.conf.
 	if ok, podNotRunning := d.PFacts.anyInstalledPodsNotRunning(); ok {
@@ -93,7 +117,7 @@ func (d *InstallReconciler) analyzeFacts(ctx context.Context) (ctrl.Result, erro
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
-		d.generateHTTPCerts,
+		d.generateHTTPCertsForAdmintools,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -166,13 +190,21 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 	return nil
 }
 
+// generateHTTPCertsForAdmintools is a wrapper for admintools that calls a function that
+// generates the necessary certs to be able to start and communicate with the Vertica's http server.
+func (d *InstallReconciler) generateHTTPCertsForAdmintools(ctx context.Context) error {
+	_, err := d.generateHTTPCerts(ctx)
+	return err
+}
+
 // generateHTTPCerts will generate the necessary certs to be able to start and
 // communicate with the Vertica's http server.
-func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
+func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) (bool, error) {
 	// Early out if the http service isn't enabled
 	if !d.doHTTPInstall(true) {
-		return nil
+		return false, nil
 	}
+	installedPodCount := 0
 	for _, p := range d.PFacts.Detail {
 		if !p.isPodRunning {
 			continue
@@ -182,17 +214,18 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerTLSSecret)
 			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
+				return false, errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
 			}
 			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
 				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
 			_ = os.Remove(fname)
 			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
+				return false, errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
 			}
 		}
+		installedPodCount++
 	}
-	return nil
+	return installedPodCount != len(d.PFacts.Detail), nil
 }
 
 // getInstallTargets finds the list of hosts/pods that we need to initialize the config for
@@ -367,4 +400,11 @@ func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Contex
 		return errors.Wrap(err, "failed to copy and execute the config dirs script")
 	}
 	return nil
+}
+
+// debugDumpAdmintoolsConfForPods will dump debug information for admintools.conf for a list of pods
+func debugDumpAdmintoolsConfForPods(ctx context.Context, prunner cmds.PodRunner, pods []*PodFact) {
+	for _, pod := range pods {
+		prunner.DumpAdmintoolsConf(ctx, pod.name)
+	}
 }
