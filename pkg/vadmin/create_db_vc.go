@@ -56,7 +56,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	opts := vops.VCreateDatabaseOptionsFactory()
 
 	opts.RawHosts = s.Hosts
-	v.Log.Info("Create database on the hosts: " + strings.Join(s.Hosts, ","))
+	v.Log.Info("Setup create db options", "hosts", strings.Join(s.Hosts, ","))
 	if len(opts.RawHosts) > 0 {
 		*opts.Ipv6 = net.IsIPv6(opts.RawHosts[0])
 	}
