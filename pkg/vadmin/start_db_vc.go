@@ -17,6 +17,7 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -28,5 +29,5 @@ import (
 func (v VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
 	s := startdb.Parms{}
 	s.Make(opts...)
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }
