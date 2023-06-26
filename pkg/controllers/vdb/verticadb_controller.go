@@ -187,10 +187,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, vdb, pfacts, DelNodeApplyMethod, ""),
 		// Wait for any nodes that are pending delete with active connections to leave.
 		MakeDrainNodeReconciler(r, vdb, prunner, pfacts),
-		// Handles calls to admintools -t db_remove_subcluster
+		// Handles calls to remove subcluster from vertica catalog
 		MakeDBRemoveSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Handles calls to admintools -t db_remove_node
+		// Handles calls to remove a database node from the cluster
 		MakeDBRemoveNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
@@ -205,9 +205,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Handle calls to admintools -t create_db
+		// Handle calls to create a database
 		MakeCreateDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
-		// Handle calls to admintools -t revive_db
+		// Handle calls to revive a database
 		MakeReviveDBReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		// Create and revive are mutually exclusive exclusive, so this handles
@@ -219,11 +219,11 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeAgentReconciler(r, vdb, prunner, pfacts),
 		// Ensure http server is running on each pod
 		MakeHTTPServerCtrlReconciler(r, vdb, prunner, pfacts),
-		// Handle calls to admintools -t db_add_subcluster
+		// Handle calls to add new subcluster to the catalog
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
-		// Handle calls to admintools -t db_add_node
+		// Handle calls to add a new database node to the cluster
 		MakeDBAddNodeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Handle calls to rebalance_shards

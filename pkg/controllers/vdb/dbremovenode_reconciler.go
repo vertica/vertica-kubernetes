@@ -70,7 +70,7 @@ func (d *DBRemoveNodeReconciler) CollectPFacts(ctx context.Context) error {
 	return d.PFacts.Collect(ctx, d.Vdb)
 }
 
-// Reconcile will handle calling admintools -t db_remove_node when scale down is detected.
+// Reconcile will handle calling remove node when scale down is detected.
 //
 // This reconcile function is meant to be called before we create/delete any
 // kubernetes objects. It allows us to look at the state before applying
@@ -106,10 +106,10 @@ func (d *DBRemoveNodeReconciler) reconcileSubcluster(ctx context.Context, sc *va
 	return scaledownSubcluster(ctx, d, sc, d.removeNodesInSubcluster)
 }
 
-// removeNodesInSubcluster will call admintools -t db_remove_node for a range of pods that need to be scaled down
+// removeNodesInSubcluster will call remove node for a range of pods that need to be scaled down
 // It will determine the list of pods it can scale down. If any pods within the
 // range could not be scaled down, then it will proceed with the nodes it can
-// scale down and return indicating reconciliation // needs to be requeued.
+// scale down and return indicating reconciliation needs to be requeued.
 func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc *vapi.Subcluster,
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToRemove, requeueNeeded := d.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
@@ -141,7 +141,7 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod *PodFact, pods []*PodFact) error {
 	podNames := genPodNames(pods)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesStart,
-		"Calling 'admintools -t db_remove_node' for pods '%s'", podNames)
+		"Starting database remove node for pods '%s'", podNames)
 	start := time.Now()
 	opts := []removenode.Option{
 		removenode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
@@ -151,11 +151,11 @@ func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod
 	}
 	if err := d.Dispatcher.RemoveNode(ctx, opts...); err != nil {
 		d.VRec.Event(d.Vdb, corev1.EventTypeWarning, events.RemoveNodesFailed,
-			"Failed when calling 'admintools -t db_remove_node'")
+			"Failed when calling database remove node")
 		return err
 	}
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesSucceeded,
-		"Successfully called 'admintools -t db_remove_node' and it took %s", time.Since(start))
+		"Successfully removed nodes from database and it took %s", time.Since(start))
 	return nil
 }
 

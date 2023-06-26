@@ -1057,7 +1057,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 	// soon as one pod goes down, all pods go down with it.  So we can't have a
 	// rolling update strategy as it just won't work.  As soon as we delete one
 	// pod, the vertica process on the other gets shut down.  We would need to
-	// call admintools -t start_db after each pod gets delete and rescheduled.
+	// start the cluster after each pod gets delete and rescheduled.
 	// kSafety0 is for test purposes, which is why its okay to have a different
 	// strategy for it.
 	if vdb.Spec.KSafety == vapi.KSafety0 {

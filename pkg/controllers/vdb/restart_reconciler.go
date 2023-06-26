@@ -350,7 +350,7 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 	}
 
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartStarted,
-		"Calling 'admintools -t restart_node' to restart the following pods: %s", strings.Join(podNames, ", "))
+		"Starting database restart node of the following pods: %s", strings.Join(podNames, ", "))
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.InitiatorPod, names.ServerContainer, cmd...)
@@ -362,11 +362,11 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 		return r.EVLogr.LogFailure("restart_node", stdout, err)
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
-		"Successfully called 'admintools -t restart_node' and it took %ds", int(elapsedTimeInSeconds))
+		"Successfully restarted database nodes and it took %ds", int(elapsedTimeInSeconds))
 	return ctrl.Result{}, nil
 }
 
-// reipNodes will run admintools -t re_ip against a set of pods.
+// reipNodes will update the catalogs with new IPs for a set of pods.
 // If it detects that no IPs are changing, then no re_ip is done.
 func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	if len(pods) == 0 {
@@ -389,12 +389,12 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	return r.Dispatcher.ReIP(ctx, opts...)
 }
 
-// restartCluster will call admintools -t start_db
-// It is assumed that the cluster has already run re_ip.
+// restartCluster will call start database. It is assumed that the cluster has
+// already run re_ip.
 func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
 	cmd := r.genStartDBCommand(downPods)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
-		"Calling 'admintools -t start_db' to restart the cluster")
+		"Starting restart of the cluster")
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
 	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.InitiatorPod, names.ServerContainer, cmd...)
@@ -406,7 +406,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		return r.EVLogr.LogFailure("start_db", stdout, err)
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
-		"Successfully called 'admintools -t start_db' and it took %ds", int(elapsedTimeInSeconds))
+		"Successfully restarted the cluster and it took %ds", int(elapsedTimeInSeconds))
 	return ctrl.Result{}, err
 }
 

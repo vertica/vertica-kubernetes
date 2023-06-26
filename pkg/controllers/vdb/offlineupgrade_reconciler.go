@@ -167,7 +167,7 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 
 	start := time.Now()
 	o.VRec.Event(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
-		"Calling 'admintools -t stop_db'")
+		"Starting stop database")
 	err := o.Dispatcher.StopDB(ctx, stopdb.WithInitiator(pf.name, pf.podIP))
 	if err != nil {
 		o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
@@ -176,7 +176,7 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 	}
 
 	o.VRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
-		"Successfully called 'admintools -t stop_db' and it took %s", time.Since(start))
+		"Successfully shutdown the database and it took %s", time.Since(start))
 	return ctrl.Result{}, nil
 }
 
