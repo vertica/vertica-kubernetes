@@ -19,12 +19,12 @@ on:
         description: 'Name of an existing minimal Vertica server image. If blank we will build one using the default name'
         type: string
         required: true
-      vlogger_image:
-        description: 'Name of an existing vlogger image. If blank we will build one using the default name'
-        type: string
-        required: true
       v2_vertica_image:
         description: 'Name of a v2 Vertica server image. If blank we will build one using the default name'
+        type: string
+        required: true
+      vlogger_image:
+        description: 'Name of an existing vlogger image. If blank we will build one using the default name'
         type: string
         required: true
       run_security_scan:
@@ -52,6 +52,9 @@ on:
       minimal-vertica-image:
         description: "The image name of the vertica server, but with optional software removed"
         value: ${{ jobs.build-server-minimal.outputs.image }}
+      v2_vertica_image:
+        description: "The image name of the v2 vertica server image"
+        value: ${{ jobs.build-server-v2.outputs.image }}
       vlogger-image:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
