@@ -34,6 +34,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -288,10 +290,7 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 		return r.makeResultForLivenessProbeWait(ctx)
 	}
 
-	vnodeList := genRestartVNodeList(downPods)
-	ipList := genRestartIPList(downPods)
-	cmd := r.genRestartNodeCmd(vnodeList, ipList)
-	if res, err := r.execRestartPods(ctx, downPods, cmd); verrors.IsReconcileAborted(res, err) {
+	if res, err := r.execRestartPods(ctx, downPods); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -343,23 +342,30 @@ func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context, pods []*
 }
 
 // execRestartPods will execute the AT command and event recording for restart pods.
-func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*PodFact, cmd []string) (ctrl.Result, error) {
+func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
 	podNames := make([]string, 0, len(downPods))
 	for _, pods := range downPods {
 		podNames = append(podNames, pods.name.Name)
+	}
+
+	opts := []restartnode.Option{
+		restartnode.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
+	}
+	for i := range downPods {
+		opts = append(opts, restartnode.WithHost(downPods[i].vnodeName, downPods[i].podIP))
 	}
 
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartStarted,
 		"Starting database restart node of the following pods: %s", strings.Join(podNames, ", "))
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.InitiatorPod, names.ServerContainer, cmd...)
+	res, err := r.Dispatcher.RestartNode(ctx, opts...)
 	elapsedTimeInSeconds := time.Since(start).Seconds()
 	metrics.NodesRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
 	metrics.NodesRestartAttempt.With(labels).Inc()
-	if err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		metrics.NodesRestartFailed.With(labels).Inc()
-		return r.EVLogr.LogFailure("restart_node", stdout, err)
+		return res, err
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.NodeRestartSucceeded,
 		"Successfully restarted database nodes and it took %ds", int(elapsedTimeInSeconds))
@@ -392,40 +398,27 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 // restartCluster will call start database. It is assumed that the cluster has
 // already run re_ip.
 func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
-	cmd := r.genStartDBCommand(downPods)
+	opts := []startdb.Option{
+		startdb.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
+	}
+	for i := range downPods {
+		opts = append(opts, startdb.WithHost(downPods[i].podIP))
+	}
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Starting restart of the cluster")
 	start := time.Now()
 	labels := metrics.MakeVDBLabels(r.Vdb)
-	stdout, _, err := r.PRunner.ExecAdmintools(ctx, r.InitiatorPod, names.ServerContainer, cmd...)
+	res, err := r.Dispatcher.StartDB(ctx, opts...)
 	elapsedTimeInSeconds := time.Since(start).Seconds()
 	metrics.ClusterRestartDuration.With(labels).Observe(elapsedTimeInSeconds)
 	metrics.ClusterRestartAttempt.With(labels).Inc()
-	if err != nil {
+	if verrors.IsReconcileAborted(res, err) {
 		metrics.ClusterRestartFailure.With(labels).Inc()
-		return r.EVLogr.LogFailure("start_db", stdout, err)
+		return res, err
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartSucceeded,
 		"Successfully restarted the cluster and it took %ds", int(elapsedTimeInSeconds))
 	return ctrl.Result{}, err
-}
-
-// genRestartVNodeList returns the vnodes of all of the hosts in downPods
-func genRestartVNodeList(downPods []*PodFact) []string {
-	hostList := []string{}
-	for _, v := range downPods {
-		hostList = append(hostList, v.vnodeName)
-	}
-	return hostList
-}
-
-// genRestartIPList returns the IPs of all of the hosts in downPods
-func genRestartIPList(downPods []*PodFact) []string {
-	ipList := []string{}
-	for _, v := range downPods {
-		ipList = append(ipList, v.podIP)
-	}
-	return ipList
 }
 
 // killReadOnlyProcesses will remove any running vertica processes that are
@@ -559,47 +552,6 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 	}
 	// If no container status, then we assume startupProbe hasn't completed yet.
 	return true, nil
-}
-
-// genRestartNodeCmd returns the command to run to restart a pod
-func (r *RestartReconciler) genRestartNodeCmd(vnodeList, ipList []string) []string {
-	cmd := []string{
-		"-t", "restart_node",
-		"--database=" + r.Vdb.Spec.DBName,
-		"--hosts=" + strings.Join(vnodeList, ","),
-		"--new-host-ips=" + strings.Join(ipList, ","),
-		"--noprompt",
-	}
-	if r.Vdb.Spec.RestartTimeout != 0 {
-		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
-	}
-	return cmd
-}
-
-// genStartDBCommand will return the command for start_db
-func (r *RestartReconciler) genStartDBCommand(downPods []*PodFact) []string {
-	cmd := []string{
-		"-t", "start_db",
-		"--database=" + r.Vdb.Spec.DBName,
-		"--noprompt",
-	}
-	if r.Vdb.Spec.IgnoreClusterLease {
-		cmd = append(cmd, "--ignore-cluster-lease")
-	}
-	if r.Vdb.Spec.RestartTimeout != 0 {
-		cmd = append(cmd, fmt.Sprintf("--timeout=%d", r.Vdb.Spec.RestartTimeout))
-	}
-
-	// In all versions that we support we can include a list of hosts to start.
-	// This parameter becomes important for online upgrade as we use this to
-	// start the primaries while the secondary are in read-only.
-	hostNames := []string{}
-	for _, pod := range downPods {
-		hostNames = append(hostNames, pod.podIP)
-	}
-	cmd = append(cmd, "--hosts", strings.Join(hostNames, ","))
-
-	return cmd
 }
 
 // setATPod will set r.ATPod if not already set.

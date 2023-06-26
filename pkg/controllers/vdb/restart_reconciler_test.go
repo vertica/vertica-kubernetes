@@ -430,20 +430,6 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(len(restart)).Should(Equal(0))
 	})
 
-	It("should use --hosts option in start_db if on earliest version that we support", func() {
-		vdb := vapi.MakeVDB()
-		fpr := &cmds.FakePodRunner{}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &PodFacts{}, RestartProcessReadOnly, dispatcher)
-		r := act.(*RestartReconciler)
-		downPods := []*PodFact{
-			{podIP: "9.10.1.1"},
-			{podIP: "9.10.1.2"},
-		}
-		vdb.Annotations[vapi.VersionAnnotation] = vapi.MinimumVersion
-		Expect(r.genStartDBCommand(downPods)).Should(ContainElements("--hosts", "9.10.1.1,9.10.1.2"))
-	})
-
 	It("should requeue if k-safety is 0, there are no UP nodes and some pods aren't running", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3

@@ -19,13 +19,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// RemoveNode will remove an existng vertica node from the cluster.
-func (v VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option) error {
-	v.Log.Info("Starting vcluster RemoveNode")
-	s := removenode.Parms{}
+// RestartNode will restart a subset of nodes. Use this when vertica has not
+// lost cluster quorum. The IP given for each vnode may not match the current IP
+// in the vertica catalogs.
+func (v VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
+	v.Log.Info("Starting vcluster RestartNode")
+	s := restartnode.Parms{}
 	s.Make(opts...)
-	return fmt.Errorf("not implemented")
+	return ctrl.Result{}, fmt.Errorf("not implemented")
 }

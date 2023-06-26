@@ -24,6 +24,7 @@ import (
 
 // AddSubcluster will create a subcluster in the vertica cluster.
 func (v VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) error {
+	v.Log.Info("Starting vcluster AddSubcluster")
 	s := addsc.Parms{}
 	s.Make(opts...)
 	return fmt.Errorf("not implemented")
