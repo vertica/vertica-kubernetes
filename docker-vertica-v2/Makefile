@@ -13,7 +13,6 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 	docker pull ubuntu:$(BASE_OS_VERSION) ## make sure we use the latest ubuntu image
 	docker build \
 		-f Dockerfile \
-		--load \ # automatically load images to 'docker images'
 		--label minimal=${MINIMAL_VERTICA_IMG} \
 		--label os-version=${BASE_OS_VERSION} \
 		--label vertica-version=${VERTICA_VERSION} \
