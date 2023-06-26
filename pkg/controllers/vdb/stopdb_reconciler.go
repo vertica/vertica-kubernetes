@@ -106,8 +106,7 @@ func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
 
 // runATCmd issues the admintools command to stop the database
 func (s *StopDBReconciler) runATCmd(ctx context.Context, initiatorName types.NamespacedName, initiatorIP string) error {
-	s.VRec.Event(s.Vdb, corev1.EventTypeNormal, events.StopDBStart,
-		"Calling 'admintools -t stop_db'")
+	s.VRec.Event(s.Vdb, corev1.EventTypeNormal, events.StopDBStart, "Starting stop database")
 	start := time.Now()
 	if err := s.Dispatcher.StopDB(ctx, stopdb.WithInitiator(initiatorName, initiatorIP)); err != nil {
 		s.VRec.Event(s.Vdb, corev1.EventTypeWarning, events.StopDBFailed, "Failed to stop the database")

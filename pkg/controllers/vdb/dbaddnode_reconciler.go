@@ -167,7 +167,7 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodFact, initiatorPod *PodFact) error {
 	podNames := genPodNames(pods)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
-		"Calling 'admintools -t db_add_node' for pod(s) '%s'", podNames)
+		"Starting add database node for pod(s) '%s'", podNames)
 	start := time.Now()
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
@@ -179,7 +179,7 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodF
 	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {
 		d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
-			"Successfully called 'admintools -t db_add_node' and it took %s", time.Since(start))
+			"Successfully added database nodes and it took %s", time.Since(start))
 	}
 	return err
 }

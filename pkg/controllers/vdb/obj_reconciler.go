@@ -421,8 +421,8 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
 	}
 
-	// We can only remove pods if we have called 'admintools -t db_remove_node'
-	// and done the uninstall.  If we haven't yet done that we will requeue the
+	// We can only remove pods if we have called remove node and done the
+	// uninstall.  If we haven't yet done that we will requeue the
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
 	if o.Mode&ObjReconcileModePreserveScaling == 0 {

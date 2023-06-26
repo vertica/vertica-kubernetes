@@ -93,15 +93,14 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 	return g.checkAndRunInit(ctx)
 }
 
-// execCmd will do the actual execution of admintools -t create_db.
+// execCmd will do the actual execution of creating a database.
 // This handles logging of necessary events.
 func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
 	opts, err := c.genOptions(ctx, initiatorPod, hostList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart,
-		"Calling 'admintools -t create_db'")
+	c.VRec.Event(c.Vdb, corev1.EventTypeNormal, events.CreateDBStart, "Starting create database")
 	start := time.Now()
 	if res, err := c.Dispatcher.CreateDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
 		return res, err
