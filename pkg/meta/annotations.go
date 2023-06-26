@@ -35,7 +35,8 @@ const (
 	// annotation in the VerticaDB that you want to use the new vclusterOps
 	// library for any vertica admin task. The value of this annotation is
 	// treated as a boolean.
-	VClusterOpsAnnotation = "vertica.com/vcluster-ops"
+	VClusterOpsAnnotation     = "vertica.com/vcluster-ops"
+	VClusterOpsAnnotationTrue = "true"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

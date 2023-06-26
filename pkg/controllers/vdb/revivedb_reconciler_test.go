@@ -26,7 +26,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -39,7 +41,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
 	})
@@ -57,7 +60,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "revive_db")
 		Expect(len(reviveCalls)).Should(Equal(0))
@@ -78,7 +82,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, ScSize)
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -91,7 +96,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 
@@ -142,12 +148,19 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		vdb.Spec.IgnoreClusterLease = false
-		Expect(r.genCmd(ctx, []string{"hostA"})).ShouldNot(ContainElement("--ignore-cluster-lease"))
+		opts := r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
+		parms := revivedb.Parms{}
+		parms.Make(opts...)
+		Expect(parms.IgnoreClusterLease).Should(BeFalse())
 		vdb.Spec.IgnoreClusterLease = true
-		Expect(r.genCmd(ctx, []string{"hostA"})).Should(ContainElement("--ignore-cluster-lease"))
+		opts = r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
+		parms = revivedb.Parms{}
+		parms.Make(opts...)
+		Expect(parms.IgnoreClusterLease).Should(BeTrue())
 	})
 
 	It("should use reviveOrder to order the host list", func() {
@@ -171,7 +184,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		pods, ok := r.getPodList()
 		Expect(ok).Should(BeTrue())
@@ -199,7 +213,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		pods, ok := r.getPodList()
 		Expect(ok).Should(BeTrue())
@@ -217,7 +232,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 
 		vdb.Spec.ReviveOrder = []vapi.SubclusterPodCount{
@@ -238,7 +254,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
 
@@ -265,7 +282,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
 
@@ -306,9 +324,10 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pn].stsRevisionPending = true
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 
 		pod := corev1.Pod{}
 		Expect(k8sClient.Get(ctx, pn, &pod)).Should(Succeed())

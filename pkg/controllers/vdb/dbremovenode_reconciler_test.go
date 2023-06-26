@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,7 +38,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -52,7 +54,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		actor := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		recon := actor.(*DBRemoveNodeReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		fpr.Histories = make([]cmds.CmdHistory, 0) // reset the calls so the first one is admintools
@@ -61,7 +64,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		Expect(fpr.Histories[0].Command).Should(ContainElements(
 			"/opt/vertica/bin/admintools",
 			"db_remove_node",
-			"--hosts="+uninstallPod.Spec.Hostname+"."+uninstallPod.Spec.Subdomain,
+			"--hosts",
+			fmt.Sprintf("%s.%s", uninstallPod.Spec.Hostname, uninstallPod.Spec.Subdomain),
 		))
 	})
 
@@ -78,7 +82,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())
@@ -87,7 +92,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		Expect(lastCall.Command).Should(ContainElements(
 			"/opt/vertica/bin/admintools",
 			"db_remove_node",
-			"--hosts="+pfacts.Detail[uninstallPods[0]].dnsName+","+pfacts.Detail[uninstallPods[1]].dnsName,
+			"--hosts",
+			fmt.Sprintf("%s,%s", pfacts.Detail[uninstallPods[0]].dnsName, pfacts.Detail[uninstallPods[1]].dnsName),
 		))
 	})
 
@@ -104,7 +110,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeTrue())
@@ -125,7 +132,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		removePod := names.GenPodName(vdb, sc, 2)
 		pfacts.Detail[removePod].dbExists = false
-		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())

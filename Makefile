@@ -347,7 +347,7 @@ docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker i
 	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
 
 .PHONY: docker-build-vertica-v2
-docker-build-vertica-v2: docker-vertica/Dockerfile ## Build next generation vertica server docker image
+docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation vertica server docker image
 	cd docker-vertica-v2 \
 	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
 

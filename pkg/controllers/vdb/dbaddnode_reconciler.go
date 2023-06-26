@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -27,24 +26,34 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // DBAddNodeReconciler will ensure each pod is added to the database.
 type DBAddNodeReconciler struct {
-	VRec    *VerticaDBReconciler
-	Log     logr.Logger
-	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner cmds.PodRunner
-	PFacts  *PodFacts
+	VRec       *VerticaDBReconciler
+	Log        logr.Logger
+	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner    cmds.PodRunner
+	PFacts     *PodFacts
+	Dispatcher vadmin.Dispatcher
 }
 
 // MakeDBAddNodeReconciler will build a DBAddNodeReconciler object
 func MakeDBAddNodeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &DBAddNodeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher,
+) controllers.ReconcileActor {
+	return &DBAddNodeReconciler{
+		VRec:       vdbrecon,
+		Log:        log,
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
+		Dispatcher: dispatcher,
+	}
 }
 
 // Reconcile will ensure a DB exists and create one if it doesn't
@@ -121,7 +130,7 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 
 // runAddNode will add nodes to the given subcluster
 func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
-	atPod, ok := d.PFacts.findPodToRunVsql(false, "")
+	initiatorPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
@@ -136,23 +145,15 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		}
 	}
 
-	if d.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
-	}
-
-	if stdout, err := d.runAddNodeForPod(ctx, pods, atPod); err != nil {
+	if err := d.runAddNodeForPod(ctx, pods, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
 		// reconcile successfully. We don't want to fail and requeue because
 		// this isn't going to get fixed until someone manually adds a new
 		// license.
-		if isLicenseLimitError(stdout) {
+		if _, ok := err.(*addnode.LicenseLimitError); ok {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
-	}
-
-	if d.VRec.OpCfg.DevMode {
-		debugDumpAdmintoolsConf(ctx, d.PRunner, atPod.name)
 	}
 
 	// Invalidate the cached pod facts now that some pods have a DB now.
@@ -163,46 +164,22 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 
 // runAddNodeForPod will execute the command to add a single node to the cluster
 // Returns the stdout from the command.
-func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodFact, atPod *PodFact) (string, error) {
+func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodFact, initiatorPod *PodFact) error {
 	podNames := genPodNames(pods)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
-		"Calling 'admintools -t db_add_node' for pod(s) '%s'", podNames)
+		"Starting add database node for pod(s) '%s'", podNames)
 	start := time.Now()
-	cmd := d.genAddNodeCommand(pods)
-	stdout, _, err := d.PRunner.ExecAdmintools(ctx, atPod.name, names.ServerContainer, cmd...)
+	opts := []addnode.Option{
+		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
+		addnode.WithSubcluster(pods[0].subclusterName),
+	}
+	for i := range pods {
+		opts = append(opts, addnode.WithHost(pods[i].dnsName))
+	}
+	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {
-		switch {
-		case isLicenseLimitError(stdout):
-			d.VRec.Event(d.Vdb, corev1.EventTypeWarning, events.AddNodeLicenseFail,
-				"You cannot add more nodes to the database.  You have reached the limit allowed by your license.")
-		default:
-			d.VRec.Eventf(d.Vdb, corev1.EventTypeWarning, events.AddNodeFailed,
-				"Failed when calling 'admintools -t db_add_node' for pod(s) '%s'", podNames)
-		}
-	} else {
 		d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
-			"Successfully called 'admintools -t db_add_node' and it took %s", time.Since(start))
+			"Successfully added database nodes and it took %s", time.Since(start))
 	}
-	return stdout, err
-}
-
-// isLicenseLimitError returns true if the stdout contains the error about not enough licenses
-func isLicenseLimitError(stdout string) bool {
-	return strings.Contains(stdout, "Cannot create another node. The current license permits")
-}
-
-// genAddNodeCommand returns the command to run to add nodes to the cluster.
-func (d *DBAddNodeReconciler) genAddNodeCommand(pods []*PodFact) []string {
-	hostNames := make([]string, 0, len(pods))
-	for _, pod := range pods {
-		hostNames = append(hostNames, pod.dnsName)
-	}
-
-	return []string{
-		"-t", "db_add_node",
-		"--hosts", strings.Join(hostNames, ","),
-		"--database", d.Vdb.Spec.DBName,
-		"--subcluster", pods[0].subclusterName,
-		"--noprompt",
-	}
+	return err
 }

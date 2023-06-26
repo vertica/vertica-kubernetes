@@ -200,7 +200,10 @@ RUN set -x \
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
   && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
   # delete old host keys
-  && rm -rf /etc/ssh/ssh_host*
+  && rm -rf /etc/ssh/ssh_host* \
+  # Create a symlink to the rsync for use with vbr. This works around a problem
+  # seen in some deployments where vbr cannot find rsync.
+  && ln -s /opt/vertica/bin/rsync /usr/bin/rsync
 
 ENTRYPOINT [ "/init" ]
 

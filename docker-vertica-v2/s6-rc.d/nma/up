@@ -1,2 +1,5 @@
 #!/command/execlineb -P
+# explicitly load container environment
+with-contenv
+# start node_management_agent
 /opt/vertica/bin/manage_node_agent.sh start

@@ -39,7 +39,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
 		Expect(lastCall.Command).ShouldNot(ContainElements("/opt/vertica/bin/admintools", "db_add_node"))
@@ -53,7 +54,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
 		Expect(lastCall.Command).ShouldNot(ContainElements("/opt/vertica/bin/admintools", "db_add_node"))
@@ -67,7 +69,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("db_add_node")
 		Expect(len(atCmd)).Should(Equal(1))
@@ -91,7 +94,6 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		// so that it fails because we hit the node limit.
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results[atPod] = []cmds.CmdResult{
-			{}, // Dump admintools.conf
 			{
 				Err: errors.New("admintools command failed"),
 				Stdout: "There was an error adding the nodes to the database: DB client operation \"create nodes\" failed during `ddl`: " +
@@ -99,7 +101,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 					"already contains 3 node(s), Sqlstate: V2001",
 			},
 		}
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(1))
@@ -113,7 +116,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("select rebalance_shards('defaultsubcluster')")
 		Expect(len(atCmd)).Should(Equal(0))
@@ -127,7 +131,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(atCmd)).Should(Equal(0))
@@ -150,7 +155,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		pfacts.Detail[podWithNoDB].upNode = false
 		pfacts.Detail[podWithNoDB].isPodRunning = false
 		pfacts.Detail[podWithNoDB].isInstalled = false
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(0))
@@ -177,7 +183,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 2)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
 		Expect(len(lastCall)).Should(Equal(1))

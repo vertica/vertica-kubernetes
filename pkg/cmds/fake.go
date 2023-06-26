@@ -98,6 +98,11 @@ func (f *FakePodRunner) CopyToPod(ctx context.Context, podName types.NamespacedN
 	return f.ExecInPod(ctx, podName, contName, executeCmd...)
 }
 
+// DumpAdmintoolsConf will log relenvant portions of the admintools.conf for debug purposes.
+func (f *FakePodRunner) DumpAdmintoolsConf(ctx context.Context, podName types.NamespacedName) {
+	// no-op
+}
+
 // FindCommands will search through the command history for any command that
 // contains the given partial command.
 func (f *FakePodRunner) FindCommands(partialCmd ...string) []CmdHistory {

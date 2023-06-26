@@ -16,43 +16,14 @@
 package mgmterrors
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "mgmterrors Suite")
-}
-
-type EventDetails struct {
-	EventType string
-	Reason    string
-	Message   string
-}
-
-type TestEVWriter struct {
-	RecordedEvents []EventDetails
-}
-
-func (t *TestEVWriter) Event(vdb *vapi.VerticaDB, eventtype, reason, message string) {
-	d := EventDetails{
-		EventType: eventtype,
-		Reason:    reason,
-		Message:   message,
-	}
-	if t.RecordedEvents == nil {
-		t.RecordedEvents = []EventDetails{}
-	}
-	t.RecordedEvents = append(t.RecordedEvents, d)
-}
-
-func (t *TestEVWriter) Eventf(vdb *vapi.VerticaDB, eventtype, reason, messageFmt string, args ...interface{}) {
-	msg := fmt.Sprintf(messageFmt, args...)
-	t.Event(vdb, eventtype, reason, msg)
 }

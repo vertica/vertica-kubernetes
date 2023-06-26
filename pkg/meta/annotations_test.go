@@ -44,7 +44,7 @@ var _ = Describe("annotations", func() {
 	})
 
 	It("should treat vclusterOps annotation as a bool", func() {
-		ann := map[string]string{VClusterOpsAnnotation: "true"}
+		ann := map[string]string{VClusterOpsAnnotation: VClusterOpsAnnotationTrue}
 		Ω(UseVClusterOps(ann)).Should(BeTrue())
 	})
 })

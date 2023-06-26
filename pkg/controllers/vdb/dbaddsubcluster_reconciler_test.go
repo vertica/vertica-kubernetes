@@ -38,7 +38,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		a := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		a := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := a.(*DBAddSubclusterReconciler)
 		subclusters := r.parseFetchSubclusterVsql(
 			" sc1\n" +
@@ -76,7 +77,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 				{Stdout: " sc1\n"},
 			},
 		}
-		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// Last command should be AT -t db_add_subcluster
 		atCmdHistory := fpr.Histories[len(fpr.Histories)-1]
@@ -85,15 +87,15 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		))
 	})
 
-	It("should use the proper subcluster type switch for v10.1.1 versions", func() {
+	It("should use the proper subcluster type switch", func() {
 		vdb := vapi.MakeVDB()
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v10.1.1-0"
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		act := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		act := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*DBAddSubclusterReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		r.ATPod = pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)]
@@ -109,7 +111,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		Expect(r.createSubcluster(ctx, &vdb.Spec.Subclusters[0])).Should(Succeed())
 		hists = fpr.FindCommands("db_add_subcluster")
 		Expect(len(hists)).Should(Equal(1))
-		Expect(hists[0].Command).ShouldNot(ContainElement("--is-primary"))
+		Expect(hists[0].Command).Should(ContainElement("--is-primary"))
 	})
 
 	It("should exit without error if not using an EON database", func() {
@@ -121,7 +123,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		Expect(vdb.IsEON()).Should(BeFalse())
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 })
