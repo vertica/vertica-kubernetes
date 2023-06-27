@@ -311,14 +311,14 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build-operator
 docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
-	docker build -t ${OPERATOR_IMG} -f docker-operator/Dockerfile .
+	docker buildx build --tag ${OPERATOR_IMG} --load -f docker-operator/Dockerfile .
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
-	docker build -t ${VLOGGER_IMG} -f docker-vlogger/Dockerfile .
+	docker buildx build -t ${VLOGGER_IMG} --load -f docker-vlogger/Dockerfile .
 
-# If you wish built the manager image targeting other platforms you can use the --platform flag.
-# (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
+# If you wish to build the manager image targeting other platforms you can use the --platform flag.
+# (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-push-operator
 docker-push-operator: ## Push operator docker image with the manager.
@@ -387,7 +387,7 @@ endif
 
 .PHONY: docker-build-bundle
 docker-build-bundle: bundle ## Build the bundle image
-	docker build -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
+	docker buildx build --load -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
 
 .PHONY: docker-push-bundle
 docker-push-bundle: ## Push the bundle image
