@@ -29,7 +29,6 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
@@ -62,7 +61,6 @@ type RestartReconciler struct {
 	InitiatorPod    types.NamespacedName // The pod that we run admin commands from
 	InitiatorPodIP  string               // The IP of the initiating pod
 	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
-	EVLogr          mgmterrors.EventLogger
 	Dispatcher      vadmin.Dispatcher
 }
 
@@ -77,7 +75,6 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PRunner:         prunner,
 		PFacts:          pfacts,
 		RestartReadOnly: restartReadOnly,
-		EVLogr:          mgmterrors.MakeATErrors(vdbrecon, vdb, events.MgmtFailed),
 		Dispatcher:      dispatcher,
 	}
 }

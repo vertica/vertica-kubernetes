@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
@@ -47,7 +46,6 @@ type ReviveDBReconciler struct {
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
 	PFacts     *PodFacts
-	EVLogr     mgmterrors.EventLogger
 	Planr      reviveplanner.Planner
 	Dispatcher vadmin.Dispatcher
 }
@@ -62,7 +60,6 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,
-		EVLogr:     mgmterrors.MakeATErrors(vdbrecon, vdb, events.ReviveDBFailed),
 		Planr:      reviveplanner.MakeATPlanner(log),
 		Dispatcher: dispatcher,
 	}
