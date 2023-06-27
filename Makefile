@@ -317,8 +317,8 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 docker-build-vlogger:  ## Build vertica logger docker image
 	docker buildx build -t ${VLOGGER_IMG} --load -f docker-vlogger/Dockerfile .
 
-# If you wish built the manager image targeting other platforms you can use the --platform flag.
-# (i.e. docker build --platform linux/arm64 ). However, you must enable docker buildKit for it.
+# If you wish to build the manager image targeting other platforms you can use the --platform flag.
+# (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-push-operator
 docker-push-operator: ## Push operator docker image with the manager.
@@ -387,7 +387,7 @@ endif
 
 .PHONY: docker-build-bundle
 docker-build-bundle: bundle ## Build the bundle image
-	docker build -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
+	docker buildx build --load -f $(BUNDLE_DOCKERFILE) -t $(BUNDLE_IMG) .
 
 .PHONY: docker-push-bundle
 docker-push-bundle: ## Push the bundle image
