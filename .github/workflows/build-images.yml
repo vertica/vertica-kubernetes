@@ -52,7 +52,7 @@ on:
       minimal-vertica-image:
         description: "The image name of the vertica server, but with optional software removed"
         value: ${{ jobs.build-server-minimal.outputs.image }}
-      v2-vertica-image:
+      v2-vertica_image:
         description: "The image name of the v2 vertica server image"
         value: ${{ jobs.build-server-v2.outputs.image }}
       vlogger-image:
