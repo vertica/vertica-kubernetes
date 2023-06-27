@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,6 +37,9 @@ type PodRunningState bool
 const (
 	AllPodsRunning    PodRunningState = true
 	AllPodsNotRunning PodRunningState = false
+	TestKeyValue                      = "test-key"
+	TestCertValue                     = "test-cert"
+	TestCaCertValue                   = "test-ca-cert"
 )
 
 func CreatePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, podRunningState PodRunningState) {
@@ -168,6 +172,26 @@ func DeleteStorageClass(ctx context.Context, c client.Client) {
 	if !kerrors.IsNotFound(err) {
 		Expect(c.Delete(ctx, stoclass)).Should(Succeed())
 	}
+}
+
+func CreateFakeTLSSecret(ctx context.Context, vdb *vapi.VerticaDB, c client.Client, name string) {
+	secret := BuildTLSSecret(vdb, name, TestKeyValue, TestCertValue, TestCaCertValue)
+	Expect(c.Create(ctx, secret)).Should(Succeed())
+}
+
+func BuildTLSSecret(vdb *vapi.VerticaDB, name, key, cert, rootca string) *corev1.Secret {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: vdb.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.TLSPrivateKeyKey:        []byte(key),
+			corev1.TLSCertKey:              []byte(cert),
+			corev1.ServiceAccountRootCAKey: []byte(rootca),
+		},
+	}
+	return secret
 }
 
 func DeleteSecret(ctx context.Context, c client.Client, name string) {

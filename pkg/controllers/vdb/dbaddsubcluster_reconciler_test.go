@@ -38,7 +38,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		a := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := a.(*DBAddSubclusterReconciler)
 		subclusters := r.parseFetchSubclusterVsql(
@@ -77,7 +77,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 				{Stdout: " sc1\n"},
 			},
 		}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// Last command should be AT -t db_add_subcluster
@@ -94,7 +94,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*DBAddSubclusterReconciler)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
@@ -123,7 +123,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		Expect(vdb.IsEON()).Should(BeFalse())
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})

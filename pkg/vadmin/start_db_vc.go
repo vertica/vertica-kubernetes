@@ -26,7 +26,7 @@ import (
 // StartDB will start a subset of nodes. Use this when vertica has lost
 // cluster quorum. The IP given for each vnode *must* match the current IP
 // in the vertica catalog. If they aren't a call to ReIP is necessary.
-func (v VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
+func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
 	s := startdb.Parms{}
 	s.Make(opts...)
 	return ctrl.Result{}, fmt.Errorf("not implemented")

@@ -16,6 +16,7 @@
 package vadmin
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -24,13 +25,45 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+var k8sClient client.Client
+var testEnv *envtest.Environment
 var logger logr.Logger
+var restCfg *rest.Config
 
 var _ = BeforeSuite(func() {
 	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+	logf.SetLogger(logger)
+
+	By("bootstrapping test environment")
+	testEnv = &envtest.Environment{
+		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		ErrorIfCRDPathMissing: true,
+	}
+
+	cfg, err := testEnv.Start()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, cfg).NotTo(BeNil())
+	restCfg = cfg
+
+	err = vapi.AddToScheme(scheme.Scheme)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+})
+
+var _ = AfterSuite(func() {
+	By("tearing down the test environment")
+	err := testEnv.Stop()
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 })
 
 func TestAPIs(t *testing.T) {
@@ -39,12 +72,25 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "vadmin Suite")
 }
 
-// mockAdmintoolsDispatcher will create an admintools dispatcher for test
-// purposes.
+// mockAdmintoolsDispatcher will create an admintools dispatcher for test purposes
 func mockAdmintoolsDispatcher() (Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
 	vdb := vapi.MakeVDB()
 	fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 	evWriter := aterrors.TestEVWriter{}
 	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter, false)
 	return dispatcher.(Admintools), vdb, fpr
+}
+
+// MockVClusterOps is used to invoke mock vcluster-ops functions
+type MockVClusterOps struct {
+}
+
+const TestPassword = "test-pw"
+
+// mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
+func mockVClusterOpsDispatcher() *VClusterOps {
+	vdb := vapi.MakeVDBForHTTP("test-secret")
+	mockVops := MockVClusterOps{}
+	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword)
+	return dispatcher.(*VClusterOps)
 }

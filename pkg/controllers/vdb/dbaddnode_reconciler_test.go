@@ -39,7 +39,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
@@ -54,7 +54,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 3)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		lastCall := fpr.Histories[len(fpr.Histories)-1]
@@ -69,7 +69,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("db_add_node")
@@ -101,7 +101,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 					"already contains 3 node(s), Sqlstate: V2001",
 			},
 		}
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
@@ -116,7 +116,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 1)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("select rebalance_shards('defaultsubcluster')")
@@ -131,7 +131,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		atCmd := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
@@ -155,7 +155,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		pfacts.Detail[podWithNoDB].upNode = false
 		pfacts.Detail[podWithNoDB].isPodRunning = false
 		pfacts.Detail[podWithNoDB].isInstalled = false
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
@@ -183,7 +183,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 2)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")
