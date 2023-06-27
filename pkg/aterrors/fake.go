@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package mgmterrors
+package aterrors
 
 import (
 	"fmt"
