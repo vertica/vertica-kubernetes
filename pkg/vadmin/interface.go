@@ -22,7 +22,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -96,14 +96,14 @@ const (
 type Admintools struct {
 	PRunner  cmds.PodRunner
 	Log      logr.Logger
-	EVWriter mgmterrors.EVWriter
+	EVWriter events.EVWriter
 	VDB      *vapi.VerticaDB
 	DevMode  bool // true to include verbose logging for some operations
 }
 
 // MakeAdmintools will create a dispatcher that uses admintools to call the
 // admin commands.
-func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter mgmterrors.EVWriter, devMode bool) Dispatcher {
+func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter events.EVWriter, devMode bool) Dispatcher {
 	return Admintools{
 		PRunner:  prunner,
 		VDB:      vdb,

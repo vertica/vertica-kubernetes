@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package mgmterrors
+package aterrors
 
 import (
 	"testing"
@@ -25,5 +25,5 @@ import (
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "mgmterrors Suite")
+	RunSpecs(t, "aterrors Suite")
 }

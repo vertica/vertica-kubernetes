@@ -23,6 +23,13 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
+// EVWriter is an interface for writing k8s events
+type EVWriter interface {
+	Event(vdb runtime.Object, eventtype, reason, message string)
+	Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{})
+}
+
+// Writer is a concrete class that implements EVWriter
 type Writer struct {
 	Log   logr.Logger
 	EVRec record.EventRecorder

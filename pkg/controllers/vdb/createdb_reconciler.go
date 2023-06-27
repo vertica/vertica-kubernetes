@@ -29,7 +29,6 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -53,7 +52,6 @@ type CreateDBReconciler struct {
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
 	PFacts     *PodFacts
-	EVLogr     mgmterrors.EventLogger
 	Dispatcher vadmin.Dispatcher
 }
 
@@ -67,7 +65,6 @@ func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,
-		EVLogr:     mgmterrors.MakeATErrors(vdbrecon, vdb, events.CreateDBFailed),
 		Dispatcher: dispatcher,
 	}
 }

@@ -18,7 +18,7 @@ package vadmin
 import (
 	"context"
 
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,7 +29,7 @@ import (
 
 // logFailure will log and record an event for an admintools failure
 func (a Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
-	evLogr := mgmterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
+	evLogr := aterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
 	return evLogr.LogFailure(cmd, op, err)
 }
 

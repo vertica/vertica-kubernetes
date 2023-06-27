@@ -23,8 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -76,7 +76,7 @@ func TestAPIs(t *testing.T) {
 func mockAdmintoolsDispatcher() (Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
 	vdb := vapi.MakeVDB()
 	fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-	evWriter := mgmterrors.TestEVWriter{}
+	evWriter := aterrors.TestEVWriter{}
 	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter, false)
 	return dispatcher.(Admintools), vdb, fpr
 }

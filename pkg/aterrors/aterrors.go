@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package mgmterrors
+package aterrors
 
 import (
 	"fmt"
@@ -30,13 +30,13 @@ import (
 
 // ATErrors handles event logging for errors that come back from admintools
 type ATErrors struct {
-	Writer               EVWriter
+	Writer               events.EVWriter
 	VDB                  *vapi.VerticaDB
 	GenericFailureReason string // The failure reason when no specific error is found
 }
 
 // MakeATErrors will consturct the ATErrors struct
-func MakeATErrors(writer EVWriter, vdb *vapi.VerticaDB, genericFailureReason string) EventLogger {
+func MakeATErrors(writer events.EVWriter, vdb *vapi.VerticaDB, genericFailureReason string) *ATErrors {
 	return &ATErrors{
 		Writer:               writer,
 		VDB:                  vdb,
