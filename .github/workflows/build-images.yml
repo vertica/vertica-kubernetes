@@ -19,15 +19,14 @@ on:
         description: 'Name of an existing minimal Vertica server image. If blank we will build one using the default name'
         type: string
         required: true
+      v2_vertica_image:
+        description: 'Name of a v2 Vertica server image. If blank we will build one using the default name'
+        type: string
+        required: true
       vlogger_image:
         description: 'Name of an existing vlogger image. If blank we will build one using the default name'
         type: string
         required: true
-      security_scan_exit_code:
-        description: 'The exit code to use for any security vulnerabilities found. Set this to 1 to fail the build if a vulnerability is found'
-        type: string
-        required: false
-        default: '0'
       run_security_scan:
         description: 'What images to scan?'
         type: string
@@ -53,6 +52,9 @@ on:
       minimal-vertica-image:
         description: "The image name of the vertica server, but with optional software removed"
         value: ${{ jobs.build-server-minimal.outputs.image }}
+      v2-vertica-image:
+        description: "The image name of the v2 vertica server image"
+        value: ${{ jobs.build-server-v2.outputs.image }}
       vlogger-image:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
@@ -142,7 +144,6 @@ jobs:
       if: ${{ inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.full_vertica_image.outputs.value }}
-        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         security-checks: vuln
         timeout: '20m0s'
@@ -160,7 +161,6 @@ jobs:
       if: ${{ inputs.run_security_scan == 'all' }}
       with:
         image-ref: ${{ steps.full_vertica_image.outputs.value }}
-        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         security-checks: vuln
         timeout: '20m0s'
@@ -267,6 +267,88 @@ jobs:
         echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.nokeys_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
         echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.nokeys_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
+        echo "**" >> $GITHUB_STEP_SUMMARY
+
+  build-server-v2:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.v2_vertica_image.outputs.value }}
+    steps:
+
+    - name: set lower case owner name
+      env:
+        OWNER: '${{ github.repository_owner }}'
+      run: |
+        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
+
+    - name: Pick the name of the image
+      uses: spilchen/switch-case-action@v2
+      id: v2_vertica_image
+      with:
+        default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-v2
+        conditionals-with-values: |
+          ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
+          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-v2
+
+    - name: Login to GitHub Container registry for non-PRs
+      uses: docker/login-action@v2
+      if: ${{ github.event_name != 'pull_request' && inputs.v2_vertica_image == '' || startsWith(inputs.v2_vertica_image, 'ghcr.io') }}
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      if: ${{ inputs.v2_vertica_image != '' && startsWith(inputs.v2_vertica_image, 'docker.io') }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - uses: actions/checkout@v3
+      if: ${{ inputs.v2_vertica_image == '' }}
+
+    - name: Download the RPM
+      uses: ./.github/actions/download-rpm
+      if: ${{ inputs.v2_vertica_image == '' }}
+
+    - name: Build and optionally push v2 server image
+      if: ${{ inputs.v2_vertica_image == '' }}
+      run: |
+        export VERTICA_IMG=${{ steps.v2_vertica_image.outputs.value }}
+        make docker-build-vertica-v2
+        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
+        then
+          make docker-push-vertica
+        fi
+
+    - name: Save the image for consumption by dependent jobs (PRs only)
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        docker save ${{ steps.v2_vertica_image.outputs.value }} > v2-vertica-image.tar
+
+    - uses: actions/upload-artifact@v3
+      if: ${{ github.event_name == 'pull_request' }}
+      with:
+        name: v2-vertica-image
+        path: v2-vertica-image.tar
+
+    - name: Do a local pull of the image if we didn't create it
+      if: ${{ inputs.v2_vertica_image != '' }}
+      run: |
+        docker pull ${{ inputs.v2_vertica_image }}
+
+    - name: Print a summary of the job
+      run: |
+        echo "Image Name: **${{ steps.v2_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
+        echo "Was Built: ${{ inputs.v2_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
+        echo "Was Pushed: ${{ inputs.v2_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
+        echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.v2_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.v2_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.v2_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+        echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
+        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.v2_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
 
   build-server-minimal:
@@ -419,7 +501,6 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.operator_image.outputs.value }}
-        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'sarif'
         output: 'trivy-results-verticadb-operator-image.sarif'
@@ -435,7 +516,6 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
         image-ref: ${{ steps.operator_image.outputs.value }}
-        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-verticadb-operator-image.out'
@@ -519,7 +599,6 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         image-ref: ${{ steps.vlogger_image.outputs.value }}
-        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'sarif'
         output: 'trivy-results-vertica-logger-image.sarif'
@@ -535,7 +614,6 @@ jobs:
       if: ${{ inputs.run_security_scan != 'none' }}
       with:
         image-ref: ${{ steps.vlogger_image.outputs.value }}
-        exit-code: ${{ inputs.security_scan_exit_code }}
         ignore-unfixed: true
         format: 'table'
         output: 'trivy-results-vertica-logger-image.out'

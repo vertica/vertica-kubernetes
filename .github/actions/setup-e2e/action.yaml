@@ -29,6 +29,7 @@ runs:
         docker load --input nokeys-vertica-image/nokeys-vertica-image.tar
         docker load --input minimal-vertica-image/minimal-vertica-image.tar
         docker load --input operator-image/operator-image.tar
+        docker load --input v2-vertica-image/v2-vertica-image.tar
         docker load --input vlogger-image/vlogger-image.tar
         docker image ls -a
 
