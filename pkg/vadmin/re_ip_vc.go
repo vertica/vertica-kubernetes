@@ -24,7 +24,7 @@ import (
 )
 
 // ReIP will update the catalog on disk with new IPs for all of the nodes given.
-func (v VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error) {
+func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster ReIP")
 	s := reip.Parms{}
 	s.Make(opts...)

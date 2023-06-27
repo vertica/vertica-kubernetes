@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/mgmterrors"
@@ -35,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Dispatcher interface {
@@ -115,14 +117,33 @@ func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner
 // vclusterops library to perform all of the admin operations via RESTful
 // interfaces.
 type VClusterOps struct {
-	Log logr.Logger
-	VDB *vapi.VerticaDB
+	Log    logr.Logger
+	VDB    *vapi.VerticaDB
+	Client client.Client
+	VClusterProvider
+	Password string
 }
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
-func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB) Dispatcher {
-	return VClusterOps{
-		Log: log,
-		VDB: vdb,
+func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client, vopsi VClusterProvider, passwd string) Dispatcher {
+	return &VClusterOps{
+		Log:              log,
+		VDB:              vdb,
+		Client:           cli,
+		VClusterProvider: vopsi,
+		Password:         passwd,
 	}
+}
+
+type HTTPSCerts struct {
+	Key    string
+	Cert   string
+	CaCert string
+}
+
+// VClusterProvider is for mocking test
+// We will have two concrete implementations for the interface
+// 1. real implementation in vcluster-ops library 2. mock implementation for unit test
+type VClusterProvider interface {
+	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
 }

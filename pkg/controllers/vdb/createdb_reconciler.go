@@ -248,6 +248,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		createdb.WithDBName(c.Vdb.Spec.DBName),
 		createdb.WithLicensePath(licPath),
 		createdb.WithDepotPath(c.Vdb.Spec.Local.DepotPath),
+		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
 	}
 
 	// If a communal path is set, include all of the EON parameters.
