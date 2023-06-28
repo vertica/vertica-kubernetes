@@ -21,8 +21,6 @@ COPY ./packages/${VERTICA_RPM} /tmp/
 # container image
 COPY ./packages/cleanup.sh /tmp/
 COPY ./packages/package-checksum-patcher.py /tmp/
-COPY ./packages/10-vertica-sshd.conf /etc/ssh/sshd_config.d/10-vertica-sshd.conf
-COPY ./packages/10-vertica-ssh.conf /etc/ssh/ssh_config.d/10-vertica-ssh.conf
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
@@ -38,8 +36,6 @@ RUN set -x \
   glibc \
   glibc-langpack-en \
   iproute \
-  openssh-server \
-  openssh-clients \
   openssl \
   which \
   zlib-devel \
@@ -74,28 +70,10 @@ RUN set -x \
   && yum clean all \
   && sh /tmp/cleanup.sh
 
-# Copy in a stable ssh key.  This is done so that Vertica pods can communicate
-# with pods running an older image.  This is necessary when doing an online
-# image change as the Vertica cluster will be running with two container
-# versions at once. This step is required if not including SSH keys because
-# conditional copy isn't a thing in Docker. If no SSH keys are to be included,
-# then the next RUN will remove the key we just added.
-COPY dbadmin/.ssh /home/dbadmin/.ssh
-
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  && mkdir -p /root/.ssh \
-  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
-    cp -r /home/dbadmin/.ssh /root; \
-    chmod 700 /root/.ssh; \
-    chmod 600 /root/.ssh/*; \
-  fi \
-  && chmod 700 /home/dbadmin/.ssh \
-  && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
-  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
   && if [[ ${NO_KEYS^^} == "YES" ]] ; then \
-    rm -rf /home/dbadmin/.ssh/*;  \
     rm -rf /opt/vertica/config/share/agent*; \
   fi
 
@@ -127,10 +105,7 @@ ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder --chown=$DBADMIN_UID:$DBADMIN_GID /home/dbadmin /home/dbadmin
-COPY --from=builder /root/.ssh /root/.ssh
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
-COPY --from=builder /etc/ssh/sshd_config.d/* /etc/ssh/sshd_config.d/
-COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
 
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
@@ -139,7 +114,7 @@ COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
 
 # For the init program (process 1), we use s6-overlay. This ensures none of the
 # processes we start ever become zombie's. It will also restart long running
-# processes like sshd and cron in case they fail.
+# processes like cron in case they fail.
 #
 # See https://github.com/just-containers/s6-overlay for instructions on how to
 # setup and configure.
@@ -164,8 +139,6 @@ RUN set -x \
   locales \
   logrotate \
   ntp \
-  openssh-client \
-  openssh-server \
   openssl \
   procps \
   sysstat \
@@ -183,7 +156,6 @@ RUN set -x \
   && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-  && mkdir -p /run/sshd \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   # Allow passwordless sudo access from dbadmin
@@ -199,8 +171,6 @@ RUN set -x \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
   && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
-  # delete old host keys
-  && rm -rf /etc/ssh/ssh_host* \
   # Create a symlink to the rsync for use with vbr. This works around a problem
   # seen in some deployments where vbr cannot find rsync.
   && ln -s /opt/vertica/bin/rsync /usr/bin/rsync
