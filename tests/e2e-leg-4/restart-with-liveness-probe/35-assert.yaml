@@ -19,10 +19,6 @@ status:
   containerStatuses:
   - name: server
     ready: false
-    lastState:
-      terminated:
-        exitCode: 137
-        reason: Error
     started: false
     restartCount: 1
 ---
