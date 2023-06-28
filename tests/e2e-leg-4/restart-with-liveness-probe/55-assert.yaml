@@ -44,10 +44,6 @@ status:
     restartCount: 2
     started: true
     ready: true
-    lastState:
-      terminated:
-        exitCode: 137
-        reason: Error
 ---
 apiVersion: v1
 kind: Pod
