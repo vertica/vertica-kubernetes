@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
@@ -88,9 +89,35 @@ func mockAdmintoolsDispatcher() (*Admintools, *vapi.VerticaDB, *cmds.FakePodRunn
 type MockVClusterOps struct {
 }
 
-const TestPassword = "test-pw"
-const TestParm = "Parm1"
-const TestValue = "val1"
+// const variables used for vcluster-ops unit test
+const (
+	TestDBName   = "test-db"
+	TestPassword = "test-pw"
+	TestIPv6     = false
+	TestParm     = "Parm1"
+	TestValue    = "val1"
+)
+
+// VerifyCommonOptions is used in vcluster-ops unit test for verifying the common options among all db ops
+func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) error {
+	// verify basic options
+	if *options.Ipv6 != TestIPv6 {
+		return fmt.Errorf("failed to retrieve IPv6")
+	}
+	if *options.Name != TestDBName {
+		return fmt.Errorf("failed to retrieve database name")
+	}
+
+	// verify auth options
+	if *options.UserName != vapi.SuperUser {
+		return fmt.Errorf("failed to retrieve Vertica username")
+	}
+	if *options.Password != TestPassword {
+		return fmt.Errorf("failed to retrieve Vertica password")
+	}
+
+	return nil
+}
 
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
 func mockVClusterOpsDispatcher() *VClusterOps {
