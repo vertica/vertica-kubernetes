@@ -85,7 +85,6 @@ jobs:
       id: full_vertica_image
       with:
         default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}
-        labels: verticadocker/vertica-k8s-private:latest-master
         conditionals-with-values: |
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind
@@ -288,7 +287,7 @@ jobs:
       with:
         default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-v2
         conditionals-with-values: |
-          ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
+          ${{ inputs.v2_vertica_image != '' }} => ${{ ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:latest-master }}
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-v2
 
     - name: Login to GitHub Container registry for non-PRs
