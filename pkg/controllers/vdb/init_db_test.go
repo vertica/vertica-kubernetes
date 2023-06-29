@@ -201,7 +201,7 @@ var _ = Describe("init_db", func() {
 		}
 
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		res, err := g.ConstructAuthParms(ctx, atPod)
+		_, res, err := g.ConstructAuthParms(ctx, atPod)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -307,7 +307,7 @@ var _ = Describe("init_db", func() {
 		}
 
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		res, err := g.ConstructAuthParms(ctx, atPod)
+		_, res, err := g.ConstructAuthParms(ctx, atPod)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -372,7 +372,7 @@ func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveC
 	}
 
 	atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-	res, err := g.ConstructAuthParms(ctx, atPod)
+	_, res, err := g.ConstructAuthParms(ctx, atPod)
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
 	if mustHaveCmd == "" {

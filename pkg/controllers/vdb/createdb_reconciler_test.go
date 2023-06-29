@@ -169,7 +169,8 @@ var _ = Describe("createdb_reconciler", func() {
 					},
 				},
 			}
-			Expect(r.execCmd(ctx, atPod, []string{"create_db"})).Should(Equal(ctrl.Result{Requeue: true}), "Failing with '%s'", errStrings[i])
+			Expect(r.execCmd(ctx, atPod, []string{"create_db"}, map[string]string{})).
+				Should(Equal(ctrl.Result{Requeue: true}), "Failing with '%s'", errStrings[i])
 		}
 
 		fpr.Results = cmds.CmdResults{
@@ -180,7 +181,7 @@ var _ = Describe("createdb_reconciler", func() {
 				},
 			},
 		}
-		res, err := r.execCmd(ctx, atPod, []string{"create_db"})
+		res, err := r.execCmd(ctx, atPod, []string{"create_db"}, map[string]string{})
 		Expect(err).ShouldNot(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})

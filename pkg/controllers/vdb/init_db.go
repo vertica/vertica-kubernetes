@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -50,7 +51,8 @@ const (
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
 	findPodToRunInit() (*PodFact, bool)
-	execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error)
+	execCmd(ctx context.Context, initiatorPod types.NamespacedName,
+		hostList []string, confParms map[string]string) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
@@ -101,7 +103,8 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 	initiatorPod := initPodFact.name
 
-	if res, err := g.ConstructAuthParms(ctx, initiatorPod); verrors.IsReconcileAborted(res, err) {
+	content, res, err := g.ConstructAuthParms(ctx, initiatorPod)
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, podList); verrors.IsReconcileAborted(res, err) {
@@ -114,7 +117,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 
 	if res, err := g.initializer.execCmd(ctx, initiatorPod,
-		getHostList(podList)); verrors.IsReconcileAborted(res, err) {
+		getHostList(podList), genCommunalParmsMap(content)); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -165,12 +168,13 @@ func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, po
 }
 
 // ConstructAuthParms builds the authentication parms and ensure it exists in the pod
-func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context,
+	initiatorPod types.NamespacedName) (string, ctrl.Result, error) {
 	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
 
 	if g.Vdb.Spec.Communal.Path == "" {
 		g.Log.Info("Communal path is empty. Not setting up communal auth parms")
-		return ctrl.Result{}, nil
+		return "", ctrl.Result{}, nil
 	}
 
 	if g.Vdb.IsS3() {
@@ -191,13 +195,13 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, ini
 	if contentGen != nil {
 		content, res, err = contentGen(ctx)
 		if verrors.IsReconcileAborted(res, err) {
-			return res, err
+			return "", res, err
 		}
 	}
 
 	if g.Vdb.HasKerberosConfig() {
 		if res = g.hasCompatibleVersionForKerberos(); verrors.IsReconcileAborted(res, nil) {
-			return res, nil
+			return "", res, nil
 		}
 		content = dedent.Dedent(fmt.Sprintf(`
 			%s
@@ -213,12 +217,20 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, ini
 		content = fmt.Sprintf("%s\n%s", content, g.getAdditionalConfigParmsContent(content))
 	}
 
+	// We do not need to build the auth file for VClusterOps
+	if vmeta.UseVClusterOps(g.Vdb.Annotations) {
+		return content, ctrl.Result{}, nil
+	}
+
 	err = g.copyAuthFile(ctx, initiatorPod, content)
-	return ctrl.Result{}, err
+	return content, ctrl.Result{}, err
 }
 
 // DestroyAuthParms will remove the auth parms file that was created in the pod
 func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, initiatorPod types.NamespacedName) error {
+	if vmeta.UseVClusterOps(g.Vdb.Annotations) {
+		return nil
+	}
 	_, _, err := g.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"rm", paths.AuthParmsFile,
 	)

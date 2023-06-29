@@ -26,6 +26,7 @@ type Parms struct {
 	DBName                string
 	CommunalPath          string
 	CommunalStorageParams string
+	ConfigurationParams   map[string]string
 	IgnoreClusterLease    bool
 }
 
@@ -65,6 +66,12 @@ func WithCommunalPath(path string) Option {
 func WithCommunalStorageParams(path string) Option {
 	return func(s *Parms) {
 		s.CommunalStorageParams = path
+	}
+}
+
+func WithConfigurationParams(parms map[string]string) Option {
+	return func(s *Parms) {
+		s.ConfigurationParams = parms
 	}
 }
 

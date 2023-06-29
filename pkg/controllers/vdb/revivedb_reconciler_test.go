@@ -127,7 +127,8 @@ var _ = Describe("revivedb_reconcile", func() {
 					},
 				},
 			}
-			Expect(r.execCmd(ctx, atPod, []string{"revive_db"})).Should(Equal(ctrl.Result{Requeue: true}), "Failing with '%s'", errStrings[i])
+			Expect(r.execCmd(ctx, atPod, []string{"revive_db"}, map[string]string{})).
+				Should(Equal(ctrl.Result{Requeue: true}), "Failing with '%s'", errStrings[i])
 		}
 
 		fpr.Results = cmds.CmdResults{
@@ -138,7 +139,7 @@ var _ = Describe("revivedb_reconcile", func() {
 				},
 			},
 		}
-		res, err := r.execCmd(ctx, atPod, []string{"create_db"})
+		res, err := r.execCmd(ctx, atPod, []string{"create_db"}, map[string]string{})
 		Expect(err).ShouldNot(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})
@@ -152,12 +153,12 @@ var _ = Describe("revivedb_reconcile", func() {
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		vdb.Spec.IgnoreClusterLease = false
-		opts := r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
+		opts := r.genReviveOpts(types.NamespacedName{}, []string{"hostA"}, map[string]string{})
 		parms := revivedb.Parms{}
 		parms.Make(opts...)
 		Expect(parms.IgnoreClusterLease).Should(BeFalse())
 		vdb.Spec.IgnoreClusterLease = true
-		opts = r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
+		opts = r.genReviveOpts(types.NamespacedName{}, []string{"hostA"}, map[string]string{})
 		parms = revivedb.Parms{}
 		parms.Make(opts...)
 		Expect(parms.IgnoreClusterLease).Should(BeTrue())
