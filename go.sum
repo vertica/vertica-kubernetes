@@ -50,6 +50,8 @@ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bigkevmcd/go-configparser v0.0.0-20210106142102-909504547ead h1:UhYWAphNveMty305skySR5ST/hbYDexgsgkhcy0MDhM=
 github.com/bigkevmcd/go-configparser v0.0.0-20210106142102-909504547ead/go.mod h1:RI5D4DqbDX0Kb0SvKTuAKMYlkSBND3zLQZI/wiS5Ij0=
+github.com/cchen-vertica/vcluster v0.0.10-test h1:tK33BfxYubyucO91ui9mJ0ow3Md2T3dwC4IsLsyB4H8=
+github.com/cchen-vertica/vcluster v0.0.10-test/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/cespare/xxhash/v2 v2.1.2 h1:YRXhKfTDauu4ajMg1TPgFO5jnlC2HCbmLXMcTG5cbYE=
@@ -276,8 +278,6 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ8=
-github.com/vertica/vcluster v0.0.0-20230626111548-d9d8c0dd50db h1:R9IVk9DTRg+CXrYOrSsWoCYj6Iv3Og/p0EbuTdHS8M4=
-github.com/vertica/vcluster v0.0.0-20230626111548-d9d8c0dd50db/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
 github.com/vertica/vertica-sql-go v1.1.1 h1:sZYijzBbvdAbJcl4cYlKjR+Eh/X1hGKzukWuhh8PjvI=
 github.com/vertica/vertica-sql-go v1.1.1/go.mod h1:fGr44VWdEvL+f+Qt5LkKLOT7GoxaWdoUCnPBU9h6t04=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

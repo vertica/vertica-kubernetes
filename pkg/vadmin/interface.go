@@ -146,4 +146,5 @@ type HTTPSCerts struct {
 // 1. real implementation in vcluster-ops library 2. mock implementation for unit test
 type VClusterProvider interface {
 	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
+	VStopDatabase(options *vops.VStopDatabaseOptions) (string, error)
 }
