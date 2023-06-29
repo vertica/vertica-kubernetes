@@ -287,7 +287,7 @@ jobs:
       with:
         default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-v2
         conditionals-with-values: |
-          ${{ inputs.v2_vertica_image != '' }} => ${{ verticadocker/vertica-k8s-private:latest-master }}
+          ${{ inputs.v2_vertica_image != '' }} => ${{ vertica-k8s-private:latest-master}}
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-v2
 
     - name: Login to GitHub Container registry for non-PRs
