@@ -101,7 +101,7 @@ const (
 // VerifyCommonOptions is used in vcluster-ops unit test for verifying the common options among all db ops
 func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) error {
 	// verify basic options
-	if *options.Ipv6 != TestIPv6 {
+	if options.Ipv6.ToBool() != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
 	}
 	if *options.Name != TestDBName {
