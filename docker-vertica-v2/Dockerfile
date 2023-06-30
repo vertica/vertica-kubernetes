@@ -129,6 +129,7 @@ RUN set -x \
   && apt-get install -y --no-install-recommends \
   ca-certificates \
   cron \
+  curl \
   dialog \
   gdb \
   iproute2 \
