@@ -336,7 +336,7 @@ jobs:
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.v2_vertica_image != '' }}
       run: |
-        docker pull verticadocker/vertica-k8s-private:latest-master
+        docker pull ${{ inputs.v2_vertica_image }}
 
     - name: Print a summary of the job
       run: |
