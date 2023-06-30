@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -127,9 +126,18 @@ var _ = Describe("init_db", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, "cat")
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(fmt.Sprintf("%s<<< ''", paths.AuthParmsFile)))
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:    vdbRec,
+			Log:     logger,
+			Vdb:     vdb,
+			PRunner: fpr,
+		}
+
+		parms, res, err := g.ConstructAuthParms(ctx)
+		ExpectWithOffset(1, err).Should(Succeed())
+		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+		Expect(parms).Should(ContainSubstring(""))
 	})
 
 	It("should create a auth file with google parms when using GCloud", func() {
@@ -147,10 +155,9 @@ var _ = Describe("init_db", func() {
 		createAzureAccountKeyCredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(cloud.AzureAccountKey))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
+		parms := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
+		Expect(parms).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
+		Expect(parms).Should(ContainSubstring(cloud.AzureAccountKey))
 	})
 
 	It("should create an auth file with azure parms when using azb:// scheme and shared access signature", func() {
@@ -159,10 +166,9 @@ var _ = Describe("init_db", func() {
 		createAzureSASCredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
+		parms := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
+		Expect(parms).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
+		Expect(parms).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
 	})
 
 	It("should not create an auth parms if no communal path given", func() {
@@ -200,8 +206,7 @@ var _ = Describe("init_db", func() {
 			PRunner: fpr,
 		}
 
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		_, res, err := g.ConstructAuthParms(ctx, atPod)
+		_, res, err := g.ConstructAuthParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -231,10 +236,9 @@ var _ = Describe("init_db", func() {
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(SseAlgorithmAWSKMS))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(SseAlgorithmAES256))
+		parms := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
+		Expect(parms).ShouldNot(ContainSubstring(SseAlgorithmAWSKMS))
+		Expect(parms).Should(ContainSubstring(SseAlgorithmAES256))
 	})
 
 	It("should create auth file with S3 server-side encryption SSE-KMS", func() {
@@ -243,10 +247,9 @@ var _ = Describe("init_db", func() {
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(SseAlgorithmAWSKMS))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(SseAlgorithmAES256))
+		parms := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
+		Expect(parms).Should(ContainSubstring(SseAlgorithmAWSKMS))
+		Expect(parms).ShouldNot(ContainSubstring(SseAlgorithmAES256))
 	})
 
 	It("should be able to read the sse-c clientkey from secret", func() {
@@ -306,8 +309,7 @@ var _ = Describe("init_db", func() {
 			PRunner: fpr,
 		}
 
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		_, res, err := g.ConstructAuthParms(ctx, atPod)
+		_, res, err := g.ConstructAuthParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -362,7 +364,7 @@ var _ = Describe("init_db", func() {
 	})
 })
 
-func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {
+func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) string {
 	fpr := &cmds.FakePodRunner{}
 	g := GenericDatabaseInitializer{
 		VRec:    vdbRec,
@@ -371,14 +373,12 @@ func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveC
 		PRunner: fpr,
 	}
 
-	atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-	_, res, err := g.ConstructAuthParms(ctx, atPod)
+	content, res, err := g.ConstructAuthParms(ctx)
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
 	if mustHaveCmd == "" {
-		return nil
+		return ""
 	}
-	c := fpr.FindCommands(mustHaveCmd)
-	ExpectWithOffset(1, len(c)).Should(Equal(1))
-	return c
+	ExpectWithOffset(1, content).Should(ContainSubstring(mustHaveCmd))
+	return content
 }

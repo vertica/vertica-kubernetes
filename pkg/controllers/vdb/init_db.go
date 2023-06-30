@@ -103,7 +103,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 	initiatorPod := initPodFact.name
 
-	content, res, err := g.ConstructAuthParms(ctx, initiatorPod)
+	content, res, err := g.ConstructAuthParms(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -167,9 +167,8 @@ func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, po
 	return nil
 }
 
-// ConstructAuthParms builds the authentication parms and ensure it exists in the pod
-func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context,
-	initiatorPod types.NamespacedName) (string, ctrl.Result, error) {
+// ConstructAuthParms builds the authentication parms.
+func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context) (string, ctrl.Result, error) {
 	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
 
 	if g.Vdb.Spec.Communal.Path == "" {
@@ -217,13 +216,7 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context,
 		content = fmt.Sprintf("%s\n%s", content, g.getAdditionalConfigParmsContent(content))
 	}
 
-	// We do not need to build the auth file for VClusterOps
-	if vmeta.UseVClusterOps(g.Vdb.Annotations) {
-		return content, ctrl.Result{}, nil
-	}
-
-	err = g.copyAuthFile(ctx, initiatorPod, content)
-	return content, ctrl.Result{}, err
+	return content, ctrl.Result{}, nil
 }
 
 // DestroyAuthParms will remove the auth parms file that was created in the pod
@@ -401,21 +394,6 @@ func (g *GenericDatabaseInitializer) getAdditionalConfigParmsContent(content str
 		parms.WriteString(fmt.Sprintf("%s = %s\n", k, v))
 	}
 	return parms.String()
-}
-
-// copyAuthFile will copy the auth file into the container
-func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, initiatorPod types.NamespacedName, content string) error {
-	_, _, err := g.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, content))
-
-	// We log an event for this error because it could be caused by bad values
-	// in the creds.  If the value we get out of the secret has undisplayable
-	// characters then we won't even be able to copy the file.
-	if err != nil {
-		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
-			"Failed to copy auth parms to the pod '%s'", initiatorPod)
-	}
-	return err
 }
 
 // getCommunalAuth will return the access key and secret key.

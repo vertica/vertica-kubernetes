@@ -73,12 +73,12 @@ func TestAPIs(t *testing.T) {
 }
 
 // mockAdmintoolsDispatcher will create an admintools dispatcher for test purposes
-func mockAdmintoolsDispatcher() (Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
+func mockAdmintoolsDispatcher() (*Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
 	vdb := vapi.MakeVDB()
 	fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 	evWriter := aterrors.TestEVWriter{}
 	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter, false)
-	return dispatcher.(Admintools), vdb, fpr
+	return dispatcher.(*Admintools), vdb, fpr
 }
 
 // MockVClusterOps is used to invoke mock vcluster-ops functions

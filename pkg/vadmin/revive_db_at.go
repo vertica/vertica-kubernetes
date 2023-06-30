@@ -28,10 +28,13 @@ import (
 
 // ReviveDB will initialize a database from an existing communal path.
 // Admintools is used to run the revive.
-func (a Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
+func (a *Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
 	s := revivedb.Parms{}
 	s.Make(opts...)
-	cmd := a.genReviveCmd(&s)
+	if err := a.copyAuthFile(ctx, s.Initiator, genAuthParmsFileContent(s.ConfigurationParams)); err != nil {
+		return ctrl.Result{}, err
+	}
+	cmd := genReviveCmd(&s)
 	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
 		return a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
@@ -40,7 +43,7 @@ func (a Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl
 }
 
 // genReviveCmd will generate the command line options for calling admintools -t revive_db
-func (a Admintools) genReviveCmd(s *revivedb.Parms) []string {
+func genReviveCmd(s *revivedb.Parms) []string {
 	cmd := []string{
 		"-t", "revive_db",
 		"--hosts=" + strings.Join(s.Hosts, ","),

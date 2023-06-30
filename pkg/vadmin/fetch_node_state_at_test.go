@@ -56,8 +56,7 @@ var _ = Describe("fetch_node_state_at", func() {
 	})
 
 	It("should parse the list_allnodes output", func() {
-		at, _, _ := mockAdmintoolsDispatcher()
-		stateMap := at.parseClusterNodeStatus(
+		stateMap := parseClusterNodeStatus(
 			" Node          | Host       | State | Version                 | DB \n"+
 				"---------------+------------+-------+-------------------------+----\n"+
 				" v_d_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n"+

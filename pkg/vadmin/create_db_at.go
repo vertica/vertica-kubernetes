@@ -27,9 +27,12 @@ import (
 )
 
 // CreateDB will create a brand new database using the admintools API (-t create_db).
-func (a Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
+func (a *Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
 	s := createdb.Parms{}
 	s.Make(opts...)
+	if err := a.copyAuthFile(ctx, s.Initiator, genAuthParmsFileContent(s.ConfigurationParams)); err != nil {
+		return ctrl.Result{}, err
+	}
 	cmd := a.genCreateDBCmd(&s)
 	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
@@ -39,7 +42,7 @@ func (a Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl
 }
 
 // genCreateDBCmd will generate the command line options for calling admintools -t create_db
-func (a Admintools) genCreateDBCmd(s *createdb.Parms) []string {
+func (a *Admintools) genCreateDBCmd(s *createdb.Parms) []string {
 	cmd := []string{
 		"-t", "create_db",
 		"--skip-fs-checks",
