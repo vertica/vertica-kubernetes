@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
@@ -49,11 +50,15 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup stop db options", "hosts", opts.RawHosts[0])
-	*opts.Ipv6 = net.IsIPv6(s.InitiatorIP)
+	if net.IsIPv6(s.InitiatorIP) {
+		opts.Ipv6 = vstruct.True
+	} else {
+		opts.Ipv6 = vstruct.False
+	}
 
 	opts.Name = &v.VDB.Spec.DBName
 	if v.VDB.IsEON() {
-		opts.IsEon = vops.True
+		opts.IsEon = vstruct.True
 	}
 
 	// auth options
