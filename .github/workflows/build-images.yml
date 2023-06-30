@@ -326,17 +326,6 @@ jobs:
           make docker-push-vertica
         fi
 
-    - name: Save the image for consumption by dependent jobs (PRs only)
-      if: ${{ github.event_name == 'pull_request' }}
-      run: |
-        docker save ${{ steps.v2_vertica_image.outputs.value }} > v2-vertica-image.tar
-
-    - uses: actions/upload-artifact@v3
-      if: ${{ github.event_name == 'pull_request' }}
-      with:
-        name: v2-vertica-image
-        path: v2-vertica-image.tar
-
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.v2_vertica_image != '' }}
       run: |
