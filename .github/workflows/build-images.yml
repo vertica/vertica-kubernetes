@@ -325,7 +325,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
-        docker save ${{ steps.v2_vertica_image.outputs.value }} > v2-vertica-image.tar
+        docker save verticadocker/vertica-k8s-private:latest-master > v2-vertica-image.tar
 
     - uses: actions/upload-artifact@v3
       if: ${{ github.event_name == 'pull_request' }}
@@ -483,7 +483,7 @@ jobs:
     - name: Save the image for consumption by dependent jobs (PRs only)
       if: ${{ github.event_name == 'pull_request' }}
       run: |
-        docker save verticadocker/vertica-k8s-private:latest-master > operator-image.tar
+        docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
     - uses: actions/upload-artifact@v3
       if: ${{ github.event_name == 'pull_request' }}
