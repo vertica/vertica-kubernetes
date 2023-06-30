@@ -272,7 +272,7 @@ jobs:
   build-server-v2:
     runs-on: ubuntu-latest
     outputs:
-      image: verticadocker/vertica-k8s-private:latest-master
+      image: ${{ steps.v2_vertica_image.outputs.value }}
     steps:
 
     - name: set lower case owner name
@@ -288,7 +288,7 @@ jobs:
         default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-v2
         conditionals-with-values: |
           ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
-          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-v2
+          ${{ github.event_name == 'pull_request' }} => verticadocker/vertica-k8s-private:latest-master
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
@@ -315,7 +315,7 @@ jobs:
     - name: Build and optionally push v2 server image
       if: ${{ inputs.v2_vertica_image == '' }}
       run: |
-        export VERTICA_IMG=verticadocker/vertica-k8s-private:latest-master
+        export VERTICA_IMG=${{ steps.v2_vertica_image.outputs.value }}
         make docker-build-vertica-v2
         if [ $GITHUB_EVENT_NAME != 'pull_request' ]
         then
@@ -340,15 +340,15 @@ jobs:
 
     - name: Print a summary of the job
       run: |
-        echo "Image Name: **verticadocker/vertica-k8s-private:latest-master**" >> $GITHUB_STEP_SUMMARY
+        echo "Image Name: **${{ steps.v2_vertica_image.outputs.value }}**" >> $GITHUB_STEP_SUMMARY
         echo "Was Built: ${{ inputs.v2_vertica_image == '' && '**Yes**' || '**No**' }}" >> $GITHUB_STEP_SUMMARY
         echo "Was Pushed: ${{ inputs.v2_vertica_image == '' && github.event_name != 'pull_request' && '**Yes**' || '**No**' }}"
         echo "Was Scanned: **No**" >> $GITHUB_STEP_SUMMARY
-        echo "Size: **$(docker inspect --format '{{.Size}}' verticadocker/vertica-k8s-private:latest-master | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
-        echo "Image ID: **$(docker inspect --format '{{.ID}}'verticadocker/vertica-k8s-private:latest-master" >> $GITHUB_STEP_SUMMARY
-        echo "Digest: **$(IFS=":" read image tag <<< $(echo verticadocker/vertica-k8s-private:latest-master | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
+        echo "Size: **$(docker inspect --format '{{.Size}}' ${{ steps.v2_vertica_image.outputs.value }} | numfmt --to=iec)**" >> $GITHUB_STEP_SUMMARY
+        echo "Image ID: **$(docker inspect --format '{{.ID}}' ${{ steps.v2_vertica_image.outputs.value }})**" >> $GITHUB_STEP_SUMMARY
+        echo "Digest: **$(IFS=":" read image tag <<< $(echo ${{ steps.v2_vertica_image.outputs.value }} | sed -e 's/^docker.io\///'); docker inspect --format='{{.RepoDigests}}' $image:$tag | sed 's:^.\(.*\).$:\1:' | tr " " "\n" | grep $image | cut -d'@' -f2 || echo "<none>")**" >> $GITHUB_STEP_SUMMARY
         echo -n "Vertica Version: **" >> $GITHUB_STEP_SUMMARY
-        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' verticadocker/vertica-k8s-private:latest-master) >> $GITHUB_STEP_SUMMARY
+        echo -n $(docker inspect --format '{{index .Config.Labels "vertica-version"}}' ${{ steps.v2_vertica_image.outputs.value }}) >> $GITHUB_STEP_SUMMARY
         echo "**" >> $GITHUB_STEP_SUMMARY
 
   build-server-minimal:
