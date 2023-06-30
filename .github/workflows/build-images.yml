@@ -285,7 +285,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: v2_vertica_image
       with:
-        default: verticadocker/vertica-k8s-private:latest-master
+        default: docker.io/verticadocker/vertica-k8s-private:latest-master
         conditionals-with-values: |
           ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
 
@@ -321,10 +321,6 @@ jobs:
         # overwrite the output build image that the e2e tests will use.
         export VERTICA_IMG=vertica-k8s:kind-v2
         make docker-build-vertica-v2
-        if [ $GITHUB_EVENT_NAME != 'pull_request' ]
-        then
-          make docker-push-vertica
-        fi
 
     - name: Do a local pull of the image if we didn't create it
       if: ${{ inputs.v2_vertica_image != '' }}
