@@ -288,7 +288,6 @@ jobs:
         default: verticadocker/vertica-k8s-private:latest-master
         conditionals-with-values: |
           ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
-          ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-v2
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
