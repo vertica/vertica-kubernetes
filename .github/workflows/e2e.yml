@@ -154,7 +154,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-image: verticadocker/vertica-k8s-private:latest-master
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
