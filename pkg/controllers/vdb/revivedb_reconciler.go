@@ -41,13 +41,14 @@ import (
 
 // ReviveDBReconciler will revive a database if one doesn't exist in the vdb yet.
 type ReviveDBReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	Planr      reviveplanner.Planner
-	Dispatcher vadmin.Dispatcher
+	VRec                *VerticaDBReconciler
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner             cmds.PodRunner
+	PFacts              *PodFacts
+	Planr               reviveplanner.Planner
+	Dispatcher          vadmin.Dispatcher
+	ConfigurationParams map[string]string
 }
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
@@ -55,13 +56,14 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReviveDBReconciler{
-		VRec:       vdbrecon,
-		Log:        log,
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Planr:      reviveplanner.MakeATPlanner(log),
-		Dispatcher: dispatcher,
+		VRec:                vdbrecon,
+		Log:                 log,
+		Vdb:                 vdb,
+		PRunner:             prunner,
+		PFacts:              pfacts,
+		Planr:               reviveplanner.MakeATPlanner(log),
+		Dispatcher:          dispatcher,
+		ConfigurationParams: make(map[string]string),
 	}
 }
 
@@ -75,21 +77,21 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 	// The remaining revive_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with create_db.
 	g := GenericDatabaseInitializer{
-		initializer: r,
-		VRec:        r.VRec,
-		Log:         r.Log,
-		Vdb:         r.Vdb,
-		PRunner:     r.PRunner,
-		PFacts:      r.PFacts,
+		initializer:         r,
+		VRec:                r.VRec,
+		Log:                 r.Log,
+		Vdb:                 r.Vdb,
+		PRunner:             r.PRunner,
+		PFacts:              r.PFacts,
+		ConfigurationParams: r.ConfigurationParams,
 	}
 	return g.checkAndRunInit(ctx)
 }
 
 // execCmd will do the actual execution of revive DB.
 // This handles logging of necessary events.
-func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
-	hostList []string, confParms map[string]string) (ctrl.Result, error) {
-	opts := r.genReviveOpts(initiatorPod, hostList, confParms)
+func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
+	opts := r.genReviveOpts(initiatorPod, hostList)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart, "Starting revive database")
 	start := time.Now()
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {
@@ -205,8 +207,7 @@ func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
 }
 
 // genReviveOpts will return the options to use with the revive command
-func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName,
-	hostList []string, confParms map[string]string) []revivedb.Option {
+func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName, hostList []string) []revivedb.Option {
 	opts := []revivedb.Option{
 		revivedb.WithInitiator(initiatorPod),
 		revivedb.WithHosts(hostList),
@@ -216,7 +217,7 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName,
 		opts = append(opts,
 			revivedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 			revivedb.WithCommunalStorageParams(paths.AuthParmsFile),
-			revivedb.WithConfigurationParams(confParms),
+			revivedb.WithConfigurationParams(r.ConfigurationParams),
 		)
 	}
 	if r.Vdb.Spec.IgnoreClusterLease {
@@ -232,6 +233,7 @@ func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName) 
 		describedb.WithDBName(r.Vdb.Spec.DBName),
 		describedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 		describedb.WithCommunalStorageParams(paths.AuthParmsFile),
+		describedb.WithConfigurationParams(r.ConfigurationParams),
 	}
 }
 

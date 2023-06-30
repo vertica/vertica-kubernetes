@@ -31,11 +31,9 @@ import (
 func (a *Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
 	s := revivedb.Parms{}
 	s.Make(opts...)
-	if err := a.copyAuthFile(ctx, s.Initiator, genAuthParmsFileContent(s.ConfigurationParams)); err != nil {
-		return ctrl.Result{}, err
-	}
-	cmd := genReviveCmd(&s)
+	cmd := a.genReviveCmd(&s)
 	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
+	a.DestroyAuthParms(ctx, s.Initiator)
 	if err != nil {
 		return a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
 	}
@@ -43,7 +41,7 @@ func (a *Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctr
 }
 
 // genReviveCmd will generate the command line options for calling admintools -t revive_db
-func genReviveCmd(s *revivedb.Parms) []string {
+func (a *Admintools) genReviveCmd(s *revivedb.Parms) []string {
 	cmd := []string{
 		"-t", "revive_db",
 		"--hosts=" + strings.Join(s.Hosts, ","),

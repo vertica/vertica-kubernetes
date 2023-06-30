@@ -17,9 +17,11 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -39,5 +41,22 @@ var _ = Describe("describe_db_at", func() {
 		Ω(len(hist)).Should(Equal(1))
 		Ω(hist[0].Command).Should(ContainElement("--display-only"))
 		Ω(hist[0].Command).Should(ContainElement("blah"))
+	})
+
+	It("should create a non empty auth file", func() {
+		confParms := map[string]string{
+			TestParm: TestValue,
+		}
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
+		_, res, err := dispatcher.DescribeDB(ctx,
+			describedb.WithCommunalPath("/communal"),
+			describedb.WithConfigurationParams(confParms),
+		)
+		Ω(err).Should(Succeed())
+		Ω(res).Should(Equal(ctrl.Result{}))
+		hist := fpr.FindCommands("cat >")
+		Ω(len(hist)).Should(Equal(1))
+		expContent := fmt.Sprintf("%s = %s\n", TestParm, TestValue)
+		Expect(hist[0].Command).Should(ContainElement(fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, expContent)))
 	})
 })

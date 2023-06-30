@@ -86,6 +86,8 @@ type MockVClusterOps struct {
 }
 
 const TestPassword = "test-pw"
+const TestParm = "Parm1"
+const TestValue = "val1"
 
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
 func mockVClusterOpsDispatcher() *VClusterOps {

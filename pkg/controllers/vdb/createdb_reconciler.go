@@ -47,12 +47,13 @@ const (
 
 // CreateDBReconciler will create a database if one wasn't created yet.
 type CreateDBReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	Dispatcher vadmin.Dispatcher
+	VRec                *VerticaDBReconciler
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner             cmds.PodRunner
+	PFacts              *PodFacts
+	Dispatcher          vadmin.Dispatcher
+	ConfigurationParams map[string]string
 }
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
@@ -60,12 +61,13 @@ func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &CreateDBReconciler{
-		VRec:       vdbrecon,
-		Log:        log,
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Dispatcher: dispatcher,
+		VRec:                vdbrecon,
+		Log:                 log,
+		Vdb:                 vdb,
+		PRunner:             prunner,
+		PFacts:              pfacts,
+		Dispatcher:          dispatcher,
+		ConfigurationParams: make(map[string]string),
 	}
 }
 
@@ -80,21 +82,21 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 	// The remaining create_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with revive_db.
 	g := GenericDatabaseInitializer{
-		initializer: c,
-		VRec:        c.VRec,
-		Log:         c.Log,
-		Vdb:         c.Vdb,
-		PRunner:     c.PRunner,
-		PFacts:      c.PFacts,
+		initializer:         c,
+		VRec:                c.VRec,
+		Log:                 c.Log,
+		Vdb:                 c.Vdb,
+		PRunner:             c.PRunner,
+		PFacts:              c.PFacts,
+		ConfigurationParams: c.ConfigurationParams,
 	}
 	return g.checkAndRunInit(ctx)
 }
 
 // execCmd will do the actual execution of creating a database.
 // This handles logging of necessary events.
-func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
-	hostList []string, confParms map[string]string) (ctrl.Result, error) {
-	opts, err := c.genOptions(ctx, initiatorPod, hostList, confParms)
+func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
+	opts, err := c.genOptions(ctx, initiatorPod, hostList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -232,7 +234,7 @@ func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
 
 // genOptions will return the options to use for the create db command
 func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName,
-	hostList []string, confParms map[string]string) ([]createdb.Option, error) {
+	hostList []string) ([]createdb.Option, error) {
 	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
 	if err != nil {
 		return nil, err
@@ -254,7 +256,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		opts = append(opts,
 			createdb.WithCommunalPath(c.Vdb.GetCommunalPath()),
 			createdb.WithCommunalStorageParams(paths.AuthParmsFile),
-			createdb.WithConfigurationParams(confParms),
+			createdb.WithConfigurationParams(c.ConfigurationParams),
 		)
 	}
 

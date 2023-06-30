@@ -69,8 +69,20 @@ func (a *Admintools) copyAuthFile(ctx context.Context, initiatorPod types.Namesp
 	return err
 }
 
+// DestroyAuthParms will remove the auth parms file that was created in the pod
+func (a *Admintools) DestroyAuthParms(ctx context.Context, initiatorPod types.NamespacedName) {
+	_, _, err := a.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+		"rm", paths.AuthParmsFile,
+	)
+	if err != nil {
+		// Destroying the auth parms is a best effort. If we fail to delete it,
+		// the reconcile will continue on.
+		a.Log.Info("failed to destroy auth parms, ignoring failure", "err", err)
+	}
+}
+
 // genAuthParmsFileContent will generate the content to write into auth_parms.conf
-func genAuthParmsFileContent(parms map[string]string) string {
+func (a *Admintools) genAuthParmsFileContent(parms map[string]string) string {
 	fileContent := strings.Builder{}
 	for k, v := range parms {
 		fileContent.WriteString(fmt.Sprintf("%s = %s\n", k, v))

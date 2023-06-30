@@ -31,7 +31,10 @@ import (
 func (a *Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
 	s := describedb.Parms{}
 	s.Make(opts...)
-	cmd := genDescribeCmd(&s)
+	if err := a.copyAuthFile(ctx, s.Initiator, a.genAuthParmsFileContent(s.ConfigurationParams)); err != nil {
+		return "", ctrl.Result{}, err
+	}
+	cmd := a.genDescribeCmd(&s)
 	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
 		res, err2 := a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
@@ -42,7 +45,7 @@ func (a *Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) 
 
 // genDescribeCmd will generate the command line options for calling
 // admintools -t revive_db --display-only.
-func genDescribeCmd(s *describedb.Parms) []string {
+func (a *Admintools) genDescribeCmd(s *describedb.Parms) []string {
 	return []string{
 		"-t", "revive_db",
 		"--display-only",

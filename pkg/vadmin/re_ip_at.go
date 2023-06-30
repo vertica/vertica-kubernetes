@@ -57,13 +57,13 @@ func (a *Admintools) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result
 		return ctrl.Result{}, err
 	}
 
-	mapFileContents, ipChanging := genMapFile(oldIPs, &s)
+	mapFileContents, ipChanging := a.genMapFile(oldIPs, &s)
 	if !ipChanging {
 		// no re-ip is necessary, the IP are not changing
 		return ctrl.Result{}, nil
 	}
 
-	cmd := genMapFileUploadCmd(mapFileContents)
+	cmd := a.genMapFileUploadCmd(mapFileContents)
 	if _, _, err := a.PRunner.ExecInPod(ctx, s.Initiator, names.ServerContainer, cmd...); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -83,7 +83,7 @@ func (a *Admintools) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result
 // The list of old IPs are passed in. We combine that with the new IPs in the
 // podfacts to generate the map file. The map file is returned as a list of
 // strings. Its format is what is expected by admintools -t re_ip.
-func genMapFile(oldIPs verticaIPLookup, s *reip.Parms) (mapContents []string, ipChanging bool) {
+func (a *Admintools) genMapFile(oldIPs verticaIPLookup, s *reip.Parms) (mapContents []string, ipChanging bool) {
 	mapContents = []string{}
 	ipChanging = false
 
@@ -124,7 +124,7 @@ func (a *Admintools) genReIPCommand() []string {
 }
 
 // genMapFileUploadCmd returns the command to run to upload the map file
-func genMapFileUploadCmd(mapFileContents []string) []string {
+func (a *Admintools) genMapFileUploadCmd(mapFileContents []string) []string {
 	return []string{
 		"bash", "-c", "cat > " + AdminToolsMapFile + "<<< '" + strings.Join(mapFileContents, "\n") + "'",
 	}
