@@ -287,7 +287,7 @@ jobs:
       with:
         default: ghcr.io/${{ env.OWNER_LC }}/vertica-k8s:${{ github.sha }}-v2
         conditionals-with-values: |
-          ${{ inputs.v2_vertica_image != '' }} => ${{ vertica-k8s-private:latest-master}}
+          ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-v2
 
     - name: Login to GitHub Container registry for non-PRs
@@ -315,7 +315,7 @@ jobs:
     - name: Build and optionally push v2 server image
       if: ${{ inputs.v2_vertica_image == '' }}
       run: |
-        export VERTICA_IMG=${{ steps.v2_vertica_image.outputs.value }}
+        export VERTICA_IMG=verticadocker/vertica-k8s-private:latest-master
         make docker-build-vertica-v2
         if [ $GITHUB_EVENT_NAME != 'pull_request' ]
         then
