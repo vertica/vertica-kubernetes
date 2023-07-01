@@ -148,7 +148,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-vcluster:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster' || inputs.e2e_test_suites == '' }}
+    if: ${{ github.repository == 'vertica/vertica-kubernetes' && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster' || inputs.e2e_test_suites == '')}}
     needs: [build] 
     uses: ./.github/workflows/e2e-vcluster.yml
     with:
