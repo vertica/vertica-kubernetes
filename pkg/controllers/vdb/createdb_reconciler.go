@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -53,7 +54,7 @@ type CreateDBReconciler struct {
 	PRunner             cmds.PodRunner
 	PFacts              *PodFacts
 	Dispatcher          vadmin.Dispatcher
-	ConfigurationParams map[string]string
+	ConfigurationParams *vtypes.CiMap
 }
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
@@ -67,7 +68,7 @@ func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PRunner:             prunner,
 		PFacts:              pfacts,
 		Dispatcher:          dispatcher,
-		ConfigurationParams: make(map[string]string),
+		ConfigurationParams: vtypes.MakeCiMap(),
 	}
 }
 
@@ -256,7 +257,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		opts = append(opts,
 			createdb.WithCommunalPath(c.Vdb.GetCommunalPath()),
 			createdb.WithCommunalStorageParams(paths.AuthParmsFile),
-			createdb.WithConfigurationParams(c.ConfigurationParams),
+			createdb.WithConfigurationParams(c.ConfigurationParams.GetMap()),
 		)
 	}
 

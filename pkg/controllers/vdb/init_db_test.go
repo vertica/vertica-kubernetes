@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -127,16 +128,17 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
-			PRunner: fpr,
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			PRunner:             fpr,
+			ConfigurationParams: types.MakeCiMap(),
 		}
 
-		res, err := g.ConstructAuthParms(ctx)
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
-		Expect(len(g.ConfigurationParams)).Should(Equal(0))
+		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 	})
 
 	It("should set google parms in config parms map when using GCloud", func() {
@@ -155,8 +157,8 @@ var _ = Describe("init_db", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		parms := ContructAuthParmsMap(ctx, vdb, "AzureStorageCredentials")
-		ExpectWithOffset(1, parms["AzureStorageCredentials"]).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
-		ExpectWithOffset(1, parms["AzureStorageCredentials"]).Should(ContainSubstring(cloud.AzureAccountKey))
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).Should(ContainSubstring(cloud.AzureAccountKey))
 	})
 
 	It("should set azure parms in config parms map when using azb:// scheme and shared access signature", func() {
@@ -166,8 +168,8 @@ var _ = Describe("init_db", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		parms := ContructAuthParmsMap(ctx, vdb, "AzureStorageCredentials")
-		ExpectWithOffset(1, parms["AzureStorageCredentials"]).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
-		ExpectWithOffset(1, parms["AzureStorageCredentials"]).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
 	})
 
 	It("should not create an auth parms if no communal path given", func() {
@@ -203,10 +205,10 @@ var _ = Describe("init_db", func() {
 			Log:                 logger,
 			Vdb:                 vdb,
 			PRunner:             fpr,
-			ConfigurationParams: make(map[string]string),
+			ConfigurationParams: types.MakeCiMap(),
 		}
 
-		res, err := g.ConstructAuthParms(ctx)
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -261,12 +263,12 @@ var _ = Describe("init_db", func() {
 			Log:                 logger,
 			Vdb:                 vdb,
 			PRunner:             fpr,
-			ConfigurationParams: make(map[string]string),
+			ConfigurationParams: types.MakeCiMap(),
 		}
-		res, err := g.getS3SseCustomerKey(ctx)
+		res, err := g.setS3SseCustomerKey(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
-		Expect(g.ConfigurationParams[S3SseCustomerKey]).Should(Equal(testClientKey))
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3SseCustomerKey, testClientKey)).Should(Equal(true))
 	})
 
 	It("should SSE-C server-side encryption in config parms map", func() {
@@ -305,10 +307,10 @@ var _ = Describe("init_db", func() {
 			VRec:                vdbRec,
 			Log:                 logger,
 			Vdb:                 vdb,
-			ConfigurationParams: make(map[string]string),
+			ConfigurationParams: types.MakeCiMap(),
 		}
 
-		res, err := g.ConstructAuthParms(ctx)
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -318,17 +320,17 @@ var _ = Describe("init_db", func() {
 
 		g := GenericDatabaseInitializer{
 			Vdb:                 vdb,
-			ConfigurationParams: make(map[string]string),
+			ConfigurationParams: types.MakeCiMap(),
 		}
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
-		g.getServerSideEncryptionAlgorithm()
-		Expect(g.ConfigurationParams[S3ServerSideEncryption]).Should(Equal(SseAlgorithmAES256))
+		g.setServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3ServerSideEncryption, SseAlgorithmAES256)).Should(Equal(true))
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseKMS
-		g.getServerSideEncryptionAlgorithm()
-		Expect(g.ConfigurationParams[S3ServerSideEncryption]).Should(Equal(SseAlgorithmAWSKMS))
+		g.setServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3ServerSideEncryption, SseAlgorithmAWSKMS)).Should(Equal(true))
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseC
-		g.getServerSideEncryptionAlgorithm()
-		Expect(g.ConfigurationParams[S3SseCustomerAlgorithm]).Should(Equal(SseAlgorithmAES256))
+		g.setServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3SseCustomerAlgorithm, SseAlgorithmAES256)).Should(Equal(true))
 	})
 
 	It("should add additional server config parms to config parms map", func() {
@@ -340,10 +342,10 @@ var _ = Describe("init_db", func() {
 		g := GenericDatabaseInitializer{
 			VRec:                vdbRec,
 			Vdb:                 vdb,
-			ConfigurationParams: make(map[string]string),
+			ConfigurationParams: types.MakeCiMap(),
 		}
-		g.getAdditionalConfigParmsContent()
-		Expect(g.ConfigurationParams["Parm1"]).Should(Equal("parm1"))
+		g.setAdditionalConfigParms()
+		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "parm1")).Should(Equal(true))
 	})
 
 	It("should skip additional config parm if already present", func() {
@@ -354,36 +356,35 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
-			ConfigurationParams: map[string]string{
-				"Parm1": "value",
-			},
+			VRec:                vdbRec,
+			Vdb:                 vdb,
+			Log:                 logger,
+			ConfigurationParams: types.MakeCiMap(),
 		}
-		g.getAdditionalConfigParmsContent()
-		Expect(g.ConfigurationParams["Parm1"]).Should(Equal("value"))
-		Expect(g.ConfigurationParams["Parm2"]).Should(Equal("parm2"))
+		g.ConfigurationParams.Set("Parm1", "value")
+		g.setAdditionalConfigParms()
+		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "value")).Should(Equal(true))
+		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm2", "parm2")).Should(Equal(true))
 	})
 })
 
 func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, key, value string) {
 	g := ConstructDBInitializer(ctx, vdb)
 	if g.Vdb.Spec.Communal.Path == "" {
-		ExpectWithOffset(1, len(g.ConfigurationParams)).Should(Equal(0))
+		ExpectWithOffset(1, g.ConfigurationParams.Size()).Should(Equal(0))
 		return
 	}
 	if value == "" {
-		_, ok := g.ConfigurationParams[key]
+		_, ok := g.ConfigurationParams.Get(key)
 		ExpectWithOffset(1, ok).Should(Equal(true))
 		return
 	}
-	ExpectWithOffset(1, g.ConfigurationParams[key]).Should(Equal(value))
+	ExpectWithOffset(1, g.ConfigurationParams.ContainKeyValuePair(key, value)).Should(Equal(true))
 }
 
-func ContructAuthParmsMap(ctx context.Context, vdb *vapi.VerticaDB, key string) map[string]string {
+func ContructAuthParmsMap(ctx context.Context, vdb *vapi.VerticaDB, key string) *types.CiMap {
 	g := ConstructDBInitializer(ctx, vdb)
-	_, ok := g.ConfigurationParams[key]
+	_, ok := g.ConfigurationParams.Get(key)
 	ExpectWithOffset(1, ok).Should(Equal(true))
 	return g.ConfigurationParams
 }
@@ -393,10 +394,10 @@ func ConstructDBInitializer(ctx context.Context, vdb *vapi.VerticaDB) *GenericDa
 		VRec:                vdbRec,
 		Log:                 logger,
 		Vdb:                 vdb,
-		ConfigurationParams: make(map[string]string),
+		ConfigurationParams: types.MakeCiMap(),
 	}
 
-	res, err := g.ConstructAuthParms(ctx)
+	res, err := g.ConstructConfigParms(ctx)
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
 	return g

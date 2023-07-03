@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
+	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
@@ -48,7 +49,7 @@ type ReviveDBReconciler struct {
 	PFacts              *PodFacts
 	Planr               reviveplanner.Planner
 	Dispatcher          vadmin.Dispatcher
-	ConfigurationParams map[string]string
+	ConfigurationParams *vtypes.CiMap
 }
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
@@ -63,7 +64,7 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PFacts:              pfacts,
 		Planr:               reviveplanner.MakeATPlanner(log),
 		Dispatcher:          dispatcher,
-		ConfigurationParams: make(map[string]string),
+		ConfigurationParams: vtypes.MakeCiMap(),
 	}
 }
 
@@ -217,7 +218,7 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName, ho
 		opts = append(opts,
 			revivedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 			revivedb.WithCommunalStorageParams(paths.AuthParmsFile),
-			revivedb.WithConfigurationParams(r.ConfigurationParams),
+			revivedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 		)
 	}
 	if r.Vdb.Spec.IgnoreClusterLease {
@@ -233,7 +234,7 @@ func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName) 
 		describedb.WithDBName(r.Vdb.Spec.DBName),
 		describedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 		describedb.WithCommunalStorageParams(paths.AuthParmsFile),
-		describedb.WithConfigurationParams(r.ConfigurationParams),
+		describedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 	}
 }
 
