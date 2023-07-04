@@ -23,7 +23,7 @@ import (
 )
 
 // RemoveNode will remove an existng vrtica node from the cluster.
-func (a Admintools) RemoveNode(ctx context.Context, opts ...removenode.Option) error {
+func (a *Admintools) RemoveNode(ctx context.Context, opts ...removenode.Option) error {
 	s := removenode.Parms{}
 	s.Make(opts...)
 	cmd := []string{

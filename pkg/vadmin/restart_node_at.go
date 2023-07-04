@@ -28,7 +28,7 @@ import (
 // RestartNode will restart a subset of nodes. Use this when vertica has not
 // lost cluster quorum. The IP given for each vnode may not match the current IP
 // in the vertica catalogs.
-func (a Admintools) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
+func (a *Admintools) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
 	s := restartnode.Parms{}
 	s.Make(opts...)
 	cmd := a.genRestartNodeCmd(&s)
@@ -40,7 +40,7 @@ func (a Admintools) RestartNode(ctx context.Context, opts ...restartnode.Option)
 }
 
 // genRestartNodeCmd returns the command to run to restart a pod
-func (a Admintools) genRestartNodeCmd(s *restartnode.Parms) []string {
+func (a *Admintools) genRestartNodeCmd(s *restartnode.Parms) []string {
 	cmd := []string{
 		"-t", "restart_node",
 		"--database=" + a.VDB.Spec.DBName,

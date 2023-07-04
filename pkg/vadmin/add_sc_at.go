@@ -22,7 +22,7 @@ import (
 )
 
 // AddSubcluster will create a subcluster in the vertica cluster.
-func (a Admintools) AddSubcluster(ctx context.Context, opts ...addsc.Option) error {
+func (a *Admintools) AddSubcluster(ctx context.Context, opts ...addsc.Option) error {
 	s := addsc.Parms{}
 	s.Make(opts...)
 	cmd := []string{

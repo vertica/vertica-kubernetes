@@ -31,6 +31,7 @@ type Parms struct {
 	LicensePath           string
 	CommunalPath          string
 	CommunalStorageParams string
+	ConfigurationParams   map[string]string
 	ShardCount            int
 	SkipPackageInstall    bool
 }
@@ -101,6 +102,12 @@ func WithCommunalPath(path string) Option {
 func WithCommunalStorageParams(path string) Option {
 	return func(s *Parms) {
 		s.CommunalStorageParams = path
+	}
+}
+
+func WithConfigurationParams(parms map[string]string) Option {
+	return func(s *Parms) {
+		s.ConfigurationParams = parms
 	}
 }
 

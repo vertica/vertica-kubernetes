@@ -71,6 +71,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	if s.CommunalPath != "" {
 		opts.DepotPrefix = &s.DepotPath
 		opts.CommunalStorageLocation = &s.CommunalPath
+		opts.ConfigurationParameters = s.ConfigurationParams
 	}
 
 	if s.ShardCount > 0 {

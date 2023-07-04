@@ -17,9 +17,11 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -39,5 +41,38 @@ var _ = Describe("create_db_at", func() {
 		Ω(hist[0].Command).Should(ContainElement("--communal-storage-location=/communal"))
 		Ω(hist[0].Command).Should(ContainElement("--shard-count=11"))
 		Ω(hist[0].Command).Should(ContainElement("--skip-package-install"))
+	})
+
+	It("should create a non empty auth file", func() {
+		confParms := map[string]string{
+			TestParm: TestValue,
+		}
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
+		res, err := dispatcher.CreateDB(ctx,
+			createdb.WithCommunalPath("/communal"),
+			createdb.WithConfigurationParams(confParms),
+		)
+		Ω(err).Should(Succeed())
+		Ω(res).Should(Equal(ctrl.Result{}))
+		hist := fpr.FindCommands("cat >")
+		Ω(len(hist)).Should(Equal(1))
+		expContent := fmt.Sprintf("%s = %s\n", TestParm, TestValue)
+		Expect(hist[0].Command).Should(ContainElement(fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, expContent)))
+	})
+
+	It("should delete auth file at the end", func() {
+		confParms := map[string]string{
+			TestParm: TestValue,
+		}
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
+		res, err := dispatcher.CreateDB(ctx,
+			createdb.WithCommunalPath("/communal"),
+			createdb.WithConfigurationParams(confParms),
+		)
+		Ω(err).Should(Succeed())
+		Ω(res).Should(Equal(ctrl.Result{}))
+		cmd := fmt.Sprintf("rm %s", paths.AuthParmsFile)
+		hist := fpr.FindCommands(cmd)
+		Ω(len(hist)).Should(Equal(1))
 	})
 })

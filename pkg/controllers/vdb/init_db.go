@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/lithammer/dedent"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
@@ -30,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,12 +56,13 @@ type DatabaseInitializer interface {
 }
 
 type GenericDatabaseInitializer struct {
-	initializer DatabaseInitializer
-	VRec        *VerticaDBReconciler
-	Log         logr.Logger
-	Vdb         *vapi.VerticaDB
-	PRunner     cmds.PodRunner
-	PFacts      *PodFacts
+	initializer         DatabaseInitializer
+	VRec                *VerticaDBReconciler
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB
+	PRunner             cmds.PodRunner
+	PFacts              *PodFacts
+	ConfigurationParams *vtypes.CiMap
 }
 
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
@@ -101,7 +102,8 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 	initiatorPod := initPodFact.name
 
-	if res, err := g.ConstructAuthParms(ctx, initiatorPod); verrors.IsReconcileAborted(res, err) {
+	res, err := g.ConstructConfigParms(ctx)
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, podList); verrors.IsReconcileAborted(res, err) {
@@ -113,20 +115,13 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	if res, err := g.initializer.execCmd(ctx, initiatorPod,
-		getHostList(podList)); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.execCmd(ctx, initiatorPod, getHostList(podList)); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	cond := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
 	if err := vdbstatus.UpdateCondition(ctx, g.VRec.Client, g.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if err := g.DestroyAuthParms(ctx, initiatorPod); err != nil {
-		// Destroying the auth parms is a best effort. If we fail to delete it,
-		// the reconcile will continue on.
-		g.Log.Info("failed to destroy auth parms, ignoring failure", "err", err)
 	}
 
 	// The DB has been initialized. We invalidate the cache now so that next
@@ -164,9 +159,9 @@ func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, po
 	return nil
 }
 
-// ConstructAuthParms builds the authentication parms and ensure it exists in the pod
-func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
-	var contentGen func(ctx context.Context) (string, ctrl.Result, error)
+// ConstructConfigParms builds a map of all of the config parameters to use.
+func (g *GenericDatabaseInitializer) ConstructConfigParms(ctx context.Context) (ctrl.Result, error) {
+	var authConfigBuilder func(ctx context.Context) (ctrl.Result, error)
 
 	if g.Vdb.Spec.Communal.Path == "" {
 		g.Log.Info("Communal path is empty. Not setting up communal auth parms")
@@ -174,22 +169,21 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, ini
 	}
 
 	if g.Vdb.IsS3() {
-		contentGen = g.getS3AuthParmsContent
+		authConfigBuilder = g.setS3AuthParms
 	} else if g.Vdb.IsHDFS() {
-		contentGen = g.getHDFSAuthParmsContent
+		authConfigBuilder = g.setHDFSAuthParms
 	} else if g.Vdb.IsGCloud() {
-		contentGen = g.getGCloudAuthParmsContent
+		authConfigBuilder = g.setGCloudAuthParms
 	} else if g.Vdb.IsAzure() {
-		contentGen = g.getAzureAuthParmsContent
+		authConfigBuilder = g.setAzureAuthParms
 	} else {
 		g.Log.Info("No special auth setup for communal path", "path", g.Vdb.Spec.Communal.Path)
 	}
 
-	var content string
 	var res ctrl.Result
 	var err error
-	if contentGen != nil {
-		content, res, err = contentGen(ctx)
+	if authConfigBuilder != nil {
+		res, err = authConfigBuilder(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -199,134 +193,107 @@ func (g *GenericDatabaseInitializer) ConstructAuthParms(ctx context.Context, ini
 		if res = g.hasCompatibleVersionForKerberos(); verrors.IsReconcileAborted(res, nil) {
 			return res, nil
 		}
-		content = dedent.Dedent(fmt.Sprintf(`
-			%s
-			%s`, content, g.getKerberosAuthParmsContent()))
+		g.setKerberosAuthParms()
 	}
 
 	// Add any additional config parameters that were included in the CR.
 	// To avoid duplicate values, if a parameter is already set through another CR field,
 	// (like S3ServerSideEncryption through communal.s3ServerSideEncryption), the corresponding
 	// key/value pair in this map is skipped.
-	// This must be the last thing added to the auth parms.
+	// This must be the last thing added to the config parms.
 	if !g.Vdb.IsAdditionalConfigMapEmpty() {
-		content = fmt.Sprintf("%s\n%s", content, g.getAdditionalConfigParmsContent(content))
+		g.setAdditionalConfigParms()
 	}
 
-	err = g.copyAuthFile(ctx, initiatorPod, content)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
-// DestroyAuthParms will remove the auth parms file that was created in the pod
-func (g *GenericDatabaseInitializer) DestroyAuthParms(ctx context.Context, initiatorPod types.NamespacedName) error {
-	_, _, err := g.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"rm", paths.AuthParmsFile,
-	)
-	return err
-}
-
-// getAuth will retrieve the auth parms if they exist.  If no credential secret
-// then an empty string is returned.
-func (g *GenericDatabaseInitializer) getAuth(ctx context.Context, parmName string) (string, ctrl.Result, error) {
+// setAuth adds the auth parms, if they exist, to the config parms map.
+func (g *GenericDatabaseInitializer) setAuth(ctx context.Context, parmName string) (ctrl.Result, error) {
 	if g.Vdb.Spec.Communal.CredentialSecret == "" {
-		return "", ctrl.Result{}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Extract the auth from the credential secret.
 	auth, res, err := g.getCommunalAuth(ctx)
 	if verrors.IsReconcileAborted(res, err) {
-		return "", res, err
+		return res, err
 	}
 
-	content := fmt.Sprintf("%s = %s", parmName, auth)
-	return content, ctrl.Result{}, nil
+	g.ConfigurationParams.Set(parmName, auth)
+	return ctrl.Result{}, nil
 }
 
-// getS3AuthParmsContent construct a string for the auth parms when using S3
+// setS3AuthParms adds the auth parms to the config parms map when using S3
 // communal storage.
-func (g *GenericDatabaseInitializer) getS3AuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
-	auth, res, err := g.getAuth(ctx, "awsauth")
+func (g *GenericDatabaseInitializer) setS3AuthParms(ctx context.Context) (ctrl.Result, error) {
+	res, err := g.setAuth(ctx, "awsauth")
 	if verrors.IsReconcileAborted(res, err) {
-		return "", res, err
+		return res, err
 	}
 
-	configParms := ""
 	if g.Vdb.IsKnownSseType() {
 		if res = g.hasCompatibleVersionForServerSideEncryption(); verrors.IsReconcileAborted(res, nil) {
-			return "", res, nil
+			return res, nil
 		}
-		configParms, res, err = g.getServerSideEncryptionParmsContent(ctx)
+		res, err = g.setServerSideEncryptionParms(ctx)
 		if verrors.IsReconcileAborted(res, err) {
-			return "", res, err
+			return res, err
 		}
 	}
 
-	content := fmt.Sprintf(`
-			%s
-			%s
-			awsendpoint = %s
-			awsenablehttps = %s
-			%s
-			%s
-		`, configParms, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(AWSRegionParm), g.getCAFile(),
-	)
-	return dedent.Dedent(content), ctrl.Result{}, nil
+	g.ConfigurationParams.Set("awsendpoint", g.getCommunalEndpoint())
+	g.ConfigurationParams.Set("awsenablehttps", g.getEnableHTTPS())
+	g.setRegion(AWSRegionParm)
+	g.setCAFile()
+	return ctrl.Result{}, nil
 }
 
-// getHDFSAuthParmsContent construct a string for the auth parms when using
+// setHDFSAuthParms adds the auth parms to the config parms map when using
 // HDFS communal storage.
-func (g *GenericDatabaseInitializer) getHDFSAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
-	content := fmt.Sprintf(`
-			%s
-			%s
-		`, g.getHadoopConfDir(), g.getCAFile(),
-	)
-	return strings.TrimSpace(dedent.Dedent(content)), ctrl.Result{}, nil
+func (g *GenericDatabaseInitializer) setHDFSAuthParms(ctx context.Context) (ctrl.Result, error) {
+	g.setHadoopConfDir()
+	g.setCAFile()
+	return ctrl.Result{}, nil
 }
 
-// getKerberosAuthParmsContent constructs a string for Kerberos related auth
-// parms if that is setup.  Must have Kerberos config in the Vdb.
-func (g *GenericDatabaseInitializer) getKerberosAuthParmsContent() string {
+// setKerberosAuthParms adds Kerberos related auth parms to the config parms map.
+// Must have Kerberos config in the Vdb.
+func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
+	g.ConfigurationParams.Set("KerberosServiceName", g.Vdb.Spec.Communal.KerberosServiceName)
+	g.ConfigurationParams.Set("KerberosRealm", g.Vdb.Spec.Communal.KerberosRealm)
+	g.ConfigurationParams.Set("KerberosKeytabFile", paths.Krb5Keytab)
 	// We disable KerberosEnableKeytabPermissionCheck, otherwise the engine will
 	// complain that the keytab file doesn't have read/write permissions from
 	// dbadmin only.
-	return dedent.Dedent(fmt.Sprintf(`
-			KerberosServiceName = %s
-			KerberosRealm = %s
-			KerberosKeytabFile = %s
-			KerberosEnableKeytabPermissionCheck = 0
-	`, g.Vdb.Spec.Communal.KerberosServiceName,
-		g.Vdb.Spec.Communal.KerberosRealm, paths.Krb5Keytab))
+	g.ConfigurationParams.Set("KerberosEnableKeytabPermissionCheck", "0")
 }
 
-// getGCloudAuthParmsContent will get the content for the auth parms when we are
+// setGCloudAuthParms adds the auth parms to the config parms map when we are
 // connecting to google cloud storage.
-func (g *GenericDatabaseInitializer) getGCloudAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
-	auth, res, err := g.getAuth(ctx, "GCSAuth")
+func (g *GenericDatabaseInitializer) setGCloudAuthParms(ctx context.Context) (ctrl.Result, error) {
+	res, err := g.setAuth(ctx, "GCSAuth")
 	if verrors.IsReconcileAborted(res, err) {
-		return "", res, err
+		return res, err
 	}
 
-	content := fmt.Sprintf(`
-	    %s
-		GCSEndpoint = %s
-		GCSEnableHttps = %s
-		%s
-		%s
-	`, auth, g.getCommunalEndpoint(), g.getEnableHTTPS(), g.getRegion(GCloudRegionParm), g.getCAFile())
-	return dedent.Dedent(content), ctrl.Result{}, nil
+	g.ConfigurationParams.Set("GCSEndpoint", g.getCommunalEndpoint())
+	g.ConfigurationParams.Set("GCSEnableHttps", g.getEnableHTTPS())
+	g.setRegion(GCloudRegionParm)
+	g.setCAFile()
+	return ctrl.Result{}, nil
 }
 
-// getAzureAuthParmsContent will get the content for an EON database created in
+// setAzureAuthParms adds the auth parms to the config parms map for an EON database created in
 // Azure Blob Storage
-func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Context) (string, ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) setAzureAuthParms(ctx context.Context) (ctrl.Result, error) {
 	if g.Vdb.Spec.Communal.CredentialSecret == "" {
-		return "", ctrl.Result{}, nil
+		return ctrl.Result{}, nil
 	}
 
 	azureCreds, azureConfig, res, err := g.getAzureAuth(ctx)
 	if verrors.IsReconcileAborted(res, err) {
-		return "", res, err
+		return res, err
 	}
 
 	var azureCredsJSON strings.Builder
@@ -365,45 +332,26 @@ func (g *GenericDatabaseInitializer) getAzureAuthParmsContent(ctx context.Contex
 	}
 	azureConfigJSON.WriteString("}]")
 
-	content := fmt.Sprintf(`
-	  AzureStorageCredentials = %s
-	  AzureStorageEndpointConfig = %s
-	  %s
-	`, azureCredsJSON.String(), azureConfigJSON.String(), g.getCAFile())
-	return dedent.Dedent(content), ctrl.Result{}, nil
+	g.ConfigurationParams.Set("AzureStorageCredentials", azureCredsJSON.String())
+	g.ConfigurationParams.Set("AzureStorageEndpointConfig", azureConfigJSON.String())
+	g.setCAFile()
+	return ctrl.Result{}, nil
 }
 
-// getAdditionalConfigParmsContent constructs a string containing additional server config parameters
-func (g *GenericDatabaseInitializer) getAdditionalConfigParmsContent(content string) string {
-	parmNames := genCommunalParmsMap(content)
-	parms := strings.Builder{}
+// setAdditionalConfigParms adds additional server config parameters
+// to the config parms map.
+func (g *GenericDatabaseInitializer) setAdditionalConfigParms() {
 	for k, v := range g.Vdb.Spec.Communal.AdditionalConfig {
 		// we lowercase parm names to catch duplications
 		// like AWSauth/awsauth. In case of duplicate names,
 		// we skip to the next parm.
-		_, ok := parmNames[strings.ToLower(k)]
+		_, ok := g.ConfigurationParams.Get(k)
 		if ok {
 			g.Log.Info("additional config parameter ignored", "parameter", k)
 			continue
 		}
-		parms.WriteString(fmt.Sprintf("%s = %s\n", k, v))
+		g.ConfigurationParams.Set(k, v)
 	}
-	return parms.String()
-}
-
-// copyAuthFile will copy the auth file into the container
-func (g *GenericDatabaseInitializer) copyAuthFile(ctx context.Context, initiatorPod types.NamespacedName, content string) error {
-	_, _, err := g.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, content))
-
-	// We log an event for this error because it could be caused by bad values
-	// in the creds.  If the value we get out of the secret has undisplayable
-	// characters then we won't even be able to copy the file.
-	if err != nil {
-		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
-			"Failed to copy auth parms to the pod '%s'", initiatorPod)
-	}
-	return err
 }
 
 // getCommunalAuth will return the access key and secret key.
@@ -483,7 +431,7 @@ func (g *GenericDatabaseInitializer) getAzureAuth(ctx context.Context) (
 }
 
 // getCommunalCredsSecret returns the contents of the communal credentials
-// secret.  It handles if the secret is not found and will log an event.
+// secret. It handles if the secret is not found and will log an event.
 func (g *GenericDatabaseInitializer) getCommunalCredsSecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
 	return getSecret(ctx, g.VRec, g.Vdb, names.GenCommunalCredSecretName(g.Vdb))
 }
@@ -514,64 +462,60 @@ func (g *GenericDatabaseInitializer) getEnableHTTPS() string {
 	return "0"
 }
 
-// getCAFile will return an entry for SystemCABundlePath if one needs to be included
-func (g *GenericDatabaseInitializer) getCAFile() string {
-	if g.Vdb.Spec.Communal.CaFile == "" {
-		return ""
+// setCAFile adds an entry for SystemCABundlePath, if one needs to be included,
+// to the config parms map.
+func (g *GenericDatabaseInitializer) setCAFile() {
+	if g.Vdb.Spec.Communal.CaFile != "" {
+		g.ConfigurationParams.Set("SystemCABundlePath", g.Vdb.Spec.Communal.CaFile)
 	}
-	return fmt.Sprintf("SystemCABundlePath = %s", g.Vdb.Spec.Communal.CaFile)
 }
 
-// getServerSideEncryptionParmsContent constructs a string for server-side encryption related auth
-// parms if that is setup.  Must have encryption type in the Vdb.
-func (g *GenericDatabaseInitializer) getServerSideEncryptionParmsContent(ctx context.Context) (string, reconcile.Result, error) {
+// setServerSideEncryptionParms adds server-side encryption related config
+// parms, if that is setup, to the config parms map. Must have encryption type in the Vdb.
+func (g *GenericDatabaseInitializer) setServerSideEncryptionParms(ctx context.Context) (reconcile.Result, error) {
 	// Extract customer key from secret
-	clienKey, res, err := g.getS3SseCustomerKey(ctx)
+	res, err := g.setS3SseCustomerKey(ctx)
 	if verrors.IsReconcileAborted(res, err) {
-		return "", res, err
+		return res, err
 	}
 
-	content := fmt.Sprintf(`
-			%s
-			%s
-			%s
-		`, g.getServerSideEncryptionAlgorithm(), g.getS3SseKmsKeyID(), clienKey,
-	)
-	return content, ctrl.Result{}, nil
+	g.setServerSideEncryptionAlgorithm()
+	g.setS3SseKmsKeyID()
+	return ctrl.Result{}, nil
 }
 
-// getServerSideEncryptionAlgorithm returns an entry for S3ServerSideEncryption
-// if sse type is SSE-S3|SSE-KMS or for S3SseCustomerAlgorithm if SSE-C.
-func (g *GenericDatabaseInitializer) getServerSideEncryptionAlgorithm() string {
+// setServerSideEncryptionAlgorithm adds an entry to the config parms map for S3ServerSideEncryption,
+// if sse type is SSE-S3|SSE-KMS, or for S3SseCustomerAlgorithm, if sse type is SSE-C.
+func (g *GenericDatabaseInitializer) setServerSideEncryptionAlgorithm() {
 	if g.Vdb.IsSseC() {
-		return fmt.Sprintf("%s = %s", S3SseCustomerAlgorithm, SseAlgorithmAES256)
+		g.ConfigurationParams.Set(S3SseCustomerAlgorithm, SseAlgorithmAES256)
 	}
 	if g.Vdb.IsSseS3() {
-		return fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAES256)
+		g.ConfigurationParams.Set(S3ServerSideEncryption, SseAlgorithmAES256)
 	}
 	if g.Vdb.IsSseKMS() {
-		return fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAWSKMS)
+		g.ConfigurationParams.Set(S3ServerSideEncryption, SseAlgorithmAWSKMS)
 	}
-	return ""
 }
 
-// getS3SseKmsKeyID returns an entry for S3SseKmsKeyId when SSE-KMS is enabled.
-func (g *GenericDatabaseInitializer) getS3SseKmsKeyID() string {
-	if !g.Vdb.IsSseKMS() {
-		return ""
+// setS3SseKmsKeyID adds an entry for S3SseKmsKeyId to the config parms map
+// when SSE-KMS is enabled.
+func (g *GenericDatabaseInitializer) setS3SseKmsKeyID() {
+	if g.Vdb.IsSseKMS() {
+		g.ConfigurationParams.Set(vapi.S3SseKmsKeyID, g.Vdb.Spec.Communal.AdditionalConfig[vapi.S3SseKmsKeyID])
 	}
-	return fmt.Sprintf("%s = %s", vapi.S3SseKmsKeyID, g.Vdb.Spec.Communal.AdditionalConfig[vapi.S3SseKmsKeyID])
 }
 
-// getS3SseCustomerKey returns an entry for S3SseCustomerKey, only when sse type is SSE-C
-func (g *GenericDatabaseInitializer) getS3SseCustomerKey(ctx context.Context) (string, ctrl.Result, error) {
+// setS3SseCustomerKey adds an entry for S3SseCustomerKey to the config parms map,
+// only when sse type is SSE-C.
+func (g *GenericDatabaseInitializer) setS3SseCustomerKey(ctx context.Context) (ctrl.Result, error) {
 	if !g.Vdb.IsSseC() {
-		return "", ctrl.Result{}, nil
+		return ctrl.Result{}, nil
 	}
 
 	secret, res, err := g.getS3SseCustomerKeySecret(ctx)
 	if verrors.IsReconcileAborted(res, err) {
-		return "", res, err
+		return res, err
 	}
 
 	clientKey, ok := secret.Data[cloud.S3SseCustomerKeyName]
@@ -579,20 +523,20 @@ func (g *GenericDatabaseInitializer) getS3SseCustomerKey(ctx context.Context) (s
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.S3SseCustomerWrongKey,
 			"The s3SseCustomerKey secret '%s' does not have a key named '%s'",
 			g.Vdb.Spec.Communal.S3SseCustomerKeySecret, cloud.S3SseCustomerKeyName)
-		return "", ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
-	content := fmt.Sprintf("%s = %s", S3SseCustomerKey, string(clientKey))
-	return content, ctrl.Result{}, nil
+	g.ConfigurationParams.Set(S3SseCustomerKey, string(clientKey))
+	return ctrl.Result{}, nil
 }
 
-// getRegion will return an entry for region, specific to the cloud provider
-func (g *GenericDatabaseInitializer) getRegion(parmName string) string {
+// setRegion adds an entry for region, to the config parms map, specific to the cloud provider
+func (g *GenericDatabaseInitializer) setRegion(parmName string) {
 	// We have a webhook to set the default value, but for legacy purposes we
 	// always check for the empty string.
 	if g.Vdb.Spec.Communal.Region == "" {
-		return fmt.Sprintf("%s = %s", parmName, vapi.DefaultS3Region)
+		g.ConfigurationParams.Set(parmName, vapi.DefaultS3Region)
 	}
-	return fmt.Sprintf("%s = %s", parmName, g.Vdb.Spec.Communal.Region)
+	g.ConfigurationParams.Set(parmName, g.Vdb.Spec.Communal.Region)
 }
 
 // getEndpointProtocol returns the protocol (HTTPS or HTTP) for the given endpoint
@@ -618,13 +562,12 @@ func getEndpointHostPort(blobEndpoint string) string {
 	return strings.TrimSuffix(m[0][2], "/")
 }
 
-// getHadoopConfDir gets the string to include in the auth parms for
-// HadoopConfDir.  If that isn't present, an empty string is returned.
-func (g *GenericDatabaseInitializer) getHadoopConfDir() string {
+// setHadoopConfDir adds an entry to the config parms map for
+// HadoopConfDir. Must have the corresponding config map set in the Vdb.
+func (g *GenericDatabaseInitializer) setHadoopConfDir() {
 	if g.Vdb.Spec.Communal.HadoopConfig != "" {
-		return fmt.Sprintf(`HadoopConfDir = %s`, paths.HadoopConfPath)
+		g.ConfigurationParams.Set("HadoopConfDir", paths.HadoopConfPath)
 	}
-	return ""
 }
 
 // hasCompatibleVersionForKerberos checks whether it has the required engine fix
@@ -654,21 +597,6 @@ func (g *GenericDatabaseInitializer) hasCompatibleVersion(supportedVersion, even
 	}
 	g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion, eventMsg, vinf.VdbVer)
 	return ctrl.Result{Requeue: true}
-}
-
-// genCommunalParmsMap takes a multiline string containing the parms already
-// set(in "parm = value" format) and returns the corresponding map.
-func genCommunalParmsMap(content string) map[string]string {
-	parmNames := map[string]string{}
-	for _, row := range strings.Split(content, "\n") {
-		if row != "" {
-			s := strings.Split(row, " = ")
-			// we lowercase the parm names because they are case insensitive(for the server)
-			// and we want to catch duplications like awsauth/AWSauth
-			parmNames[strings.ToLower(s[0])] = s[1]
-		}
-	}
-	return parmNames
 }
 
 // genUnsupportedVerticaVersionEventMsg returns a string that will be used as

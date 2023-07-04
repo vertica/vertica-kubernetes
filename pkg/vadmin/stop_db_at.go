@@ -22,7 +22,7 @@ import (
 )
 
 // StopDB will stop all the vertica hosts of a running cluster
-func (a Admintools) StopDB(ctx context.Context, opts ...stopdb.Option) error {
+func (a *Admintools) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 	s := stopdb.Parms{}
 	s.Make(opts...)
 	cmd := []string{

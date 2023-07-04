@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
+	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
@@ -41,13 +42,14 @@ import (
 
 // ReviveDBReconciler will revive a database if one doesn't exist in the vdb yet.
 type ReviveDBReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	Planr      reviveplanner.Planner
-	Dispatcher vadmin.Dispatcher
+	VRec                *VerticaDBReconciler
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner             cmds.PodRunner
+	PFacts              *PodFacts
+	Planr               reviveplanner.Planner
+	Dispatcher          vadmin.Dispatcher
+	ConfigurationParams *vtypes.CiMap
 }
 
 // MakeReviveDBReconciler will build a ReviveDBReconciler object
@@ -55,13 +57,14 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReviveDBReconciler{
-		VRec:       vdbrecon,
-		Log:        log,
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Planr:      reviveplanner.MakeATPlanner(log),
-		Dispatcher: dispatcher,
+		VRec:                vdbrecon,
+		Log:                 log,
+		Vdb:                 vdb,
+		PRunner:             prunner,
+		PFacts:              pfacts,
+		Planr:               reviveplanner.MakeATPlanner(log),
+		Dispatcher:          dispatcher,
+		ConfigurationParams: vtypes.MakeCiMap(),
 	}
 }
 
@@ -75,12 +78,13 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 	// The remaining revive_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with create_db.
 	g := GenericDatabaseInitializer{
-		initializer: r,
-		VRec:        r.VRec,
-		Log:         r.Log,
-		Vdb:         r.Vdb,
-		PRunner:     r.PRunner,
-		PFacts:      r.PFacts,
+		initializer:         r,
+		VRec:                r.VRec,
+		Log:                 r.Log,
+		Vdb:                 r.Vdb,
+		PRunner:             r.PRunner,
+		PFacts:              r.PFacts,
+		ConfigurationParams: r.ConfigurationParams,
 	}
 	return g.checkAndRunInit(ctx)
 }
@@ -214,6 +218,7 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName, ho
 		opts = append(opts,
 			revivedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 			revivedb.WithCommunalStorageParams(paths.AuthParmsFile),
+			revivedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 		)
 	}
 	if r.Vdb.Spec.IgnoreClusterLease {
@@ -229,6 +234,7 @@ func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName) 
 		describedb.WithDBName(r.Vdb.Spec.DBName),
 		describedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 		describedb.WithCommunalStorageParams(paths.AuthParmsFile),
+		describedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 	}
 }
 

@@ -28,9 +28,12 @@ import (
 // DescribeDB will get information about a database from communal storage. For
 // the admintools implementation, this is running the revive with the
 // --display-only option.
-func (a Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
+func (a *Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
 	s := describedb.Parms{}
 	s.Make(opts...)
+	if err := a.copyAuthFile(ctx, s.Initiator, a.genAuthParmsFileContent(s.ConfigurationParams)); err != nil {
+		return "", ctrl.Result{}, err
+	}
 	cmd := a.genDescribeCmd(&s)
 	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {
@@ -42,7 +45,7 @@ func (a Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) (
 
 // genDescribeCmd will generate the command line options for calling
 // admintools -t revive_db --display-only.
-func (a Admintools) genDescribeCmd(s *describedb.Parms) []string {
+func (a *Admintools) genDescribeCmd(s *describedb.Parms) []string {
 	return []string{
 		"-t", "revive_db",
 		"--display-only",

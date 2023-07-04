@@ -40,7 +40,7 @@ const (
 type verticaIPLookup map[string]string
 
 // ReIP will update the catalog on disk with new IPs for all of the nodes given.
-func (a Admintools) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error) {
+func (a *Admintools) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error) {
 	s := reip.Parms{}
 	s.Make(opts...)
 
@@ -83,7 +83,7 @@ func (a Admintools) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result,
 // The list of old IPs are passed in. We combine that with the new IPs in the
 // podfacts to generate the map file. The map file is returned as a list of
 // strings. Its format is what is expected by admintools -t re_ip.
-func (a Admintools) genMapFile(oldIPs verticaIPLookup, s *reip.Parms) (mapContents []string, ipChanging bool) {
+func (a *Admintools) genMapFile(oldIPs verticaIPLookup, s *reip.Parms) (mapContents []string, ipChanging bool) {
 	mapContents = []string{}
 	ipChanging = false
 
@@ -105,7 +105,7 @@ func (a Admintools) genMapFile(oldIPs verticaIPLookup, s *reip.Parms) (mapConten
 }
 
 // genReIPCommand will return the command to run for the re_ip command
-func (a Admintools) genReIPCommand() []string {
+func (a *Admintools) genReIPCommand() []string {
 	cmd := []string{
 		"-t", "re_ip",
 		"--file=" + AdminToolsMapFile,
@@ -124,7 +124,7 @@ func (a Admintools) genReIPCommand() []string {
 }
 
 // genMapFileUploadCmd returns the command to run to upload the map file
-func (a Admintools) genMapFileUploadCmd(mapFileContents []string) []string {
+func (a *Admintools) genMapFileUploadCmd(mapFileContents []string) []string {
 	return []string{
 		"bash", "-c", "cat > " + AdminToolsMapFile + "<<< '" + strings.Join(mapFileContents, "\n") + "'",
 	}
@@ -134,8 +134,8 @@ func (a Admintools) genMapFileUploadCmd(mapFileContents []string) []string {
 // The IPs from an admintools.conf represent the *old* IPs. We store them in a
 // map, where the lookup is by the node name. This function only handles
 // compat21 node names.
-func (a Admintools) fetchOldIPsFromNode(ctx context.Context, atPod types.NamespacedName) (verticaIPLookup, error) {
-	cmd := a.genGrepNodeCmd()
+func (a *Admintools) fetchOldIPsFromNode(ctx context.Context, atPod types.NamespacedName) (verticaIPLookup, error) {
+	cmd := genGrepNodeCmd()
 	stdout, _, err := a.PRunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		return verticaIPLookup{}, err
@@ -145,7 +145,7 @@ func (a Admintools) fetchOldIPsFromNode(ctx context.Context, atPod types.Namespa
 
 // genGrepNodeCmd returns the command to run to get the nodes from admintools.conf
 // This function only handles grepping compat21 nodes.
-func (a Admintools) genGrepNodeCmd() []string {
+func genGrepNodeCmd() []string {
 	return []string{
 		"bash", "-c", fmt.Sprintf("grep --regexp='^node[0-9]' %s", paths.AdminToolsConf),
 	}

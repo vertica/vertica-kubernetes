@@ -19,15 +19,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lithammer/dedent"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -110,66 +109,74 @@ var _ = Describe("init_db", func() {
 		Expect(ok).Should(BeFalse())
 	})
 
-	It("should setup auth file with hdfs config dir if hdfs communal path is used", func() {
+	It("should set hdfs config dir in config parms map if hdfs communal path is used", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster1"
 		vdb.Spec.Communal.HadoopConfig = "hadoop-conf"
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		_ = contructAuthParmsHelper(ctx, vdb, "HadoopConf")
+		contructAuthParmsHelper(ctx, vdb, "HadoopConfDir", "")
 	})
 
-	It("should create an empty auth file if hdfs is used and no hdfs config dir was specified", func() {
+	It("should return an empty config parms map if hdfs is used and no hdfs config dir was specified", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster2"
 		vdb.Spec.Communal.HadoopConfig = ""
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, "cat")
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(fmt.Sprintf("%s<<< ''", paths.AuthParmsFile)))
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			PRunner:             fpr,
+			ConfigurationParams: types.MakeCiMap(),
+		}
+
+		res, err := g.ConstructConfigParms(ctx)
+		ExpectWithOffset(1, err).Should(Succeed())
+		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 	})
 
-	It("should create a auth file with google parms when using GCloud", func() {
+	It("should set google parms in config parms map when using GCloud", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		_ = contructAuthParmsHelper(ctx, vdb, "GCSAuth")
+		contructAuthParmsHelper(ctx, vdb, "GCSAuth", "")
 	})
 
-	It("should create an auth file with azure parms when using azb:// scheme and accountKey", func() {
+	It("should set azure parms in config parms map when using azb:// scheme and accountKey", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "azb://account/container/path1"
 		createAzureAccountKeyCredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(cloud.AzureAccountKey))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
+		parms := ContructAuthParmsMap(ctx, vdb, "AzureStorageCredentials")
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).ShouldNot(ContainSubstring(cloud.AzureSharedAccessSignature))
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).Should(ContainSubstring(cloud.AzureAccountKey))
 	})
 
-	It("should create an auth file with azure parms when using azb:// scheme and shared access signature", func() {
+	It("should set azure parms in config parms map when using azb:// scheme and shared access signature", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "azb://account/container/path2"
 		createAzureSASCredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, "AzureStorageCredentials")
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
+		parms := ContructAuthParmsMap(ctx, vdb, "AzureStorageCredentials")
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).Should(ContainSubstring(cloud.AzureSharedAccessSignature))
+		ExpectWithOffset(1, parms.GetValue("AzureStorageCredentials")).ShouldNot(ContainSubstring(cloud.AzureAccountKey))
 	})
 
 	It("should not create an auth parms if no communal path given", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = ""
 
-		_ = contructAuthParmsHelper(ctx, vdb, "")
+		contructAuthParmsHelper(ctx, vdb, "", "")
 	})
 
 	It("should include Kerberos parms if there are kerberos settings", func() {
@@ -179,7 +186,7 @@ var _ = Describe("init_db", func() {
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		_ = contructAuthParmsHelper(ctx, vdb, "KerberosRealm")
+		contructAuthParmsHelper(ctx, vdb, "KerberosRealm", "")
 	})
 
 	It("should requeue if trying to use Kerberos but have an older engine version", func() {
@@ -194,14 +201,14 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
-			PRunner: fpr,
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			PRunner:             fpr,
+			ConfigurationParams: types.MakeCiMap(),
 		}
 
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		res, err := g.ConstructAuthParms(ctx, atPod)
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -225,28 +232,22 @@ var _ = Describe("init_db", func() {
 
 	})
 
-	It("should create auth file with S3 server-side encryption SSE-S3", func() {
+	It("should set SSE-S3 server-side encryption in config parms map", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(SseAlgorithmAWSKMS))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(SseAlgorithmAES256))
+		contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption, SseAlgorithmAES256)
 	})
 
-	It("should create auth file with S3 server-side encryption SSE-KMS", func() {
+	It("should SSE-KMS server-side encryption in config parms map", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseKMS
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		cmds := contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption)
-		Expect(len(cmds[0].Command)).Should(Equal(3))
-		Expect(cmds[0].Command[2]).Should(ContainSubstring(SseAlgorithmAWSKMS))
-		Expect(cmds[0].Command[2]).ShouldNot(ContainSubstring(SseAlgorithmAES256))
+		contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption, SseAlgorithmAWSKMS)
 	})
 
 	It("should be able to read the sse-c clientkey from secret", func() {
@@ -258,15 +259,19 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
-			PRunner: fpr,
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			PRunner:             fpr,
+			ConfigurationParams: types.MakeCiMap(),
 		}
-		Expect(g.getS3SseCustomerKey(ctx)).Should(Equal(fmt.Sprintf("%s = %s", S3SseCustomerKey, testClientKey)))
+		res, err := g.setS3SseCustomerKey(ctx)
+		ExpectWithOffset(1, err).Should(Succeed())
+		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3SseCustomerKey, testClientKey)).Should(Equal(true))
 	})
 
-	It("should create auth file with S3 server-side encryption SSE-C", func() {
+	It("should SSE-C server-side encryption in config parms map", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseC
 		vdb.Spec.Communal.S3SseCustomerKeySecret = testS3SseCustomerKeySecret
@@ -275,7 +280,7 @@ var _ = Describe("init_db", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		defer deleteS3SseCustomerKeySecret(ctx, vdb)
 
-		_ = contructAuthParmsHelper(ctx, vdb, fmt.Sprintf("%s = %s", S3SseCustomerAlgorithm, SseAlgorithmAES256))
+		contructAuthParmsHelper(ctx, vdb, S3SseCustomerAlgorithm, SseAlgorithmAES256)
 	})
 
 	It("should include sseKmsKeyId when S3 server-side encryption is SSE-KMS", func() {
@@ -286,7 +291,7 @@ var _ = Describe("init_db", func() {
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		_ = contructAuthParmsHelper(ctx, vdb, fmt.Sprintf("%s = %s", vapi.S3SseKmsKeyID, testS3SseKmsKeyID))
+		contructAuthParmsHelper(ctx, vdb, vapi.S3SseKmsKeyID, testS3SseKmsKeyID)
 	})
 
 	It("should requeue if trying to use S3 server-side encryption but have an older engine version", func() {
@@ -298,16 +303,14 @@ var _ = Describe("init_db", func() {
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
-			PRunner: fpr,
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			ConfigurationParams: types.MakeCiMap(),
 		}
 
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		res, err := g.ConstructAuthParms(ctx, atPod)
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -316,29 +319,33 @@ var _ = Describe("init_db", func() {
 		vdb := vapi.MakeVDB()
 
 		g := GenericDatabaseInitializer{
-			Vdb: vdb,
+			Vdb:                 vdb,
+			ConfigurationParams: types.MakeCiMap(),
 		}
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
-		Expect(g.getServerSideEncryptionAlgorithm()).Should(Equal(fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAES256)))
+		g.setServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3ServerSideEncryption, SseAlgorithmAES256)).Should(Equal(true))
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseKMS
-		Expect(g.getServerSideEncryptionAlgorithm()).Should(Equal(fmt.Sprintf("%s = %s", S3ServerSideEncryption, SseAlgorithmAWSKMS)))
+		g.setServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3ServerSideEncryption, SseAlgorithmAWSKMS)).Should(Equal(true))
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseC
-		Expect(g.getServerSideEncryptionAlgorithm()).Should(Equal(fmt.Sprintf("%s = %s", S3SseCustomerAlgorithm, SseAlgorithmAES256)))
+		g.setServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(S3SseCustomerAlgorithm, SseAlgorithmAES256)).Should(Equal(true))
 	})
 
-	It("should return additional server config parms in string format", func() {
+	It("should add additional server config parms to config parms map", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.AdditionalConfig = map[string]string{
 			"Parm1": "parm1",
 		}
 
 		g := GenericDatabaseInitializer{
-			VRec: vdbRec,
-			Vdb:  vdb,
+			VRec:                vdbRec,
+			Vdb:                 vdb,
+			ConfigurationParams: types.MakeCiMap(),
 		}
-		result := "Parm1 = parm1\n"
-		content := g.getAdditionalConfigParmsContent("")
-		Expect(content).Should(Equal(result))
+		g.setAdditionalConfigParms()
+		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "parm1")).Should(Equal(true))
 	})
 
 	It("should skip additional config parm if already present", func() {
@@ -349,36 +356,49 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			VRec: vdbRec,
-			Vdb:  vdb,
-			Log:  logger,
+			VRec:                vdbRec,
+			Vdb:                 vdb,
+			Log:                 logger,
+			ConfigurationParams: types.MakeCiMap(),
 		}
-		content := dedent.Dedent(`
-			Parm1 = value
-		`)
-		result := "Parm2 = parm2\n"
-		content = g.getAdditionalConfigParmsContent(content)
-		Expect(content).Should(Equal(result))
+		g.ConfigurationParams.Set("Parm1", "value")
+		g.setAdditionalConfigParms()
+		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "value")).Should(Equal(true))
+		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm2", "parm2")).Should(Equal(true))
 	})
 })
 
-func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, mustHaveCmd string) []cmds.CmdHistory {
-	fpr := &cmds.FakePodRunner{}
-	g := GenericDatabaseInitializer{
-		VRec:    vdbRec,
-		Log:     logger,
-		Vdb:     vdb,
-		PRunner: fpr,
+func contructAuthParmsHelper(ctx context.Context, vdb *vapi.VerticaDB, key, value string) {
+	g := ConstructDBInitializer(ctx, vdb)
+	if g.Vdb.Spec.Communal.Path == "" {
+		ExpectWithOffset(1, g.ConfigurationParams.Size()).Should(Equal(0))
+		return
+	}
+	if value == "" {
+		_, ok := g.ConfigurationParams.Get(key)
+		ExpectWithOffset(1, ok).Should(Equal(true))
+		return
+	}
+	ExpectWithOffset(1, g.ConfigurationParams.ContainKeyValuePair(key, value)).Should(Equal(true))
+}
+
+func ContructAuthParmsMap(ctx context.Context, vdb *vapi.VerticaDB, key string) *types.CiMap {
+	g := ConstructDBInitializer(ctx, vdb)
+	_, ok := g.ConfigurationParams.Get(key)
+	ExpectWithOffset(1, ok).Should(Equal(true))
+	return g.ConfigurationParams
+}
+
+func ConstructDBInitializer(ctx context.Context, vdb *vapi.VerticaDB) *GenericDatabaseInitializer {
+	g := &GenericDatabaseInitializer{
+		VRec:                vdbRec,
+		Log:                 logger,
+		Vdb:                 vdb,
+		ConfigurationParams: types.MakeCiMap(),
 	}
 
-	atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-	res, err := g.ConstructAuthParms(ctx, atPod)
+	res, err := g.ConstructConfigParms(ctx)
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
-	if mustHaveCmd == "" {
-		return nil
-	}
-	c := fpr.FindCommands(mustHaveCmd)
-	ExpectWithOffset(1, len(c)).Should(Equal(1))
-	return c
+	return g
 }
