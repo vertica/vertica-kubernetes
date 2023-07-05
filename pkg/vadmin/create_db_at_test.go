@@ -52,12 +52,7 @@ var _ = Describe("create_db_at", func() {
 			createdb.WithCommunalPath("/communal"),
 			createdb.WithConfigurationParams(confParms),
 		)
-		Ω(err).Should(Succeed())
-		Ω(res).Should(Equal(ctrl.Result{}))
-		hist := fpr.FindCommands("cat >")
-		Ω(len(hist)).Should(Equal(1))
-		expContent := fmt.Sprintf("%s = %s\n", TestParm, TestValue)
-		Expect(hist[0].Command).Should(ContainElement(fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, expContent)))
+		createNonEmptyFileHelper(res, err, fpr)
 	})
 
 	It("should delete auth file at the end", func() {

@@ -135,7 +135,7 @@ func (a *Admintools) genMapFileUploadCmd(mapFileContents []string) []string {
 // map, where the lookup is by the node name. This function only handles
 // compat21 node names.
 func (a *Admintools) fetchOldIPsFromNode(ctx context.Context, atPod types.NamespacedName) (verticaIPLookup, error) {
-	cmd := genGrepNodeCmd()
+	cmd := a.genGrepNodeCmd()
 	stdout, _, err := a.PRunner.ExecInPod(ctx, atPod, names.ServerContainer, cmd...)
 	if err != nil {
 		return verticaIPLookup{}, err
@@ -145,7 +145,7 @@ func (a *Admintools) fetchOldIPsFromNode(ctx context.Context, atPod types.Namesp
 
 // genGrepNodeCmd returns the command to run to get the nodes from admintools.conf
 // This function only handles grepping compat21 nodes.
-func genGrepNodeCmd() []string {
+func (a *Admintools) genGrepNodeCmd() []string {
 	return []string{
 		"bash", "-c", fmt.Sprintf("grep --regexp='^node[0-9]' %s", paths.AdminToolsConf),
 	}

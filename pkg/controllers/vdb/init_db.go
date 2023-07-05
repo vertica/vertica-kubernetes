@@ -342,9 +342,6 @@ func (g *GenericDatabaseInitializer) setAzureAuthParms(ctx context.Context) (ctr
 // to the config parms map.
 func (g *GenericDatabaseInitializer) setAdditionalConfigParms() {
 	for k, v := range g.Vdb.Spec.Communal.AdditionalConfig {
-		// we lowercase parm names to catch duplications
-		// like AWSauth/awsauth. In case of duplicate names,
-		// we skip to the next parm.
 		_, ok := g.ConfigurationParams.Get(k)
 		if ok {
 			g.Log.Info("additional config parameter ignored", "parameter", k)
@@ -489,11 +486,9 @@ func (g *GenericDatabaseInitializer) setServerSideEncryptionParms(ctx context.Co
 func (g *GenericDatabaseInitializer) setServerSideEncryptionAlgorithm() {
 	if g.Vdb.IsSseC() {
 		g.ConfigurationParams.Set(S3SseCustomerAlgorithm, SseAlgorithmAES256)
-	}
-	if g.Vdb.IsSseS3() {
+	} else if g.Vdb.IsSseS3() {
 		g.ConfigurationParams.Set(S3ServerSideEncryption, SseAlgorithmAES256)
-	}
-	if g.Vdb.IsSseKMS() {
+	} else if g.Vdb.IsSseKMS() {
 		g.ConfigurationParams.Set(S3ServerSideEncryption, SseAlgorithmAWSKMS)
 	}
 }

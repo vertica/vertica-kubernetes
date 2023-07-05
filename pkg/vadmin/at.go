@@ -70,7 +70,7 @@ func (a *Admintools) copyAuthFile(ctx context.Context, initiatorPod types.Namesp
 }
 
 // DestroyAuthParms will remove the auth parms file that was created in the pod
-func (a *Admintools) DestroyAuthParms(ctx context.Context, initiatorPod types.NamespacedName) {
+func (a *Admintools) destroyAuthParms(ctx context.Context, initiatorPod types.NamespacedName) {
 	_, _, err := a.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"rm", paths.AuthParmsFile,
 	)
@@ -88,4 +88,21 @@ func (a *Admintools) genAuthParmsFileContent(parms map[string]string) string {
 		fileContent.WriteString(fmt.Sprintf("%s = %s\n", k, v))
 	}
 	return fileContent.String()
+}
+
+// initDB will perform the admintools call to initialize the db.
+// It will be '-t create_db' cmd to create the db or '-t revive_db'
+// cmd to revive the db.
+func (a *Admintools) initDB(ctx context.Context, dbi DBInitializer) (ctrl.Result, error) {
+	initiator := dbi.GetInitiator()
+	if err := a.copyAuthFile(ctx, initiator, a.genAuthParmsFileContent(dbi.GetConfigParms())); err != nil {
+		return ctrl.Result{}, err
+	}
+	defer a.destroyAuthParms(ctx, initiator)
+	cmd := dbi.GenCmd()
+	stdout, err := a.execAdmintools(ctx, initiator, cmd...)
+	if err != nil {
+		return dbi.LogFailure(stdout, err)
+	}
+	return ctrl.Result{}, nil
 }

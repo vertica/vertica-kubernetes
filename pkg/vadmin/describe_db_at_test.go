@@ -52,11 +52,22 @@ var _ = Describe("describe_db_at", func() {
 			describedb.WithCommunalPath("/communal"),
 			describedb.WithConfigurationParams(confParms),
 		)
+		createNonEmptyFileHelper(res, err, fpr)
+	})
+
+	It("should delete auth file at the end", func() {
+		confParms := map[string]string{
+			TestParm: TestValue,
+		}
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
+		_, res, err := dispatcher.DescribeDB(ctx,
+			describedb.WithCommunalPath("/communal"),
+			describedb.WithConfigurationParams(confParms),
+		)
 		Ω(err).Should(Succeed())
 		Ω(res).Should(Equal(ctrl.Result{}))
-		hist := fpr.FindCommands("cat >")
+		cmd := fmt.Sprintf("rm %s", paths.AuthParmsFile)
+		hist := fpr.FindCommands(cmd)
 		Ω(len(hist)).Should(Equal(1))
-		expContent := fmt.Sprintf("%s = %s\n", TestParm, TestValue)
-		Expect(hist[0].Command).Should(ContainElement(fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, expContent)))
 	})
 })

@@ -34,6 +34,7 @@ func (a *Admintools) DescribeDB(ctx context.Context, opts ...describedb.Option) 
 	if err := a.copyAuthFile(ctx, s.Initiator, a.genAuthParmsFileContent(s.ConfigurationParams)); err != nil {
 		return "", ctrl.Result{}, err
 	}
+	defer a.destroyAuthParms(ctx, s.Initiator)
 	cmd := a.genDescribeCmd(&s)
 	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
 	if err != nil {

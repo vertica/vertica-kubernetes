@@ -57,7 +57,8 @@ func (c *CiMap) ContainKeyValuePair(key, val string) bool {
 	return v == val
 }
 
-// GetValue returns the value for the given key.
+// GetValue returns the value for the given key and an empty
+// string if the key does not exist.
 func (c *CiMap) GetValue(k string) string {
 	v, ok := c.Get(k)
 	if !ok {

@@ -34,6 +34,7 @@ var _ = Describe("case_insensitive_map", func() {
 		c.Set("key1", "val1")
 		c.Set("kEY1", "val2")
 		Expect(c.Size()).Should(Equal(1))
+		Expect(c.GetValue("kEY1")).Should(Equal("val2"))
 		Expect(c.ContainKeyValuePair("KEY1", "val2")).Should(Equal(true))
 	})
 
@@ -44,5 +45,15 @@ var _ = Describe("case_insensitive_map", func() {
 		m := c.GetMap()
 		Expect(len(m)).Should(Equal(2))
 		Expect(m["key2"]).Should(Equal("v2"))
+	})
+
+	It("should check if a key does not exist", func() {
+		c := MakeCiMap()
+		c.Set("kEY4", "v4")
+		Expect(c.GetValue("kEY5")).Should(Equal(""))
+		// Right value, wrong key
+		Expect(c.ContainKeyValuePair("KEY5", "v4")).Should(Equal(false))
+		// Right key, wrong value
+		Expect(c.ContainKeyValuePair("KEY4", "v5")).Should(Equal(false))
 	})
 })

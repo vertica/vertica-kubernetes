@@ -23,21 +23,25 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+type DBReviver struct {
+	Admintools *Admintools
+	Parms      revivedb.Parms
+}
 
 // ReviveDB will initialize a database from an existing communal path.
 // Admintools is used to run the revive.
 func (a *Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
 	s := revivedb.Parms{}
 	s.Make(opts...)
-	cmd := a.genReviveCmd(&s)
-	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
-	a.DestroyAuthParms(ctx, s.Initiator)
-	if err != nil {
-		return a.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
+	dbr := DBReviver{
+		Admintools: a,
+		Parms:      s,
 	}
-	return ctrl.Result{}, nil
+	return a.initDB(ctx, &dbr)
 }
 
 // genReviveCmd will generate the command line options for calling admintools -t revive_db
@@ -54,4 +58,24 @@ func (a *Admintools) genReviveCmd(s *revivedb.Parms) []string {
 		cmd = append(cmd, "--ignore-cluster-lease")
 	}
 	return cmd
+}
+
+// GenCmd will return the command line options for calling admintools -t revive_db.
+func (d *DBReviver) GenCmd() []string {
+	return d.Admintools.genReviveCmd(&d.Parms)
+}
+
+// GetInitiator returns the initiator pod name.
+func (d *DBReviver) GetInitiator() types.NamespacedName {
+	return d.Parms.Initiator
+}
+
+// LogFailure will log and record an event for an admintools -t revive_db failure
+func (d *DBReviver) LogFailure(stdout string, err error) (ctrl.Result, error) {
+	return d.Admintools.logFailure("revive_db", events.ReviveDBFailed, stdout, err)
+}
+
+// GetConfigParms returns the configuration parameters map.
+func (d *DBReviver) GetConfigParms() map[string]string {
+	return d.Parms.ConfigurationParams
 }

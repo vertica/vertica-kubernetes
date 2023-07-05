@@ -41,6 +41,18 @@ var _ = Describe("revive_db_at", func() {
 		Ω(hist[0].Command).Should(ContainElement("testdb"))
 	})
 
+	It("should create a non empty auth file", func() {
+		confParms := map[string]string{
+			TestParm: TestValue,
+		}
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
+		res, err := dispatcher.ReviveDB(ctx,
+			revivedb.WithCommunalPath("/communal"),
+			revivedb.WithConfigurationParams(confParms),
+		)
+		createNonEmptyFileHelper(res, err, fpr)
+	})
+
 	It("should delete auth file at the end", func() {
 		confParms := map[string]string{
 			TestParm: TestValue,
