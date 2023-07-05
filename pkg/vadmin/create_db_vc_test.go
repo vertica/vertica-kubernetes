@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,7 +31,6 @@ import (
 var TestHosts = []string{"pod-1", "pod-2", "pod-3"}
 
 const (
-	TestDBName             = "test-db"
 	TestCommunalPath       = "/communal"
 	TestCatalogPath        = "/catalog"
 	TestDepotPath          = "/depot"
@@ -46,12 +44,15 @@ const (
 func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error) {
 	vdb := vops.VCoordinationDatabase{}
 
+	// verify common options
+	err := m.VerifyCommonOptions(&options.DatabaseOptions)
+	if err != nil {
+		return vdb, err
+	}
+
 	// verify basic options
 	if !reflect.DeepEqual(options.RawHosts, TestHosts) {
 		return vdb, fmt.Errorf("failed to retrieve hosts")
-	}
-	if *options.Name != TestDBName {
-		return vdb, fmt.Errorf("failed to retrieve database name")
 	}
 	if *options.CommunalStorageLocation != TestCommunalPath {
 		return vdb, fmt.Errorf("failed to retrieve communal path")
@@ -76,12 +77,6 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	// verify auth options
-	if *options.UserName != vapi.SuperUser {
-		return vdb, fmt.Errorf("failed to retrieve Vertica username")
-	}
-	if *options.Password != TestPassword {
-		return vdb, fmt.Errorf("failed to retrieve Vertica username")
-	}
 	if options.Key != test.TestKeyValue {
 		return vdb, fmt.Errorf("failed to load key")
 	}

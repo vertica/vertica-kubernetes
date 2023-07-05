@@ -36,3 +36,5 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  httpServerMode: Enabled
+  encryptSpreadComm: vertica

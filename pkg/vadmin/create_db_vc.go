@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -58,7 +59,11 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	opts.RawHosts = s.Hosts
 	v.Log.Info("Setup create db options", "hosts", strings.Join(s.Hosts, ","))
 	if len(opts.RawHosts) > 0 {
-		*opts.Ipv6 = net.IsIPv6(opts.RawHosts[0])
+		if net.IsIPv6(opts.RawHosts[0]) {
+			opts.Ipv6 = vstruct.True
+		} else {
+			opts.Ipv6 = vstruct.False
+		}
 	}
 	opts.CatalogPrefix = &s.CatalogPath
 	opts.Name = &s.DBName
