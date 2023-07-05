@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,58 +88,6 @@ var _ = Describe("revivedb_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "revive_db")
 		Expect(len(reviveCalls)).Should(Equal(2)) // 1 for display-only and 1 for the real thing
-	})
-
-	It("should generate a requeue error for various known s3 errors", func() {
-		vdb := vapi.MakeVDB()
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
-		r := act.(*ReviveDBReconciler)
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-
-		errStrings := []string{
-			"Error: The database vertdb cannot continue because the communal storage location\n\ts3://nimbusdb/db\n" +
-				"might still be in use.\n\nthe cluster lease will expire:\n\t2021-05-13 14:35:00.280925",
-			"Could not copy file [s3://nimbusdb/db/empty/metadata/newdb/cluster_config.json] to [/tmp/desc.json]: " +
-				"No such file or directory [s3://nimbusdb/db/empty/metadata/newdb/cluster_config.json]",
-			"Could not copy file [gs://vertica-fleeting/mspilchen/revivedb-failures/metadata/vertdb/cluster_conf] to [/tmp/desc.json]: " +
-				"File not found",
-			"Could not copy file [webhdfs://vertdb/cluster_config.json] to [/tmp/desc.json]: Seen WebHDFS exception: " +
-				"\nURL: [http://vertdb/cluster_config.json]\nHTTP response code: 404\nException type: FileNotFoundException",
-			"Could not copy file [azb://cluster_config.json] to [/tmp/desc.json]: : The specified blob does not exist",
-			"\n10.244.1.34 Permission Denied \n\n",
-			"Database could not be revived.\nError: Node count mismatch",
-			"Error: Primary node count mismatch:",
-			"Could not copy file [s3://nimbusdb/db/spilly/metadata/vertdb/cluster_config.json] to [/tmp/desc.json]: Unable to connect to endpoint\n",
-			"[/tmp/desc.json]: The specified bucket does not exist\nExit",
-		}
-
-		for i := range errStrings {
-			fpr.Results = cmds.CmdResults{
-				atPod: []cmds.CmdResult{
-					{
-						Stdout: errStrings[i],
-						Err:    errors.New("at command failed"),
-					},
-				},
-			}
-			Expect(r.execCmd(ctx, atPod, []string{"revive_db"})).Should(Equal(ctrl.Result{Requeue: true}), "Failing with '%s'", errStrings[i])
-		}
-
-		fpr.Results = cmds.CmdResults{
-			atPod: []cmds.CmdResult{
-				{
-					Stdout: "*** Unknown error",
-					Err:    errors.New("at command failed"),
-				},
-			},
-		}
-		res, err := r.execCmd(ctx, atPod, []string{"create_db"})
-		Expect(err).ShouldNot(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should include --ignore-cluster-lease in revive_db command", func() {

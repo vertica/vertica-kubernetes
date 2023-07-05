@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -139,50 +138,6 @@ var _ = Describe("createdb_reconciler", func() {
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
 		Expect(len(fetchVdb.Status.Conditions)).Should(BeNumerically(">=", vapi.VerticaRestartNeededIndex))
 		Expect(fetchVdb.Status.Conditions[vapi.VerticaRestartNeededIndex].Status).Should(Equal(corev1.ConditionTrue))
-	})
-
-	It("should generate a requeue error for various known createdb errors", func() {
-		vdb := vapi.MakeVDB()
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
-		r := act.(*CreateDBReconciler)
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-
-		errStrings := []string{
-			"Unable to connect to endpoint",
-			"The specified bucket does not exist.",
-			"Communal location [s3://blah] is not empty",
-			"You are trying to access your S3 bucket using the wrong region. If you are using S3",
-			"The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'eu-central-1'.",
-			"An error occurred during kerberos authentication",
-		}
-
-		for i := range errStrings {
-			fpr.Results = cmds.CmdResults{
-				atPod: []cmds.CmdResult{
-					{
-						Stdout: errStrings[i],
-						Err:    errors.New("at command failed"),
-					},
-				},
-			}
-			Expect(r.execCmd(ctx, atPod, []string{"create_db"})).Should(Equal(ctrl.Result{Requeue: true}), "Failing with '%s'", errStrings[i])
-		}
-
-		fpr.Results = cmds.CmdResults{
-			atPod: []cmds.CmdResult{
-				{
-					Stdout: "*** Unknown error",
-					Err:    errors.New("at command failed"),
-				},
-			},
-		}
-		res, err := r.execCmd(ctx, atPod, []string{"create_db"})
-		Expect(err).ShouldNot(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should always run AT commands from the first pod of the first primary subcluster", func() {

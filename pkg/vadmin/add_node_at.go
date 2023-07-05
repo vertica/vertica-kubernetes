@@ -26,7 +26,7 @@ import (
 
 // AddNode will add a new vertica node to the cluster. If add node fails due to
 // a license limit, the error will be of type addnode.LicenseLimitError.
-func (a Admintools) AddNode(ctx context.Context, opts ...addnode.Option) error {
+func (a *Admintools) AddNode(ctx context.Context, opts ...addnode.Option) error {
 	s := addnode.Parms{}
 	s.Make(opts...)
 	cmd := a.genAddNodeCommand(&s)
@@ -57,7 +57,7 @@ func isLicenseLimitError(stdout string) bool {
 }
 
 // genAddNodeCommand returns the command to run to add nodes to the cluster.
-func (a Admintools) genAddNodeCommand(s *addnode.Parms) []string {
+func (a *Admintools) genAddNodeCommand(s *addnode.Parms) []string {
 	return []string{
 		"-t", "db_add_node",
 		"--hosts", strings.Join(s.Hosts, ","),

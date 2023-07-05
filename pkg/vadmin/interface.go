@@ -104,7 +104,7 @@ type Admintools struct {
 // MakeAdmintools will create a dispatcher that uses admintools to call the
 // admin commands.
 func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter events.EVWriter, devMode bool) Dispatcher {
-	return Admintools{
+	return &Admintools{
 		PRunner:  prunner,
 		VDB:      vdb,
 		Log:      log,

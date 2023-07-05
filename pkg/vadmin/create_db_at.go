@@ -23,23 +23,28 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+type DBCreator struct {
+	Admintools *Admintools
+	Parms      createdb.Parms
+}
+
 // CreateDB will create a brand new database using the admintools API (-t create_db).
-func (a Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
+func (a *Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
 	s := createdb.Parms{}
 	s.Make(opts...)
-	cmd := a.genCreateDBCmd(&s)
-	stdout, err := a.execAdmintools(ctx, s.Initiator, cmd...)
-	if err != nil {
-		return a.logFailure("create_db", events.CreateDBFailed, stdout, err)
+	dbc := DBCreator{
+		Admintools: a,
+		Parms:      s,
 	}
-	return ctrl.Result{}, nil
+	return a.initDB(ctx, &dbc)
 }
 
 // genCreateDBCmd will generate the command line options for calling admintools -t create_db
-func (a Admintools) genCreateDBCmd(s *createdb.Parms) []string {
+func (a *Admintools) genCreateDBCmd(s *createdb.Parms) []string {
 	cmd := []string{
 		"-t", "create_db",
 		"--skip-fs-checks",
@@ -71,4 +76,24 @@ func (a Admintools) genCreateDBCmd(s *createdb.Parms) []string {
 		cmd = append(cmd, "--skip-package-install")
 	}
 	return cmd
+}
+
+// GenCmd will return the command line options for calling admintools -t create_db.
+func (d *DBCreator) GenCmd() []string {
+	return d.Admintools.genCreateDBCmd(&d.Parms)
+}
+
+// GetInitiator returns the initiator pod name.
+func (d *DBCreator) GetInitiator() types.NamespacedName {
+	return d.Parms.Initiator
+}
+
+// LogFailure will log and record an event for an admintools -t create_db failure
+func (d *DBCreator) LogFailure(stdout string, err error) (ctrl.Result, error) {
+	return d.Admintools.logFailure("create_db", events.CreateDBFailed, stdout, err)
+}
+
+// GetConfigParms returns the configuration parameters map.
+func (d *DBCreator) GetConfigParms() map[string]string {
+	return d.Parms.ConfigurationParams
 }

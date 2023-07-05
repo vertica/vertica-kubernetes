@@ -16,6 +16,7 @@
 package vadmin
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -25,8 +26,10 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -73,12 +76,12 @@ func TestAPIs(t *testing.T) {
 }
 
 // mockAdmintoolsDispatcher will create an admintools dispatcher for test purposes
-func mockAdmintoolsDispatcher() (Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
+func mockAdmintoolsDispatcher() (*Admintools, *vapi.VerticaDB, *cmds.FakePodRunner) {
 	vdb := vapi.MakeVDB()
 	fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 	evWriter := aterrors.TestEVWriter{}
 	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter, false)
-	return dispatcher.(Admintools), vdb, fpr
+	return dispatcher.(*Admintools), vdb, fpr
 }
 
 // MockVClusterOps is used to invoke mock vcluster-ops functions
@@ -86,6 +89,8 @@ type MockVClusterOps struct {
 }
 
 const TestPassword = "test-pw"
+const TestParm = "Parm1"
+const TestValue = "val1"
 
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
 func mockVClusterOpsDispatcher() *VClusterOps {
@@ -93,4 +98,13 @@ func mockVClusterOpsDispatcher() *VClusterOps {
 	mockVops := MockVClusterOps{}
 	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword)
 	return dispatcher.(*VClusterOps)
+}
+
+func createNonEmptyFileHelper(res ctrl.Result, err error, fpr *cmds.FakePodRunner) {
+	Ω(err).Should(Succeed())
+	Ω(res).Should(Equal(ctrl.Result{}))
+	hist := fpr.FindCommands("cat >")
+	Ω(len(hist)).Should(Equal(1))
+	expContent := fmt.Sprintf("%s = %s\n", TestParm, TestValue)
+	Expect(hist[0].Command).Should(ContainElement(fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, expContent)))
 }

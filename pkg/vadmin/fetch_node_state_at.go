@@ -26,7 +26,7 @@ import (
 
 // FetchNodeState will determine if the given set of nodes are considered UP
 // or DOWN in our consensus state. It returns a map of vnode and its node state.
-func (a Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
+func (a *Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
 	s := fetchnodestate.Parms{}
 	if err := s.Make(opts...); err != nil {
 		return nil, ctrl.Result{}, err
@@ -43,7 +43,7 @@ func (a Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.O
 }
 
 // parseClusterNodeStatus will parse the output from a AT -t list_allnodes call
-func (a Admintools) parseClusterNodeStatus(stdout string, hostsNeeded map[string]bool) map[string]string {
+func (a *Admintools) parseClusterNodeStatus(stdout string, hostsNeeded map[string]bool) map[string]string {
 	stateMap := map[string]string{}
 	lines := strings.Split(stdout, "\n")
 	const HeaderRowCount = 2

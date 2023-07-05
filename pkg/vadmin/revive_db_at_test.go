@@ -17,9 +17,11 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -37,5 +39,33 @@ var _ = Describe("revive_db_at", func() {
 		Ω(len(hist)).Should(Equal(1))
 		Ω(hist[0].Command).Should(ContainElement("--communal-storage-location=/communal-1"))
 		Ω(hist[0].Command).Should(ContainElement("testdb"))
+	})
+
+	It("should create a non empty auth file", func() {
+		confParms := map[string]string{
+			TestParm: TestValue,
+		}
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
+		res, err := dispatcher.ReviveDB(ctx,
+			revivedb.WithCommunalPath("/communal"),
+			revivedb.WithConfigurationParams(confParms),
+		)
+		createNonEmptyFileHelper(res, err, fpr)
+	})
+
+	It("should delete auth file at the end", func() {
+		confParms := map[string]string{
+			TestParm: TestValue,
+		}
+		dispatcher, _, fpr := mockAdmintoolsDispatcher()
+		res, err := dispatcher.ReviveDB(ctx,
+			revivedb.WithCommunalPath("/communal"),
+			revivedb.WithConfigurationParams(confParms),
+		)
+		Ω(err).Should(Succeed())
+		Ω(res).Should(Equal(ctrl.Result{}))
+		cmd := fmt.Sprintf("rm %s", paths.AuthParmsFile)
+		hist := fpr.FindCommands(cmd)
+		Ω(len(hist)).Should(Equal(1))
 	})
 })

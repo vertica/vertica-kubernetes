@@ -55,13 +55,11 @@ jobs:
 
     - name: Run e2e tests
       run: |
-        export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS="tests/e2e-vcluster"
-        mkdir -p $GITHUB_WORKSPACE/../host-path
-        scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
+        scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
 
     - uses: actions/upload-artifact@v3
       if: failure()

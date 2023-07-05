@@ -16,20 +16,13 @@
 package vadmin
 
 import (
-	"context"
-
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// StopDB will stop all the vertica hosts of a running cluster
-func (a *Admintools) StopDB(ctx context.Context, opts ...stopdb.Option) error {
-	s := stopdb.Parms{}
-	s.Make(opts...)
-	cmd := []string{
-		"-t", "stop_db",
-		"--database", a.VDB.Spec.DBName,
-		"--force",
-	}
-	_, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
-	return err
+type DBInitializer interface {
+	GenCmd() []string
+	GetInitiator() types.NamespacedName
+	GetConfigParms() map[string]string
+	LogFailure(string, error) (ctrl.Result, error)
 }

@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/license"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
@@ -47,12 +48,13 @@ const (
 
 // CreateDBReconciler will create a database if one wasn't created yet.
 type CreateDBReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	Dispatcher vadmin.Dispatcher
+	VRec                *VerticaDBReconciler
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner             cmds.PodRunner
+	PFacts              *PodFacts
+	Dispatcher          vadmin.Dispatcher
+	ConfigurationParams *vtypes.CiMap
 }
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
@@ -60,12 +62,13 @@ func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &CreateDBReconciler{
-		VRec:       vdbrecon,
-		Log:        log,
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Dispatcher: dispatcher,
+		VRec:                vdbrecon,
+		Log:                 log,
+		Vdb:                 vdb,
+		PRunner:             prunner,
+		PFacts:              pfacts,
+		Dispatcher:          dispatcher,
+		ConfigurationParams: vtypes.MakeCiMap(),
 	}
 }
 
@@ -80,12 +83,13 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (
 	// The remaining create_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with revive_db.
 	g := GenericDatabaseInitializer{
-		initializer: c,
-		VRec:        c.VRec,
-		Log:         c.Log,
-		Vdb:         c.Vdb,
-		PRunner:     c.PRunner,
-		PFacts:      c.PFacts,
+		initializer:         c,
+		VRec:                c.VRec,
+		Log:                 c.Log,
+		Vdb:                 c.Vdb,
+		PRunner:             c.PRunner,
+		PFacts:              c.PFacts,
+		ConfigurationParams: c.ConfigurationParams,
 	}
 	return g.checkAndRunInit(ctx)
 }
@@ -253,6 +257,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		opts = append(opts,
 			createdb.WithCommunalPath(c.Vdb.GetCommunalPath()),
 			createdb.WithCommunalStorageParams(paths.AuthParmsFile),
+			createdb.WithConfigurationParams(c.ConfigurationParams.GetMap()),
 		)
 	}
 

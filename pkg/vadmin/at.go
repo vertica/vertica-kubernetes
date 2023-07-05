@@ -17,9 +17,14 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -28,14 +33,14 @@ import (
 // commands.
 
 // logFailure will log and record an event for an admintools failure
-func (a Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
+func (a *Admintools) logFailure(cmd, genericFailureReason, op string, err error) (ctrl.Result, error) {
 	evLogr := aterrors.MakeATErrors(a.EVWriter, a.VDB, genericFailureReason)
 	return evLogr.LogFailure(cmd, op, err)
 }
 
 // execAdmintools is a wrapper for admintools tools that handles logging of
 // debug information. The stdout and error of the AT call is returned.
-func (a Admintools) execAdmintools(ctx context.Context, initiatorPod types.NamespacedName, cmd ...string) (string, error) {
+func (a *Admintools) execAdmintools(ctx context.Context, initiatorPod types.NamespacedName, cmd ...string) (string, error) {
 	// Dump relevant contents of the admintools.conf before and after the
 	// admintools calls. We do this for PD purposes to see what changes occurred
 	// in the file.
@@ -47,4 +52,57 @@ func (a Admintools) execAdmintools(ctx context.Context, initiatorPod types.Names
 		a.PRunner.DumpAdmintoolsConf(ctx, initiatorPod)
 	}
 	return stdout, err
+}
+
+// copyAuthFile will copy the auth file into the container
+func (a *Admintools) copyAuthFile(ctx context.Context, initiatorPod types.NamespacedName, content string) error {
+	_, _, err := a.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+		"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'", paths.AuthParmsFile, content))
+
+	// We log an event for this error because it could be caused by bad values
+	// in the creds.  If the value we get out of the secret has undisplayable
+	// characters then we won't even be able to copy the file.
+	if err != nil {
+		a.EVWriter.Eventf(a.VDB, corev1.EventTypeWarning, events.AuthParmsCopyFailed,
+			"Failed to copy auth parms to the pod '%s'", initiatorPod)
+	}
+	return err
+}
+
+// DestroyAuthParms will remove the auth parms file that was created in the pod
+func (a *Admintools) destroyAuthParms(ctx context.Context, initiatorPod types.NamespacedName) {
+	_, _, err := a.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+		"rm", paths.AuthParmsFile,
+	)
+	if err != nil {
+		// Destroying the auth parms is a best effort. If we fail to delete it,
+		// the reconcile will continue on.
+		a.Log.Info("failed to destroy auth parms, ignoring failure", "err", err)
+	}
+}
+
+// genAuthParmsFileContent will generate the content to write into auth_parms.conf
+func (a *Admintools) genAuthParmsFileContent(parms map[string]string) string {
+	fileContent := strings.Builder{}
+	for k, v := range parms {
+		fileContent.WriteString(fmt.Sprintf("%s = %s\n", k, v))
+	}
+	return fileContent.String()
+}
+
+// initDB will perform the admintools call to initialize the db.
+// It will be '-t create_db' cmd to create the db or '-t revive_db'
+// cmd to revive the db.
+func (a *Admintools) initDB(ctx context.Context, dbi DBInitializer) (ctrl.Result, error) {
+	initiator := dbi.GetInitiator()
+	if err := a.copyAuthFile(ctx, initiator, a.genAuthParmsFileContent(dbi.GetConfigParms())); err != nil {
+		return ctrl.Result{}, err
+	}
+	defer a.destroyAuthParms(ctx, initiator)
+	cmd := dbi.GenCmd()
+	stdout, err := a.execAdmintools(ctx, initiator, cmd...)
+	if err != nil {
+		return dbi.LogFailure(stdout, err)
+	}
+	return ctrl.Result{}, nil
 }

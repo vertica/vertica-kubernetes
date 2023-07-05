@@ -29,7 +29,7 @@ import (
 // StartDB will start a subset of nodes. Use this when vertica has lost
 // cluster quorum. The IP given for each vnode *must* match the current IP
 // in the vertica catalog. If they aren't a call to ReIP is necessary.
-func (a Admintools) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
+func (a *Admintools) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
 	s := startdb.Parms{}
 	s.Make(opts...)
 	cmd := a.genStartDBCommand(&s)
@@ -41,7 +41,7 @@ func (a Admintools) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.R
 }
 
 // genStartDBCommand will return the command for start_db
-func (a Admintools) genStartDBCommand(s *startdb.Parms) []string {
+func (a *Admintools) genStartDBCommand(s *startdb.Parms) []string {
 	cmd := []string{
 		"-t", "start_db",
 		"--database=" + a.VDB.Spec.DBName,

@@ -23,7 +23,7 @@ import (
 )
 
 // RemoveSubcluster will remove the given subcluster from the vertica cluster.
-func (a Admintools) RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error {
+func (a *Admintools) RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error {
 	s := removesc.Parms{}
 	s.Make(opts...)
 	cmd := []string{
