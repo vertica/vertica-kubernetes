@@ -90,7 +90,7 @@ func (d *DBCreator) GetInitiator() types.NamespacedName {
 
 // LogFailure will log and record an event for an admintools -t create_db failure
 func (d *DBCreator) LogFailure(stdout string, err error) (ctrl.Result, error) {
-	return d.Admintools.logFailure("create_db", events.ReviveDBFailed, stdout, err)
+	return d.Admintools.logFailure("create_db", events.CreateDBFailed, stdout, err)
 }
 
 // GetConfigParms returns the configuration parameters map.
