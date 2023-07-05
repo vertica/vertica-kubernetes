@@ -484,11 +484,12 @@ func (g *GenericDatabaseInitializer) setServerSideEncryptionParms(ctx context.Co
 // setServerSideEncryptionAlgorithm adds an entry to the config parms map for S3ServerSideEncryption,
 // if sse type is SSE-S3|SSE-KMS, or for S3SseCustomerAlgorithm, if sse type is SSE-C.
 func (g *GenericDatabaseInitializer) setServerSideEncryptionAlgorithm() {
-	if g.Vdb.IsSseC() {
+	switch {
+	case g.Vdb.IsSseC():
 		g.ConfigurationParams.Set(S3SseCustomerAlgorithm, SseAlgorithmAES256)
-	} else if g.Vdb.IsSseS3() {
+	case g.Vdb.IsSseS3():
 		g.ConfigurationParams.Set(S3ServerSideEncryption, SseAlgorithmAES256)
-	} else if g.Vdb.IsSseKMS() {
+	case g.Vdb.IsSseKMS():
 		g.ConfigurationParams.Set(S3ServerSideEncryption, SseAlgorithmAWSKMS)
 	}
 }
