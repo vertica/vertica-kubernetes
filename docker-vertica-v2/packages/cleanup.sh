@@ -61,6 +61,13 @@ strip /opt/vertica/packages/*/lib/*.so* 2> /dev/null
 /opt/vertica/oss/python*/bin/python[0-9] \
     /tmp/package-checksum-patcher.py /opt/vertica/packages/*
 
+# removing ssh related files
+rm -rf \
+    /home/dbadmin/.ssh \
+    /opt/vertica/sbin/ssh_config \
+    /opt/vertica/share/binlib/util/create-or-export-ssh-key \
+    /opt/vertica/share/binlib/util/install-ssh-key 
+
 # (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
 if [[ ${MINIMAL^^} = "YES" ]]
 then 
