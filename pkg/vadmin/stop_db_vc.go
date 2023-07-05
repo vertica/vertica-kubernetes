@@ -17,15 +17,54 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
 
 // StopDB will stop all the vertica hosts of a running cluster
 func (v *VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 	v.Log.Info("Starting vcluster StopDB")
+
+	// get stop_db options
 	s := stopdb.Parms{}
 	s.Make(opts...)
-	return fmt.Errorf("not implemented")
+
+	// call vcluster-ops library to stop db
+	vopts := v.genStopDBOptions(&s)
+	dbName, err := v.VStopDatabase(&vopts)
+	if err != nil {
+		v.Log.Error(err, "failed to stop a database")
+		return err
+	}
+
+	v.Log.Info("Successfully stopped a database", "dbName", dbName)
+	return nil
+}
+
+func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOptions {
+	opts := vops.VStopDatabaseOptionsFactory()
+
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+	v.Log.Info("Setup stop db options", "hosts", opts.RawHosts[0])
+	if net.IsIPv6(s.InitiatorIP) {
+		opts.Ipv6 = vstruct.True
+	} else {
+		opts.Ipv6 = vstruct.False
+	}
+
+	opts.Name = &v.VDB.Spec.DBName
+	if v.VDB.IsEON() {
+		opts.IsEon = vstruct.True
+	}
+
+	// auth options
+	*opts.UserName = vapi.SuperUser
+	opts.Password = &v.Password
+	*opts.HonorUserInput = true
+
+	return opts
 }

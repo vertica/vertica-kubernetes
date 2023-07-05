@@ -36,3 +36,4 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  httpServerMode: Enabled

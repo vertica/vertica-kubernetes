@@ -11,6 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-vcluster-ks-0-sc1
+status:
+  replicas: 1
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-vcluster-ks-0
+status:
+  subclusters:
+    - addedToDBCount: 1
+---
 apiVersion: v1
 kind: Event
 reason: CreateDBSucceeded
@@ -21,10 +36,23 @@ involvedObject:
   kind: VerticaDB
   name: v-vcluster-ks-0
 ---
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
+# We enable spread encryption, so the cluster will be stopped after create_db
+apiVersion: v1
+kind: Event
+reason: StopDBStart
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
   name: v-vcluster-ks-0
-status:
-  addedToDBCount: 1
-  upNodeCount: 1
+---
+apiVersion: v1
+kind: Event
+reason: StopDBSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
+  name: v-vcluster-ks-0
