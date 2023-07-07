@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // mock version of VFetchNodeState() that is invoked inside VClusterOps.FetchNodeState()
@@ -30,11 +31,11 @@ func (m *MockVClusterOps) VFetchNodeState(options *vops.VFetchNodeStateOptions) 
 	// TODO: call verify common options, but exclude the DB name
 
 	// verify basic options
-	if len(options.RawHosts) == 0 || options.RawHosts[0] != TestInitiatorIP {
+	if len(options.RawHosts) == 0 {
 		return nil, fmt.Errorf("failed to retrieve hosts")
 	}
 
-	// TODO: build a node info list
+	// build a node info list
 	dbName := TestDBName
 	var nodeInfoList []vops.NodeInfo
 	for i := 1; i <= 3; i++ {
@@ -48,8 +49,19 @@ func (m *MockVClusterOps) VFetchNodeState(options *vops.VFetchNodeStateOptions) 
 var _ = Describe("fetch_node_state_vc", func() {
 	ctx := context.Background()
 
+	expectedResults := make(map[string]string)
+	for i := 1; i <= 3; i++ {
+		nodeName := fmt.Sprintf("v_%s_node000%d", TestDBName, i)
+		expectedResults[nodeName] = "UP"
+	}
+	initiatorName := "v" + TestDBName + "_node0001"
+
 	It("should call vcluster-ops library with fetch_node_state task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		Ω(dispatcher.FetchNodeState(ctx, fetchnodestate.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP))).Should(Succeed())
+		actualResults, ctrlRes, err := dispatcher.FetchNodeState(ctx,
+			fetchnodestate.WithHost(initiatorName, TestInitiatorIP))
+		Ω(err).ShouldNot(HaveOccurred())
+		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
+		Ω(actualResults).Should(Equal(expectedResults))
 	})
 })
