@@ -17,8 +17,11 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -27,5 +30,48 @@ import (
 // or DOWN in our consensous state. It returns a map of vnode to its node state.
 func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
 	v.Log.Info("Starting vcluster FetchNodeState")
-	return nil, ctrl.Result{}, fmt.Errorf("not implemented")
+
+	// get fetch node state options
+	s := fetchnodestate.Parms{}
+	if err := s.Make(opts...); err != nil {
+		return nil, ctrl.Result{}, err
+	}
+
+	// call vcluster-ops library to fetch node states
+	vopts := v.genFetchNodeStateOptions(&s)
+	nodesInfo, err := v.VFetchNodeState(&vopts)
+	if err != nil {
+		v.Log.Error(err, "failed to fetch node states")
+		return nil, ctrl.Result{}, err
+	}
+
+	// parse node states
+	stateMap := map[string]string{} // node name to state map
+	for _, nodeInfo := range nodesInfo {
+		stateMap[nodeInfo.Name] = nodeInfo.State
+	}
+
+	return stateMap, ctrl.Result{}, nil
+}
+
+func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms) vops.VFetchNodeStateOptions {
+	opts := vops.VFetchNodeStateOptionsFactory()
+
+	for k, v := range s.HostsNeeded {
+		if v {
+			opts.RawHosts = append(opts.RawHosts, k)
+		}
+	}
+	if net.IsIPv6(s.InitiatorIP) {
+		opts.Ipv6 = vstruct.True
+	} else {
+		opts.Ipv6 = vstruct.False
+	}
+
+	// auth options
+	*opts.UserName = vapi.SuperUser
+	opts.Password = &v.Password
+	*opts.HonorUserInput = true
+
+	return opts
 }
