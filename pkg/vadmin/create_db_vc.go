@@ -17,6 +17,7 @@ package vadmin
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
@@ -57,6 +58,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	opts := vops.VCreateDatabaseOptionsFactory()
 
 	opts.RawHosts = s.Hosts
+	sort.Strings(opts.RawHosts)
 	v.Log.Info("Setup create db options", "hosts", strings.Join(s.Hosts, ","))
 	if len(opts.RawHosts) > 0 {
 		if net.IsIPv6(opts.RawHosts[0]) {
