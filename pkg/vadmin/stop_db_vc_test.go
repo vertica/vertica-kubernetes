@@ -40,7 +40,7 @@ func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) (str
 		return dbName, err
 	}
 
-	// verify basic options
+	// verify input hosts
 	if len(options.RawHosts) == 0 || options.RawHosts[0] != TestInitiatorIP {
 		return dbName, fmt.Errorf("failed to retrieve hosts")
 	}

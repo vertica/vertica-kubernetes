@@ -28,9 +28,13 @@ import (
 
 // mock version of VFetchNodeState() that is invoked inside VClusterOps.FetchNodeState()
 func (m *MockVClusterOps) VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error) {
-	// TODO: call verify common options, but exclude the DB name
-
 	// verify basic options
+	err := m.VerifyBasicOptions(&options.DatabaseOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// verify input hosts
 	if len(options.RawHosts) == 0 {
 		return nil, fmt.Errorf("failed to retrieve hosts")
 	}
