@@ -17,5 +17,4 @@ metadata:
   name: v-vcluster-ks-1
 status:
   subclusters:
-    - installCount: 3
-      addedToDBCount: 3
+    - addedToDBCount: 3
