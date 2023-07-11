@@ -282,6 +282,8 @@ github.com/vertica/vcluster v0.0.0-20230705215918-5fe3c38815a8 h1:FZdMHXQUuA7N4S
 github.com/vertica/vcluster v0.0.0-20230705215918-5fe3c38815a8/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
 github.com/vertica/vcluster v0.0.0-20230707113952-c9f0a5721c10 h1:mI/j/G0RItLyP35PTqGG5vKPGnvTx0pVTMwk/u+F9Aw=
 github.com/vertica/vcluster v0.0.0-20230707113952-c9f0a5721c10/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
+github.com/vertica/vcluster v0.0.0-20230711152101-80cb2a961bd3 h1:iuNNfWnaImdZq+hqXf5bl4wyorsKtP1ACk0x0/e3qKA=
+github.com/vertica/vcluster v0.0.0-20230711152101-80cb2a961bd3/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
 github.com/vertica/vertica-sql-go v1.1.1 h1:sZYijzBbvdAbJcl4cYlKjR+Eh/X1hGKzukWuhh8PjvI=
 github.com/vertica/vertica-sql-go v1.1.1/go.mod h1:fGr44VWdEvL+f+Qt5LkKLOT7GoxaWdoUCnPBU9h6t04=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
