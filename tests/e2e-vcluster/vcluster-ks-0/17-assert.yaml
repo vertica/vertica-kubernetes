@@ -43,10 +43,13 @@ metadata:
   name: v-vcluster-ks-0
 status:
   subclusterCount: 2
-  installCount: 2
+  # we only have one subcluster running before add_node is implemented
+  addedToDBCount: 1
   subclusters:
-    - installCount: 1
-    - installCount: 1
+    - addedToDBCount: 1
+      name: sc1
+    - addedToDBCount: 0
+      name: sc2
 ---
 apiVersion: v1
 kind: Event
