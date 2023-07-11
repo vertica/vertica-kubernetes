@@ -23,6 +23,7 @@ import (
 
 // Parms holds all of the options for FetchNodeState API call.
 type Parms struct {
+	DBName      string
 	Initiator   types.NamespacedName
 	InitiatorIP string
 	Hosts       []Host

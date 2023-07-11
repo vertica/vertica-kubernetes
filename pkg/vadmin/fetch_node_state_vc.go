@@ -60,6 +60,7 @@ func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate
 func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms) vops.VFetchNodeStateOptions {
 	opts := vops.VFetchNodeStateOptionsFactory()
 
+	opts.Name = &v.VDB.Spec.DBName
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 
 	if net.IsIPv6(s.InitiatorIP) {

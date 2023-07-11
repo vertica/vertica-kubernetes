@@ -29,7 +29,7 @@ import (
 // mock version of VFetchNodeState() that is invoked inside VClusterOps.FetchNodeState()
 func (m *MockVClusterOps) VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error) {
 	// verify basic options
-	err := m.VerifyBasicOptions(&options.DatabaseOptions)
+	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +66,7 @@ var _ = Describe("fetch_node_state_vc", func() {
 
 	It("should call vcluster-ops library with fetch_node_state task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher.VDB.Spec.DBName = TestDBName
 		actualResults, ctrlRes, err := dispatcher.FetchNodeState(ctx,
 			fetchnodestate.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
 			fetchnodestate.WithHost(nodeNames[0], nodeIPs[0]),

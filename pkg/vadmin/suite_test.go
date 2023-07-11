@@ -98,10 +98,14 @@ const (
 	TestValue    = "val1"
 )
 
-func (m *MockVClusterOps) VerifyBasicOptions(options *vops.DatabaseOptions) error {
+// VerifyCommonOptions is used in vcluster-ops unit test for verifying the common options among all db ops
+func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) error {
 	// verify basic options
 	if options.Ipv6.ToBool() != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
+	}
+	if *options.Name != TestDBName {
+		return fmt.Errorf("failed to retrieve database name")
 	}
 
 	// verify auth options
@@ -113,15 +117,6 @@ func (m *MockVClusterOps) VerifyBasicOptions(options *vops.DatabaseOptions) erro
 	}
 
 	return nil
-}
-
-// VerifyCommonOptions is used in vcluster-ops unit test for verifying the common options among all db ops
-func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) error {
-	if *options.Name != TestDBName {
-		return fmt.Errorf("failed to retrieve database name")
-	}
-
-	return m.VerifyBasicOptions(options)
 }
 
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
