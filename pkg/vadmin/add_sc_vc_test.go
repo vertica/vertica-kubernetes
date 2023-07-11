@@ -17,15 +17,21 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 )
 
-// mock version of VStopDatabase() that is invoked inside VClusterOps.StopDB()
-func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) error {
+const (
+	TestSCName    = "sc1"
+	TestIsPrimary = false
+)
+
+// mock version of VAddSubcluster() that is invoked inside VClusterOps.AddSubcluster()
+func (m *MockVClusterOps) VAddSubcluster(options *vops.VAddSubclusterOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
@@ -38,15 +44,26 @@ func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) erro
 		return err
 	}
 
+	// verify basic options
+	if *options.SCName != TestSCName {
+		return fmt.Errorf("failed to retrieve subcluster name")
+	}
+	if *options.IsPrimary != TestIsPrimary {
+		return fmt.Errorf("failed to retrieve subcluster type")
+	}
+
 	return nil
 }
 
-var _ = Describe("stop_db_vc", func() {
+var _ = Describe("add_sc_vc", func() {
 	ctx := context.Background()
 
-	It("should call vcluster-ops library with stop_db task", func() {
+	It("should call vcluster-ops library with add_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		Ω(dispatcher.StopDB(ctx, stopdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP))).Should(Succeed())
+		Ω(dispatcher.AddSubcluster(ctx,
+			addsc.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
+			addsc.WithSubcluster(TestSCName),
+			addsc.WithIsPrimary(TestIsPrimary))).Should(Succeed())
 	})
 })

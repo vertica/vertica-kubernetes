@@ -31,10 +31,13 @@ spec:
   subclusters:
     - name: sc1
       size: 1
+      isPrimary: true
+    - name: sc2
+      size: 1
+      isPrimary: false
   kSafety: "0"
   certSecrets: []
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
   httpServerMode: Enabled
-  encryptSpreadComm: vertica

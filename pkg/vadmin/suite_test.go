@@ -91,11 +91,13 @@ type MockVClusterOps struct {
 
 // const variables used for vcluster-ops unit test
 const (
-	TestDBName   = "test-db"
-	TestPassword = "test-pw"
-	TestIPv6     = false
-	TestParm     = "Parm1"
-	TestValue    = "val1"
+	TestDBName      = "test-db"
+	TestPassword    = "test-pw"
+	TestIPv6        = false
+	TestParm        = "Parm1"
+	TestValue       = "val1"
+	TestInitiatorIP = "10.10.10.10"
+	TestIsEon       = true
 )
 
 // VerifyCommonOptions is used in vcluster-ops unit test for verifying the common options among all db ops
@@ -114,6 +116,22 @@ func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) err
 	}
 	if *options.Password != TestPassword {
 		return fmt.Errorf("failed to retrieve Vertica password")
+	}
+
+	return nil
+}
+
+// VerifyInitiatorIPAndEonMode is used in vcluster-ops unit test for verifying initiator ip and eon mode.
+// They are the common options in some vcluster commands like stop_db and db_add_subcluster
+func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOptions) error {
+	// verify initiator ip
+	if len(options.RawHosts) == 0 || options.RawHosts[0] != TestInitiatorIP {
+		return fmt.Errorf("failed to retrieve hosts")
+	}
+
+	// verify eon mode
+	if options.IsEon.ToBool() != TestIsEon {
+		return fmt.Errorf("failed to retrieve eon mode")
 	}
 
 	return nil

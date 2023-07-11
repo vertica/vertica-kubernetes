@@ -15,6 +15,25 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-vcluster-ks-0-sc1
+  labels:
+    vertica.com/database: MYDB
+    vertica.com/subcluster-name: sc1
+    vertica.com/subcluster-type: primary
+    vertica.com/subcluster-svc: sc1
+    vertica.com/subcluster-transient: "false"
+status:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-vcluster-ks-0-sc2
+  labels:
+    vertica.com/database: MYDB
+    vertica.com/subcluster-name: sc2
+    vertica.com/subcluster-type: secondary
+    vertica.com/subcluster-svc: sc2
+    vertica.com/subcluster-transient: "false"
 status:
   replicas: 1
 ---
@@ -23,8 +42,11 @@ kind: VerticaDB
 metadata:
   name: v-vcluster-ks-0
 status:
+  subclusterCount: 2
+  installCount: 2
   subclusters:
-    - addedToDBCount: 1
+    - installCount: 1
+    - installCount: 1
 ---
 apiVersion: v1
 kind: Event
@@ -36,20 +58,9 @@ involvedObject:
   kind: VerticaDB
   name: v-vcluster-ks-0
 ---
-# We enable spread encryption, so the cluster will be stopped after create_db
 apiVersion: v1
 kind: Event
-reason: StopDBStart
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-vcluster-ks-0
----
-apiVersion: v1
-kind: Event
-reason: StopDBSucceeded
+reason: SubclusterAdded
 source:
   component: verticadb-operator
 involvedObject:
