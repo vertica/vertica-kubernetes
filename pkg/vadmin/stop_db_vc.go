@@ -35,13 +35,13 @@ func (v *VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 
 	// call vcluster-ops library to stop db
 	vopts := v.genStopDBOptions(&s)
-	dbName, err := v.VStopDatabase(&vopts)
+	err := v.VStopDatabase(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to stop a database")
 		return err
 	}
 
-	v.Log.Info("Successfully stopped a database", "dbName", dbName)
+	v.Log.Info("Successfully stopped a database", "dbName", vopts.Name)
 	return nil
 }
 
