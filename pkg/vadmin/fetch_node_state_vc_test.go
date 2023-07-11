@@ -54,16 +54,24 @@ var _ = Describe("fetch_node_state_vc", func() {
 	ctx := context.Background()
 
 	expectedResults := make(map[string]string)
+	var nodeNames []string
+	var nodeIPs []string
 	for i := 1; i <= 3; i++ {
 		nodeName := fmt.Sprintf("v_%s_node000%d", TestDBName, i)
+		nodeIP := fmt.Sprintf("192.168.1.%d", i)
+		nodeNames = append(nodeNames, nodeName)
+		nodeIPs = append(nodeIPs, nodeIP)
 		expectedResults[nodeName] = "UP"
 	}
-	initiatorName := "v" + TestDBName + "_node0001"
 
 	It("should call vcluster-ops library with fetch_node_state task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		actualResults, ctrlRes, err := dispatcher.FetchNodeState(ctx,
-			fetchnodestate.WithHost(initiatorName, TestInitiatorIP))
+			fetchnodestate.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
+			fetchnodestate.WithHost(nodeNames[0], nodeIPs[0]),
+			fetchnodestate.WithHost(nodeNames[1], nodeIPs[1]),
+			fetchnodestate.WithHost(nodeNames[2], nodeIPs[2]),
+		)
 		Ω(err).ShouldNot(HaveOccurred())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 		Ω(actualResults).Should(Equal(expectedResults))

@@ -48,7 +48,10 @@ func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate
 	// parse node states
 	stateMap := map[string]string{} // node name to state map
 	for _, nodeInfo := range nodesInfo {
-		stateMap[nodeInfo.Name] = nodeInfo.State
+		nodeName := nodeInfo.Name
+		if _, ok := s.HostsNeeded[nodeName]; ok {
+			stateMap[nodeName] = nodeInfo.State
+		}
 	}
 
 	return stateMap, ctrl.Result{}, nil
@@ -57,11 +60,8 @@ func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate
 func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms) vops.VFetchNodeStateOptions {
 	opts := vops.VFetchNodeStateOptionsFactory()
 
-	for k, v := range s.HostsNeeded {
-		if v {
-			opts.RawHosts = append(opts.RawHosts, k)
-		}
-	}
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+
 	if net.IsIPv6(s.InitiatorIP) {
 		opts.Ipv6 = vstruct.True
 	} else {
