@@ -31,26 +31,22 @@ const (
 )
 
 // mock version of VStopDatabase() that is invoked inside VClusterOps.StopDB()
-func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) (string, error) {
-	dbName := ""
-
+func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) error {
 	// verify common options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
-		return dbName, err
+		return err
 	}
 
-	// verify basic options
+	// verify input hosts
 	if len(options.RawHosts) == 0 || options.RawHosts[0] != TestInitiatorIP {
-		return dbName, fmt.Errorf("failed to retrieve hosts")
+		return fmt.Errorf("failed to retrieve hosts")
 	}
 	if options.IsEon.ToBool() != TestIsEon {
-		return dbName, fmt.Errorf("failed to retrieve eon mode")
+		return fmt.Errorf("failed to retrieve eon mode")
 	}
 
-	// dbName is used in VClusterOps.StopDB() so we give it a value
-	dbName = TestDBName
-	return dbName, nil
+	return nil
 }
 
 var _ = Describe("stop_db_vc", func() {
