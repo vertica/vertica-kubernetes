@@ -64,6 +64,7 @@ involvedObject:
 apiVersion: v1
 kind: Event
 reason: SubclusterAdded
+message: Added new subcluster 'sc2'
 source:
   component: verticadb-operator
 involvedObject:
