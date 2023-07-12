@@ -53,9 +53,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 
 	opts.Name = &v.VDB.Spec.DBName
-	if v.VDB.IsEON() {
-		opts.IsEon = vstruct.True
-	}
+	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
 	// auth options
 	*opts.UserName = vapi.SuperUser

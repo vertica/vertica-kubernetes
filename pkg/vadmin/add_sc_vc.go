@@ -54,9 +54,7 @@ func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms) vops.VAddSubcluste
 
 	opts.SCName = &s.Subcluster
 	opts.Name = &v.VDB.Spec.DBName
-	if v.VDB.IsEON() {
-		opts.IsEon = vstruct.True
-	}
+	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 	opts.IsPrimary = &s.IsPrimary
 
 	// auth options
