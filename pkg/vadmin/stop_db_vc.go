@@ -41,7 +41,7 @@ func (v *VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 		return err
 	}
 
-	v.Log.Info("Successfully stopped a database", "dbName", vopts.Name)
+	v.Log.Info("Successfully stopped a database", "dbName", *vopts.Name)
 	return nil
 }
 
@@ -50,16 +50,10 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup stop db options", "hosts", opts.RawHosts[0])
-	if net.IsIPv6(s.InitiatorIP) {
-		opts.Ipv6 = vstruct.True
-	} else {
-		opts.Ipv6 = vstruct.False
-	}
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 
 	opts.Name = &v.VDB.Spec.DBName
-	if v.VDB.IsEON() {
-		opts.IsEon = vstruct.True
-	}
+	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
 	// auth options
 	*opts.UserName = vapi.SuperUser
