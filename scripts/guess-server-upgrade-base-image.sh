@@ -84,6 +84,11 @@ then
         printVerticaK8sImg $(($major - 1)) 4 0
     fi
 # Legacy case from before we switched to '<year>.<quarter>.0' versioning
-else
+elif [[ "$major" == "12" ]]
+then
     printVerticaK8sImg 12 0 2
+# No able to figure out the version from the tag. We assume we are running with
+# the latest master. So, return the last released image.
+else
+    echo $LAST_RELEASED_IMAGE
 fi
