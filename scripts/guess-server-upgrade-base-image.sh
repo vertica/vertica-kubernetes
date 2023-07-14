@@ -23,7 +23,6 @@ set -o pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
-ARTIFACTS_DIR=$REPO_DIR/ci-artifacts
 
 source $SCRIPT_DIR/logging-utils.sh
 
@@ -69,7 +68,19 @@ then
    exit 0
 fi
 
-IFS='.' read major minor patch <<< "$tag"
+# Get the version from the tag. But if the tag starts with 'kind', then no
+# version information is found.
+if [[ $tag == kind* ]]
+then
+    # For kind, we assume this is a PR -- this tag name is picked in
+    # .github/workflows/build-images.yml. PRs always build the image that's
+    # download for the CI.
+    rpmVersion=$(grep 'VERTICA_CE_URL:' $REPO_DIR/.github/actions/download-rpm/action.yaml | cut -d':' -f3 | cut -d'/' -f5 | cut -d'-' -f2)
+    IFS='.' read major minor patch <<< "$rpmVersion"
+else
+    IFS='.' read major minor patch <<< "$tag"
+fi
+
 # 23.3.x is a special case because that was the first verson after 12.0.4
 if [[ "$major" == "23" && "$minor" == "3" ]]
 then
