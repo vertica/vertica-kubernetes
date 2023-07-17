@@ -63,11 +63,7 @@ func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms) vops.VFe
 	opts.Name = &v.VDB.Spec.DBName
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 
-	if net.IsIPv6(s.InitiatorIP) {
-		opts.Ipv6 = vstruct.True
-	} else {
-		opts.Ipv6 = vstruct.False
-	}
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 
 	// auth options
 	*opts.UserName = vapi.SuperUser

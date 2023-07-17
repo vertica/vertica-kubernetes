@@ -59,11 +59,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	opts.RawHosts = s.Hosts
 	v.Log.Info("Setup create db options", "hosts", strings.Join(s.Hosts, ","))
 	if len(opts.RawHosts) > 0 {
-		if net.IsIPv6(opts.RawHosts[0]) {
-			opts.Ipv6 = vstruct.True
-		} else {
-			opts.Ipv6 = vstruct.False
-		}
+		opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 	}
 	opts.CatalogPrefix = &s.CatalogPath
 	opts.Name = &s.DBName
