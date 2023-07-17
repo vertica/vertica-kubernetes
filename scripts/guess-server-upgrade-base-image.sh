@@ -55,6 +55,40 @@ function printVerticaK8sImg
     echo "vertica/vertica-k8s:$major.$minor.$patch-0"
 }
 
+function decideVersionAndExitIfFound
+{
+    major=$1
+    minor=$2
+
+    # 23.3.x is a special case because that was the first verson after 12.0.4
+    if [[ "$major" == "23" && "$minor" == "3" ]]
+    then
+        printVerticaK8sImg 12 0 2
+        exit 0
+    # Guess the image based on the versioning pattern of '<year>.<quarter>.0'
+    elif [[ "$major" -ge "23" ]]
+    then
+        if [[ "$minor" > 1 ]]
+        then
+            printVerticaK8sImg $major $(($minor - 1)) 0
+        else
+            printVerticaK8sImg $(($major - 1)) 4 0
+        fi
+        exit 0
+    # Legacy case from before we switched to '<year>.<quarter>.0' versioning
+    elif [[ "$major" == "12" ]]
+    then
+        printVerticaK8sImg 12 0 2
+        exit 0
+    fi
+}
+
+function getRPMVersion
+{
+    # Find the RPM version that's download and built for the CI
+    grep 'VERTICA_CE_URL:' $REPO_DIR/.github/actions/download-rpm/action.yaml | cut -d':' -f3 | cut -d'/' -f5 | cut -d'-' -f2
+}
+
 TARGET_IMAGE=${@:$OPTIND:1}
 LAST_RELEASED_IMAGE=$(printVerticaK8sImg 23 3 0)
 
@@ -68,38 +102,28 @@ then
    exit 0
 fi
 
-# Get the version from the tag. But if the tag starts with 'kind', then no
-# version information is found.
-if [[ $tag == kind* ]]
+IFS='.' read major minor patch <<< "$tag"
+
+# If we were able to extract only digits for major/minor, then the tag was
+# in fact a version.
+if [[ $major =~ ^[0-9]+$ && $minor =~ ^[0-9]+$ ]]
 then
-    # For kind, we assume this is a PR -- this tag name is picked in
-    # .github/workflows/build-images.yml. PRs always build the image that's
-    # download for the CI.
-    rpmVersion=$(grep 'VERTICA_CE_URL:' $REPO_DIR/.github/actions/download-rpm/action.yaml | cut -d':' -f3 | cut -d'/' -f5 | cut -d'-' -f2)
-    IFS='.' read major minor patch <<< "$rpmVersion"
-else
-    IFS='.' read major minor patch <<< "$tag"
+    decideVersionAndExitIfFound $major $minor
 fi
 
-# 23.3.x is a special case because that was the first verson after 12.0.4
-if [[ "$major" == "23" && "$minor" == "3" ]]
+# No able to figure out the version from the tag.  If the image repo is
+# dockerhub, then we assume we are running with the nightly build, which is the
+# latest master. So, return the last released image.
+if [[ $TARGET_IMAGE == docker.io/* ]]
 then
-    printVerticaK8sImg 12 0 2
-# Guess the image based on the versioning pattern of '<year>.<quarter>.0'
-elif [[ "$major" -ge "23" ]]
-then
-    if [[ "$minor" > 1 ]]
-    then
-        printVerticaK8sImg $major $(($minor - 1)) 0
-    else
-        printVerticaK8sImg $(($major - 1)) 4 0
-    fi
-# Legacy case from before we switched to '<year>.<quarter>.0' versioning
-elif [[ "$major" == "12" ]]
-then
-    printVerticaK8sImg 12 0 2
-# No able to figure out the version from the tag. We assume we are running with
-# the latest master. So, return the last released image.
-else
     echo $LAST_RELEASED_IMAGE
+    exit 0
+# We assume we are running with an image built in this CI that used the public
+# RPM. This is true for PRs or running off of main
+else
+    IFS='.' read major minor patch <<< "$(getRPMVersion)"
+    decideVersionAndExitIfFound $major $minor
 fi
+
+echo "Unable to guess the server upgrade base image"
+exit 1
