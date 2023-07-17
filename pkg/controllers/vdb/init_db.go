@@ -17,16 +17,21 @@ package vdb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"regexp"
 	"strings"
 
+	gsm "cloud.google.com/go/secretmanager/apiv1"
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
@@ -63,6 +68,11 @@ type GenericDatabaseInitializer struct {
 	PRunner             cmds.PodRunner
 	PFacts              *PodFacts
 	ConfigurationParams *vtypes.CiMap
+}
+
+type GcpSecret struct {
+	Accesskey string
+	Secretkey string
 }
 
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
@@ -269,12 +279,55 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 	g.ConfigurationParams.Set("KerberosEnableKeytabPermissionCheck", "0")
 }
 
+func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (string, ctrl.Result, error) {
+	name := "projects/otl-ot2-int-sb/secrets/new_vertica_secret/versions/1"
+	client, err := gsm.NewClient(ctx)
+	if err != nil {
+		return "", ctrl.Result{}, err
+	}
+	defer client.Close()
+
+	req := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: name,
+	}
+
+	result, err := client.AccessSecretVersion(ctx, req)
+	if err != nil {
+		g.Log.Info("google: could not find default credentials")
+		return "", ctrl.Result{}, err
+	}
+
+	crc32c := crc32.MakeTable(crc32.Castagnoli)
+	checksum := int64(crc32.Checksum(result.Payload.Data, crc32c))
+	if checksum != *result.Payload.DataCrc32C {
+		return "", ctrl.Result{}, err
+	}
+
+	var gs GcpSecret
+	err = json.Unmarshal([]byte(string(result.Payload.Data)), &gs)
+	if err != nil {
+		g.Log.Info("Permission 'secretmanager.versions.access' denied for resource to read the secret")
+		return "", ctrl.Result{}, err
+	}
+
+	auth := fmt.Sprintf("%s:%s", gs.Accesskey, gs.Secretkey)
+	return auth, ctrl.Result{}, nil
+}
+
 // setGCloudAuthParms adds the auth parms to the config parms map when we are
 // connecting to google cloud storage.
 func (g *GenericDatabaseInitializer) setGCloudAuthParms(ctx context.Context) (ctrl.Result, error) {
-	res, err := g.setAuth(ctx, "GCSAuth")
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if meta.UseGCPSecretManager(g.Vdb.Annotations) {
+		auth, res, err := g.setAuthFromGCSSecret(ctx)
+		if err != nil {
+			return res, err
+		}
+		g.ConfigurationParams.Set("GCSAuth", auth)
+	} else {
+		res, err := g.setAuth(ctx, "GCSAuth")
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
 	}
 
 	g.ConfigurationParams.Set("GCSEndpoint", g.getCommunalEndpoint())
