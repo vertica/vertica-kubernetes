@@ -55,11 +55,14 @@ jobs:
 
     - name: Run e2e tests
       run: |
-        export BASE_VERTICA_IMG=vertica/vertica-k8s:12.0.2-0-minimal
+        set -o errexit
+        set -o xtrace
         export E2E_TEST_DIRS=tests/e2e-server-upgrade
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
+        export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG)
+        echo "Upgrading server from image: $BASE_VERTICA_IMG"
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-server-upgrade-ci.txt
 
     - uses: actions/upload-artifact@v3
