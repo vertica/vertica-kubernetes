@@ -70,11 +70,6 @@ type GenericDatabaseInitializer struct {
 	ConfigurationParams *vtypes.CiMap
 }
 
-type GcpSecret struct {
-	Accesskey string
-	Secretkey string
-}
-
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
 func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.Result, error) {
 	if err := g.PFacts.Collect(ctx, g.Vdb); err != nil {
@@ -280,7 +275,10 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 }
 
 func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (string, ctrl.Result, error) {
-	name := "projects/otl-ot2-int-sb/secrets/new_vertica_secret/versions/1"
+	name := "projects/" + g.Vdb.Annotations[meta.GcpProjectIDAnnotation] +
+		"/secrets/" + g.Vdb.Annotations[meta.GcpSecNameAnnontation] +
+		"/versions/" + g.Vdb.Annotations[meta.GcpSecVersionAnnotation]
+
 	client, err := gsm.NewClient(ctx)
 	if err != nil {
 		return "", ctrl.Result{}, err
@@ -293,24 +291,24 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 
 	result, err := client.AccessSecretVersion(ctx, req)
 	if err != nil {
-		g.Log.Info("google: could not find default credentials")
+		g.Log.Error(err, "could not fetch secrets, credential error")
 		return "", ctrl.Result{}, err
 	}
 
 	crc32c := crc32.MakeTable(crc32.Castagnoli)
 	checksum := int64(crc32.Checksum(result.Payload.Data, crc32c))
 	if checksum != *result.Payload.DataCrc32C {
+		g.Log.Error(err, "Permission denied to read the secret")
 		return "", ctrl.Result{}, err
 	}
 
-	var gs GcpSecret
-	err = json.Unmarshal([]byte(string(result.Payload.Data)), &gs)
+	GcpCred := map[string]string{}
+	err = json.Unmarshal([]byte(string(result.Payload.Data)), &GcpCred)
 	if err != nil {
-		g.Log.Info("Permission 'secretmanager.versions.access' denied for resource to read the secret")
-		return "", ctrl.Result{}, err
+		return "", ctrl.Result{}, fmt.Errorf("checksum failure, expected %d but got %d", *result.Payload.DataCrc32C, checksum)
 	}
 
-	auth := fmt.Sprintf("%s:%s", gs.Accesskey, gs.Secretkey)
+	auth := fmt.Sprintf("%s:%s", GcpCred["accesskey"], GcpCred["Secretkey"])
 	return auth, ctrl.Result{}, nil
 }
 
