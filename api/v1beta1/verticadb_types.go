@@ -1035,6 +1035,10 @@ const (
 	DefaultGCloudRegion   = "US-EAST1"
 	DefaultGCloudEndpoint = "https://storage.googleapis.com"
 
+	ProjectIDAnnotation  = "vertica.com/projectname"   // Project name in GCP
+	SecNameAnnontation   = "vertica.com/secretname"    // Secret name to access
+	SecVersionAnnotation = "vertica.com/secretversion" // Secret version
+
 	// Additional server config parameters
 	S3SseKmsKeyID = "S3SseKmsKeyId"
 )
