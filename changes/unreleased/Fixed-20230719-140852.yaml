@@ -1,0 +1,5 @@
+kind: Fixed
+body: Fix the db existence check in the operator
+time: 2023-07-19T14:08:52.881914538-03:00
+custom:
+  Issue: "460"
