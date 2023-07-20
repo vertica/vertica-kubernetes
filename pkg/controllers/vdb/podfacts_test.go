@@ -92,12 +92,15 @@ var _ = Describe("podfacts", func() {
 
 	It("should verify all doesDBExist return codes", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
-		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: false, isPodRunning: true}
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{dbExists: false, isPodRunning: true, isPrimary: true}
 		Expect(pf.doesDBExist()).Should(BeFalse())
-		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: false, isPodRunning: false}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{dbExists: false, isPodRunning: false, isPrimary: true}
 		Expect(pf.doesDBExist()).Should(BeFalse())
-		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: true, isPodRunning: true}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: true, isPodRunning: true, isPrimary: true}
 		Expect(pf.doesDBExist()).Should(BeTrue())
+		// Change pf to be a secondary
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{dbExists: true, isPodRunning: true, isPrimary: false}
+		Expect(pf.doesDBExist()).Should(BeFalse())
 	})
 
 	It("should verify return of countNotReadOnlyWithOldImage", func() {
