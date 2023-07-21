@@ -15,18 +15,13 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: verticadb-sample
-  annotations:
-    vertica.com/projectname: "otl-ot2-int-sb"
-    vertica.com/secretname: "new_vertica_secret"
-    vertica.com/secretversion: "latest"
-    vertica.com/use-gcp-secret-manager: "true" 
 
 spec:
   image: "vertica/vertica-k8s:latest"
   communal:
-    path: "gs://nimbusdb/db"
+    path: "s3://nimbusdb/db"
     endpoint: "http://minio"
-    credentialSecret: s3-auth
+    credentialSecret: "s3-auth"
     includeUIDInPath: true
   subclusters:
     - name: defaultsubcluster

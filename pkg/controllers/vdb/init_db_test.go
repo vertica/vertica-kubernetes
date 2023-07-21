@@ -144,9 +144,6 @@ var _ = Describe("init_db", func() {
 	It("should set google parms in config parms map when using GCloud", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
-		vdb.Annotations[vapi.ProjectIDAnnotation] = "otl-ot2-int-sb"
-		vdb.Annotations[vapi.SecNameAnnontation] = "new_vertica_secret"
-		vdb.Annotations[vapi.SecVersionAnnotation] = "latest"
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
