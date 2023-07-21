@@ -38,14 +38,10 @@ const (
 	VClusterOpsAnnotation     = "vertica.com/vcluster-ops"
 	VClusterOpsAnnotationTrue = "true"
 
-	GcpProjectIDAnnotation  = "vertica.com/projectname"   // Project name in GCP
-	GcpSecNameAnnontation   = "vertica.com/secretname"    // Secret name to access
-	GcpSecVersionAnnotation = "vertica.com/secretversion" // Secret version
-
 	// This is a feature flag for accessing the secrets configured in Google Secret Manager.
 	// The value of this annotation is treated as a boolean.
 	GcpGsmAnnotation     = "vertica.com/use-gcp-secret-manager"
-	GcpGsmAnnotationTrue = "false"
+	GcpGsmAnnotationTrue = "true"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -63,7 +59,7 @@ func UseVClusterOps(annotations map[string]string) bool {
 // UseGCPSecretManager returns true if access to the communal secret should go through
 // Google's secret manager rather the fetching the secret from k8s meta-data.
 func UseGCPSecretManager(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, GcpGsmAnnotation, true)
+	return lookupBoolAnnotation(annotations, GcpGsmAnnotation, false)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

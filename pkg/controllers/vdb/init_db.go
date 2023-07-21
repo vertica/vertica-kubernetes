@@ -275,10 +275,7 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 }
 
 func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (string, ctrl.Result, error) {
-	name := "projects/" + g.Vdb.Annotations[meta.GcpProjectIDAnnotation] +
-		"/secrets/" + g.Vdb.Annotations[meta.GcpSecNameAnnontation] +
-		"/versions/" + g.Vdb.Annotations[meta.GcpSecVersionAnnotation]
-
+	name := g.Vdb.Spec.Communal.CredentialSecret
 	client, err := gsm.NewClient(ctx)
 	if err != nil {
 		return "", ctrl.Result{}, err
@@ -303,12 +300,27 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 	}
 
 	GcpCred := map[string]string{}
+
 	err = json.Unmarshal([]byte(string(result.Payload.Data)), &GcpCred)
 	if err != nil {
 		return "", ctrl.Result{}, fmt.Errorf("checksum failure, expected %d but got %d", *result.Payload.DataCrc32C, checksum)
 	}
 
-	auth := fmt.Sprintf("%s:%s", GcpCred["accesskey"], GcpCred["Secretkey"])
+	accessKey, ok := GcpCred[cloud.CommunalAccessKeyName]
+	if !ok {
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
+		return "", ctrl.Result{Requeue: true}, nil
+	}
+
+	secretKey, ok := GcpCred[cloud.CommunalSecretKeyName]
+	if !ok {
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
+		return "", ctrl.Result{Requeue: true}, nil
+	}
+
+	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(string(accessKey), "\n"), strings.TrimSuffix(string(secretKey), "\n"))
 	return auth, ctrl.Result{}, nil
 }
 
