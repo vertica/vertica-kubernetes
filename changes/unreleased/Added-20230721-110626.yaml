@@ -1,0 +1,5 @@
+kind: Added
+body: Allow use of GSM for communal credential secret
+time: 2023-07-21T11:06:26.075004585-03:00
+custom:
+  Issue: "458"
