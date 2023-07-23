@@ -26,6 +26,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const TestCatalogPrefix = "/data"
+
 // mock version of VStartDatabase() that is invoked inside VClusterOps.StartDB()
 func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) error {
 	// verify basic options
@@ -39,6 +41,12 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 	if err != nil {
 		return err
 	}
+
+	// verify basic option
+	if *options.CatalogPrefix != TestCatalogPrefix {
+		return fmt.Errorf("failed to retrieve catalog prefix")
+	}
+
 	return nil
 }
 
@@ -59,7 +67,7 @@ var _ = Describe("start_db_vc", func() {
 			startdb.WithHost(nodeIPs[0]),
 			startdb.WithHost(nodeIPs[1]),
 			startdb.WithHost(nodeIPs[2]))
-		Ω(err).ShouldNot(HaveOccurred())
+		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})
 })

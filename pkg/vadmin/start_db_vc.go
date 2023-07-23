@@ -17,6 +17,7 @@ package vadmin
 
 import (
 	"context"
+	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
@@ -49,6 +50,7 @@ func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl
 func (v *VClusterOps) genStartDBOptions(s *startdb.Parms) vops.VStartDatabaseOptions {
 	opts := vops.VStartDatabaseOptionsFactory()
 	opts.RawHosts = s.Hosts
+	v.Log.Info("Setup start db options", "hosts", strings.Join(s.Hosts, ","))
 	if len(opts.RawHosts) > 0 {
 		opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 	}
