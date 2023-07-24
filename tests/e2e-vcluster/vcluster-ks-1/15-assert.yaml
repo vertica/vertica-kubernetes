@@ -41,3 +41,12 @@ involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaDB
   name: v-vcluster-ks-1
+---
+kind: VerticaDB
+apiVersion: vertica.com/v1beta1
+metadata:
+  name: v-vcluster-ks-1
+status:
+  subclusterCount: 1
+  addedToDBCount: 3
+  installCount: 3

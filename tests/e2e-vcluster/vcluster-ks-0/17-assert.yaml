@@ -45,6 +45,7 @@ status:
   subclusterCount: 2
   # we only have one subcluster running before add_node is implemented
   addedToDBCount: 1
+  installCount: 2
   subclusters:
     - addedToDBCount: 1
       name: sc1
