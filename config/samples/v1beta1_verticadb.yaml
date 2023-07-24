@@ -15,13 +15,12 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: verticadb-sample
-
 spec:
   image: "vertica/vertica-k8s:latest"
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
-    credentialSecret: "s3-auth"
+    credentialSecret: s3-auth
     includeUIDInPath: true
   subclusters:
     - name: defaultsubcluster

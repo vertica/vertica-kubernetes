@@ -274,8 +274,8 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 	g.ConfigurationParams.Set("KerberosEnableKeytabPermissionCheck", "0")
 }
 
+// setAuthFromGCSSecret sets the config parms map when we are the secrets are configured in GSM
 func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (string, ctrl.Result, error) {
-	name := g.Vdb.Spec.Communal.CredentialSecret
 	client, err := gsm.NewClient(ctx)
 	if err != nil {
 		return "", ctrl.Result{}, err
@@ -283,7 +283,7 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 	defer client.Close()
 
 	req := &secretmanagerpb.AccessSecretVersionRequest{
-		Name: name,
+		Name: g.Vdb.Spec.Communal.CredentialSecret,
 	}
 
 	result, err := client.AccessSecretVersion(ctx, req)
@@ -295,15 +295,13 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 	crc32c := crc32.MakeTable(crc32.Castagnoli)
 	checksum := int64(crc32.Checksum(result.Payload.Data, crc32c))
 	if checksum != *result.Payload.DataCrc32C {
-		g.Log.Error(err, "Permission denied to read the secret")
-		return "", ctrl.Result{}, err
+		return "", ctrl.Result{}, fmt.Errorf("data corruption detected, expected %d but got %d", *result.Payload.DataCrc32C, checksum)
 	}
 
 	GcpCred := map[string]string{}
-
-	err = json.Unmarshal([]byte(string(result.Payload.Data)), &GcpCred)
+	err = json.Unmarshal(result.Payload.Data, &GcpCred)
 	if err != nil {
-		return "", ctrl.Result{}, fmt.Errorf("checksum failure, expected %d but got %d", *result.Payload.DataCrc32C, checksum)
+		return "", ctrl.Result{}, err
 	}
 
 	accessKey, ok := GcpCred[cloud.CommunalAccessKeyName]
@@ -320,7 +318,7 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
-	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(string(accessKey), "\n"), strings.TrimSuffix(string(secretKey), "\n"))
+	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(accessKey, "\n"), strings.TrimSuffix(secretKey, "\n"))
 	return auth, ctrl.Result{}, nil
 }
 
@@ -329,7 +327,7 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 func (g *GenericDatabaseInitializer) setGCloudAuthParms(ctx context.Context) (ctrl.Result, error) {
 	if meta.UseGCPSecretManager(g.Vdb.Annotations) {
 		auth, res, err := g.setAuthFromGCSSecret(ctx)
-		if err != nil {
+		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 		g.ConfigurationParams.Set("GCSAuth", auth)
