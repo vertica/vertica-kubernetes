@@ -53,14 +53,6 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	return ctrl.Result{}, nil
 }
 
-type ReIPInfo struct {
-	NodeName               string `json:"node_name"`
-	NodeAddress            string `json:"-"`
-	TargetAddress          string `json:"address"`
-	TargetControlAddress   string `json:"control_address"`
-	TargetControlBroadcast string `json:"control_broadcast"`
-}
-
 func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 	opts := vops.VReIPFactory()
 
