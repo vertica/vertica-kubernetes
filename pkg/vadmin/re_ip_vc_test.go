@@ -26,8 +26,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-const TestCatalogPrefix = "/data"
-
 // mock version of VReIP() that is invoked inside VClusterOps.ReIP()
 func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 	// verify basic options
