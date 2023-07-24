@@ -36,6 +36,12 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 		return err
 	}
 
+	// verify eon options
+	err = m.VerifyInitiatorIPAndEonMode((&options.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+
 	// verify catalog prefix
 	if *options.CatalogPrefix != TestCatalogPrefix {
 		return fmt.Errorf("failed to retrieve catalog prefix")
