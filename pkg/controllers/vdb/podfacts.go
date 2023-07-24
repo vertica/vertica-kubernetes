@@ -463,21 +463,33 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 		return nil
 	}
 
-	// If initPolicy is ScheduleOnly, there is no install indicator since the
-	// operator didn't initiate it.  We are going to do based on the existence
-	// of admintools.conf.
-	if vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
-		if !pf.isInstalled {
-			pf.isInstalled = gs.FileExists[paths.AdminToolsConf]
-		}
+	switch {
+	case vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
+		return p.checkIsInstalledScheduleOnly(vdb, pf, gs)
+	case vmeta.UseVClusterOps(vdb.Annotations):
+		return p.checkIsInstalledForVClusterOps(pf, gs)
+	default:
+		return p.checkIsInstalledForAdmintools(pf, gs)
+	}
+}
 
-		// We can't reliably set compat21NodeName because the operator didn't
-		// originate the install.  We will intentionally leave that blank.
-		pf.compat21NodeName = ""
-
-		return nil
+func (p *PodFacts) checkIsInstalledScheduleOnly(vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return errors.New("schedule only does not support vdb when running with vclusterOps")
 	}
 
+	if !pf.isInstalled {
+		pf.isInstalled = gs.FileExists[paths.AdminToolsConf]
+	}
+
+	// We can't reliably set compat21NodeName because the operator didn't
+	// originate the install.  We will intentionally leave that blank.
+	pf.compat21NodeName = ""
+
+	return nil
+}
+
+func (p *PodFacts) checkIsInstalledForAdmintools(pf *PodFact, gs *GatherState) error {
 	pf.isInstalled = gs.InstallIndicatorExists
 	if !pf.isInstalled {
 		// If an admintools.conf exists without the install indicator, this
@@ -486,6 +498,15 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 	} else {
 		pf.compat21NodeName = gs.Compat21NodeName
 	}
+	return nil
+}
+
+func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact, gs *GatherState) error {
+	pf.isInstalled = gs.FileExists[paths.HTTPTLSConfFile]
+	// The next two fields only apply to admintools style deployments. So,
+	// explicitly disable them.
+	pf.hasStaleAdmintoolsConf = false
+	pf.compat21NodeName = ""
 	return nil
 }
 
