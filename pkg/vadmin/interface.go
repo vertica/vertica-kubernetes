@@ -122,16 +122,18 @@ type VClusterOps struct {
 	Client client.Client
 	VClusterProvider
 	Password string
+	EVWriter events.EVWriter
 }
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
-func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client, vopsi VClusterProvider, passwd string) Dispatcher {
+func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client, vopsi VClusterProvider, passwd string, evWriter events.EVWriter) Dispatcher {
 	return &VClusterOps{
 		Log:              log,
 		VDB:              vdb,
 		Client:           cli,
 		VClusterProvider: vopsi,
 		Password:         passwd,
+		EVWriter:         evWriter,
 	}
 }
 

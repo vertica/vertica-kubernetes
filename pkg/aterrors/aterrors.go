@@ -66,8 +66,8 @@ func (a *ATErrors) LogFailure(cmd, op string, err error) (ctrl.Result, error) {
 		return ctrl.Result{Requeue: false, RequeueAfter: time.Second * RestartNodesNotDownRequeueWaitTimeInSeconds}, nil
 
 	case cloud.IsEndpointBadError(op):
-		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.S3EndpointIssue,
-			"Unable to write to the bucket in the S3 endpoint '%s'", a.VDB.Spec.Communal.Endpoint)
+		a.Writer.Eventf(a.VDB, corev1.EventTypeWarning, events.CommunalEndpointIssue,
+			"Unable to write to the communal endpoint '%s'", a.VDB.Spec.Communal.Endpoint)
 		return ctrl.Result{Requeue: true}, nil
 
 	case cloud.IsBucketNotExistError(op):

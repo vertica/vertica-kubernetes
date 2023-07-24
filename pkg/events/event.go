@@ -34,7 +34,7 @@ const (
 	ReviveOrderBad                  = "ReviveOrderBad"
 	ObjectNotFound                  = "ObjectNotFound"
 	CommunalCredsWrongKey           = "CommunalCredsWrongKey" //nolint:gosec
-	S3EndpointIssue                 = "S3EndpointIssue"
+	CommunalEndpointIssue           = "S3EndpointIssue"
 	S3BucketDoesNotExist            = "S3BucketDoesNotExist"
 	S3WrongRegion                   = "S3WrongRegion"
 	S3SseCustomerWrongKey           = "S3SseCustomerWrongKey"

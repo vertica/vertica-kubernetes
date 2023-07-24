@@ -141,7 +141,8 @@ func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOpti
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDBForHTTP("test-secret")
 	mockVops := MockVClusterOps{}
-	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword)
+	evWriter := aterrors.TestEVWriter{}
+	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword, &evWriter)
 	return dispatcher.(*VClusterOps)
 }
 
