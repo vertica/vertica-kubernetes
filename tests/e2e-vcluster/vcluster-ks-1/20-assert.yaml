@@ -18,6 +18,7 @@ metadata:
 status:
   subclusters:
     - addedToDBCount: 3
+      upNodeCount: 3
 ---
 apiVersion: v1
 kind: Event
