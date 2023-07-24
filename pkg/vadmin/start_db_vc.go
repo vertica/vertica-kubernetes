@@ -39,7 +39,7 @@ func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl
 	// call vcluster-ops library to start db
 	vopts, err := v.genStartDBOptions(&s)
 	if err != nil {
-		v.Log.Error(err, "failed to Setup start db options")
+		v.Log.Error(err, "failed to set up start db options")
 		return ctrl.Result{}, err
 	}
 

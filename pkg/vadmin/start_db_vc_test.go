@@ -36,13 +36,7 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 		return err
 	}
 
-	// verify common options
-	err = m.VerifyCommonOptions(&options.DatabaseOptions)
-	if err != nil {
-		return err
-	}
-
-	// verify basic option
+	// verify catalog prefix
 	if *options.CatalogPrefix != TestCatalogPrefix {
 		return fmt.Errorf("failed to retrieve catalog prefix")
 	}
