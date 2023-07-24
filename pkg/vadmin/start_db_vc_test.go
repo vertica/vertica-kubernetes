@@ -37,7 +37,7 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 	}
 
 	// verify eon options
-	err = m.VerifyInitiatorIPAndEonMode((&options.DatabaseOptions)
+	err = m.VerifyInitiatorIPAndEonMode(&options.DatabaseOptions)
 	if err != nil {
 		return err
 	}
