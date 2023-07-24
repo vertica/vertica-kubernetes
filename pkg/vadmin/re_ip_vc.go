@@ -53,6 +53,14 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	return ctrl.Result{}, nil
 }
 
+type ReIPInfo struct {
+	NodeName               string `json:"node_name"`
+	NodeAddress            string `json:"-"`
+	TargetAddress          string `json:"address"`
+	TargetControlAddress   string `json:"control_address"`
+	TargetControlBroadcast string `json:"control_broadcast"`
+}
+
 func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 	opts := vops.VReIPFactory()
 
@@ -73,6 +81,14 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 
 	// database name
 	opts.Name = &v.VDB.Spec.DBName
+
+	// re-ip list
+	for _, h := range s.Hosts {
+		var reIPInfo vops.ReIPInfo
+		reIPInfo.NodeName = h.VNode
+		reIPInfo.TargetAddress = h.IP
+		opts.ReIPList = append(opts.ReIPList, reIPInfo)
+	}
 
 	// auth options
 	*opts.UserName = vapi.SuperUser
