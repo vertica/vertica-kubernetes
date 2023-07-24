@@ -54,8 +54,8 @@ var _ = Describe("start_db_vc", func() {
 	ctx := context.Background()
 
 	var nodeIPs []string
-	for i := 1; i <= 3; i++ {
-		nodeIP := fmt.Sprintf("192.168.1.%d", i)
+	for i := 0; i < 3; i++ {
+		nodeIP := fmt.Sprintf("10.10.10.1%d", i)
 		nodeIPs = append(nodeIPs, nodeIP)
 	}
 
