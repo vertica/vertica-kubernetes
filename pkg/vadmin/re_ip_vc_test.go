@@ -39,6 +39,7 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 		return fmt.Errorf("failed to retrieve catalog prefix")
 	}
 
+	// verify re-ip list
 	if len(options.ReIPList) == 0 {
 		return fmt.Errorf("the re-ip list should not be empty")
 	}
