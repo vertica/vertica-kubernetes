@@ -44,7 +44,7 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 	vopts := v.genAddNodeOptions(&s, certs)
 	vdb, err := v.VAddNode(&vopts)
 	if err != nil {
-		v.Log.Error(err, fmt.Sprintf("failed to add nodes %s a database", strings.Join(s.Hosts, ",")))
+		v.Log.Error(err, fmt.Sprintf("failed to add nodes %s to database", strings.Join(s.Hosts, ",")))
 		return err
 	}
 	v.Log.Info(fmt.Sprintf("Successfully added nodes %s to database %s", strings.Join(s.Hosts, ","), vdb.Name))
@@ -58,7 +58,7 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	opts.NewHosts = s.Hosts
 	opts.Name = &v.VDB.Spec.DBName
 
-	opts.Nodes = s.Nodes
+	opts.Nodes = s.VNodeToHostMap
 	opts.InputHost = s.InitiatorIP
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.NewHosts[0]))
 	opts.SCName = &s.Subcluster

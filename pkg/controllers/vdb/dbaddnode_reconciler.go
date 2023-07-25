@@ -184,7 +184,7 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodF
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
 		addnode.WithSubcluster(pods[0].subclusterName),
-		addnode.WithNodes(d.genVNodeMap()),
+		addnode.WithVNodeToHostMap(d.genVNodeMap()),
 	}
 	for i := range pods {
 		opts = append(opts, addnode.WithHost(pods[i].dnsName))

@@ -26,7 +26,7 @@ type Parms struct {
 	Hosts         []string
 	Subcluster    string
 	// will be removed after VER-88096
-	Nodes map[string]string
+	VNodeToHostMap map[string]string
 }
 
 type Option func(*Parms)
@@ -60,8 +60,8 @@ func WithSubcluster(subcluster string) Option {
 	}
 }
 
-func WithNodes(nodes map[string]string) Option {
+func WithVNodeToHostMap(vNodeToHostMap map[string]string) Option {
 	return func(s *Parms) {
-		s.Nodes = nodes
+		s.VNodeToHostMap = vNodeToHostMap
 	}
 }

@@ -68,7 +68,7 @@ var _ = Describe("add_node_vc", func() {
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		opts := []addnode.Option{
-			addnode.WithNodes(TestNodes),
+			addnode.WithVNodeToHostMap(TestNodes),
 			addnode.WithSubcluster(TestSCName),
 		}
 		for _, n := range TestNewHosts {
