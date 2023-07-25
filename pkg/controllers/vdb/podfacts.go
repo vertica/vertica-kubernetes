@@ -463,6 +463,12 @@ func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf
 		return nil
 	}
 
+	// For vcluster, we search for the existence of the https conf file.
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		pf.isInstalled = gs.FileExists[paths.HTTPTLSConfFile]
+		return nil
+	}
+
 	// If initPolicy is ScheduleOnly, there is no install indicator since the
 	// operator didn't initiate it.  We are going to do based on the existence
 	// of admintools.conf.

@@ -150,4 +150,5 @@ type VClusterProvider interface {
 	VStopDatabase(options *vops.VStopDatabaseOptions) error
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error
+	VAddNode(options *vops.VAddNodeOptions) (vops.VCoordinationDatabase, error)
 }
