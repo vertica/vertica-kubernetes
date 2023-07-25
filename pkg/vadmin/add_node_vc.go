@@ -23,6 +23,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 )
@@ -44,7 +45,7 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 	vopts := v.genAddNodeOptions(&s, certs)
 	vdb, err := v.VAddNode(&vopts)
 	if err != nil {
-		v.Log.Error(err, fmt.Sprintf("failed to add nodes %s to database", strings.Join(s.Hosts, ",")))
+		_, err = v.logFailure("VAddNode", events.AddNodeFailed, err)
 		return err
 	}
 	v.Log.Info(fmt.Sprintf("Successfully added nodes %s to database %s", strings.Join(s.Hosts, ","), vdb.Name))

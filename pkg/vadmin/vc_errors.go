@@ -48,9 +48,12 @@ var rfc7807TypeToEventMap = map[string]string{
 func (v *vcErrors) LogFailure(cmd string, err error) (ctrl.Result, error) {
 	vproblem := &rfc7807.VProblem{}
 	if ok := errors.As(err, &vproblem); !ok {
-		// Unable to know exactly what the error is. Just return as-is and don't
-		// do any k8s event logging
+		// Unable to know exactly what the error is.
+		// We log the generic failure reason of the
+		// given command.
 		v.Log.Error(err, "vclusterOps command failed", "cmd", cmd)
+		v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning,
+			v.GenericFailureReason, fmt.Sprintf("Failed when calling %s", cmd))
 		return ctrl.Result{}, err
 	}
 	v.Log.Error(err, "vclusterOps command failed", "cmd", cmd,

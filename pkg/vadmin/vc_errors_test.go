@@ -28,7 +28,8 @@ import (
 var _ = Describe("verrors suite", func() {
 	It("should handle case where non-rfc7807 is passed in", func() {
 		vce := vcErrors{
-			Log: logger,
+			Log:      logger,
+			EVWriter: &aterrors.TestEVWriter{},
 		}
 		origErr := errors.New("generic error")
 		res, err := vce.LogFailure("test non-rfc7807", origErr)
