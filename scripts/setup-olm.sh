@@ -95,8 +95,9 @@ else
     kubectl apply -f $CUSTOM_SCC_DIR/custom-scc.yaml
 fi
 
+kubectl delete catalogsource $CATALOG_SOURCE_NAME -n $OLM_NS || true
 # Create a catalog source using the catalog we build with 'docker-build-olm-catalog'
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl create -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
