@@ -399,7 +399,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
-		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_catalog 2> /dev/null | grep --quiet . && echo true || echo false
+		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_catalog/%s 2> /dev/null \
+			| grep --quiet . && echo true || echo false
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
 		echo -n 'vnodeName: '
@@ -433,7 +434,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.AgentCertFile, paths.AgentCertFile,
 		paths.AgentKeyFile, paths.AgentKeyFile,
 		paths.VerticaAPIKeysFile, paths.VerticaAPIKeysFile,
-		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
+		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName), getPathToVerifyCatalogExists(pf),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
@@ -443,6 +444,29 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.DBadminAgentPath,
 		fmt.Sprintf("%d", builder.VerticaHTTPPort),
 	))
+}
+
+// getPathToVerifyCatalogExists will return a suffix of a path that we can check
+// to see if the catalog is setup at the pod. This is used for a db existence
+// check. The path will be used in a bash script, so it can contain wildcards
+// like * or ?.
+func getPathToVerifyCatalogExists(pf *PodFact) string {
+	// When checking if the catalog exists at a pod, we have two types of checks
+	// depending on the subcluster type.
+	//
+	// For primary subclusters, the Catalog directory will be up to date. So it
+	// should have a version of the config.cat file -- it could be in a slightly
+	// different form depending if it's in the middle of a commit.
+	if pf.isPrimary {
+		return "Catalog/*config*.cat"
+	}
+	// For secondary subclusters, we just look to see if the standard
+	// Catalog directory exists. The secondary will not always have the full
+	// catalog, which is why we can't use the same check as the primary. For
+	// instance, a secondary after a revive won't have any catalog contents,
+	// just the required directories. It isn't until the database is started
+	// after the revive will the secondary have a populated catalog.
+	return "Catalog"
 }
 
 // checkIsInstalled will check a single pod to see if the installation has happened.
@@ -771,6 +795,13 @@ func setShardSubscription(op string, pf *PodFact) error {
 // exist anywhere.
 func (p *PodFacts) doesDBExist() bool {
 	for _, v := range p.Detail {
+		// dbExists check is based off the existence of the catalog. So, we only
+		// check pods from primary subclusters, as the check is only accurate
+		// for them. Pods for secondary may not have pulled down the catalog yet
+		// (e.g. revive before a restart).
+		if !v.isPrimary {
+			continue
+		}
 		if v.dbExists {
 			return true
 		}
