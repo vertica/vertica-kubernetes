@@ -44,6 +44,7 @@ metadata:
 status:
   subclusterCount: 2
   addedToDBCount: 2
+  installCount: 2
   subclusters:
     - addedToDBCount: 1
       name: sc1
