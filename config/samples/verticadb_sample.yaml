@@ -16,10 +16,19 @@ kind: VerticaDB
 metadata:
   name: verticadb-sample
 spec:
-  image: "vertica/vertica-k8s:23.3.0-0-minimal"
+  image: "vertica/vertica-k8s:latest"
   communal:
-    # path: "s3://<your-bucket>/"
-    endpoint: https://s3.amazonaws.com
+    path: "s3://nimbusdb/db"
+    endpoint: "http://minio"
+    credentialSecret: s3-auth
+    includeUIDInPath: true
   subclusters:
-    - name: default_subcluster
+    - name: defaultsubcluster
       size: 3
+      # The CPU resource setting is here is a sample.  We set it so that this
+      # will work with the sample VerticaAutoscaler resource.  The actual amount
+      # should be sized according to:
+      # https://www.vertica.com/kb/Recommendations-for-Sizing-Vertica-Nodes-and-Clusters/Content/Hardware/Recommendations-for-Sizing-Vertica-Nodes-and-Clusters.htm
+      resources:
+        requests:
+          cpu: 500m

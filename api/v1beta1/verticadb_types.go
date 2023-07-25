@@ -44,7 +44,7 @@ type VerticaDBSpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// ImagePullSecrets is an optional list of references to secrets in the same
 	// namespace to use for pulling the image. If specified, these secrets will
 	// be passed to individual puller implementations for them to use. For
@@ -201,7 +201,7 @@ type VerticaDBSpec struct {
 	Subclusters []Subcluster `json:"subclusters"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// When doing an online upgrade, we designate a subcluster to
 	// accept traffic while the other subclusters restart.  The designated
 	// subcluster is specified here.  The name of the subcluster can refer to an
@@ -267,7 +267,7 @@ type VerticaDBSpec struct {
 	VolumeMounts []corev1.VolumeMount `json:"volumeMounts,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Secrets that will be mounted in the vertica container.  The purpose of
 	// this is to allow custom certs to be available.  The full path is:
 	//   /certs/<secretName>/<key_i>
@@ -556,7 +556,7 @@ type CommunalStorage struct {
 	Region string `json:"region,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:ConfigMap"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// A config map that contains the contents of the /etc/hadoop directory.
 	// This gets mounted in the container and is used to configure connections
 	// to an HDFS communal path
@@ -736,13 +736,13 @@ type Subcluster struct {
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
 	Affinity Affinity `json:"affinity,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// The priority class name given to pods in this subcluster. This affects
 	// where the pod gets scheduled.
 	// More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
 	PriorityClassName string `json:"priorityClassName,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Any tolerations and taints to use to aid in where to schedule a pod.
 	// More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
@@ -778,7 +778,7 @@ type Subcluster struct {
 	ServiceName string `json:"serviceName,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// When setting serviceType to NodePort, this parameter allows you to define the
 	// port that is opened at each node for Vertica client connections. If using
 	// NodePort and this is omitted, Kubernetes will choose the port
@@ -795,14 +795,14 @@ type Subcluster struct {
 	VerticaHTTPNodePort int32 `json:"verticaHTTPNodePort,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Allows the service object to be attached to a list of external IPs that you
 	// specify. If not set, the external IP list is left empty in the service object.
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips
 	ExternalIPs []string `json:"externalIPs,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Specify IP address of LoadBalancer service for this subcluster.
 	// This field is ignored when serviceType != "LoadBalancer".
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer
