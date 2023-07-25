@@ -79,6 +79,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 		var reIPInfo vops.ReIPInfo
 		reIPInfo.NodeName = h.VNode
 		reIPInfo.TargetAddress = h.IP
+		reIPInfo.NodeAddress = h.IP
 		opts.ReIPList = append(opts.ReIPList, reIPInfo)
 	}
 
