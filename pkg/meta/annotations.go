@@ -40,8 +40,7 @@ const (
 
 	// This is a feature flag for accessing the secrets configured in Google Secret Manager.
 	// The value of this annotation is treated as a boolean.
-	GcpGsmAnnotation     = "vertica.com/use-gcp-secret-manager"
-	GcpGsmAnnotationTrue = "true"
+	GcpGsmAnnotation = "vertica.com/use-gcp-secret-manager"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

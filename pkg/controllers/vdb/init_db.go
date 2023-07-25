@@ -304,6 +304,9 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 		return "", ctrl.Result{}, err
 	}
 
+	// Pull the keys from the secret. Note, this code is largely duplicated from
+	// getCommunalAuth but had to be duplicated because we couldn't make the
+	// secret here the same datatype.
 	accessKey, ok := GcpCred[cloud.CommunalAccessKeyName]
 	if !ok {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
