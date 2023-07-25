@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // retrieveHTTPSCerts will retrieve the certs from HTTPServerTLSSecret for calling NMA endpoints
@@ -54,4 +55,15 @@ func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, erro
 	certs.CaCert = string(tlsCaCrt)
 
 	return &certs, nil
+}
+
+// logFailure will log and record an event for a vclusterOps API failure
+func (v *VClusterOps) logFailure(cmd, genericFailureReason string, err error) (ctrl.Result, error) {
+	evLogr := vcErrors{
+		VDB:                  v.VDB,
+		Log:                  v.Log,
+		GenericFailureReason: genericFailureReason,
+		EVWriter:             v.EVWriter,
+	}
+	return evLogr.LogFailure(cmd, err)
 }
