@@ -22,6 +22,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,8 +46,7 @@ func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ct
 	vopts := v.genCreateDBOptions(&s, certs)
 	vdb, err := v.VCreateDatabase(&vopts)
 	if err != nil {
-		v.Log.Error(err, "failed to create a database")
-		return ctrl.Result{}, err
+		return v.logFailure("VCreateDatabase", events.CreateDBFailed, err)
 	}
 
 	v.Log.Info("Successfully created a database", "dbName", vdb.Name)
