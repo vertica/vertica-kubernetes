@@ -18,16 +18,56 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// StartDB will start a subset of nodes. Use this when vertica has lost
-// cluster quorum. The IP given for each vnode *must* match the current IP
-// in the vertica catalog. If they aren't a call to ReIP is necessary.
+// StartDB will start a subset of nodes of the database
 func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
+	v.Log.Info("Starting vcluster StartDB")
+
+	// get start_db options
 	s := startdb.Parms{}
 	s.Make(opts...)
-	return ctrl.Result{}, fmt.Errorf("not implemented")
+
+	// call vcluster-ops library to start db
+	vopts, err := v.genStartDBOptions(&s)
+	if err != nil {
+		v.Log.Error(err, "failed to Setup start db options")
+		return ctrl.Result{}, err
+	}
+
+	err = v.VStartDatabase(&vopts)
+	if err != nil {
+		v.Log.Error(err, "failed to start a database")
+		return ctrl.Result{}, err
+	}
+
+	v.Log.Info("Successfully start a database", "dbName", *vopts.Name)
+	return ctrl.Result{}, nil
+}
+
+func (v *VClusterOps) genStartDBOptions(s *startdb.Parms) (vops.VStartDatabaseOptions, error) {
+	opts := vops.VStartDatabaseOptionsFactory()
+	opts.RawHosts = s.Hosts
+	v.Log.Info("Setup start db options", "hosts", strings.Join(s.Hosts, ","))
+	if len(opts.RawHosts) == 0 {
+		return vops.VStartDatabaseOptions{}, fmt.Errorf("hosts should not be empty %s", opts.RawHosts)
+	}
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
+	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
+	opts.Name = &v.VDB.Spec.DBName
+	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+
+	// auth options
+	*opts.UserName = vapi.SuperUser
+	opts.Password = &v.Password
+	*opts.HonorUserInput = true
+	return opts, nil
 }

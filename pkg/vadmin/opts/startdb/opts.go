@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// Parms holds all of the option for a revive DB invocation.
+// Parms holds all of the option for a start DB invocation.
 type Parms struct {
 	InitiatorName types.NamespacedName
 	InitiatorIP   string
