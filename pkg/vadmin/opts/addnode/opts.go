@@ -25,6 +25,8 @@ type Parms struct {
 	InitiatorIP   string
 	Hosts         []string
 	Subcluster    string
+	// will be removed after VER-88096
+	VNodeToHostMap map[string]string
 }
 
 type Option func(*Parms)
@@ -55,5 +57,11 @@ func WithHost(fqdn string) Option {
 func WithSubcluster(subcluster string) Option {
 	return func(s *Parms) {
 		s.Subcluster = subcluster
+	}
+}
+
+func WithVNodeToHostMap(vNodeToHostMap map[string]string) Option {
+	return func(s *Parms) {
+		s.VNodeToHostMap = vNodeToHostMap
 	}
 }
