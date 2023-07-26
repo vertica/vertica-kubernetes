@@ -58,11 +58,12 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 
 	// hosts
 	for _, host := range s.Hosts {
-		opts.RawHosts = append(opts.Hosts, host.IP)
+		opts.RawHosts = append(opts.RawHosts, host.IP)
+		opts.Hosts = append(opts.Hosts, host.IP)
 	}
 
-	v.Log.Info("Setup re-ip options", "hosts", strings.Join(opts.Hosts, ","))
-	if len(opts.Hosts) == 0 {
+	v.Log.Info("Setup re-ip options", "hosts", strings.Join(opts.RawHosts, ","))
+	if len(opts.RawHosts) == 0 {
 		return vops.VReIPOptions{}, fmt.Errorf("hosts should not be empty")
 	}
 
