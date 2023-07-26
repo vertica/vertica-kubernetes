@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -63,6 +64,9 @@ var _ = Describe("re_ip_vc", func() {
 	It("should call vcluster-ops library with re_ip task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+
 		ctrlRes, err := dispatcher.ReIP(ctx,
 			reip.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), hosts[0].IP),
 			reip.WithHost(hosts[0].VNode, hosts[0].Compat21Node, hosts[0].IP),
