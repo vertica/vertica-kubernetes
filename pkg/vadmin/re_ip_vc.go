@@ -23,6 +23,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,7 +52,7 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 
 	err = v.VReIP(&vopts)
 	if err != nil {
-		v.Log.Error(err, "failed to run re-ip")
+		v.logFailure("VReIP", events.ReipFailed, err)
 		return ctrl.Result{}, err
 	}
 
@@ -66,11 +67,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) (vops.VRe
 	for _, host := range s.Hosts {
 		opts.RawHosts = append(opts.RawHosts, host.IP)
 	}
-
 	v.Log.Info("Setup re-ip options", "hosts", strings.Join(opts.RawHosts, ","))
-	if len(opts.RawHosts) == 0 {
-		return vops.VReIPOptions{}, fmt.Errorf("hosts should not be empty")
-	}
 
 	// ipv6
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
