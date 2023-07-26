@@ -59,7 +59,6 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 	// hosts
 	for _, host := range s.Hosts {
 		opts.RawHosts = append(opts.RawHosts, host.IP)
-		opts.Hosts = append(opts.Hosts, host.IP)
 	}
 
 	v.Log.Info("Setup re-ip options", "hosts", strings.Join(opts.RawHosts, ","))
@@ -68,7 +67,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 	}
 
 	// ipv6
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.Hosts[0]))
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 
 	// catalog prefix
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
