@@ -89,6 +89,8 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) (vops.VRe
 		opts.ReIPList = append(opts.ReIPList, reIPInfo)
 	}
 
+	v.Log.Info(fmt.Sprintf("Re-ip list: %+v", opts.ReIPList))
+
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
