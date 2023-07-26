@@ -17,16 +17,21 @@ package vdb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"hash/crc32"
 	"regexp"
 	"strings"
 
+	gsm "cloud.google.com/go/secretmanager/apiv1"
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
@@ -269,12 +274,71 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 	g.ConfigurationParams.Set("KerberosEnableKeytabPermissionCheck", "0")
 }
 
+// setAuthFromGCSSecret sets the config parms map when we are the secrets are configured in GSM
+func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (string, ctrl.Result, error) {
+	client, err := gsm.NewClient(ctx)
+	if err != nil {
+		return "", ctrl.Result{}, err
+	}
+	defer client.Close()
+
+	req := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: g.Vdb.Spec.Communal.CredentialSecret,
+	}
+
+	result, err := client.AccessSecretVersion(ctx, req)
+	if err != nil {
+		g.Log.Error(err, "could not fetch secrets, credential error")
+		return "", ctrl.Result{}, err
+	}
+
+	crc32c := crc32.MakeTable(crc32.Castagnoli)
+	checksum := int64(crc32.Checksum(result.Payload.Data, crc32c))
+	if checksum != *result.Payload.DataCrc32C {
+		return "", ctrl.Result{}, fmt.Errorf("data corruption detected, expected %d but got %d", *result.Payload.DataCrc32C, checksum)
+	}
+
+	GcpCred := map[string]string{}
+	err = json.Unmarshal(result.Payload.Data, &GcpCred)
+	if err != nil {
+		return "", ctrl.Result{}, err
+	}
+
+	// Pull the keys from the secret. Note, this code is largely duplicated from
+	// getCommunalAuth but had to be duplicated because we couldn't make the
+	// secret here the same datatype.
+	accessKey, ok := GcpCred[cloud.CommunalAccessKeyName]
+	if !ok {
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
+		return "", ctrl.Result{Requeue: true}, nil
+	}
+
+	secretKey, ok := GcpCred[cloud.CommunalSecretKeyName]
+	if !ok {
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
+		return "", ctrl.Result{Requeue: true}, nil
+	}
+
+	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(accessKey, "\n"), strings.TrimSuffix(secretKey, "\n"))
+	return auth, ctrl.Result{}, nil
+}
+
 // setGCloudAuthParms adds the auth parms to the config parms map when we are
 // connecting to google cloud storage.
 func (g *GenericDatabaseInitializer) setGCloudAuthParms(ctx context.Context) (ctrl.Result, error) {
-	res, err := g.setAuth(ctx, "GCSAuth")
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	if meta.UseGCPSecretManager(g.Vdb.Annotations) {
+		auth, res, err := g.setAuthFromGCSSecret(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+		g.ConfigurationParams.Set("GCSAuth", auth)
+	} else {
+		res, err := g.setAuth(ctx, "GCSAuth")
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
 	}
 
 	g.ConfigurationParams.Set("GCSEndpoint", g.getCommunalEndpoint())
