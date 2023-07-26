@@ -32,12 +32,18 @@ import (
 func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster ReIP")
 
+	// get the certs
+	certs, err := v.retrieveHTTPSCerts(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// get re-ip options
 	s := reip.Parms{}
 	s.Make(opts...)
 
 	// call vcluster-ops library to re-ip
-	vopts, err := v.genReIPOptions(&s)
+	vopts, err := v.genReIPOptions(&s, certs)
 	if err != nil {
 		v.Log.Error(err, "failed to set up re-ip options")
 		return ctrl.Result{}, err
@@ -53,7 +59,7 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
+func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) (vops.VReIPOptions, error) {
 	opts := vops.VReIPFactory()
 
 	// hosts
@@ -84,8 +90,12 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms) (vops.VReIPOptions, error) {
 	}
 
 	// auth options
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
+
 	return opts, nil
 }
