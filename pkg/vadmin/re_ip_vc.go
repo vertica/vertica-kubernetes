@@ -17,7 +17,6 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
@@ -44,11 +43,7 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	s.Make(opts...)
 
 	// call vcluster-ops library to re-ip
-	vopts, err := v.genReIPOptions(&s, certs)
-	if err != nil {
-		v.Log.Error(err, "failed to set up re-ip options")
-		return ctrl.Result{}, err
-	}
+	vopts := v.genReIPOptions(&s, certs)
 
 	err = v.VReIP(&vopts)
 	if err != nil {
@@ -60,7 +55,7 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) (vops.VReIPOptions, error) {
+func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReIPOptions {
 	opts := vops.VReIPFactory()
 
 	// hosts
@@ -86,8 +81,6 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) (vops.VRe
 		opts.ReIPList = append(opts.ReIPList, reIPInfo)
 	}
 
-	v.Log.Info(fmt.Sprintf("Re-ip list: %+v", opts.ReIPList))
-
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
@@ -96,5 +89,5 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) (vops.VRe
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
 
-	return opts, nil
+	return opts
 }
