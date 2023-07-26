@@ -35,14 +35,14 @@ awsendpoint = minio`)
 
 	It("should obfuscate gcs credentials", func() {
 		s := generateLogOutput(`cat > auth_parms.conf<<< '
-GCSAuth = user:pass
+gcsauth = user:pass
 GCSEndpoint = google`)
-		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\nGCSAuth = ****\nGCSEndpoint = google "))
+		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\ngcsauth = ****\nGCSEndpoint = google "))
 	})
 
 	It("should obfuscate azure credentials", func() {
 		s := generateLogOutput(`cat > auth_parms.conf<<< '
-AzureStorageCredentials = {"elem1": "a", "elem2": "b"}`)
-		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\nAzureStorageCredentials = **** "))
+azurestoragecredentials = {"elem1": "a", "elem2": "b"}`)
+		Expect(s).Should(Equal("cat > auth_parms.conf<<< '\nazurestoragecredentials = **** "))
 	})
 })
