@@ -92,8 +92,6 @@ func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Res
 		d.Log.Info("Requeue reconcile cycle because not all nodes have done the install for vclusterOps")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	// Invalidate the pod facts cache since its out of date due to the install
-	d.PFacts.Invalidate()
 	return ctrl.Result{}, nil
 }
 
@@ -224,6 +222,8 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) (bool, error)
 			if err != nil {
 				return false, errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
 			}
+			// Invalidate the pod facts cache since its out of date due the https generation
+			d.PFacts.Invalidate()
 		}
 		installedPodCount++
 	}
