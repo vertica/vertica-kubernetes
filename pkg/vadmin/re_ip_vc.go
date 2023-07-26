@@ -52,7 +52,7 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 
 	err = v.VReIP(&vopts)
 	if err != nil {
-		v.logFailure("VReIP", events.ReipFailed, err)
+		_, err = v.logFailure("VReIP", events.ReipFailed, err)
 		return ctrl.Result{}, err
 	}
 
