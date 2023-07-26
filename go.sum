@@ -206,6 +206,8 @@ github.com/le-an-vertica/vcluster v0.0.2 h1:EicJNEocOBumZba5LZ72bFIFpx34w+c/Srdy
 github.com/le-an-vertica/vcluster v0.0.2/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
 github.com/le-an-vertica/vcluster v0.0.3 h1:jV/Ykiyp3zlPMLlWn398+C305hRkGg0ZSeQL20tiw2Q=
 github.com/le-an-vertica/vcluster v0.0.3/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
+github.com/le-an-vertica/vcluster v0.0.4 h1:JLNaZPlRa9JJrcRACZYqeporuTRv6WBy161+GnxStk0=
+github.com/le-an-vertica/vcluster v0.0.4/go.mod h1:zAO9nH73iAc40oZI+jd3sEZ3FRkrMLHWCvB0TIA4EHo=
 github.com/lithammer/dedent v1.1.0 h1:VNzHMVCBNG1j0fh3OrsFRkVUwStdDArbgBWoPAffktY=
 github.com/lithammer/dedent v1.1.0/go.mod h1:jrXYCQtgg0nJiN+StA2KgR7w6CiQNv9Fd/Z9BP0jIOc=
 github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
