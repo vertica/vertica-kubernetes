@@ -92,6 +92,8 @@ func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Res
 		d.Log.Info("Requeue reconcile cycle because not all nodes have done the install for vclusterOps")
 		return ctrl.Result{Requeue: true}, nil
 	}
+	// Invalidate the pod facts cache since its out of date due to the install
+	d.PFacts.Invalidate()
 	return ctrl.Result{}, nil
 }
 
