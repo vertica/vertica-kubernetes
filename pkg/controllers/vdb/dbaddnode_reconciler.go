@@ -191,8 +191,9 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodF
 	}
 	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {
-		d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
-			"Successfully added database nodes and it took %s", time.Since(start))
+		return err
 	}
-	return err
+	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
+		"Successfully added database nodes and it took %s", time.Since(start))
+	return nil
 }
