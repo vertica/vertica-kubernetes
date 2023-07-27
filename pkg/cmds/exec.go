@@ -84,8 +84,8 @@ func generateLogOutput(cmd ...string) string {
 func obfuscateForLog(s string) string {
 	pats := map[string]string{
 		"awsauth = .*":                 "awsauth = ****",
-		"GCSAuth = .*":                 "GCSAuth = ****",
-		"AzureStorageCredentials = .*": "AzureStorageCredentials = ****",
+		"gcsauth = .*":                 "gcsauth = ****",
+		"azurestoragecredentials = .*": "azurestoragecredentials = ****",
 	}
 	for expr, replacement := range pats {
 		r := regexp.MustCompile(expr)
