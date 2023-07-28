@@ -149,4 +149,37 @@ var _ = Describe("status_reconcile", func() {
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Status.Subclusters[0].InstallCount).Should(Equal(int32(2)))
 	})
+
+	It("should preserve old status when subclusters is not running", func() {
+		vdb := vapi.MakeVDB()
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Size = 1
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		const Oid = "123456"
+		const VNode = "v_vertdb_node0001"
+		vdb.Status.Subclusters = []vapi.SubclusterStatus{
+			{
+				Name:   sc.Name,
+				Oid:    Oid,
+				Detail: []vapi.VerticaDBPodStatus{{VNodeName: VNode}},
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts.Detail = nil // Mock no details for pods
+		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		fetchVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Status.Subclusters[0].Oid).Should(Equal(Oid))
+		Expect(fetchVdb.Status.Subclusters[0].Detail[0].VNodeName).Should(Equal(VNode))
+	})
 })
