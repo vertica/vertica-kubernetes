@@ -84,7 +84,7 @@ func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Contex
 	}
 
 	if len(subclusters) > 0 {
-		atPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
+		atPod, ok := d.PFacts.findPodToRunAdminCmdAny()
 		if !ok || !atPod.upNode {
 			d.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
