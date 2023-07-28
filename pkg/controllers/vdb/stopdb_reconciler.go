@@ -90,7 +90,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 
 // stopVertica will stop vertica on all of the running pods
 func (s *StopDBReconciler) stopVertica(ctx context.Context) error {
-	pf, ok := s.PFacts.findPodToRunAdmintoolsAny()
+	pf, ok := s.PFacts.findPodToRunAdminCmdAny()
 	if !ok {
 		// If no running pod found, then there is nothing to stop and we can just continue on
 		return nil
