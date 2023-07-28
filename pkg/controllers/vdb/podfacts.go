@@ -845,10 +845,10 @@ func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact
 	return &PodFact{}, false
 }
 
-// findPodToRunAdmintoolsAny returns the name of the pod we will exec into into
+// findPodToRunAdminCmdAny returns the name of the pod we will exec into into
 // order to run admintools.
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
+func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
 	// Our preference for the pod is as follows:
 	// - up, not read-only and not pending delete
 	// - up and not read-only
@@ -874,9 +874,9 @@ func (p *PodFacts) findPodToRunAdmintoolsAny() (*PodFact, bool) {
 	})
 }
 
-// findPodToRunAdmintoolsOffline will return a pod to run an offline admintools
+// findPodToRunAdminCmdOffline will return a pod to run an offline admintools
 // command.  If nothing is found, the second parameter returned will be false.
-func (p *PodFacts) findPodToRunAdmintoolsOffline() (*PodFact, bool) {
+func (p *PodFacts) findPodToRunAdminCmdOffline() (*PodFact, bool) {
 	for _, v := range p.Detail {
 		if v.isInstalled && v.isPodRunning && !v.upNode {
 			return v, true
@@ -952,6 +952,11 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 			pods = append(pods, v)
 		}
 	}
+	// Return a slice sorted by the vnode name. This will allow for easier
+	// debugging because the pod list will be deterministic.
+	sort.Slice(pods, func(i, j int) bool {
+		return pods[i].vnodeName < pods[j].vnodeName
+	})
 	return pods
 }
 

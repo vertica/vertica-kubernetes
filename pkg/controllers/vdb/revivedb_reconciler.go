@@ -204,7 +204,7 @@ func (r *ReviveDBReconciler) getPodList() ([]*PodFact, bool) {
 // findPodToRunInit will return a PodFact of the pod that should run the init
 // command from
 func (r *ReviveDBReconciler) findPodToRunInit() (*PodFact, bool) {
-	return r.PFacts.findPodToRunAdmintoolsOffline()
+	return r.PFacts.findPodToRunAdminCmdOffline()
 }
 
 // genReviveOpts will return the options to use with the revive command

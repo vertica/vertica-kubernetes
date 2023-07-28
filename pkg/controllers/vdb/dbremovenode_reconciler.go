@@ -114,7 +114,7 @@ func (d *DBRemoveNodeReconciler) removeNodesInSubcluster(ctx context.Context, sc
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToRemove, requeueNeeded := d.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
 	if len(podsToRemove) > 0 {
-		initiatorPod, ok := d.PFacts.findPodToRunAdmintoolsAny()
+		initiatorPod, ok := d.PFacts.findPodToRunAdminCmdAny()
 		if !ok {
 			// Requeue since we couldn't find a running pod
 			d.Log.Info("Requeue since we could not find a pod to run admintools")

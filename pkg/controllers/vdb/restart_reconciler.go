@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -101,7 +102,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (c
 	}
 
 	// We have two paths.  If the entire cluster is down we have separate
-	// admintools commands to run.  Cluster operations only apply if the entire
+	// admin commands to run.  Cluster operations only apply if the entire
 	// vertica cluster is managed by k8s.  We skip that if initPolicy is
 	// ScheduleOnly.
 	if r.PFacts.getUpNodeAndNotReadOnlyCount() == 0 &&
@@ -126,18 +127,23 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		r.Log.Info("Waiting for pods to come online that may need a Vertica restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
-	if r.Vdb.Spec.KSafety == vapi.KSafety0 && r.PFacts.countInstalledAndNotRestartable() > 0 {
-		// For k-safety 0, to start the cluster we need to include all the pods.
-		// Absence of one will cause us not to have enough pods for cluster quorum.
+	// Check if cluster start needs to include all of the pods.
+	if (r.Vdb.Spec.KSafety == vapi.KSafety0 || meta.UseVClusterOps(r.Vdb.Annotations)) &&
+		r.PFacts.countInstalledAndNotRestartable() > 0 {
+		// For k-safety 0, we need all of the pods because the absence of one
+		// will cause us not to have enough pods for cluster quorum.
+		//
+		// For vclusterOps, we need all pods as a temporary measure until the
+		// library is able to read catalog information (see VER-88084).
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Find an AT pod.  You must run with a pod that has no vertica process running.
+	// Find an initiator pod. You must pick a that has no vertica process running.
 	// This is needed to be able to start the primaries when secondary read-only
 	// nodes could be running.
-	if ok := r.setATPod(r.PFacts.findPodToRunAdmintoolsOffline); !ok {
-		r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
+	if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdOffline); !ok {
+		r.Log.Info("No initiator pod found to run admin command. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -217,8 +223,8 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 		return ctrl.Result{}, err
 	}
 	if len(downPods) > 0 {
-		if ok := r.setATPod(r.PFacts.findPodToRunAdmintoolsAny); !ok {
-			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
+		if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdAny); !ok {
+			r.Log.Info("No initiator pod found for admin command. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
 
@@ -239,8 +245,8 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// have been installed but not yet added to a database.
 	reIPPods := r.PFacts.findReIPPods(true)
 	if len(reIPPods) > 0 {
-		if ok := r.setATPod(r.PFacts.findPodToRunAdmintoolsAny); !ok {
-			r.Log.Info("No pod found to run admintools from. Requeue reconciliation.")
+		if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdAny); !ok {
+			r.Log.Info("No initiator pod found to run admin command. Requeue reconciliation.")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		if res, err := r.reipNodes(ctx, reIPPods); verrors.IsReconcileAborted(res, err) {
@@ -251,7 +257,7 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	return ctrl.Result{Requeue: r.shouldRequeueIfPodsNotRunning()}, nil
 }
 
-// restartPods restart the down pods using admintools
+// restartPods restart the down pods using an admin command
 func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	// Reduce the pod list according to the cluster node state
 	downPods, res, err := r.removePodsWithClusterUpState(ctx, pods)
@@ -551,18 +557,19 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 	return true, nil
 }
 
-// setATPod will set r.ATPod if not already set.
+// setInitiatorPod will set r.InitiatorPod if not already set.
 // Caller can indicate whether there is a requirement that it must be run from a
 // pod that is current not running the vertica daemon.
-func (r *RestartReconciler) setATPod(findFunc func() (*PodFact, bool)) bool {
-	// If we haven't done so already, figure out the pod to run admintools from.
+func (r *RestartReconciler) setInitiatorPod(findFunc func() (*PodFact, bool)) bool {
+	// If we haven't done so already, figure out the pod that will serve as the
+	// initiator for the command.
 	if r.InitiatorPod == (types.NamespacedName{}) {
-		atPod, ok := findFunc()
+		initPod, ok := findFunc()
 		if !ok {
 			return false
 		}
-		r.InitiatorPod = atPod.name
-		r.InitiatorPodIP = atPod.podIP
+		r.InitiatorPod = initPod.name
+		r.InitiatorPodIP = initPod.podIP
 	}
 	return true
 }

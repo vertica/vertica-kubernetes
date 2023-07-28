@@ -289,6 +289,27 @@ var _ = Describe("podfacts", func() {
 		Expect(p.dnsName).Should(Equal("p1"))
 	})
 
+	It("should return filtered pods in vnode sort order", func() {
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			dnsName: "p1", dbExists: true, vnodeName: "v_db_node0003",
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			dnsName: "p2", dbExists: true, vnodeName: "v_db_node0002",
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			dnsName: "p3", dbExists: true, vnodeName: "v_db_node0001",
+		}
+		pods := pf.filterPods(func(v *PodFact) bool { return true })
+		Expect(len(pods)).Should(Equal(3))
+		Expect(pods[0].dnsName).Should(Equal("p3"))
+		Expect(pods[0].vnodeName).Should(Equal("v_db_node0001"))
+		Expect(pods[1].dnsName).Should(Equal("p2"))
+		Expect(pods[1].vnodeName).Should(Equal("v_db_node0002"))
+		Expect(pods[2].dnsName).Should(Equal("p1"))
+		Expect(pods[2].vnodeName).Should(Equal("v_db_node0003"))
+	})
+
 	It("should return correct pod in findPodToRunAdmintoolsAny", func() {
 		By("finding up, not read-only and not pending delete")
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
@@ -301,7 +322,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", dbExists: true, upNode: true, readOnly: false, pendingDelete: false,
 		}
-		p, ok := pf.findPodToRunAdmintoolsAny()
+		p, ok := pf.findPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p3"))
 
@@ -316,7 +337,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", dbExists: true, upNode: true, readOnly: false,
 		}
-		p, ok = pf.findPodToRunAdmintoolsAny()
+		p, ok = pf.findPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p2"))
 
@@ -331,7 +352,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
 			dnsName: "p3", dbExists: true, upNode: true, readOnly: true,
 		}
-		p, ok = pf.findPodToRunAdmintoolsAny()
+		p, ok = pf.findPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p2"))
 
@@ -349,7 +370,7 @@ var _ = Describe("podfacts", func() {
 		pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
 			dnsName: "p3", isInstalled: true, isPodRunning: true,
 		}
-		p, ok = pf.findPodToRunAdmintoolsAny()
+		p, ok = pf.findPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())
 		Expect(p.dnsName).Should(Equal("p2"))
 	})
