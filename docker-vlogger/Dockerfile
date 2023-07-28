@@ -14,7 +14,7 @@
 # A docker container that will tail the vertica.log.  This allows vertica to
 # follow the idiomatic way in Kubernetes of logging to stdout.
 
-FROM alpine:3.15
+FROM alpine:3.18
 
 # Tini - A tiny but valid init for containers
 RUN apk add --no-cache tini
