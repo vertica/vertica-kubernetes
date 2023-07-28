@@ -32,14 +32,20 @@ import (
 func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster StartDB")
 
+	// get the certs
+	certs, err := v.retrieveHTTPSCerts(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// get start_db options
 	s := startdb.Parms{}
 	s.Make(opts...)
 
 	// call vcluster-ops library to start db
-	vopts, err := v.genStartDBOptions(&s)
+	vopts, err := v.genStartDBOptions(&s, certs)
 	if err != nil {
-		v.Log.Error(err, "failed to Setup start db options")
+		v.Log.Error(err, "failed to set up start db options")
 		return ctrl.Result{}, err
 	}
 
@@ -53,7 +59,7 @@ func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genStartDBOptions(s *startdb.Parms) (vops.VStartDatabaseOptions, error) {
+func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vops.VStartDatabaseOptions, error) {
 	opts := vops.VStartDatabaseOptionsFactory()
 	opts.RawHosts = s.Hosts
 	v.Log.Info("Setup start db options", "hosts", strings.Join(s.Hosts, ","))
@@ -66,6 +72,9 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms) (vops.VStartDatabaseOp
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
 	// auth options
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true

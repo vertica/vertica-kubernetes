@@ -155,4 +155,5 @@ type VClusterProvider interface {
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error
 	VAddNode(options *vops.VAddNodeOptions) (vops.VCoordinationDatabase, error)
+	VReIP(options *vops.VReIPOptions) error
 }
