@@ -41,6 +41,10 @@ const (
 	// The minimum version that we can use the option with create DB to skip the
 	// package install.
 	CreateDBSkipPackageInstallVersion = "v12.0.1"
+	// Starting in v23.4.0, we added some new config parameters for settings
+	// that were typically done post create using SQL -- setting the default
+	// subcluster name and preferred k-safety.
+	DBSetupConfigParameters = "v23.4.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

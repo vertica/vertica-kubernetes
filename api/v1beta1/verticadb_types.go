@@ -1384,3 +1384,15 @@ func (v *VerticaDB) IsKnownDepotVolumeType() bool {
 	}
 	return false
 }
+
+// getFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
+func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.IsPrimary {
+			return sc
+		}
+	}
+	// We should never get here because the webhook prevents a vdb with no primary.
+	return &v.Spec.Subclusters[0]
+}

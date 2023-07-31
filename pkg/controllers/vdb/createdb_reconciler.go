@@ -42,7 +42,8 @@ import (
 
 const (
 	// This is a file that we run with the create_db to run custome SQL. This is
-	// passed with the --sql parameter when running create_db.
+	// passed with the --sql parameter when running create_db. This is no longer
+	// used starting with versions defined in vapi.DBSetupConfigParameters.
 	PostDBCreateSQLFile = "/home/dbadmin/post-db-create.sql"
 )
 
@@ -115,30 +116,6 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
 func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
-	// We include SQL to rename the default subcluster to match the name of the
-	// first subcluster in the spec -- any remaining subclusters will be added
-	// by DBAddSubclusterReconciler.
-	sc := c.getFirstPrimarySubcluster()
-	var sb strings.Builder
-	sb.WriteString("-- SQL that is run after the database is created\n")
-	if c.Vdb.IsEON() {
-		sb.WriteString(
-			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
-		)
-	}
-	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
-		sb.WriteString("select set_preferred_ksafe(0);\n")
-	}
-	if c.Vdb.Spec.EncryptSpreadComm != "" {
-		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
-		`, c.Vdb.Spec.EncryptSpreadComm))
-	}
-	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
-		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
-	)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	// If the communal path is a POSIX file path, we need to create the communal
 	// path directory as the server won't create it. It handles that for other
 	// communal types though.
@@ -159,6 +136,35 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
 		}
+	}
+
+	// The remainder of this function will configure the database via sql.
+	// These have been moved over to config parameters. If on a new enough
+	// version, we can skip the remainder of the function.
+	vinf, ok := c.Vdb.MakeVersionInfo()
+	if ok && vinf.IsEqualOrNewer(vapi.DBSetupConfigParameters) {
+		return ctrl.Result{}, nil
+	}
+
+	// We include SQL to rename the default subcluster to match the name of the
+	// first subcluster in the spec -- any remaining subclusters will be added
+	// by DBAddSubclusterReconciler.
+	sc := c.getFirstPrimarySubcluster()
+	var sb strings.Builder
+	sb.WriteString("-- SQL that is run after the database is created\n")
+	if c.Vdb.IsEON() {
+		sb.WriteString(
+			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
+		)
+	}
+	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
+		sb.WriteString("select set_preferred_ksafe(0);\n")
+	}
+	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
+		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
+	)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
@@ -222,15 +228,9 @@ func (c *CreateDBReconciler) findPodToRunInit() (*PodFact, bool) {
 
 // getFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
 func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
-	for i := range c.Vdb.Spec.Subclusters {
-		sc := &c.Vdb.Spec.Subclusters[i]
-		if sc.IsPrimary {
-			c.Log.Info("First primary subcluster selected for create_db", "sc", sc.Name)
-			return sc
-		}
-	}
-	// We should never get here because the webhook prevents a vdb with no primary.
-	return &c.Vdb.Spec.Subclusters[0]
+	sc := c.Vdb.GetFirstPrimarySubcluster()
+	c.Log.Info("First primary subcluster selected for create_db", "sc", sc.Name)
+	return sc
 }
 
 // genOptions will return the options to use for the create db command
@@ -244,12 +244,16 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 	opts := []createdb.Option{
 		createdb.WithInitiator(initiatorPod),
 		createdb.WithHosts(hostList),
-		createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile),
 		createdb.WithCatalogPath(c.Vdb.Spec.Local.GetCatalogPath()),
 		createdb.WithDBName(c.Vdb.Spec.DBName),
 		createdb.WithLicensePath(licPath),
 		createdb.WithDepotPath(c.Vdb.Spec.Local.DepotPath),
 		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
+	}
+
+	vinf, ok := c.Vdb.MakeVersionInfo()
+	if !ok || !vinf.IsEqualOrNewer(vapi.DBSetupConfigParameters) {
+		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 
 	// If a communal path is set, include all of the EON parameters.
