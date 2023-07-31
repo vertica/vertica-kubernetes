@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
@@ -221,6 +222,17 @@ var _ = Describe("builder", func() {
 		Expect(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
 		Expect(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
 		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+	})
+
+	It("should not use canary query probe if using GSM", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.SuperuserPasswordSecret = "some-secret"
+		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
+		vdb.Annotations = map[string]string{
+			meta.GcpGsmAnnotation: "true",
+		}
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 	})
 
 	It("should override some of the pod securityContext settings", func() {

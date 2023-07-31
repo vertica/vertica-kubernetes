@@ -271,43 +271,45 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 }
 
 // setAuthFromGCSSecret sets the config parms map when we are the secrets are configured in GSM
-func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (string, ctrl.Result, error) {
-	GcpCred, err := g.VRec.GetDetailsFromGSM(ctx, g.Vdb.Spec.Communal.CredentialSecret, g.Log)
-	var auth string
-	if len(GcpCred) == 0 || err != nil {
-		return "", ctrl.Result{}, err
-	} else {
-		// Pull the keys from the secret. Note, this code is largely duplicated from
-		// getCommunalAuth but had to be duplicated because we couldn't make the
-		// secret here the same datatype.
-		accessKey, ok := GcpCred[cloud.CommunalAccessKeyName]
-		if !ok {
-			g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-				"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
-			return "", ctrl.Result{Requeue: true}, nil
-		}
-
-		secretKey, ok := GcpCred[cloud.CommunalSecretKeyName]
-		if !ok {
-			g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-				"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
-			return "", ctrl.Result{Requeue: true}, nil
-		}
-
-		auth = fmt.Sprintf("%s:%s", strings.TrimSuffix(accessKey, "\n"), strings.TrimSuffix(secretKey, "\n"))
+func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (ctrl.Result, error) {
+	if g.Vdb.Spec.Communal.CredentialSecret == "" {
+		return ctrl.Result{}, nil
 	}
-	return auth, ctrl.Result{}, nil
+
+	gcpCred, err := cloud.ReadFromGSM(ctx, g.Vdb.Spec.Communal.CredentialSecret)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// Pull the keys from the secret. Note, this code is largely duplicated from
+	// getCommunalAuth but had to be duplicated because we couldn't make the
+	// secret here the same datatype.
+	accessKey, ok := gcpCred[cloud.CommunalAccessKeyName]
+	if !ok {
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	secretKey, ok := gcpCred[cloud.CommunalSecretKeyName]
+	if !ok {
+		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
+			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(accessKey, "\n"), strings.TrimSuffix(secretKey, "\n"))
+	g.ConfigurationParams.Set("GCSAuth", auth)
+	return ctrl.Result{}, nil
 }
 
 // setGCloudAuthParms adds the auth parms to the config parms map when we are
 // connecting to google cloud storage.
 func (g *GenericDatabaseInitializer) setGCloudAuthParms(ctx context.Context) (ctrl.Result, error) {
 	if meta.UseGCPSecretManager(g.Vdb.Annotations) {
-		auth, res, err := g.setAuthFromGCSSecret(ctx)
+		res, err := g.setAuthFromGCSSecret(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-		g.ConfigurationParams.Set("GCSAuth", auth)
 	} else {
 		res, err := g.setAuth(ctx, "GCSAuth")
 		if verrors.IsReconcileAborted(res, err) {

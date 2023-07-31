@@ -17,13 +17,9 @@ package vdb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"hash/crc32"
 	"time"
 
-	gsm "cloud.google.com/go/secretmanager/apiv1"
-	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +33,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -241,74 +238,39 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	}
 }
 
-// GetDetailsFromGSM returns the secret or password configured in Google Secret Manager
-func (r *VerticaDBReconciler) GetDetailsFromGSM(ctx context.Context, secName string, log logr.Logger) (map[string]string, error) {
-	clnt, err := gsm.NewClient(ctx)
-	if err != nil {
-		return make(map[string]string), fmt.Errorf("failed to create secretmanager client")
-	}
-	defer clnt.Close()
-
-	req := &secretmanagerpb.AccessSecretVersionRequest{
-		Name: secName,
-	}
-
-	result, err := clnt.AccessSecretVersion(ctx, req)
-	if err != nil {
-		log.Error(err, "could not fetch secrets, credential error")
-		return make(map[string]string), err
-	}
-
-	crc32c := crc32.MakeTable(crc32.Castagnoli)
-	checksum := int64(crc32.Checksum(result.Payload.Data, crc32c))
-	if checksum != *result.Payload.DataCrc32C {
-		return make(map[string]string), fmt.Errorf("data corruption detected")
-	}
-	SecPasswd := make(map[string]string)
-	err = json.Unmarshal(result.Payload.Data, &SecPasswd)
-	if err != nil {
-		return make(map[string]string), err
-	}
-	return SecPasswd, nil
-}
-
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vapi.VerticaDB, log logr.Logger) (string, error) {
-	passwd := ""
-	if vmeta.UseGCPSecretManager(vdb.Annotations) {
-		SuperPw, err := r.GetDetailsFromGSM(ctx, vdb.Spec.SuperuserPasswordSecret, log)
-		if len(SuperPw) == 0 || err != nil {
-			return passwd, err
-		} else {
-			pwd, ok := SuperPw[builder.SuperuserPasswordKey]
-			if ok {
-				passwd = pwd
-			} else {
-				log.Error(err, fmt.Sprintf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey))
-			}
-		}
-	} else {
-		secret := &corev1.Secret{}
-		secretName := names.GenSUPasswdSecretName(vdb)
-		if secretName.Name == "" {
-			return passwd, nil
-		}
-		err := r.Get(ctx, secretName, secret)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				r.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.SuperuserPasswordSecretNotFound,
-					"Secret for superuser password '%s' was not found", secretName.Name)
-			}
-			return passwd, err
-		}
-		pwd, ok := secret.Data[builder.SuperuserPasswordKey]
-		if ok {
-			passwd = string(pwd)
-		} else {
-			log.Error(err, fmt.Sprintf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey))
-		}
+	if vdb.Spec.SuperuserPasswordSecret == "" {
+		return "", nil
 	}
-	return passwd, nil
+
+	if vmeta.UseGCPSecretManager(vdb.Annotations) {
+		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.SuperuserPasswordSecret)
+		if err != nil {
+			return "", err
+		}
+		pwd, ok := secretCnts[builder.SuperuserPasswordKey]
+		if !ok {
+			return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
+		}
+		return pwd, nil
+	}
+
+	secret := &corev1.Secret{}
+	secretName := names.GenSUPasswdSecretName(vdb)
+	err := r.Get(ctx, secretName, secret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			r.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.SuperuserPasswordSecretNotFound,
+				"Secret for superuser password '%s' was not found", secretName.Name)
+		}
+		return "", err
+	}
+	pwd, ok := secret.Data[builder.SuperuserPasswordKey]
+	if !ok {
+		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
+	}
+	return string(pwd), nil
 }
 
 // checkShardToNodeRatio will check the subclusters ratio of shards to node.  If
