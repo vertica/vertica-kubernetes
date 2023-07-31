@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade vertica/vertica-k8s:11.0.1-0-minimal # This must be an older image than what all the other tests are using
+  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade vertica/vertica-k8s:11.1.1-0-minimal # This must be an older image than what all the other tests are using
