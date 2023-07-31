@@ -205,7 +205,7 @@ func (g *GenericDatabaseInitializer) ConstructConfigParms(ctx context.Context) (
 
 	// In newer release, we moved what some config settings that use to be set
 	// via SQL to config parms.
-	if g.hasCompatibleVersion(vapi.DBSetupConfigParameters) {
+	if g.hasCompatibleVersion(vapi.DBSetupConfigParametersMinVersion) {
 		g.setDefaultSubclusterConfig()
 		g.setPreferredKSafetyConfig()
 	}

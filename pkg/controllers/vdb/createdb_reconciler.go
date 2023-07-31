@@ -138,11 +138,16 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 		}
 	}
 
-	// The remainder of this function will configure the database via sql.
-	// These have been moved over to config parameters. If on a new enough
-	// version, we can skip the remainder of the function.
+	return c.generatePostDBCreateSQL(ctx, initiatorPod)
+}
+
+// generatePostDBCreateSQL is a function that creates a file with sql commands
+// to be run immediately after the database create.
+func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
+	// On newer server versions we moved over the SQL to config parameters. So,
+	// if we are on a new enough version we can skip this function entirely.
 	vinf, ok := c.Vdb.MakeVersionInfo()
-	if ok && vinf.IsEqualOrNewer(vapi.DBSetupConfigParameters) {
+	if ok && vinf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		return ctrl.Result{}, nil
 	}
 
@@ -252,7 +257,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 	}
 
 	vinf, ok := c.Vdb.MakeVersionInfo()
-	if !ok || !vinf.IsEqualOrNewer(vapi.DBSetupConfigParameters) {
+	if !ok || !vinf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 

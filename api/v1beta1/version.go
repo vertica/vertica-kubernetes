@@ -44,7 +44,7 @@ const (
 	// Starting in v23.4.0, we added some new config parameters for settings
 	// that were typically done post create using SQL -- setting the default
 	// subcluster name and preferred k-safety.
-	DBSetupConfigParameters = "v23.4.0"
+	DBSetupConfigParametersMinVersion = "v23.4.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

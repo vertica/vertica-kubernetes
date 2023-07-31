@@ -1394,5 +1394,5 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 		}
 	}
 	// We should never get here because the webhook prevents a vdb with no primary.
-	return &v.Spec.Subclusters[0]
+	return nil
 }
