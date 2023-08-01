@@ -33,6 +33,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -239,27 +240,37 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vapi.VerticaDB, log logr.Logger) (string, error) {
-	secret := &corev1.Secret{}
-	passwd := ""
-	secretName := names.GenSUPasswdSecretName(vdb)
-	if secretName.Name == "" {
-		return passwd, nil
+	if vdb.Spec.SuperuserPasswordSecret == "" {
+		return "", nil
 	}
+
+	if vmeta.UseGCPSecretManager(vdb.Annotations) {
+		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.SuperuserPasswordSecret)
+		if err != nil {
+			return "", err
+		}
+		pwd, ok := secretCnts[builder.SuperuserPasswordKey]
+		if !ok {
+			return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
+		}
+		return pwd, nil
+	}
+
+	secret := &corev1.Secret{}
+	secretName := names.GenSUPasswdSecretName(vdb)
 	err := r.Get(ctx, secretName, secret)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.SuperuserPasswordSecretNotFound,
 				"Secret for superuser password '%s' was not found", secretName.Name)
 		}
-		return passwd, err
+		return "", err
 	}
 	pwd, ok := secret.Data[builder.SuperuserPasswordKey]
-	if ok {
-		passwd = string(pwd)
-	} else {
-		log.Error(err, fmt.Sprintf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey))
+	if !ok {
+		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
 	}
-	return passwd, nil
+	return string(pwd), nil
 }
 
 // checkShardToNodeRatio will check the subclusters ratio of shards to node.  If

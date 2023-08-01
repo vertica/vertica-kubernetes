@@ -600,65 +600,85 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	}
 }
 
-// makeReadinessProbe will build the readiness probe. It has a default probe
-// that can be overridden with the spec.readinessProbeOverride parameter.
-func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	probe := &corev1.Probe{
+// makeVerticaClientPortProbe will build a probe that if vertica is up by seeing
+// if the vertica client port is being listened on.
+func makeVerticaClientPortProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(VerticaClientPort),
+			},
+		},
+	}
+}
+
+// makeCanaryQueryProbe will build a probe that does the canary SQL query to see
+// if vertica is up.
+func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"bash", "-c", buildCanaryQuerySQL(vdb)},
 			},
 		},
 	}
+}
+
+// makeDefaultReadinessOrStartupProbe will return the default probe to use for
+// the readiness or startup probes. Only returns the default timeouts for the
+// probe. Caller is responsible for adusting those.
+func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	// If using GSM, then the superuses password is not a k8s secret. We cannot
+	// use the canary query then because that depends on having the password
+	// mounted in the file system. Default to just checking if the client port
+	// is being listened on.
+	if vmeta.UseGCPSecretManager(vdb.Annotations) {
+		return makeVerticaClientPortProbe()
+	}
+	return makeCanaryQueryProbe(vdb)
+}
+
+// makeReadinessProbe will build the readiness probe. It has a default probe
+// that can be overridden with the spec.readinessProbeOverride parameter.
+func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	probe := makeDefaultReadinessOrStartupProbe(vdb)
 	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
 	return probe
 }
 
 // makeStartupProbe will return the Probe object to use for the startup probe.
 func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	probe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"bash", "-c", buildCanaryQuerySQL(vdb)},
-			},
-		},
-		// We want to wait about 20 minutes for the server to come up before the
-		// other probes come into affect. The total length of the probe is more or
-		// less: InitialDelaySeconds + PeriodSeconds * FailureThreshold.
-		InitialDelaySeconds: 30,
-		PeriodSeconds:       10,
-		FailureThreshold:    117,
-		TimeoutSeconds:      5,
-	}
+	probe := makeDefaultReadinessOrStartupProbe(vdb)
+	// We want to wait about 20 minutes for the server to come up before the
+	// other probes come into affect. The total length of the probe is more or
+	// less: InitialDelaySeconds + PeriodSeconds * FailureThreshold.
+	probe.InitialDelaySeconds = 30
+	probe.PeriodSeconds = 10
+	probe.FailureThreshold = 117
+	probe.TimeoutSeconds = 5
+
 	overrideProbe(probe, vdb.Spec.StartupProbeOverride)
 	return probe
 }
 
 // makeLivenessProbe will return the Probe object to use for the liveness probe.
 func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	probe := &corev1.Probe{
-		// We check if the TCP client port is open. We used this approach,
-		// rather than issuing 'select 1' like readinessProbe because we need
-		// to minimize variability. If the livenessProbe fails, the pod is
-		// rescheduled. So, it isn't as forgiving as the readinessProbe.
-		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt(VerticaClientPort),
-			},
-		},
-		// These values were picked so that we can estimate how long vertica
-		// needs to be unresponsive before it gets killed. We are targeting
-		// about 2.5 minutes after initial start and 1.5 minutes if the pod has
-		// been running for a while. The formula is:
-		// InitialDelaySeconds + PeriodSeconds * FailureThreshold.
-		//
-		// Note: InitialDelaySeconds only applies the first time after pod
-		// scheduling.
-		InitialDelaySeconds: 60,
-		TimeoutSeconds:      1,
-		PeriodSeconds:       30,
-		FailureThreshold:    3,
-	}
+	// We check if the TCP client port is open. We used this approach,
+	// rather than issuing 'select 1' like readinessProbe because we need
+	// to minimize variability. If the livenessProbe fails, the pod is
+	// rescheduled. So, it isn't as forgiving as the readinessProbe.
+	probe := makeVerticaClientPortProbe()
+	// These values were picked so that we can estimate how long vertica
+	// needs to be unresponsive before it gets killed. We are targeting
+	// about 2.5 minutes after initial start and 1.5 minutes if the pod has
+	// been running for a while. The formula is:
+	// InitialDelaySeconds + PeriodSeconds * FailureThreshold.
+	// Note: InitialDelaySeconds only applies the first time after pod scheduling.
+	probe.InitialDelaySeconds = 60
+	probe.TimeoutSeconds = 1
+	probe.PeriodSeconds = 30
+	probe.FailureThreshold = 3
+
 	overrideProbe(probe, vdb.Spec.LivenessProbeOverride)
 	return probe
 }

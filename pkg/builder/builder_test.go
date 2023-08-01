@@ -223,6 +223,17 @@ var _ = Describe("builder", func() {
 		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
 	})
 
+	It("should not use canary query probe if using GSM", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.SuperuserPasswordSecret = "project/team/dbadmin/secret/1"
+		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
+		vdb.Annotations = map[string]string{
+			vmeta.GcpGsmAnnotation: "true",
+		}
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], &DeploymentNames{})
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
+	})
+
 	It("should override some of the pod securityContext settings", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.PodSecurityContext = &v1.PodSecurityContext{
