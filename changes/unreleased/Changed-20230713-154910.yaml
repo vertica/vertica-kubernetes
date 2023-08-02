@@ -1,5 +1,0 @@
-kind: Changed
-body: Use 23.3.0 as default vertica server image
-time: 2023-07-13T15:49:10.879465546-03:00
-custom:
-  Issue: "455"

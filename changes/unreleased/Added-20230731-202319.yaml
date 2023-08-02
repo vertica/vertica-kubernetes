@@ -1,5 +1,0 @@
-kind: Added
-body: Allow use of GSM for superuser password secret
-time: 2023-07-31T20:23:19.559653595-03:00
-custom:
-  Issue: "474"

@@ -1,5 +1,0 @@
-kind: Fixed
-body: Ensure vbr can find rsync. This will be available in server versions 23.3.0 and higher.
-time: 2023-06-16T08:53:00.755543732-03:00
-custom:
-  Issue: "418"
