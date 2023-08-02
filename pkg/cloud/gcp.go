@@ -50,7 +50,7 @@ func ReadFromGSM(ctx context.Context, secName string) (map[string]string, error)
 	contents := make(map[string]string)
 	err = json.Unmarshal(result.Payload.Data, &contents)
 	if err != nil {
-		return make(map[string]string), err
+		return nil, fmt.Errorf("failed to unmarshal the contents of the GSM secret '%s': %w", secName, err)
 	}
 	return contents, nil
 }
