@@ -306,7 +306,7 @@ func (g *GenericDatabaseInitializer) setAuthFromGCSSecret(ctx context.Context) (
 
 	gcpCred, err := cloud.ReadFromGSM(ctx, g.Vdb.Spec.Communal.CredentialSecret)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to read GCS credentials from GSM: %w", err)
 	}
 	// Pull the keys from the secret. Note, this code is largely duplicated from
 	// getCommunalAuth but had to be duplicated because we couldn't make the
