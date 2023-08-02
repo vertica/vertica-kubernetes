@@ -165,6 +165,12 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
 		sb.WriteString("select set_preferred_ksafe(0);\n")
 	}
+	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
+	// config parm in the create db call.
+	if c.Vdb.Spec.EncryptSpreadComm != "" && ok && vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
+		`, c.Vdb.Spec.EncryptSpreadComm))
+	}
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
 	)

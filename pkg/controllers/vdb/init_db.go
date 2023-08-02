@@ -284,7 +284,7 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 }
 
 func (g *GenericDatabaseInitializer) setEncryptSpreadCommConfigIfNecessary() {
-	if g.Vdb.Spec.EncryptSpreadComm != "" {
+	if g.Vdb.Spec.EncryptSpreadComm != "" && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
 		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.Spec.EncryptSpreadComm)
 	}
 }

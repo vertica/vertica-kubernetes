@@ -45,6 +45,10 @@ const (
 	// that were typically done post create using SQL -- setting the default
 	// subcluster name and preferred k-safety.
 	DBSetupConfigParametersMinVersion = "v23.4.0"
+	// In 23.3.0, the EncryptSpreadComm config parm can be set during the create
+	// db call. On versions prior to this, it must be specified immediately
+	// after via SQL.
+	SetEncryptSpreadCommAsConfigVersion = "v23.3.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

@@ -27,7 +27,6 @@ spec:
     includeUIDInPath: true
   local:
     requestSize: 100Mi
-  encryptSpreadComm: vertica
   subclusters:
     - name: main
       size: 3
