@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -130,7 +131,7 @@ var _ = Describe("createdb_reconciler", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		hist := fpr.FindCommands("alter database default set parameter EncryptSpreadComm")
+		hist := fpr.FindCommands(fmt.Sprintf("encryptspreadcomm = %s", vapi.EncryptSpreadCommWithVertica))
 		Expect(len(hist)).Should(Equal(1))
 
 		// The restart condition variable should be set to true also

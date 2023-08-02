@@ -49,13 +49,18 @@ func (a *Admintools) genCreateDBCmd(s *createdb.Parms) []string {
 		"-t", "create_db",
 		"--skip-fs-checks",
 		"--hosts=" + strings.Join(s.Hosts, ","),
-		"--sql=" + s.PostDBCreateSQLFile,
 		"--catalog_path=" + s.CatalogPath,
 		"--database", s.DBName,
 		"--force-removal-at-creation",
 		"--noprompt",
 		"--license", s.LicensePath,
 		"--depot-path=" + s.DepotPath,
+	}
+
+	if s.PostDBCreateSQLFile != "" {
+		cmd = append(cmd,
+			"--sql="+s.PostDBCreateSQLFile,
+		)
 	}
 
 	// If a communal path is set, include all of the EON parameters.

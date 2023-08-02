@@ -197,6 +197,15 @@ func (g *GenericDatabaseInitializer) ConstructConfigParms(ctx context.Context) (
 		g.setKerberosAuthParms()
 	}
 
+	g.setEncryptSpreadCommConfigIfNecessary()
+
+	// In newer release, we moved what some config settings that use to be set
+	// via SQL to config parms.
+	if g.hasCompatibleVersion(vapi.DBSetupConfigParametersMinVersion) {
+		g.setDefaultSubclusterConfig()
+		g.setPreferredKSafetyConfig()
+	}
+
 	// Add any additional config parameters that were included in the CR.
 	// To avoid duplicate values, if a parameter is already set through another CR field,
 	// (like S3ServerSideEncryption through communal.s3ServerSideEncryption), the corresponding
@@ -268,6 +277,25 @@ func (g *GenericDatabaseInitializer) setKerberosAuthParms() {
 	// complain that the keytab file doesn't have read/write permissions from
 	// dbadmin only.
 	g.ConfigurationParams.Set("KerberosEnableKeytabPermissionCheck", "0")
+}
+
+func (g *GenericDatabaseInitializer) setEncryptSpreadCommConfigIfNecessary() {
+	if g.Vdb.Spec.EncryptSpreadComm != "" && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.Spec.EncryptSpreadComm)
+	}
+}
+
+func (g *GenericDatabaseInitializer) setDefaultSubclusterConfig() {
+	if g.Vdb.IsEON() {
+		sc := g.Vdb.GetFirstPrimarySubcluster()
+		g.ConfigurationParams.Set("InitialDefaultSubclusterName", sc.Name)
+	}
+}
+
+func (g *GenericDatabaseInitializer) setPreferredKSafetyConfig() {
+	if g.Vdb.Spec.KSafety == vapi.KSafety0 {
+		g.ConfigurationParams.Set("InitialPreferredKSafe", string(vapi.KSafety0))
+	}
 }
 
 // setAuthFromGCSSecret sets the config parms map when we are the secrets are configured in GSM
@@ -612,7 +640,7 @@ func (g *GenericDatabaseInitializer) setHadoopConfDir() {
 func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Result {
 	const DefaultKerberosSupportedVersion = "v11.0.2"
 	eventMsg := genUnsupportedVerticaVersionEventMsg("Kerberos in the container", DefaultKerberosSupportedVersion)
-	return g.hasCompatibleVersion(DefaultKerberosSupportedVersion, eventMsg)
+	return g.hasCompatibleVersionElseRequeue(DefaultKerberosSupportedVersion, eventMsg)
 }
 
 // hasCompatibleVersionForServerSideEncryption checks whether it has the required engine fix
@@ -621,18 +649,27 @@ func (g *GenericDatabaseInitializer) hasCompatibleVersionForKerberos() ctrl.Resu
 func (g *GenericDatabaseInitializer) hasCompatibleVersionForServerSideEncryption() ctrl.Result {
 	const DefaultSseSupportedVersion = "v12.0.1"
 	eventMsg := genUnsupportedVerticaVersionEventMsg("server side encryption", DefaultSseSupportedVersion)
-	return g.hasCompatibleVersion(DefaultSseSupportedVersion, eventMsg)
+	return g.hasCompatibleVersionElseRequeue(DefaultSseSupportedVersion, eventMsg)
 }
 
-// hasCompatibleVersion checks whether it has the required engine fix.
-// If it doesn't the ctrl.Result will have the requeue bool set.
-func (g *GenericDatabaseInitializer) hasCompatibleVersion(supportedVersion, eventMsg string) ctrl.Result {
-	vinf, ok := g.Vdb.MakeVersionInfo()
-	if !ok || ok && vinf.IsEqualOrNewer(supportedVersion) {
+// hasCompatibleVersionElseRequeue checks whether it has the required engine fix.
+// If it doesn't an event message is logged and the ctrl.Result will have the
+// requeue bool set.
+func (g *GenericDatabaseInitializer) hasCompatibleVersionElseRequeue(supportedVersion, eventMsg string) ctrl.Result {
+	if g.hasCompatibleVersion(supportedVersion) {
 		return ctrl.Result{}
 	}
-	g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion, eventMsg, vinf.VdbVer)
+	g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion, eventMsg, supportedVersion)
 	return ctrl.Result{Requeue: true}
+}
+
+// hasCompatibleVersion checks whether it has the required engine fix returning a bool.
+func (g *GenericDatabaseInitializer) hasCompatibleVersion(supportedVersion string) bool {
+	vinf, ok := g.Vdb.MakeVersionInfo()
+	if !ok || ok && vinf.IsEqualOrNewer(supportedVersion) {
+		return true
+	}
+	return false
 }
 
 // genUnsupportedVerticaVersionEventMsg returns a string that will be used as
