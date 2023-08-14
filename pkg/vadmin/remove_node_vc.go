@@ -53,8 +53,6 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.HostsToRemove[0]))
-	catalogPath := v.VDB.Spec.Local.GetCatalogPath()
-	opts.CatalogPrefix = &catalogPath
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
