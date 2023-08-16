@@ -131,7 +131,7 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 		} else {
 			result, err = s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
 		}
-		if err != nil {
+		if verrors.IsReconcileAborted(result, err) {
 			return result, err
 		}
 
@@ -150,7 +150,7 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForVClusterOps(ctx contex
 	cmd := s.genCmdRemoveHTTPTLSConfFile()
 	for _, pod := range podsToUninstall {
 		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to call remove installer indicator file: %w", err)
+			return ctrl.Result{}, fmt.Errorf("failed to call remove https config file: %w", err)
 		}
 	}
 

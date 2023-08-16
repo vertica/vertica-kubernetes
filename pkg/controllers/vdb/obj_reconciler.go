@@ -239,8 +239,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 	for i := range stss.Items {
 		// Ensure that we have correctly done db_remove_node and uninstall for
 		// all pods in the subcluster.  If that isn't the case, we requeue to
-		// give those reconcilers a chance to do those actions.  Failure to do
-		// this will result in corruption of admintools.conf.
+		// give those reconcilers a chance to do those actions.
 		if r, e := o.checkIfReadyForStsUpdate(0, &stss.Items[i]); verrors.IsReconcileAborted(r, e) {
 			return r, e
 		}
