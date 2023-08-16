@@ -27,7 +27,9 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -121,31 +123,16 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
 	if len(podsToUninstall) > 0 {
-		basePod, err := findATBasePod(s.Vdb, s.PFacts)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		ipsToUninstall := []string{}
-		for _, p := range podsToUninstall {
-			ipsToUninstall = append(ipsToUninstall, p.podIP)
-		}
-		atConfTempFile, err := s.ATWriter.RemoveHosts(ctx, basePod, ipsToUninstall)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		defer os.Remove(atConfTempFile)
+		var result ctrl.Result
+		var err error
 
-		if err := distributeAdmintoolsConf(ctx, s.Vdb, s.VRec, s.PFacts, s.PRunner, atConfTempFile); err != nil {
-			return ctrl.Result{}, err
+		if vmeta.UseVClusterOps(s.Vdb.Annotations) {
+			result, err = s.uninstallPodsInSubclusterForVClusterOps(ctx, podsToUninstall)
+		} else {
+			result, err = s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
 		}
-
-		// Remove the installer indicator file so that we do an install if we then
-		// opt to scale out again.
-		cmd := s.genCmdRemoveInstallIndicator()
-		for _, pod := range podsToUninstall {
-			if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to call remove installer indicator file: %w", err)
-			}
+		if verrors.IsReconcileAborted(result, err) {
+			return result, err
 		}
 
 		// We successfully uninstalled at least one pod, invalidate the pod
@@ -154,6 +141,54 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 	}
 
 	return ctrl.Result{Requeue: requeueNeeded}, nil
+}
+
+// uninstallPodsInSubclusterForVClusterOps will call uninstall, for vclusterops, on a list
+// of pods that will be scaled down.
+func (s *UninstallReconciler) uninstallPodsInSubclusterForVClusterOps(ctx context.Context,
+	podsToUninstall []*PodFact) (ctrl.Result, error) {
+	cmd := s.genCmdRemoveHTTPTLSConfFile()
+	for _, pod := range podsToUninstall {
+		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to call remove https config file: %w", err)
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// uninstallPodsInSubclusterForAdmintools will call uninstall, for admintools, on a list
+// of pods that will be scaled down.
+func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context.Context,
+	podsToUninstall []*PodFact) (ctrl.Result, error) {
+	basePod, err := findATBasePod(s.Vdb, s.PFacts)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	ipsToUninstall := []string{}
+	for _, p := range podsToUninstall {
+		ipsToUninstall = append(ipsToUninstall, p.podIP)
+	}
+	atConfTempFile, err := s.ATWriter.RemoveHosts(ctx, basePod, ipsToUninstall)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	defer os.Remove(atConfTempFile)
+
+	if err := distributeAdmintoolsConf(ctx, s.Vdb, s.VRec, s.PFacts, s.PRunner, atConfTempFile); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Remove the installer indicator file so that we do an install if we then
+	// opt to scale out again.
+	cmd := s.genCmdRemoveInstallIndicator()
+	for _, pod := range podsToUninstall {
+		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to call remove installer indicator file: %w", err)
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // findPodsSuitableForScaleDown will return a list of host names that can be uninstalled
@@ -194,4 +229,9 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 // genCmdRemoveInstallIndicator will generate the command to get rid of the installer indicator file
 func (s *UninstallReconciler) genCmdRemoveInstallIndicator() []string {
 	return []string{"rm", s.Vdb.GenInstallerIndicatorFileName()}
+}
+
+// genCmdRemoveHTTPTLSConfFile will generate the command to get rid of the https config file
+func (s *UninstallReconciler) genCmdRemoveHTTPTLSConfFile() []string {
+	return []string{"rm", fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName)}
 }

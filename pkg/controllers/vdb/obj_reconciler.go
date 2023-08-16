@@ -239,9 +239,8 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 	for i := range stss.Items {
 		// Ensure that we have correctly done db_remove_node and uninstall for
 		// all pods in the subcluster.  If that isn't the case, we requeue to
-		// give those reconcilers a chance to do those actions.  Failure to do
-		// this will result in corruption of admintools.conf.
-		if r, e := o.checkForOrphanAdmintoolsConfEntries(0, &stss.Items[i]); verrors.IsReconcileAborted(r, e) {
+		// give those reconcilers a chance to do those actions.
+		if r, e := o.checkIfReadyForStsUpdate(0, &stss.Items[i]); verrors.IsReconcileAborted(r, e) {
 			return r, e
 		}
 
@@ -426,7 +425,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// reconciliation.  This will cause us to go through the remove node and
 	// uninstall reconcile actors to properly handle the scale down.
 	if o.Mode&ObjReconcileModePreserveScaling == 0 {
-		if r, e := o.checkForOrphanAdmintoolsConfEntries(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
+		if r, e := o.checkIfReadyForStsUpdate(sc.Size, curSts); verrors.IsReconcileAborted(r, e) {
 			return r, e
 		}
 	}
@@ -475,12 +474,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	return ctrl.Result{}, nil
 }
 
-// checkForOrphanAdmintoolsConfEntries will check whether it is okay to proceed
+// checkIfReadyForStsUpdate will check whether it is okay to proceed
 // with the statefulset update.  This checks if we are deleting pods/sts and if
-// what we are deleting has had proper cleanup in admintools.conf.  Failure to
+// what we are deleting has had proper cleanup. In the case of admintools, failure to
 // do this will cause us to orphan entries leading admintools to fail for most
 // operations.
-func (o *ObjReconciler) checkForOrphanAdmintoolsConfEntries(newStsSize int32, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	if newStsSize >= *sts.Spec.Replicas {
 		// Nothing to do as we aren't scaling down.
 		return ctrl.Result{}, nil
