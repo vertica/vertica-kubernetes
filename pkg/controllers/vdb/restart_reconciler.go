@@ -128,13 +128,9 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 	// Check if cluster start needs to include all of the pods.
-	if (r.Vdb.Spec.KSafety == vapi.KSafety0 || meta.UseVClusterOps(r.Vdb.Annotations)) &&
-		r.PFacts.countInstalledAndNotRestartable() > 0 {
+	if r.Vdb.Spec.KSafety == vapi.KSafety0 && r.PFacts.countInstalledAndNotRestartable() > 0 {
 		// For k-safety 0, we need all of the pods because the absence of one
 		// will cause us not to have enough pods for cluster quorum.
-		//
-		// For vclusterOps, we need all pods as a temporary measure until the
-		// library is able to read catalog information (see VER-88084).
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
