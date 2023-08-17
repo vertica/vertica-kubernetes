@@ -294,12 +294,6 @@ github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6Mwd
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
 github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
-github.com/spilchen/vcluster v0.0.0-20230816181949-4ca288e96945 h1:6dHN+aDW2Q6liOwa9sjq+zKVtsTC4+yL2r9NBWSVMtw=
-github.com/spilchen/vcluster v0.0.0-20230816181949-4ca288e96945/go.mod h1:7oNKoLThwbNX69xUwZZOdiI3WunMCth3mCF0EXOqtuc=
-github.com/spilchen/vcluster v0.0.0-20230816191709-5a6540c63963 h1:V3DTy6Ljrf45IIV6DQMBEx7MtrEzqoFR9uuqueAH9zo=
-github.com/spilchen/vcluster v0.0.0-20230816191709-5a6540c63963/go.mod h1:7oNKoLThwbNX69xUwZZOdiI3WunMCth3mCF0EXOqtuc=
-github.com/spilchen/vcluster v0.0.0-20230817115315-f80e42b78a4c h1:It3wWDoIrh1Ik4ub/Rea2FJz/aIV8LpGU/GrrfGPY1w=
-github.com/spilchen/vcluster v0.0.0-20230817115315-f80e42b78a4c/go.mod h1:7oNKoLThwbNX69xUwZZOdiI3WunMCth3mCF0EXOqtuc=
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
@@ -316,8 +310,8 @@ github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ8=
 github.com/tonglil/buflogr v1.0.1 h1:WXFZLKxLfqcVSmckwiMCF8jJwjIgmStJmg63YKRF1p0=
-github.com/vertica/vcluster v0.0.0-20230816112817-2474665dae3f h1:VS3/CHDR3YPDLDmtcEVz+5p8AgUi+rU+iR/9GdzHRQw=
-github.com/vertica/vcluster v0.0.0-20230816112817-2474665dae3f/go.mod h1:7oNKoLThwbNX69xUwZZOdiI3WunMCth3mCF0EXOqtuc=
+github.com/vertica/vcluster v0.0.0-20230817171046-fc38e5c46354 h1:h5FEcnL4Li3H95LsUZ9FwhH8sal38C2NpzCSv2k8nQs=
+github.com/vertica/vcluster v0.0.0-20230817171046-fc38e5c46354/go.mod h1:7oNKoLThwbNX69xUwZZOdiI3WunMCth3mCF0EXOqtuc=
 github.com/vertica/vertica-sql-go v1.1.1 h1:sZYijzBbvdAbJcl4cYlKjR+Eh/X1hGKzukWuhh8PjvI=
 github.com/vertica/vertica-sql-go v1.1.1/go.mod h1:fGr44VWdEvL+f+Qt5LkKLOT7GoxaWdoUCnPBU9h6t04=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
