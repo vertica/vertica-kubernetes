@@ -90,3 +90,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/vertica/vcluster => github.com/spilchen/vcluster v0.0.0-20230817115315-f80e42b78a4c

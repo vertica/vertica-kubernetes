@@ -19,6 +19,10 @@ import (
 	"context"
 	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -28,7 +32,43 @@ import (
 // in the vertica catalogs.
 func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster RestartNode")
+
+	certs, err := v.retrieveHTTPSCerts(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	s := restartnode.Parms{}
 	s.Make(opts...)
-	return ctrl.Result{}, fmt.Errorf("not implemented")
+
+	vcOpts := v.genRestartNodeOptions(&s, certs)
+	err = v.VRestartNodes(vcOpts)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to restart nodes: %w", err)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (v *VClusterOps) genRestartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VRestartNodesOptions {
+	catPath := v.VDB.Spec.Local.GetCatalogPath()
+	su := vapi.SuperUser
+	honorUserInput := true
+	opts := vops.VRestartNodesOptions{
+		DatabaseOptions: vops.DatabaseOptions{
+			Name:           &v.VDB.Spec.DBName,
+			RawHosts:       []string{s.InitiatorIP},
+			Ipv6:           vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP)),
+			IsEon:          vstruct.MakeNullableBool(v.VDB.IsEON()),
+			CatalogPrefix:  &catPath,
+			Key:            certs.Key,
+			Cert:           certs.Cert,
+			CaCert:         certs.CaCert,
+			UserName:       &su,
+			Password:       &v.Password,
+			HonorUserInput: &honorUserInput,
+		},
+		Nodes: s.RestartHosts,
+	}
+	return &opts
 }

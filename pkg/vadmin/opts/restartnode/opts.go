@@ -23,8 +23,7 @@ import (
 type Parms struct {
 	InitiatorName types.NamespacedName
 	InitiatorIP   string
-	HostVNodes    []string
-	HostIPs       []string
+	RestartHosts  map[string]string // All of the hosts we want to restart. This is a map of vnodes to their IP.
 }
 
 type Option func(*Parms)
@@ -45,13 +44,9 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 
 func WithHost(vnode, ip string) Option {
 	return func(s *Parms) {
-		if s.HostVNodes == nil {
-			s.HostVNodes = make([]string, 0)
+		if s.RestartHosts == nil {
+			s.RestartHosts = make(map[string]string)
 		}
-		if s.HostIPs == nil {
-			s.HostIPs = make([]string, 0)
-		}
-		s.HostVNodes = append(s.HostVNodes, vnode)
-		s.HostIPs = append(s.HostIPs, ip)
+		s.RestartHosts[vnode] = ip
 	}
 }
