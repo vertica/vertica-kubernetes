@@ -378,13 +378,13 @@ var _ = Describe("podfacts", func() {
 	It("should correctly return re-ip pods", func() {
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-			dnsName: "p1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
+			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
-			dnsName: "p2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
+			dnsName: "p2", vnodeName: "node2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
-			dnsName: "p3", dbExists: false, exists: true, isPodRunning: true, isInstalled: false,
+			dnsName: "p3", vnodeName: "node3", dbExists: false, exists: true, isPodRunning: true, isInstalled: false,
 		}
 		By("finding any installed pod")
 		pods := pf.findReIPPods(dBCheckAny)
