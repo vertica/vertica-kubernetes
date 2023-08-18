@@ -35,10 +35,8 @@ func (m *MockVClusterOps) VRestartNodes(options *vops.VRestartNodesOptions) erro
 		return err
 	}
 
-	// verify eon options
-	err = m.VerifyInitiatorIPAndEonMode(&options.DatabaseOptions)
-	if err != nil {
-		return err
+	if len(options.RawHosts) == 0 || options.RawHosts[0] != TestInitiatorIP {
+		return fmt.Errorf("failed to retrieve hosts")
 	}
 
 	return nil
