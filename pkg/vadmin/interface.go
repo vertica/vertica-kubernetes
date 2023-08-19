@@ -157,4 +157,5 @@ type VClusterProvider interface {
 	VAddNode(options *vops.VAddNodeOptions) (vops.VCoordinationDatabase, error)
 	VRemoveNode(options *vops.VRemoveNodeOptions) (vops.VCoordinationDatabase, error)
 	VReIP(options *vops.VReIPOptions) error
+	VRestartNodes(options *vops.VRestartNodesOptions) error
 }
