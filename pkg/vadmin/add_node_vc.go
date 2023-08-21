@@ -59,14 +59,12 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	opts.NewHosts = s.Hosts
 	opts.Name = &v.VDB.Spec.DBName
 
-	opts.Nodes = s.VNodeToHostMap
-	opts.InputHost = s.InitiatorIP
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.NewHosts[0]))
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 	opts.SCName = &s.Subcluster
-	catalogPath := v.VDB.Spec.Local.GetCatalogPath()
-	opts.CatalogPrefix = &catalogPath
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	*opts.HonorUserInput = true
+	*opts.SkipRebalanceShards = true
 
 	if v.VDB.Spec.Communal.Path != "" {
 		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath
@@ -78,6 +76,6 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	opts.CaCert = certs.CaCert
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
+
 	return opts
 }

@@ -28,11 +28,6 @@ import (
 )
 
 var TestNewHosts = []string{"pod-4", "pod-5"}
-var TestNodes = map[string]string{
-	fmt.Sprintf("v_%s_node0001", TestDBName): "pod-1",
-	fmt.Sprintf("v_%s_node0002", TestDBName): "pod-2",
-	fmt.Sprintf("v_%s_node0003", TestDBName): "pod-3",
-}
 
 // mock version of VAddNode() that is invoked inside VClusterOps.AddNode()
 func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordinationDatabase, error) {
@@ -46,11 +41,11 @@ func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordin
 	if !reflect.DeepEqual(options.NewHosts, TestNewHosts) {
 		return vdb, fmt.Errorf("failed to retrieve hosts to add")
 	}
-	if !reflect.DeepEqual(options.Nodes, TestNodes) {
-		return vdb, fmt.Errorf("failed to retrieve hosts to add")
-	}
 	if *options.SCName != TestSCName {
 		return vdb, fmt.Errorf("failed to retrieve subcluster name")
+	}
+	if !reflect.DeepEqual(options.RawHosts, []string{TestInitiatorPodIP}) {
+		return vdb, fmt.Errorf("failed to retrieve initiator")
 	}
 	if !*options.SkipRebalanceShards {
 		return vdb, fmt.Errorf("SkipRebalanceShards must be true")
@@ -68,7 +63,7 @@ var _ = Describe("add_node_vc", func() {
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		opts := []addnode.Option{
-			addnode.WithVNodeToHostMap(TestNodes),
+			addnode.WithInitiator(TestInitiatorPodName, TestInitiatorPodIP),
 			addnode.WithSubcluster(TestSCName),
 		}
 		for _, n := range TestNewHosts {
