@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
@@ -106,6 +107,11 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 // preCmdSetup is going to run revive with --display-only then validate and
 // fix-up any mismatch it finds.
 func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+		// will check db info after --display-only is supported in vcluster revive_db
+		return ctrl.Result{}, nil
+	}
+
 	// We need to delete any pods that have a pending revision. This can happen
 	// if in an earlier iteration we changed the paths in pod. Normally, these
 	// types of changes are rolled out via rolling upgrade. But that depends on

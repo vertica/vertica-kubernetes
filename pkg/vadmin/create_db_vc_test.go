@@ -18,7 +18,6 @@ package vadmin
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,7 +30,6 @@ import (
 var TestHosts = []string{"pod-1", "pod-2", "pod-3"}
 
 const (
-	TestCommunalPath       = "/communal"
 	TestCatalogPath        = "/catalog"
 	TestDepotPath          = "/depot"
 	TestDataPath           = "/data"
@@ -51,11 +49,13 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	// verify basic options
-	if !reflect.DeepEqual(options.RawHosts, TestHosts) {
-		return vdb, fmt.Errorf("failed to retrieve hosts")
+	err = m.VerifyHosts(&options.DatabaseOptions)
+	if err != nil {
+		return vdb, err
 	}
-	if *options.CommunalStorageLocation != TestCommunalPath {
-		return vdb, fmt.Errorf("failed to retrieve communal path")
+	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	if err != nil {
+		return vdb, err
 	}
 	if *options.CatalogPrefix != TestCatalogPath {
 		return vdb, fmt.Errorf("failed to retrieve catalog path")
@@ -77,14 +77,9 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	// verify auth options
-	if options.Key != test.TestKeyValue {
-		return vdb, fmt.Errorf("failed to load key")
-	}
-	if options.Cert != test.TestCertValue {
-		return vdb, fmt.Errorf("failed to load cert")
-	}
-	if options.CaCert != test.TestCaCertValue {
-		return vdb, fmt.Errorf("failed to load ca cert")
+	err = m.VerifyCerts(&options.DatabaseOptions)
+	if err != nil {
+		return vdb, err
 	}
 
 	// vdb.Name is used in VClusterOps.CreateDB() so we give it a value
@@ -103,6 +98,7 @@ var _ = Describe("create_db_vc", func() {
 			createdb.WithHosts(TestHosts),
 			createdb.WithDBName(TestDBName),
 			createdb.WithCommunalPath(TestCommunalPath),
+			createdb.WithConfigurationParams(TestCommunalStorageParams),
 			createdb.WithCatalogPath(TestCatalogPath),
 			createdb.WithDepotPath(TestDepotPath),
 			createdb.WithDataPath(TestDataPath),
