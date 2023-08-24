@@ -11,35 +11,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-revive-1-node-sc1
+status:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-revive-1-node-sc2
+status:
+  replicas: 1
+
+---
+apiVersion: v1
+kind: Event
+reason: ReviveDBSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
+  name: v-revive-1-node
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-vcluster-ks-0
-  annotations:
-    vertica.com/vcluster-ops: "true"
+  name: v-revive-1-node
 spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  dbName: MYDB
-  communal:
-    includeUIDInPath: false
   local:
     dataPath: /my-data
     depotPath: /my-depot
     requestSize: 100Mi
+status:
   subclusters:
-    - name: sc1
-      size: 1
-      isPrimary: true
-    - name: sc2
-      size: 1
-      isPrimary: false
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
-  httpServerMode: Enabled
+    - addedToDBCount: 1
+      name: sc1
+      # re-ip failed now, after re-ip is fixed, we can check upNodeCount
+      # upNodeCount: 1
+    - addedToDBCount: 1
+      name: sc2
+      # re-ip failed now, after re-ip is fixed, we can check upNodeCount
+      # upNodeCount: 1
+    

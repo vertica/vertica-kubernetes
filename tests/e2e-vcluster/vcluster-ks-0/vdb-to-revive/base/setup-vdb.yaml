@@ -14,22 +14,20 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-vcluster-ks-0
+  name: v-revive-1-node
   annotations:
     vertica.com/vcluster-ops: "true"
 spec:
-  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  dbName: MYDB
+  ignoreClusterLease: true
   communal:
     includeUIDInPath: false
   local:
     dataPath: /my-data
     depotPath: /my-depot
     requestSize: 100Mi
+  initPolicy: Revive
+  dbName: MYDB
   subclusters:
     - name: sc1
       size: 1
@@ -38,8 +36,8 @@ spec:
       size: 1
       isPrimary: false
   kSafety: "0"
+  requeueTime: 5
   certSecrets: []
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
-  httpServerMode: Enabled

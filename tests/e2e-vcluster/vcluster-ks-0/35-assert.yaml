@@ -11,35 +11,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-revive-1-node-sc1
+status:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-revive-1-node-sc2
+status:
+  replicas: 1
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-vcluster-ks-0
-  annotations:
-    vertica.com/vcluster-ops: "true"
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  dbName: MYDB
-  communal:
-    includeUIDInPath: false
-  local:
-    dataPath: /my-data
-    depotPath: /my-depot
-    requestSize: 100Mi
-  subclusters:
-    - name: sc1
-      size: 1
-      isPrimary: true
-    - name: sc2
-      size: 1
-      isPrimary: false
-  kSafety: "0"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
-  httpServerMode: Enabled
+  name: v-revive-1-node
+status:
+  installCount: 2
+  addedToDBCount: 2
+  subclusterCount: 2
+
+
