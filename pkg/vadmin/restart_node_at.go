@@ -18,6 +18,7 @@ package vadmin
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -41,11 +42,23 @@ func (a *Admintools) RestartNode(ctx context.Context, opts ...restartnode.Option
 
 // genRestartNodeCmd returns the command to run to restart a pod
 func (a *Admintools) genRestartNodeCmd(s *restartnode.Parms) []string {
+	hostVNodes := make([]string, 0, len(s.RestartHosts))
+	for vnode := range s.RestartHosts {
+		hostVNodes = append(hostVNodes, vnode)
+	}
+	// Sort by vnode so the order of nodes we restart is consistent.
+	sort.Slice(hostVNodes, func(i, j int) bool {
+		return hostVNodes[i] < hostVNodes[j]
+	})
+	hostIPs := make([]string, 0, len(s.RestartHosts))
+	for _, vnode := range hostVNodes {
+		hostIPs = append(hostIPs, s.RestartHosts[vnode])
+	}
 	cmd := []string{
 		"-t", "restart_node",
 		"--database=" + a.VDB.Spec.DBName,
-		"--hosts=" + strings.Join(s.HostVNodes, ","),
-		"--new-host-ips=" + strings.Join(s.HostIPs, ","),
+		"--hosts=" + strings.Join(hostVNodes, ","),
+		"--new-host-ips=" + strings.Join(hostIPs, ","),
 		"--noprompt",
 	}
 	if a.VDB.Spec.RestartTimeout != 0 {
