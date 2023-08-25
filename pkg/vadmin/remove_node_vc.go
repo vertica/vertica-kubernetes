@@ -52,9 +52,9 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 	opts.Name = &v.VDB.Spec.DBName
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.HostsToRemove[0]))
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	*opts.HonorUserInput = true
 
 	if v.VDB.Spec.Communal.Path != "" {
 		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath
@@ -66,6 +66,6 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 	opts.CaCert = certs.CaCert
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
+
 	return opts
 }
