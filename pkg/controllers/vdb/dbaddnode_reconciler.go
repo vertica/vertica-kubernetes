@@ -113,18 +113,6 @@ func (d *DBAddNodeReconciler) findAddNodePods(scName string) ([]*PodFact, ctrl.R
 	return podList, ctrl.Result{}
 }
 
-// genVNodeMap returns a map of (vnode - ip) for nodes
-// that are alreay part of the vertica cluster
-func (d *DBAddNodeReconciler) genVNodeMap() map[string]string {
-	vNodes := map[string]string{}
-	for _, v := range d.PFacts.Detail {
-		if v.dbExists {
-			vNodes[v.vnodeName] = v.podIP
-		}
-	}
-	return vNodes
-}
-
 // reconcileSubcluster will reconcile a single subcluster.  Add node will be
 // triggered if we determine that it hasn't been run.
 func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
@@ -184,7 +172,6 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodF
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
 		addnode.WithSubcluster(pods[0].subclusterName),
-		addnode.WithVNodeToHostMap(d.genVNodeMap()),
 	}
 	for i := range pods {
 		opts = append(opts, addnode.WithHost(pods[i].dnsName))

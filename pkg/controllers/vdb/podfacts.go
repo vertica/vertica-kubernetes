@@ -200,6 +200,16 @@ type GatherState struct {
 	IsHTTPServerRunning    bool            `json:"isHTTPServerRunning"`
 }
 
+// dBCheckType identifies how to pick pods in findReIPPods
+type dBCheckType string
+
+// Constants for dbCheckType
+const (
+	dBCheckOnlyWithDBs    dBCheckType = "OnlyWithDBs"
+	dBCheckOnlyWithoutDBs dBCheckType = "OnlyWithoutDBs"
+	dBCheckAny            dBCheckType = "Any"
+)
+
 // MakePodFacts will create a PodFacts object and return it
 func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
@@ -920,17 +930,22 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 
 // findReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
 // An empty list implies there are no pods that match the criteria.
-func (p *PodFacts) findReIPPods(onlyPodsWithoutDBs bool) []*PodFact {
+func (p *PodFacts) findReIPPods(chk dBCheckType) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
 		// Only consider running pods that exist and have an installation
 		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
 			return false
 		}
-		// If requested don't return pods that have a DB
-		if onlyPodsWithoutDBs && pod.dbExists {
-			return false
+		switch chk {
+		case dBCheckOnlyWithDBs:
+			return pod.dbExists
+		case dBCheckOnlyWithoutDBs:
+			return !pod.dbExists
+		case dBCheckAny:
+			return true
+		default:
+			return true
 		}
-		return true
 	})
 }
 

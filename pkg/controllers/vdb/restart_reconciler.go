@@ -128,18 +128,14 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 	// Check if cluster start needs to include all of the pods.
-	if (r.Vdb.Spec.KSafety == vapi.KSafety0 || meta.UseVClusterOps(r.Vdb.Annotations)) &&
-		r.PFacts.countInstalledAndNotRestartable() > 0 {
+	if r.Vdb.Spec.KSafety == vapi.KSafety0 && r.PFacts.countInstalledAndNotRestartable() > 0 {
 		// For k-safety 0, we need all of the pods because the absence of one
 		// will cause us not to have enough pods for cluster quorum.
-		//
-		// For vclusterOps, we need all pods as a temporary measure until the
-		// library is able to read catalog information (see VER-88084).
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Find an initiator pod. You must pick a that has no vertica process running.
+	// Find an initiator pod. You must pick one that has no vertica process running.
 	// This is needed to be able to start the primaries when secondary read-only
 	// nodes could be running.
 	if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdOffline); !ok {
@@ -184,10 +180,9 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{}, err
 	}
 
-	// re_ip/start_db require all pods to be running that have run the
-	// installation.  This check is done when we generate the map file
-	// (genMapFile).
-	if res, err := r.reipNodes(ctx, r.PFacts.findReIPPods(false)); verrors.IsReconcileAborted(res, err) {
+	// re_ip nodes. This is done ahead of the db check in case we need to update
+	// the IP of nodes that have been installed but not yet added to the db.
+	if res, err := r.reipNodes(ctx, r.getReIPPods(false)); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -222,12 +217,11 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	if err := r.acceptEulaIfMissing(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
+	if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdAny); !ok {
+		r.Log.Info("No initiator pod found for admin command. Requeue reconciliation.")
+		return ctrl.Result{Requeue: true}, nil
+	}
 	if len(downPods) > 0 {
-		if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdAny); !ok {
-			r.Log.Info("No initiator pod found for admin command. Requeue reconciliation.")
-			return ctrl.Result{Requeue: true}, nil
-		}
-
 		if res, err := r.restartPods(ctx, downPods); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -241,17 +235,9 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 		return ctrl.Result{Requeue: r.shouldRequeueIfPodsNotRunning()}, nil
 	}
 
-	// Find any pods that need to have their IP updated.  These are nodes that
-	// have been installed but not yet added to a database.
-	reIPPods := r.PFacts.findReIPPods(true)
-	if len(reIPPods) > 0 {
-		if ok := r.setInitiatorPod(r.PFacts.findPodToRunAdminCmdAny); !ok {
-			r.Log.Info("No initiator pod found to run admin command. Requeue reconciliation.")
-			return ctrl.Result{Requeue: true}, nil
-		}
-		if res, err := r.reipNodes(ctx, reIPPods); verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
+	// Find any pods that need to have their IP updated.
+	if res, err := r.reipNodes(ctx, r.getReIPPods(true)); verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 
 	return ctrl.Result{Requeue: r.shouldRequeueIfPodsNotRunning()}, nil
@@ -379,8 +365,8 @@ func (r *RestartReconciler) execRestartPods(ctx context.Context, downPods []*Pod
 // If it detects that no IPs are changing, then no re_ip is done.
 func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
 	if len(pods) == 0 {
-		r.Log.Info("No pods qualify for possible re-ip. Need to requeue restart reconciler.")
-		return ctrl.Result{Requeue: true}, nil
+		r.Log.Info("No pods qualify for possible re-ip.")
+		return ctrl.Result{}, nil
 	}
 	opts := []reip.Option{
 		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
@@ -589,4 +575,26 @@ func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 // accepts the end user license agreement.
 func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
 	return acceptEulaIfMissing(ctx, r.PFacts, r.PRunner)
+}
+
+// getReIPPods will return the list of pods that may need a re-ip. Factors that
+// can affect the list is the restart type (cluster vs node) and usage of
+// vclusterOps.
+func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
+	// For restart node, we only re-ip nodes that won't be restarted. This is
+	// necessary to keep installed-only nodes up to date in admintools.conf. For
+	// this reason, we can skip if using vclusterOps.
+	if isRestartNode {
+		if meta.UseVClusterOps(r.Vdb.Annotations) {
+			return nil
+		}
+		return r.PFacts.findReIPPods(dBCheckOnlyWithoutDBs)
+	}
+	// For cluster restart, we re-ip all nodes that have been added to the DB.
+	// And if using admintools, we also need to re-ip installed pods that
+	// haven't been added to the db to keep admintools.conf in-sync.
+	if meta.UseVClusterOps(r.Vdb.Annotations) {
+		return r.PFacts.findReIPPods(dBCheckOnlyWithDBs)
+	}
+	return r.PFacts.findReIPPods(dBCheckAny)
 }

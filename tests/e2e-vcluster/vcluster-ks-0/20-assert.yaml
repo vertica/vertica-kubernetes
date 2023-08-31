@@ -14,9 +14,13 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-vcluster-ks-1
+  name: v-vcluster-ks-0
 status:
+  subclusterCount: 2
+  addedToDBCount: 3
+  installCount: 3
   subclusters:
-    - addedToDBCount: 3
-      installCount: 3
-      upNodeCount: 2
+    - addedToDBCount: 1
+      name: sc1
+    - addedToDBCount: 2
+      name: sc2

@@ -14,9 +14,23 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-vcluster-ks-1
+  name: v-vcluster-ks-0
 status:
+  subclusterCount: 2
+  addedToDBCount: 2
+  installCount: 2
   subclusters:
-    - addedToDBCount: 3
-      installCount: 3
-      upNodeCount: 2
+    - addedToDBCount: 1
+      name: sc1
+    - addedToDBCount: 1
+      name: sc2
+---
+apiVersion: v1
+kind: Event
+reason: RemoveNodesSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaDB
+  name: v-vcluster-ks-0

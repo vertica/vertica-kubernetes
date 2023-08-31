@@ -254,8 +254,11 @@ ifeq ($(STERN_PLUGIN_INSTALLED), 0)
 	kubectl krew install stern
 endif
 
+.PHONY: init-e2e-env
+init-e2e-env: install-kuttl-plugin install-stern-plugin kustomize ## Download necessary tools to run the integration tests
+
 .PHONY: run-int-tests
-run-int-tests: install-kuttl-plugin install-stern-plugin kustomize vdb-gen setup-e2e-communal ## Run the integration tests
+run-int-tests: init-e2e-env vdb-gen setup-e2e-communal ## Run the integration tests
 ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
 	$(MAKE) setup-olm
 endif
