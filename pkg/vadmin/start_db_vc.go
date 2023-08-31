@@ -32,7 +32,7 @@ import (
 func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
 	v.Log.Info("Starting vcluster StartDB")
 
-	// get the certs
+	// get the certss
 	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
