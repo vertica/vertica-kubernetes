@@ -17,10 +17,10 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -42,7 +42,7 @@ func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ct
 	vcOpts := v.genReviveDBOptions(&s, certs)
 	err = v.VReviveDatabase(vcOpts)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to revive the database %s: %w", *vcOpts.Name, err)
+		return v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
 	}
 
 	return ctrl.Result{}, nil
