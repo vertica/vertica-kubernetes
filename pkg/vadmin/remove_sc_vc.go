@@ -17,15 +17,70 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
+	"github.com/vertica/vcluster/rfc7807"
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 )
 
 // RemoveSubcluster will remove the given subcluster from the vertica cluster.
 func (v *VClusterOps) RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error {
 	v.Log.Info("Starting vcluster RemoveSubcluster")
+
+	// get the certs
+	certs, err := v.retrieveHTTPSCerts(ctx)
+	if err != nil {
+		return err
+	}
+
 	s := removesc.Parms{}
 	s.Make(opts...)
-	return fmt.Errorf("not implemented")
+
+	// call vcluster-ops library to remove_subcluster
+	vopts := v.genRemoveSubclusterOptions(&s, certs)
+	_, err = v.VRemoveSubcluster(&vopts)
+	if err != nil {
+		vproblem := &rfc7807.VProblem{}
+		if ok := errors.As(err, &vproblem); ok {
+			if vproblem.Type == rfc7807.SubclusterNotFound.Type {
+				// Nothing to do if the subcluster is already gone.
+				v.Log.Info("Attempted to remove a subcluster that was already gone", "subcluster", s.Subcluster)
+				return nil
+			}
+		}
+	}
+
+	return err
+}
+
+func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPSCerts) vops.VRemoveScOptions {
+	opts := vops.VRemoveScOptionsFactory()
+
+	// required options
+	opts.Name = &v.VDB.Spec.DBName
+	opts.SubclusterToRemove = &s.Subcluster
+
+	*opts.HonorUserInput = true
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+	v.Log.Info("Setup remove subcluster options", "hosts", opts.RawHosts[0])
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
+	*opts.ForceDelete = true
+
+	if v.VDB.Spec.Communal.Path != "" {
+		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath
+	}
+
+	// auth options
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+	*opts.UserName = vapi.SuperUser
+	opts.Password = &v.Password
+
+	return opts
 }

@@ -154,6 +154,7 @@ type VClusterProvider interface {
 	VStartDatabase(options *vops.VStartDatabaseOptions) error
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error
+	VRemoveSubcluster(options *vops.VRemoveScOptions) (vops.VCoordinationDatabase, error)
 	VAddNode(options *vops.VAddNodeOptions) (vops.VCoordinationDatabase, error)
 	VRemoveNode(options *vops.VRemoveNodeOptions) (vops.VCoordinationDatabase, error)
 	VReIP(options *vops.VReIPOptions) error
