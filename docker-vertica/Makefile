@@ -5,6 +5,7 @@ VERTICA_IMG?=vertica-k8s
 MINIMAL_VERTICA_IMG?=
 NO_KEYS?=
 VERTICA_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_RPM))
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=
 
 all: docker-build-vertica
 
@@ -22,4 +23,5 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 		--build-arg NO_KEYS=${NO_KEYS} \
 		--build-arg BASE_OS_VERSION=${BASE_OS_VERSION} \
 		--build-arg BUILDER_OS_VERSION=${BUILDER_OS_VERSION} \
+		${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS} \
 		-t ${VERTICA_IMG} .
