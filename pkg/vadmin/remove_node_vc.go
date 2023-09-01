@@ -51,7 +51,7 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 	opts.HostsToRemove = s.Hosts
 	opts.Name = &v.VDB.Spec.DBName
 
-	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+	opts.RawHosts = []string{s.InitiatorIP}
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
 	*opts.HonorUserInput = true

@@ -65,7 +65,7 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 	opts.SubclusterToRemove = &s.Subcluster
 
 	*opts.HonorUserInput = true
-	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+	opts.RawHosts = []string{s.InitiatorIP}
 	v.Log.Info("Setup remove subcluster options", "hosts", opts.RawHosts[0])
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
