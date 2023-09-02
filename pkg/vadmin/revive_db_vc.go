@@ -17,8 +17,11 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -26,6 +29,39 @@ import (
 // ReviveDB will initialized a database using an existing communal path. It does
 // this using the vclusterops library.
 func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
-	v.Log.Info("Starting vcluster ReviveDB")
-	return ctrl.Result{}, fmt.Errorf("not implemented")
+	v.Log.Info("Starting VCluster ReviveDB")
+
+	certs, err := v.retrieveHTTPSCerts(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	s := revivedb.Parms{}
+	s.Make(opts...)
+
+	vcOpts := v.genReviveDBOptions(&s, certs)
+	err = v.VReviveDatabase(vcOpts)
+	if err != nil {
+		return v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *vops.VReviveDatabaseOptions {
+	opts := vops.VReviveDBOptionsFactory()
+
+	opts.Name = &v.VDB.Spec.DBName
+	opts.RawHosts = s.Hosts
+	v.Log.Info("Setup revive database options", "hosts", opts.RawHosts)
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
+	opts.CommunalStorageLocation = &s.CommunalPath
+	opts.CommunalStorageParameters = s.ConfigurationParams
+
+	// auth options
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+
+	return &opts
 }

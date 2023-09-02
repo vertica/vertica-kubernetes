@@ -11,30 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-vcluster-ks-1
-  annotations:
-    vertica.com/vcluster-ops: "true"
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  communal:
-    includeUIDInPath: false
-  local:
-    dataPath: /my-data
-    depotPath: /my-depot
-    requestSize: 100Mi
-  subclusters:
-    - name: main
-      size: 3
-  kSafety: "1"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
-  httpServerMode: Enabled
+  name: clean-communal
+status:
+  phase: Succeeded

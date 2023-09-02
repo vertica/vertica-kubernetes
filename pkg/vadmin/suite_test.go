@@ -18,6 +18,7 @@ package vadmin
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -28,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -91,23 +93,36 @@ type MockVClusterOps struct {
 
 // const variables used for vcluster-ops unit test
 const (
-	TestDBName      = "test-db"
-	TestPassword    = "test-pw"
-	TestIPv6        = false
-	TestParm        = "Parm1"
-	TestValue       = "val1"
-	TestInitiatorIP = "10.10.10.10"
-	TestIsEon       = true
+	TestDBName       = "test-db"
+	TestPassword     = "test-pw"
+	TestIPv6         = false
+	TestParm         = "Parm1"
+	TestValue        = "val1"
+	TestInitiatorIP  = "10.10.10.10"
+	TestIsEon        = true
+	TestCommunalPath = "/communal"
 )
 
-// VerifyCommonOptions is used in vcluster-ops unit test for verifying the common options among all db ops
-func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) error {
-	// verify basic options
+var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
+
+// VerifyDBNameAndIPv6 is used in vcluster-ops unit test for verifying db name and ipv6
+func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) error {
 	if options.Ipv6.ToBool() != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
 	}
 	if *options.Name != TestDBName {
 		return fmt.Errorf("failed to retrieve database name")
+	}
+
+	return nil
+}
+
+// VerifyCommonOptions is used in vcluster-ops unit test for verifying the common options among all db ops
+func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) error {
+	// verify basic options
+	err := m.VerifyDBNameAndIPv6(options)
+	if err != nil {
+		return err
 	}
 
 	// verify auth options
@@ -132,6 +147,43 @@ func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOpti
 	// verify eon mode
 	if options.IsEon.ToBool() != TestIsEon {
 		return fmt.Errorf("failed to retrieve eon mode")
+	}
+
+	return nil
+}
+
+// VerifyHosts is used in vcluster-ops unit test for verifying hosts
+func (m *MockVClusterOps) VerifyHosts(options *vops.DatabaseOptions) error {
+	if !reflect.DeepEqual(options.RawHosts, TestHosts) {
+		return fmt.Errorf("failed to retrieve hosts")
+	}
+
+	return nil
+}
+
+// VerifyCommunalStorageOptions is used in vcluster-ops unit test for verifying communal storage options
+func (m *MockVClusterOps) VerifyCommunalStorageOptions(communalStoragePath string, communalStorageParams map[string]string) error {
+	if communalStoragePath != TestCommunalPath {
+		return fmt.Errorf("failed to retrieve communal storage path")
+	}
+
+	if !reflect.DeepEqual(communalStorageParams, TestCommunalStorageParams) {
+		return fmt.Errorf("failed to retrieve communal storage params")
+	}
+
+	return nil
+}
+
+// VerifyCerts is used in vcluster-ops unit test for verifying key and certs
+func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
+	if options.Key != test.TestKeyValue {
+		return fmt.Errorf("failed to load key")
+	}
+	if options.Cert != test.TestCertValue {
+		return fmt.Errorf("failed to load cert")
+	}
+	if options.CaCert != test.TestCaCertValue {
+		return fmt.Errorf("failed to load ca cert")
 	}
 
 	return nil
