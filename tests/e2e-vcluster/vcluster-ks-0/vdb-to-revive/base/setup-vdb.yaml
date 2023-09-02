@@ -32,9 +32,6 @@ spec:
     - name: sc1
       size: 1
       isPrimary: true
-    - name: sc2
-      size: 1
-      isPrimary: false
   kSafety: "0"
   requeueTime: 5
   certSecrets: []
