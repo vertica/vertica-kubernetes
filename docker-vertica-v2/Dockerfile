@@ -66,7 +66,7 @@ RUN set -x \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
-  && rm -rf /opt/vertica/config/share/agent*;
+  && rm -rf /opt/vertica/config/share/agent*
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION} as initial
