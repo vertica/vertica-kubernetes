@@ -33,6 +33,9 @@ on:
         required: false
         default: 'all, except vertica server'
     secrets:
+      DOCKERHUB_USERNAME:
+        description: 'When working with images from docker.io, this is the username for login purposes'
+        required: true
       DOCKERHUB_TOKEN:
         description: 'When working with images from docker.io, this is the password for login purposes'
         required: true
@@ -55,10 +58,6 @@ on:
       vlogger-image:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
-
-env:
-  # If we need to access docker to pull/push images, this is the username to use
-  DOCKERHUB_USERNAME: mspilchen
 
 # These permissions only apply when not running a PR.  GitHub actions makes PRs
 # from forked repositories with extremely limited permissions that cannot be
@@ -102,7 +101,7 @@ jobs:
       uses: docker/login-action@v2
       if: ${{ inputs.full_vertica_image != '' && startsWith(inputs.full_vertica_image, 'docker.io') }}
       with:
-        username: ${{ env.DOCKERHUB_USERNAME }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v3
@@ -220,7 +219,7 @@ jobs:
       uses: docker/login-action@v2
       if: ${{ inputs.nokeys_vertica_image != '' && startsWith(inputs.nokeys_vertica_image, 'docker.io') }}
       with:
-        username: ${{ env.DOCKERHUB_USERNAME }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v3
@@ -286,7 +285,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: v2_vertica_image
       with:
-        default: docker.io/mspilchen/vertica-private:latest-master
+        default: docker.io/verticadocker/vertica-k8s-private:latest-master
         conditionals-with-values: |
           ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
 
@@ -302,7 +301,7 @@ jobs:
       uses: docker/login-action@v2
       if: ${{ inputs.v2_vertica_image != '' && startsWith(inputs.v2_vertica_image, 'docker.io') }}
       with:
-        username: ${{ env.DOCKERHUB_USERNAME }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v3
@@ -374,7 +373,7 @@ jobs:
       uses: docker/login-action@v2
       if: ${{ inputs.minimal_vertica_image != '' && startsWith(inputs.minimal_vertica_image, 'docker.io') }}
       with:
-        username: ${{ env.DOCKERHUB_USERNAME }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
     - uses: actions/checkout@v3
