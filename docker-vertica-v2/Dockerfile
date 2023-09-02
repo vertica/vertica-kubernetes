@@ -6,13 +6,11 @@
 ARG BASE_OS_VERSION="lunar"
 ARG BUILDER_OS_VERSION="stream8"
 ARG MINIMAL=""
-ARG NO_KEYS=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
 FROM quay.io/centos/centos:${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL
-ARG NO_KEYS
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
@@ -59,11 +57,6 @@ RUN set -x \
   && mkdir -p /home/dbadmin/logrotate \
   && cp -r /opt/vertica/config/logrotate /home/dbadmin/logrotate/  \
   && cp /opt/vertica/config/logrotate_base.conf /home/dbadmin/logrotate/ \
-  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
-    mkdir -p /home/dbadmin/agent; \
-    cp -r /opt/vertica/config/share/agent* /home/dbadmin/agent/; \
-    cp /opt/vertica/config/apikeys.dat /home/dbadmin/agent/; \
-  fi \
   && chown -R dbadmin:verticadba /opt/vertica \
   # reduce the size of the final image
   && rm -rf /opt/vertica/lib64  \
@@ -73,9 +66,7 @@ RUN set -x \
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
-  && if [[ ${NO_KEYS^^} == "YES" ]] ; then \
-    rm -rf /opt/vertica/config/share/agent*; \
-  fi
+  && rm -rf /opt/vertica/config/share/agent*
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION} as initial
@@ -100,7 +91,6 @@ ARG DBADMIN_UID=5000
 # "apt-cache search jre | grep jre"
 ARG JRE_PKG=openjdk-8-jre-headless
 ARG MINIMAL
-ARG NO_KEYS
 ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
@@ -144,13 +134,10 @@ RUN set -x \
   procps \
   sysstat \
   sudo \
+  vim-tiny \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
-  fi \
-  # install vim except in the -nokeys image \
-  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
-    apt-get install -y --no-install-recommends vim-tiny; \
   fi \
   && apt-get clean \
   && apt-get autoremove \
