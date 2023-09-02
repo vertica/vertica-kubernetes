@@ -56,7 +56,7 @@ fi
 
 VERSION=${@:$OPTIND:1}
 
-PRIV_REPO=verticadocker
+PRIV_REPO=vertica
 PRIV_K8S_IMAGE=vertica-k8s-private
 PRIV_CE_IMAGE=vertica-ce-private
 PUB_REPO=vertica
