@@ -40,7 +40,7 @@ func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ct
 	s.Make(opts...)
 
 	vcOpts := v.genReviveDBOptions(&s, certs)
-	err = v.VReviveDatabase(vcOpts)
+	_, err = v.VReviveDatabase(vcOpts)
 	if err != nil {
 		return v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
 	}
@@ -57,6 +57,7 @@ func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 	opts.CommunalStorageLocation = &s.CommunalPath
 	opts.CommunalStorageParameters = s.ConfigurationParams
+	*opts.IgnoreClusterLease = s.IgnoreClusterLease
 
 	// auth options
 	opts.Key = certs.Key

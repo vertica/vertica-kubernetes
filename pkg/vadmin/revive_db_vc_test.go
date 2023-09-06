@@ -27,25 +27,25 @@ import (
 )
 
 // mock version of VReviveDatabase() that is invoked inside VClusterOps
-func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) error {
+func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, error) {
 	// verify basic options
 	err := m.VerifyDBNameAndIPv6(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = m.VerifyHosts(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = m.VerifyCerts(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.CommunalStorageParameters)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return "", nil
 }
 
 var _ = Describe("revive_db_vc", func() {

@@ -67,5 +67,9 @@ func (v *VClusterOps) genRestartNodeOptions(s *restartnode.Parms, certs *HTTPSCe
 		},
 		Nodes: s.RestartHosts,
 	}
+	// timeout option
+	if v.VDB.Spec.RestartTimeout != 0 {
+		opts.StatePollingTimeout = v.VDB.Spec.RestartTimeout
+	}
 	return &opts
 }

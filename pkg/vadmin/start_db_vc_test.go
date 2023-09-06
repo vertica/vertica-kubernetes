@@ -28,6 +28,7 @@ import (
 )
 
 const TestCatalogPrefix = "/data"
+const TestTimeout = 10
 
 // mock version of VStartDatabase() that is invoked inside VClusterOps.StartDB()
 func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) error {
@@ -48,6 +49,11 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 		return fmt.Errorf("failed to retrieve catalog prefix")
 	}
 
+	// verify timeout
+	if options.StatePollingTimeout != TestTimeout {
+		return fmt.Errorf("failed to retrieve timeout")
+	}
+
 	return nil
 }
 
@@ -63,6 +69,7 @@ var _ = Describe("start_db_vc", func() {
 	It("should call vcluster-ops library with start_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.RestartTimeout = 10
 		dispatcher.VDB.Spec.HTTPServerTLSSecret = "start-db-test-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
