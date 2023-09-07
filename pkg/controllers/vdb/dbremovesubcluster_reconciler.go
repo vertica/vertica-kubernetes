@@ -51,7 +51,7 @@ func MakeDBRemoveSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &DBRemoveSubclusterReconciler{
 		VRec:       vdbrecon,
-		Log:        log,
+		Log:        log.WithName("DBRemoveSubclusterReconciler"),
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,

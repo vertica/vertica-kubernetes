@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -32,14 +33,20 @@ import (
 // AnnotateAndLabelPodReconciler will maintain annotations and labels in pods about the running system
 type AnnotateAndLabelPodReconciler struct {
 	VRec   *VerticaDBReconciler
+	Log    logr.Logger
 	Vdb    *vapi.VerticaDB
 	PFacts *PodFacts
 }
 
 // MakeAnnotateAndLabelPodReconciler will build a AnnotateAndLabelPodReconciler object
-func MakeAnnotateAndLabelPodReconciler(vdbrecon *VerticaDBReconciler,
+func MakeAnnotateAndLabelPodReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
-	return &AnnotateAndLabelPodReconciler{VRec: vdbrecon, Vdb: vdb, PFacts: pfacts}
+	return &AnnotateAndLabelPodReconciler{
+		VRec:   vdbrecon,
+		Log:    log.WithName("AnnotateAndLabelPodReconciler"),
+		Vdb:    vdb,
+		PFacts: pfacts,
+	}
 }
 
 // Reconcile will add annotations to each of the pods so that we flow down
@@ -88,7 +95,7 @@ func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string
 	if err != nil {
 		return nil, err
 	}
-	s.VRec.Log.Info("Kubernetes server version", "version", ver.GitVersion, "gitCommit", ver.GitCommit, "buildDate", ver.BuildDate)
+	s.Log.Info("Kubernetes server version", "version", ver.GitVersion, "gitCommit", ver.GitCommit, "buildDate", ver.BuildDate)
 
 	return map[string]string{
 		vmeta.KubernetesVersionAnnotation:   ver.GitVersion,

@@ -44,7 +44,13 @@ type StatusReconciler struct {
 // MakeStatusReconciler will build a StatusReconciler object
 func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
-	return &StatusReconciler{Client: cli, Scheme: scheme, Log: log, Vdb: vdb, PFacts: pfacts}
+	return &StatusReconciler{
+		Client: cli,
+		Scheme: scheme,
+		Log:    log.WithName("StatusReconciler"),
+		Vdb:    vdb,
+		PFacts: pfacts,
+	}
 }
 
 // Reconcile will update the status of the Vdb based on the pod facts

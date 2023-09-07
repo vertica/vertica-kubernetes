@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -33,15 +34,17 @@ import (
 type HTTPServerCtrlReconciler struct {
 	VRec    *VerticaDBReconciler
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log     logr.Logger
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
 }
 
-func MakeHTTPServerCtrlReconciler(vdbrecon *VerticaDBReconciler,
+func MakeHTTPServerCtrlReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
 	return &HTTPServerCtrlReconciler{
 		VRec:    vdbrecon,
 		Vdb:     vdb,
+		Log:     log.WithName("HTTPServerCtrlReconciler"),
 		PRunner: prunner,
 		PFacts:  pfacts,
 	}
@@ -63,12 +66,12 @@ func (h *HTTPServerCtrlReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 		}
 		// Only start the http server for pods that have been added to a database
 		if !pod.upNode {
-			h.VRec.Log.Info("Skipping http server start on pod because vertica is not running", "pod", pod.name)
+			h.Log.Info("Skipping http server start on pod because vertica is not running", "pod", pod.name)
 			continue
 		}
 		// We need this config file for the http server.
 		if !pod.fileExists[paths.HTTPTLSConfFile] {
-			h.VRec.Log.Info("Skipping http server start because https config is still missing in pod", "pod", pod.name)
+			h.Log.Info("Skipping http server start because https config is still missing in pod", "pod", pod.name)
 			continue
 		}
 		if err := h.startHTTPServerInPod(ctx, pod); err != nil {

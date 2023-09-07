@@ -50,7 +50,7 @@ func MakeDBAddSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &DBAddSubclusterReconciler{
 		VRec:       vdbrecon,
-		Log:        log,
+		Log:        log.WithName("DBAddSubclusterReconciler"),
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,

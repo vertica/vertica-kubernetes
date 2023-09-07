@@ -63,7 +63,12 @@ var OfflineUpgradeStatusMsgs = []string{
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
 func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
-	return &OfflineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
+	return &OfflineUpgradeReconciler{
+		VRec:       vdbrecon,
+		Log:        log.WithName("OfflineUpgradeReconciler"),
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
 		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
 		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
 		Dispatcher: dispatcher,
@@ -257,7 +262,7 @@ func (o *OfflineUpgradeReconciler) postRestartingClusterMsg(ctx context.Context)
 // addPodAnnotations will call the PodAnnotationReconciler so that we have the
 // necessary annotations on the pod prior to restart.
 func (o *OfflineUpgradeReconciler) addPodAnnotations(ctx context.Context) (ctrl.Result, error) {
-	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Vdb, o.PFacts)
+	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -284,7 +289,7 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 // objects will route to the pods.  This is done after the pods have been
 // reschedulde and vertica restarted.
 func (o *OfflineUpgradeReconciler) addClientRoutingLabel(ctx context.Context) (ctrl.Result, error) {
-	r := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts,
+	r := MakeClientRoutingLabelReconciler(o.VRec, o.Log, o.Vdb, o.PFacts,
 		PodRescheduleApplyMethod, "" /* all subclusters */)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }

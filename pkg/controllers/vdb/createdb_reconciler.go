@@ -64,7 +64,7 @@ func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &CreateDBReconciler{
 		VRec:                vdbrecon,
-		Log:                 log,
+		Log:                 log.WithName("CreateDBReconciler"),
 		Vdb:                 vdb,
 		PRunner:             prunner,
 		PFacts:              pfacts,

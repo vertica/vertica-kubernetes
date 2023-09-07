@@ -100,7 +100,7 @@ func runResizePVReconciler(ctx context.Context, vdb *vapi.VerticaDB, expectedReq
 	for i := range pfacts.Detail {
 		pfacts.Detail[i].depotDiskPercentSize = "60%"
 	}
-	r := MakeResizePVReconciler(vdbRec, vdb, fpr, pfacts)
+	r := MakeResizePVReconciler(vdbRec, logger, vdb, fpr, pfacts)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: expectedRequeue}))

@@ -81,7 +81,7 @@ var _ = Describe("httpserverctrl_reconcile", func() {
 func reconcileAndFindHTTPServerStart(ctx context.Context, vdb *vapi.VerticaDB) []cmds.CmdHistory {
 	fpr := &cmds.FakePodRunner{}
 	pfacts := createPodFactsWithHTTPServerNotRunning(ctx, vdb, fpr)
-	h := MakeHTTPServerCtrlReconciler(vdbRec, vdb, fpr, pfacts)
+	h := MakeHTTPServerCtrlReconciler(vdbRec, logger, vdb, fpr, pfacts)
 	Expect(h.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	return fpr.FindCommands("vsql", "-tAc", genHTTPServerCtrlQuery("start"))
 }

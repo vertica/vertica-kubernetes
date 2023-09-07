@@ -50,7 +50,7 @@ func MakeUninstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
 	return &UninstallReconciler{
 		VRec:     vdbrecon,
-		Log:      log,
+		Log:      log.WithName("UninstallReconciler"),
 		Vdb:      vdb,
 		PRunner:  prunner,
 		PFacts:   pfacts,
