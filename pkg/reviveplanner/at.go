@@ -15,19 +15,66 @@
 
 package reviveplanner
 
-import "github.com/go-logr/logr"
+import (
+	"fmt"
+	"strconv"
 
-type ATPlanner struct {
+	"github.com/go-logr/logr"
+)
+
+type ATParser struct {
 	Database         Database
 	CommunalLocation CommunalLocation
 	Log              logr.Logger
 	ParseComplete    bool
 }
 
-// MakeATPlanner is a factory function for the Planner interface. This makes one
-// specific to admintools output.
-func MakeATPlanner(log logr.Logger) Planner {
-	return &ATPlanner{
-		Log: log,
+// MakeATParser is a factory function for the ClusterConfigParser interface.
+// This makes one specific to admintools output.
+func MakeATParser(log logr.Logger) ClusterConfigParser {
+	return &ATParser{
+		Log: log.WithName("ATParser"),
 	}
+}
+
+// getDataPaths will return the data paths for each node
+func (a *ATParser) getDataPaths() []string {
+	paths := []string{}
+	for i := range a.Database.Nodes {
+		paths = append(paths, a.Database.Nodes[i].GetDataPaths()...)
+	}
+	return paths
+}
+
+// getDepotPaths will return the depot paths for each node
+func (a *ATParser) getDepotPaths() []string {
+	paths := []string{}
+	for i := range a.Database.Nodes {
+		paths = append(paths, a.Database.Nodes[i].GetDepotPath()...)
+	}
+	return paths
+}
+
+// getCatalogPaths will return the catalog paths that are set for each node.
+func (a *ATParser) getCatalogPaths() []string {
+	paths := []string{}
+	for i := range a.Database.Nodes {
+		paths = append(paths, a.Database.Nodes[i].CatalogPath)
+	}
+	return paths
+}
+
+// getNumShards returns the number of shards in the cluster config
+func (a *ATParser) getNumShards() (int, error) {
+	foundShardCount, err := strconv.Atoi(a.CommunalLocation.NumShards)
+	if err != nil {
+		return 0, fmt.Errorf("Failed to convert shard in revive --display-only output to int: %s",
+			a.CommunalLocation.NumShards)
+	}
+	return foundShardCount, nil
+}
+
+// getDatabaseName returns the name of the database as found in the cluster config
+func (a *ATParser) getDatabaseName() string {
+	return a.Database.Name
 }

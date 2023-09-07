@@ -47,7 +47,7 @@ type ReviveDBReconciler struct {
 	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner             cmds.PodRunner
 	PFacts              *PodFacts
-	Planr               reviveplanner.Planner
+	Planr               *reviveplanner.Planner
 	Dispatcher          vadmin.Dispatcher
 	ConfigurationParams *vtypes.CiMap
 }
@@ -56,13 +56,14 @@ type ReviveDBReconciler struct {
 func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	// SPILLY - pick the parser based on vclusterops
 	return &ReviveDBReconciler{
 		VRec:                vdbrecon,
 		Log:                 log,
 		Vdb:                 vdb,
 		PRunner:             prunner,
 		PFacts:              pfacts,
-		Planr:               reviveplanner.MakeATPlanner(log),
+		Planr:               reviveplanner.MakePlanner(log, reviveplanner.MakeATParser(log)),
 		Dispatcher:          dispatcher,
 		ConfigurationParams: vtypes.MakeCiMap(),
 	}
@@ -272,7 +273,7 @@ func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod 
 
 func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (ctrl.Result, error) {
 	// Parse the JSON output we get from the AT command.
-	if err := r.Planr.Parse(op); err != nil {
+	if err := r.Planr.Parser.Parse(op); err != nil {
 		return ctrl.Result{}, err
 	}
 	msg, ok := r.Planr.IsCompatible()

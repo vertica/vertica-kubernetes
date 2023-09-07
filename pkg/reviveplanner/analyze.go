@@ -19,15 +19,29 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
+type Planner struct {
+	Log    logr.Logger
+	Parser ClusterConfigParser
+}
+
+func MakePlanner(log logr.Logger, parser ClusterConfigParser) *Planner {
+	return &Planner{
+		Log:    log,
+		Parser: parser,
+	}
+}
+
+// SPILLY - rename 'a' to 'p'
+
 // IsCompatible will check the vdb and extracted revive info to see if
 // everything is compatible. Returns a failure if an error is detected.
-func (a *ATPlanner) IsCompatible() (string, bool) {
+func (a *Planner) IsCompatible() (string, bool) {
 	if err := a.checkForCompatiblePaths(); err != nil {
 		// Extract out the error message and return that.
 		return err.Error(), false
@@ -37,15 +51,15 @@ func (a *ATPlanner) IsCompatible() (string, bool) {
 
 // checkForCompatiblePaths does the heavy lifting of checking for compatible
 // paths. It returns an error if the paths aren't compatible.
-func (a *ATPlanner) checkForCompatiblePaths() error {
+func (a *Planner) checkForCompatiblePaths() error {
 	// To see if the revive is compatible, we are going to check each of the
 	// paths of all the nodes. The prefix of each path needs to be the same. The
 	// operator assumes that all paths are homogeneous across all vertica hosts.
-	if _, err := a.getCommonPath(a.getDepotPaths(), ""); err != nil {
+	if _, err := a.getCommonPath(a.Parser.getDepotPaths(), ""); err != nil {
 		return err
 	}
 
-	catPath, err := a.getCommonPath(a.getCatalogPaths(), "")
+	catPath, err := a.getCommonPath(a.Parser.getCatalogPaths(), "")
 	if err != nil {
 		return err
 	}
@@ -57,17 +71,16 @@ func (a *ATPlanner) checkForCompatiblePaths() error {
 	// still has the correct path for data.  But if a scale-out occurs with the
 	// bad admintools.conf, new nodes will have a data path that matches the
 	// catalog path.
-	_, err = a.getCommonPath(a.getDataPaths(), catPath)
+	_, err = a.getCommonPath(a.Parser.getDataPaths(), catPath)
 	return err
 }
 
 // ApplyChanges will update the input vdb based on things it found during
 // analysis. Return true if the vdb was updated.
-func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
-	foundShardCount, err := strconv.Atoi(a.CommunalLocation.NumShards)
+func (a *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
+	foundShardCount, err := a.Parser.getNumShards()
 	if err != nil {
-		a.Log.Info("Failed to convert shard in revive --display-only output to int",
-			"num_shards", a.CommunalLocation.NumShards)
+		a.Log.Info("Failed to convert shard in cluster config", "err", err)
 		// We won't be able to validate/update the shard count. Ignore the error and continue.
 	} else if foundShardCount != vdb.Spec.ShardCount {
 		a.Log.Info("Shard count changing to match revive output",
@@ -76,7 +89,7 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 		updated = true
 	}
 
-	catPath, err := a.getCommonPath(a.getCatalogPaths(), "")
+	catPath, err := a.getCommonPath(a.Parser.getCatalogPaths(), "")
 	if err != nil {
 		return
 	}
@@ -89,7 +102,7 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 	// Generally the data path should be the same across all hosts. But it's
 	// possible for some nodes to have different one -- as long as the different
 	// path matches the catalog path.
-	dataPath, err := a.getCommonPath(a.getDataPaths(), catPath)
+	dataPath, err := a.getCommonPath(a.Parser.getDataPaths(), catPath)
 	if err != nil {
 		return
 	}
@@ -99,7 +112,7 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 		updated = true
 	}
 
-	depotPath, err := a.getCommonPath(a.getDepotPaths(), "")
+	depotPath, err := a.getCommonPath(a.Parser.getDepotPaths(), "")
 	if err != nil {
 		return
 	}
@@ -121,42 +134,15 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 }
 
 // logPathChange will add a log entry for a change to one of the vdb path changes
-func (a *ATPlanner) logPathChange(pathType, oldPath, newPath string) {
+func (a *Planner) logPathChange(pathType, oldPath, newPath string) {
 	a.Log.Info(fmt.Sprintf("%s path has to change to match revive output", pathType),
 		"oldPath", oldPath, "newPath", newPath)
-}
-
-// getDataPaths will return the data paths for each node
-func (a *ATPlanner) getDataPaths() []string {
-	paths := []string{}
-	for i := range a.Database.Nodes {
-		paths = append(paths, a.Database.Nodes[i].GetDataPaths()...)
-	}
-	return paths
-}
-
-// getDepotPaths will return the depot paths for each node
-func (a *ATPlanner) getDepotPaths() []string {
-	paths := []string{}
-	for i := range a.Database.Nodes {
-		paths = append(paths, a.Database.Nodes[i].GetDepotPath()...)
-	}
-	return paths
-}
-
-// getCatalogPaths will return the catalog paths that are set for each node.
-func (a *ATPlanner) getCatalogPaths() []string {
-	paths := []string{}
-	for i := range a.Database.Nodes {
-		paths = append(paths, a.Database.Nodes[i].CatalogPath)
-	}
-	return paths
 }
 
 // getCommonPath will look at a slice of paths, and return the common prefix for
 // all of them. The allowedOutlier parameter, if set, will allow some deviation
 // among the paths as long is it matches the outlier.
-func (a *ATPlanner) getCommonPath(paths []string, allowedOutlier string) (string, error) {
+func (a *Planner) getCommonPath(paths []string, allowedOutlier string) (string, error) {
 	if len(paths) == 0 {
 		return "", fmt.Errorf("no paths passed in")
 	}
@@ -213,7 +199,7 @@ func (a *ATPlanner) getCommonPath(paths []string, allowedOutlier string) (string
 }
 
 // removeOutliers builds a path list with any outliers removed
-func (a *ATPlanner) removeOutliers(paths []string, allowedOutlier string) []string {
+func (a *Planner) removeOutliers(paths []string, allowedOutlier string) []string {
 	p := []string{}
 	for i := range paths {
 		if paths[i] == allowedOutlier {
@@ -229,10 +215,11 @@ func (a *ATPlanner) removeOutliers(paths []string, allowedOutlier string) []stri
 
 // extractPathPrefixFromVNodePath will extract out the prefix of a vertica POSIX path. This
 // path could be catalog, depot or data path.
-func (a *ATPlanner) extractPathPrefixFromVNodePath(path string) (string, bool) {
+func (a *Planner) extractPathPrefixFromVNodePath(path string) (string, bool) {
 	// Path will come in the form: <prefix>/<dbname>/v_<dbname>_<nodenum>_<pathType>
 	// This function will return <prefix>.
-	r := regexp.MustCompile(fmt.Sprintf(`(.*)/%s/v_%s_node[0-9]{4}_`, a.Database.Name, strings.ToLower(a.Database.Name)))
+	dbName := a.Parser.getDatabaseName()
+	r := regexp.MustCompile(fmt.Sprintf(`(.*)/%s/v_%s_node[0-9]{4}_`, dbName, strings.ToLower(dbName)))
 	m := r.FindStringSubmatch(path)
 	const ExpectedMatches = 2
 	if len(m) < ExpectedMatches {
@@ -248,9 +235,10 @@ func min(a, b int) int {
 	return a
 }
 
-func (a *ATPlanner) trimOffDatabaseDir(fullPath, partialDir string) string {
-	dbNameSuffix := fmt.Sprintf("/%s/", a.Database.Name)
-	if strings.HasPrefix(partialDir, fmt.Sprintf("v_%s_node", strings.ToLower(a.Database.Name))) && strings.HasSuffix(fullPath, dbNameSuffix) {
+func (a *Planner) trimOffDatabaseDir(fullPath, partialDir string) string {
+	dbName := a.Parser.getDatabaseName()
+	dbNameSuffix := fmt.Sprintf("/%s/", dbName)
+	if strings.HasPrefix(partialDir, fmt.Sprintf("v_%s_node", strings.ToLower(dbName))) && strings.HasSuffix(fullPath, dbNameSuffix) {
 		return strings.TrimSuffix(fullPath, dbNameSuffix)
 	}
 	return fullPath

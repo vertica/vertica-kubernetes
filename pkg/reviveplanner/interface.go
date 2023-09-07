@@ -15,20 +15,16 @@
 
 package reviveplanner
 
-import (
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-)
-
-type Planner interface {
+// SPILLY - update
+type ClusterConfigParser interface {
 	// Analyze will look at the given output, from revive --display-only, and
 	// parse it into Go structs.
 	Parse(op string) error
 
-	// IsCompatible will check if the revive will even work in k8s. A failure
-	// message is returned if it isn't compatible.
-	IsCompatible() (string, bool)
-
-	// ApplyChanges will update the input vdb based on things it found during
-	// analysis. Return true if the vdb was updated.
-	ApplyChanges(vdb *vapi.VerticaDB) (bool, error)
+	// SPILLY - export functions?
+	getDataPaths() []string
+	getDepotPaths() []string
+	getCatalogPaths() []string
+	getNumShards() (int, error)
+	getDatabaseName() string
 }

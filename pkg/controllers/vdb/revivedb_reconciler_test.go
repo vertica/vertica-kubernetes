@@ -84,7 +84,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
-		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
+		parser := reviveplanner.MakeATParserFromVDB(vdb, logger)
+		r.Planr = reviveplanner.MakePlanner(logger, parser)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "revive_db")
 		Expect(len(reviveCalls)).Should(Equal(2)) // 1 for display-only and 1 for the real thing
@@ -204,10 +205,11 @@ var _ = Describe("revivedb_reconcile", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
-		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
+		parser := reviveplanner.MakeATParserFromVDB(vdb, logger)
+		r.Planr = reviveplanner.MakePlanner(logger, parser)
 
 		// Fake a bad path by changing one in the planr.
-		atp := r.Planr.(*reviveplanner.ATPlanner)
+		atp := parser.(*reviveplanner.ATParser)
 		atp.Database.Nodes[0].CatalogPath = "/uncommon-path/vertdb/v_vertdb_node0001_catalog"
 
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -232,12 +234,13 @@ var _ = Describe("revivedb_reconcile", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
-		r.Planr = reviveplanner.MakeATPlannerFromVDB(vdb, logger)
+		parser := reviveplanner.MakeATParserFromVDB(vdb, logger)
+		r.Planr = reviveplanner.MakePlanner(logger, parser)
 
 		// Force a path change in the vdb by changing one in the planr. The
 		// planner has the output from revive_db --display-only. That has the
 		// correct paths. The planner will update the vdb to match.
-		atp := r.Planr.(*reviveplanner.ATPlanner)
+		atp := parser.(*reviveplanner.ATParser)
 		atp.Database.Nodes[0].CatalogPath = "/new-catalog/v/v_v_node0001_catalog"
 		atp.Database.Nodes[0].VStorageLocations = []reviveplanner.StorageLocation{
 			{Path: "/new-depot/v/v_v_node0001_depot", Usage: reviveplanner.UsageIsDepot},

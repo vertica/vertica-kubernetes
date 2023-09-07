@@ -26,6 +26,8 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
+// SPILLY - rename this to atparser.go
+
 // The format of the next few struct's is implemented in the server. Do not add
 // new fields in here, unless those new fields are also exposed by the server's
 // 'admintools -t revive_db --display-only' output.
@@ -85,9 +87,9 @@ type StorageLocation struct {
 	Site        int64  `json:"site"`
 }
 
-// MakeATPPlannerFromVDB will make a Planner struct based on the passed in vdb.
+// MakeATParserFromVDB will make a cluster config parser based on the passed in vdb.
 // This is used for tests only.
-func MakeATPlannerFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Planner {
+func MakeATParserFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) ClusterConfigParser {
 	db := Database{
 		Name: vdb.Spec.DBName,
 	}
@@ -114,7 +116,7 @@ func MakeATPlannerFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Planner {
 	communalLocation := CommunalLocation{
 		NumShards: fmt.Sprintf("%d", vdb.Spec.ShardCount),
 	}
-	return &ATPlanner{
+	return &ATParser{
 		Log:              logger,
 		Database:         db,
 		CommunalLocation: communalLocation,
@@ -146,7 +148,7 @@ func (n *Node) getPathsByUsage(usage int) []string {
 
 // Parse looks at the op string passed in and spits out Database and
 // CommunalLocation structs.
-func (a *ATPlanner) Parse(op string) error {
+func (a *ATParser) Parse(op string) error {
 	// We only parse once. No-op if parse already done.
 	if a.ParseComplete {
 		return nil
@@ -163,7 +165,7 @@ func (a *ATPlanner) Parse(op string) error {
 
 // extractDatabase parses the full output and returns the json portion that
 // pertains to the database.
-func (a *ATPlanner) extractDatabase(op string) string {
+func (a *ATParser) extractDatabase(op string) string {
 	startingMarker := regexp.MustCompile(`^\s*== Database and node details: ==`)
 	endingMarker := regexp.MustCompile(`^\s*== `)
 	return a.extractGeneric(op, startingMarker, endingMarker)
@@ -171,14 +173,14 @@ func (a *ATPlanner) extractDatabase(op string) string {
 
 // extractCommunalLocation parses the full output and returns only the portion
 // that is for the communal location information.
-func (a *ATPlanner) extractCommunalLocation(op string) string {
+func (a *ATParser) extractCommunalLocation(op string) string {
 	startingMarker := regexp.MustCompile(`^\s*== Communal location details: ==`)
 	endingMarker := regexp.MustCompile(`^\s*Cluster lease expiration:`)
 	return a.extractGeneric(op, startingMarker, endingMarker)
 }
 
 // extractGeneric is a general parsing function of the revive_db --display-only output.
-func (a *ATPlanner) extractGeneric(op string, startingMarker, endingMarker *regexp.Regexp) string {
+func (a *ATParser) extractGeneric(op string, startingMarker, endingMarker *regexp.Regexp) string {
 	scanner := bufio.NewScanner(strings.NewReader(op))
 	var sb strings.Builder
 	for scanner.Scan() {

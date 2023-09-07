@@ -22,7 +22,7 @@ import (
 
 var _ = Describe("parser", func() {
 	It("should parse the sample output", func() {
-		planner := ATPlanner{}
+		planner := ATParser{}
 		sampleOutput := `Attempting to retrieve file: [/db/cad47f8e-7cca-48dd-8d9c-a2403f6c457f/metadata/vertdb/cluster_config.json]
 
 		Validated 1-node database vertdb defined at communal storage /db/cad47f8e-7cca-48dd-8d9c-a2403f6c457f.
