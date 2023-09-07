@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
@@ -106,12 +105,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 
 // preCmdSetup is going to run revive with --display-only then validate and
 // fix-up any mismatch it finds.
-func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
-		// will check db info after --display-only is supported in vcluster revive_db
-		return ctrl.Result{}, nil
-	}
-
+func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string, podList []*PodFact) (ctrl.Result, error) {
 	// We need to delete any pods that have a pending revision. This can happen
 	// if in an earlier iteration we changed the paths in pod. Normally, these
 	// types of changes are rolled out via rolling upgrade. But that depends on
@@ -123,7 +117,7 @@ func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	}
 
 	// Generate output to feed into the revive planner
-	stdout, res, err := r.runRevivePrepass(ctx, initiatorPod)
+	stdout, res, err := r.runRevivePrepass(ctx, initiatorPod, initiatorIP)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -234,9 +228,9 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName, ho
 }
 
 // genDescribeOpts will return the options to use with the describe db function
-func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName) []describedb.Option {
+func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName, initiatorIP string) []describedb.Option {
 	return []describedb.Option{
-		describedb.WithInitiator(initiatorPod),
+		describedb.WithInitiator(initiatorPod, initiatorIP),
 		describedb.WithDBName(r.Vdb.Spec.DBName),
 		describedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 		describedb.WithCommunalStorageParams(paths.AuthParmsFile),
@@ -271,8 +265,8 @@ func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podL
 // runRevivePrepass will run revive with --display-only to check for any
 // preconditions that need to be met. The output of the run is returned so it
 // can be analyzed by the revive planner.
-func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod types.NamespacedName) (string, ctrl.Result, error) {
-	opts := r.genDescribeOpts(initiatorPod)
+func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string) (string, ctrl.Result, error) {
+	opts := r.genDescribeOpts(initiatorPod, initiatorIP)
 	return r.Dispatcher.DescribeDB(ctx, opts...)
 }
 

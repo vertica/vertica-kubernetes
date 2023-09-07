@@ -23,6 +23,7 @@ import (
 // communal storage.
 type Parms struct {
 	Initiator             types.NamespacedName
+	InitiatorIP           string
 	DBName                string
 	CommunalPath          string
 	CommunalStorageParams string
@@ -38,9 +39,10 @@ func (s *Parms) Make(opts ...Option) {
 	}
 }
 
-func WithInitiator(nm types.NamespacedName) Option {
+func WithInitiator(nm types.NamespacedName, ip string) Option {
 	return func(s *Parms) {
 		s.Initiator = nm
+		s.InitiatorIP = ip
 	}
 }
 
