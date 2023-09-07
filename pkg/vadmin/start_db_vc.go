@@ -78,5 +78,8 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
+
+	// timeout option
+	opts.StatePollingTimeout = v.VDB.Spec.RestartTimeout
 	return opts, nil
 }

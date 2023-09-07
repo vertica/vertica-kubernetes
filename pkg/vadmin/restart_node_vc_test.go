@@ -39,6 +39,11 @@ func (m *MockVClusterOps) VRestartNodes(options *vops.VRestartNodesOptions) erro
 		return fmt.Errorf("failed to retrieve hosts")
 	}
 
+	// verify timeout
+	if options.StatePollingTimeout != TestTimeout {
+		return fmt.Errorf("failed to retrieve timeout")
+	}
+
 	return nil
 }
 
@@ -54,6 +59,7 @@ var _ = Describe("restart_node_vc", func() {
 	It("should call vcluster-ops library with restart_node task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
+		dispatcher.VDB.Spec.RestartTimeout = 10
 		dispatcher.VDB.Spec.HTTPServerTLSSecret = "restart-node-test-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
