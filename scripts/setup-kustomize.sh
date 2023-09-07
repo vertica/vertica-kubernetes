@@ -118,6 +118,7 @@ echo -n "Using private registry: "
 if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
 echo -n "Add server mounts: "
 if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
+echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -172,6 +173,15 @@ EOF
         else
           echo "*** Unknown protocol (create_vdb_kustomization): $PATH_PROTOCOL"
           exit 1
+        fi
+
+        if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" ]
+        then
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1vcluster-ops
+      value: "true"
+EOF
         fi
     fi
 
