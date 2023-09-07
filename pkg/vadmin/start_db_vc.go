@@ -80,8 +80,6 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.HonorUserInput = true
 
 	// timeout option
-	if v.VDB.Spec.RestartTimeout != 0 {
-		opts.StatePollingTimeout = v.VDB.Spec.RestartTimeout
-	}
+	opts.StatePollingTimeout = v.VDB.Spec.RestartTimeout
 	return opts, nil
 }
