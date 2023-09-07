@@ -39,7 +39,7 @@ var _ = Describe("prometheus_reconcile", func() {
 
 		prunner := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(prunner)
-		actor := MakeMetricReconciler(vdbRec, vdb, prunner, pfacts)
+		actor := MakeMetricReconciler(vdbRec, logger, vdb, prunner, pfacts)
 		r := actor.(*MetricReconciler)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

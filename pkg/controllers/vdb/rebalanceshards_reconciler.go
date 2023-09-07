@@ -44,7 +44,7 @@ func MakeRebalanceShardsReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, scName string) controllers.ReconcileActor {
 	return &RebalanceShardsReconciler{
 		VRec:    vdbrecon,
-		Log:     log,
+		Log:     log.WithName("RebalanceShardsReconciler"),
 		Vdb:     vdb,
 		PRunner: prunner,
 		PFacts:  pfacts,

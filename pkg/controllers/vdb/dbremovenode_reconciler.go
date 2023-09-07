@@ -50,7 +50,7 @@ func MakeDBRemoveNodeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &DBRemoveNodeReconciler{
 		VRec:       vdbrecon,
-		Log:        log,
+		Log:        log.WithName("DBRemoveNodeReconciler"),
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,

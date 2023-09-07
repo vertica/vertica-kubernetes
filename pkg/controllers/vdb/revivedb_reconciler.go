@@ -59,7 +59,7 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReviveDBReconciler{
 		VRec:                vdbrecon,
-		Log:                 log,
+		Log:                 log.WithName("ReviveDBReconciler"),
 		Vdb:                 vdb,
 		PRunner:             prunner,
 		PFacts:              pfacts,

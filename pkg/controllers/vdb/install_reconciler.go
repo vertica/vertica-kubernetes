@@ -50,7 +50,7 @@ func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
 	return &InstallReconciler{
 		VRec:     vdbrecon,
-		Log:      log,
+		Log:      log.WithName("InstallReconciler"),
 		Vdb:      vdb,
 		PRunner:  prunner,
 		PFacts:   pfacts,
