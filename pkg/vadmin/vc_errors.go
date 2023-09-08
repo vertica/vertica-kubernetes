@@ -53,7 +53,7 @@ func (v *vcErrors) LogFailure(cmd string, err error) (ctrl.Result, error) {
 	}
 	clusterLeaseNotExpiredError := &vclusterops.ClusterLeaseNotExpiredError{}
 	if ok := errors.As(err, &clusterLeaseNotExpiredError); ok {
-		return v.logClusterLeaseNotExpiredError(cmd, clusterLeaseNotExpiredError)
+		return v.logClusterLeaseNotExpiredError(clusterLeaseNotExpiredError)
 	}
 	return v.logGenericFailure(cmd, err)
 }
@@ -84,8 +84,8 @@ func (v *vcErrors) logRfc7807Failure(cmd string, vproblem *rfc7807.VProblem) (ct
 	return ctrl.Result{Requeue: true}, nil
 }
 
-func (v *vcErrors) logClusterLeaseNotExpiredError(cmd string, clusterLeaseNotExpiredError *vclusterops.ClusterLeaseNotExpiredError) (ctrl.Result, error) {
-	v.Log.Info("vclusterOps command failed because the cluster lease was not expired", "msg", clusterLeaseNotExpiredError.Error())
+func (v *vcErrors) logClusterLeaseNotExpiredError(err *vclusterops.ClusterLeaseNotExpiredError) (ctrl.Result, error) {
+	v.Log.Info("vclusterOps command failed because the cluster lease was not expired", "msg", err.Error())
 	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
 		"revive_db failed because the cluster lease has not expired for '%s'",
 		v.VDB.GetCommunalPath())
