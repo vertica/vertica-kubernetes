@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/rfc7807"
+	"github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	corev1 "k8s.io/api/core/v1"
@@ -47,16 +48,28 @@ var rfc7807TypeToEventMap = map[string]string{
 
 func (v *vcErrors) LogFailure(cmd string, err error) (ctrl.Result, error) {
 	vproblem := &rfc7807.VProblem{}
-	if ok := errors.As(err, &vproblem); !ok {
-		// Unable to know exactly what the error is.
-		// We log the generic failure reason of the
-		// given command.
-		v.Log.Error(err, "vclusterOps command failed", "cmd", cmd)
-		v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning,
-			v.GenericFailureReason, fmt.Sprintf("Failed when calling %s", cmd))
-		return ctrl.Result{}, err
+	if ok := errors.As(err, &vproblem); ok {
+		return v.logRfc7807Failure(cmd, vproblem)
 	}
-	v.Log.Error(err, "vclusterOps command failed", "cmd", cmd,
+	clusterLeaseNotExpiredError := &vclusterops.ClusterLeaseNotExpiredError{}
+	if ok := errors.As(err, &clusterLeaseNotExpiredError); ok {
+		return v.logClusterLeaseNotExpiredError(cmd, clusterLeaseNotExpiredError)
+	}
+	return v.logGenericFailure(cmd, err)
+}
+
+func (v *vcErrors) logGenericFailure(cmd string, err error) (ctrl.Result, error) {
+	// Unable to know exactly what the error is.
+	// We log the generic failure reason of the
+	// given command.
+	v.Log.Error(err, "vclusterOps command failed", "cmd", cmd)
+	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning,
+		v.GenericFailureReason, fmt.Sprintf("Failed when calling %s", cmd))
+	return ctrl.Result{}, err
+}
+
+func (v *vcErrors) logRfc7807Failure(cmd string, vproblem *rfc7807.VProblem) (ctrl.Result, error) {
+	v.Log.Error(vproblem, "vclusterOps command failed", "cmd", cmd,
 		"type", vproblem.Type, "title", vproblem.Title, "detail", vproblem.Detail,
 		"host", vproblem.Host, "status", vproblem.Status)
 	reason, ok := rfc7807TypeToEventMap[vproblem.Type]
@@ -65,8 +78,16 @@ func (v *vcErrors) LogFailure(cmd string, err error) (ctrl.Result, error) {
 	}
 	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, reason, vproblem.Title)
 	if !ok {
-		return ctrl.Result{}, fmt.Errorf("failed command %s: %w", cmd, err)
+		return ctrl.Result{}, fmt.Errorf("failed command %s: %w", cmd, vproblem)
 	}
 	// All known errors we return with requeue set to true.
+	return ctrl.Result{Requeue: true}, nil
+}
+
+func (v *vcErrors) logClusterLeaseNotExpiredError(cmd string, clusterLeaseNotExpiredError *vclusterops.ClusterLeaseNotExpiredError) (ctrl.Result, error) {
+	v.Log.Info("vclusterOps command failed because the cluster lease was not expired", "msg", clusterLeaseNotExpiredError.Error())
+	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
+		"revive_db failed because the cluster lease has not expired for '%s'",
+		v.VDB.GetCommunalPath())
 	return ctrl.Result{Requeue: true}, nil
 }
