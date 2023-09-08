@@ -43,6 +43,5 @@ var _ = Describe("describe_db_vc", func() {
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 		Ω(op).Should(Equal(TestDescribeOutput))
-		// SPILLY - assert that hosts includes 192.168.1.101?
 	})
 })
