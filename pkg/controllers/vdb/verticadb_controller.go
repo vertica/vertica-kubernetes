@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -296,7 +297,10 @@ func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaD
 	passwd string) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		vcc := vops.VClusterCommands{
-			Log: log.WithName("vcluster"),
+			Log: vlog.Printer{
+				Log:           log.WithName("vcluster"),
+				LogToFileOnly: false,
+			},
 		}
 		return vadmin.MakeVClusterOps(log, vdb, r.Client, &vcc, passwd, r.EVRec)
 	}
