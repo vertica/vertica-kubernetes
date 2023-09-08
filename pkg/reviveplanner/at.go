@@ -68,7 +68,7 @@ func (a *ATParser) getCatalogPaths() []string {
 func (a *ATParser) getNumShards() (int, error) {
 	foundShardCount, err := strconv.Atoi(a.CommunalLocation.NumShards)
 	if err != nil {
-		return 0, fmt.Errorf("Failed to convert shard in revive --display-only output to int: %s",
+		return 0, fmt.Errorf("failed to convert shard in revive --display-only output to int: %s",
 			a.CommunalLocation.NumShards)
 	}
 	return foundShardCount, nil

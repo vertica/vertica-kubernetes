@@ -51,7 +51,8 @@ func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option)
 
 	op, err := v.VReviveDatabase(vcOpts)
 	if err != nil {
-		res, err := v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
+		var res ctrl.Result
+		res, err = v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
 		return "", res, err
 	}
 

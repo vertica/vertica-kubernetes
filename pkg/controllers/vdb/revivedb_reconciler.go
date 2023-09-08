@@ -106,7 +106,8 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 
 // preCmdSetup is going to run revive with --display-only then validate and
 // fix-up any mismatch it finds.
-func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string, podList []*PodFact) (ctrl.Result, error) {
+func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName,
+	initiatorIP string, podList []*PodFact) (ctrl.Result, error) {
 	// We need to delete any pods that have a pending revision. This can happen
 	// if in an earlier iteration we changed the paths in pod. Normally, these
 	// types of changes are rolled out via rolling upgrade. But that depends on
@@ -266,7 +267,8 @@ func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podL
 // runRevivePrepass will run revive with --display-only to check for any
 // preconditions that need to be met. The output of the run is returned so it
 // can be analyzed by the revive planner.
-func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string) (string, ctrl.Result, error) {
+func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod types.NamespacedName,
+	initiatorIP string) (string, ctrl.Result, error) {
 	opts := r.genDescribeOpts(initiatorPod, initiatorIP)
 	return r.Dispatcher.DescribeDB(ctx, opts...)
 }
