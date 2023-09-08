@@ -13,16 +13,17 @@
  limitations under the License.
 */
 
-package reviveplanner
+package vcparser
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
+//nolint:lll
 var _ = Describe("vc_parser", func() {
 	It("should parse the sample output from vcluster --display-only", func() {
-		parser := VCParser{}
+		parser := Parser{}
 		sampleOutput := `
 {
    "CatalogTruncationVersion" : 55,

@@ -22,12 +22,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/atparser"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/util"
 )
 
 var _ = Describe("analyze", func() {
 	It("should be able to extract out a common prefix", func() {
-		prsr := ATParser{
-			Database: Database{
+		prsr := atparser.Parser{
+			Database: atparser.Database{
 				Name: "vertdb",
 			},
 		}
@@ -43,8 +45,8 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to extract out a common prefix if db has capital letters", func() {
-		prsr := ATParser{
-			Database: Database{
+		prsr := atparser.Parser{
+			Database: atparser.Database{
 				Name: "Vertica_Dashboard",
 			},
 		}
@@ -55,8 +57,8 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to find common paths", func() {
-		prsr := ATParser{
-			Database: Database{
+		prsr := atparser.Parser{
+			Database: atparser.Database{
 				Name: "v",
 			},
 		}
@@ -81,8 +83,8 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to find common paths after accounting for an outlier", func() {
-		prsr := ATParser{
-			Database: Database{
+		prsr := atparser.Parser{
+			Database: atparser.Database{
 				Name: "v",
 			},
 		}
@@ -104,8 +106,8 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to find common paths when db/node isn't a suffix", func() {
-		prsr := ATParser{
-			Database: Database{
+		prsr := atparser.Parser{
+			Database: atparser.Database{
 				Name: "v",
 			},
 		}
@@ -138,8 +140,8 @@ var _ = Describe("analyze", func() {
 
 	It("should update vdb based on revive output", func() {
 		vdb := vapi.MakeVDB()
-		parser := MakeATParserFromVDB(vdb, logger)
-		p := Planner{Parser: parser}
+		parser := atparser.MakeATParserFromVDB(vdb, logger)
+		p := Planner{Parser: &parser}
 
 		origVdb := vdb.DeepCopy()
 
@@ -159,8 +161,8 @@ var _ = Describe("analyze", func() {
 	It("should update depotVolume when is EmptyDir and depot path is not unique", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Local.DepotPath = vdb.Spec.Local.DataPath
-		parser := MakeATParserFromVDB(vdb, logger)
-		p := Planner{Parser: parser}
+		parser := atparser.MakeATParserFromVDB(vdb, logger)
+		p := Planner{Parser: &parser}
 
 		origVdb := vdb.DeepCopy()
 
@@ -176,34 +178,34 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should say revive isn't compatible if paths differ among nodes", func() {
-		p := ATParser{
-			Database: Database{
+		p := atparser.Parser{
+			Database: atparser.Database{
 				Name: "mydb",
-				Nodes: []Node{
+				Nodes: []atparser.Node{
 					{
 						Name:        "v_mydb_node0001",
 						CatalogPath: "/cat/mydb/v_mydb_node0001_catalog",
-						VStorageLocations: []StorageLocation{
+						VStorageLocations: []atparser.StorageLocation{
 							{
 								Path:  "/dep/mydb/v_mydb_node0001_depot",
-								Usage: UsageIsDepot,
+								Usage: util.UsageIsDepot,
 							},
 							{
 								Path:  "/dat/mydb/v_mydb_node0001_data",
-								Usage: UsageIsDataTemp,
+								Usage: util.UsageIsDataTemp,
 							},
 						},
 					}, {
 						Name:        "v_mydb_node0002",
 						CatalogPath: "/cat/mydb/v_mydb_node0002_catalog",
-						VStorageLocations: []StorageLocation{
+						VStorageLocations: []atparser.StorageLocation{
 							{
 								Path:  "/dep/mydb/v_mydb_node0002_depot",
-								Usage: UsageIsDepot,
+								Usage: util.UsageIsDepot,
 							},
 							{
 								Path:  "/dat/mydb/v_mydb_node0002_data",
-								Usage: UsageIsDataTemp,
+								Usage: util.UsageIsDataTemp,
 							},
 						},
 					},

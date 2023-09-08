@@ -15,13 +15,10 @@
 
 package reviveplanner
 
-import "github.com/go-logr/logr"
-
-const (
-	// The usage number for DATA,TEMP. Set internally by Vertica.
-	UsageIsDataTemp = 3
-	// The usage number for DEPOT. Set internally by Vertica.
-	UsageIsDepot = 5
+import (
+	"github.com/go-logr/logr"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/atparser"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/vcparser"
 )
 
 // ClusterConfigParser is an interface for parsing the output of the revive
@@ -44,7 +41,21 @@ type ClusterConfigParser interface {
 // struct that implements the ClusterConfigParser interface.
 func ClusterConfigParserFactory(vclusterOps bool, log logr.Logger) ClusterConfigParser {
 	if vclusterOps {
-		return MakeVCParser(log)
+		return makeVCParser()
 	}
-	return MakeATParser(log)
+	return makeATParser(log)
+}
+
+// makeATParser is a factory function for the ClusterConfigParser interface.
+// This makes one specific to admintools output.
+func makeATParser(log logr.Logger) ClusterConfigParser {
+	return &atparser.Parser{
+		Log: log.WithName("ATParser"),
+	}
+}
+
+// makeVCParser is a factory function for the ClusterConfigParser interface.
+// This makes one specific to vcluster output.
+func makeVCParser() ClusterConfigParser {
+	return &vcparser.Parser{}
 }

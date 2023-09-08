@@ -13,16 +13,16 @@
  limitations under the License.
 */
 
-package reviveplanner
+package atparser
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("at_parser", func() {
+var _ = Describe("atparser", func() {
 	It("should parse the sample output", func() {
-		parser := ATParser{}
+		parser := Parser{}
 		sampleOutput := `Attempting to retrieve file: [/db/cad47f8e-7cca-48dd-8d9c-a2403f6c457f/metadata/vertdb/cluster_config.json]
 
 		Validated 1-node database vertdb defined at communal storage /db/cad47f8e-7cca-48dd-8d9c-a2403f6c457f.
@@ -136,12 +136,12 @@ var _ = Describe("at_parser", func() {
 		]
 		
 		Number of primary nodes: 1`
-		Expect(parser.Parse(sampleOutput)).Should(Succeed())
-		Expect(parser.Database.Name).Should(Equal("vertdb"))
-		Expect(len(parser.Database.Nodes)).Should(Equal(1))
-		Expect(parser.Database.Nodes[0].Host).Should(Equal("10.244.0.47"))
-		Expect(parser.Database.Nodes[0].Port).Should(Equal(5433))
-		Expect(parser.CommunalLocation.NumShards).Should(Equal("6"))
-		Expect(parser.CommunalLocation.DepotPath).Should(Equal("/depot"))
+		Ω(parser.Parse(sampleOutput)).Should(Succeed())
+		Ω(parser.GetDatabaseName()).Should(Equal("vertdb"))
+		Ω(len(parser.Database.Nodes)).Should(Equal(1))
+		Ω(parser.Database.Nodes[0].Host).Should(Equal("10.244.0.47"))
+		Ω(parser.Database.Nodes[0].Port).Should(Equal(5433))
+		Ω(parser.GetNumShards()).Should(Equal(6))
+		Ω(parser.CommunalLocation.DepotPath).Should(Equal("/depot"))
 	})
 })
