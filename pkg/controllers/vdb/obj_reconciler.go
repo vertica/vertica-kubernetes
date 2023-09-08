@@ -70,7 +70,7 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 	mode ObjReconcileModeType) controllers.ReconcileActor {
 	return &ObjReconciler{
 		VRec:   vdbrecon,
-		Log:    log,
+		Log:    log.WithName("ObjReconciler"),
 		Vdb:    vdb,
 		PFacts: pfacts,
 		Mode:   mode,

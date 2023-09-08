@@ -61,7 +61,7 @@ var _ = Describe("agent_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithAgentNotRunning(ctx, vdb, fpr, true)
 		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].dbExists = false
-		r := MakeAgentReconciler(vdbRec, vdb, fpr, pfacts)
+		r := MakeAgentReconciler(vdbRec, logger, vdb, fpr, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		cmds := fpr.FindCommands("/opt/vertica/sbin/vertica_agent", "start")
 		Expect(len(cmds)).Should(Equal(0))
@@ -82,7 +82,7 @@ var _ = Describe("agent_reconcile", func() {
 func reconcileAndFindVerticaAgentStart(ctx context.Context, vdb *vapi.VerticaDB, hasAgentKeys bool) []cmds.CmdHistory {
 	fpr := &cmds.FakePodRunner{}
 	pfacts := createPodFactsWithAgentNotRunning(ctx, vdb, fpr, hasAgentKeys)
-	r := MakeAgentReconciler(vdbRec, vdb, fpr, pfacts)
+	r := MakeAgentReconciler(vdbRec, logger, vdb, fpr, pfacts)
 	Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	return fpr.FindCommands("/opt/vertica/sbin/vertica_agent", "start")
 }

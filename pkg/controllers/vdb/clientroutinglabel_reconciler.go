@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -42,16 +43,18 @@ const (
 type ClientRoutingLabelReconciler struct {
 	VRec        *VerticaDBReconciler
 	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log         logr.Logger
 	PFacts      *PodFacts
 	ApplyMethod ApplyMethodType
 	ScName      string // Subcluster we are going to reconcile.  Blank if all subclusters.
 }
 
-func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler,
+func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts, applyMethod ApplyMethodType, scName string) controllers.ReconcileActor {
 	return &ClientRoutingLabelReconciler{
 		VRec:        vdbrecon,
 		Vdb:         vdb,
+		Log:         log.WithName("ClientRoutingLabelReconciler"),
 		PFacts:      pfacts,
 		ApplyMethod: applyMethod,
 		ScName:      scName,
@@ -63,7 +66,7 @@ func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler,
 // so that it receives traffic.  For pods that don't own a shard or about to be
 // scaled down will have the label removed so that traffic isn't routed to it.
 func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
-	c.VRec.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
+	c.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
 
 	if err := c.PFacts.Collect(ctx, c.Vdb); err != nil {
 		return ctrl.Result{}, err
@@ -109,7 +112,7 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 		}
 
 		if c.ApplyMethod == AddNodeApplyMethod && c.Vdb.IsEON() && pf.upNode && pf.shardSubscriptions == 0 && !pf.pendingDelete {
-			c.VRec.Log.Info("Will requeue reconciliation because pod does not have any shard subscriptions yet", "name", pf.name)
+			c.Log.Info("Will requeue reconciliation because pod does not have any shard subscriptions yet", "name", pf.name)
 			res.Requeue = true
 		}
 		return nil
@@ -140,13 +143,13 @@ func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.P
 	case AddNodeApplyMethod, PodRescheduleApplyMethod:
 		if !labelExists && pf.upNode && (pf.shardSubscriptions > 0 || !c.Vdb.IsEON()) && !pf.pendingDelete {
 			pod.Labels[vmeta.ClientRoutingLabel] = vmeta.ClientRoutingVal
-			c.VRec.Log.Info("Adding client routing label", "pod",
+			c.Log.Info("Adding client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
 		}
 	case DelNodeApplyMethod:
 		if labelExists && pf.pendingDelete {
 			delete(pod.Labels, vmeta.ClientRoutingLabel)
-			c.VRec.Log.Info("Removing client routing label", "pod",
+			c.Log.Info("Removing client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
 		}
 	}

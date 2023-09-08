@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -31,14 +32,15 @@ import (
 type AgentReconciler struct {
 	VRec    *VerticaDBReconciler
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log     logr.Logger
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
 }
 
 // MakeAgentReconciler will build a AgentReonciler object
-func MakeAgentReconciler(vrec *VerticaDBReconciler,
+func MakeAgentReconciler(vrec *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &AgentReconciler{VRec: vrec, Vdb: vdb, PRunner: prunner, PFacts: pfacts}
+	return &AgentReconciler{VRec: vrec, Log: log.WithName("AgentReconciler"), Vdb: vdb, PRunner: prunner, PFacts: pfacts}
 }
 
 // Reconcile will ensure the agent is running and start it if it isn't
@@ -53,7 +55,7 @@ func (a *AgentReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 
 	for _, pod := range a.PFacts.Detail {
 		if !pod.imageHasAgentKeys {
-			a.VRec.Log.Info("Skipping agent start because there are missing keys in pod", "pod", pod.name)
+			a.Log.Info("Skipping agent start because there are missing keys in pod", "pod", pod.name)
 			continue
 		}
 		if pod.agentRunning {

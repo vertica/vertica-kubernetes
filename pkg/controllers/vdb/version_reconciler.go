@@ -48,7 +48,7 @@ func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	enforceUpgradePath bool) controllers.ReconcileActor {
 	return &VersionReconciler{
 		VRec:               vdbrecon,
-		Log:                log,
+		Log:                log.WithName("VersionReconciler"),
 		Vdb:                vdb,
 		PRunner:            prunner,
 		PFacts:             pfacts,

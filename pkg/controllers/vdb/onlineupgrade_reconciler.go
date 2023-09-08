@@ -59,7 +59,12 @@ type OnlineUpgradeReconciler struct {
 // MakeOnlineUpgradeReconciler will build an OnlineUpgradeReconciler object
 func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
-	return &OnlineUpgradeReconciler{VRec: vdbrecon, Log: log, Vdb: vdb, PRunner: prunner, PFacts: pfacts,
+	return &OnlineUpgradeReconciler{
+		VRec:       vdbrecon,
+		Log:        log.WithName("OnlineUpgradeReconciler"),
+		Vdb:        vdb,
+		PRunner:    prunner,
+		PFacts:     pfacts,
 		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
 		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
 		Dispatcher: dispatcher,
@@ -306,7 +311,7 @@ func (o *OnlineUpgradeReconciler) addClientRoutingLabelToTransientNodes(ctx cont
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, AddNodeApplyMethod, o.TransientSc.Name)
+	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, AddNodeApplyMethod, o.TransientSc.Name)
 	o.traceActorReconcile(actor)
 	// Add the labels.  If there is a node that still has missing subscriptions
 	// that will fail with requeue error.
@@ -469,7 +474,7 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 // addPodAnnotations will add the necessary pod annotations that need to be
 // in-place prior to restart
 func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Vdb, o.PFacts)
+	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -514,7 +519,7 @@ func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts
 
 	scName := sts.Labels[vmeta.SubclusterNameLabel]
 
-	actor = MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, PodRescheduleApplyMethod, scName)
+	actor = MakeClientRoutingLabelReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, PodRescheduleApplyMethod, scName)
 	res, err = actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -565,7 +570,7 @@ func (o *OnlineUpgradeReconciler) removeClientRoutingLabelFromTransientNodes(ctx
 		return ctrl.Result{}, nil
 	}
 
-	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Vdb, o.PFacts, DelNodeApplyMethod, "")
+	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, DelNodeApplyMethod, "")
 	o.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }

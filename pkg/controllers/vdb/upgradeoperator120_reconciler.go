@@ -40,7 +40,7 @@ type UpgradeOperator120Reconciler struct {
 // MakeUpgradeOperator120Reconciler will build a UpgradeOperatorFrom120Reconciler object
 func MakeUpgradeOperator120Reconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB) controllers.ReconcileActor {
-	return &UpgradeOperator120Reconciler{VRec: vdbrecon, Log: log, Vdb: vdb}
+	return &UpgradeOperator120Reconciler{VRec: vdbrecon, Log: log.WithName("UpgradeOperator120Reconciler"), Vdb: vdb}
 }
 
 // Reconcile will handle any upgrade actions for k8s objects created in 1.2.0 or prior.

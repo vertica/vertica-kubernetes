@@ -71,7 +71,7 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &RestartReconciler{
 		VRec:            vdbrecon,
-		Log:             log,
+		Log:             log.WithName("RestartReconciler"),
 		Vdb:             vdb,
 		PRunner:         prunner,
 		PFacts:          pfacts,

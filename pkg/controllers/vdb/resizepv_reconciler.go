@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -38,16 +39,18 @@ import (
 type ResizePVReconcile struct {
 	VRec    *VerticaDBReconciler
 	Vdb     *vapi.VerticaDB
+	Log     logr.Logger
 	PRunner cmds.PodRunner
 	PFacts  *PodFacts
 }
 
 // MakeResizePVReconciler will build and return the ResizePVReconcile object.
-func MakeResizePVReconciler(vdbrecon *VerticaDBReconciler,
+func MakeResizePVReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
 	return &ResizePVReconcile{
 		VRec:    vdbrecon,
 		Vdb:     vdb,
+		Log:     log.WithName("ResizePVReconciler"),
 		PRunner: prunner,
 		PFacts:  pfacts,
 	}
@@ -83,7 +86,7 @@ func (r *ResizePVReconcile) reconcilePod(ctx context.Context, pf *PodFact) (ctrl
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := r.VRec.Client.Get(ctx, pvcName, pvc); err != nil {
 		if errors.IsNotFound(err) {
-			r.VRec.Log.Info("PVC was not found. Requeuing.", "pvc", pvcName)
+			r.Log.Info("PVC was not found. Requeuing.", "pvc", pvcName)
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, err
@@ -108,7 +111,7 @@ func (r *ResizePVReconcile) reconcilePvc(ctx context.Context, pf *PodFact, pvc *
 	}
 
 	// Requeue to wait for the PVC to be expanded.
-	r.VRec.Log.Info("Wait for PVC to be expanded", "pvc", pvc.Name, "capacity", pvc.Status.Capacity.Storage())
+	r.Log.Info("Wait for PVC to be expanded", "pvc", pvc.Name, "capacity", pvc.Status.Capacity.Storage())
 	return ctrl.Result{Requeue: true}, nil
 }
 
@@ -140,7 +143,7 @@ func (r *ResizePVReconcile) updatePVC(ctx context.Context, pvc *corev1.Persisten
 		}
 		return ctrl.Result{}, err
 	}
-	r.VRec.Log.Info("PVC resized, so requeue iteration to wait for PV to get resized.", "pvc", pvc.Name)
+	r.Log.Info("PVC resized, so requeue iteration to wait for PV to get resized.", "pvc", pvc.Name)
 	return ctrl.Result{Requeue: true}, nil
 }
 
@@ -154,7 +157,7 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 		return ctrl.Result{}, nil
 	}
 	if !pf.upNode {
-		r.VRec.Log.Info("Depot size needs to be checked in vertica. Requeue to wait for vertica to come up")
+		r.Log.Info("Depot size needs to be checked in vertica. Requeue to wait for vertica to come up")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if pf.depotDiskPercentSize == "" {
@@ -180,11 +183,11 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 	// depot size differently (i.e. rounding, etc.)
 	depotSizeLB := (curLocalDataSize * int64(dpAsInt) / 100) - (5 * 1024 * 1024)
 	if int64(pf.maxDepotSize) >= depotSizeLB {
-		r.VRec.Log.Info("Depot resize isn't needed in Vertica",
+		r.Log.Info("Depot resize isn't needed in Vertica",
 			"cur depot size", pf.maxDepotSize, "expected depot size", depotSizeLB)
 		return ctrl.Result{}, nil
 	}
-	r.VRec.Log.Info("alter_location_size needed", "curLocalDataSize", curLocalDataSize,
+	r.Log.Info("alter_location_size needed", "curLocalDataSize", curLocalDataSize,
 		"maxDepotSize", pf.maxDepotSize, "depotSizeLB", depotSizeLB)
 	sql := []string{
 		"-tAc",

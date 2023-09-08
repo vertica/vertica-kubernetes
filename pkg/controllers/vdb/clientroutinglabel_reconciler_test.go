@@ -50,7 +50,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		pfn2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
 		pfacts.Detail[pfn2].shardSubscriptions = 3
 		pfacts.Detail[pfn2].upNode = true
-		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, PodRescheduleApplyMethod, "")
+		r := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, PodRescheduleApplyMethod, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		pod := &corev1.Pod{}
@@ -81,7 +81,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		pfn2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
 		pfacts.Detail[pfn2].shardSubscriptions = 3
 		pfacts.Detail[pfn2].upNode = true
-		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, PodRescheduleApplyMethod, vdb.Spec.Subclusters[0].Name)
+		r := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, PodRescheduleApplyMethod, vdb.Spec.Subclusters[0].Name)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		pod := &corev1.Pod{}
@@ -111,7 +111,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 			pfacts.Detail[pn].upNode = true
 			pfacts.Detail[pn].shardSubscriptions = int(i) // Ensures that only one pod will not have subscriptions
 		}
-		r := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, AddNodeApplyMethod, "")
+		r := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, AddNodeApplyMethod, "")
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		pod := &corev1.Pod{}
@@ -142,7 +142,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pn].upNode = true
 		pfacts.Detail[pn].shardSubscriptions = 10
-		act := MakeClientRoutingLabelReconciler(vdbRec, vdb, &pfacts, AddNodeApplyMethod, "")
+		act := MakeClientRoutingLabelReconciler(vdbRec, logger, vdb, &pfacts, AddNodeApplyMethod, "")
 		r := act.(*ClientRoutingLabelReconciler)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

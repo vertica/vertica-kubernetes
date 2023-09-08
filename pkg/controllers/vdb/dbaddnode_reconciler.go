@@ -48,7 +48,7 @@ func MakeDBAddNodeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 ) controllers.ReconcileActor {
 	return &DBAddNodeReconciler{
 		VRec:       vdbrecon,
-		Log:        log,
+		Log:        log.WithName("DBAddNodeReconciler"),
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,

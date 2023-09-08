@@ -19,6 +19,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -30,6 +31,7 @@ import (
 
 // MetricReconciler will refresh any metrics based on latest podfacts
 type MetricReconciler struct {
+	Log     logr.Logger
 	VRec    *VerticaDBReconciler
 	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts  *PodFacts
@@ -45,9 +47,15 @@ type subclusterGaugeDetail struct {
 }
 
 // MakeMetricReconciler will build a MetricReconciler object
-func MakeMetricReconciler(vrec *VerticaDBReconciler, vdb *vapi.VerticaDB,
+func MakeMetricReconciler(vrec *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
 	prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
-	return &MetricReconciler{VRec: vrec, Vdb: vdb, PFacts: pfacts, PRunner: prunner}
+	return &MetricReconciler{
+		Log:     log.WithName("MetricReconciler"),
+		VRec:    vrec,
+		Vdb:     vdb,
+		PFacts:  pfacts,
+		PRunner: prunner,
+	}
 }
 
 // Reconcile will update the metrics based on the pod facts
@@ -64,7 +72,7 @@ func (p *MetricReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		if !p.Vdb.HasReviveInstanceIDAnnotation() {
-			p.VRec.Log.Info("Skipping metrics reconcile until we know the revive_instance_id")
+			p.Log.Info("Skipping metrics reconcile until we know the revive_instance_id")
 			return ctrl.Result{}, nil
 		}
 	}
