@@ -28,12 +28,12 @@ import (
 
 var _ = Describe("analyze", func() {
 	It("should be able to extract out a common prefix", func() {
-		prsr := atparser.Parser{
+		parser := atparser.Parser{
 			Database: atparser.Database{
 				Name: "vertdb",
 			},
 		}
-		p := Planner{Parser: &prsr}
+		p := Planner{Parser: &parser}
 		pathPrefix, ok := p.extractPathPrefixFromVNodePath("/data/vertdb/v_vertdb_node0001_catalog")
 		Expect(ok).Should(BeTrue())
 		Expect(pathPrefix).Should(Equal("/data"))
@@ -45,24 +45,24 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to extract out a common prefix if db has capital letters", func() {
-		prsr := atparser.Parser{
+		parser := atparser.Parser{
 			Database: atparser.Database{
 				Name: "Vertica_Dashboard",
 			},
 		}
-		p := Planner{Parser: &prsr}
+		p := Planner{Parser: &parser}
 		pathPrefix, ok := p.extractPathPrefixFromVNodePath("/vertica/dat/Vertica_Dashboard/v_vertica_dashboard_node0001_data")
 		Expect(ok).Should(BeTrue())
 		Expect(pathPrefix).Should(Equal("/vertica/dat"))
 	})
 
 	It("should be able to find common paths", func() {
-		prsr := atparser.Parser{
+		parser := atparser.Parser{
 			Database: atparser.Database{
 				Name: "v",
 			},
 		}
-		p := Planner{Parser: &prsr}
+		p := Planner{Parser: &parser}
 		Expect(p.getCommonPath([]string{
 			"/data/prefix/v/v_v_node0001_depot",
 			"/data/prefix/v/v_v_node0002_depot",
@@ -83,12 +83,12 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to find common paths after accounting for an outlier", func() {
-		prsr := atparser.Parser{
+		parser := atparser.Parser{
 			Database: atparser.Database{
 				Name: "v",
 			},
 		}
-		p := Planner{Parser: &prsr}
+		p := Planner{Parser: &parser}
 		Expect(p.getCommonPath([]string{
 			"/path1/prefix/v/v_v_node0001_data",
 			"/outlier/prefix/v/v_v_node0002_data",
@@ -106,12 +106,12 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to find common paths when db/node isn't a suffix", func() {
-		prsr := atparser.Parser{
+		parser := atparser.Parser{
 			Database: atparser.Database{
 				Name: "v",
 			},
 		}
-		p := Planner{Parser: &prsr}
+		p := Planner{Parser: &parser}
 		Expect(p.getCommonPath([]string{
 			"/vertica/dbx/node1/ssd",
 			"/vertica/dbx/all-remaining-nodes/ssd",

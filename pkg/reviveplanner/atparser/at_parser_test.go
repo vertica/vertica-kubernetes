@@ -136,12 +136,12 @@ var _ = Describe("atparser", func() {
 		]
 		
 		Number of primary nodes: 1`
-		Ω(parser.Parse(sampleOutput)).Should(Succeed())
-		Ω(parser.GetDatabaseName()).Should(Equal("vertdb"))
-		Ω(len(parser.Database.Nodes)).Should(Equal(1))
-		Ω(parser.Database.Nodes[0].Host).Should(Equal("10.244.0.47"))
-		Ω(parser.Database.Nodes[0].Port).Should(Equal(5433))
-		Ω(parser.GetNumShards()).Should(Equal(6))
-		Ω(parser.CommunalLocation.DepotPath).Should(Equal("/depot"))
+		Expect(parser.Parse(sampleOutput)).Should(Succeed())
+		Expect(parser.GetDatabaseName()).Should(Equal("vertdb"))
+		Expect(len(parser.Database.Nodes)).Should(Equal(1))
+		Expect(parser.Database.Nodes[0].Host).Should(Equal("10.244.0.47"))
+		Expect(parser.Database.Nodes[0].Port).Should(Equal(5433))
+		Expect(parser.GetNumShards()).Should(Equal(6))
+		Expect(parser.CommunalLocation.DepotPath).Should(Equal("/depot"))
 	})
 })
