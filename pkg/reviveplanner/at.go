@@ -37,8 +37,8 @@ func MakeATParser(log logr.Logger) ClusterConfigParser {
 	}
 }
 
-// getDataPaths will return the data paths for each node
-func (a *ATParser) getDataPaths() []string {
+// GetDataPaths will return the data paths for each node
+func (a *ATParser) GetDataPaths() []string {
 	paths := []string{}
 	for i := range a.Database.Nodes {
 		paths = append(paths, a.Database.Nodes[i].GetDataPaths()...)
@@ -46,8 +46,8 @@ func (a *ATParser) getDataPaths() []string {
 	return paths
 }
 
-// getDepotPaths will return the depot paths for each node
-func (a *ATParser) getDepotPaths() []string {
+// GetDepotPaths will return the depot paths for each node
+func (a *ATParser) GetDepotPaths() []string {
 	paths := []string{}
 	for i := range a.Database.Nodes {
 		paths = append(paths, a.Database.Nodes[i].GetDepotPath()...)
@@ -55,8 +55,8 @@ func (a *ATParser) getDepotPaths() []string {
 	return paths
 }
 
-// getCatalogPaths will return the catalog paths that are set for each node.
-func (a *ATParser) getCatalogPaths() []string {
+// GetCatalogPaths will return the catalog paths that are set for each node.
+func (a *ATParser) GetCatalogPaths() []string {
 	paths := []string{}
 	for i := range a.Database.Nodes {
 		paths = append(paths, a.Database.Nodes[i].CatalogPath)
@@ -64,8 +64,8 @@ func (a *ATParser) getCatalogPaths() []string {
 	return paths
 }
 
-// getNumShards returns the number of shards in the cluster config
-func (a *ATParser) getNumShards() (int, error) {
+// GetNumShards returns the number of shards in the cluster config
+func (a *ATParser) GetNumShards() (int, error) {
 	foundShardCount, err := strconv.Atoi(a.CommunalLocation.NumShards)
 	if err != nil {
 		return 0, fmt.Errorf("failed to convert shard in revive --display-only output to int: %s",
@@ -74,7 +74,7 @@ func (a *ATParser) getNumShards() (int, error) {
 	return foundShardCount, nil
 }
 
-// getDatabaseName returns the name of the database as found in the cluster config
-func (a *ATParser) getDatabaseName() string {
+// GetDatabaseName returns the name of the database as found in the cluster config
+func (a *ATParser) GetDatabaseName() string {
 	return a.Database.Name
 }

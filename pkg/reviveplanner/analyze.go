@@ -37,8 +37,6 @@ func MakePlanner(log logr.Logger, parser ClusterConfigParser) *Planner {
 	}
 }
 
-// SPILLY - rename 'a' to 'p'
-
 // IsCompatible will check the vdb and extracted revive info to see if
 // everything is compatible. Returns a failure if an error is detected.
 func (a *Planner) IsCompatible() (string, bool) {
@@ -55,11 +53,11 @@ func (a *Planner) checkForCompatiblePaths() error {
 	// To see if the revive is compatible, we are going to check each of the
 	// paths of all the nodes. The prefix of each path needs to be the same. The
 	// operator assumes that all paths are homogeneous across all vertica hosts.
-	if _, err := a.getCommonPath(a.Parser.getDepotPaths(), ""); err != nil {
+	if _, err := a.getCommonPath(a.Parser.GetDepotPaths(), ""); err != nil {
 		return err
 	}
 
-	catPath, err := a.getCommonPath(a.Parser.getCatalogPaths(), "")
+	catPath, err := a.getCommonPath(a.Parser.GetCatalogPaths(), "")
 	if err != nil {
 		return err
 	}
@@ -71,14 +69,14 @@ func (a *Planner) checkForCompatiblePaths() error {
 	// still has the correct path for data.  But if a scale-out occurs with the
 	// bad admintools.conf, new nodes will have a data path that matches the
 	// catalog path.
-	_, err = a.getCommonPath(a.Parser.getDataPaths(), catPath)
+	_, err = a.getCommonPath(a.Parser.GetDataPaths(), catPath)
 	return err
 }
 
 // ApplyChanges will update the input vdb based on things it found during
 // analysis. Return true if the vdb was updated.
 func (a *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
-	foundShardCount, err := a.Parser.getNumShards()
+	foundShardCount, err := a.Parser.GetNumShards()
 	if err != nil {
 		a.Log.Info("Failed to convert shard in cluster config", "err", err)
 		// We won't be able to validate/update the shard count. Ignore the error and continue.
@@ -89,7 +87,7 @@ func (a *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 		updated = true
 	}
 
-	catPath, err := a.getCommonPath(a.Parser.getCatalogPaths(), "")
+	catPath, err := a.getCommonPath(a.Parser.GetCatalogPaths(), "")
 	if err != nil {
 		return
 	}
@@ -102,7 +100,7 @@ func (a *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 	// Generally the data path should be the same across all hosts. But it's
 	// possible for some nodes to have different one -- as long as the different
 	// path matches the catalog path.
-	dataPath, err := a.getCommonPath(a.Parser.getDataPaths(), catPath)
+	dataPath, err := a.getCommonPath(a.Parser.GetDataPaths(), catPath)
 	if err != nil {
 		return
 	}
@@ -112,7 +110,7 @@ func (a *Planner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) {
 		updated = true
 	}
 
-	depotPath, err := a.getCommonPath(a.Parser.getDepotPaths(), "")
+	depotPath, err := a.getCommonPath(a.Parser.GetDepotPaths(), "")
 	if err != nil {
 		return
 	}
@@ -199,26 +197,26 @@ func (a *Planner) getCommonPath(paths []string, allowedOutlier string) (string, 
 }
 
 // removeOutliers builds a path list with any outliers removed
-func (a *Planner) removeOutliers(paths []string, allowedOutlier string) []string {
-	p := []string{}
+func (p *Planner) removeOutliers(paths []string, allowedOutlier string) []string {
+	outPaths := []string{}
 	for i := range paths {
 		if paths[i] == allowedOutlier {
 			continue
 		}
-		if pathPrefix, ok := a.extractPathPrefixFromVNodePath(paths[i]); ok && pathPrefix == allowedOutlier {
+		if pathPrefix, ok := p.extractPathPrefixFromVNodePath(paths[i]); ok && pathPrefix == allowedOutlier {
 			continue
 		}
-		p = append(p, paths[i])
+		outPaths = append(outPaths, paths[i])
 	}
-	return p
+	return outPaths
 }
 
 // extractPathPrefixFromVNodePath will extract out the prefix of a vertica POSIX path. This
 // path could be catalog, depot or data path.
-func (a *Planner) extractPathPrefixFromVNodePath(path string) (string, bool) {
+func (p *Planner) extractPathPrefixFromVNodePath(path string) (string, bool) {
 	// Path will come in the form: <prefix>/<dbname>/v_<dbname>_<nodenum>_<pathType>
 	// This function will return <prefix>.
-	dbName := a.Parser.getDatabaseName()
+	dbName := p.Parser.GetDatabaseName()
 	r := regexp.MustCompile(fmt.Sprintf(`(.*)/%s/v_%s_node[0-9]{4}_`, dbName, strings.ToLower(dbName)))
 	m := r.FindStringSubmatch(path)
 	const ExpectedMatches = 2
@@ -235,8 +233,8 @@ func min(a, b int) int {
 	return a
 }
 
-func (a *Planner) trimOffDatabaseDir(fullPath, partialDir string) string {
-	dbName := a.Parser.getDatabaseName()
+func (p *Planner) trimOffDatabaseDir(fullPath, partialDir string) string {
+	dbName := p.Parser.GetDatabaseName()
 	dbNameSuffix := fmt.Sprintf("/%s/", dbName)
 	if strings.HasPrefix(partialDir, fmt.Sprintf("v_%s_node", strings.ToLower(dbName))) && strings.HasSuffix(fullPath, dbNameSuffix) {
 		return strings.TrimSuffix(fullPath, dbNameSuffix)

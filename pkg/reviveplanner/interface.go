@@ -24,18 +24,20 @@ const (
 	UsageIsDepot = 5
 )
 
-// SPILLY - update
+// ClusterConfigParser is an interface for parsing the output of the revive
+// --display-only command.
 type ClusterConfigParser interface {
-	// Analyze will look at the given output, from revive --display-only, and
-	// parse it into Go structs.
+	// Parse will look at the given output, from revive --display-only, and
+	// parse it into Go structs. Accessor functions exist to get at the various
+	// states it parses.
 	Parse(op string) error
 
-	// SPILLY - export functions?
-	getDataPaths() []string
-	getDepotPaths() []string
-	getCatalogPaths() []string
-	getNumShards() (int, error)
-	getDatabaseName() string
+	// Accessor functions for the states that we found while parsing.
+	GetDataPaths() []string
+	GetDepotPaths() []string
+	GetCatalogPaths() []string
+	GetNumShards() (int, error)
+	GetDatabaseName() string
 }
 
 // ClusterConfigParserFactory is a factory function that builds a concrete

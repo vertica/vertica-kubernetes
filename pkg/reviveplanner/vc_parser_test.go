@@ -299,23 +299,23 @@ var _ = Describe("vc_parser", func() {
    "Timestamp" : "2023-09-07 17:55:35.015395"
 }`
 		Ω(parser.Parse(sampleOutput)).Should(Succeed())
-		Ω(parser.getDatabaseName()).Should(Equal("vertdb"))
-		Ω(parser.getNumShards()).Should(Equal(6))
-		depotPaths := parser.getDepotPaths()
+		Ω(parser.GetDatabaseName()).Should(Equal("vertdb"))
+		Ω(parser.GetNumShards()).Should(Equal(6))
+		depotPaths := parser.GetDepotPaths()
 		Ω(depotPaths).Should(HaveLen(3))
 		Ω(depotPaths).Should(ContainElements(
 			"/depot/vertdb/v_vertdb_node0001_depot",
 			"/depot/vertdb/v_vertdb_node0002_depot",
 			"/depot/vertdb/v_vertdb_node0003_depot",
 		))
-		dataPaths := parser.getDataPaths()
+		dataPaths := parser.GetDataPaths()
 		Ω(dataPaths).Should(HaveLen(3))
 		Ω(dataPaths).Should(ContainElements(
 			"/data/vertdb/v_vertdb_node0001_data",
 			"/data/vertdb/v_vertdb_node0002_data",
 			"/data/vertdb/v_vertdb_node0003_data",
 		))
-		catalogPaths := parser.getCatalogPaths()
+		catalogPaths := parser.GetCatalogPaths()
 		Ω(catalogPaths).Should(HaveLen(3))
 		Ω(catalogPaths).Should(ContainElements(
 			"/data/vertdb/v_vertdb_node0001_catalog",

@@ -75,13 +75,13 @@ func (v *VCParser) Parse(op string) error {
 	return nil
 }
 
-// getDataPaths will return the data paths for each node
-func (v *VCParser) getDataPaths() []string {
+// GetDataPaths will return the data paths for each node
+func (v *VCParser) GetDataPaths() []string {
 	return v.getPathsByUsage(UsageIsDataTemp)
 }
 
-// getDepotPaths will return the depot paths for each node
-func (v *VCParser) getDepotPaths() []string {
+// GetDepotPaths will return the depot paths for each node
+func (v *VCParser) GetDepotPaths() []string {
 	return v.getPathsByUsage(UsageIsDepot)
 }
 
@@ -96,8 +96,8 @@ func (v *VCParser) getPathsByUsage(usage int) []string {
 	return paths
 }
 
-// getCatalogPaths will return the catalog paths that are set for each node.
-func (v *VCParser) getCatalogPaths() []string {
+// GetCatalogPaths will return the catalog paths that are set for each node.
+func (v *VCParser) GetCatalogPaths() []string {
 	paths := []string{}
 	for i := range v.ClusterConfigData.Nodes {
 		// The catalog path has a '/Catalog' prefix that we need to remove to be
@@ -108,14 +108,13 @@ func (v *VCParser) getCatalogPaths() []string {
 	return paths
 }
 
-// getNumShards returns the number of shards in the cluster config
-func (v *VCParser) getNumShards() (int, error) {
+// GetNumShards returns the number of shards in the cluster config
+func (v *VCParser) GetNumShards() (int, error) {
 	// Actual shard count return is always -1 to account for replica shard.
 	return v.ClusterConfigData.ShardCount - 1, nil
 }
 
-// SPILLY - do we check that the database name is the same?
-// getDatabaseName returns the name of the database as found in the cluster config
-func (v *VCParser) getDatabaseName() string {
+// GetDatabaseName returns the name of the database as found in the cluster config
+func (v *VCParser) GetDatabaseName() string {
 	return v.ClusterConfigData.Database.Name
 }
