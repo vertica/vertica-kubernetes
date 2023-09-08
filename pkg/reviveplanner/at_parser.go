@@ -26,18 +26,9 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 )
 
-// SPILLY - rename this to atparser.go
-
 // The format of the next few struct's is implemented in the server. Do not add
 // new fields in here, unless those new fields are also exposed by the server's
 // 'admintools -t revive_db --display-only' output.
-
-const (
-	// The usage number for DATA,TEMP. Set internally by Vertica.
-	UsageIsDataTemp = 3
-	// The usage number for DEPOT. Set internally by Vertica.
-	UsageIsDepot = 5
-)
 
 // CommunalLocation shows information about the database's communal storage
 type CommunalLocation struct {

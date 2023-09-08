@@ -20,9 +20,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("parser", func() {
+var _ = Describe("at_parser", func() {
 	It("should parse the sample output", func() {
-		planner := ATParser{}
+		parser := ATParser{}
 		sampleOutput := `Attempting to retrieve file: [/db/cad47f8e-7cca-48dd-8d9c-a2403f6c457f/metadata/vertdb/cluster_config.json]
 
 		Validated 1-node database vertdb defined at communal storage /db/cad47f8e-7cca-48dd-8d9c-a2403f6c457f.
@@ -136,12 +136,12 @@ var _ = Describe("parser", func() {
 		]
 		
 		Number of primary nodes: 1`
-		Expect(planner.Parse(sampleOutput)).Should(Succeed())
-		Expect(planner.Database.Name).Should(Equal("vertdb"))
-		Expect(len(planner.Database.Nodes)).Should(Equal(1))
-		Expect(planner.Database.Nodes[0].Host).Should(Equal("10.244.0.47"))
-		Expect(planner.Database.Nodes[0].Port).Should(Equal(5433))
-		Expect(planner.CommunalLocation.NumShards).Should(Equal("6"))
-		Expect(planner.CommunalLocation.DepotPath).Should(Equal("/depot"))
+		Expect(parser.Parse(sampleOutput)).Should(Succeed())
+		Expect(parser.Database.Name).Should(Equal("vertdb"))
+		Expect(len(parser.Database.Nodes)).Should(Equal(1))
+		Expect(parser.Database.Nodes[0].Host).Should(Equal("10.244.0.47"))
+		Expect(parser.Database.Nodes[0].Port).Should(Equal(5433))
+		Expect(parser.CommunalLocation.NumShards).Should(Equal("6"))
+		Expect(parser.CommunalLocation.DepotPath).Should(Equal("/depot"))
 	})
 })

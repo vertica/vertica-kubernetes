@@ -15,6 +15,15 @@
 
 package reviveplanner
 
+import "github.com/go-logr/logr"
+
+const (
+	// The usage number for DATA,TEMP. Set internally by Vertica.
+	UsageIsDataTemp = 3
+	// The usage number for DEPOT. Set internally by Vertica.
+	UsageIsDepot = 5
+)
+
 // SPILLY - update
 type ClusterConfigParser interface {
 	// Analyze will look at the given output, from revive --display-only, and
@@ -27,4 +36,13 @@ type ClusterConfigParser interface {
 	getCatalogPaths() []string
 	getNumShards() (int, error)
 	getDatabaseName() string
+}
+
+// ClusterConfigParserFactory is a factory function that builds a concrete
+// struct that implements the ClusterConfigParser interface.
+func ClusterConfigParserFactory(vclusterOps bool, log logr.Logger) ClusterConfigParser {
+	if vclusterOps {
+		return MakeVCParser(log)
+	}
+	return MakeATParser(log)
 }

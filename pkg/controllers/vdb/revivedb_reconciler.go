@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
@@ -56,14 +57,16 @@ type ReviveDBReconciler struct {
 func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
-	// SPILLY - pick the parser based on vclusterops
 	return &ReviveDBReconciler{
-		VRec:                vdbrecon,
-		Log:                 log,
-		Vdb:                 vdb,
-		PRunner:             prunner,
-		PFacts:              pfacts,
-		Planr:               reviveplanner.MakePlanner(log, reviveplanner.MakeATParser(log)),
+		VRec:    vdbrecon,
+		Log:     log,
+		Vdb:     vdb,
+		PRunner: prunner,
+		PFacts:  pfacts,
+		Planr: reviveplanner.MakePlanner(
+			log,
+			reviveplanner.ClusterConfigParserFactory(vmeta.UseVClusterOps(vdb.Annotations), log),
+		),
 		Dispatcher:          dispatcher,
 		ConfigurationParams: vtypes.MakeCiMap(),
 	}
