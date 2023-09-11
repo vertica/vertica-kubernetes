@@ -22,15 +22,18 @@ import (
 	. "github.com/onsi/gomega"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/atparser"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/util"
 )
 
 var _ = Describe("analyze", func() {
 	It("should be able to extract out a common prefix", func() {
-		p := ATPlanner{
-			Database: Database{
+		parser := atparser.Parser{
+			Database: atparser.Database{
 				Name: "vertdb",
 			},
 		}
+		p := Planner{Parser: &parser}
 		pathPrefix, ok := p.extractPathPrefixFromVNodePath("/data/vertdb/v_vertdb_node0001_catalog")
 		Expect(ok).Should(BeTrue())
 		Expect(pathPrefix).Should(Equal("/data"))
@@ -42,22 +45,24 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to extract out a common prefix if db has capital letters", func() {
-		p := ATPlanner{
-			Database: Database{
+		parser := atparser.Parser{
+			Database: atparser.Database{
 				Name: "Vertica_Dashboard",
 			},
 		}
+		p := Planner{Parser: &parser}
 		pathPrefix, ok := p.extractPathPrefixFromVNodePath("/vertica/dat/Vertica_Dashboard/v_vertica_dashboard_node0001_data")
 		Expect(ok).Should(BeTrue())
 		Expect(pathPrefix).Should(Equal("/vertica/dat"))
 	})
 
 	It("should be able to find common paths", func() {
-		p := ATPlanner{
-			Database: Database{
+		parser := atparser.Parser{
+			Database: atparser.Database{
 				Name: "v",
 			},
 		}
+		p := Planner{Parser: &parser}
 		Expect(p.getCommonPath([]string{
 			"/data/prefix/v/v_v_node0001_depot",
 			"/data/prefix/v/v_v_node0002_depot",
@@ -78,11 +83,12 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to find common paths after accounting for an outlier", func() {
-		p := ATPlanner{
-			Database: Database{
+		parser := atparser.Parser{
+			Database: atparser.Database{
 				Name: "v",
 			},
 		}
+		p := Planner{Parser: &parser}
 		Expect(p.getCommonPath([]string{
 			"/path1/prefix/v/v_v_node0001_data",
 			"/outlier/prefix/v/v_v_node0002_data",
@@ -100,11 +106,12 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should be able to find common paths when db/node isn't a suffix", func() {
-		p := ATPlanner{
-			Database: Database{
+		parser := atparser.Parser{
+			Database: atparser.Database{
 				Name: "v",
 			},
 		}
+		p := Planner{Parser: &parser}
 		Expect(p.getCommonPath([]string{
 			"/vertica/dbx/node1/ssd",
 			"/vertica/dbx/all-remaining-nodes/ssd",
@@ -133,7 +140,8 @@ var _ = Describe("analyze", func() {
 
 	It("should update vdb based on revive output", func() {
 		vdb := vapi.MakeVDB()
-		p := MakeATPlannerFromVDB(vdb, logger)
+		parser := atparser.MakeATParserFromVDB(vdb, logger)
+		p := Planner{Parser: &parser}
 
 		origVdb := vdb.DeepCopy()
 
@@ -153,7 +161,8 @@ var _ = Describe("analyze", func() {
 	It("should update depotVolume when is EmptyDir and depot path is not unique", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Local.DepotPath = vdb.Spec.Local.DataPath
-		p := MakeATPlannerFromVDB(vdb, logger)
+		parser := atparser.MakeATParserFromVDB(vdb, logger)
+		p := Planner{Parser: &parser}
 
 		origVdb := vdb.DeepCopy()
 
@@ -169,65 +178,66 @@ var _ = Describe("analyze", func() {
 	})
 
 	It("should say revive isn't compatible if paths differ among nodes", func() {
-		p := ATPlanner{
-			Database: Database{
+		p := atparser.Parser{
+			Database: atparser.Database{
 				Name: "mydb",
-				Nodes: []Node{
+				Nodes: []atparser.Node{
 					{
 						Name:        "v_mydb_node0001",
 						CatalogPath: "/cat/mydb/v_mydb_node0001_catalog",
-						VStorageLocations: []StorageLocation{
+						VStorageLocations: []atparser.StorageLocation{
 							{
 								Path:  "/dep/mydb/v_mydb_node0001_depot",
-								Usage: UsageIsDepot,
+								Usage: util.UsageIsDepot,
 							},
 							{
 								Path:  "/dat/mydb/v_mydb_node0001_data",
-								Usage: UsageIsDataTemp,
+								Usage: util.UsageIsDataTemp,
 							},
 						},
 					}, {
 						Name:        "v_mydb_node0002",
 						CatalogPath: "/cat/mydb/v_mydb_node0002_catalog",
-						VStorageLocations: []StorageLocation{
+						VStorageLocations: []atparser.StorageLocation{
 							{
 								Path:  "/dep/mydb/v_mydb_node0002_depot",
-								Usage: UsageIsDepot,
+								Usage: util.UsageIsDepot,
 							},
 							{
 								Path:  "/dat/mydb/v_mydb_node0002_data",
-								Usage: UsageIsDataTemp,
+								Usage: util.UsageIsDataTemp,
 							},
 						},
 					},
 				},
 			},
 		}
-		_, ok := p.IsCompatible()
+		plnr := Planner{Parser: &p}
+		_, ok := plnr.IsCompatible()
 		Expect(ok).Should(BeTrue())
 
 		origCatPath := p.Database.Nodes[1].CatalogPath
 		p.Database.Nodes[1].CatalogPath = fmt.Sprintf("/something-not-common%s", origCatPath)
-		msg, ok := p.IsCompatible()
+		msg, ok := plnr.IsCompatible()
 		Expect(ok).Should(BeFalse())
 		Expect(len(msg)).ShouldNot(Equal(0))
 		p.Database.Nodes[1].CatalogPath = origCatPath
 
 		origDepotPath := p.Database.Nodes[1].VStorageLocations[0].Path
 		p.Database.Nodes[1].VStorageLocations[0].Path = fmt.Sprintf("/a%s", origDepotPath)
-		msg, ok = p.IsCompatible()
+		msg, ok = plnr.IsCompatible()
 		Expect(ok).Should(BeFalse())
 		Expect(len(msg)).ShouldNot(Equal(0))
 		p.Database.Nodes[1].VStorageLocations[0].Path = origDepotPath
 
 		origDataPath := p.Database.Nodes[0].VStorageLocations[1].Path
 		p.Database.Nodes[0].VStorageLocations[1].Path = fmt.Sprintf("/b%s", origDataPath)
-		msg, ok = p.IsCompatible()
+		msg, ok = plnr.IsCompatible()
 		Expect(ok).Should(BeFalse())
 		Expect(len(msg)).ShouldNot(Equal(0))
 		p.Database.Nodes[0].VStorageLocations[1].Path = origDataPath
 
-		_, ok = p.IsCompatible()
+		_, ok = plnr.IsCompatible()
 		Expect(ok).Should(BeTrue())
 	})
 })

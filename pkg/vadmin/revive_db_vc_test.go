@@ -26,6 +26,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	TestDescribeOutput = "<sample data coming back>"
+)
+
 // mock version of VReviveDatabase() that is invoked inside VClusterOps
 func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, error) {
 	// verify basic options
@@ -33,7 +37,13 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 	if err != nil {
 		return "", err
 	}
-	err = m.VerifyHosts(&options.DatabaseOptions)
+
+	// If running with display only, we only use a single host.
+	var expectedHosts = TestHosts
+	if *options.DisplayOnly {
+		expectedHosts = []string{TestHosts[0]}
+	}
+	err = m.VerifyHosts(&options.DatabaseOptions, expectedHosts)
 	if err != nil {
 		return "", err
 	}
@@ -44,6 +54,9 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.CommunalStorageParameters)
 	if err != nil {
 		return "", err
+	}
+	if *options.DisplayOnly {
+		return TestDescribeOutput, nil
 	}
 	return "", nil
 }

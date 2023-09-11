@@ -13,21 +13,17 @@
  limitations under the License.
 */
 
-package reviveplanner
+package vcparser
 
-import "github.com/go-logr/logr"
+import (
+	"testing"
 
-type ATPlanner struct {
-	Database         Database
-	CommunalLocation CommunalLocation
-	Log              logr.Logger
-	ParseComplete    bool
-}
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-// MakeATPlanner is a factory function for the Planner interface. This makes one
-// specific to admintools output.
-func MakeATPlanner(log logr.Logger) Planner {
-	return &ATPlanner{
-		Log: log,
-	}
+func TestAPIs(t *testing.T) {
+	RegisterFailHandler(Fail)
+
+	RunSpecs(t, "vcparser Suite")
 }

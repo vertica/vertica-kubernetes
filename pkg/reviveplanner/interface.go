@@ -16,19 +16,46 @@
 package reviveplanner
 
 import (
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/go-logr/logr"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/atparser"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/vcparser"
 )
 
-type Planner interface {
-	// Analyze will look at the given output, from revive --display-only, and
-	// parse it into Go structs.
+// ClusterConfigParser is an interface for parsing the output of the revive
+// --display-only command.
+type ClusterConfigParser interface {
+	// Parse will look at the given output, from revive --display-only, and
+	// parse it into Go structs. Accessor functions exist to get at the various
+	// states it parses.
 	Parse(op string) error
 
-	// IsCompatible will check if the revive will even work in k8s. A failure
-	// message is returned if it isn't compatible.
-	IsCompatible() (string, bool)
+	// Accessor functions for the states that we found while parsing.
+	GetDataPaths() []string
+	GetDepotPaths() []string
+	GetCatalogPaths() []string
+	GetNumShards() (int, error)
+	GetDatabaseName() string
+}
 
-	// ApplyChanges will update the input vdb based on things it found during
-	// analysis. Return true if the vdb was updated.
-	ApplyChanges(vdb *vapi.VerticaDB) (bool, error)
+// ClusterConfigParserFactory is a factory function that builds a concrete
+// struct that implements the ClusterConfigParser interface.
+func ClusterConfigParserFactory(vclusterOps bool, log logr.Logger) ClusterConfigParser {
+	if vclusterOps {
+		return makeVCParser()
+	}
+	return makeATParser(log)
+}
+
+// makeATParser is a factory function for the ClusterConfigParser interface.
+// This makes one specific to admintools output.
+func makeATParser(log logr.Logger) ClusterConfigParser {
+	return &atparser.Parser{
+		Log: log.WithName("ATParser"),
+	}
+}
+
+// makeVCParser is a factory function for the ClusterConfigParser interface.
+// This makes one specific to vcluster output.
+func makeVCParser() ClusterConfigParser {
+	return &vcparser.Parser{}
 }
