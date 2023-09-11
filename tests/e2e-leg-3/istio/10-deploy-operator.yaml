@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "cd ../../.. && make deploy-operator DEPLOY_WITH=helm WATCH_NAMESPACE=$NAMESPACE HELM_OVERRIDES='--set webhook.enable=false'"
+  - command: sh -c "cd ../../.. && make deploy-operator DEPLOY_WITH=helm WATCH_NAMESPACE=$NAMESPACE"
