@@ -153,9 +153,9 @@ func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOpti
 }
 
 // VerifyHosts is used in vcluster-ops unit test for verifying hosts
-func (m *MockVClusterOps) VerifyHosts(options *vops.DatabaseOptions) error {
-	if !reflect.DeepEqual(options.RawHosts, TestHosts) {
-		return fmt.Errorf("failed to retrieve hosts")
+func (m *MockVClusterOps) VerifyHosts(options *vops.DatabaseOptions, hosts []string) error {
+	if !reflect.DeepEqual(options.RawHosts, hosts) {
+		return fmt.Errorf("failed to retrieve hosts '%v' in '%v'", hosts, options.RawHosts)
 	}
 
 	return nil

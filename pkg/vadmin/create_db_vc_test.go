@@ -49,7 +49,7 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 	}
 
 	// verify basic options
-	err = m.VerifyHosts(&options.DatabaseOptions)
+	err = m.VerifyHosts(&options.DatabaseOptions, TestHosts)
 	if err != nil {
 		return vdb, err
 	}

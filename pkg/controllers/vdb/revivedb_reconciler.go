@@ -48,7 +48,7 @@ type ReviveDBReconciler struct {
 	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner             cmds.PodRunner
 	PFacts              *PodFacts
-	Planr               reviveplanner.Planner
+	Planr               *reviveplanner.Planner
 	Dispatcher          vadmin.Dispatcher
 	ConfigurationParams *vtypes.CiMap
 }
@@ -58,12 +58,15 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReviveDBReconciler{
-		VRec:                vdbrecon,
-		Log:                 log.WithName("ReviveDBReconciler"),
-		Vdb:                 vdb,
-		PRunner:             prunner,
-		PFacts:              pfacts,
-		Planr:               reviveplanner.MakeATPlanner(log),
+		VRec:    vdbrecon,
+		Log:     log.WithName("ReviveDBReconciler"),
+		Vdb:     vdb,
+		PRunner: prunner,
+		PFacts:  pfacts,
+		Planr: reviveplanner.MakePlanner(
+			log,
+			reviveplanner.ClusterConfigParserFactory(vmeta.UseVClusterOps(vdb.Annotations), log),
+		),
 		Dispatcher:          dispatcher,
 		ConfigurationParams: vtypes.MakeCiMap(),
 	}
@@ -106,12 +109,8 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 
 // preCmdSetup is going to run revive with --display-only then validate and
 // fix-up any mismatch it finds.
-func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
-	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
-		// will check db info after --display-only is supported in vcluster revive_db
-		return ctrl.Result{}, nil
-	}
-
+func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName,
+	initiatorIP string, podList []*PodFact) (ctrl.Result, error) {
 	// We need to delete any pods that have a pending revision. This can happen
 	// if in an earlier iteration we changed the paths in pod. Normally, these
 	// types of changes are rolled out via rolling upgrade. But that depends on
@@ -123,7 +122,7 @@ func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	}
 
 	// Generate output to feed into the revive planner
-	stdout, res, err := r.runRevivePrepass(ctx, initiatorPod)
+	stdout, res, err := r.runRevivePrepass(ctx, initiatorPod, initiatorIP)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -234,9 +233,9 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName, ho
 }
 
 // genDescribeOpts will return the options to use with the describe db function
-func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName) []describedb.Option {
+func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName, initiatorIP string) []describedb.Option {
 	return []describedb.Option{
-		describedb.WithInitiator(initiatorPod),
+		describedb.WithInitiator(initiatorPod, initiatorIP),
 		describedb.WithDBName(r.Vdb.Spec.DBName),
 		describedb.WithCommunalPath(r.Vdb.GetCommunalPath()),
 		describedb.WithCommunalStorageParams(paths.AuthParmsFile),
@@ -271,14 +270,15 @@ func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podL
 // runRevivePrepass will run revive with --display-only to check for any
 // preconditions that need to be met. The output of the run is returned so it
 // can be analyzed by the revive planner.
-func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod types.NamespacedName) (string, ctrl.Result, error) {
-	opts := r.genDescribeOpts(initiatorPod)
+func (r *ReviveDBReconciler) runRevivePrepass(ctx context.Context, initiatorPod types.NamespacedName,
+	initiatorIP string) (string, ctrl.Result, error) {
+	opts := r.genDescribeOpts(initiatorPod, initiatorIP)
 	return r.Dispatcher.DescribeDB(ctx, opts...)
 }
 
 func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (ctrl.Result, error) {
 	// Parse the JSON output we get from the AT command.
-	if err := r.Planr.Parse(op); err != nil {
+	if err := r.Planr.Parser.Parse(op); err != nil {
 		return ctrl.Result{}, err
 	}
 	msg, ok := r.Planr.IsCompatible()
