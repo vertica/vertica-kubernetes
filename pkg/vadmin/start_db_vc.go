@@ -55,7 +55,7 @@ func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	v.Log.Info("Successfully start a database", "dbName", *vopts.Name)
+	v.Log.Info("Successfully start a database", "dbName", *vopts.DBName)
 	return ctrl.Result{}, nil
 }
 
@@ -68,7 +68,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	}
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
-	opts.Name = &v.VDB.Spec.DBName
+	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
 	// auth options

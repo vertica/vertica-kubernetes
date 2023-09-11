@@ -55,7 +55,7 @@ func (v *VClusterOps) genRestartNodeOptions(s *restartnode.Parms, certs *HTTPSCe
 	honorUserInput := true
 	opts := vops.VRestartNodesOptions{
 		DatabaseOptions: vops.DatabaseOptions{
-			Name:           &v.VDB.Spec.DBName,
+			DBName:         &v.VDB.Spec.DBName,
 			RawHosts:       []string{s.InitiatorIP},
 			Ipv6:           vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP)),
 			Key:            certs.Key,

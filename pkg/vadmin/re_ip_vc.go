@@ -71,7 +71,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 
 	// database name
-	opts.Name = &v.VDB.Spec.DBName
+	opts.DBName = &v.VDB.Spec.DBName
 
 	// re-ip list
 	for _, h := range s.Hosts {

@@ -110,7 +110,7 @@ func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) err
 	if options.Ipv6.ToBool() != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
 	}
-	if *options.Name != TestDBName {
+	if *options.DBName != TestDBName {
 		return fmt.Errorf("failed to retrieve database name")
 	}
 

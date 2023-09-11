@@ -62,7 +62,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 		opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 	}
 	opts.CatalogPrefix = &s.CatalogPath
-	opts.Name = &s.DBName
+	opts.DBName = &s.DBName
 	opts.LicensePathOnNode = &s.LicensePath
 	*opts.ForceRemovalAtCreation = true
 	opts.SkipPackageInstall = &s.SkipPackageInstall
