@@ -34,10 +34,10 @@ type Parser struct {
 // Cluster is the top level JSON doc for the output for vcluster's ReviveDB
 // output when DisplayOnly is used.
 type Cluster struct {
-	Database        Database           `json:"Database"`
-	ShardCount      int                `json:"ShardCount"`
-	StorageLoctions []StorageLocations `json:"StorageLocation"`
-	Nodes           []Node             `json:"Node"`
+	Database         Database           `json:"Database"`
+	ShardCount       int                `json:"ShardCount"`
+	StorageLocations []StorageLocations `json:"StorageLocation"`
+	Nodes            []Node             `json:"Node"`
 }
 
 // Database contains database information about the cluster
@@ -77,9 +77,9 @@ func (v *Parser) GetDepotPaths() []string {
 // getPathsByUsage is a helper to paths for a specific usage type
 func (v *Parser) getPathsByUsage(usage int) []string {
 	paths := []string{}
-	for i := range v.Cluster.StorageLoctions {
-		if v.Cluster.StorageLoctions[i].Usage == usage {
-			paths = append(paths, v.Cluster.StorageLoctions[i].Path)
+	for i := range v.Cluster.StorageLocations {
+		if v.Cluster.StorageLocations[i].Usage == usage {
+			paths = append(paths, v.Cluster.StorageLocations[i].Path)
 		}
 	}
 	return paths
