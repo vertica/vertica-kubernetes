@@ -52,7 +52,7 @@ func MakeAnnotateAndLabelPodReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 // Reconcile will add annotations to each of the pods so that we flow down
 // system information with the downwardAPI.  The intent of this additional data
 // is for inclusion in Vertica data collector (DC) tables.
-func (s *AnnotateAndLabelPodReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *AnnotateAndLabelPodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

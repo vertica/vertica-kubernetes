@@ -45,7 +45,7 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.Ve
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
-func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	const PKKeySize = 2048
 	// Early out if http server is explicitly disabled or we already have a TLS secret.
 	// For auto, we continue even if the version may not support it. Assuming

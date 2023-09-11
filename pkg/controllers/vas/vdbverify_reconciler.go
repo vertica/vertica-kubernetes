@@ -35,7 +35,7 @@ func MakeVDBVerifyReconciler(r *VerticaAutoscalerReconciler, vas *vapi.VerticaAu
 }
 
 // Reconcile will verify the VerticaDB in the VAS CR exists
-func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// This reconciler is intended to be the first thing we run.  We want early
 	// feedback if the VerticaDB that is referenced in the vas doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.

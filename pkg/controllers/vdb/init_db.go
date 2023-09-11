@@ -261,7 +261,7 @@ func (g *GenericDatabaseInitializer) setS3AuthParms(ctx context.Context) (ctrl.R
 
 // setHDFSAuthParms adds the auth parms to the config parms map when using
 // HDFS communal storage.
-func (g *GenericDatabaseInitializer) setHDFSAuthParms(ctx context.Context) (ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) setHDFSAuthParms(_ context.Context) (ctrl.Result, error) {
 	g.setHadoopConfDir()
 	g.setCAFile()
 	return ctrl.Result{}, nil

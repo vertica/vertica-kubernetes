@@ -31,7 +31,7 @@ type TestEVWriter struct {
 	RecordedEvents []EventDetails
 }
 
-func (t *TestEVWriter) Event(vdb runtime.Object, eventtype, reason, message string) {
+func (t *TestEVWriter) Event(_ runtime.Object, eventtype, reason, message string) {
 	d := EventDetails{
 		EventType: eventtype,
 		Reason:    reason,

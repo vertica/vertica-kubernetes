@@ -1,6 +1,4 @@
 linters-settings:
-  depguard:
-    list-type: blacklist
   dupl:
     threshold: 100
   funlen:
@@ -61,7 +59,6 @@ linters:
   enable:
     - bodyclose
     - deadcode
-    - depguard
     - dogsled
     - dupl
     - errcheck

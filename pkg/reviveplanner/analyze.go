@@ -78,7 +78,7 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 
 	catPath, err := a.getCommonPath(a.getCatalogPaths(), "")
 	if err != nil {
-		return
+		return updated, err
 	}
 	if catPath != vdb.Spec.Local.GetCatalogPath() {
 		a.logPathChange("catalog", vdb.Spec.Local.GetCatalogPath(), catPath)
@@ -91,7 +91,7 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 	// path matches the catalog path.
 	dataPath, err := a.getCommonPath(a.getDataPaths(), catPath)
 	if err != nil {
-		return
+		return updated, err
 	}
 	if dataPath != vdb.Spec.Local.DataPath {
 		a.logPathChange("data", vdb.Spec.Local.DataPath, dataPath)
@@ -101,7 +101,7 @@ func (a *ATPlanner) ApplyChanges(vdb *vapi.VerticaDB) (updated bool, err error) 
 
 	depotPath, err := a.getCommonPath(a.getDepotPaths(), "")
 	if err != nil {
-		return
+		return updated, err
 	}
 	if depotPath != vdb.Spec.Local.DepotPath {
 		a.logPathChange("depot", vdb.Spec.Local.DepotPath, depotPath)

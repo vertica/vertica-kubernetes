@@ -66,7 +66,7 @@ func (e *EventTrigger) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (e *EventTrigger) ValidateUpdate(old runtime.Object) error {
+func (e *EventTrigger) ValidateUpdate(_ runtime.Object) error {
 	eventtriggerlog.Info("validate update", "name", e.Name)
 
 	allErrs := e.validateSpec()

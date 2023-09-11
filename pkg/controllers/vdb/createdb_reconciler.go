@@ -74,7 +74,7 @@ func MakeCreateDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will ensure a DB exists and create one if it doesn't
-func (c *CreateDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Skip this reconciler entirely if the init policy is not to create the DB.
 	if c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreate &&
 		c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreateSkipPackageInstall {
@@ -115,7 +115,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
-func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error) {
+func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, _ []*PodFact) (ctrl.Result, error) {
 	// If the communal path is a POSIX file path, we need to create the communal
 	// path directory as the server won't create it. It handles that for other
 	// communal types though.
@@ -181,7 +181,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 }
 
 // postCmdCleanup will handle any cleanup action after initializing the database
-func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, error) {
+func (c *CreateDBReconciler) postCmdCleanup(_ context.Context) (ctrl.Result, error) {
 	// If encryptSpreadComm was set we need to initiate a restart of the
 	// cluster.  This is done in a separate reconciler.  We will requeue to
 	// drive it.

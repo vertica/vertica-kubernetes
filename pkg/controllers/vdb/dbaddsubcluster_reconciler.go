@@ -23,7 +23,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -59,7 +58,7 @@ func MakeDBAddSubclusterReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 }
 
 // Reconcile will ensure a subcluster exists for each one defined in the vdb.
-func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (d *DBAddSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for ScheduleOnly init policy or if not EON
 	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly || !d.Vdb.IsEON() {
 		return ctrl.Result{}, nil
@@ -82,9 +81,9 @@ func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, s
 	}
 	d.ATPod = atPod
 
-	subclusters, res, err := d.fetchSubclusters(ctx)
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
+	subclusters, err := d.fetchSubclusters(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	for i := range scs {
@@ -104,16 +103,16 @@ func (d *DBAddSubclusterReconciler) addMissingSubclusters(ctx context.Context, s
 }
 
 // fetchSubclusters will return a set of all of the subclusters that exist in vertica
-func (d *DBAddSubclusterReconciler) fetchSubclusters(ctx context.Context) (SubclustersSet, ctrl.Result, error) {
+func (d *DBAddSubclusterReconciler) fetchSubclusters(ctx context.Context) (SubclustersSet, error) {
 	cmd := []string{
 		"-tAc", "select distinct(subcluster_name) from subclusters",
 	}
 	stdout, _, err := d.PRunner.ExecVSQL(ctx, d.ATPod.name, names.ServerContainer, cmd...)
 	if err != nil {
-		return nil, ctrl.Result{}, err
+		return nil, err
 	}
 
-	return d.parseFetchSubclusterVsql(stdout), ctrl.Result{}, nil
+	return d.parseFetchSubclusterVsql(stdout), nil
 }
 
 // parseFetchSubclusterVsql will parse vsql output from a query to fetch all subclusters

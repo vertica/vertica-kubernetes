@@ -54,7 +54,7 @@ func MakeStatusReconciler(cli client.Client, scheme *runtime.Scheme, log logr.Lo
 }
 
 // Reconcile will update the status of the Vdb based on the pod facts
-func (s *StatusReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *StatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// We base our status on the pod facts, so ensure our facts are up to date.
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err

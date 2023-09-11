@@ -162,7 +162,7 @@ func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg string) error
 
 // updateImageInStatefulSets will change the image in each of the statefulsets.
 // This changes the images in all subclusters except any transient ones.
-func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, ctrl.Result, error) {
+func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, error) {
 	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
 
 	// We use FindExisting for the finder because we only want to work with sts
@@ -171,26 +171,26 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, ct
 	// doesn't take affect until after the upgrade.
 	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting)
 	if err != nil {
-		return numStsChanged, ctrl.Result{}, err
+		return numStsChanged, err
 	}
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
 		isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
 		if err != nil {
-			return numStsChanged, ctrl.Result{}, err
+			return numStsChanged, err
 		}
 		if isTransient {
 			continue
 		}
 
 		if stsUpdated, err := i.updateImageInStatefulSet(ctx, sts); err != nil {
-			return numStsChanged, ctrl.Result{}, err
+			return numStsChanged, err
 		} else if stsUpdated {
 			numStsChanged++
 		}
 	}
-	return numStsChanged, ctrl.Result{}, nil
+	return numStsChanged, nil
 }
 
 // updateImageInStatefulSet will update the image in the given statefulset.  It

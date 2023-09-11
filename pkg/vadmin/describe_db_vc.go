@@ -24,7 +24,7 @@ import (
 )
 
 // DescribeDB will get information about a database from communal storage.
-func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
+func (v *VClusterOps) DescribeDB(_ context.Context, _ ...describedb.Option) (string, ctrl.Result, error) {
 	v.Log.Info("Starting vcluster DescribeDB")
 	return "", ctrl.Result{}, fmt.Errorf("not implemented")
 }

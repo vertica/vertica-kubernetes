@@ -59,7 +59,7 @@ func MakeMetricReconciler(vrec *VerticaDBReconciler, log logr.Logger, vdb *vapi.
 }
 
 // Reconcile will update the metrics based on the pod facts
-func (p *MetricReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (p *MetricReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := p.PFacts.Collect(ctx, p.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

@@ -28,7 +28,7 @@ type FakeWriter struct {
 // AddHosts is called to add IPs to an admintools.conf.  New admintools.conf, stored in
 // a temporarily, is returned by name.  Since this is fake, we just return a
 // name of a dummy file.  Actual file doesn't exist.
-func (f *FakeWriter) AddHosts(ctx context.Context, sourcePod types.NamespacedName, ips []string) (string, error) {
+func (f *FakeWriter) AddHosts(_ context.Context, _ types.NamespacedName, _ []string) (string, error) {
 	return "admintools.conf.tmp", nil
 }
 
