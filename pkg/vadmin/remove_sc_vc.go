@@ -61,7 +61,7 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 	opts := vops.VRemoveScOptionsFactory()
 
 	// required options
-	opts.Name = &v.VDB.Spec.DBName
+	opts.DBName = &v.VDB.Spec.DBName
 	opts.SubclusterToRemove = &s.Subcluster
 
 	*opts.HonorUserInput = true

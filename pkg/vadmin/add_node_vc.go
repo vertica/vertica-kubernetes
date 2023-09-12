@@ -57,7 +57,7 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 
 	// required options
 	opts.NewHosts = s.Hosts
-	opts.Name = &v.VDB.Spec.DBName
+	opts.DBName = &v.VDB.Spec.DBName
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
