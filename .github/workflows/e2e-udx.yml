@@ -12,6 +12,9 @@ on:
       vertica-image:
         type: string
         required: false
+      vertica-deployment-method:
+        type: string
+        required: false
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -31,6 +34,10 @@ on:
         required: false
       vertica-image:
         description: 'Name of the vertica server image'
+        type: string
+        required: false
+      vertica-deployment-method:
+        description: 'Back-end library(admintools|vclusterops)'
         type: string
         required: false
 

@@ -218,7 +218,7 @@ jobs:
       operator-image: ${{ needs.build.outputs.operator-image }}
       # We must pass the full image since the minimal image cannot run Java UDx's
       vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
-      vertica-deployment-method: 'vclusterops'
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
