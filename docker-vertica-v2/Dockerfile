@@ -101,6 +101,7 @@ ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
+COPY ./packages/cleanup-initial.sh /tmp/cleanup.sh
 
 # For the init program (process 1), we use s6-overlay. This ensures none of the
 # processes we start ever become zombie's. It will also restart long running
@@ -161,7 +162,8 @@ RUN set -x \
   && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
   # Create a symlink to the rsync for use with vbr. This works around a problem
   # seen in some deployments where vbr cannot find rsync.
-  && ln -s /opt/vertica/bin/rsync /usr/bin/rsync
+  && ln -s /opt/vertica/bin/rsync /usr/bin/rsync \
+  && sh /tmp/cleanup.sh
 
 ENTRYPOINT [ "/init" ]
 

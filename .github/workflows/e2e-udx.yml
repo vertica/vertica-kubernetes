@@ -59,6 +59,7 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-udx
+        export VERTICA_DEPLOYMENT_METHOD_OVERRIDE=${{ inputs.vertica-deployment-method }}
         export JAVA_HOME=${JAVA_HOME_8_X64}  # We need a java version that matches the one in the Vertica image
         java --version
         # Install system packages that some of the tests depend on.  Any

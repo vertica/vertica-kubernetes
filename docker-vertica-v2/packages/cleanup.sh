@@ -66,8 +66,22 @@ rm -rf \
     /home/dbadmin/.ssh \
     /opt/vertica/sbin/ssh_config \
     /opt/vertica/share/binlib/util/create-or-export-ssh-key \
-    /opt/vertica/share/binlib/util/install-ssh-key 
+    /opt/vertica/share/binlib/util/install-ssh-key
 
+# removing admintools and supported libraries(vbr, agent, scrutinize)
+rm -rf \
+    /opt/vertica/bin/vbr* \
+    /opt/vertica/share/vbr \
+    /opt/vertica/bin/scrutinize \
+    /opt/vertica/agent \
+    /opt/vertica/config/logrotate/agent.logrotate \
+    /opt/vertica/sbin/vertica_agent* \
+    /opt/vertica/config/admintools* \
+    /opt/vertica/bin/admintools \
+    /opt/vertica/config/logrotate/admintool.logrotate \
+    /home/dbadmin/logrotate/logrotate/admintool.logrotate \
+    /opt/vertica/oss/python3/lib/python3.11/site-packages
+    
 # (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
 if [[ ${MINIMAL^^} = "YES" ]]
 then 
