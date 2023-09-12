@@ -77,7 +77,7 @@ func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
-func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if ok, err := o.Manager.IsUpgradeNeeded(ctx); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
@@ -130,7 +130,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Requ
 // logEventIfOnlineUpgradeRequested will log an event if the vdb has
 // OnlineUpgrade requested.  We can fall into this codepath if we are running a
 // version of Vertica that doesn't support online upgrade.
-func (o *OfflineUpgradeReconciler) logEventIfOnlineUpgradeRequested(ctx context.Context) (ctrl.Result, error) {
+func (o *OfflineUpgradeReconciler) logEventIfOnlineUpgradeRequested(_ context.Context) (ctrl.Result, error) {
 	if !o.Manager.ContinuingUpgrade && o.Vdb.Spec.UpgradePolicy == vapi.OnlineUpgrade {
 		o.VRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.IncompatibleOnlineUpgrade,
 			"Online upgrade was requested but it is incompatible with the Vertica server.  Falling back to offline upgrade.")
@@ -196,11 +196,11 @@ func (o *OfflineUpgradeReconciler) postReschedulePodsMsg(ctx context.Context) (c
 // Since there will be processing after to delete the pods so that they come up
 // with the new image.
 func (o *OfflineUpgradeReconciler) updateImageInStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	numStsChanged, res, err := o.Manager.updateImageInStatefulSets(ctx)
+	numStsChanged, err := o.Manager.updateImageInStatefulSets(ctx)
 	if numStsChanged > 0 {
 		o.PFacts.Invalidate()
 	}
-	return res, err
+	return ctrl.Result{}, err
 }
 
 // deletePods will delete pods that are running the old image.  The assumption

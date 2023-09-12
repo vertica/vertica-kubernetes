@@ -59,7 +59,7 @@ func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will ensure Vertica is installed and running in the pods.
-func (d *InstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for ScheduleOnly init policy
 	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return ctrl.Result{}, nil

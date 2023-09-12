@@ -57,7 +57,7 @@ func MakeResizePVReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will ensure Vertica is installed and running in the pods.
-func (r *ResizePVReconcile) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (r *ResizePVReconcile) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := r.PFacts.Collect(ctx, r.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

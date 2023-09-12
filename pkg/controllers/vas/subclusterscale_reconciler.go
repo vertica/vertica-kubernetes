@@ -107,9 +107,8 @@ func (s *SubclusterScaleReconciler) considerRemovingSubclusters(podsToRemove int
 				s.VRec.Log.Info("Removing subcluster in VerticaDB", "VerticaDB", s.Vdb.Name, "Subcluster", sc.Name)
 				s.Vdb.Spec.Subclusters = append(s.Vdb.Spec.Subclusters[:j], s.Vdb.Spec.Subclusters[j+1:]...)
 				continue
-			} else {
-				return origNumSubclusters != len(s.Vdb.Spec.Subclusters)
 			}
+			return origNumSubclusters != len(s.Vdb.Spec.Subclusters)
 		}
 	}
 	return origNumSubclusters != len(s.Vdb.Spec.Subclusters)

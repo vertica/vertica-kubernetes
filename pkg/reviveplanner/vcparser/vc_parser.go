@@ -58,10 +58,7 @@ type Node struct {
 
 // Parse will parse the output given and populate the ClusterConfigData
 func (v *Parser) Parse(op string) error {
-	if err := json.Unmarshal([]byte(op), &v.Cluster); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal([]byte(op), &v.Cluster)
 }
 
 // GetDataPaths will return the data paths for each node

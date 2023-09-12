@@ -44,7 +44,7 @@ func MakeAgentReconciler(vrec *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will ensure the agent is running and start it if it isn't
-func (a *AgentReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (a *AgentReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !a.Vdb.IsAgentEnabled() {
 		return ctrl.Result{}, nil
 	}
