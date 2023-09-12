@@ -62,7 +62,7 @@ func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler,
 // connections.  Pods that have at least one shard owned will have a label added
 // so that it receives traffic.  For pods that don't own a shard or about to be
 // scaled down will have the label removed so that traffic isn't routed to it.
-func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	c.VRec.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
 
 	if err := c.PFacts.Collect(ctx, c.Vdb); err != nil {

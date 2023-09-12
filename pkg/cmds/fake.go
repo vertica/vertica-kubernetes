@@ -58,8 +58,8 @@ type CmdHistory struct {
 // ExecInPod is a test stub for a real exec call to a pod.
 // It will return output as saved in the FakePodRunner struct. The command that
 // is passed in are saved as a history that tests can later inspect.
-func (f *FakePodRunner) ExecInPod(ctx context.Context, podName types.NamespacedName,
-	contName string, command ...string) (stdout, stderr string, err error) {
+func (f *FakePodRunner) ExecInPod(_ context.Context, podName types.NamespacedName,
+	_ string, command ...string) (stdout, stderr string, err error) {
 	// Record the call that come in.  Some testcases can use this in assertions.
 	f.Histories = append(f.Histories, CmdHistory{Pod: podName, Command: command})
 	// We fake out what is returned by doing a lookup in fakePodOutputs
@@ -89,7 +89,7 @@ func (f *FakePodRunner) ExecVSQL(ctx context.Context, podName types.NamespacedNa
 
 // CopyToPod will mimic a real copy file into a pod
 func (f *FakePodRunner) CopyToPod(ctx context.Context, podName types.NamespacedName,
-	contName string, sourceFile string, destFile string, executeCmd ...string) (stdout, stderr string, err error) {
+	contName string, _ string, destFile string, executeCmd ...string) (stdout, stderr string, err error) {
 	command := []string{"sh", "-c", fmt.Sprintf("cat > %s", destFile)}
 	sout, serr, err := f.ExecInPod(ctx, podName, contName, command...)
 	if executeCmd == nil {
@@ -99,7 +99,7 @@ func (f *FakePodRunner) CopyToPod(ctx context.Context, podName types.NamespacedN
 }
 
 // DumpAdmintoolsConf will log relenvant portions of the admintools.conf for debug purposes.
-func (f *FakePodRunner) DumpAdmintoolsConf(ctx context.Context, podName types.NamespacedName) {
+func (f *FakePodRunner) DumpAdmintoolsConf(_ context.Context, _ types.NamespacedName) {
 	// no-op
 }
 

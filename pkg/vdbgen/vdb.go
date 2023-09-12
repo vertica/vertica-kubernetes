@@ -278,7 +278,7 @@ func (d *DBGenerator) fetchDatabaseConfig(ctx context.Context) error {
 }
 
 // setCommunalEndpointAWS will fetch the communal endpoint for AWS and set it in v.vdb
-func (d *DBGenerator) setCommunalEndpointAWS(ctx context.Context) error {
+func (d *DBGenerator) setCommunalEndpointAWS(_ context.Context) error {
 	if !d.Objs.Vdb.IsS3() {
 		return nil
 	}
@@ -291,7 +291,7 @@ func (d *DBGenerator) setCommunalEndpointAWS(ctx context.Context) error {
 }
 
 // setCommunalEndpointGCloud will fetch the communal endpoint for Google Cloud and set it in v.vdb
-func (d *DBGenerator) setCommunalEndpointGCloud(ctx context.Context) error {
+func (d *DBGenerator) setCommunalEndpointGCloud(_ context.Context) error {
 	if !d.Objs.Vdb.IsGCloud() {
 		return nil
 	}
@@ -305,7 +305,7 @@ func (d *DBGenerator) setCommunalEndpointGCloud(ctx context.Context) error {
 
 // setCommunalEndpointAzure will look for Azure config and setup the communal
 // secret if found.
-func (d *DBGenerator) setCommunalEndpointAzure(ctx context.Context) error {
+func (d *DBGenerator) setCommunalEndpointAzure(_ context.Context) error {
 	if !d.Objs.Vdb.IsAzure() {
 		return nil
 	}
@@ -664,7 +664,7 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 	return nil
 }
 
-func (d *DBGenerator) setLicense(ctx context.Context) error {
+func (d *DBGenerator) setLicense(_ context.Context) error {
 	// If no license file given, then we omit the license from the manifests
 	if len(d.LicenseData) == 0 {
 		return nil
@@ -681,7 +681,7 @@ func (d *DBGenerator) setLicense(ctx context.Context) error {
 }
 
 // readLicense reads the license
-func (d *DBGenerator) readLicense(ctx context.Context) error {
+func (d *DBGenerator) readLicense(_ context.Context) error {
 	// If no license file given, then we omit the license from the manifests
 	if d.Opts.LicenseFile == "" {
 		return nil
@@ -697,7 +697,7 @@ func (d *DBGenerator) readLicense(ctx context.Context) error {
 }
 
 // setPasswordSecret set the password secret fields
-func (d *DBGenerator) setPasswordSecret(ctx context.Context) error {
+func (d *DBGenerator) setPasswordSecret(_ context.Context) error {
 	if d.Opts.Password == "" {
 		return nil
 	}
@@ -713,7 +713,7 @@ func (d *DBGenerator) setPasswordSecret(ctx context.Context) error {
 }
 
 // readCAFile will read the CA file provided on the command line
-func (d *DBGenerator) readCAFile(ctx context.Context) error {
+func (d *DBGenerator) readCAFile(_ context.Context) error {
 	if d.Opts.CAFile == "" {
 		return nil
 	}
@@ -724,7 +724,7 @@ func (d *DBGenerator) readCAFile(ctx context.Context) error {
 }
 
 // setCAFile will capture information about the AWSCAFile and put it into a secret
-func (d *DBGenerator) setCAFile(ctx context.Context) error {
+func (d *DBGenerator) setCAFile(_ context.Context) error {
 	const AWSCAFileKey = "AWSCAFile"
 	const SystemCABundlePathKey = "SystemCABundlePath"
 	const CACertKey = "ca.crt"
@@ -758,7 +758,7 @@ func (d *DBGenerator) setCAFile(ctx context.Context) error {
 }
 
 // readHadoopConfig will read the contents of the hadoop directory
-func (d *DBGenerator) readHadoopConfig(ctx context.Context) error {
+func (d *DBGenerator) readHadoopConfig(_ context.Context) error {
 	if d.Opts.HadoopConfigDir == "" {
 		return nil
 	}
@@ -790,7 +790,7 @@ func (d *DBGenerator) readHadoopConfig(ctx context.Context) error {
 }
 
 // setHadoopConfig will set the Hadoop config in the Vdb
-func (d *DBGenerator) setHadoopConfig(ctx context.Context) error {
+func (d *DBGenerator) setHadoopConfig(_ context.Context) error {
 	const HadoopConfigKey = "HadoopConfDir"
 
 	_, ok := d.DBCfg[HadoopConfigKey]
@@ -908,7 +908,7 @@ func (d *DBGenerator) getAzureConfig(cfgs []cloud.AzureEndpointConfig) (cloud.Az
 	return cloud.AzureEndpointConfig{}, false
 }
 
-func (d *DBGenerator) readKrb5ConfFile(ctx context.Context) error {
+func (d *DBGenerator) readKrb5ConfFile(_ context.Context) error {
 	if d.Opts.Krb5Conf == "" {
 		return nil
 	}
@@ -918,7 +918,7 @@ func (d *DBGenerator) readKrb5ConfFile(ctx context.Context) error {
 	return err
 }
 
-func (d *DBGenerator) readKrb5KeytabFile(ctx context.Context) error {
+func (d *DBGenerator) readKrb5KeytabFile(_ context.Context) error {
 	if d.Opts.Krb5Keytab == "" {
 		return nil
 	}
@@ -928,7 +928,7 @@ func (d *DBGenerator) readKrb5KeytabFile(ctx context.Context) error {
 	return err
 }
 
-func (d *DBGenerator) setKrb5Secret(ctx context.Context) error {
+func (d *DBGenerator) setKrb5Secret(_ context.Context) error {
 	const KerberosServiceNameKey = "KerberosServiceName"
 	const KerberosRealmKey = "KerberosRealm"
 	realm, okRealm := d.DBCfg[KerberosRealmKey]

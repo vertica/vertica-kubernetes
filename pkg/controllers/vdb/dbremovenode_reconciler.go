@@ -76,7 +76,7 @@ func (d *DBRemoveNodeReconciler) CollectPFacts(ctx context.Context) error {
 // kubernetes objects. It allows us to look at the state before applying
 // everything in Vdb. We will know if we are scaling down by comparing the
 // expected subcluster size with the current.
-func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for ScheduleOnly init policy
 	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return ctrl.Result{}, nil

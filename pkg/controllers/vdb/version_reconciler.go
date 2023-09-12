@@ -58,7 +58,7 @@ func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will update the annotation in the Vdb with Vertica version info
-func (v *VersionReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (v *VersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := v.PFacts.Collect(ctx, v.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

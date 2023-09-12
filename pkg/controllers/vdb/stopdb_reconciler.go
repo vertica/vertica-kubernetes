@@ -55,7 +55,7 @@ func MakeStopDBReconciler(
 }
 
 // Reconcile will stop vertica if the status condition indicates a restart is needed
-func (s *StopDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

@@ -53,7 +53,7 @@ func MakeRebalanceShardsReconciler(vdbrecon *VerticaDBReconciler, log logr.Logge
 }
 
 // Reconcile will ensure each node has at least one shard subscription
-func (s *RebalanceShardsReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *RebalanceShardsReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Skip if not running in EON mode
 	if !s.Vdb.IsEON() {
 		return ctrl.Result{}, nil

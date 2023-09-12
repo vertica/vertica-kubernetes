@@ -82,7 +82,7 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will ensure each pod is UP in the vertica sense.
 // On success, each node will have a running vertica process.
-func (r *RestartReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.Spec.AutoRestartVertica {
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
 			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},

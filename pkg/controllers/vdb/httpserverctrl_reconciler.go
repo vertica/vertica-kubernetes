@@ -47,7 +47,7 @@ func MakeHTTPServerCtrlReconciler(vdbrecon *VerticaDBReconciler,
 	}
 }
 
-func (h *HTTPServerCtrlReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (h *HTTPServerCtrlReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Early out if the http service isn't enabled.
 	if !h.doHTTPStart(true) {
 		return ctrl.Result{}, nil

@@ -68,7 +68,7 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
-func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if ok, err := o.Manager.IsUpgradeNeeded(ctx); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
@@ -176,7 +176,7 @@ func (o *OnlineUpgradeReconciler) postNextStatusMsg(ctx context.Context) (ctrl.R
 // change.  This version is meant to be called for a specific statefulset.  This
 // exists just to have the proper function signature.  We ignore the sts
 // entirely as the status message for the sts is already precomputed.
-func (o *OnlineUpgradeReconciler) postNextStatusMsgForSts(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) postNextStatusMsgForSts(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {
 	return o.postNextStatusMsg(ctx)
 }
 
@@ -468,7 +468,7 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 
 // addPodAnnotations will add the necessary pod annotations that need to be
 // in-place prior to restart
-func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {
 	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Vdb, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
@@ -476,7 +476,7 @@ func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, sts *ap
 // runInstaller will run the install reconciler.  The main purpose is to accept
 // the end user license agreement (eula).  This may need to be accepted again if
 // the eula changed in this new version of vertica.
-func (o *OnlineUpgradeReconciler) runInstaller(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) runInstaller(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {
 	r := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
@@ -485,7 +485,7 @@ func (o *OnlineUpgradeReconciler) runInstaller(ctx context.Context, sts *appsv1.
 // are in read-only state.  This wait is necessary so that we don't try to do a
 // 'AT -t restart_node' for the primary nodes when the cluster is in read-only.
 // We should always start those with 'AT -t start_db'.
-func (o *OnlineUpgradeReconciler) waitForReadOnly(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+func (o *OnlineUpgradeReconciler) waitForReadOnly(_ context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	// Early out if the primaries have restarted.  This wait is only meant to be
 	// done after we take down the primaries and are waiting for spread to move
 	// the remaining up nodes into read-only.

@@ -69,7 +69,7 @@ func MakeReviveDBReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will ensure a DB exists and revive one if it doesn't
-func (r *ReviveDBReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// Skip this reconciler entirely if the init policy is to create the DB.
 	if r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyRevive {
 		return ctrl.Result{}, nil
@@ -129,7 +129,7 @@ func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 
 // postCmdCleanup is a no-op for revive.  This exists so that we can use the
 // DatabaseInitializer interface.
-func (r *ReviveDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, error) {
+func (r *ReviveDBReconciler) postCmdCleanup(_ context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
@@ -303,10 +303,7 @@ func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (c
 		}
 
 		r.Log.Info("Updating vdb from revive planner")
-		if retryErr := r.VRec.Client.Update(ctx, vdb); retryErr != nil {
-			return retryErr
-		}
-		return nil
+		return r.VRec.Client.Update(ctx, vdb)
 	})
 
 	// Always requeue if the vdb was changed in this function.

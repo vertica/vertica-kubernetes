@@ -28,7 +28,7 @@ import (
 
 // FetchNodeState will determine if the given set of nodes are considered UP
 // or DOWN in our consensous state. It returns a map of vnode to its node state.
-func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
+func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
 	v.Log.Info("Starting vcluster FetchNodeState")
 
 	// get fetch node state options
