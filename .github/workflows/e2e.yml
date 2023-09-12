@@ -44,6 +44,7 @@ on:
         - server upgrade
         - operator upgrade
         - udx
+        - udx-vcluster
         - hostpath
         - enterprise 
         - http server
@@ -204,6 +205,20 @@ jobs:
       operator-image: ${{ needs.build.outputs.operator-image }}
       # We must pass the full image since the minimal image cannot run Java UDx's
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-udx-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'udx-vcluster' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-udx.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      # We must pass the full image since the minimal image cannot run Java UDx's
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
