@@ -14,9 +14,9 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica
+  name: v-base-upgrade
 spec:
-  image: vertica/vertica-k8s:12.0.2-0-minimal
+  image: kustomize-vertica-image
   imagePullPolicy: IfNotPresent
   superuserPasswordSecret: su-passwd
   communal:

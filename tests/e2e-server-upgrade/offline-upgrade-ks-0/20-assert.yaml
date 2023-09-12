@@ -11,25 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-0
-spec:
-  containers:
-    - image: vertica/vertica-k8s:12.0.2-0-minimal
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-upgrade-vertica-defsc-1
-spec:
-  containers:
-    - image: vertica/vertica-k8s:12.0.2-0-minimal
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica
+  name: v-base-upgrade
 status:
   upgradeStatus: "Restarting cluster with new image"

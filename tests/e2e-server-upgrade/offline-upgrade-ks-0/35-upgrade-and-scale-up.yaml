@@ -14,9 +14,13 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica
+  name: v-base-upgrade
 spec:
-  image: vertica/vertica-k8s:12.0.2-0-minimal
   subclusters:
   - name: defsc
     size: 3
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade
