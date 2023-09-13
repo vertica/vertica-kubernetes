@@ -19,3 +19,8 @@ spec:
   subclusters:
   - name: defsc
     size: 1
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade
