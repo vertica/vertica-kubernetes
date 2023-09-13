@@ -12,6 +12,9 @@ on:
       vertica-image:
         type: string
         required: false
+      vertica-deployment-method:
+        type: string
+        required: false
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -31,6 +34,10 @@ on:
         required: false
       vertica-image:
         description: 'Name of the vertica server image'
+        type: string
+        required: false
+      vertica-deployment-method:
+        description: 'Back-end library(admintools|vclusterops)'
         type: string
         required: false
 
@@ -59,6 +66,9 @@ jobs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
+        export E2E_TEST_DIRS=tests/e2e-leg-2
+        export VERTICA_DEPLOYMENT_METHOD_OVERRIDE=${{ inputs.vertica-deployment-method }}
+        if [ "${VERTICA_DEPLOYMENT_METHOD_OVERRIDE}" != "vclusterops" ]; then E2E_TEST_DIRS+=" e2e-leg-2-failed"; fi
         export E2E_TEST_DIRS=tests/e2e-leg-2
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s

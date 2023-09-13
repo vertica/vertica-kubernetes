@@ -73,6 +73,10 @@ then
   source $USER_CONFIG_FILE
 fi
 
+if [ ! -z "${VERTICA_DEPLOYMENT_METHOD_OVERRIDE}" ]; then
+    VERTICA_DEPLOYMENT_METHOD=$VERTICA_DEPLOYMENT_METHOD_OVERRIDE
+fi
+
 if [ -z "${VERTICA_IMG}" ]; then
     VERTICA_IMG=$(cd $REPO_DIR && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2)
 fi

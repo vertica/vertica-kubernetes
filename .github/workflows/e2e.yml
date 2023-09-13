@@ -39,8 +39,10 @@ on:
         - all
         - none
         - s3
+        - s3 vcluster
         - azb
         - leg 2
+        - leg 2 vcluster
         - server upgrade
         - operator upgrade
         - udx
@@ -110,6 +112,19 @@ jobs:
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  
+  e2e-s3-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 's3 vcluster' || inputs.e2e_test_suites == 'leg 2 vcluster' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-s3.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-leg-2:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 2' || inputs.e2e_test_suites == '' }}
@@ -119,6 +134,19 @@ jobs:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-2-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 2 vcluster' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-2.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
