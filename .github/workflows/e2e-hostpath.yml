@@ -37,7 +37,7 @@ on:
         type: string
         required: false
       vertica-deployment-method:
-        description: 'Vertica's deployment method'
+        description: 'Vertica deployment method'
         type: choice
         required: false
         default: admintools
@@ -79,5 +79,5 @@ jobs:
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-hostpath
+        name: logs-e2e-hostpath-${{ inputs.vertica-deployment-method }}
         path: ${{ github.workspace }}/int-tests-output/*
