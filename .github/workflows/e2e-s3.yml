@@ -37,9 +37,13 @@ on:
         type: string
         required: false
       vertica-deployment-method:
-        description: 'Back-end library(admintools|vclusterops)'
-        type: string
+        description: 'Vertica's deployment method'
+        type: choice
         required: false
+        default: admintools
+        options:
+        - admintools
+        - vclusterops
 
 jobs:
 
@@ -75,6 +79,6 @@ jobs:
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-s3
+        name: logs-e2e-s3-${{ inputs.vertica-deployment-method }}
         path: ${{ github.workspace }}/int-tests-output/*
 

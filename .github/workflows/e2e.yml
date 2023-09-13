@@ -48,7 +48,9 @@ on:
         - admintools enterprise 
         - admintoold http server
         - vcluster s3
+        - vcluster azb
         - vcluster leg 2
+        - vcluster hostpath
         - vcluster
       run_security_scan:
         description: 'What images to scan?'
@@ -114,7 +116,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   
   e2e-s3-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'vcluster s3' || inputs.e2e_test_suites == 'leg 2 vcluster' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'vcluster s3' || inputs.e2e_test_suites == '')}}
     needs: [build] 
     uses: ./.github/workflows/e2e-s3.yml
     with:
@@ -163,6 +165,19 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
+  e2e-azb-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster azb' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-azb.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
   e2e-hostpath:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools hostpath' || inputs.e2e_test_suites == '' }}
     needs: [build] 
@@ -171,6 +186,19 @@ jobs:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  
+  e2e-hostpath-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster hostpath' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-hostpath.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

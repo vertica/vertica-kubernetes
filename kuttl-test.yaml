@@ -19,9 +19,11 @@ skipDelete: true
 # These are overridden when running kuttl from the Makefile
 testDirs:
   - tests/e2e-leg-1
+  - tests/e2e-leg-1-failed
   - tests/e2e-leg-2
   - tests/e2e-leg-2-failed
   - tests/e2e-leg-3
+  - tests/e2e-leg-3-failed
   - tests/e2e-leg-4
   - tests/e2e-leg-4-failed
   - tests/e2e-udx
