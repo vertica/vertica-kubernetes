@@ -36,7 +36,7 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/idlelib
 
 # cleanup all test directories for packages under site-package
-find /opt/vertica/oss/python*/lib/python*/site-packages/ -type d -name "*[Tt]est" -exec rm -rf {} +
+rm -rf /opt/vertica/oss/python*/lib/python*/site-packages
 
 # cleanup many of the __pycache__ directories 
 find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +
@@ -79,8 +79,7 @@ rm -rf \
     /opt/vertica/config/admintools* \
     /opt/vertica/bin/admintools \
     /opt/vertica/config/logrotate/admintool.logrotate \
-    /home/dbadmin/logrotate/logrotate/admintool.logrotate \
-    /opt/vertica/oss/python3/lib/python3.11/site-packages
+    /home/dbadmin/logrotate/logrotate/admintool.logrotate
     
 # (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
 if [[ ${MINIMAL^^} = "YES" ]]
