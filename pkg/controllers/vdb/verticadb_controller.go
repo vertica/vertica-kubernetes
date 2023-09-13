@@ -108,7 +108,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	passwd, err := r.GetSuperuserPassword(ctx, vdb, log)
+	passwd, err := r.GetSuperuserPassword(ctx, vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -240,7 +240,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
-func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vapi.VerticaDB, log logr.Logger) (string, error) {
+func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vapi.VerticaDB) (string, error) {
 	if vdb.Spec.SuperuserPasswordSecret == "" {
 		return "", nil
 	}

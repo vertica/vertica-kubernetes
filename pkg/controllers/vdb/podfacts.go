@@ -480,7 +480,7 @@ func getPathToVerifyCatalogExists(pf *PodFact) string {
 }
 
 // checkIsInstalled will check a single pod to see if the installation has happened.
-func (p *PodFacts) checkIsInstalled(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.isInstalled = false
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
@@ -545,7 +545,7 @@ func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact, gs *GatherState) 
 }
 
 // checkForSimpleGatherStateMapping will do any simple conversion of the gather state to pod facts.
-func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// Gather state is only valid if the pod was running
 	if !pf.isPodRunning {
 		return nil
@@ -571,7 +571,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(ctx context.Context, vdb *va
 
 // checkShardSubscriptions will count the number of shards that are subscribed
 // to the current node
-func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// This check depends on the vnode, which is only present if the pod is
 	// running and the database exists at the node.
 	if !pf.isPodRunning || !pf.dbExists || !gs.VerticaPIDRunning {
@@ -591,7 +591,7 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, vdb *vapi.Vertic
 }
 
 // queryDepotDetails will query the database to get info about the depot for the node
-func (p *PodFacts) queryDepotDetails(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) queryDepotDetails(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// This check depends on the database being up
 	if !pf.isPodRunning || !pf.upNode || !gs.VerticaPIDRunning {
 		return nil
@@ -674,7 +674,7 @@ func (p *PodFacts) getEnvValueFromPod(pod *corev1.Pod, envName string) (string, 
 
 // checkIsDBCreated will check for evidence of a database at the local node.
 // If a db is found, we will set the vertica node name.
-func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
 
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
@@ -698,7 +698,7 @@ func (p *PodFacts) checkIsDBCreated(ctx context.Context, vdb *vapi.VerticaDB, pf
 }
 
 // checkNodeStatus will query node state
-func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	if !pf.upNode {
 		return nil
 	}
@@ -736,7 +736,7 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf 
 
 // checkIfNodeIsDoingStartup will determine if the pod has vertica process
 // running but not yet ready for connections.
-func (p *PodFacts) checkIfNodeIsDoingStartup(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.startupInProgress = false
 	if !pf.dbExists || !pf.isPodRunning || pf.upNode || !gs.VerticaPIDRunning {
 		return nil

@@ -17,14 +17,44 @@ package vadmin
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // DescribeDB will get information about a database from communal storage.
 func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
 	v.Log.Info("Starting vcluster DescribeDB")
-	return "", ctrl.Result{}, fmt.Errorf("not implemented")
+
+	certs, err := v.retrieveHTTPSCerts(ctx)
+	if err != nil {
+		return "", ctrl.Result{}, err
+	}
+
+	s := describedb.Parms{}
+	s.Make(opts...)
+
+	// We call through to the VReviveDatabase API using a special 'DisplayOnly'
+	// option. So, translate the options to revive.
+	reviveParms := revivedb.Parms{
+		Initiator:             s.Initiator,
+		Hosts:                 []string{s.InitiatorIP}, // Only talk to a single host, the initiator
+		DBName:                s.DBName,
+		CommunalPath:          s.CommunalPath,
+		CommunalStorageParams: s.CommunalStorageParams,
+		ConfigurationParams:   s.ConfigurationParams,
+	}
+	vcOpts := v.genReviveDBOptions(&reviveParms, certs)
+	*vcOpts.DisplayOnly = true // Set flag to indicate we only want to see the cluster info
+
+	op, err := v.VReviveDatabase(vcOpts)
+	if err != nil {
+		var res ctrl.Result
+		res, err = v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
+		return "", res, err
+	}
+
+	return op, ctrl.Result{}, nil
 }

@@ -21,6 +21,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/vertica/vcluster/rfc7807"
+	"github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -64,6 +66,18 @@ var _ = Describe("verrors suite", func() {
 		res, err := vce.LogFailure("test unknown rfc7807", origErr)
 		Ω(res).Should(Equal(ctrl.Result{}))
 		Ω(err).Should(Equal(err))
+	})
+
+	It("should handle cluster lease expired errors", func() {
+		vce := vcErrors{
+			Log:      logger,
+			EVWriter: &aterrors.TestEVWriter{},
+			VDB:      vapi.MakeVDB(),
+		}
+		origErr := &vclusterops.ClusterLeaseNotExpiredError{Expiration: "10 minutes"}
+		res, err := vce.LogFailure("test cluster lease error", origErr)
+		Ω(res).Should(Equal(ctrl.Result{Requeue: true}))
+		Ω(err).Should(BeNil())
 	})
 
 })

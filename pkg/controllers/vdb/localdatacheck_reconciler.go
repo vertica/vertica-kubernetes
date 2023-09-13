@@ -40,7 +40,7 @@ func MakeLocalDataCheckReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.Verti
 }
 
 // Reconcile will look at all pods to see if any have low disk space available.
-func (l *LocalDataCheckReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (l *LocalDataCheckReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := l.PFacts.Collect(ctx, l.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

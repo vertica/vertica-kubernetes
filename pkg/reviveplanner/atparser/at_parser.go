@@ -13,29 +13,73 @@
  limitations under the License.
 */
 
-package reviveplanner
+package atparser
 
 import (
 	"bufio"
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/util"
 )
+
+type Parser struct {
+	Database         Database
+	CommunalLocation CommunalLocation
+	Log              logr.Logger
+	ParseComplete    bool
+}
+
+// GetDataPaths will return the data paths for each node
+func (a *Parser) GetDataPaths() []string {
+	paths := []string{}
+	for i := range a.Database.Nodes {
+		paths = append(paths, a.Database.Nodes[i].GetDataPaths()...)
+	}
+	return paths
+}
+
+// GetDepotPaths will return the depot paths for each node
+func (a *Parser) GetDepotPaths() []string {
+	paths := []string{}
+	for i := range a.Database.Nodes {
+		paths = append(paths, a.Database.Nodes[i].GetDepotPath()...)
+	}
+	return paths
+}
+
+// GetCatalogPaths will return the catalog paths that are set for each node.
+func (a *Parser) GetCatalogPaths() []string {
+	paths := []string{}
+	for i := range a.Database.Nodes {
+		paths = append(paths, a.Database.Nodes[i].CatalogPath)
+	}
+	return paths
+}
+
+// GetNumShards returns the number of shards in the cluster config
+func (a *Parser) GetNumShards() (int, error) {
+	foundShardCount, err := strconv.Atoi(a.CommunalLocation.NumShards)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert shard in revive --display-only output to int: %s",
+			a.CommunalLocation.NumShards)
+	}
+	return foundShardCount, nil
+}
+
+// GetDatabaseName returns the name of the database as found in the cluster config
+func (a *Parser) GetDatabaseName() string {
+	return a.Database.Name
+}
 
 // The format of the next few struct's is implemented in the server. Do not add
 // new fields in here, unless those new fields are also exposed by the server's
 // 'admintools -t revive_db --display-only' output.
-
-const (
-	// The usage number for DATA,TEMP. Set internally by Vertica.
-	UsageIsDataTemp = 3
-	// The usage number for DEPOT. Set internally by Vertica.
-	UsageIsDepot = 5
-)
 
 // CommunalLocation shows information about the database's communal storage
 type CommunalLocation struct {
@@ -85,9 +129,9 @@ type StorageLocation struct {
 	Site        int64  `json:"site"`
 }
 
-// MakeATPPlannerFromVDB will make a Planner struct based on the passed in vdb.
+// MakeATParserFromVDB will make a cluster config parser based on the passed in vdb.
 // This is used for tests only.
-func MakeATPlannerFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Planner {
+func MakeATParserFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Parser {
 	db := Database{
 		Name: vdb.Spec.DBName,
 	}
@@ -101,10 +145,10 @@ func MakeATPlannerFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Planner {
 				VStorageLocations: []StorageLocation{
 					{
 						Path:  fmt.Sprintf("%s/%s/v_%s_node%04d_data", vdb.Spec.Local.DataPath, db.Name, db.Name, nc),
-						Usage: UsageIsDataTemp,
+						Usage: util.UsageIsDataTemp,
 					}, {
 						Path:  fmt.Sprintf("%s/%s/v_%s_node%04d_depot", vdb.Spec.Local.DepotPath, db.Name, db.Name, nc),
-						Usage: UsageIsDepot,
+						Usage: util.UsageIsDepot,
 					},
 				},
 			})
@@ -114,7 +158,7 @@ func MakeATPlannerFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Planner {
 	communalLocation := CommunalLocation{
 		NumShards: fmt.Sprintf("%d", vdb.Spec.ShardCount),
 	}
-	return &ATPlanner{
+	return Parser{
 		Log:              logger,
 		Database:         db,
 		CommunalLocation: communalLocation,
@@ -124,12 +168,12 @@ func MakeATPlannerFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Planner {
 
 // GetDataPaths returns the data paths for the node
 func (n *Node) GetDataPaths() []string {
-	return n.getPathsByUsage(UsageIsDataTemp)
+	return n.getPathsByUsage(util.UsageIsDataTemp)
 }
 
 // GetDepotPath returns the depot paths for the node
 func (n *Node) GetDepotPath() []string {
-	return n.getPathsByUsage(UsageIsDepot)
+	return n.getPathsByUsage(util.UsageIsDepot)
 }
 
 // getPathsByUsage returns the path for a given usage type. See Usage* const at
@@ -146,7 +190,7 @@ func (n *Node) getPathsByUsage(usage int) []string {
 
 // Parse looks at the op string passed in and spits out Database and
 // CommunalLocation structs.
-func (a *ATPlanner) Parse(op string) error {
+func (a *Parser) Parse(op string) error {
 	// We only parse once. No-op if parse already done.
 	if a.ParseComplete {
 		return nil
@@ -163,7 +207,7 @@ func (a *ATPlanner) Parse(op string) error {
 
 // extractDatabase parses the full output and returns the json portion that
 // pertains to the database.
-func (a *ATPlanner) extractDatabase(op string) string {
+func (a *Parser) extractDatabase(op string) string {
 	startingMarker := regexp.MustCompile(`^\s*== Database and node details: ==`)
 	endingMarker := regexp.MustCompile(`^\s*== `)
 	return a.extractGeneric(op, startingMarker, endingMarker)
@@ -171,14 +215,14 @@ func (a *ATPlanner) extractDatabase(op string) string {
 
 // extractCommunalLocation parses the full output and returns only the portion
 // that is for the communal location information.
-func (a *ATPlanner) extractCommunalLocation(op string) string {
+func (a *Parser) extractCommunalLocation(op string) string {
 	startingMarker := regexp.MustCompile(`^\s*== Communal location details: ==`)
 	endingMarker := regexp.MustCompile(`^\s*Cluster lease expiration:`)
 	return a.extractGeneric(op, startingMarker, endingMarker)
 }
 
 // extractGeneric is a general parsing function of the revive_db --display-only output.
-func (a *ATPlanner) extractGeneric(op string, startingMarker, endingMarker *regexp.Regexp) string {
+func (a *Parser) extractGeneric(op string, startingMarker, endingMarker *regexp.Regexp) string {
 	scanner := bufio.NewScanner(strings.NewReader(op))
 	var sb strings.Builder
 	for scanner.Scan() {

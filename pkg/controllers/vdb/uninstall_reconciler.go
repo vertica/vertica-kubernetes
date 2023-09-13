@@ -77,7 +77,7 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 // kubernetes objects. It allows us to look at the state before applying
 // everything in Vdb. We will know if we are scaling down by comparing the
 // expected subcluster size with the current.
-func (s *UninstallReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op for ScheduleOnly init policy
 	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return ctrl.Result{}, nil
@@ -123,16 +123,15 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
 	if len(podsToUninstall) > 0 {
-		var result ctrl.Result
 		var err error
 
 		if vmeta.UseVClusterOps(s.Vdb.Annotations) {
-			result, err = s.uninstallPodsInSubclusterForVClusterOps(ctx, podsToUninstall)
+			err = s.uninstallPodsInSubclusterForVClusterOps(ctx, podsToUninstall)
 		} else {
-			result, err = s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
+			err = s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
 		}
-		if verrors.IsReconcileAborted(result, err) {
-			return result, err
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 
 		// We successfully uninstalled at least one pod, invalidate the pod
@@ -146,24 +145,24 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 // uninstallPodsInSubclusterForVClusterOps will call uninstall, for vclusterops, on a list
 // of pods that will be scaled down.
 func (s *UninstallReconciler) uninstallPodsInSubclusterForVClusterOps(ctx context.Context,
-	podsToUninstall []*PodFact) (ctrl.Result, error) {
+	podsToUninstall []*PodFact) error {
 	cmd := s.genCmdRemoveHTTPTLSConfFile()
 	for _, pod := range podsToUninstall {
 		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to call remove https config file: %w", err)
+			return fmt.Errorf("failed to call remove https config file: %w", err)
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // uninstallPodsInSubclusterForAdmintools will call uninstall, for admintools, on a list
 // of pods that will be scaled down.
 func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context.Context,
-	podsToUninstall []*PodFact) (ctrl.Result, error) {
+	podsToUninstall []*PodFact) error {
 	basePod, err := findATBasePod(s.Vdb, s.PFacts)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	ipsToUninstall := []string{}
 	for _, p := range podsToUninstall {
@@ -171,12 +170,12 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context
 	}
 	atConfTempFile, err := s.ATWriter.RemoveHosts(ctx, basePod, ipsToUninstall)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	defer os.Remove(atConfTempFile)
 
 	if err := distributeAdmintoolsConf(ctx, s.Vdb, s.VRec, s.PFacts, s.PRunner, atConfTempFile); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// Remove the installer indicator file so that we do an install if we then
@@ -184,11 +183,11 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context
 	cmd := s.genCmdRemoveInstallIndicator()
 	for _, pod := range podsToUninstall {
 		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to call remove installer indicator file: %w", err)
+			return fmt.Errorf("failed to call remove installer indicator file: %w", err)
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // findPodsSuitableForScaleDown will return a list of host names that can be uninstalled

@@ -105,9 +105,8 @@ var _ = Describe("upgrade", func() {
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
 			func(vdb *vapi.VerticaDB) bool { return true })
 		Expect(mgr.IsUpgradeNeeded(ctx)).Should(Equal(true))
-		stsChange, res, err := mgr.updateImageInStatefulSets(ctx)
+		stsChange, err := mgr.updateImageInStatefulSets(ctx)
 		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(stsChange).Should(Equal(2))
 
 		sts := &appsv1.StatefulSet{}

@@ -235,9 +235,9 @@ helm-ut: ## Run the helm unittest
 
 .PHONY: lint
 lint: config-transformer golangci-lint ## Lint the helm charts and the Go operator
+	$(GOLANGCI_LINT) run
 	helm lint $(OPERATOR_CHART)
 	scripts/dockerfile-lint
-	$(GOLANGCI_LINT) run
 
 .PHONY: run-unit-tests
 run-unit-tests: test ## Run unit tests
@@ -515,7 +515,7 @@ KUSTOMIZE_VERSION ?= v4.5.5
 CONTROLLER_TOOLS_VERSION ?= v0.11.1
 KIND_VERSION ?= v0.11.1
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
-GOLANGCI_LINT_VER ?= 1.51.1
+GOLANGCI_LINT_VER ?= 1.54.2
 
 ## Tool architecture
 GOOS ?= $(shell go env GOOS)

@@ -44,7 +44,7 @@ func MakeUpgradeOperator120Reconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 }
 
 // Reconcile will handle any upgrade actions for k8s objects created in 1.2.0 or prior.
-func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (u *UpgradeOperator120Reconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	finder := iter.MakeSubclusterFinder(u.VRec.Client, u.Vdb)
 	stss, err := finder.FindStatefulSets(ctx, iter.FindExisting)
 	if err != nil {

@@ -79,7 +79,7 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 
 // Reconcile is the main driver for reconciliation of Kubernetes objects.
 // This will ensure the desired svc and sts objects exist and are in the correct state.
-func (o *ObjReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -384,7 +384,7 @@ func stringMapDiffer(exp, cur map[string]string) bool {
 
 // reconcileHlSvcFields merges relevant service fields into curSvc. This assumes
 // we are reconciling the headless service object.
-func (o ObjReconciler) reconcileHlSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
+func (o ObjReconciler) reconcileHlSvcFields(curSvc, expSvc *corev1.Service, _ *vapi.Subcluster) *corev1.Service {
 	if !reflect.DeepEqual(expSvc.Labels, curSvc.Labels) {
 		curSvc.Labels = expSvc.Labels
 		return curSvc

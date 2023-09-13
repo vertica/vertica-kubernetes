@@ -52,7 +52,7 @@ type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
 	findPodToRunInit() (*PodFact, bool)
 	execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error)
-	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, podList []*PodFact) (ctrl.Result, error)
+	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string, podList []*PodFact) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
 
@@ -102,12 +102,13 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 	initiatorPod := initPodFact.name
+	initiatorIP := initPodFact.podIP
 
 	res, err := g.ConstructConfigParms(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, podList); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, initiatorIP, podList); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -261,7 +262,7 @@ func (g *GenericDatabaseInitializer) setS3AuthParms(ctx context.Context) (ctrl.R
 
 // setHDFSAuthParms adds the auth parms to the config parms map when using
 // HDFS communal storage.
-func (g *GenericDatabaseInitializer) setHDFSAuthParms(ctx context.Context) (ctrl.Result, error) {
+func (g *GenericDatabaseInitializer) setHDFSAuthParms(_ context.Context) (ctrl.Result, error) {
 	g.setHadoopConfDir()
 	g.setCAFile()
 	return ctrl.Result{}, nil

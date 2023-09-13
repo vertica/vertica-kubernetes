@@ -26,7 +26,7 @@ import (
 )
 
 // AddSubcluster will create a subcluster in the vertica cluster.
-func (v *VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) error {
+func (v *VClusterOps) AddSubcluster(_ context.Context, opts ...addsc.Option) error {
 	v.Log.Info("Starting vcluster AddSubcluster")
 
 	// get add_subcluster k8s configs
@@ -41,7 +41,7 @@ func (v *VClusterOps) AddSubcluster(ctx context.Context, opts ...addsc.Option) e
 		return err
 	}
 
-	v.Log.Info("Successfully added a subcluster to the database", "scName", *vopts.SCName, "dbName", *vopts.Name)
+	v.Log.Info("Successfully added a subcluster to the database", "scName", *vopts.SCName, "dbName", *vopts.DBName)
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms) vops.VAddSubcluste
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 
 	opts.SCName = &s.Subcluster
-	opts.Name = &v.VDB.Spec.DBName
+	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 	opts.IsPrimary = &s.IsPrimary
 

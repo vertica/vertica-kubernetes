@@ -110,7 +110,7 @@ func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) err
 	if options.Ipv6.ToBool() != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
 	}
-	if *options.Name != TestDBName {
+	if *options.DBName != TestDBName {
 		return fmt.Errorf("failed to retrieve database name")
 	}
 
@@ -153,9 +153,9 @@ func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOpti
 }
 
 // VerifyHosts is used in vcluster-ops unit test for verifying hosts
-func (m *MockVClusterOps) VerifyHosts(options *vops.DatabaseOptions) error {
-	if !reflect.DeepEqual(options.RawHosts, TestHosts) {
-		return fmt.Errorf("failed to retrieve hosts")
+func (m *MockVClusterOps) VerifyHosts(options *vops.DatabaseOptions, hosts []string) error {
+	if !reflect.DeepEqual(options.RawHosts, hosts) {
+		return fmt.Errorf("failed to retrieve hosts '%v' in '%v'", hosts, options.RawHosts)
 	}
 
 	return nil

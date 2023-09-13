@@ -61,7 +61,7 @@ func (v *VerticaAutoscaler) ValidateCreate() error {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *VerticaAutoscaler) ValidateUpdate(old runtime.Object) error {
+func (v *VerticaAutoscaler) ValidateUpdate(_ runtime.Object) error {
 	verticaautoscalerlog.Info("validate update", "name", v.Name)
 
 	allErrs := v.validateSpec()

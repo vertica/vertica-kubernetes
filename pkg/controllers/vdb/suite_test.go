@@ -104,7 +104,7 @@ func setVerticaNodeNameInPodFacts(vdb *vapi.VerticaDB, sc *vapi.Subcluster, pf *
 	}
 }
 
-func defaultPodFactOverrider(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func defaultPodFactOverrider(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	if !pf.isPodRunning {
 		return nil
 	}

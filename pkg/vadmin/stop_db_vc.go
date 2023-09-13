@@ -26,7 +26,7 @@ import (
 )
 
 // StopDB will stop all the vertica hosts of a running cluster
-func (v *VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
+func (v *VClusterOps) StopDB(_ context.Context, opts ...stopdb.Option) error {
 	v.Log.Info("Starting vcluster StopDB")
 
 	// get stop_db options
@@ -41,7 +41,7 @@ func (v *VClusterOps) StopDB(ctx context.Context, opts ...stopdb.Option) error {
 		return err
 	}
 
-	v.Log.Info("Successfully stopped a database", "dbName", *vopts.Name)
+	v.Log.Info("Successfully stopped a database", "dbName", *vopts.DBName)
 	return nil
 }
 
@@ -52,7 +52,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 	v.Log.Info("Setup stop db options", "hosts", opts.RawHosts[0])
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 
-	opts.Name = &v.VDB.Spec.DBName
+	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
 	// auth options
