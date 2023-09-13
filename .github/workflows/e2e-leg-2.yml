@@ -68,7 +68,7 @@ jobs:
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-leg-2
         export VERTICA_DEPLOYMENT_METHOD_OVERRIDE=${{ inputs.vertica-deployment-method }}
-        if [ "${VERTICA_DEPLOYMENT_METHOD_OVERRIDE}" != "vclusterops" ]; then E2E_TEST_DIRS+=" e2e-leg-2-failed"; fi
+        if [ "${VERTICA_DEPLOYMENT_METHOD_OVERRIDE}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-2-failed"; fi
         export E2E_TEST_DIRS=tests/e2e-leg-2
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
