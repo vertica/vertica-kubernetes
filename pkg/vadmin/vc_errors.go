@@ -51,10 +51,17 @@ func (v *vcErrors) LogFailure(cmd string, err error) (ctrl.Result, error) {
 	if ok := errors.As(err, &vproblem); ok {
 		return v.logRfc7807Failure(cmd, vproblem)
 	}
+
 	clusterLeaseNotExpiredError := &vclusterops.ClusterLeaseNotExpiredError{}
 	if ok := errors.As(err, &clusterLeaseNotExpiredError); ok {
 		return v.logClusterLeaseNotExpiredError(clusterLeaseNotExpiredError)
 	}
+
+	reviveDBNodeCountMismatchError := &vclusterops.ReviveDBNodeCountMismatchError{}
+	if ok := errors.As(err, &reviveDBNodeCountMismatchError); ok {
+		return v.logReviveDBNodeCountMismatchError(reviveDBNodeCountMismatchError)
+	}
+
 	return v.logGenericFailure(cmd, err)
 }
 
@@ -89,5 +96,13 @@ func (v *vcErrors) logClusterLeaseNotExpiredError(err *vclusterops.ClusterLeaseN
 	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ReviveDBClusterInUse,
 		"revive_db failed because the cluster lease has not expired for '%s'",
 		v.VDB.GetCommunalPath())
+	return ctrl.Result{Requeue: true}, nil
+}
+
+func (v *vcErrors) logReviveDBNodeCountMismatchError(err *vclusterops.ReviveDBNodeCountMismatchError) (ctrl.Result, error) {
+	v.Log.Info("vclusterOps command failed because revive_db has a node count mismatch", "msg", err.Error())
+	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ReviveDBNodeCountMismatch,
+		"revive_db failed because of a node count mismatch: %d nodes in the specification, but %d nodes in the original database",
+		err.NumOfNewNodes, err.NumOfOldNodes)
 	return ctrl.Result{Requeue: true}, nil
 }
