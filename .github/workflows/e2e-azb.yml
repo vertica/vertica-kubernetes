@@ -78,5 +78,5 @@ jobs:
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-azb-${{ inputs.vertica-deployment-method }}
+        name: logs-e2e-azb
         path: ${{ github.workspace }}/int-tests-output/*

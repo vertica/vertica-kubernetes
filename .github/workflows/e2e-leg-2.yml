@@ -80,5 +80,5 @@ jobs:
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-leg-2-${{ inputs.vertica-deployment-method }}
+        name: logs-e2e-leg-2
         path: ${{ github.workspace }}/int-tests-output/*
