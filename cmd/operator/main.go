@@ -40,7 +40,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
+	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
@@ -62,7 +64,8 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(vapi.AddToScheme(scheme))
+	utilruntime.Must(vapiB1.AddToScheme(scheme))
+	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -130,16 +133,19 @@ func addWebhooksToManager(mgr manager.Manager) {
 	webhookServer := mgr.GetWebhookServer()
 	webhookServer.TLSMinVersion = "1.3"
 
-	if err := (&vapi.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
+	if err := (&vapiB1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiB1.Version)
 		os.Exit(1)
 	}
-	if err := (&vapi.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler")
+	if err := (&vapiV1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiV1.Version)
+	}
+	if err := (&vapiB1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler", "version", vapiB1.Version)
 		os.Exit(1)
 	}
-	if err := (&vapi.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "EventTrigger")
+	if err := (&vapiB1.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EventTrigger", "version", vapiB1.Version)
 		os.Exit(1)
 	}
 }
@@ -224,9 +230,9 @@ func main() {
 		CertDir:                CertDir,
 		Controller: v1alpha1.ControllerConfigurationSpec{
 			GroupKindConcurrency: map[string]int{
-				vapi.GkVDB.String(): oc.VerticaDBConcurrency,
-				vapi.GkVAS.String(): oc.VerticaAutoscalerConcurrency,
-				vapi.GkET.String():  oc.EventTriggerConcurrency,
+				vapiB1.GkVDB.String(): oc.VerticaDBConcurrency,
+				vapiB1.GkVAS.String(): oc.VerticaAutoscalerConcurrency,
+				vapiB1.GkET.String():  oc.EventTriggerConcurrency,
 			},
 		},
 	})

@@ -5,4 +5,13 @@ metadata:
   name: verticadbs.vertica.com
 spec:
   conversion:
-    strategy: None
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          namespace: system
+          name: webhook-service
+          path: /convert
+      conversionReviewVersions:
+      - v1
+      - v1beta1

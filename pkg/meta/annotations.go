@@ -45,6 +45,11 @@ const (
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
 	OperatorVersionAnnotation          = "vertica.com/operator-version"
+
+	// This is an indicator added to the VerticaDB annotation that the CR was
+	// converted from a different version of the API. The API it was converted
+	// from is the value of the annotation.
+	ApiConversion = "vertica.com/converted-from-api-version"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package v1beta1
+package v1
 
 import (
 	"regexp"
@@ -21,7 +21,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 )
 
-// SPILLY - consider removing this file if you can
+// SPILLY - code duplication. We should move this out to its own package if we
+// can. Or, if we can just remove the file from v1beta1.
 
 const (
 	// This is the minimum vertica version that the operator currently supports.
