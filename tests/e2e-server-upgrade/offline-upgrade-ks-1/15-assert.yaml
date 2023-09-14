@@ -14,14 +14,14 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-upgrade-vertica-sc1
+  name: v-base-upgrade-sc1
 status:
   replicas: 3
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica
+  name: v-base-upgrade
 status:
   subclusters:
     - installCount: 3
