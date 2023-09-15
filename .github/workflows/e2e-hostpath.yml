@@ -12,6 +12,9 @@ on:
       vertica-image:
         type: string
         required: false
+      vertica-deployment-method:
+        type: string
+        required: false
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -33,6 +36,14 @@ on:
         description: 'Name of the vertica server image'
         type: string
         required: false
+      vertica-deployment-method:
+        description: 'Vertica deployment method'
+        type: choice
+        required: false
+        default: admintools
+        options:
+        - admintools
+        - vclusterops
 
 jobs:
 
@@ -60,11 +71,13 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS="tests/e2e-leg-3"
+        export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
+        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-3-failed"; fi
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-hostpath
+        name: logs-e2e-hostpath-${{ inputs.vertica-deployment-method }}
         path: ${{ github.workspace }}/int-tests-output/*

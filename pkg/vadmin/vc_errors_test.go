@@ -80,4 +80,21 @@ var _ = Describe("verrors suite", func() {
 		Ω(err).Should(BeNil())
 	})
 
+	It("should handle revive_db node count mismatch error", func() {
+		vce := vcErrors{
+			Log:      logger,
+			EVWriter: &aterrors.TestEVWriter{},
+			VDB:      vapi.MakeVDB(),
+		}
+		origErr := &vclusterops.ReviveDBNodeCountMismatchError{
+			ReviveDBStep:  "NMADownloadFileOp",
+			FailureHost:   "127.0.0.1",
+			NumOfNewNodes: 3,
+			NumOfOldNodes: 4,
+		}
+		res, err := vce.LogFailure("test revive_db node count mismatch error", origErr)
+		Ω(res).Should(Equal(ctrl.Result{Requeue: true}))
+		Ω(err).Should(BeNil())
+	})
+
 })

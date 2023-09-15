@@ -49,36 +49,38 @@ fi
 
 function printVerticaK8sImg
 {
-    major=$1
-    minor=$2
-    patch=$3
-    echo "vertica/vertica-k8s:$major.$minor.$patch-0"
+    imageName=$1
+    major=$2
+    minor=$3
+    patch=$4
+    echo "${VERTICA_REPO}/$imageName:$major.$minor.$patch-0"
 }
 
 function decideVersionAndExitIfFound
 {
-    major=$1
-    minor=$2
+    imageName=$1
+    major=$2
+    minor=$3
 
     # 23.3.x is a special case because that was the first verson after 12.0.4
     if [[ "$major" == "23" && "$minor" == "3" ]]
     then
-        printVerticaK8sImg 12 0 2
+        printVerticaK8sImg $imageName 12 0 2
         exit 0
     # Guess the image based on the versioning pattern of '<year>.<quarter>.0'
     elif [[ "$major" -ge "23" ]]
     then
         if [[ "$minor" > 1 ]]
         then
-            printVerticaK8sImg $major $(($minor - 1)) 0
+            printVerticaK8sImg $imageName $major $(($minor - 1)) 0
         else
-            printVerticaK8sImg $(($major - 1)) 4 0
+            printVerticaK8sImg $imageName $(($major - 1)) 4 0
         fi
         exit 0
     # Legacy case from before we switched to '<year>.<quarter>.0' versioning
     elif [[ "$major" == "12" ]]
     then
-        printVerticaK8sImg 12 0 2
+        printVerticaK8sImg $imageName 12 0 2
         exit 0
     fi
 }
@@ -89,8 +91,15 @@ function getRPMVersion
     grep 'VERTICA_CE_URL:' $REPO_DIR/.github/actions/download-rpm/action.yaml | cut -d':' -f3 | cut -d'/' -f5 | cut -d'-' -f2
 }
 
+VERTICA_REPO="vertica"
 TARGET_IMAGE=${@:$OPTIND:1}
-LAST_RELEASED_IMAGE=$(printVerticaK8sImg 23 3 0)
+PUBLIC_IMAGE=vertica-k8s
+PRIVATE_IMAGE=${PUBLIC_IMAGE}-private
+LAST_RELEASED_IMAGE=$(printVerticaK8sImg $PUBLIC_IMAGE 23 3 0)
+# Next two variables define the version that is built nightly from the server
+# master branch. Update this as the server repo changes the version.
+NIGHTLY_MAJOR=24
+NIGHTLY_MINOR=1
 
 # Extract out the tag from the image.
 IFS=':' read image tag <<< "$TARGET_IMAGE"
@@ -108,21 +117,21 @@ IFS='.' read major minor patch <<< "$tag"
 # in fact a version.
 if [[ $major =~ ^[0-9]+$ && $minor =~ ^[0-9]+$ ]]
 then
-    decideVersionAndExitIfFound $major $minor
+    decideVersionAndExitIfFound $PUBLIC_IMAGE $major $minor
 fi
 
 # No able to figure out the version from the tag.  If the image repo is
-# dockerhub, then we assume we are running with the nightly build, which is the
-# latest master. So, return the last released image.
+# dockerhub, then we assume we are running with the nightly build. So, we
+# return an image based on the nightly version. This must come from the private
+# repo in case the base version isn't released yet.
 if [[ $TARGET_IMAGE == docker.io/* ]]
 then
-    echo $LAST_RELEASED_IMAGE
-    exit 0
+    decideVersionAndExitIfFound $PRIVATE_IMAGE $NIGHTLY_MAJOR $NIGHTLY_MINOR
 # We assume we are running with an image built in this CI that used the public
 # RPM. This is true for PRs or running off of main
 else
     IFS='.' read major minor patch <<< "$(getRPMVersion)"
-    decideVersionAndExitIfFound $major $minor
+    decideVersionAndExitIfFound $PUBLIC_IMAGE $major $minor
 fi
 
 echo "Unable to guess the server upgrade base image"

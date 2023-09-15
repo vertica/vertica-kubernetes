@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-upgrade-vertica-sc1
+  name: v-base-upgrade-sc1
 spec:
   updateStrategy:
     type: OnDelete
@@ -24,7 +24,7 @@ status:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-upgrade-vertica-sc1-0
+  name: v-base-upgrade-sc1-0
 spec:
   containers:
     - image: wrong-image
@@ -32,7 +32,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-upgrade-vertica-sc1-1
+  name: v-base-upgrade-sc1-1
 spec:
   containers:
     - image: wrong-image
@@ -40,7 +40,7 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-upgrade-vertica-sc1-2
+  name: v-base-upgrade-sc1-2
 spec:
   containers:
     - image: wrong-image

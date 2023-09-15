@@ -54,6 +54,10 @@ const (
 	CatalogPathEnv  = "CATALOG_PATH"
 	DepotPathEnv    = "DEPOT_PATH"
 	DatabaseNameEnv = "DATABASE_NAME"
+
+	// Environment variables that are set when deployed with vclusterops
+	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
+	NMASecretNameEnv      = "NMA_SECRET_NAME"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -575,9 +579,17 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		envVars = append(envVars, []corev1.EnvVar{
+			// Old model is to provide the path to each of the certs that are
+			// mounted in the container.
 			{Name: "NMA_ROOTCA_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, paths.HTTPServerCACrtName)},
 			{Name: "NMA_CERT_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSCertKey)},
 			{Name: "NMA_KEY_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSPrivateKeyKey)},
+			// New model is for the NMA to read the secrets directly from k8s.
+			// We provide the secret namespace and name for this reason. Once
+			// implemented we no longer need to provide the above environment
+			// variables.
+			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+			{Name: NMASecretNameEnv, Value: vdb.Spec.HTTPServerTLSSecret},
 		}...)
 	}
 	return corev1.Container{

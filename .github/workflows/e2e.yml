@@ -38,16 +38,19 @@ on:
         options:
         - all
         - none
-        - s3
-        - azb
-        - leg 2
-        - server upgrade
-        - operator upgrade
-        - udx
-        - udx-vcluster
-        - hostpath
-        - enterprise 
-        - http server
+        - admintools s3
+        - admintools azb
+        - admintools leg 2
+        - admintools server upgrade
+        - admintools operator upgrade
+        - admintools udx
+        - admintools hostpath
+        - admintools enterprise 
+        - admintoold http server
+        - vcluster s3
+        - vcluster azb
+        - vcluster leg 2
+        - vcluster hostpath
         - vcluster
       run_security_scan:
         description: 'What images to scan?'
@@ -101,49 +104,105 @@ jobs:
     if: ${{ inputs.build_release_assets == 'all' || inputs.build_release_assests == '' }}
 
   e2e-s3:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 's3' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools s3' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-s3.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  
+  e2e-s3-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'vcluster s3' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-s3.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-leg-2:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 2' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-leg-2.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-2-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 2' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-2.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-azb:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'azb' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools azb' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-azb.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.nokeys-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-azb-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster azb' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-azb.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-hostpath:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'hostpath' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools hostpath' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-hostpath.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  
+  e2e-hostpath-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster hostpath' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-hostpath.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -161,7 +220,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-http-server:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'http server' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools http server' || inputs.e2e_test_suites == '' }}
     needs: [build]
     uses: ./.github/workflows/e2e-http-server.yml
     with:
@@ -173,7 +232,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-server-upgrade:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'server upgrade' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '' }}
     needs: [build]
     uses: ./.github/workflows/e2e-server-upgrade.yml
     with:
@@ -185,7 +244,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-operator-upgrade:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'operator upgrade' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-operator-upgrade.yml
     with:
@@ -197,7 +256,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-udx:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'udx' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-udx.yml
     with:
@@ -224,7 +283,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-enterprise:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'enterprise' || inputs.e2e_test_suites == '' }}
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools enterprise' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-enterprise.yml
     with:

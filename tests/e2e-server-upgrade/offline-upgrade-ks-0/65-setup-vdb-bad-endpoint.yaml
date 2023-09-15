@@ -17,7 +17,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-upgrade-vertica
+  name: v-base-upgrade
 spec:
   image: wrong-image
   imagePullPolicy: IfNotPresent
