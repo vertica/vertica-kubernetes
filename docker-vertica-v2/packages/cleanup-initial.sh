@@ -20,7 +20,6 @@
 rm -rf \
     /var/lib/dpkg/info/libssh-4* \
     /usr/share/doc/libssh-4* \
-    /usr/lib/x86_64-linux-gnu/libssh* \
     /usr/lib/apt/methods/ssh \
     /etc/X11/Xsession.d/90x11-common_ssh-agent \
     /usr/share/lintian/overrides/libssh-4

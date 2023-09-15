@@ -50,6 +50,7 @@ on:
         - vcluster s3
         - vcluster azb
         - vcluster leg 2
+        - vcluster udx
         - vcluster hostpath
         - vcluster
       run_security_scan:
@@ -264,12 +265,13 @@ jobs:
       operator-image: ${{ needs.build.outputs.operator-image }}
       # We must pass the full image since the minimal image cannot run Java UDx's
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+      vertica-deployment-method: admintools
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   e2e-udx-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'udx-vcluster' || inputs.e2e_test_suites == '')}}
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster udx' || inputs.e2e_test_suites == '')}}
     needs: [build] 
     uses: ./.github/workflows/e2e-udx.yml
     with:

@@ -29,14 +29,11 @@ rm -r -f \
    /opt/vertica/oss/python*/lib/python*/test \
    /opt/vertica/oss/python*/lib/python*/unittest/test \
    /opt/vertica/oss/python*/lib/python*/pip \
-   /opt/vertica/oss/python*/lib/python*/site-packages/pip* \
    /opt/vertica/oss/python*/bin/pip* \
    /opt/vertica/oss/python*/lib/python*/config-[0-9]* \
    /opt/vertica/oss/python*/lib/python*/tkinter \
-   /opt/vertica/oss/python*/lib/python*/idlelib
-
-# cleanup all test directories for packages under site-package
-rm -rf /opt/vertica/oss/python*/lib/python*/site-packages
+   /opt/vertica/oss/python*/lib/python*/idlelib \
+   /opt/vertica/oss/python*/lib/python*/site-packages
 
 # cleanup many of the __pycache__ directories 
 find /opt/vertica/oss/ -type d -name "__pycache__" -exec rm -rf {} +
@@ -79,7 +76,11 @@ rm -rf \
     /opt/vertica/config/admintools* \
     /opt/vertica/bin/admintools \
     /opt/vertica/config/logrotate/admintool.logrotate \
-    /home/dbadmin/logrotate/logrotate/admintool.logrotate
+    /home/dbadmin/logrotate/logrotate/admintool.logrotate \
+    /opt/vertica/bin/adminTools \
+    /opt/vertica/sbin/update_vertica \
+    /opt/vertica/sbin/install_vertica \
+    /opt/vertica/config/apikeys.dat
     
 # (optional) minimal images remove packages that aren't auto installed as well as the sdk folder
 if [[ ${MINIMAL^^} = "YES" ]]
