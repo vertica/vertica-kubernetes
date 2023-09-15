@@ -156,12 +156,6 @@ type PodFact struct {
 	// rolling update.
 	stsRevisionPending bool
 
-	// Is the agent running in this pod?
-	agentRunning bool
-
-	// Check if the image has agent keys saved in the dbadmin directory.
-	imageHasAgentKeys bool
-
 	// Is the http server running in this pod?
 	isHTTPServerRunning bool
 }
@@ -195,8 +189,6 @@ type GatherState struct {
 	VNodeName              string          `json:"vnodeName"`
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
-	AgentRunning           bool            `json:"agentRunning"`
-	ImageHasAgentKeys      bool            `json:"imageHasAgentKeys"`
 	IsHTTPServerRunning    bool            `json:"isHTTPServerRunning"`
 }
 
@@ -402,12 +394,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		test -f %s && echo true || echo false
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
-		echo -n '  %s: '
-		test -f %s && echo true || echo false
-		echo -n '  %s: '
-		test -f %s && echo true || echo false
-		echo -n '  %s: '
-		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
 		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_catalog/%s 2> /dev/null \
 			| grep --quiet . && echo true || echo false
@@ -423,10 +409,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=size %s | tail -1
 		echo -n 'localDataAvail: '
 		df --block-size=1 --output=avail %s | tail -1
-		echo -n 'agentRunning: '
-		/opt/vertica/sbin/vertica_agent status | grep --quiet "running" && echo true || echo false
-		echo -n 'imageHasAgentKeys: '
-		ls --almost-all --hide-control-chars -1 %s 2> /dev/null | grep --quiet . && echo true || echo false
 		echo -n 'isHTTPServerRunning: '
 		ss -tulpn 2> /dev/null | grep LISTEN | grep --quiet ":%s" && echo true || echo false
  	`,
@@ -441,9 +423,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
 		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
-		paths.AgentCertFile, paths.AgentCertFile,
-		paths.AgentKeyFile, paths.AgentKeyFile,
-		paths.VerticaAPIKeysFile, paths.VerticaAPIKeysFile,
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName), getPathToVerifyCatalogExists(pf),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
@@ -451,7 +430,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
-		paths.DBadminAgentPath,
 		fmt.Sprintf("%d", builder.VerticaHTTPPort),
 	))
 }
@@ -555,8 +533,6 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.V
 	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
-	pf.agentRunning = gs.AgentRunning
-	pf.imageHasAgentKeys = gs.ImageHasAgentKeys
 	pf.isHTTPServerRunning = gs.IsHTTPServerRunning
 	// If the vertica process is running, then the database is UP. This is
 	// consistent with the liveness probe, which goes a bit further and checks
@@ -1117,13 +1093,4 @@ func getHostList(podList []*PodFact) []string {
 		hostList = append(hostList, pod.podIP)
 	}
 	return hostList
-}
-
-// needAgentKeysCopy returns true if all agent keys are present in the image
-// and have not yet been copied to /opt/vertica/config/
-func (p *PodFact) needAgentKeysCopy() bool {
-	if !p.imageHasAgentKeys {
-		return false
-	}
-	return !p.fileExists[paths.AgentKeyFile] || !p.fileExists[paths.AgentCertFile] || !p.fileExists[paths.VerticaAPIKeysFile]
 }
