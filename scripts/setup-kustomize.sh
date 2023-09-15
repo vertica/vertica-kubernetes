@@ -739,11 +739,10 @@ setup_creds_for_private_repo
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
-for tdir in e2e-leg-*/*/*/base e2e-server-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base e2e-udx/*/*/base e2e-http-server/*/*/base e2e-enterprise/*/*/base e2e-vcluster/*/*/base
-do
+for tdir in e2e-leg-*/*/*/base e2e-server-upgrade/*/*/base e2e-operator-upgrade-overlays/*/*/base e2e-udx*/*/*/base e2e-http-server/*/*/base e2e-enterprise/*/*/base
     create_vdb_pod_kustomization $(dirname $tdir) $(basename $(realpath $tdir/../..))
 done
-for tdir in e2e-leg-*/* e2e-server-upgrade/* e2e-operator-upgrade-overlays/* e2e-udx/* e2e-http-server/* e2e-vcluster/*
+for tdir in e2e-leg-*/* e2e-server-upgrade/* e2e-operator-upgrade-overlays/* e2e-udx*/* e2e-http-server/*
 do
     clean_communal_kustomization $tdir
 done
