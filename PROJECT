@@ -9,7 +9,7 @@ repo: github.com/vertica/vertica-kubernetes
 resources:
 - api:
     crdVersion: v1
-    namespaced: true
+    namespaced: false
   controller: true
   domain: vertica.com
   kind: VerticaDB
@@ -21,7 +21,7 @@ resources:
     webhookVersion: v1
 - api:
     crdVersion: v1
-    namespaced: true
+    namespaced: false
   controller: true
   domain: vertica.com
   kind: VerticaAutoscaler
@@ -32,10 +32,14 @@ resources:
     webhookVersion: v1
 - api:
     crdVersion: v1
-    namespaced: true
+    namespaced: false
   controller: true
   domain: vertica.com
   kind: EventTrigger
   path: github.com/vertica/vertica-kubernetes/api/v1beta1
   version: v1beta1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"

@@ -21,12 +21,10 @@ import (
 	"sort"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -144,17 +142,10 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 }
 
 // listObjectsOwnedByOperator will return all objects of a specific type that
-// are owned by the operator.  This includes objects like statefulsets or
-// service objects.  The type is derived from what kind of list is passed in.
-// We find objects the operator owns by using a set of labels that the operator
-// sets with each object it creates.
+// are owned by the operator.  This is just a wrapper to the common function
+// that implements this lookup.
 func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list client.ObjectList) error {
-	labelSel := labels.SelectorFromSet(builder.MakeOperatorLabels(m.Vdb))
-	listOpts := &client.ListOptions{
-		Namespace:     m.Vdb.Namespace,
-		LabelSelector: labelSel,
-	}
-	return m.Client.List(ctx, list, listOpts)
+	return listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list)
 }
 
 // hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb

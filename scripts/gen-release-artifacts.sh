@@ -53,20 +53,3 @@ do
   # namespace that might not exist on the users system.
   perl -i -0777 -pe 's/.*namespace:.*\n//g' $RELEASE_ARTIFACT_TARGET_DIR/$f
 done
-
-# Generate a single manifest that all of the rbac rules to run the operator.
-# This is a release artifact too, so it must be free of any templating.
-OPERATOR_RBAC=$RELEASE_ARTIFACT_TARGET_DIR/operator-rbac.yaml
-rm $OPERATOR_RBAC 2>/dev/null || :
-touch $OPERATOR_RBAC
-chmod +x $OPERATOR_RBAC
-for f in verticadb-operator-controller-manager-sa.yaml \
-    verticadb-operator-leader-election-role-role.yaml \
-    verticadb-operator-manager-role-role.yaml \
-    verticadb-operator-leader-election-rolebinding-rb.yaml
-do
-    cat $MANIFEST_DIR/$f >> $OPERATOR_RBAC
-    echo "---" >> $OPERATOR_RBAC
-done
-cat $MANIFEST_DIR/verticadb-operator-manager-rolebinding-rb.yaml >> $OPERATOR_RBAC
-perl -i -0777 -pe 's/.*namespace:.*\n//g' $OPERATOR_RBAC

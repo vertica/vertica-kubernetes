@@ -94,43 +94,13 @@ perl -i -0777 -pe "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/ve
 
 # 9.  Template the serviceaccount, roles and rolebindings
 perl -i -0777 -pe 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-perl -i -0777 -pe 's/--service-account-name=.*/--service-account-name={{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-for f in verticadb-operator-controller-manager-sa.yaml
-do
-    perl -i -pe 's/^/{{- if not .Values.serviceAccountNameOverride -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
-    echo "{{- end }}" >> $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-manager-role-role.yaml \
-    verticadb-operator-manager-rolebinding-rb.yaml \
-    verticadb-operator-leader-election-role-role.yaml \
-    verticadb-operator-leader-election-rolebinding-rb.yaml
-do
-    perl -i -pe 's/^/{{- if not .Values.skipRoleAndRoleBindingCreation -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
-    echo "{{- end }}" >> $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-manager-rolebinding-rb.yaml \
+for f in  \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
     verticadb-operator-proxy-rolebinding-crb.yaml \
     verticadb-operator-metrics-reader-crb.yaml \
     verticadb-operator-manager-clusterrolebinding-crb.yaml
 do
     perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
-done
-# ClusterRole and ClusterRoleBinding's all need the namespace included in their
-# names to make them unique for multiple operator deployments.
-perl -i -0777 -pe 's/-manager-clusterrolebinding/-{{ .Release.Namespace }}-manager-clusterolebinding/g' $TEMPLATE_DIR/verticadb-operator-manager-clusterrolebinding-crb.yaml
-for f in verticadb-operator-manager-clusterrolebinding-crb.yaml \
-    verticadb-operator-manager-role-cr.yaml
-do
-  perl -i -0777 -pe 's/-manager-role/-{{ .Release.Namespace }}-manager-role/g' $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-metrics-reader-cr.yaml verticadb-operator-metrics-reader-crb.yaml
-do
-    perl -i -0777 -pe 's/-metrics-reader/-{{ .Release.Namespace }}-metrics-reader/g' $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-proxy-role-cr.yaml verticadb-operator-proxy-rolebinding-crb.yaml
-do
-    perl -i -0777 -pe 's/-(proxy-role.*)/-{{ .Release.Namespace }}-$1/g' $TEMPLATE_DIR/$f
 done
 
 # 10.  Template the webhook access enablement
@@ -211,14 +181,10 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yam
 {{- end }}
 EOF
 
-# 19. There are clusterrole/clusterrolebinding that are only needed if the
-# operator is going to patch the webhook. This is needed only if the operator
-# is generating its own self-signed cert for the webhook or a secret was
-# provided. For cert-manager, the cert-manager operator injects the CA and the
-# operator doesn't need to handle that.
-for f in verticadb-operator-manager-role-cr.yaml \
-    verticadb-operator-manager-clusterrolebinding-crb.yaml
+# 19. Template the per-CR concurrency parameters
+for f in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 do
-    perl -i -pe 's/^/{{- if and (.Values.webhook.enable) (or (eq .Values.webhook.certSource "internal") (.Values.webhook.tlsSecret)) -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
-    echo "{{- end }}" >> $TEMPLATE_DIR/$f
+    perl -i -0777 -pe 's/(--verticadb-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.verticadb \}\}/g' $f
+    perl -i -0777 -pe 's/(--verticaautoscaler-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.verticaautoscaler \}\}/g' $f
+    perl -i -0777 -pe 's/(--eventtrigger-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.eventtrigger \}\}/g' $f
 done

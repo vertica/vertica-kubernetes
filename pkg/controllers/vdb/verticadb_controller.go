@@ -54,19 +54,18 @@ type VerticaDBReconciler struct {
 	Cfg    *rest.Config
 	EVRec  record.EventRecorder
 	OpCfg  opcfg.OperatorConfig
-	builder.DeploymentNames
 }
 
-//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticadbs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=verticadbs/finalizers,verbs=update
-// +kubebuilder:rbac:groups=core,namespace=WATCH_NAMESPACE,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,namespace=WATCH_NAMESPACE,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods,verbs=get;list;watch;create;update;delete;patch
-// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/exec,verbs=create
-// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=pods/status,verbs=update
-// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=secrets,verbs=get;list;watch;create;update
-// +kubebuilder:rbac:groups="",namespace=WATCH_NAMESPACE,resources=persistentvolumeclaims,verbs=get;list;watch;update
+//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
+// +kubebuilder:rbac:groups="",resources=pods/status,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 
@@ -163,6 +162,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeUpgradeOperator120Reconciler(r, log, vdb),
 		// Create a TLS secret for the HTTP server
 		MakeHTTPServerCertGenReconciler(r, vdb),
+		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
+		MakeServiceAccountReconciler(r, log, vdb),
 		// Update any k8s objects with some exceptions. For instance, preserve
 		// scaling. This is needed *before* upgrade and restart in case a change
 		// was made with the image change that would prevent the pods from

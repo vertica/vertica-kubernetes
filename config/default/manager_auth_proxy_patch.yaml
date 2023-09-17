@@ -35,7 +35,6 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
-        - "--service-account-name=verticadb-operator-controller-manager"
         # These are the placeholders that we patch in when applying the helm chart.
         # The default values here will be replaced in helm templates by the values 
         # of parameters. When creating the bundle instead for olm these flags with
@@ -49,3 +48,6 @@ spec:
         - "--dev=false"
         - "--prefix-name=verticadb-operator"
         - "--webhook-cert-secret=verticadb-operator-controller-manager-service-cert"
+        - "--verticadb-concurrency=5"
+        - "--verticaautoscaler-concurrency=1"
+        - "--eventtrigger-concurrency=1"

@@ -210,7 +210,7 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate Role and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	perl -i.$$$$ -nE 'print unless /WATCH_NAMESPACE/' config/rbac/role.yaml ; rm -f config/rbac/role.yaml.$$$$ ## delete any line with the dummy namespace WATCH_NAMESPACE
 
 .PHONY: generate
