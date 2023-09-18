@@ -285,7 +285,7 @@ jobs:
       uses: spilchen/switch-case-action@v2
       id: v2_vertica_image
       with:
-        default: docker.io/vertica/vertica-k8s-private:roy-20230915-1-v2
+        default: docker.io/vertica/vertica-k8s-private:latest-master
         conditionals-with-values: |
           ${{ inputs.v2_vertica_image != '' }} => ${{ inputs.v2_vertica_image }}
 
