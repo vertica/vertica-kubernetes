@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # (c) Copyright [2021-2023] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
@@ -11,7 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "
+# Remove things not necessary for a non-interactive Kubernetes pod
+# running Vertica
+
+# removing ssh related files
+rm -rf \
+    /var/lib/dpkg/info/libssh-4* \
+    /usr/share/doc/libssh-4* \
+    /usr/lib/apt/methods/ssh \
+    /etc/X11/Xsession.d/90x11-common_ssh-agent \
+    /usr/share/lintian/overrides/libssh-4

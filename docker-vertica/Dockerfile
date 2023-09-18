@@ -213,4 +213,5 @@ LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kuberne
       org.opencontainers.image.title='Vertica Server' \
       org.opencontainers.image.description='Runs the Vertica server that is optimized for use with the VerticaDB operator' \
       org.opencontainers.image.url=https://github.com/vertica/vertica-kubernetes/ \
-      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm
+      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm \
+      vertica-deployment-method='admintools'

@@ -100,6 +100,7 @@ ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
+COPY ./packages/cleanup-initial.sh /tmp/cleanup-initial.sh
 
 # For the init program (process 1), we use s6-overlay. This ensures none of the
 # processes we start ever become zombie's. It will also restart long running
@@ -158,9 +159,7 @@ RUN set -x \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
   && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
-  # Create a symlink to the rsync for use with vbr. This works around a problem
-  # seen in some deployments where vbr cannot find rsync.
-  && ln -s /opt/vertica/bin/rsync /usr/bin/rsync
+  && sh /tmp/cleanup-initial.sh
 
 ENTRYPOINT [ "/init" ]
 
@@ -172,8 +171,9 @@ USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
 LABEL maintainer="K8s Team"
-LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vertica \
+LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vertica-v2 \
       org.opencontainers.image.title='Vertica Server' \
       org.opencontainers.image.description='Runs the Vertica server that is optimized for use with the VerticaDB operator' \
       org.opencontainers.image.url=https://github.com/vertica/vertica-kubernetes/ \
-      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm
+      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm \
+      vertica-deployment-method='vclusterops'
