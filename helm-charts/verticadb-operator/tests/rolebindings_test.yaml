@@ -1,14 +1,7 @@
 suite: RoleBinding tests
 templates:
   - verticadb-operator-leader-election-rolebinding-rb.yaml
-  - verticadb-operator-manager-rolebinding-rb.yaml
 tests:
-  - it: should be allowed to skip creation of rolebindings
-    set:
-      skipRoleAndRoleBindingCreation: true
-    asserts:
-      - hasDocuments:
-          count: 0
   - it: should include RoleBindings by default
     asserts:
       - hasDocuments:

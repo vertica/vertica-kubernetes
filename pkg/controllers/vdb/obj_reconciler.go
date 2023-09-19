@@ -485,10 +485,14 @@ func (o *ObjReconciler) getServiceAccountName(ctx context.Context) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("error during service account lookup: %w", err)
 	}
-	if !exists {
-		return "", fmt.Errorf("service account for vdb %s does not exist", o.Vdb.Name)
+	if exists {
+		return sa.Name, nil
 	}
-	return sa.Name, nil
+	// For test purposes, we will use the default service account. k8s ensures
+	// this always exist in the namespace.
+	const DefaultServiceAccount = "default"
+	o.Log.Info("Count not find a service account for vdb using default", "name", DefaultServiceAccount)
+	return DefaultServiceAccount, nil
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

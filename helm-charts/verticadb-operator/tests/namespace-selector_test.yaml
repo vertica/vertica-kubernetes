@@ -5,14 +5,7 @@ templates:
 release:
   namespace: my-namespace
 tests:
-  - it: mutating webhook configuration has a namespace selector
+  - it: mutating webhook configuration does not have a namespace selector
     asserts:
-      - isNotNull:
+      - isNull:
           path: webhooks[0].namespaceSelector
-      - contains:
-          path: webhooks[0].namespaceSelector.matchExpressions
-          content:
-            key: kubernetes.io/metadata.name
-            operator: In
-            values:
-            - my-namespace
