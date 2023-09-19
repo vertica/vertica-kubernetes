@@ -115,10 +115,6 @@ func (a *Admintools) PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, pru
 	return prepLocalDataHelper(ctx, vdb, prunner, podName)
 }
 
-func (v *VClusterOps) PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
-	return prepLocalDataHelper(ctx, vdb, prunner, podName)
-}
-
 func prepLocalDataHelper(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
 	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDBDepotPath(), vdb.GetDBCatalogPath()}
 	var rmCmds bytes.Buffer
@@ -126,7 +122,15 @@ func prepLocalDataHelper(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.
 	for _, path := range locPaths {
 		rmCmds.WriteString(fmt.Sprintf("[[ -d %s ]] && rm -rf %s || true\n", path, path))
 	}
-
+	// We also need to ensure the dbadmin owns the depot directory.  When the
+	// directory are first mounted they are owned by root.  Vertica handles changing
+	// the ownership of the config, log and data directory.  This function exists to
+	// handle the depot directory. This can be skipped if the depotPath is
+	// shared with one of the data or catalog paths or if the depot volume is not
+	// a PersistentVolume.
+	if vdb.IsDepotVolumePersistentVolume() && vdb.Spec.Local.IsDepotPathUnique() {
+		rmCmds.WriteString(fmt.Sprintf("sudo chown dbadmin:verticadba -R %s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")))
+	}
 	cmd := []string{"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'; bash %s",
 		paths.PrepScript, rmCmds.String(), paths.PrepScript)}
 	if _, _, err := prunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
@@ -157,6 +161,10 @@ type VClusterOps struct {
 	VClusterProvider
 	Password string
 	EVWriter events.EVWriter
+}
+
+func (v *VClusterOps) PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
+	return prepLocalDataHelper(ctx, vdb, prunner, podName)
 }
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
