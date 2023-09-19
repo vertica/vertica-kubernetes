@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	corev1 "k8s.io/api/core/v1"
@@ -136,15 +137,18 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	for _, pod := range pods {
-		// admintools will not cleanup the local directories after a failed attempt
-		// to add node. So we ensure those directories are clear at each pod before
-		// proceeding.
-		if err := d.Dispatcher.PrepLocalData(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
-			return ctrl.Result{}, err
+	// Cleanup for any prior failed attempt.
+	// This cleanup only use for Admintools
+	if !vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		for _, pod := range pods {
+			// admintools will not cleanup the local directories after a failed attempt
+			// to add node. So we ensure those directories are clear at each pod before
+			// proceeding.
+			if err := vadmin.PrepLocalData(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
-
 	if err := d.runAddNodeForPod(ctx, pods, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
 		// reconcile successfully. We don't want to fail and requeue because

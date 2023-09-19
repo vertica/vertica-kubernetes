@@ -65,7 +65,6 @@ type GenericDatabaseInitializer struct {
 	PRunner             cmds.PodRunner
 	PFacts              *PodFacts
 	ConfigurationParams *vtypes.CiMap
-	Dispatcher          vadmin.Dispatcher
 }
 
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
@@ -115,8 +114,11 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	}
 
 	// Cleanup for any prior failed attempt.
-	if err := g.prepLocalDataInPods(ctx, podList); err != nil {
-		return ctrl.Result{}, err
+	// This cleanup only use for Admintools
+	if !meta.UseVClusterOps(g.Vdb.Annotations) {
+		if err := g.prepLocalDataInPods(ctx, podList); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if res, err := g.initializer.execCmd(ctx, initiatorPod, getHostList(podList)); verrors.IsReconcileAborted(res, err) {
@@ -156,7 +158,7 @@ func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, po
 	for _, pod := range podList {
 		// Cleanup any local paths. This step is needed if an earlier create_db
 		// fails -- admintools does not clean everything up.
-		if err := g.Dispatcher.PrepLocalData(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
+		if err := vadmin.PrepLocalData(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
 			return err
 		}
 	}
