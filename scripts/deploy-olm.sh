@@ -84,16 +84,13 @@ echo "Catalog source namespace: $OLM_NS"
 
 set -o xtrace
 
-# Create an operator group for the target namespace
+# Create an operator group that applies to all namespaces.
 cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha2
 kind: OperatorGroup
 metadata:
   name: e2e-operatorgroup
   namespace: $NAMESPACE
-spec:
-  targetNamespaces:
-  - $NAMESPACE
 EOF
 
 # Create a subscription to the verticadb-operator

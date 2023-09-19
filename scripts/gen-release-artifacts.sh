@@ -53,3 +53,7 @@ do
   # namespace that might not exist on the users system.
   perl -i -0777 -pe 's/.*namespace:.*\n//g' $RELEASE_ARTIFACT_TARGET_DIR/$f
 done
+
+# Copy the Role that allows users to work with the CRs that the verticadb
+# operator manages.
+cp $REPO_DIR/config/rbac/verticadb-operator-cr-user-role.yaml $RELEASE_ARTIFACT_TARGET_DIR

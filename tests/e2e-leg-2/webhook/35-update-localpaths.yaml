@@ -14,9 +14,9 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.local.depotPath="/new_depot"' | kubectl -n $NAMESPACE replace -f -
+  - script: kubectl -n verticadb-operator get verticadb v-webhook -o json | jq '.spec.local.depotPath="/new_depot"' | kubectl -n verticadb-operator replace -f -
     ignoreFailure: true
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE"
-  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.local.catalogPath="/vertica/catalog"' | kubectl -n $NAMESPACE replace -f -
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator"
+  - script: kubectl -n verticadb-operator get verticadb v-webhook -o json | jq '.spec.local.catalogPath="/vertica/catalog"' | kubectl -n verticadb-operator replace -f -
     ignoreFailure: true
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE"
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator"

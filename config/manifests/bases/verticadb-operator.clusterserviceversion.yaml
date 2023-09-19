@@ -1212,13 +1212,13 @@ spec:
       deployments: null
     strategy: ""
   installModes:
-  - supported: true
+  - supported: false
     type: OwnNamespace
-  - supported: true
+  - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
-  - supported: false
+  - supported: true
     type: AllNamespaces
   keywords:
   - database
@@ -1229,9 +1229,9 @@ spec:
   - name: Vertica Container Images
     url: https://hub.docker.com/u/vertica
   maintainers:
-  - email: matt.spilchen@vertica.com
+  - email: mspilchen@opentext.com
     name: Matt Spilchen
-  maturity: alpha
+  maturity: stable
   minKubeVersion: 1.21.1
   provider:
     name: Vertica
