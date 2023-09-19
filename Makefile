@@ -608,3 +608,8 @@ push-tag: ## Push the tag up to GitHub
 echo-versions:  ## Print the current versions for various components
 	@echo "VERSION=$(VERSION)"
 	@echo "VLOGGER_VERSION=$(VLOGGER_VERSION)"
+
+.PHONY: echo-vars
+echo-vars:  echo-images echo-versions  ## Print out internal state
+	@echo "DEPLOY_WITH=$(DEPLOY_WITH)"
+
