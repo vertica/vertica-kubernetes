@@ -16,13 +16,17 @@
 package vadmin
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -35,6 +39,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -83,6 +88,11 @@ type Dispatcher interface {
 	// cluster quorum. The IP given for each vnode *must* match the current IP
 	// in the vertica catalog. If they aren't a call to ReIP is necessary.
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
+
+	// prepLocalData Prepare for the add node or create_db by removing any local
+	// data/depot dirs.	This step is necessary because of a lack of cleanup in admintools if any of
+	// these commands fail.
+	PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error
 }
 
 const (
@@ -99,6 +109,30 @@ type Admintools struct {
 	EVWriter events.EVWriter
 	VDB      *vapi.VerticaDB
 	DevMode  bool // true to include verbose logging for some operations
+}
+
+func (a *Admintools) PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
+	return prepLocalDataHelper(ctx, vdb, prunner, podName)
+}
+
+func (v *VClusterOps) PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
+	return prepLocalDataHelper(ctx, vdb, prunner, podName)
+}
+
+func prepLocalDataHelper(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
+	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDBDepotPath(), vdb.GetDBCatalogPath()}
+	var rmCmds bytes.Buffer
+	rmCmds.WriteString("set -o errexit\n")
+	for _, path := range locPaths {
+		rmCmds.WriteString(fmt.Sprintf("[[ -d %s ]] && rm -rf %s || true\n", path, path))
+	}
+
+	cmd := []string{"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'; bash %s",
+		paths.PrepScript, rmCmds.String(), paths.PrepScript)}
+	if _, _, err := prunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
+		return err
+	}
+	return nil
 }
 
 // MakeAdmintools will create a dispatcher that uses admintools to call the

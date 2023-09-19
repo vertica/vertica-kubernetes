@@ -140,7 +140,7 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		// admintools will not cleanup the local directories after a failed attempt
 		// to add node. So we ensure those directories are clear at each pod before
 		// proceeding.
-		if err := prepLocalData(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
+		if err := d.Dispatcher.PrepLocalData(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

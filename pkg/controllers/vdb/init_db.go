@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,6 +65,7 @@ type GenericDatabaseInitializer struct {
 	PRunner             cmds.PodRunner
 	PFacts              *PodFacts
 	ConfigurationParams *vtypes.CiMap
+	Dispatcher          vadmin.Dispatcher
 }
 
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
@@ -154,7 +156,7 @@ func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, po
 	for _, pod := range podList {
 		// Cleanup any local paths. This step is needed if an earlier create_db
 		// fails -- admintools does not clean everything up.
-		if err := prepLocalData(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
+		if err := g.Dispatcher.PrepLocalData(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
 			return err
 		}
 	}
