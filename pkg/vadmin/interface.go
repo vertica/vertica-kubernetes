@@ -143,6 +143,10 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client, vo
 	}
 }
 
+// prepLocalData Prepare for the add node or create_db by removing any local
+// data/depot dirs and ensuring proper ownership.
+// This step is necessary because of a lack of cleanup in admintools if any of
+// these commands fail.
 func PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
 	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDBDepotPath(), vdb.GetDBCatalogPath()}
 	var rmCmds bytes.Buffer
