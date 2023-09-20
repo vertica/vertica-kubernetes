@@ -52,15 +52,27 @@ do
     esac
 done
 
+function remove_cluster_objects
+{
+    # Sometimes cluster scoped operator can stick around after removing the
+    # helm chart or OLM deployment. This ensures they go away.
+    kubectl delete clusterrole $(kubectl get clusterrole | grep '^verticadb-operator-' | cut -d' ' -f1) || :
+    kubectl delete clusterrolebinding $(kubectl get clusterrolebinding | grep '^verticadb-operator-' | cut -d' ' -f1) || :
+    kubectl delete mutatingwebhookconfigurations $(kubectl get mutatingwebhookconfigurations | grep '^verticadb-operator-' | cut -d' ' -f1) || :
+    kubectl delete validatingwebhookconfigurations $(kubectl get validatingwebhookconfigurations | grep '^verticadb-operator-' | cut -d' ' -f1) || :
+}
+
 set -o xtrace
 
 if kubectl get clusterserviceversion | grep -cqe "VerticaDB Operator" 2> /dev/null
 then
     $SCRIPT_DIR/undeploy-olm.sh
+    remove_cluster_objects
 elif helm list --all-namespaces --filter $HELM_RELEASE_NAME --no-headers | grep -q $HELM_RELEASE_NAME
 then
     NS=$(helm list --all-namespaces --filter vdb-op --output json | jq -r '[.[].namespace][0]')
     helm uninstall -n $NS $HELM_RELEASE_NAME
+    remove_cluster_objects
 else
     echo "** No operator deployment detected"
     if [ -n "$IGNORE_NOT_FOUND" ]

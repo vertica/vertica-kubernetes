@@ -16,4 +16,4 @@ kind: TestStep
 commands:
   - script: kubectl -n verticadb-operator get verticadb v-webhook -o json | jq '.spec.shardCount=15' | kubectl -n verticadb-operator replace -f -
     ignoreFailure: true
-  - command: sh -c "cd ../../.. && scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator"
+  - command: sh -c "cd ../../.. && scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator $NAMESPACE"

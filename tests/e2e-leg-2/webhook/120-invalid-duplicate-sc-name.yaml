@@ -16,4 +16,4 @@ kind: TestStep
 commands:
   - script: kubectl -n verticadb-operator get verticadb v-webhook -o json | jq '.spec.subclusters[1].name="sc1"' | kubectl -n verticadb-operator replace -f -
     ignoreFailure: true
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator -t 300"
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator -t 300 $NAMESPACE"
