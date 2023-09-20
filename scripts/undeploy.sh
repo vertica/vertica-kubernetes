@@ -54,12 +54,19 @@ done
 
 function remove_cluster_objects
 {
+    set +o xtrace
     # Sometimes cluster scoped operator can stick around after removing the
-    # helm chart or OLM deployment. This ensures they go away.
-    kubectl delete clusterrole $(kubectl get clusterrole | grep '^verticadb-operator-' | cut -d' ' -f1) || :
-    kubectl delete clusterrolebinding $(kubectl get clusterrolebinding | grep '^verticadb-operator-' | cut -d' ' -f1) || :
-    kubectl delete mutatingwebhookconfigurations $(kubectl get mutatingwebhookconfigurations | grep '^verticadb-operator-' | cut -d' ' -f1) || :
-    kubectl delete validatingwebhookconfigurations $(kubectl get validatingwebhookconfigurations | grep '^verticadb-operator-' | cut -d' ' -f1) || :
+    # helm chart or OLM deployment. This can happen if you don't uninstall the
+    # release, but instead delete the namespace where the release is located.
+    # This ensures that we properly clean those up.
+    for obj in clusterrole clusterrolebinding mutatingwebhookconfigurations validatingwebhookconfigurations
+    do
+        if kubectl get $obj | grep '^verticadb-operator-'
+        then
+            kubectl delete $obj $(kubectl get $obj | grep '^verticadb-operator-' | cut -d' ' -f1) || true
+        fi
+    done
+    set -o xtrace
 }
 
 set -o xtrace
@@ -74,6 +81,7 @@ then
     helm uninstall -n $NS $HELM_RELEASE_NAME
     remove_cluster_objects
 else
+    remove_cluster_objects
     echo "** No operator deployment detected"
     if [ -n "$IGNORE_NOT_FOUND" ]
     then
