@@ -39,7 +39,6 @@ fi
 # Add in the templating
 # 1. Template the namespace
 perl -i -0777 -pe 's/verticadb-operator-system/{{ .Release.Namespace }}/g' $TEMPLATE_DIR/*
-perl -i -0777 -pe 's/(verticadb-operator)(-.*-webhook-configuration)/$1-{{ .Release.Namespace }}$2/' $TEMPLATE_DIR/*
 # 2. Template image names
 perl -i -0777 -pe "s|image: controller|image: '{{ with .Values.image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 perl -i -0777 -pe "s|image: gcr.io/kubebuilder/kube-rbac-proxy:v.*|image: '{{ with .Values.rbac_proxy_image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
