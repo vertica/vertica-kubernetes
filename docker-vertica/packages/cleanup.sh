@@ -24,6 +24,7 @@
 # wander around in the image looking for things you can remove
 rm -r -f \
    /opt/vertica/config/https_certs/*.key \
+   /opt/vertica/config/share/agent* \
    /opt/vertica/examples \
    /opt/vertica/packages/*/examples \
    /opt/vertica/oss/python*/lib/python*/test \

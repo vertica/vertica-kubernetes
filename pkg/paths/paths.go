@@ -26,13 +26,6 @@ const (
 	HadoopConfPath            = "/etc/hadoop"
 	ConfigPath                = "/opt/vertica/config"
 	ConfigSharePath           = "/opt/vertica/config/share"
-	AgentKeyFile              = "/opt/vertica/config/share/agent.key"
-	AgentCertFile             = "/opt/vertica/config/share/agent.cert"
-	VerticaAPIKeysFile        = "/opt/vertica/config/apikeys.dat" // #nosec G101
-	DBadminAgentPath          = "/home/dbadmin/agent"
-	AgentKeyFileName          = "agent.key"
-	AgentCertFileName         = "agent.cert"
-	VerticaAPIKeysFileName    = "apikeys.dat"
 	ConfigLogrotatePath       = "/opt/vertica/config/logrotate"
 	LogrotateATFileName       = "admintool.logrotate"
 	LogrotateATFile           = "/opt/vertica/config/logrotate/admintool.logrotate"

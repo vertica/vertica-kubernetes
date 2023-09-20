@@ -63,11 +63,6 @@ RUN set -x \
   && mkdir -p /home/dbadmin/logrotate \
   && cp -r /opt/vertica/config/logrotate /home/dbadmin/logrotate/  \
   && cp /opt/vertica/config/logrotate_base.conf /home/dbadmin/logrotate/ \
-  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
-    mkdir -p /home/dbadmin/agent; \
-    cp -r /opt/vertica/config/share/agent* /home/dbadmin/agent/; \
-    cp /opt/vertica/config/apikeys.dat /home/dbadmin/agent/; \
-  fi \
   && chown -R dbadmin:verticadba /opt/vertica \
   # reduce the size of the final image
   && rm -rf /opt/vertica/lib64  \
@@ -96,7 +91,6 @@ RUN set -x \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
   && if [[ ${NO_KEYS^^} == "YES" ]] ; then \
     rm -rf /home/dbadmin/.ssh/*;  \
-    rm -rf /opt/vertica/config/share/agent*; \
   fi
 
 ##############################################################################################
@@ -211,8 +205,6 @@ ENTRYPOINT [ "/init" ]
 EXPOSE 5433
 # vertica-http port
 EXPOSE 8443
-# agent port
-EXPOSE 5444
 USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
@@ -221,4 +213,5 @@ LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kuberne
       org.opencontainers.image.title='Vertica Server' \
       org.opencontainers.image.description='Runs the Vertica server that is optimized for use with the VerticaDB operator' \
       org.opencontainers.image.url=https://github.com/vertica/vertica-kubernetes/ \
-      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm
+      org.opencontainers.image.documentation=https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/ContainerizedVertica.htm \
+      vertica-deployment-method='admintools'

@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.11.2
+VERSION ?= 2.0.0
 export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
@@ -347,12 +347,22 @@ docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation v
 	cd docker-vertica-v2 \
 	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
 
-.PHONY: docker-push
+.PHONY: docker-push-vertica
 docker-push-vertica:  ## Push vertica server image -- either v1 or v2.
 ifeq ($(shell $(KIND_CHECK)), 0)
 	docker push ${VERTICA_IMG}
 else
 	scripts/push-to-kind.sh -i ${VERTICA_IMG}
+endif
+
+# Normally the base image is a pre-built image that we don't build. For this
+# reason, pushing this image will just put it in kind and never to docker.
+.PHONY: docker-push-base-vertica
+docker-push-base-vertica:  ## Push base vertica server image to kind
+ifneq ($(BASE_VERTICA_IMG), <not-set>)
+ifeq ($(shell $(KIND_CHECK)), 1)
+	scripts/push-to-kind.sh -i ${BASE_VERTICA_IMG}
+endif
 endif
 
 # PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
@@ -413,7 +423,7 @@ docker-push-olm-catalog:
 docker-build: docker-build-vertica docker-build-operator docker-build-vlogger ## Build all docker images except OLM catalog
 
 .PHONY: docker-push
-docker-push: docker-push-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
+docker-push: docker-push-vertica docker-push-base-vertica docker-push-operator docker-push-vlogger ## Push all docker images except OLM catalog
 
 .PHONY: echo-images
 echo-images:  ## Print the names of all of the images used
