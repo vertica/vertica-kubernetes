@@ -1,3 +1,5 @@
+# Originally generated via:
+# bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -25,6 +27,46 @@ webhooks:
     resources:
     - verticadbs
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-vertica-com-v1beta1-verticaautoscaler
+  failurePolicy: Fail
+  name: mverticaautoscaler.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticaautoscalers
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-vertica-com-v1beta1-eventtrigger
+  failurePolicy: Fail
+  name: meventtrigger.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - eventtriggers
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -32,6 +74,26 @@ metadata:
   creationTimestamp: null
   name: validating-webhook-configuration
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-vertica-com-v1beta1-verticaautoscaler
+  failurePolicy: Fail
+  name: vverticaautoscaler.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - verticaautoscalers
+  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:
@@ -51,4 +113,24 @@ webhooks:
     - UPDATE
     resources:
     - verticadbs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-vertica-com-v1beta1-eventtrigger
+  failurePolicy: Fail
+  name: veventtrigger.kb.io
+  rules:
+  - apiGroups:
+    - vertica.com
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - eventtriggers
   sideEffects: None

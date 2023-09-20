@@ -42,7 +42,6 @@ func (e *EventTrigger) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// +kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-eventtrigger,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=eventtriggers,verbs=create;update,versions=v1beta1,name=meventtrigger.kb.io,admissionReviewVersions=v1
 var _ webhook.Defaulter = &EventTrigger{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -50,7 +49,6 @@ func (e *EventTrigger) Default() {
 	eventtriggerlog.Info("default", "name", e.Name)
 }
 
-// +kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticaautoscaler,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticaautoscalers,verbs=create;update,versions=v1beta1,name=vverticaautoscaler.kb.io,admissionReviewVersions=v1
 var _ webhook.Validator = &EventTrigger{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type

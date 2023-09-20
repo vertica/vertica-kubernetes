@@ -28,6 +28,7 @@ resources:
   path: github.com/vertica/vertica-kubernetes/api/v1beta1
   version: v1beta1
   webhooks:
+    defaulting: true
     validation: true
     webhookVersion: v1
 - api:
