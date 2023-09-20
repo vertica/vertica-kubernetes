@@ -70,6 +70,12 @@ then
   NAMESPACE=default
 fi
 
+# Create the namespace if it doesn't yet exist
+if ! kubectl get namespace $NAMESPACE 2> /dev/null
+then
+    kubectl create namespace $NAMESPACE
+fi
+
 # Get the namespace where the catalog is
 if $SCRIPT_DIR/is-openshift.sh
 then

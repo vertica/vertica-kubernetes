@@ -42,7 +42,7 @@ done
 
 # The CSV is available in every namespace. We need to extract from it the
 # namespace where the operator pod is running.
-NAMESPACE=$(kubectl get csv -o jsonpath='{range .items[*]}{.metadata.annotations.olm\.operatorNamespace}{"\n"}{end}' | grep -v olm)
+NAMESPACE=$(kubectl get csv -A -o jsonpath='{range .items[*]}{.metadata.annotations.olm\.operatorNamespace}{"\n"}{end}' | grep -v olm | head -1)
 
 echo "Namespace: $NAMESPACE"
 
