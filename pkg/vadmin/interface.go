@@ -16,17 +16,13 @@
 package vadmin
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -39,7 +35,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -141,34 +136,6 @@ func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client, vo
 		Password:         passwd,
 		EVWriter:         evWriter,
 	}
-}
-
-// prepLocalData Prepare for the add node or create_db by removing any local
-// data/depot dirs and ensuring proper ownership.
-// This step is necessary because of a lack of cleanup in admintools if any of
-// these commands fail.
-func PrepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
-	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDBDepotPath(), vdb.GetDBCatalogPath()}
-	var rmCmds bytes.Buffer
-	rmCmds.WriteString("set -o errexit\n")
-	for _, path := range locPaths {
-		rmCmds.WriteString(fmt.Sprintf("[[ -d %s ]] && rm -rf %s || true\n", path, path))
-	}
-	// We also need to ensure the dbadmin owns the depot directory.  When the
-	// directory are first mounted they are owned by root.  Vertica handles changing
-	// the ownership of the config, log and data directory.  This function exists to
-	// handle the depot directory. This can be skipped if the depotPath is
-	// shared with one of the data or catalog paths or if the depot volume is not
-	// a PersistentVolume.
-	if vdb.IsDepotVolumePersistentVolume() && vdb.Spec.Local.IsDepotPathUnique() {
-		rmCmds.WriteString(fmt.Sprintf("sudo chown dbadmin:verticadba -R %s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")))
-	}
-	cmd := []string{"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'; bash %s",
-		paths.PrepScript, rmCmds.String(), paths.PrepScript)}
-	if _, _, err := prunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
-		return err
-	}
-	return nil
 }
 
 type HTTPSCerts struct {

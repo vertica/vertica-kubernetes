@@ -40,6 +40,14 @@ func (a *Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctr
 		Admintools: a,
 		Parms:      s,
 	}
+	// Cleanup for any prior failed attempt.
+	for _, pod := range s.PodNames {
+		err := a.prepLocalData(ctx, dbc.Admintools.VDB, dbc.Admintools.PRunner, pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	return a.initDB(ctx, &dbc)
 }
 
@@ -80,6 +88,7 @@ func (a *Admintools) genCreateDBCmd(s *createdb.Parms) []string {
 	if s.SkipPackageInstall {
 		cmd = append(cmd, "--skip-package-install")
 	}
+
 	return cmd
 }
 

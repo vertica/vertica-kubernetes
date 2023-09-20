@@ -41,6 +41,13 @@ func (a *Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctr
 		Admintools: a,
 		Parms:      s,
 	}
+	// Cleanup for any prior failed attempt.
+	for _, pod := range s.PodNames {
+		err := a.prepLocalData(ctx, dbr.Admintools.VDB, dbr.Admintools.PRunner, pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	return a.initDB(ctx, &dbr)
 }
 
