@@ -41,13 +41,7 @@ func (a *Admintools) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctr
 		Admintools: a,
 		Parms:      s,
 	}
-	// Cleanup for any prior failed attempt.
-	for _, pod := range s.PodNames {
-		err := a.prepLocalData(ctx, dbr.Admintools.VDB, dbr.Admintools.PRunner, pod)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
+
 	return a.initDB(ctx, &dbr)
 }
 
@@ -75,6 +69,11 @@ func (d *DBReviver) GenCmd() []string {
 // GetInitiator returns the initiator pod name.
 func (d *DBReviver) GetInitiator() types.NamespacedName {
 	return d.Parms.Initiator
+}
+
+// GetPodNames returns the pod name list
+func (d *DBReviver) GetPodNames() []types.NamespacedName {
+	return d.Parms.PodNames
 }
 
 // LogFailure will log and record an event for an admintools -t revive_db failure

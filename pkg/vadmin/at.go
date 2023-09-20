@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
-	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -102,6 +100,16 @@ func (a *Admintools) initDB(ctx context.Context, dbi DBInitializer) (ctrl.Result
 		return ctrl.Result{}, err
 	}
 	defer a.destroyAuthParms(ctx, initiator)
+
+	// Cleanup for any prior failed attempt.
+	podNames := dbi.GetPodNames()
+	for _, pod := range podNames {
+		err := a.prepLocalData(ctx, pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	cmd := dbi.GenCmd()
 	stdout, err := a.execAdmintools(ctx, initiator, cmd...)
 	if err != nil {
@@ -114,8 +122,8 @@ func (a *Admintools) initDB(ctx context.Context, dbi DBInitializer) (ctrl.Result
 // data/depot dirs and ensuring proper ownership.
 // This step is necessary because of a lack of cleanup in admintools if any of
 // these commands fail.
-func (a *Admintools) prepLocalData(ctx context.Context, vdb *vapi.VerticaDB, prunner cmds.PodRunner, podName types.NamespacedName) error {
-	locPaths := []string{vdb.GetDBDataPath(), vdb.GetDBDepotPath(), vdb.GetDBCatalogPath()}
+func (a *Admintools) prepLocalData(ctx context.Context, podName types.NamespacedName) error {
+	locPaths := []string{a.VDB.GetDBDataPath(), a.VDB.GetDBDepotPath(), a.VDB.GetDBCatalogPath()}
 	var rmCmds bytes.Buffer
 	rmCmds.WriteString("set -o errexit\n")
 	for _, path := range locPaths {
@@ -127,12 +135,12 @@ func (a *Admintools) prepLocalData(ctx context.Context, vdb *vapi.VerticaDB, pru
 	// handle the depot directory. This can be skipped if the depotPath is
 	// shared with one of the data or catalog paths or if the depot volume is not
 	// a PersistentVolume.
-	if vdb.IsDepotVolumePersistentVolume() && vdb.Spec.Local.IsDepotPathUnique() {
-		rmCmds.WriteString(fmt.Sprintf("sudo chown dbadmin:verticadba -R %s/%s", paths.LocalDataPath, vdb.GetPVSubPath("depot")))
+	if a.VDB.IsDepotVolumePersistentVolume() && a.VDB.Spec.Local.IsDepotPathUnique() {
+		rmCmds.WriteString(fmt.Sprintf("sudo chown dbadmin:verticadba -R %s/%s", paths.LocalDataPath, a.VDB.GetPVSubPath("depot")))
 	}
 	cmd := []string{"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'; bash %s",
 		paths.PrepScript, rmCmds.String(), paths.PrepScript)}
-	if _, _, err := prunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
+	if _, _, err := a.PRunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
 		return err
 	}
 	return nil

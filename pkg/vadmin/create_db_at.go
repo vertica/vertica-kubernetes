@@ -40,13 +40,6 @@ func (a *Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctr
 		Admintools: a,
 		Parms:      s,
 	}
-	// Cleanup for any prior failed attempt.
-	for _, pod := range s.PodNames {
-		err := a.prepLocalData(ctx, dbc.Admintools.VDB, dbc.Admintools.PRunner, pod)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 
 	return a.initDB(ctx, &dbc)
 }
@@ -100,6 +93,11 @@ func (d *DBCreator) GenCmd() []string {
 // GetInitiator returns the initiator pod name.
 func (d *DBCreator) GetInitiator() types.NamespacedName {
 	return d.Parms.Initiator
+}
+
+// GetPodNames returns the pod name list
+func (d *DBCreator) GetPodNames() []types.NamespacedName {
+	return d.Parms.PodNames
 }
 
 // LogFailure will log and record an event for an admintools -t create_db failure

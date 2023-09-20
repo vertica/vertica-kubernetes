@@ -32,7 +32,7 @@ func (a *Admintools) AddNode(ctx context.Context, opts ...addnode.Option) error 
 
 	// Cleanup for any prior failed attempt.
 	for _, pod := range s.PodNames {
-		err := a.prepLocalData(ctx, a.VDB, a.PRunner, pod)
+		err := a.prepLocalData(ctx, pod)
 		if err != nil {
 			return err
 		}
