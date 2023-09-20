@@ -297,7 +297,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// pod exists.
 		pf.exists = true // Success from the Get() implies pod exists in API server
 		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
-		pf.dnsName = pod.Spec.Hostname + "." + pod.Spec.Subdomain
+		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
 		pf.pendingDelete = podIndex >= sc.Size
