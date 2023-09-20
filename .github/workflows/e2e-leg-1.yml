@@ -1,4 +1,4 @@
-name: e2e (azb) tests
+name: e2e (leg-1) tests
 
 on: 
   workflow_call:
@@ -71,6 +71,7 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-leg-1
+        export DEPLOY_WITH=olm
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-1-failed"; fi
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt
@@ -78,5 +79,5 @@ jobs:
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-azb-${{ inputs.vertica-deployment-method }}
+        name: logs-e2e-leg-1-${{ inputs.vertica-deployment-method }}
         path: ${{ github.workspace }}/int-tests-output/*

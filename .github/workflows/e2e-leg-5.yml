@@ -71,6 +71,11 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-leg-5
+        # We cannot parallelize these tests because they each deploy/undeploy
+        # the cluster scoped operator. You can only have a single verticadb
+        # operator running in the k8s cluster.
+        export E2E_PARALLELISM=1
+        export DEPLOY_WITH=helm
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
