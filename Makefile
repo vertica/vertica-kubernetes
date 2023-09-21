@@ -22,6 +22,11 @@ include tests/kustomize-defaults.cfg
 KUSTOMIZE_CFG?=$(REPO_DIR)/tests/kustomize-defaults.cfg
 include $(KUSTOMIZE_CFG)
 
+LOCAL_SOAK_CFG=./local-soak.cfg
+ifneq (,$(wildcard $(LOCAL_SOAK_CFG)))
+   SOAK_CFG?=-c $(LOCAL_SOAK_CFG)
+endif
+
 # CHANNELS define the bundle channels used in the bundle. 
 CHANNELS=stable
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -278,6 +283,10 @@ ifeq ($(BASE_VERTICA_IMG), <not-set>)
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) tests/e2e-server-upgrade/
 
+.PHONY: run-soak-tests
+run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
+	scripts/soak-runner.sh $(SOAK_CFG)
+
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)
 	$(MAKE) setup-minio
@@ -440,6 +449,10 @@ echo-images:  ## Print the names of all of the images used
 	@echo "VLOGGER_IMG=$(VLOGGER_IMG)"
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
+
+.PHONY: kuttl-step-gen
+kuttl-step-gen: ## Builds the kuttl-step-gen tool
+	go build -o bin/$@ ./cmd/$@
 
 .PHONY: vdb-gen
 vdb-gen: generate manifests ## Builds the vdb-gen tool

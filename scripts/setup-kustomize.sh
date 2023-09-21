@@ -115,6 +115,9 @@ fi
 echo "Vertica server image name: $VERTICA_IMG"
 echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
+if [ -n "$LICENSE_SECRET" ]; then
+    echo "License name: $LICENSE_SECRET"
+fi
 echo "Endpoint: $ENDPOINT"
 echo "Protocol: $PATH_PROTOCOL"
 echo "Communal Path Prefix: $COMMUNAL_PATH_PREFIX"
@@ -298,6 +301,19 @@ EOF
 EOF
         $KUSTOMIZE edit add patch --path $PRIVATE_REG_SECRET_PATCH --kind VerticaDB
     fi
+
+    # If license was specified we create a patch file to set that.
+    if [[ -n "$LICENSE_SECRET" ]]
+    then
+        LICENSE_PATCH_FILE="license-patch.yaml"
+        cat <<EOF > $LICENSE_PATCH_FILE
+        - op: add
+          path: /spec/licenseSecret
+          value: $LICENSE_SECRET
+EOF
+        $KUSTOMIZE edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
+    fi
+
 }
 
 function create_vdb_pod_kustomization {

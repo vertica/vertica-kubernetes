@@ -13,7 +13,7 @@ This guide explains how to set up an environment to develop and test the Vertica
 - **cmd/**: contains source code for each of the executables
 - **bin/**: contains the compiled or downloaded binaries that this repository depends on
 - **config/**: generated files of all of the manifests that make up the operator. Of particular importance is *config/crd/bases/vertica.com_verticadbs.yaml*, which shows a sample spec for our CRD.
-- **tests/**: has the test files for e2e testing
+- **tests/**: has the test files for e2e and soak testing
 - **changes/**: stores the changelog for past releases and details about the changes for the next release
 - **hack/**: includes a boilerplate file of a copyright that is included on the generated files
 - **helm-charts/**: contains the Helm charts that this repository builds
@@ -327,6 +327,18 @@ Here are the steps on how to override them:
 ### Stern output
 
 The e2e tests use stern to save off logs of some pods.  This is done to aid in debugging any failures.  If needed, the logs are stored in the `int-tests-output` directory by default.  Cleanup of the stern process is only done if kuttl runs to completition.  If you abort the kuttl run, then you will need to stop the stern process manually.
+
+## 7. Running Soak Tests
+
+The soak test will test the operator over a long interval. It splits the test into multiple iterations. Each iteration generates a random workload that is comprised of pod kills and scaling. At the end of each iteration, the test waits for everything to come up. If the test is successful, it proceeds to another iteration. It repeats this process for a set number of iterations or indefinitely.
+
+The tests in an iteration are run through kuttl.  The random test generation is done by the kuttl-step-gen tool.
+
+You can run this test with the following make target:
+
+```shell
+$ make run-soak-tests
+```
 
 ## Help
 
