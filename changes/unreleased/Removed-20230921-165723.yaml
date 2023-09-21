@@ -1,0 +1,5 @@
+kind: Removed
+body: No longer ensure http service is running
+time: 2023-09-21T16:57:23.87985825-03:00
+custom:
+  Issue: "515"
