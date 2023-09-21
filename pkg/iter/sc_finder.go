@@ -141,13 +141,6 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags)
 	return subclusters, nil
 }
 
-// listObjectsOwnedByOperator will return all objects of a specific type that
-// are owned by the operator.  This is just a wrapper to the common function
-// that implements this lookup.
-func (m *SubclusterFinder) listObjectsOwnedByOperator(ctx context.Context, list client.ObjectList) error {
-	return listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list)
-}
-
 // hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
 	scName := objLabels[vmeta.SubclusterNameLabel]
@@ -159,7 +152,7 @@ func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string
 // Caller can use flags to return a list of all objects, only those in the vdb,
 // or only those not in the vdb.
 func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectList, flags FindFlags) error {
-	if err := m.listObjectsOwnedByOperator(ctx, list); err != nil {
+	if err := listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list); err != nil {
 		return err
 	}
 	if flags&FindAll == FindAll {
