@@ -16,8 +16,6 @@
 package vdb
 
 import (
-	"fmt"
-
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	corev1 "k8s.io/api/core/v1"
@@ -40,10 +38,4 @@ func hasCompatibleVersionForHTTPServer(vrec *VerticaDBReconciler, vdb *vapi.Vert
 		return false
 	}
 	return true
-}
-
-// genHTTPServerCtrlQuery returns a query used to interact
-// with the http server.
-func genHTTPServerCtrlQuery(action string) string {
-	return fmt.Sprintf("select http_server_ctrl('%s', '')", action)
 }

@@ -218,8 +218,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Update the labels in pods so that Services route to nodes to them.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, PodRescheduleApplyMethod, ""),
-		// Ensure http server is running on each pod
-		MakeHTTPServerCtrlReconciler(r, log, vdb, prunner, pfacts),
 		// Handle calls to add new subcluster to the catalog
 		MakeDBAddSubclusterReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),

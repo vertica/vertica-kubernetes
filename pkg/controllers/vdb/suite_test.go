@@ -121,7 +121,6 @@ func defaultPodFactOverrider(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, 
 	pf.startupInProgress = false
 	pf.upNode = true
 	pf.subclusterOid = "123456"
-	pf.isHTTPServerRunning = true
 	return nil
 }
 
@@ -188,16 +187,6 @@ func createPodFactsWithSlowStartup(ctx context.Context, vdb *vapi.VerticaDB, sc 
 		downPodNm := names.GenPodName(vdb, sc, podIndex)
 		pfacts.Detail[downPodNm].startupInProgress = true
 		pfacts.Detail[downPodNm].upNode = false
-	}
-	return pfacts
-}
-
-func createPodFactsWithHTTPServerNotRunning(ctx context.Context, vdb *vapi.VerticaDB,
-	fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := createPodFactsDefault(fpr)
-	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
-	for _, pod := range pfacts.Detail {
-		pod.isHTTPServerRunning = false
 	}
 	return pfacts
 }
