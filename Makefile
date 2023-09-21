@@ -441,7 +441,7 @@ vdb-gen: generate manifests ## Builds the vdb-gen tool
 ##@ Deployment
 
 ifndef ignore-not-found
-  ignore-not-found = false
+  ignore-not-found = true
 endif
 
 # When changing this version be sure to update tests/external-images-common-ci.txt

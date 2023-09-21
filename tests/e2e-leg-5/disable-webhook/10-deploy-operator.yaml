@@ -17,3 +17,5 @@ commands:
   - command: sh -c "cd ../../.. && make undeploy-operator || true"
   - command: sh -c "cd ../../.. && DEPLOY_WITH=helm HELM_OVERRIDES='--set webhook.enable=false' make deploy-operator NAMESPACE=$NAMESPACE"
     ignoreFailure: true # Ignore because no webhook but make target waits for it
+  # For debugging in case we do see the webhook working.
+  - command: kubectl get mutatingwebhookconfigurations -o yaml > ../../../int-tests-output/disable-webhook-mutating-webhook-cfg.yaml
