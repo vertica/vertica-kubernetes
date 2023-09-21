@@ -96,8 +96,8 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 // execCmd will do the actual execution of revive DB.
 // This handles logging of necessary events.
 func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
-	hostList []string, podName []types.NamespacedName) (ctrl.Result, error) {
-	opts := r.genReviveOpts(initiatorPod, hostList, podName)
+	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
+	opts := r.genReviveOpts(initiatorPod, hostList, podNames)
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ReviveDBStart, "Starting revive database")
 	start := time.Now()
 	if res, err := r.Dispatcher.ReviveDB(ctx, opts...); verrors.IsReconcileAborted(res, err) {

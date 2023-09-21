@@ -44,18 +44,13 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 	}
 }
 
-func WithPods(nm []types.NamespacedName) Option {
-	return func(s *Parms) {
-		s.PodNames = nm
-	}
-}
-
-func WithHost(fqdn string) Option {
+func WithHost(fqdn string, nm types.NamespacedName) Option {
 	return func(s *Parms) {
 		if s.Hosts == nil {
 			s.Hosts = make([]string, 0)
 		}
 		s.Hosts = append(s.Hosts, fqdn)
+		s.PodNames = append(s.PodNames, nm)
 	}
 }
 

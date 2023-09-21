@@ -1092,8 +1092,7 @@ func getHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 	podNames := make([]types.NamespacedName, 0, len(podList))
 	for _, pod := range podList {
 		hostList = append(hostList, pod.podIP)
-		podName := types.NamespacedName{Name: pod.name.Name}
-		podNames = append(podNames, podName)
+		podNames = append(podNames, pod.name)
 	}
 	return hostList, podNames
 }
