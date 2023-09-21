@@ -71,7 +71,9 @@ function remove_cluster_objects
 
 set -o xtrace
 
-if kubectl get clusterserviceversion --all-namespaces=true | grep -cqe "VerticaDB Operator" 2> /dev/null
+if kubectl get subscription --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null || \
+   kubectl get operatorgroups --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null ||
+   kubectl get csv --all-namespaces=true | grep -cqe "VerticaDB Operator" 2> /dev/null
 then
     $SCRIPT_DIR/undeploy-olm.sh
     remove_cluster_objects
