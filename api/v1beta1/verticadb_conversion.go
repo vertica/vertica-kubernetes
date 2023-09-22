@@ -29,14 +29,7 @@ func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
 	verticadblog.Info("ConvertTo", "name", v.Name)
 	dst := dstRaw.(*v1.VerticaDB)
 	dst.Annotations = v.Annotations
-	// Add an annotation so that we know the CR was converted from some other
-	// API version.
-	if dst.Annotations == nil {
-		dst.Annotations = map[string]string{}
-	}
-	if _, ok := v.Annotations[vmeta.ApiConversion]; !ok {
-		dst.Annotations[vmeta.ApiConversion] = GroupVersion.Version
-	}
+	addConversionAnnotations(dst)
 	dst.Labels = v.Labels
 	dst.Spec.ImagePullPolicy = v.Spec.ImagePullPolicy
 	dst.Spec.ImagePullSecrets = convertLocalReferenceSlice(v.Spec.ImagePullSecrets)
@@ -151,4 +144,15 @@ func convertLocalReferenceSlice(src []LocalObjectReference) []v1.LocalObjectRefe
 		dst[i] = v1.LocalObjectReference(src[i])
 	}
 	return dst
+}
+
+func addConversionAnnotations(dst *v1.VerticaDB) {
+	// Add an annotation so that we know the CR was converted from some other
+	// API version.
+	if dst.Annotations == nil {
+		dst.Annotations = map[string]string{}
+	}
+	if _, ok := dst.Annotations[vmeta.APIConversionAnnotation]; !ok {
+		dst.Annotations[vmeta.APIConversionAnnotation] = GroupVersion.Version
+	}
 }
