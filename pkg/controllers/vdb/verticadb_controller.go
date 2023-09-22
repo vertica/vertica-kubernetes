@@ -162,7 +162,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// of the operator.
 		MakeUpgradeOperator120Reconciler(r, log, vdb),
 		// Create a TLS secret for the HTTP server
-		MakeHTTPServerCertGenReconciler(r, vdb),
+		MakeHTTPServerCertGenReconciler(r, log, vdb),
 		// Update any k8s objects with some exceptions. For instance, preserve
 		// scaling. This is needed *before* upgrade and restart in case a change
 		// was made with the image change that would prevent the pods from

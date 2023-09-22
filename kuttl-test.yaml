@@ -26,11 +26,11 @@ testDirs:
   - tests/e2e-leg-3-failed
   - tests/e2e-leg-4
   - tests/e2e-leg-4-failed
+  - tests/e2e-leg-6
   - tests/e2e-udx
   - tests/e2e-udx-failed
   - tests/e2e-server-upgrade
   - tests/e2e-operator-upgrade-overlays
-  - tests/e2e-http-server
   - tests/e2e-enterprise
 parallel: 2
 timeout: 600

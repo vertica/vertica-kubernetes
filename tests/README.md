@@ -7,7 +7,6 @@ This is the root directory of all of the integration style tests. They are named
 3. e2e-server-upgrade: These tests focus on testing the operator when upgrading the vertica server.
 4. e2e-operator-upgrade-overlays: These tests focus on testing upgrade of the operator itself. It needs a special environment because we need to install old versions of the operator before upgrading to the current version.
 5. e2e-operator-upgrade-template: This isn't a test suite per say. It provides a template to generate operator upgrade tests in e2e-operator-upgrade-overlays.
-6. e2e-http-server: These test focus on testing the http server within vertica. This needs a new version of Vertica, which is why it's not include in the e2e-leg-x suites.
 
 ## Running Tests Individually
 

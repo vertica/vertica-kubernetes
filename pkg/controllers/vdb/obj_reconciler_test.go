@@ -646,10 +646,10 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(*sts.Spec.Replicas).Should(Equal(int32(1)))
 		})
 
-		It("should requeue if HTTP server is enabled but HTTP secret isn't setup properly", func() {
+		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
 			vdb.Spec.HTTPServerTLSSecret = ""
+			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 

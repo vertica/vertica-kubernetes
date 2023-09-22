@@ -259,7 +259,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableLocalPathChange(oldObj, allErrs)
 	allErrs = v.checkImmutableShardCount(oldObj, allErrs)
 	allErrs = v.checkImmutableS3ServerSideEncryption(oldObj, allErrs)
-	allErrs = v.checkImmutableHTTPServerMode(oldObj, allErrs)
 	allErrs = v.checkImmutableDepotVolume(oldObj, allErrs)
 	return allErrs
 }
@@ -289,7 +288,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateRequeueTimes(allErrs)
 	allErrs = v.validateEncryptSpreadComm(allErrs)
 	allErrs = v.validateLocalStorage(allErrs)
-	allErrs = v.validateHTTPServerMode(allErrs)
 	allErrs = v.hasValidShardCount(allErrs)
 	allErrs = v.hasValidProbeOverrides(allErrs)
 	if len(allErrs) == 0 {
@@ -914,21 +912,6 @@ func (v *VerticaDB) validateDepotVolume(allErrs field.ErrorList) field.ErrorList
 	return allErrs
 }
 
-func (v *VerticaDB) validateHTTPServerMode(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.HTTPServerMode == "" ||
-		v.Spec.HTTPServerMode == HTTPServerModeEnabled ||
-		v.Spec.HTTPServerMode == HTTPServerModeDisabled ||
-		v.Spec.HTTPServerMode == HTTPServerModeAuto {
-		return allErrs
-	}
-
-	err := field.Invalid(field.NewPath("spec").Child("httpServerMode"),
-		v.Spec.HTTPServerMode,
-		fmt.Sprintf("Valid values are: %s, %s, %s or an empty string",
-			HTTPServerModeAuto, HTTPServerModeEnabled, HTTPServerModeDisabled))
-	return append(allErrs, err)
-}
-
 func (v *VerticaDB) hasValidShardCount(allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.ShardCount > 0 {
 		return allErrs
@@ -1082,23 +1065,6 @@ func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allE
 			v.Spec.Communal.S3ServerSideEncryption,
 			"communal.s3ServerSideEncryption cannot change after creation")
 		allErrs = append(allErrs, err)
-	}
-	return allErrs
-}
-
-// checkImmutableHTTPServerMode will make sure httpServerMode does not changed in any
-// inappropriate way like Enabled -> Disabled, Auto -> Disabled, Enabled -> Auto.
-func (v *VerticaDB) checkImmutableHTTPServerMode(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
-	isTransitionAutoToDisabled := oldObj.IsHTTPServerAuto() && v.IsHTTPServerDisabled()
-	if v.Spec.HTTPServerMode != oldObj.Spec.HTTPServerMode {
-		if oldObj.Spec.HTTPServerMode == HTTPServerModeEnabled ||
-			isTransitionAutoToDisabled {
-			err := field.Invalid(field.NewPath("spec").Child("httpServerMode"),
-				v.Spec.HTTPServerMode,
-				fmt.Sprintf("transition from '%s' to '%s' not allowed",
-					oldObj.Spec.HTTPServerMode, v.Spec.HTTPServerMode))
-			allErrs = append(allErrs, err)
-		}
 	}
 	return allErrs
 }
