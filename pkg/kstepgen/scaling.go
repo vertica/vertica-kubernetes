@@ -25,8 +25,8 @@ import (
 )
 
 // CreateScalingTestStep will generate kuttl test step for random scaling
-func CreateScalingTestStep(stepWriter, assertWriter io.Writer, opts *Options) (err error) {
-	tin := makeTemplateInput(opts)
+func CreateScalingTestStep(stepWriter, assertWriter io.Writer, cfg *Config, dbcfg *DatabaseCfg) (err error) {
+	tin := makeTemplateInput(cfg, dbcfg)
 	if err := generateVerticaDB(stepWriter, tin); err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func CreateScalingTestStep(stepWriter, assertWriter io.Writer, opts *Options) (e
 }
 
 type scalingInput struct {
-	Options
+	Config
 	PodCount    int
 	Subclusters []subclusterDetail
 }
@@ -109,13 +109,13 @@ func generateKuttlAssert(wr io.Writer, tin *scalingInput) error {
 }
 
 // makeTemplateInput will fill out a templateInput and return it
-func makeTemplateInput(opts *Options) *scalingInput {
+func makeTemplateInput(cfg *Config, dbcfg *DatabaseCfg) *scalingInput {
 	tin := &scalingInput{
-		Options:     *opts,
-		PodCount:    rand.IntnRange(opts.MinPods, opts.MaxPods+1),
+		Config:      *cfg,
+		PodCount:    rand.IntnRange(dbcfg.MinPods, dbcfg.MaxPods+1),
 		Subclusters: []subclusterDetail{},
 	}
-	numSubclusters := rand.Intn(opts.MaxSubclusters-opts.MinSubclusters+1) + opts.MinSubclusters
+	numSubclusters := rand.Intn(dbcfg.MaxSubclusters-dbcfg.MinSubclusters+1) + dbcfg.MinSubclusters
 	podsAssigned := 0
 	for i := 0; i < numSubclusters; i++ {
 		scMaxPod := tin.PodCount - podsAssigned - (numSubclusters - i - 1)

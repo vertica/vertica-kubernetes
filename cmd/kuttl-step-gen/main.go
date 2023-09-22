@@ -19,49 +19,24 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
-	"strconv"
-	"time"
 
 	"github.com/vertica/vertica-kubernetes/pkg/kstepgen"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
-	StepCountArg = iota
-	OutputDirArg
+	ConfigArg = iota
 	NumPositionalArgs
 )
 
-func usage() {
-	fmt.Printf("Usage: %s [OPTIONS] <stepCount> <outputDir>\n", os.Args[0])
-	flag.PrintDefaults()
-}
-
-// nolint:gomnd
 func main() {
-	opts := kstepgen.MakeDefaultOptions()
-	flag.Usage = usage
-	flag.StringVar(&opts.ScriptDir, "script-dir", "../scripts",
-		"The address relative to the output directory where the scripts path is.")
-	flag.IntVar(&opts.MinPodsToKill, "min-pods-to-kill", 1,
-		"The minimum number of pods to kill in a given test step")
-	flag.IntVar(&opts.MaxPodsToKill, "max-pods-to-kill", 2,
-		"The maximum number of pods to kill in a given test step")
-	flag.IntVar(&opts.MinSleepTime, "min-sleep-time", 30,
-		"The minimum sleep time when generating a sleep test step")
-	flag.IntVar(&opts.MaxSleepTime, "max-sleep-time", 180,
-		"The maximum sleep time when generating a sleep test step")
-	flag.IntVar(&opts.MinSubclusters, "min-subclusters", 1,
-		"The minimum number of subclusters to have in the CRD when doing a scaling test step")
-	flag.IntVar(&opts.MaxSubclusters, "max-subclusters", 1,
-		"The maximum number of subclusters to have in the CRD when doing a scaling test step")
-	flag.IntVar(&opts.MinPods, "min-pods", 1,
-		"The minimum number of pods, across all subclusters, to have in the CRD when doing a scaling test step")
-	flag.IntVar(&opts.MaxPods, "max-pods", 3,
-		"The maximum number of pods, across all subclusters, to have in the CRD when doing a scaling test step")
-	flag.IntVar(&opts.SteadyStateTimeout, "steady-state-timeout", 900,
-		"Amount of time to wait at the end of the iteration for the operator to get to a steady state")
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	var locations kstepgen.Locations
+	flag.StringVar(&locations.OutputDir, "output-dir", "",
+		"The directory where the test steps will be generated.")
+	flag.StringVar(&locations.ScriptsDir, "scripts-dir", "",
+		"The relative directory to the output directory where the repository scripts directory is located.")
 	flag.Parse()
 
 	if flag.NArg() < NumPositionalArgs {
@@ -70,13 +45,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	opts.StepCount, _ = strconv.Atoi(flag.Arg(StepCountArg))
-	opts.OutputDir = flag.Arg(OutputDirArg)
+	configFileName := flag.Arg(ConfigArg)
+	configRaw, err := os.ReadFile(configFileName)
+	if err != nil {
+		fmt.Printf("Failed to read config file %s: %s", configFileName, err.Error())
+		os.Exit(1)
+	}
+	var config kstepgen.Config
+	if err := yaml.Unmarshal(configRaw, &config); err != nil {
+		fmt.Printf("Failed to parse config file %s: %s", configFileName, err.Error())
+		os.Exit(1)
+	}
 
-	rand.Seed(time.Now().UTC().UnixNano())
-	it := kstepgen.MakeIteration(opts)
+	it := kstepgen.MakeIteration(&locations, &config)
 	if err := it.CreateIteration(); err != nil {
-		fmt.Println(err)
+		fmt.Printf("Failed to create iteration: %s", err.Error())
 		os.Exit(1)
 	}
 }

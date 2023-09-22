@@ -24,8 +24,8 @@ import (
 )
 
 // CreateSleepTestStep will generate a kuttl test step for sleeping a random amount of time
-func CreateSleepTestStep(wr io.Writer, opts *Options) (err error) {
-	tin := makeSleepInput(opts)
+func CreateSleepTestStep(wr io.Writer, dbcfg *DatabaseCfg) (err error) {
+	tin := makeSleepInput(dbcfg)
 	t, err := template.New("Sleep").Parse(SleepTemplate)
 	if err != nil {
 		return err
@@ -52,8 +52,8 @@ commands:
 `
 
 // makeSleepInput will create the sleepInput for the template based on the opts
-func makeSleepInput(opts *Options) *sleepInput {
-	sleepTime := rand.IntnRange(opts.MinSleepTime, opts.MaxSleepTime+1)
+func makeSleepInput(cfg *DatabaseCfg) *sleepInput {
+	sleepTime := rand.IntnRange(cfg.MinSleepTime, cfg.MaxSleepTime+1)
 	return &sleepInput{
 		SleepTime: sleepTime,
 		Timeout:   sleepTime + 30, // Must be >= SleepTime, 30 added as a buffer

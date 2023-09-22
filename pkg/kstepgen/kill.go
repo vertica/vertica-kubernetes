@@ -24,8 +24,8 @@ import (
 )
 
 // CreateKillPodTestStep will generate a kuttl test step for killing a random number of pods
-func CreateKillPodTestStep(wr io.Writer, opts *Options) (err error) {
-	tin := makeKillPodInput(opts)
+func CreateKillPodTestStep(wr io.Writer, locations *Locations, dbcfg *DatabaseCfg) (err error) {
+	tin := makeKillPodInput(locations, dbcfg)
 	t, err := template.New("KillPods").Parse(KillPodTemplate)
 	if err != nil {
 		return err
@@ -51,9 +51,9 @@ commands:
     namespaced: true
 `
 
-func makeKillPodInput(opts *Options) *killPodInput {
+func makeKillPodInput(loc *Locations, dbcfg *DatabaseCfg) *killPodInput {
 	return &killPodInput{
-		ScriptDir:  opts.ScriptDir,
-		PodsToKill: rand.IntnRange(opts.MinPodsToKill, opts.MaxPodsToKill+1),
+		ScriptDir:  loc.ScriptsDir,
+		PodsToKill: rand.IntnRange(dbcfg.MinPodsToKill, dbcfg.MaxPodsToKill+1),
 	}
 }

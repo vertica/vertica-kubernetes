@@ -22,8 +22,8 @@ import (
 )
 
 // CreateSleepTestStep will generate a kuttl test step for sleeping a random amount of time
-func CreateSteadyStateStep(wr io.Writer, opts *Options) (err error) {
-	tin := makeSteadyStateInput(opts)
+func CreateSteadyStateStep(wr io.Writer, locations *Locations, cfg *Config) (err error) {
+	tin := makeSteadyStateInput(locations, cfg)
 	t, err := template.New("SteadyState").Parse(SteadyStateTemplate)
 	if err != nil {
 		return err
@@ -37,7 +37,8 @@ func CreateSteadyStateStep(wr io.Writer, opts *Options) (err error) {
 }
 
 type steadyStateInput struct {
-	Options
+	Config
+	ScriptDir   string
 	StepTimeout int
 }
 
@@ -50,11 +51,12 @@ commands:
 `
 
 // makeSteadyStateInput will create the steadyStateInput for the template
-func makeSteadyStateInput(opts *Options) *steadyStateInput {
+func makeSteadyStateInput(locations *Locations, cfg *Config) *steadyStateInput {
 	// 5 added as a time buffer to to account for wait-for-verticadb-steady-state.sh startup
 	const TimeBuffer = 5
 	return &steadyStateInput{
-		Options:     *opts,
-		StepTimeout: opts.SteadyStateTimeout + TimeBuffer,
+		Config:      *cfg,
+		StepTimeout: cfg.SteadyStateTimeout + TimeBuffer,
+		ScriptDir:   locations.ScriptsDir,
 	}
 }

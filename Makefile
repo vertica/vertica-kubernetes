@@ -22,10 +22,12 @@ include tests/kustomize-defaults.cfg
 KUSTOMIZE_CFG?=$(REPO_DIR)/tests/kustomize-defaults.cfg
 include $(KUSTOMIZE_CFG)
 
-LOCAL_SOAK_CFG=./local-soak.cfg
-ifneq (,$(wildcard $(LOCAL_SOAK_CFG)))
-   SOAK_CFG?=-c $(LOCAL_SOAK_CFG)
-endif
+# The location of the config file to use for the soak run. If this isn't set,
+# then the `make run-soak-tests` target will fail.
+SOAK_CFG?=
+# The number of iterations to run the soak test for. A negative number will
+# cause an infinite number of iterations to run.
+NUM_SOAK_ITERATIONS?=1
 
 # CHANNELS define the bundle channels used in the bundle. 
 CHANNELS=stable
@@ -285,7 +287,7 @@ endif
 
 .PHONY: run-soak-tests
 run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
-	scripts/soak-runner.sh $(SOAK_CFG)
+	scripts/soak-runner.sh -i $(NUM_SOAK_ITERATIONS) $(SOAK_CFG)
 
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)
