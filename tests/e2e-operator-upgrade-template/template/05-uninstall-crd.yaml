@@ -14,5 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  - command: sh -c "cd ../../.. && make undeploy-operator || true"
   - command: sh -c "cd ../../.. && make uninstall"
     ignoreFailure: true   # CRD may not yet be installed

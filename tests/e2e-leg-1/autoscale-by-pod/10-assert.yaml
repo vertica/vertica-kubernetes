@@ -16,5 +16,6 @@ kind: Pod
 metadata:
   labels:
     control-plane: controller-manager
+  namespace: verticadb-operator
 status:
   phase: Running

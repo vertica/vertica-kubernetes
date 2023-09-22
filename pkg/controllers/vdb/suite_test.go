@@ -75,12 +75,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	vdbRec = &VerticaDBReconciler{
-		Client:          k8sClient,
-		Log:             logger,
-		Scheme:          scheme.Scheme,
-		Cfg:             restCfg,
-		EVRec:           mgr.GetEventRecorderFor(vmeta.OperatorName),
-		DeploymentNames: *builder.DefaultDeploymentNames(),
+		Client: k8sClient,
+		Log:    logger,
+		Scheme: scheme.Scheme,
+		Cfg:    restCfg,
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 	}
 })
 

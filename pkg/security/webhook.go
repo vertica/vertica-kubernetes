@@ -33,18 +33,18 @@ import (
 const CACertKey = "ca.crt"
 
 // PatchWebhookCABundle will update the webhook configuration with the given CA cert.
-func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Config, caCert []byte, prefixName, ns string) error {
+func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Config, caCert []byte, prefixName string) error {
 	log.Info("Patching webhook configurations with CA bundle")
 	cs, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		return errors.Wrap(err, "could not create config")
 	}
-	cfgName := getMutatingWebhookConfigName(prefixName, ns)
+	cfgName := getMutatingWebhookConfigName(prefixName)
 	err = patchMutatingWebhookConfig(ctx, cs, cfgName, caCert)
 	if err != nil {
 		return errors.Wrap(err, "failed to patch the mutating webhook cfg")
 	}
-	cfgName = getValidatingWebhookConfigName(prefixName, ns)
+	cfgName = getValidatingWebhookConfigName(prefixName)
 	err = patchValidatingWebhookConfig(ctx, cs, cfgName, caCert)
 	if err != nil {
 		return errors.Wrap(err, "failed to patch the mutating webhook cfg")
@@ -77,7 +77,7 @@ func PatchWebhookCABundleFromSecret(ctx context.Context, log *logr.Logger, cfg *
 			"key", CACertKey, "secret", secretName)
 		return nil
 	}
-	return PatchWebhookCABundle(ctx, log, cfg, caCrt, prefixName, ns)
+	return PatchWebhookCABundle(ctx, log, cfg, caCrt, prefixName)
 }
 
 // GenerateWebhookCert will create the cert to be used by the webhook. On success, this
@@ -104,7 +104,7 @@ func GenerateWebhookCert(ctx context.Context, log *logr.Logger, cfg *rest.Config
 		return errors.Wrap(err, "could not write out cert")
 	}
 
-	return PatchWebhookCABundle(ctx, log, cfg, caCert.TLSCrt(), prefixName, ns)
+	return PatchWebhookCABundle(ctx, log, cfg, caCert.TLSCrt(), prefixName)
 }
 
 func writeCert(certDir string, cert Certificate) error {
@@ -156,12 +156,10 @@ func patchValidatingWebhookConfig(ctx context.Context, cs *kubernetes.Clientset,
 	})
 }
 
-func getValidatingWebhookConfigName(prefixName, ns string) string {
-	return fmt.Sprintf("%s-%s-validating-webhook-configuration",
-		prefixName, ns)
+func getValidatingWebhookConfigName(prefixName string) string {
+	return fmt.Sprintf("%s-validating-webhook-configuration", prefixName)
 }
 
-func getMutatingWebhookConfigName(prefixName, ns string) string {
-	return fmt.Sprintf("%s-%s-mutating-webhook-configuration",
-		prefixName, ns)
+func getMutatingWebhookConfigName(prefixName string) string {
+	return fmt.Sprintf("%s-mutating-webhook-configuration", prefixName)
 }

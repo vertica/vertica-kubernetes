@@ -65,7 +65,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 			"/opt/vertica/bin/admintools",
 			"db_remove_node",
 			"--hosts",
-			fmt.Sprintf("%s.%s", uninstallPod.Spec.Hostname, uninstallPod.Spec.Subdomain),
+			fmt.Sprintf("%s.%s.%s", uninstallPod.Spec.Hostname, uninstallPod.Spec.Subdomain, uninstallPod.Namespace),
 		))
 	})
 

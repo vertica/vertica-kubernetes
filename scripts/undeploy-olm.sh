@@ -21,22 +21,15 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=30
-NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>]"
-    echo
-    echo "Options:"
-    echo "  -n <namespace>  Undeploy the operator found in this namespace."
+    echo "usage: $(basename $0)"
     exit 1
 }
 
-while getopts "n:h" opt
+while getopts "h" opt
 do
     case $opt in
-        n)
-            NAMESPACE=$OPTARG
-            ;;
         h) 
             usage
             ;;
@@ -47,16 +40,31 @@ do
     esac
 done
 
-if [ -z "$NAMESPACE" ]
-then
-  NAMESPACE=default
-fi
-
-echo "Namespace: $NAMESPACE"
-
 set -o xtrace
 
-kubectl delete -n $NAMESPACE clusterserviceversion --selector operators.coreos.com/verticadb-operator.$NAMESPACE="" || :
-kubectl delete -n $NAMESPACE operatorgroup e2e-operatorgroup || :
-kubectl delete -n $NAMESPACE subscription e2e-verticadb-subscription || :
-kubectl delete -n $NAMESPACE serviceaccount verticadb-operator-controller-manager || :
+# We want to continue on even if we hit errors
+set +o errexit
+set +o pipefail
+
+# For debug purposes, show all the ClusterServiceVersions installed in the cluster
+kubectl get csv -A
+
+# The CSV is available in every namespace. We need to extract from it the
+# namespace where the operator pod is running.
+NAMESPACE=$(kubectl get csv -A -o jsonpath='{range .items[*]}{.metadata.annotations.olm\.operatorNamespace}{"\n"}{end}' | grep -v olm | head -1)
+if [[ -n $NAMESPACE ]]
+then
+    kubectl delete -n $NAMESPACE clusterserviceversion --selector operators.coreos.com/verticadb-operator.$NAMESPACE="" || :
+fi
+
+subs=$(kubectl get subscription --all-namespaces -o jsonpath='{range .items[?(@.metadata.name=="e2e-verticadb-subscription")]}{.metadata.name}{" -n " }{.metadata.namespace}{"\n"}{end}')
+if [[ -n $subs ]]
+then
+    kubectl delete subscriptions $subs
+fi
+
+ogs=$(kubectl get operatorgroup --all-namespaces -o jsonpath='{range .items[?(@.metadata.name=="e2e-operatorgroup")]}{.metadata.name}{" -n " }{.metadata.namespace}{"\n"}{end}')
+if [[ -n $ogs ]]
+then
+    kubectl delete operatorgroups $ogs
+fi

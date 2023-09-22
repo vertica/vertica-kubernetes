@@ -101,6 +101,12 @@ logging:
   # Moreover dev mode disables sampling. 
   dev: false
 
+# Controls the amount of concurrency within the operator to handle the various
+# CRs we have.
+reconcileConcurrency:
+  verticadb: 5
+  verticaautoscaler: 1
+  eventtrigger: 1
 
 # The resource requirements for the operator pod.  See this for more info:
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -112,27 +118,6 @@ resources:
   requests:
     cpu: 100m
     memory: 20Mi
-
-# If set, this will be the name of an existing service account that will be used to run
-# any of the pods related to this operator. This includes the pod for the operator itself, 
-# as well as any pods created for our custom resource.  If unset, we will use
-# the default service account name.
-serviceAccountNameOverride: ""
-
-# Set this to true to force the helm chart to skip creation of any Roles,
-# RoleBindings and ServiceAccount. This assumes that the roles that the
-# operator relies on have been setup outside of this helm chart.
-#
-# Use this option if you are installing the helm chart with k8s privileges that
-# prevent you from creating Roles/RoleBindings. We provide the Roles and
-# RoleBindings that the operator needs as a artifact of the GitHub release. For
-# instance, have your cluster admin run this against the namespace you
-# want to deploy the operator in:
-# kubectl apply -n <namespace> -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/operator-rbac.yaml
-#
-# See this for more info:
-# https://docs.vertica.com/12.0.x/en/containerized/db-operator/installing-db-operator/#granting-operator-privileges
-skipRoleAndRoleBindingCreation: false
 
 # Add specific node selector labels to control where the server pod is scheduled.
 # If left blank then no selectors are added.

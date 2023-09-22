@@ -13,20 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Wait for the verticadb-operator to get to a steady state.
+# Wait for the verticadb-operator to get to a steady state. Since the operator
+# is cluster scoped you need to provide the namespace of the operator and the
+# namespace of the vdb you want to check.
 
 TIMEOUT=30  # Default, can be overridden
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-t <timeout>]"
+    echo "usage: $(basename $0) [-n <namespace>] [-t <timeout>] <vdb-namespace>"
     echo
     echo "Options:"
-    echo "  -n    Namespace that we will search pods in.  Defaults to current namespace"
+    echo "  -n    Namespace the operator is deployed in.  Defaults to current namespace"
     echo "  -t    Timeout in seconds.  Defaults to $TIMEOUT"
     echo
     exit 1
 }
 
+OPTIND=1
 while getopts "n:ht:" opt
 do
     case $opt in
@@ -46,16 +49,28 @@ do
     esac
 done
 
-NS_OPT=
+if [ $(( $# - $OPTIND )) -lt 0 ]
+then
+    usage
+fi
+
+VDB_NS=${@:$OPTIND:1}
+
+NS_OPT="-n verticadb-operator"
 if [[ -n "$NAMESPACE" ]]
 then
     NS_OPT="-n $NAMESPACE "
 fi
 
-LOG_CMD="kubectl ${NS_OPT}logs -l control-plane=controller-manager -c manager --tail -1"
+LOG_CMD="kubectl ${NS_OPT}logs -l control-plane=controller-manager -c manager --tail=-1"
 WEBHOOK_FILTER="--invert-match -e 'controller-runtime.webhook.webhooks' -e 'verticadb-resource'"
+# All entries will have a key/value like this:
+# "verticadb": "kuttl-test-sterling-coyote/v-auto-restart",
+# We are going to look for the namespace portion.
+VDB_FILTER="$VDB_NS/"
 timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | \
     grep $WEBHOOK_FILTER | \
+    grep $VDB_FILTER | \
     tail -1 | grep --quiet '\"result\": {\"Requeue\":false,\"RequeueAfter\":0}, \"err\": null'; do sleep 1; done" &
 pid=$!
 wait $pid
@@ -71,5 +86,5 @@ NC='\033[0m'  # No color
 printf "\n${RED}Timed out waiting for steady state to be achieved.\n"
 printf "\n${GREEN}Command:"
 printf "\n\t$LOG_CMD\n\n${NC}"
-printf "$($LOG_CMD | grep $WEBHOOK_FILTER | tail)\n"
+printf "$($LOG_CMD | grep $WEBHOOK_FILTER | grep $VDB_FILTER | tail)\n"
 exit 1

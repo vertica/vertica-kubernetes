@@ -41,6 +41,10 @@ const (
 	// This is a feature flag for accessing the secrets configured in Google Secret Manager.
 	// The value of this annotation is treated as a boolean.
 	GcpGsmAnnotation = "vertica.com/use-gcp-secret-manager"
+
+	// Two annotations that are set by the operator when creating objects.
+	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
+	OperatorVersionAnnotation          = "vertica.com/operator-version"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

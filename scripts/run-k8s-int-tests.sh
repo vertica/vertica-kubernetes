@@ -79,7 +79,6 @@ RPM_PATH="${PACKAGES_DIR}/${RPM_FILE}"
 # It is expected that the caller has set the appropriate *_IMG environment variables
 export INT_TEST_OUTPUT_DIR
 export PATH=$PATH:$HOME/.krew/bin
-export DEPLOY_WITH=random  # Randomly pick between helm and OLM
 
 # cleanup the deployed k8s cluster
 function cleanup {
@@ -115,10 +114,15 @@ function build {
 }
 
 function build_push_olm_bundle {
-    # This one is handle separately because its not a container that we publish
-    # externally.  So it needs to be build each time we run the e2e tests.
-    echo "Building and pushing the OLM bundle"
-    make docker-build-bundle docker-push-bundle
+    deploy_with=$(make echo-vars | grep 'DEPLOY_WITH=' | cut -d'=' -f2)
+    echo "Deployment method: $deploy_with"
+    if [ "$deploy_with" = "olm" ]
+    then
+        # This one is handle separately because its not a container that we publish
+        # externally.  So it needs to be build each time we run the e2e tests.
+        echo "Building and pushing the OLM bundle"
+        make docker-build-bundle docker-push-bundle
+    fi
 }
 
 # Build vertica images and push them to the kind environment
