@@ -104,7 +104,7 @@ To run Vertica in Kubernetes, we need to package Vertica inside a container. Thi
 By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the following environment variables prior to running the make target.  
 
 - **OPERATOR_IMG**: Operator image name.
-- **VERTICA_IMG**: Vertica image name. Used interchangabely for v1 and v2 containers.
+- **VERTICA_IMG**: Vertica image name. Used interchangeably for v1 and v2 containers.
 - **VLOGGER_IMG**: Vertica logger sidecar image name.
 - **BUNDLE_IMG**: OLM bundle image name.
 
