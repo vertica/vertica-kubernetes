@@ -679,41 +679,6 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
-	It("should verify httpServerMode is valid", func() {
-		vdb := MakeVDB()
-		vdb.Spec.HTTPServerMode = "bad-server-mode"
-		validateSpecValuesHaveErr(vdb, true)
-		vdb.Spec.HTTPServerMode = ""
-		validateSpecValuesHaveErr(vdb, false)
-		vdb.Spec.HTTPServerMode = HTTPServerModeDisabled
-		validateSpecValuesHaveErr(vdb, false)
-		vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
-		validateSpecValuesHaveErr(vdb, false)
-	})
-
-	It("should not allow invalid http server transitions", func() {
-		// Enabled -> Disabled
-		validateHTTPServerModeTransition(HTTPServerModeEnabled, HTTPServerModeDisabled, true)
-		// Enabled -> Auto
-		validateHTTPServerModeTransition(HTTPServerModeEnabled, HTTPServerModeAuto, true)
-		// Enabled -> ""
-		validateHTTPServerModeTransition(HTTPServerModeEnabled, "", true)
-		// Auto -> Disabled
-		validateHTTPServerModeTransition(HTTPServerModeAuto, HTTPServerModeDisabled, true)
-		// "" -> Disabled
-		validateHTTPServerModeTransition("", HTTPServerModeDisabled, true)
-		// Auto -> Enabled
-		validateHTTPServerModeTransition(HTTPServerModeAuto, HTTPServerModeEnabled, false)
-		// "" -> Enabled
-		validateHTTPServerModeTransition("", HTTPServerModeEnabled, false)
-		// Disabled -> Enabled
-		validateHTTPServerModeTransition(HTTPServerModeDisabled, HTTPServerModeEnabled, false)
-		// Disabled -> Auto
-		validateHTTPServerModeTransition(HTTPServerModeDisabled, HTTPServerModeAuto, false)
-		// Disabled -> ""
-		validateHTTPServerModeTransition(HTTPServerModeDisabled, "", false)
-	})
-
 	It("should verify range for verticaHTTPNodePort", func() {
 		vdb := MakeVDB()
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeNodePort
@@ -786,14 +751,6 @@ func validateSpecValuesHaveErr(vdb *VerticaDB, hasErr bool) {
 func validateImmutableFields(vdbUpdate *VerticaDB, expectError bool) {
 	vdb := createVDBHelper()
 	checkErrorsForImmutableFields(vdb, vdbUpdate, expectError)
-}
-
-func validateHTTPServerModeTransition(from, to HTTPServerModeType, expectError bool) {
-	vdbOrig := MakeVDB()
-	vdbUpdate := MakeVDB()
-	vdbOrig.Spec.HTTPServerMode = from
-	vdbUpdate.Spec.HTTPServerMode = to
-	checkErrorsForImmutableFields(vdbOrig, vdbUpdate, expectError)
 }
 
 func checkErrorsForImmutableFields(vdbOrig, vdbUpdate *VerticaDB, expectError bool) {

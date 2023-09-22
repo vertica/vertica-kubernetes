@@ -46,11 +46,11 @@ on:
         - admintools operator upgrade
         - admintools udx
         - admintools hostpath
-        - admintoold http server
         - vcluster s3
         - vcluster leg 1
         - vcluster leg 2
         - vcluster leg 5
+        - vcluster leg 6
         - vcluster udx
         - vcluster hostpath
       run_security_scan:
@@ -234,14 +234,14 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  e2e-http-server:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools http server' || inputs.e2e_test_suites == '' }}
+  e2e-leg-6-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6' || inputs.e2e_test_suites == '')}}
     needs: [build]
-    uses: ./.github/workflows/e2e-http-server.yml
+    uses: ./.github/workflows/e2e-leg-6.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-image: ${{ needs.build.outputs.v2-vertica-image }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

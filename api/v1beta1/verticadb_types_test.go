@@ -55,25 +55,6 @@ var _ = Describe("verticadb_types", func() {
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeTrue())
 	})
 
-	It("should say that the httpServer is not enabled if value is blank", func() {
-		vdb := MakeVDB()
-		vdb.Spec.HTTPServerMode = ""
-		Expect(vdb.IsHTTPServerEnabled()).Should(BeFalse())
-		vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
-		Expect(vdb.IsHTTPServerEnabled()).Should(BeTrue())
-	})
-
-	It("should enable httpServer if auto is set and vertica version is new enough", func() {
-		vdb := MakeVDB()
-		vdb.Spec.HTTPServerMode = HTTPServerModeAuto
-		vdb.ObjectMeta.Annotations[VersionAnnotation] = "v11.0.2"
-		Expect(vdb.IsHTTPServerEnabled()).Should(BeFalse())
-		vdb.ObjectMeta.Annotations[VersionAnnotation] = HTTPServerMinVersion
-		Expect(vdb.IsHTTPServerEnabled()).Should(BeFalse())
-		vdb.ObjectMeta.Annotations[VersionAnnotation] = HTTPServerAutoMinVersion
-		Expect(vdb.IsHTTPServerEnabled()).Should(BeTrue())
-	})
-
 	It("should return the first primary subcluster", func() {
 		vdb := MakeVDB()
 		vdb.Spec.Subclusters = []Subcluster{

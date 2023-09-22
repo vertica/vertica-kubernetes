@@ -155,9 +155,6 @@ type PodFact struct {
 	// StatefulSet. This is an indication that the pod is in the middle of a
 	// rolling update.
 	stsRevisionPending bool
-
-	// Is the http server running in this pod?
-	isHTTPServerRunning bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -189,7 +186,6 @@ type GatherState struct {
 	VNodeName              string          `json:"vnodeName"`
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
-	IsHTTPServerRunning    bool            `json:"isHTTPServerRunning"`
 }
 
 // dBCheckType identifies how to pick pods in findReIPPods
@@ -409,8 +405,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=size %s | tail -1
 		echo -n 'localDataAvail: '
 		df --block-size=1 --output=avail %s | tail -1
-		echo -n 'isHTTPServerRunning: '
-		ss -tulpn 2> /dev/null | grep LISTEN | grep --quiet ":%s" && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -430,7 +424,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
-		fmt.Sprintf("%d", builder.VerticaHTTPPort),
 	))
 }
 
@@ -533,7 +526,6 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.V
 	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
-	pf.isHTTPServerRunning = gs.IsHTTPServerRunning
 	// If the vertica process is running, then the database is UP. This is
 	// consistent with the liveness probe, which goes a bit further and checks
 	// if the client port is opened. If the vertica process dies, the liveness

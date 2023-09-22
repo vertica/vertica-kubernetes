@@ -320,17 +320,15 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// Control the Vertica's http server.  The http server provides a REST interface
-	// that can be used for management and monitoring of the server.  Valid
-	// values are: Enabled, Disabled, Auto or an empty string.  An empty string
-	// currently defaults to Auto.
-	HTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
+	// Deprecated: setup of TLS certs for http access is controlled by the
+	// deployment type now.
+	DeprecatedHTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to use for the Vertica HTTP
-	// server.  If this is empty, the operator will create a secret to use and
+	// A secret that contains the TLS credentials to use for the node management
+	// agent. If this is empty, the operator will create a secret to use and
 	// add the name of the generate secret in this field.  When set, the secret
 	// must have the following keys defined:
 	// - tls.key: The private key to be used by the HTTP server
@@ -1090,25 +1088,14 @@ func MakeVDB() *VerticaDB {
 				DepotVolume: PersistentVolume,
 				RequestSize: resource.MustParse("10Gi"),
 			},
-			KSafety:        KSafety1,
-			DBName:         "db",
-			ShardCount:     12,
-			HTTPServerMode: HTTPServerModeDisabled,
+			KSafety:    KSafety1,
+			DBName:     "db",
+			ShardCount: 12,
 			Subclusters: []Subcluster{
 				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, IsPrimary: true},
 			},
 		},
 	}
-}
-
-// MakeVDBForHTTP is a helper that constructs a VerticaDB struct with http enabled.
-// This is intended for test purposes.
-func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
-	vdb := MakeVDB()
-	vdb.Annotations[VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
-	vdb.Spec.HTTPServerTLSSecret = httpServerTLSSecretName
-	return vdb
 }
 
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
@@ -1304,38 +1291,6 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 		}
 	}
 	return SubclusterStatus{}, false
-}
-
-// IsHTTPServerDisabled explicitly checks if the http server is disabled. If set
-// to auto or enabled, this returns false.
-func (v *VerticaDB) IsHTTPServerDisabled() bool {
-	return v.Spec.HTTPServerMode == HTTPServerModeDisabled
-}
-
-// IsHTTPServerEnabled will return true if the http server is enabled to run for
-// this instance of the vdb.
-func (v *VerticaDB) IsHTTPServerEnabled() bool {
-	if v.IsHTTPServerDisabled() {
-		return false
-	}
-	if v.Spec.HTTPServerMode == HTTPServerModeEnabled {
-		return true
-	}
-	// For auto (or an empty string), we only use the http server if we are on a
-	// vertica version that supports it.
-	inf, ok := v.MakeVersionInfo()
-	// We cannot make any inference about the version, so assume https server
-	// isn't enabled
-	if !ok {
-		return false
-	}
-	return inf.IsEqualOrNewer(HTTPServerAutoMinVersion)
-}
-
-// IsHTTPServerAuto returns true if http server is auto.
-func (v *VerticaDB) IsHTTPServerAuto() bool {
-	return v.Spec.HTTPServerMode == HTTPServerModeAuto ||
-		v.Spec.HTTPServerMode == ""
 }
 
 // IsEON returns true if the instance is an EON database. Officially, all

@@ -1,0 +1,5 @@
+kind: Deprecated
+body: Deprecate the httpServerMode parameter in the VerticaDB CR
+time: 2023-09-21T16:57:23.87985825-03:00
+custom:
+  Issue: "515"
