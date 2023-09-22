@@ -24,12 +24,14 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 OP_SA=verticadb-operator-controller-manager
+UNDO=
 
 function usage() {
-    echo "usage: $0 [-s <op_serviceaccount>] [<op_namespace>] [<access_namespace>] [<access_serviceaccount>]"
+    echo "usage: $0 [-u] [-s <op_serviceaccount>] [<op_namespace>] [<access_namespace>] [<access_serviceaccount>]"
     echo
     echo "Optional Arguments:"
     echo " -s <op_serviceaccount>   Name of the service account used by the operator [Default: $OP_SA]"
+    echo " -u                       Undo the authorization"
     echo
     echo "Positional Arguments:"
     echo " <op_namespace>           The namespace that runs the operator"
@@ -38,11 +40,12 @@ function usage() {
     exit 1
 }
 
-while getopts "hs:" opt
+while getopts "hs:u" opt
 do
     case $opt in
       h) usage;;
       s) OP_SA=$OPTARG;;
+      u) UNDO=1
     esac
 done
 
@@ -56,6 +59,16 @@ ACCESS_NAMESPACE=${@:$OPTIND+1:1}
 ACCESS_SA=${@:$OPTIND+2:1}
 
 set -o xtrace
+
+if [[ -n "$UNDO" ]]
+then
+    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-cr.yaml || :
+    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-role-cr.yaml || :
+    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-crb.yaml || :
+    kubectl delete -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-rolebinding-crb.yaml || :
+    echo "Finished undoing action"
+    exit 0
+fi
 
 kubectl apply -f $REPO_DIR/config/release-manifests/verticadb-operator-proxy-role-cr.yaml
 kubectl apply -f $REPO_DIR/config/release-manifests/verticadb-operator-metrics-reader-cr.yaml

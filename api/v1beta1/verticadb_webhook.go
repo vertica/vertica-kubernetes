@@ -132,8 +132,6 @@ func (v *VerticaDB) HasKerberosConfig() bool {
 	return v.Spec.Communal.KerberosServiceName != ""
 }
 
-//+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions=v1
-
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -158,8 +156,6 @@ func (v *VerticaDB) Default() {
 	v.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
 	v.setDefaultServiceName()
 }
-
-//+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &VerticaDB{}
 

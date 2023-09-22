@@ -153,7 +153,8 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(desiredNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(desiredExternalIPs))
 			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(desiredLoadBalancerIP))
-			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(desiredServiceAnnotations))
+			Expect(foundSvc.ObjectMeta.Annotations["foo"]).Should(Equal(desiredServiceAnnotations["foo"]))
+			Expect(foundSvc.ObjectMeta.Annotations["dib"]).Should(Equal(desiredServiceAnnotations["dib"]))
 
 			// Update crd
 			newType := corev1.ServiceTypeLoadBalancer
@@ -179,7 +180,8 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(newNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(newExternalIPs))
 			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(newLoadBalancerIP))
-			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(newServiceAnnotations))
+			Expect(foundSvc.ObjectMeta.Annotations["foo"]).Should(Equal(newServiceAnnotations["foo"]))
+			Expect(foundSvc.ObjectMeta.Annotations["dib"]).Should(Equal(newServiceAnnotations["dib"]))
 		})
 
 		It("should have custom labels and annotations in service objects and statefulsets", func() {

@@ -26,12 +26,12 @@ testDirs:
   - tests/e2e-leg-3-failed
   - tests/e2e-leg-4
   - tests/e2e-leg-4-failed
+  - tests/e2e-leg-5
   - tests/e2e-leg-6
   - tests/e2e-udx
   - tests/e2e-udx-failed
   - tests/e2e-server-upgrade
   - tests/e2e-operator-upgrade-overlays
-  - tests/e2e-enterprise
 parallel: 2
 timeout: 600
 commands:
@@ -59,3 +59,8 @@ commands:
   # And another stern to collect the output from any vertica pods.
   - script: exec kubectl stern --selector app.kubernetes.io/name=vertica --all-namespaces --timestamps > int-tests-output/vertica.log
     background: true
+
+  # Start the operator. Some test steps expects the operator to be in a
+  # specific namespace.
+  - script: make undeploy || true
+  - script: NAMESPACE=verticadb-operator make deploy

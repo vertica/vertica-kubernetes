@@ -48,12 +48,22 @@ spec:
           periodSeconds: 10
         resources:  template-placeholder
         env:
-          - name: WATCH_NAMESPACE
+          - name: OPERATOR_NAMESPACE
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: ENABLE_WEBHOOKS
             value: true
+          - name: DEPLOY_WITH
+            valueFrom:
+              configMapKeyRef:
+                name: manager-config
+                key: DEPLOY_WITH
+          - name: VERSION
+            valueFrom:
+              configMapKeyRef:
+                name: manager-config
+                key: VERSION
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:

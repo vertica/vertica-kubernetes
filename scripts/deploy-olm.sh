@@ -70,6 +70,12 @@ then
   NAMESPACE=default
 fi
 
+# Create the namespace if it doesn't yet exist
+if ! kubectl get namespace $NAMESPACE 2> /dev/null
+then
+    kubectl create namespace $NAMESPACE
+fi
+
 # Get the namespace where the catalog is
 if $SCRIPT_DIR/is-openshift.sh
 then
@@ -84,16 +90,13 @@ echo "Catalog source namespace: $OLM_NS"
 
 set -o xtrace
 
-# Create an operator group for the target namespace
+# Create an operator group that applies to all namespaces.
 cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha2
 kind: OperatorGroup
 metadata:
   name: e2e-operatorgroup
   namespace: $NAMESPACE
-spec:
-  targetNamespaces:
-  - $NAMESPACE
 EOF
 
 # Create a subscription to the verticadb-operator
