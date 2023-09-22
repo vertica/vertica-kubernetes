@@ -150,10 +150,6 @@ RUN set -x \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
   && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
-  # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
-  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
-    echo "JAVA_HOME=/usr" >> /etc/environment; \
-  fi \
   # Create a symlink to python3 interpreter in vertica
   && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
   && chmod u+s /usr/sbin/cron \
