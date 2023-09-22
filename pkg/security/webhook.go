@@ -24,6 +24,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -37,7 +39,7 @@ func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Confi
 	log.Info("Patching webhook configurations with CA bundle")
 	cs, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return errors.Wrap(err, "could not create config")
+		return errors.Wrap(err, "could not create kubernetes clientset")
 	}
 	cfgName := getMutatingWebhookConfigName(prefixName)
 	err = patchMutatingWebhookConfig(ctx, cs, cfgName, caCert)
@@ -49,7 +51,13 @@ func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Confi
 	if err != nil {
 		return errors.Wrap(err, "failed to patch the mutating webhook cfg")
 	}
-	return nil
+
+	apiCS, err := apiclientset.NewForConfig(cfg)
+	if err != nil {
+		return errors.Wrap(err, "could not create apiextensions clientset")
+	}
+	crdName := "verticadbs.vertica.com" // SPILLY - avoid hard code?
+	return patchConversionWebhookConfig(ctx, apiCS, crdName, caCert)
 }
 
 // PatchWebhookCABundleFromSecret will update the webhook configurations with the CA cert in the given secret.
@@ -152,6 +160,35 @@ func patchValidatingWebhookConfig(ctx context.Context, cs *kubernetes.Clientset,
 			cfg.Webhooks[i].ClientConfig.CABundle = caCert
 		}
 		_, err = api.Update(ctx, cfg, metav1.UpdateOptions{})
+		return err
+	})
+}
+
+// patchConversionWebhookConfig will update the CRD with the CA bundle for the
+// webhook conversion endpoint. This conversion webhook is used to convert
+// between the different versions of CRDs we have.
+func patchConversionWebhookConfig(ctx context.Context, cs *apiclientset.Clientset, crdName string, caCert []byte) error {
+	api := cs.ApiextensionsV1().CustomResourceDefinitions()
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		crd, err := api.Get(ctx, crdName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		convPath := "/convert"
+		crd.Spec.Conversion.Strategy = extv1.WebhookConverter
+		crd.Spec.Conversion.Webhook = &extv1.WebhookConversion{
+			ClientConfig: &extv1.WebhookClientConfig{
+				Service: &extv1.ServiceReference{
+					Name:      "verticadb-operator-webhook-service", // SPILLY - hardcode
+					Namespace: "verticadb-operator",                 // SPILLY - hardcode
+					Path:      &convPath,
+				},
+				CABundle: caCert,
+			},
+			ConversionReviewVersions: []string{"v1", "v1beta1"}, // SPILLY - avoid hardcode
+
+		}
+		_, err = api.Update(ctx, crd, metav1.UpdateOptions{})
 		return err
 	})
 }
