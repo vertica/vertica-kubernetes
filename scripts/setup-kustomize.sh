@@ -73,6 +73,9 @@ then
   source $USER_CONFIG_FILE
 fi
 
+OFFLINE_UPGRADE_KS0_DIR=$REPO_DIR/tests/e2e-server-upgrade/offline-upgrade-ks-0
+cp $OFFLINE_UPGRADE_KS0_DIR/setup-vdb-bad-endpoint/setup-vdb.yaml $OFFLINE_UPGRADE_KS0_DIR/setup-vdb-bad-endpoint.yaml
+
 if [ -z "${VERTICA_DEPLOYMENT_METHOD}" ]; then
     VERTICA_DEPLOYMENT_METHOD=admintools
 fi
@@ -181,6 +184,7 @@ EOF
 
         if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" ]
         then
+            sed 's/vertica.com\/vcluster-ops:.*/vertica.com\/vcluster-ops: "true"/' $OFFLINE_UPGRADE_KS0_DIR/setup-vdb-bad-endpoint/setup-vdb.yaml > $OFFLINE_UPGRADE_KS0_DIR/setup-vdb-bad-endpoint.yaml
             cat <<EOF >> kustomization.yaml
     - op: add
       path: /metadata/annotations/vertica.com~1vcluster-ops

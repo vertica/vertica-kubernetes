@@ -11,28 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Creating a vdb with non-existent s3 credentials.  Purpose is to do an upgrade
-# before a database exists.
-
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-spec:
-  image: wrong-image
-  imagePullPolicy: IfNotPresent
-  communal:
-    path: "s3://upgrade-vertica"
-    endpoint: "http://non-existent-ep"
-    credentialSecret:  non-existent-s3-creds
-  local:
-    requestSize: 100Mi
-  dbName: verticadb
-  shardCount: 11
-  kSafety: "0"
-  subclusters:
-    - name: sc1
-      size: 2
-  # Set requeueTime since we are intentionally failing.  This prevents the
-  # exponential backoff kicking in, which can cause the test to timeout.
-  requeueTime: 5
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kubectl -n $NAMESPACE apply -f setup-vdb-bad-endpoint.yaml"
