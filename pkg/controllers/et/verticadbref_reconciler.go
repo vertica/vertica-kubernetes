@@ -40,6 +40,8 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	for _, ref := range r.Et.Spec.References {
+		// SPILLY - include new version here
+		// SPILLY - find other places where we use group version of VerticaDB
 		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
 			continue
 		}

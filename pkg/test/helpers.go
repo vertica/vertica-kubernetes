@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	. "github.com/onsi/gomega" //nolint:revive,stylecheck
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
@@ -256,14 +256,6 @@ func DeleteSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	if !kerrors.IsNotFound(err) {
 		ExpectWithOffset(1, c.Delete(ctx, svc)).Should(Succeed())
 	}
-}
-
-func CreateVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
-	ExpectWithOffset(1, c.Create(ctx, vas)).Should(Succeed())
-}
-
-func DeleteVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
-	ExpectWithOffset(1, c.Delete(ctx, vas)).Should(Succeed())
 }
 
 func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {

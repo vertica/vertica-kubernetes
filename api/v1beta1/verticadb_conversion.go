@@ -22,7 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
+// SPILLY - address funlen linting errors in here
+
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
+//
+//nolint:funlen
 func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
 	verticadblog.Info("ConvertTo", "name", v.Name, "namespace", v.Namespace, "uid", v.UID)
 	dst := dstRaw.(*v1.VerticaDB)
@@ -80,7 +84,11 @@ func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
 	return nil
 }
 
+// SPILLY - convert status conditions. And anything else in status.
+
 // ConvertFrom will handle conversion from the Hub type (v1) to v1beta1.
+//
+//nolint:funlen
 func (v *VerticaDB) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1.VerticaDB)
 	verticadblog.Info("ConvertFrom", "name", src.Name, "namespace", src.Namespace, "uid", src.UID)

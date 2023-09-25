@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -630,7 +630,7 @@ func getEndpointHostPort(blobEndpoint string) string {
 // setHadoopConfDir adds an entry to the config parms map for
 // HadoopConfDir. Must have the corresponding config map set in the Vdb.
 func (g *GenericDatabaseInitializer) setHadoopConfDir() {
-	if g.Vdb.Spec.Communal.HadoopConfig != "" {
+	if g.Vdb.Spec.HadoopConfig != "" {
 		g.ConfigurationParams.Set("HadoopConfDir", paths.HadoopConfPath)
 	}
 }

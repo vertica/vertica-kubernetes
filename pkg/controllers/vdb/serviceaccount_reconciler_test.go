@@ -18,7 +18,7 @@ package vdb
 import (
 	"context"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	rbacv1 "k8s.io/api/rbac/v1"

@@ -23,7 +23,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -122,9 +122,9 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.Communal.HadoopConfig != "" {
+	if o.Vdb.Spec.HadoopConfig != "" {
 		_, res, err := getConfigMap(ctx, o.VRec, o.Vdb,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.Communal.HadoopConfig))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HadoopConfig))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}

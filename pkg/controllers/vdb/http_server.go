@@ -18,7 +18,7 @@ package vdb
 import (
 	"fmt"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	corev1 "k8s.io/api/core/v1"
 )
