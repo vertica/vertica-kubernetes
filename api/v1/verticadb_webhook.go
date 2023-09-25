@@ -917,15 +917,15 @@ func (v *VerticaDB) validateDepotVolume(allErrs field.ErrorList) field.ErrorList
 }
 
 func (v *VerticaDB) validateHTTPServerMode(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.HTTPServerMode == "" ||
-		v.Spec.HTTPServerMode == HTTPServerModeEnabled ||
-		v.Spec.HTTPServerMode == HTTPServerModeDisabled ||
-		v.Spec.HTTPServerMode == HTTPServerModeAuto {
+	if v.Spec.DeprecatedHTTPServerMode == "" ||
+		v.Spec.DeprecatedHTTPServerMode == HTTPServerModeEnabled ||
+		v.Spec.DeprecatedHTTPServerMode == HTTPServerModeDisabled ||
+		v.Spec.DeprecatedHTTPServerMode == HTTPServerModeAuto {
 		return allErrs
 	}
 
 	err := field.Invalid(field.NewPath("spec").Child("httpServerMode"),
-		v.Spec.HTTPServerMode,
+		v.Spec.DeprecatedHTTPServerMode,
 		fmt.Sprintf("Valid values are: %s, %s, %s or an empty string",
 			HTTPServerModeAuto, HTTPServerModeEnabled, HTTPServerModeDisabled))
 	return append(allErrs, err)
@@ -1092,13 +1092,13 @@ func (v *VerticaDB) checkImmutableS3ServerSideEncryption(oldObj *VerticaDB, allE
 // inappropriate way like Enabled -> Disabled, Auto -> Disabled, Enabled -> Auto.
 func (v *VerticaDB) checkImmutableHTTPServerMode(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	isTransitionAutoToDisabled := oldObj.IsHTTPServerAuto() && v.IsHTTPServerDisabled()
-	if v.Spec.HTTPServerMode != oldObj.Spec.HTTPServerMode {
-		if oldObj.Spec.HTTPServerMode == HTTPServerModeEnabled ||
+	if v.Spec.DeprecatedHTTPServerMode != oldObj.Spec.DeprecatedHTTPServerMode {
+		if oldObj.Spec.DeprecatedHTTPServerMode == HTTPServerModeEnabled ||
 			isTransitionAutoToDisabled {
 			err := field.Invalid(field.NewPath("spec").Child("httpServerMode"),
-				v.Spec.HTTPServerMode,
+				v.Spec.DeprecatedHTTPServerMode,
 				fmt.Sprintf("transition from '%s' to '%s' not allowed",
-					oldObj.Spec.HTTPServerMode, v.Spec.HTTPServerMode))
+					oldObj.Spec.DeprecatedHTTPServerMode, v.Spec.DeprecatedHTTPServerMode))
 			allErrs = append(allErrs, err)
 		}
 	}

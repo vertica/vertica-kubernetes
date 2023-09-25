@@ -1,4 +1,4 @@
-name: e2e (http-server) tests
+name: e2e (leg-6) tests
 
 on: 
   workflow_call:
@@ -59,12 +59,15 @@ jobs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
-        export E2E_TEST_DIRS="tests/e2e-http-server"
+        # Leg 6 is only tested in vclusterops mode. It has tests that depend on
+        # features only available with that deployment method.
+        export VERTICA_DEPLOYMENT_METHOD=vclusterops
+        export E2E_TEST_DIRS="tests/e2e-leg-6"
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-http-server
+        name: logs-e2e-leg-6-vcluster
         path: ${{ github.workspace }}/int-tests-output/*

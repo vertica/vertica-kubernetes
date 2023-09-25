@@ -329,11 +329,9 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// Control the Vertica's http server.  The http server provides a REST interface
-	// that can be used for management and monitoring of the server.  Valid
-	// values are: Enabled, Disabled, Auto or an empty string.  An empty string
-	// currently defaults to Auto.
-	HTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
+	// Deprecated: setup of TLS certs for http access is controlled by the
+	// deployment type now.
+	DeprecatedHTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
@@ -1096,10 +1094,10 @@ func MakeVDB() *VerticaDB {
 				DepotVolume: PersistentVolume,
 				RequestSize: resource.MustParse("10Gi"),
 			},
-			KSafety:        KSafety1,
-			DBName:         "db",
-			ShardCount:     12,
-			HTTPServerMode: HTTPServerModeDisabled,
+			KSafety:                  KSafety1,
+			DBName:                   "db",
+			ShardCount:               12,
+			DeprecatedHTTPServerMode: HTTPServerModeDisabled,
 			Subclusters: []Subcluster{
 				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, IsPrimary: true},
 			},
@@ -1112,7 +1110,7 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.HTTPServerMode = HTTPServerModeEnabled
+	vdb.Spec.DeprecatedHTTPServerMode = HTTPServerModeEnabled
 	vdb.Spec.HTTPServerTLSSecret = httpServerTLSSecretName
 	return vdb
 }
@@ -1315,7 +1313,7 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 // IsHTTPServerDisabled explicitly checks if the http server is disabled. If set
 // to auto or enabled, this returns false.
 func (v *VerticaDB) IsHTTPServerDisabled() bool {
-	return v.Spec.HTTPServerMode == HTTPServerModeDisabled
+	return v.Spec.DeprecatedHTTPServerMode == HTTPServerModeDisabled
 }
 
 // IsHTTPServerEnabled will return true if the http server is enabled to run for
@@ -1324,7 +1322,7 @@ func (v *VerticaDB) IsHTTPServerEnabled() bool {
 	if v.IsHTTPServerDisabled() {
 		return false
 	}
-	if v.Spec.HTTPServerMode == HTTPServerModeEnabled {
+	if v.Spec.DeprecatedHTTPServerMode == HTTPServerModeEnabled {
 		return true
 	}
 	// For auto (or an empty string), we only use the http server if we are on a
@@ -1340,8 +1338,8 @@ func (v *VerticaDB) IsHTTPServerEnabled() bool {
 
 // IsHTTPServerAuto returns true if http server is auto.
 func (v *VerticaDB) IsHTTPServerAuto() bool {
-	return v.Spec.HTTPServerMode == HTTPServerModeAuto ||
-		v.Spec.HTTPServerMode == ""
+	return v.Spec.DeprecatedHTTPServerMode == HTTPServerModeAuto ||
+		v.Spec.DeprecatedHTTPServerMode == ""
 }
 
 // IsEON returns true if the instance is an EON database. Officially, all

@@ -76,7 +76,7 @@ func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.EncryptSpreadComm = v.Spec.EncryptSpreadComm
 	dst.Spec.SecurityContext = v.Spec.SecurityContext
 	dst.Spec.PodSecurityContext = v.Spec.PodSecurityContext
-	dst.Spec.HTTPServerMode = v1.HTTPServerModeType(v.Spec.HTTPServerMode)
+	dst.Spec.DeprecatedHTTPServerMode = v1.HTTPServerModeType(v.Spec.DeprecatedHTTPServerMode)
 	dst.Spec.HTTPServerTLSSecret = v.Spec.HTTPServerTLSSecret
 	dst.Spec.ReadinessProbeOverride = v.Spec.ReadinessProbeOverride
 	dst.Spec.LivenessProbeOverride = v.Spec.LivenessProbeOverride
@@ -138,7 +138,7 @@ func (v *VerticaDB) ConvertFrom(srcRaw conversion.Hub) error {
 	v.Spec.EncryptSpreadComm = src.Spec.EncryptSpreadComm
 	v.Spec.SecurityContext = src.Spec.SecurityContext
 	v.Spec.PodSecurityContext = src.Spec.PodSecurityContext
-	v.Spec.HTTPServerMode = HTTPServerModeType(src.Spec.HTTPServerMode)
+	v.Spec.DeprecatedHTTPServerMode = HTTPServerModeType(src.Spec.DeprecatedHTTPServerMode)
 	v.Spec.HTTPServerTLSSecret = src.Spec.HTTPServerTLSSecret
 	v.Spec.ReadinessProbeOverride = src.Spec.ReadinessProbeOverride
 	v.Spec.LivenessProbeOverride = src.Spec.LivenessProbeOverride

@@ -117,7 +117,6 @@ func (d *InstallReconciler) installForAdmintools(ctx context.Context) (ctrl.Resu
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
-		d.generateHTTPCertsForAdmintools,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -190,20 +189,9 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 	return nil
 }
 
-// generateHTTPCertsForAdmintools is a wrapper for admintools that calls a function that
-// generates the necessary certs to be able to start and communicate with the Vertica's http server.
-func (d *InstallReconciler) generateHTTPCertsForAdmintools(ctx context.Context) error {
-	_, err := d.generateHTTPCerts(ctx)
-	return err
-}
-
-// generateHTTPCerts will generate the necessary certs to be able to start and
-// communicate with the Vertica's http server.
+// generateHTTPCerts will generate the necessary config file to be able to start and
+// communicate with the Vertica's https server.
 func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) (bool, error) {
-	// Early out if the http service isn't enabled
-	if !d.doHTTPInstall(true) {
-		return false, nil
-	}
 	installedPodCount := 0
 	for _, p := range d.PFacts.Detail {
 		if !p.isPodRunning {
@@ -308,11 +296,6 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 	}
 }
 
-// doHTTPInstall will return true if the installer should setup for the http server
-func (d *InstallReconciler) doHTTPInstall(logEvent bool) bool {
-	return hasCompatibleVersionForHTTPServer(d.VRec, d.Vdb, logEvent, "http server cert setup")
-}
-
 // genCreateConfigDirsScript will create a script to be run in a pod to create
 // the necessary dirs for install. This will return an empty string if nothing
 // needs to happen.
@@ -340,7 +323,8 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 		numCmds++
 	}
 
-	if d.doHTTPInstall(false) && !p.dirExists[paths.HTTPTLSConfDir] {
+	// vclusterops depends on https services to be running.
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) && !p.dirExists[paths.HTTPTLSConfDir] {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 		numCmds++
 	}
