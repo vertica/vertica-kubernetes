@@ -994,6 +994,7 @@ type VerticaDBPodStatus struct {
 //+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
 //+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Statefulset,apps/v1,""},{Pod,v1,""},{Service,v1,""}}
+//+kubebuilder:deprecatedversion:warning="vertica.com/v1beta1 VerticaDB is deprecated, use vertica.com/v1 VerticaDB"
 
 // VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.
 type VerticaDB struct {

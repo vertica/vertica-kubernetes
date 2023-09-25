@@ -30,9 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// SPILLY - I haven't change any of the fields in here. Everything is the same
-// as the v1beta1. We can remove/rename fields as a follow-on task.
-
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
