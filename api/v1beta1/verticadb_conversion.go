@@ -279,6 +279,7 @@ func addConversionAnnotations(annotations map[string]string) map[string]string {
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
+	// SPILLY - this isn't working as you expected
 	if _, ok := annotations[vmeta.APIConversionAnnotation]; !ok {
 		annotations[vmeta.APIConversionAnnotation] = GroupVersion.Version
 	}

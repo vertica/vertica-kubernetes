@@ -28,7 +28,8 @@ const (
 	Group   = "vertica.com"
 	Version = "v1"
 
-	VerticaDBKind = "VerticaDB"
+	VerticaDBKind       = "VerticaDB"
+	VerticaDBKindPlural = "verticadbs"
 )
 
 var (

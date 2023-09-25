@@ -23,6 +23,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -35,7 +37,7 @@ import (
 const CACertKey = "ca.crt"
 
 // PatchWebhookCABundle will update the webhook configuration with the given CA cert.
-func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Config, caCert []byte, prefixName string) error {
+func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Config, caCert []byte, prefixName, namespace string) error {
 	log.Info("Patching webhook configurations with CA bundle")
 	cs, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -56,8 +58,8 @@ func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Confi
 	if err != nil {
 		return errors.Wrap(err, "could not create apiextensions clientset")
 	}
-	crdName := "verticadbs.vertica.com" // SPILLY - avoid hard code?
-	return patchConversionWebhookConfig(ctx, apiCS, crdName, caCert)
+	crdName := fmt.Sprintf("%s.%s", v1vapi.VerticaDBKindPlural, v1vapi.Group)
+	return patchConversionWebhookConfig(ctx, log, apiCS, crdName, prefixName, namespace, caCert)
 }
 
 // PatchWebhookCABundleFromSecret will update the webhook configurations with the CA cert in the given secret.
@@ -85,7 +87,7 @@ func PatchWebhookCABundleFromSecret(ctx context.Context, log *logr.Logger, cfg *
 			"key", CACertKey, "secret", secretName)
 		return nil
 	}
-	return PatchWebhookCABundle(ctx, log, cfg, caCrt, prefixName)
+	return PatchWebhookCABundle(ctx, log, cfg, caCrt, prefixName, ns)
 }
 
 // GenerateWebhookCert will create the cert to be used by the webhook. On success, this
@@ -112,7 +114,7 @@ func GenerateWebhookCert(ctx context.Context, log *logr.Logger, cfg *rest.Config
 		return errors.Wrap(err, "could not write out cert")
 	}
 
-	return PatchWebhookCABundle(ctx, log, cfg, caCert.TLSCrt(), prefixName)
+	return PatchWebhookCABundle(ctx, log, cfg, caCert.TLSCrt(), prefixName, ns)
 }
 
 func writeCert(certDir string, cert Certificate) error {
@@ -167,26 +169,34 @@ func patchValidatingWebhookConfig(ctx context.Context, cs *kubernetes.Clientset,
 // patchConversionWebhookConfig will update the CRD with the CA bundle for the
 // webhook conversion endpoint. This conversion webhook is used to convert
 // between the different versions of CRDs we have.
-func patchConversionWebhookConfig(ctx context.Context, cs *apiclientset.Clientset, crdName string, caCert []byte) error {
+func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cs *apiclientset.Clientset,
+	crdName, prefixName, namespace string, caCert []byte) error {
 	api := cs.ApiextensionsV1().CustomResourceDefinitions()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		crd, err := api.Get(ctx, crdName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-		convPath := "/convert"
+		// Generally the conversion webhook strategy should already be set in
+		// the CRD. However, we can come in here for test purposes with a
+		// strategy of None. So, we need to set it for that case.
+		log.Info("Updating webhook conversion", "oldStrategy", crd.Spec.Conversion.Strategy)
 		crd.Spec.Conversion.Strategy = extv1.WebhookConverter
+
+		webhookPath := "/convert"
 		crd.Spec.Conversion.Webhook = &extv1.WebhookConversion{
 			ClientConfig: &extv1.WebhookClientConfig{
 				Service: &extv1.ServiceReference{
-					Name:      "verticadb-operator-webhook-service", // SPILLY - hardcode
-					Namespace: "verticadb-operator",                 // SPILLY - hardcode
-					Path:      &convPath,
+					Namespace: namespace,
+					Name:      fmt.Sprintf("%s-webhook-service", prefixName),
+					Path:      &webhookPath,
 				},
 				CABundle: caCert,
 			},
-			ConversionReviewVersions: []string{"v1", "v1beta1"}, // SPILLY - avoid hardcode
-
+			ConversionReviewVersions: []string{
+				v1vapi.Version,
+				v1beta1vapi.Version,
+			},
 		}
 		_, err = api.Update(ctx, crd, metav1.UpdateOptions{})
 		return err

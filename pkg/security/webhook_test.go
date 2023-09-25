@@ -39,7 +39,7 @@ var _ = Describe("webhook", func() {
 		defer deleteWebhookConfiguration(ctx)
 
 		caCrt := []byte("==== CERT ====")
-		Expect(PatchWebhookCABundle(ctx, &logger, restCfg, caCrt, prefixName)).Should(Succeed())
+		Expect(PatchWebhookCABundle(ctx, &logger, restCfg, caCrt, prefixName, "default")).Should(Succeed())
 		verifyCABundleEquals(ctx, prefixName, caCrt)
 	})
 

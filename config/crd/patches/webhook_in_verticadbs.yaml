@@ -9,9 +9,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          # SPILLY - template this somehow
-          namespace: verticadb-operator
-          name: verticadb-operator-webhook-service
+          namespace: system
+          name: webhook-service
           path: /convert
       conversionReviewVersions:
       - v1
