@@ -80,17 +80,11 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 }
 
 // installForVClusterOps will go through the install phase for vclusterOps.
-// It only generates the http certs and requeue if at least one pod has not done the install
+// It only generates the http certs.
 func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Result, error) {
-	hasUninstalledPods, err := d.generateHTTPCerts(ctx)
+	err := d.generateHTTPCerts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-	if hasUninstalledPods {
-		// We do not proceed to the next actor until
-		// all pods have done the install
-		d.Log.Info("Requeue reconcile cycle because not all nodes have done the install for vclusterOps")
-		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }
@@ -191,8 +185,7 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 
 // generateHTTPCerts will generate the necessary config file to be able to start and
 // communicate with the Vertica's https server.
-func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) (bool, error) {
-	installedPodCount := 0
+func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 	for _, p := range d.PFacts.Detail {
 		if !p.isPodRunning {
 			continue
@@ -202,20 +195,19 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) (bool, error)
 			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerTLSSecret)
 			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
 			if err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
+				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
 			}
 			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
 				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
 			_ = os.Remove(fname)
 			if err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
+				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
 			}
 			// Invalidate the pod facts cache since its out of date due the https generation
 			d.PFacts.Invalidate()
 		}
-		installedPodCount++
 	}
-	return installedPodCount != len(d.PFacts.Detail), nil
+	return nil
 }
 
 // getInstallTargets finds the list of hosts/pods that we need to initialize the config for
