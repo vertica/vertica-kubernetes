@@ -160,9 +160,13 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, ns); err != nil {
 				return err
 			}
-		} else if !oc.SkipWebhookPatch {
+		} else if !oc.UseCertManager {
 			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
 				oc.PrefixName, ns); err != nil {
+				return err
+			}
+		} else {
+			if err := security.AddCertManagerAnnotation(ctx, &setupLog, restCfg, oc.PrefixName, ns); err != nil {
 				return err
 			}
 		}

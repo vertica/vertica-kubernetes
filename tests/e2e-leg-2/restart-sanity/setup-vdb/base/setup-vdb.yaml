@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-restart
@@ -53,14 +53,14 @@ data:
           ALTER AUTHENTICATION v_dbadmin_trust PRIORITY 10000; \
           select sync_catalog(); "
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: EventTrigger
 metadata:
   name: grant-dbadmin-local-access
 spec:
   references:
   - object:
-      apiVersion: vertica.com/v1beta1
+      apiVersion: vertica.com/v1
       kind: VerticaDB
       name: v-restart
   matches:

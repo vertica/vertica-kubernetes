@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -85,6 +86,19 @@ var _ = Describe("webhook", func() {
 		})
 		Expect(files[0].Name()).Should(Equal(corev1.TLSCertKey))
 		Expect(files[1].Name()).Should(Equal(corev1.TLSPrivateKeyKey))
+	})
+
+	It("should add annotations to the CRD", func() {
+		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+		crd := extv1.CustomResourceDefinition{}
+		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+		Expect(crd.Annotations).ShouldNot(BeNil())
+		_, ok := crd.Annotations[certManagerAnnotationName]
+		Expect(ok).Should(BeFalse())
+		Expect(AddCertManagerAnnotation(ctx, &logger, restCfg, prefixName, ns)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+		_, ok = crd.Annotations[certManagerAnnotationName]
+		Expect(ok).Should(BeTrue())
 	})
 })
 

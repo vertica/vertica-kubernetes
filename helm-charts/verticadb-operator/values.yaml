@@ -66,14 +66,6 @@ webhook:
   # For backwards compatibility, if this is set, then 'certSource = secret' is
   # implied.
   tlsSecret: ""
-  # caBundle is a PEM encoded CA bundle that will be used to validate the
-  # webhook's server certificate.
-  #
-  # This is another way to provide the CA bundle to be patched with in the
-  # webhook configuration. This approach is deprecated in favour of providing
-  # the CA bundle in the tlsSecret with the ca.crt key. This option will be
-  # removed in a future release.
-  caBundle: ""
   # If true, the webhook will be enabled and its configuration is setup by the helm chart. 
   # Setting this to false will disable the webhook. The webhook setup needs privileges to add 
   # validatingwebhookconfiguration and mutatingwebhookconfiguration, both are cluster scoped. 

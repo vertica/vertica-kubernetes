@@ -142,7 +142,6 @@ EOF
       cat <<EOF >> kustomization.yaml
 patches:
 - target:
-    version: v1beta1
     kind: VerticaDB
   patch: |-
     - op: replace

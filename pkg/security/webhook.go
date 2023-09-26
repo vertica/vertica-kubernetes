@@ -34,7 +34,10 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-const CACertKey = "ca.crt"
+const (
+	CACertKey                 = "ca.crt"
+	certManagerAnnotationName = "cert-manager.io/inject-ca-from"
+)
 
 // PatchWebhookCABundle will update the webhook configuration with the given CA cert.
 func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Config, caCert []byte, prefixName, namespace string) error {
@@ -58,8 +61,23 @@ func PatchWebhookCABundle(ctx context.Context, log *logr.Logger, cfg *rest.Confi
 	if err != nil {
 		return errors.Wrap(err, "could not create apiextensions clientset")
 	}
-	crdName := fmt.Sprintf("%s.%s", v1vapi.VerticaDBKindPlural, v1vapi.Group)
-	return patchConversionWebhookConfig(ctx, log, apiCS, crdName, prefixName, namespace, caCert)
+	return patchConversionWebhookConfig(ctx, log, apiCS, prefixName, namespace, nil, caCert)
+}
+
+// AddCertManagerAnnotation will annotate the CRD so that cert-manager can
+// inject the CA for the conversion webhook.
+func AddCertManagerAnnotation(ctx context.Context, log *logr.Logger, cfg *rest.Config, prefixName, namespace string) error {
+	cs, err := apiclientset.NewForConfig(cfg)
+	if err != nil {
+		return errors.Wrap(err, "could not create apiextensions clientset")
+	}
+	// We will set an annotation to allow cert-manager to inject the bundle. We
+	// also need to setup the remainin parts of the conversion webhook for it to
+	// function correctly.
+	annotations := map[string]string{
+		certManagerAnnotationName: fmt.Sprintf("%s/%s-serving-cert", namespace, prefixName),
+	}
+	return patchConversionWebhookConfig(ctx, log, cs, prefixName, namespace, annotations, nil)
 }
 
 // PatchWebhookCABundleFromSecret will update the webhook configurations with the CA cert in the given secret.
@@ -170,7 +188,8 @@ func patchValidatingWebhookConfig(ctx context.Context, cs *kubernetes.Clientset,
 // webhook conversion endpoint. This conversion webhook is used to convert
 // between the different versions of CRDs we have.
 func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cs *apiclientset.Clientset,
-	crdName, prefixName, namespace string, caCert []byte) error {
+	prefixName, namespace string, annotations map[string]string, caCert []byte) error {
+	crdName := getVerticaDBCRDName()
 	api := cs.ApiextensionsV1().CustomResourceDefinitions()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		crd, err := api.Get(ctx, crdName, metav1.GetOptions{})
@@ -182,6 +201,11 @@ func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cs *api
 		// strategy of None. So, we need to set it for that case.
 		log.Info("Updating webhook conversion", "oldStrategy", crd.Spec.Conversion.Strategy)
 		crd.Spec.Conversion.Strategy = extv1.WebhookConverter
+
+		for k, v := range annotations {
+			log.Info("Setting annotation in CRD", "key", k, "value", v)
+			crd.Annotations[k] = v
+		}
 
 		webhookPath := "/convert"
 		crd.Spec.Conversion.Webhook = &extv1.WebhookConversion{
@@ -198,6 +222,11 @@ func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cs *api
 				v1beta1vapi.Version,
 			},
 		}
+		// We set the caBundle if it was passed in. This is optional to allow
+		// for injection from cert-manager.
+		if caCert != nil {
+			crd.Spec.Conversion.Webhook.ClientConfig.CABundle = caCert
+		}
 		_, err = api.Update(ctx, crd, metav1.UpdateOptions{})
 		return err
 	})
@@ -209,4 +238,9 @@ func getValidatingWebhookConfigName(prefixName string) string {
 
 func getMutatingWebhookConfigName(prefixName string) string {
 	return fmt.Sprintf("%s-mutating-webhook-configuration", prefixName)
+}
+
+// getVerticaDBCRDName returns the name of the CRD for VerticaDB
+func getVerticaDBCRDName() string {
+	return fmt.Sprintf("%s.%s", v1vapi.VerticaDBKindPlural, v1vapi.Group)
 }

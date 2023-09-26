@@ -17,5 +17,5 @@ kind: Service
 metadata:
   name: v-webhook
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB

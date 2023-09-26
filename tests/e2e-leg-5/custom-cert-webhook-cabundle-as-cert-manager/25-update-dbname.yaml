@@ -14,10 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: sh -c "cd ../../.. && make undeploy-operator || true"
-  - script: |
-      cd ../../.. && TF=$(mktemp /tmp/cabundle.pem.XXXXXX) \
-       && echo $TF \
-       && kubectl get secrets -n $NAMESPACE custom-cert -o json | jq -r '.data."ca.crt"' | tee $TF \
-       && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert --set webhook.caBundle=$(cat $TF) --set logging.filePath=/logs/try.log" \
-       && rm $TF
+  - script: kubectl -n $NAMESPACE get verticadb v-custom-cert-webhook-cabundle-as-cert-manager -o json | jq '.spec.dbName="NewName"' | kubectl -n $NAMESPACE replace -f -
+    ignoreFailure: true
