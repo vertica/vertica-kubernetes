@@ -149,7 +149,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		pfact := MakePodFacts(vdbRec, fpr)
 		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
 		pfact.Detail[names.GenPodName(vdb, sc, 1)].isPodRunning = false
-		cmds := reconcileAndFindHTTPTLSConfFileName(ctx, vdb, fpr, &pfact, true)
+		cmds := reconcileAndFindHTTPTLSConfFileName(ctx, vdb, fpr, &pfact, false)
 		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size) - 1))
 	})
 
