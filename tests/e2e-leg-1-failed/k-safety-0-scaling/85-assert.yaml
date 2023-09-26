@@ -18,6 +18,6 @@ message: Starting add database node for pod(s) 'v-k-safety-0-scaling-sc2-0, v-k-
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1beta1
+  apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-k-safety-0-scaling
