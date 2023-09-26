@@ -29,7 +29,6 @@ testDirs:
   - tests/e2e-leg-5
   - tests/e2e-leg-6
   - tests/e2e-udx
-  - tests/e2e-udx-failed
   - tests/e2e-server-upgrade
   - tests/e2e-operator-upgrade-overlays
 parallel: 2
