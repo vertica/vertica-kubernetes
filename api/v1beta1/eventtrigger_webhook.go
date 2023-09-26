@@ -103,15 +103,6 @@ func (e *EventTrigger) validateVerticaDBReferences(allErrs field.ErrorList) fiel
 			)
 			allErrs = append(allErrs, err)
 		}
-
-		if ref.Object.APIVersion != GroupVersion.String() {
-			err := field.Invalid(
-				field.NewPath("spec").Child("reference").Child("object").Child("apiVersion"),
-				ref.Object.APIVersion,
-				fmt.Sprintf("object.apiVersion must be: %s", GroupVersion.String()),
-			)
-			allErrs = append(allErrs, err)
-		}
 	}
 
 	return allErrs

@@ -53,7 +53,7 @@ data:
           ALTER AUTHENTICATION v_dbadmin_trust PRIORITY 10000; \
           select sync_catalog(); "
 ---
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: EventTrigger
 metadata:
   name: grant-dbadmin-local-access
