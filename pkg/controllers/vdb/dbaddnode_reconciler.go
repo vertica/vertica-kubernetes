@@ -113,6 +113,20 @@ func (d *DBAddNodeReconciler) findAddNodePods(scName string) ([]*PodFact, ctrl.R
 	return podList, ctrl.Result{}
 }
 
+// findExpectedPods will return a list of pods that should have been in the database
+// before running db_add_node (which are also called expected nodes)
+func (d *DBAddNodeReconciler) findExpectedPods() []string {
+	var expectedNodeNames []string
+
+	for _, v := range d.PFacts.Detail {
+		if v.dbExists {
+			expectedNodeNames = append(expectedNodeNames, v.name.Name)
+		}
+	}
+
+	return expectedNodeNames
+}
+
 // reconcileSubcluster will reconcile a single subcluster.  Add node will be
 // triggered if we determine that it hasn't been run.
 func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
@@ -120,23 +134,31 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 	if verrors.IsReconcileAborted(res, nil) {
 		return res, nil
 	}
+
+	expectedNodeNames := d.findExpectedPods()
+	if verrors.IsReconcileAborted(res, nil) {
+		return res, nil
+	}
+
 	if len(addNodePods) > 0 {
 		var err error
-		res, err = d.runAddNode(ctx, addNodePods)
+		res, err = d.runAddNode(ctx, expectedNodeNames, addNodePods)
 		return res, err
 	}
 	return ctrl.Result{}, nil
 }
 
 // runAddNode will add nodes to the given subcluster
-func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
+func (d *DBAddNodeReconciler) runAddNode(ctx context.Context,
+	expectedNodeNames []string,
+	podsToAdd []*PodFact) (ctrl.Result, error) {
 	initiatorPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	for _, pod := range pods {
+	for _, pod := range podsToAdd {
 		// admintools will not cleanup the local directories after a failed attempt
 		// to add node. So we ensure those directories are clear at each pod before
 		// proceeding.
@@ -145,7 +167,7 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 		}
 	}
 
-	if err := d.runAddNodeForPod(ctx, pods, initiatorPod); err != nil {
+	if err := d.runAddNodeForPod(ctx, expectedNodeNames, podsToAdd, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
 		// reconcile successfully. We don't want to fail and requeue because
 		// this isn't going to get fixed until someone manually adds a new
@@ -164,18 +186,22 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 
 // runAddNodeForPod will execute the command to add a single node to the cluster
 // Returns the stdout from the command.
-func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodFact, initiatorPod *PodFact) error {
-	podNames := genPodNames(pods)
+func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
+	expectedNodeNames []string,
+	podsToAdd []*PodFact,
+	initiatorPod *PodFact) error {
+	podNames := genPodNames(podsToAdd)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
 		"Starting add database node for pod(s) '%s'", podNames)
 	start := time.Now()
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
-		addnode.WithSubcluster(pods[0].subclusterName),
+		addnode.WithSubcluster(podsToAdd[0].subclusterName),
 	}
-	for i := range pods {
-		opts = append(opts, addnode.WithHost(pods[i].dnsName))
+	for i := range podsToAdd {
+		opts = append(opts, addnode.WithHost(podsToAdd[i].dnsName))
 	}
+	addnode.WithExpecteNodeNames(expectedNodeNames)
 	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {
 		return err
