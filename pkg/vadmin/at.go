@@ -16,6 +16,7 @@
 package vadmin
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -99,10 +100,48 @@ func (a *Admintools) initDB(ctx context.Context, dbi DBInitializer) (ctrl.Result
 		return ctrl.Result{}, err
 	}
 	defer a.destroyAuthParms(ctx, initiator)
+
+	// Cleanup for any prior failed attempt.
+	podNames := dbi.GetPodNames()
+	for _, pod := range podNames {
+		err := a.prepLocalData(ctx, pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	cmd := dbi.GenCmd()
 	stdout, err := a.execAdmintools(ctx, initiator, cmd...)
 	if err != nil {
 		return dbi.LogFailure(stdout, err)
 	}
 	return ctrl.Result{}, nil
+}
+
+// prepLocalData Prepare for the add node or create_db by removing any local
+// data/depot dirs and ensuring proper ownership.
+// This step is necessary because of a lack of cleanup in admintools if any of
+// these commands fail.
+func (a *Admintools) prepLocalData(ctx context.Context, podName types.NamespacedName) error {
+	locPaths := []string{a.VDB.GetDBDataPath(), a.VDB.GetDBDepotPath(), a.VDB.GetDBCatalogPath()}
+	var rmCmds bytes.Buffer
+	rmCmds.WriteString("set -o errexit\n")
+	for _, path := range locPaths {
+		rmCmds.WriteString(fmt.Sprintf("[[ -d %s ]] && rm -rf %s || true\n", path, path))
+	}
+	// We also need to ensure the dbadmin owns the depot directory.  When the
+	// directory are first mounted they are owned by root.  Vertica handles changing
+	// the ownership of the config, log and data directory.  This function exists to
+	// handle the depot directory. This can be skipped if the depotPath is
+	// shared with one of the data or catalog paths or if the depot volume is not
+	// a PersistentVolume.
+	if a.VDB.IsDepotVolumePersistentVolume() && a.VDB.Spec.Local.IsDepotPathUnique() {
+		rmCmds.WriteString(fmt.Sprintf("sudo chown dbadmin:verticadba -R %s/%s", paths.LocalDataPath, a.VDB.GetPVSubPath("depot")))
+	}
+	cmd := []string{"bash", "-c", fmt.Sprintf("cat > %s<<< '%s'; bash %s",
+		paths.PrepScript, rmCmds.String(), paths.PrepScript)}
+	if _, _, err := a.PRunner.ExecInPod(ctx, podName, names.ServerContainer, cmd...); err != nil {
+		return err
+	}
+	return nil
 }
