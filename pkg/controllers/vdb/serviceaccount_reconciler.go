@@ -252,8 +252,6 @@ func (s *ServiceAccountReconciler) hasUserProvidedServiceAccount(ctx context.Con
 func (s *ServiceAccountReconciler) saveServiceAccountNameInVDB(ctx context.Context, saName string) error {
 	nm := s.Vdb.ExtractNamespacedName()
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		// We refresh the EventTrigger incase we need to do a retry. But we
-		// assume it's sufficiently populated to have a name.
 		if err := s.VRec.Client.Get(ctx, nm, s.Vdb); err != nil {
 			return err
 		}
