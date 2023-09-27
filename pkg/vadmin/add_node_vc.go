@@ -17,6 +17,7 @@ package vadmin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -42,7 +43,12 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 	s.Make(opts...)
 
 	// call vcluster-ops library to add_node
-	vopts := v.genAddNodeOptions(&s, certs)
+	vopts, err := v.genAddNodeOptions(&s, certs)
+	if err != nil {
+		_, err = v.logFailure("VAddNode", events.AddNodeFailed, err)
+		return err
+	}
+
 	vdb, err := v.VAddNode(&vopts)
 	if err != nil {
 		_, err = v.logFailure("VAddNode", events.AddNodeFailed, err)
@@ -52,7 +58,7 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 	return nil
 }
 
-func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vops.VAddNodeOptions {
+func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) (vops.VAddNodeOptions, error) {
 	opts := vops.VAddNodeOptionsFactory()
 
 	// required options
@@ -65,6 +71,10 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
 	*opts.HonorUserInput = true
 	*opts.SkipRebalanceShards = true
+
+	if len(s.ExpectedNodeNames) == 0 {
+		return opts, errors.New("ExpectedNodeNames should be provided")
+	}
 	opts.ExpectedNodeNames = s.ExpectedNodeNames
 
 	if v.VDB.Spec.Communal.Path != "" {
@@ -78,5 +88,5 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
 
-	return opts
+	return opts, nil
 }

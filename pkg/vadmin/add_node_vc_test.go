@@ -28,6 +28,9 @@ import (
 )
 
 var TestNewHosts = []string{"pod-4", "pod-5"}
+var testExpectedNodeNames = []string{"v_" + TestDBName + "_node0001",
+	"v_" + TestDBName + "_node0002",
+	"v_" + TestDBName + "_node0003"}
 
 // mock version of VAddNode() that is invoked inside VClusterOps.AddNode()
 func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordinationDatabase, error) {
@@ -50,6 +53,9 @@ func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordin
 	if !*options.SkipRebalanceShards {
 		return vdb, fmt.Errorf("SkipRebalanceShards must be true")
 	}
+	if len(options.ExpectedNodeNames) == 0 {
+		return vdb, fmt.Errorf("ExpectedNodeNames should be provided")
+	}
 	return vdb, nil
 }
 
@@ -65,6 +71,7 @@ var _ = Describe("add_node_vc", func() {
 		opts := []addnode.Option{
 			addnode.WithInitiator(TestInitiatorPodName, TestInitiatorPodIP),
 			addnode.WithSubcluster(TestSCName),
+			addnode.WithExpecteNodeNames(testExpectedNodeNames),
 		}
 		for _, n := range TestNewHosts {
 			opts = append(opts, addnode.WithHost(n))
