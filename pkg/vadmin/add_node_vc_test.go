@@ -63,8 +63,8 @@ func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordin
 	if !*options.SkipRebalanceShards {
 		return vdb, fmt.Errorf("SkipRebalanceShards must be true")
 	}
-	if len(options.ExpectedNodeNames) == 0 {
-		return vdb, fmt.Errorf("ExpectedNodeNames should be provided")
+	if !reflect.DeepEqual(options.ExpectedNodeNames, testExpectedNodeNames) {
+		return vdb, fmt.Errorf("fail to retrieve ExpectedNodeNames")
 	}
 	return vdb, nil
 }
