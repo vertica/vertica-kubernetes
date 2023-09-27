@@ -24,13 +24,45 @@ set -o pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
+VERBOSE=
 
-set -o xtrace
+source $SCRIPT_DIR/logging-utils.sh
+
+function usage {
+    echo "usage: $0 [-hv]"
+    echo
+    echo "Refresh the tests in e2e-operator-upgrade-overlays"
+    echo
+    echo "Options:"
+    echo "  -v                 Verbose output"
+    echo
+    exit 1
+}
+
+OPTIND=1
+while getopts "hv" opt; do
+    case ${opt} in
+        h)
+            usage
+            ;;
+        v)
+            set -o xtrace
+            VERBOSE=1
+            ;;
+        \?)
+            echo "Unknown option: -${opt}"
+            usage
+            ;;
+    esac
+done
 
 TEMPLATE_DIR=$REPO_DIR/tests/e2e-operator-upgrade-template/
 OVERLAY_DIR=$REPO_DIR/tests/e2e-operator-upgrade-overlays/
+logInfo "Refresh testcases in $OVERLAY_DIR"
+logInfo "Removing old overlays"
 git clean -d --force -x $OVERLAY_DIR
 
+logInfo "Create new overlays"
 cd $TEMPLATE_DIR
 for tdir in *
 do
@@ -39,7 +71,7 @@ do
     then
         continue
     fi
-    echo $tdir
+    logInfo "Refresh testcase $tdir"
     OVERLAY_TDIR=$OVERLAY_DIR/$tdir
     mkdir $OVERLAY_TDIR
     cp -r template/* $OVERLAY_TDIR
