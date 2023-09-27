@@ -11,14 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  # Setup the namespace for the operator
-  - script: kubectl apply -n $NAMESPACE -f ../../../config/release-manifests/operator-rbac.yaml
-  # Install the CRDs
-  - command: sh -c "cd ../../.. && make install"
----
 # Give user 'fred' general access to edit things inside its namespace
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -44,5 +36,11 @@ subjects:
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
-  name: verticadb-operator-manager-role
+  name: vertica-cr-user-role
   apiGroup: rbac.authorization.k8s.io
+---
+# Create the user role to be able to work with CRs
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- command: kubectl -n $NAMESPACE create -f ../../../config/rbac/verticadb-operator-cr-user-role.yaml

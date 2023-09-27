@@ -29,6 +29,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
@@ -130,14 +131,11 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	// Skip if HTTP server is explicitly disabled. For auto, some of the work
-	// isn't needed here. But we don't know the version, so we assume we need
-	// it.
-	if !o.Vdb.IsHTTPServerDisabled() {
-		// When the HTTP server is enabled, a secret must exist that has the
-		// certs to use for it.  There is a reconciler that is run before this
-		// that will create the secret.  We will requeue if we find the Vdb
-		// doesn't have the secret set.
+	if vmeta.UseVClusterOps(o.Vdb.Annotations) {
+		// When running the NMA, needed for vclusterops, a secret must exist
+		// that has the certs to use for it.  There is a reconciler that is run
+		// before this that will create the secret.  We will requeue if we find
+		// the Vdb doesn't have the secret set.
 		if o.Vdb.Spec.HTTPServerTLSSecret == "" {
 			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
 				"The httpServerTLSSecret must be set when Vertica's http server is enabled")
@@ -406,9 +404,13 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
+	saName, err := o.getServiceAccountName(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, &o.VRec.DeploymentNames)
-	err := o.VRec.Client.Get(ctx, nm, curSts)
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, saName)
+	err = o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		err = ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme)
@@ -472,6 +474,23 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
+}
+
+// getServiceAccountName returns the name of the service account to use for the vertica pods
+func (o *ObjReconciler) getServiceAccountName(ctx context.Context) (string, error) {
+	rbacFinder := iter.MakeRBACFinder(o.VRec.Client, o.Vdb)
+	exists, sa, err := rbacFinder.FindServiceAccount(ctx)
+	if err != nil {
+		return "", fmt.Errorf("error during service account lookup: %w", err)
+	}
+	if exists {
+		return sa.Name, nil
+	}
+	// For test purposes, we will use the default service account. k8s ensures
+	// this always exist in the namespace.
+	const DefaultServiceAccount = "default"
+	o.Log.Info("Count not find a service account for vdb using default", "name", DefaultServiceAccount)
+	return DefaultServiceAccount, nil
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

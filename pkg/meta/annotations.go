@@ -35,12 +35,17 @@ const (
 	// annotation in the VerticaDB that you want to use the new vclusterOps
 	// library for any vertica admin task. The value of this annotation is
 	// treated as a boolean.
-	VClusterOpsAnnotation     = "vertica.com/vcluster-ops"
-	VClusterOpsAnnotationTrue = "true"
+	VClusterOpsAnnotation      = "vertica.com/vcluster-ops"
+	VClusterOpsAnnotationTrue  = "true"
+	VClusterOpsAnnotationFalse = "false"
 
 	// This is a feature flag for accessing the secrets configured in Google Secret Manager.
 	// The value of this annotation is treated as a boolean.
 	GcpGsmAnnotation = "vertica.com/use-gcp-secret-manager"
+
+	// Two annotations that are set by the operator when creating objects.
+	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
+	OperatorVersionAnnotation          = "vertica.com/operator-version"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

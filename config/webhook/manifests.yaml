@@ -16,11 +16,6 @@ webhooks:
       path: /mutate-vertica-com-v1beta1-verticadb
   failurePolicy: Fail
   name: mverticadb.kb.io
-  namespaceSelector:
-    matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: "In"
-        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com
@@ -41,11 +36,6 @@ webhooks:
       path: /mutate-vertica-com-v1beta1-verticaautoscaler
   failurePolicy: Fail
   name: mverticaautoscaler.kb.io
-  namespaceSelector:
-    matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: "In"
-        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com
@@ -66,11 +56,6 @@ webhooks:
       path: /mutate-vertica-com-v1beta1-eventtrigger
   failurePolicy: Fail
   name: meventtrigger.kb.io
-  namespaceSelector:
-    matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: "In"
-        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com
@@ -98,11 +83,6 @@ webhooks:
       path: /validate-vertica-com-v1beta1-verticaautoscaler
   failurePolicy: Fail
   name: vverticaautoscaler.kb.io
-  namespaceSelector:
-    matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: "In"
-        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com
@@ -123,11 +103,6 @@ webhooks:
       path: /validate-vertica-com-v1beta1-verticadb
   failurePolicy: Fail
   name: vverticadb.kb.io
-  namespaceSelector:
-    matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: "In"
-        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com
@@ -148,11 +123,6 @@ webhooks:
       path: /validate-vertica-com-v1beta1-eventtrigger
   failurePolicy: Fail
   name: veventtrigger.kb.io
-  namespaceSelector:
-    matchExpressions:
-      - key: kubernetes.io/metadata.name
-        operator: "In"
-        values: [verticadb-operator-system]
   rules:
   - apiGroups:
     - vertica.com

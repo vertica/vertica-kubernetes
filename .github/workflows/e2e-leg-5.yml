@@ -1,0 +1,91 @@
+name: e2e (leg-5) tests
+
+on: 
+  workflow_call:
+    inputs:
+      vlogger-image:
+        type: string
+        required: false
+      operator-image:
+        type: string
+        required: false
+      vertica-image:
+        type: string
+        required: false
+      vertica-deployment-method:
+        type: string
+        required: false
+    secrets:
+      DOCKERHUB_USERNAME:
+        description: 'When working with images from docker.io, this is the username for login purposes'
+        required: true
+      DOCKERHUB_TOKEN:
+        description: 'When working with images from docker.io, this is the password for login purposes'
+        required: true
+  workflow_dispatch:
+    inputs:
+      vlogger-image:
+        description: 'Name of the vertica logger image'
+        type: string
+        required: false
+      operator-image:
+        description: 'Name of the operator image'
+        type: string
+        required: false
+      vertica-image:
+        description: 'Name of the vertica server image'
+        type: string
+        required: false
+      vertica-deployment-method:
+        description: 'Vertica deployment method'
+        type: choice
+        required: false
+        default: admintools
+        options:
+        - admintools
+        - vclusterops
+
+jobs:
+
+  test:
+
+    runs-on: ubuntu-latest
+    steps:
+
+    - uses: actions/checkout@v3
+
+    - name: Set up e2e environment
+      uses: ./.github/actions/setup-e2e
+      
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      if: ${{ startsWith(inputs.vertica-image, 'docker.io') }}
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Run e2e tests
+      run: |
+        export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg
+        export VERTICA_IMG=${{ inputs.vertica-image }}
+        # Some tests in this suite do an upgrade, so set the base image to upgrade from
+        export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG)
+        echo "Upgrading server from image: $BASE_VERTICA_IMG"
+        export OPERATOR_IMG=${{ inputs.operator-image }}
+        export VLOGGER_IMG=${{ inputs.vlogger-image }}
+        # We cannot parallelize these tests because they each deploy/undeploy
+        # the cluster scoped operator. You can only have a single verticadb
+        # operator running in the k8s cluster.
+        export E2E_PARALLELISM=1
+        export DEPLOY_WITH=helm
+        export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
+        export E2E_TEST_DIRS=tests/e2e-leg-5
+        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-5-failed"; fi
+        mkdir -p $GITHUB_WORKSPACE/../host-path
+        scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
+
+    - uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: logs-e2e-leg-5-${{ inputs.vertica-deployment-method }}
+        path: ${{ github.workspace }}/int-tests-output/*
