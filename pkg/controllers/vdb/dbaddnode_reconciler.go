@@ -113,9 +113,9 @@ func (d *DBAddNodeReconciler) findAddNodePods(scName string) ([]*PodFact, ctrl.R
 	return podList, ctrl.Result{}
 }
 
-// findExpectedPods will return a list of pods that should have been in the database
+// findExpectedNodeNames will return a list of pods that should have been in the database
 // before running db_add_node (which are also called expected nodes)
-func (d *DBAddNodeReconciler) findExpectedPods() []string {
+func (d *DBAddNodeReconciler) findExpectedNodeNames() []string {
 	var expectedNodeNames []string
 
 	for _, v := range d.PFacts.Detail {
@@ -135,7 +135,7 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 		return res, nil
 	}
 
-	expectedNodeNames := d.findExpectedPods()
+	expectedNodeNames := d.findExpectedNodeNames()
 	if verrors.IsReconcileAborted(res, nil) {
 		return res, nil
 	}
