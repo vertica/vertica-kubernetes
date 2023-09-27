@@ -125,13 +125,6 @@ func (v *VerticaDB) IsKnownCommunalPrefix() bool {
 	return false
 }
 
-// HasKerberosConfig returns true if VerticaDB is setup for Kerberos authentication.
-func (v *VerticaDB) HasKerberosConfig() bool {
-	// We have a webhook check that makes sure if the principal is set, the
-	// other things are set too.
-	return v.Spec.Communal.KerberosServiceName != ""
-}
-
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -161,7 +154,7 @@ var _ webhook.Validator = &VerticaDB{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateCreate() error {
-	verticadblog.Info("validate create", "name", v.Name)
+	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
 	if allErrs == nil {
@@ -172,7 +165,7 @@ func (v *VerticaDB) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
-	verticadblog.Info("validate update", "name", v.Name)
+	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 	if allErrs == nil {

@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package v1beta1
+package v1
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -53,5 +53,18 @@ var _ = Describe("verticadb_types", func() {
 			IsPrimary: false,
 		}
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeTrue())
+	})
+
+	It("should return the first primary subcluster", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sec1", IsPrimary: false, Size: 1},
+			{Name: "sec2", IsPrimary: false, Size: 1},
+			{Name: "pri1", IsPrimary: true, Size: 1},
+			{Name: "pri2", IsPrimary: true, Size: 1},
+		}
+		sc := vdb.GetFirstPrimarySubcluster()
+		Ω(sc).ShouldNot(BeNil())
+		Ω(sc.Name).Should(Equal("pri1"))
 	})
 })

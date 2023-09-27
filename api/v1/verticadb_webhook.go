@@ -67,8 +67,6 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// SPILLY - consider remove these same fields in v1beta1?
-
 // IsHDFS returns true if the communal path is stored in an HDFS path
 func (v *VerticaDB) IsHDFS() bool {
 	for _, p := range hdfsPrefixes {
@@ -140,7 +138,7 @@ var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaDB) Default() {
-	verticadblog.Info("default", "name", v.Name)
+	verticadblog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
 
 	// imagePullPolicy: if not set should default to Always if the tag in the image is latest,
 	// otherwise it should be IfNotPresent (set in verticadb_types.go)
@@ -167,7 +165,7 @@ var _ webhook.Validator = &VerticaDB{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateCreate() error {
-	verticadblog.Info("validate create", "name", v.Name)
+	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
 	if allErrs == nil {
@@ -178,7 +176,7 @@ func (v *VerticaDB) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
-	verticadblog.Info("validate update", "name", v.Name)
+	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 	if allErrs == nil {
@@ -189,7 +187,7 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateDelete() error {
-	verticadblog.Info("validate delete", "name", v.Name)
+	verticadblog.Info("validate delete", "name", v.Name, "GroupVersion", GroupVersion)
 
 	return nil
 }

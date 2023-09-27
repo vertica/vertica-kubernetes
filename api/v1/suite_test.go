@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 //nolint:gosec
-package v1beta1
+package v1
 
 import (
 	"context"
@@ -50,7 +50,7 @@ var cancel context.CancelFunc
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "v1beta1 API Suite")
+	RunSpecs(t, "v1 API Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -97,9 +97,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&VerticaDB{}).SetupWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = (&VerticaAutoscaler{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:webhook

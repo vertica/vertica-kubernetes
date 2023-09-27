@@ -20,9 +20,7 @@ package v1beta1
 import (
 	"fmt"
 	"regexp"
-	"time"
 
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1047,16 +1045,6 @@ func MakeVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-sample", Namespace: "default"}
 }
 
-// FindTransientSubcluster will return a pointer to the transient subcluster if one exists
-func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
-	for i := range v.Spec.Subclusters {
-		if v.Spec.Subclusters[i].IsTransient {
-			return &v.Spec.Subclusters[i]
-		}
-	}
-	return nil
-}
-
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
@@ -1117,59 +1105,6 @@ func IsValidSubclusterName(scName string) bool {
 	return r.MatchString(scName)
 }
 
-// HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
-// revive_instance_id.
-func (v *VerticaDB) HasReviveInstanceIDAnnotation() bool {
-	_, ok := v.ObjectMeta.Annotations[ReviveInstanceIDAnnotation]
-	return ok
-}
-
-// MergeAnnotations will merge new annotations with vdb.  It will return true if
-// any annotation changed.  Caller is responsible for updating the Vdb in the
-// API server.
-func (v *VerticaDB) MergeAnnotations(newAnnotations map[string]string) bool {
-	changedAnnotations := false
-	for k, newValue := range newAnnotations {
-		oldValue, ok := v.ObjectMeta.Annotations[k]
-		if !ok || oldValue != newValue {
-			if v.ObjectMeta.Annotations == nil {
-				v.ObjectMeta.Annotations = map[string]string{}
-			}
-			v.ObjectMeta.Annotations[k] = newValue
-			changedAnnotations = true
-		}
-	}
-	return changedAnnotations
-}
-
-// GenInstallerIndicatorFileName returns the name of the installer indicator file.
-// Valid only for the current instance of the vdb.
-func (v *VerticaDB) GenInstallerIndicatorFileName() string {
-	return paths.InstallerIndicatorFile + string(v.UID)
-}
-
-// GetPVSubPath returns the subpath in the local data PV.
-// We use the UID so that we create unique paths in the PV.  If the PV is reused
-// for a new vdb, the UID will be different.
-func (v *VerticaDB) GetPVSubPath(subPath string) string {
-	return fmt.Sprintf("%s/%s", v.UID, subPath)
-}
-
-// GetDBDataPath get the data path for the current database
-func (v *VerticaDB) GetDBDataPath() string {
-	return fmt.Sprintf("%s/%s", v.Spec.Local.DataPath, v.Spec.DBName)
-}
-
-// GetCatalogPath gets the catalog path for the current database
-func (v *VerticaDB) GetDBCatalogPath() string {
-	return fmt.Sprintf("%s/%s", v.Spec.Local.GetCatalogPath(), v.Spec.DBName)
-}
-
-// GetDBDepotPath gets the depot path for the current database
-func (v *VerticaDB) GetDBDepotPath() string {
-	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
-}
-
 // GetCommunalPath returns the path to use for communal storage
 func (v *VerticaDB) GetCommunalPath() string {
 	// We include the UID in the communal path to generate a unique path for
@@ -1180,19 +1115,6 @@ func (v *VerticaDB) GetCommunalPath() string {
 		return v.Spec.Communal.Path
 	}
 	return fmt.Sprintf("%s/%s", v.Spec.Communal.Path, v.UID)
-}
-
-const (
-	PrimarySubclusterType   = "primary"
-	SecondarySubclusterType = "secondary"
-)
-
-// GetType returns the type of the subcluster in string form
-func (s *Subcluster) GetType() string {
-	if s.IsPrimary {
-		return PrimarySubclusterType
-	}
-	return SecondarySubclusterType
 }
 
 // GenCompatibleFQDN returns a name of the subcluster that is
@@ -1232,75 +1154,12 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 		v.Spec.TemporarySubclusterRouting.Template.Size > 0
 }
 
-// IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
-func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
-	return v.isConditionIndexSet(OnlineUpgradeInProgressIndex)
-}
-
-// IsConditionSet will return true if the status condition is set to true.
-// If the condition is not in the array then this implies the condition is
-// false.
-func (v *VerticaDB) IsConditionSet(statusCondition VerticaDBConditionType) (bool, error) {
-	inx, ok := VerticaDBConditionIndexMap[statusCondition]
-	if !ok {
-		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", statusCondition)
-	}
-	return v.isConditionIndexSet(inx), nil
-}
-
 // isConditionIndexSet will check a status condition when the index is already
 // known.  If the array isn't sized yet for the index then we assume the
 // condition is off.
 func (v *VerticaDB) isConditionIndexSet(inx int) bool {
 	// A missing condition implies false
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
-}
-
-// GetUpgradeRequeueTime returns default upgrade requeue time if not set in the CRD
-func (v *VerticaDB) GetUpgradeRequeueTime() time.Duration {
-	if v.Spec.UpgradeRequeueTime == 0 {
-		return time.Second * time.Duration(URTime)
-	}
-	return time.Second * time.Duration(v.Spec.UpgradeRequeueTime)
-}
-
-// buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
-func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
-	return &Subcluster{
-		Name:              v.Spec.TemporarySubclusterRouting.Template.Name,
-		Size:              v.Spec.TemporarySubclusterRouting.Template.Size,
-		IsTransient:       true,
-		ImageOverride:     imageOverride,
-		IsPrimary:         false,
-		NodeSelector:      v.Spec.TemporarySubclusterRouting.Template.NodeSelector,
-		Affinity:          v.Spec.TemporarySubclusterRouting.Template.Affinity,
-		PriorityClassName: v.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
-		Tolerations:       v.Spec.TemporarySubclusterRouting.Template.Tolerations,
-		Resources:         v.Spec.TemporarySubclusterRouting.Template.Resources,
-		// We ignore any parameter that is specific to the subclusters service
-		// object.  These are ignored since transient don't have their own
-		// service objects.
-	}
-}
-
-// FindSubclusterStatus will find a SubclusterStatus entry for the given
-// subcluster name.  Returns false if none can be found.
-func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool) {
-	for i := range v.Status.Subclusters {
-		if v.Status.Subclusters[i].Name == scName {
-			return v.Status.Subclusters[i], true
-		}
-	}
-	return SubclusterStatus{}, false
-}
-
-// IsEON returns true if the instance is an EON database. Officially, all
-// deployments of this CR will result in an EON database. However, as a backdoor
-// for developers, if you set the shardCount to 0, we will create an enterprise
-// database. The webhook enforces ShardCount > 0, so that part needs to be
-// overridden to take affect.
-func (v *VerticaDB) IsEON() bool {
-	return v.Spec.ShardCount > 0
 }
 
 // IsAdditionalConfigMapEmpty returns true if there is no extra
@@ -1329,16 +1188,4 @@ func (v *VerticaDB) IsKnownDepotVolumeType() bool {
 		return true
 	}
 	return false
-}
-
-// getFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
-func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary {
-			return sc
-		}
-	}
-	// We should never get here because the webhook prevents a vdb with no primary.
-	return nil
 }
