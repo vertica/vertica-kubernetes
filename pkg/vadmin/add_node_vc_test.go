@@ -25,9 +25,19 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var TestNewHosts = []string{"pod-4", "pod-5"}
+var TestPod4Name = types.NamespacedName{
+	Name:      "pod-4",
+	Namespace: "ns",
+}
+var TestPod5Name = types.NamespacedName{
+	Name:      "pod-5",
+	Namespace: "ns",
+}
+var TestNewPodNames = []types.NamespacedName{TestPod4Name, TestPod5Name}
 var testExpectedNodeNames = []string{"v_" + TestDBName + "_node0001",
 	"v_" + TestDBName + "_node0002",
 	"v_" + TestDBName + "_node0003"}
@@ -73,8 +83,8 @@ var _ = Describe("add_node_vc", func() {
 			addnode.WithSubcluster(TestSCName),
 			addnode.WithExpecteNodeNames(testExpectedNodeNames),
 		}
-		for _, n := range TestNewHosts {
-			opts = append(opts, addnode.WithHost(n))
+		for i, n := range TestNewHosts {
+			opts = append(opts, addnode.WithHost(n, TestNewPodNames[i]))
 		}
 		Ω(dispatcher.AddNode(ctx, opts...)).Should(Succeed())
 	})

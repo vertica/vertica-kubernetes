@@ -23,6 +23,7 @@ import (
 type DBInitializer interface {
 	GenCmd() []string
 	GetInitiator() types.NamespacedName
+	GetPodNames() []types.NamespacedName
 	GetConfigParms() map[string]string
 	LogFailure(string, error) (ctrl.Result, error)
 }

@@ -40,6 +40,7 @@ func (a *Admintools) CreateDB(ctx context.Context, opts ...createdb.Option) (ctr
 		Admintools: a,
 		Parms:      s,
 	}
+
 	return a.initDB(ctx, &dbc)
 }
 
@@ -80,6 +81,7 @@ func (a *Admintools) genCreateDBCmd(s *createdb.Parms) []string {
 	if s.SkipPackageInstall {
 		cmd = append(cmd, "--skip-package-install")
 	}
+
 	return cmd
 }
 
@@ -91,6 +93,11 @@ func (d *DBCreator) GenCmd() []string {
 // GetInitiator returns the initiator pod name.
 func (d *DBCreator) GetInitiator() types.NamespacedName {
 	return d.Parms.Initiator
+}
+
+// GetPodNames returns the pod name list
+func (d *DBCreator) GetPodNames() []types.NamespacedName {
+	return d.Parms.PodNames
 }
 
 // LogFailure will log and record an event for an admintools -t create_db failure

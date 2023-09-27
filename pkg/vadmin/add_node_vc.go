@@ -70,6 +70,7 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) (vo
 	opts.SCName = &s.Subcluster
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
 	*opts.HonorUserInput = true
+	*opts.ForceRemoval = true
 	*opts.SkipRebalanceShards = true
 
 	if len(s.ExpectedNodeNames) == 0 {

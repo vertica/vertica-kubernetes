@@ -158,15 +158,6 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context,
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	for _, pod := range podsToAdd {
-		// admintools will not cleanup the local directories after a failed attempt
-		// to add node. So we ensure those directories are clear at each pod before
-		// proceeding.
-		if err := prepLocalData(ctx, d.Vdb, d.PRunner, pod.name); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if err := d.runAddNodeForPod(ctx, expectedNodeNames, podsToAdd, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
 		// reconcile successfully. We don't want to fail and requeue because
@@ -190,16 +181,16 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 	expectedNodeNames []string,
 	podsToAdd []*PodFact,
 	initiatorPod *PodFact) error {
-	podNames := genPodNames(podsToAdd)
+	podNameStr := genPodNames(podsToAdd)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
-		"Starting add database node for pod(s) '%s'", podNames)
+		"Starting add database node for pod(s) '%s'", podNameStr)
 	start := time.Now()
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
 		addnode.WithSubcluster(podsToAdd[0].subclusterName),
 	}
 	for i := range podsToAdd {
-		opts = append(opts, addnode.WithHost(podsToAdd[i].dnsName))
+		opts = append(opts, addnode.WithHost(podsToAdd[i].dnsName, podsToAdd[i].name))
 	}
 	addnode.WithExpecteNodeNames(expectedNodeNames)
 	err := d.Dispatcher.AddNode(ctx, opts...)
