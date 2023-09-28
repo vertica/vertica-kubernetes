@@ -181,11 +181,11 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
 		addnode.WithSubcluster(podsToAdd[0].subclusterName),
+		addnode.WithExpecteNodeNames(expectedNodeNames),
 	}
 	for i := range podsToAdd {
 		opts = append(opts, addnode.WithHost(podsToAdd[i].dnsName, podsToAdd[i].name))
 	}
-	addnode.WithExpecteNodeNames(expectedNodeNames)
 	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {
 		return err
