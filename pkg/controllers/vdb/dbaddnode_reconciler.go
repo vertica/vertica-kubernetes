@@ -135,29 +135,23 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 		return res, nil
 	}
 
-	expectedNodeNames := d.findExpectedNodeNames()
-	if verrors.IsReconcileAborted(res, nil) {
-		return res, nil
-	}
-
 	if len(addNodePods) > 0 {
 		var err error
-		res, err = d.runAddNode(ctx, expectedNodeNames, addNodePods)
+		res, err = d.runAddNode(ctx, addNodePods)
 		return res, err
 	}
 	return ctrl.Result{}, nil
 }
 
 // runAddNode will add nodes to the given subcluster
-func (d *DBAddNodeReconciler) runAddNode(ctx context.Context,
-	expectedNodeNames []string,
-	podsToAdd []*PodFact) (ctrl.Result, error) {
+func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, podsToAdd []*PodFact) (ctrl.Result, error) {
 	initiatorPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	expectedNodeNames := d.findExpectedNodeNames()
 	if err := d.runAddNodeForPod(ctx, expectedNodeNames, podsToAdd, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
 		// reconcile successfully. We don't want to fail and requeue because
@@ -187,12 +181,12 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 	start := time.Now()
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
+		addnode.WithExpecteNodeNames(expectedNodeNames)
 		addnode.WithSubcluster(podsToAdd[0].subclusterName),
 	}
 	for i := range podsToAdd {
 		opts = append(opts, addnode.WithHost(podsToAdd[i].dnsName, podsToAdd[i].name))
 	}
-	addnode.WithExpecteNodeNames(expectedNodeNames)
 	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {
 		return err
