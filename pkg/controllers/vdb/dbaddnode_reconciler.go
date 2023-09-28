@@ -134,7 +134,6 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 	if verrors.IsReconcileAborted(res, nil) {
 		return res, nil
 	}
-
 	if len(addNodePods) > 0 {
 		var err error
 		res, err = d.runAddNode(ctx, addNodePods)
@@ -181,12 +180,12 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 	start := time.Now()
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
-		addnode.WithExpecteNodeNames(expectedNodeNames),
 		addnode.WithSubcluster(podsToAdd[0].subclusterName),
 	}
 	for i := range podsToAdd {
 		opts = append(opts, addnode.WithHost(podsToAdd[i].dnsName, podsToAdd[i].name))
 	}
+	addnode.WithExpecteNodeNames(expectedNodeNames)
 	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {
 		return err
