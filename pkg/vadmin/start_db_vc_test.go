@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -75,6 +76,7 @@ var _ = Describe("start_db_vc", func() {
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.RestartTimeout = 10
 		dispatcher.VDB.Spec.HTTPServerTLSSecret = "start-db-test-secret"
+		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 
