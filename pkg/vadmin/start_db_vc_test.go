@@ -43,6 +43,10 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 	if err != nil {
 		return err
 	}
+	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.CommunalStorageParameters)
+	if err != nil {
+		return err
+	}
 
 	// verify catalog prefix
 	if *options.CatalogPrefix != TestCatalogPrefix {
@@ -78,7 +82,9 @@ var _ = Describe("start_db_vc", func() {
 			startdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
 			startdb.WithHost(nodeIPs[0]),
 			startdb.WithHost(nodeIPs[1]),
-			startdb.WithHost(nodeIPs[2]))
+			startdb.WithHost(nodeIPs[2]),
+			startdb.WithCommunalPath(TestCommunalPath),
+			startdb.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})

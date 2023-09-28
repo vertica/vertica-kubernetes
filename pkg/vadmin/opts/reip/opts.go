@@ -21,9 +21,11 @@ import (
 
 // Parms holds all of the option for a re_ip invocation.
 type Parms struct {
-	Initiator   types.NamespacedName
-	InitiatorIP string
-	Hosts       []Host
+	Initiator           types.NamespacedName
+	InitiatorIP         string
+	Hosts               []Host
+	CommunalPath        string
+	ConfigurationParams map[string]string
 }
 
 type Host struct {
@@ -58,5 +60,17 @@ func WithHost(vnode, compat21node, ip string) Option {
 			Compat21Node: compat21node,
 			IP:           ip,
 		})
+	}
+}
+
+func WithCommunalPath(path string) Option {
+	return func(s *Parms) {
+		s.CommunalPath = path
+	}
+}
+
+func WithConfigurationParams(parms map[string]string) Option {
+	return func(s *Parms) {
+		s.ConfigurationParams = parms
 	}
 }

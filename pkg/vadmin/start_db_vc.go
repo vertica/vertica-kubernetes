@@ -70,6 +70,8 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	*opts.CommunalStorageLocation = s.CommunalPath
+	opts.CommunalStorageParameters = s.ConfigurationParams
 
 	// auth options
 	opts.Key = certs.Key

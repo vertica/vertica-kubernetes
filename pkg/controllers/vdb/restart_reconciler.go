@@ -31,6 +31,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -54,15 +55,16 @@ const (
 
 // RestartReconciler will ensure each pod has a running vertica process
 type RestartReconciler struct {
-	VRec            *VerticaDBReconciler
-	Log             logr.Logger
-	Vdb             *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner         cmds.PodRunner
-	PFacts          *PodFacts
-	InitiatorPod    types.NamespacedName // The pod that we run admin commands from
-	InitiatorPodIP  string               // The IP of the initiating pod
-	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
-	Dispatcher      vadmin.Dispatcher
+	VRec                *VerticaDBReconciler
+	Log                 logr.Logger
+	Vdb                 *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner             cmds.PodRunner
+	PFacts              *PodFacts
+	InitiatorPod        types.NamespacedName // The pod that we run admin commands from
+	InitiatorPodIP      string               // The IP of the initiating pod
+	RestartReadOnly     bool                 // Whether to restart nodes that are in read-only mode
+	Dispatcher          vadmin.Dispatcher
+	ConfigurationParams *vtypes.CiMap
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
@@ -70,19 +72,33 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, restartReadOnly bool,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &RestartReconciler{
-		VRec:            vdbrecon,
-		Log:             log.WithName("RestartReconciler"),
-		Vdb:             vdb,
-		PRunner:         prunner,
-		PFacts:          pfacts,
-		RestartReadOnly: restartReadOnly,
-		Dispatcher:      dispatcher,
+		VRec:                vdbrecon,
+		Log:                 log.WithName("RestartReconciler"),
+		Vdb:                 vdb,
+		PRunner:             prunner,
+		PFacts:              pfacts,
+		RestartReadOnly:     restartReadOnly,
+		Dispatcher:          dispatcher,
+		ConfigurationParams: vtypes.MakeCiMap(),
 	}
 }
 
 // Reconcile will ensure each pod is UP in the vertica sense.
 // On success, each node will have a running vertica process.
 func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// build communal storage params
+	g := ConfigParamsGenerator{
+		VRec:                r.VRec,
+		Log:                 r.Log,
+		Vdb:                 r.Vdb,
+		ConfigurationParams: r.ConfigurationParams,
+		CTX:                 ctx,
+	}
+	_, e := g.ConstructConfigParms()
+	if e != nil {
+		return ctrl.Result{}, e
+	}
+
 	if !r.Vdb.Spec.AutoRestartVertica {
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
 			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},
@@ -371,6 +387,13 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	opts := []reip.Option{
 		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
+	// If a communal path is set, include all of the EON parameters.
+	if r.Vdb.Spec.Communal.Path != "" {
+		opts = append(opts,
+			reip.WithCommunalPath(r.Vdb.GetCommunalPath()),
+			reip.WithConfigurationParams(r.ConfigurationParams.GetMap()),
+		)
+	}
 	for i := range pods {
 		if !pods[i].isPodRunning {
 			r.Log.Info("Not all pods are running. Need to requeue restart reconciler.", "pod", pods[i].name)
@@ -389,6 +412,13 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
 	opts := []startdb.Option{
 		startdb.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
+	}
+	// If a communal path is set, include all of the EON parameters.
+	if r.Vdb.Spec.Communal.Path != "" {
+		opts = append(opts,
+			startdb.WithCommunalPath(r.Vdb.GetCommunalPath()),
+			startdb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
+		)
 	}
 	for i := range downPods {
 		opts = append(opts, startdb.WithHost(downPods[i].podIP))

@@ -84,13 +84,16 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	// The remaining create_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with revive_db.
 	g := GenericDatabaseInitializer{
-		initializer:         c,
-		VRec:                c.VRec,
-		Log:                 c.Log,
-		Vdb:                 c.Vdb,
-		PRunner:             c.PRunner,
-		PFacts:              c.PFacts,
-		ConfigurationParams: c.ConfigurationParams,
+		initializer: c,
+		PRunner:     c.PRunner,
+		PFacts:      c.PFacts,
+		ConfigParamsGenerator: ConfigParamsGenerator{
+			VRec:                c.VRec,
+			Log:                 c.Log,
+			Vdb:                 c.Vdb,
+			ConfigurationParams: c.ConfigurationParams,
+			CTX:                 ctx,
+		},
 	}
 	return g.checkAndRunInit(ctx)
 }

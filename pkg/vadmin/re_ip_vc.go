@@ -81,6 +81,11 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 		opts.ReIPList = append(opts.ReIPList, reIPInfo)
 	}
 
+	// eon options
+	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	*opts.CommunalStorageLocation = s.CommunalPath
+	opts.CommunalStorageParameters = s.ConfigurationParams
+
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert

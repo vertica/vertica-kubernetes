@@ -45,7 +45,11 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 		return fmt.Errorf("the re-ip list should not be empty")
 	}
 
-	return nil
+	// verify eon options
+	if options.IsEon.ToBool() != TestIsEon {
+		return fmt.Errorf("failed to retrieve eon mode")
+	}
+	return m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.CommunalStorageParameters)
 }
 
 var _ = Describe("re_ip_vc", func() {
@@ -72,7 +76,9 @@ var _ = Describe("re_ip_vc", func() {
 			reip.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), hosts[0].IP),
 			reip.WithHost(hosts[0].VNode, hosts[0].Compat21Node, hosts[0].IP),
 			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP),
-			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP))
+			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP),
+			reip.WithCommunalPath(TestCommunalPath),
+			reip.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})
