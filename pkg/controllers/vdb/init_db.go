@@ -90,7 +90,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	initiatorPod := initPodFact.name
 	initiatorIP := initPodFact.podIP
 
-	res, err := g.ConstructConfigParms()
+	res, err := g.ConstructConfigParms(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}

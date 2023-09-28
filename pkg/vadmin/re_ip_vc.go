@@ -82,9 +82,13 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	}
 
 	// eon options
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
-	*opts.CommunalStorageLocation = s.CommunalPath
-	opts.CommunalStorageParameters = s.ConfigurationParams
+	// Provide eon options to vclusterops only after revive_db because
+	// we do not need to access communal storage in re_ip after create_db.
+	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
+		opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+		*opts.CommunalStorageLocation = s.CommunalPath
+		opts.CommunalStorageParameters = s.ConfigurationParams
+	}
 
 	// auth options
 	opts.Key = certs.Key

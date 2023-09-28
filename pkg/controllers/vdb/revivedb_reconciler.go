@@ -90,7 +90,6 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 			Log:                 r.Log,
 			Vdb:                 r.Vdb,
 			ConfigurationParams: r.ConfigurationParams,
-			CTX:                 ctx,
 		},
 	}
 	return g.checkAndRunInit(ctx)

@@ -41,12 +41,15 @@ type ConfigParamsGenerator struct {
 	Log                 logr.Logger
 	Vdb                 *vapi.VerticaDB
 	ConfigurationParams *vtypes.CiMap
-	CTX                 context.Context
 }
 
 // ConstructConfigParms builds a map of all of the config parameters to use,
 // and assigns the map to ConfigurationParams of ConfigParamsGenerator
-func (g *ConfigParamsGenerator) ConstructConfigParms() (ctrl.Result, error) {
+func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.Result, error) {
+	if g.ConfigurationParams == nil {
+		g.ConfigurationParams = vtypes.MakeCiMap()
+	}
+
 	var authConfigBuilder func(ctx context.Context) (ctrl.Result, error)
 
 	if g.Vdb.Spec.Communal.Path == "" {
@@ -69,7 +72,7 @@ func (g *ConfigParamsGenerator) ConstructConfigParms() (ctrl.Result, error) {
 	var res ctrl.Result
 	var err error
 	if authConfigBuilder != nil {
-		res, err = authConfigBuilder(g.CTX)
+		res, err = authConfigBuilder(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -101,6 +104,12 @@ func (g *ConfigParamsGenerator) ConstructConfigParms() (ctrl.Result, error) {
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// GetConfigParms returns ConfiurationParams of ConfigParamsGenerator
+// It is used after ConstructConfigParms(), and it can return a map of all config parameters
+func (g *ConfigParamsGenerator) GetConfigParms() *vtypes.CiMap {
+	return g.ConfigurationParams
 }
 
 // setAuth adds the auth parms, if they exist, to the config parms map.

@@ -140,11 +140,10 @@ var _ = Describe("init_db", func() {
 				Log:                 logger,
 				Vdb:                 vdb,
 				ConfigurationParams: types.MakeCiMap(),
-				CTX:                 ctx,
 			},
 		}
 
-		res, err := g.ConstructConfigParms()
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
 		Expect(g.ConfigurationParams.Size()).Should(Equal(1))
@@ -219,11 +218,10 @@ var _ = Describe("init_db", func() {
 				Log:                 logger,
 				Vdb:                 vdb,
 				ConfigurationParams: types.MakeCiMap(),
-				CTX:                 ctx,
 			},
 		}
 
-		res, err := g.ConstructConfigParms()
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -326,11 +324,10 @@ var _ = Describe("init_db", func() {
 				Log:                 logger,
 				Vdb:                 vdb,
 				ConfigurationParams: types.MakeCiMap(),
-				CTX:                 ctx,
 			},
 		}
 
-		res, err := g.ConstructConfigParms()
+		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
@@ -422,11 +419,10 @@ func ConstructDBInitializer(ctx context.Context, vdb *vapi.VerticaDB) *GenericDa
 			Log:                 logger,
 			Vdb:                 vdb,
 			ConfigurationParams: types.MakeCiMap(),
-			CTX:                 ctx,
 		},
 	}
 
-	res, err := g.ConstructConfigParms()
+	res, err := g.ConstructConfigParms(ctx)
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
 	return g
