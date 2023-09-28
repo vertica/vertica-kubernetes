@@ -359,9 +359,10 @@ type VerticaDBSpec struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ServiceAccount","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// +kubebuilder:validation:Optional
-	// The name of a serviceAccount to use to run the Vertica pods. If this is
-	// omitted or the serviceAccount doesn't exist, the operator will create one
-	// along with a Role and RoleBinding.
+	// The name of a serviceAccount to use to run the Vertica pods. If the
+	// service account is not specified or does not exist, the operator will
+	// create one, using the specified name if provided, along with a Role and
+	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
