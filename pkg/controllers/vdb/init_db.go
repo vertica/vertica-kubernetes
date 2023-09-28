@@ -51,7 +51,7 @@ const (
 type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
 	findPodToRunInit() (*PodFact, bool)
-	execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error)
+	execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string, podNames []types.NamespacedName) (ctrl.Result, error)
 	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string, podList []*PodFact) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
@@ -112,12 +112,8 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
-	// Cleanup for any prior failed attempt.
-	if err := g.prepLocalDataInPods(ctx, podList); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if res, err := g.initializer.execCmd(ctx, initiatorPod, getHostList(podList)); verrors.IsReconcileAborted(res, err) {
+	host, postNames := getHostAndPodNameList(podList)
+	if res, err := g.initializer.execCmd(ctx, initiatorPod, host, postNames); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -145,20 +141,6 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 		}
 	}
 	return true
-}
-
-// prepLocalDataInPods will go through each pod and ensure their local files are
-// prepared correctly.  This step is necessary because a failed create_db can
-// leave old state around.
-func (g *GenericDatabaseInitializer) prepLocalDataInPods(ctx context.Context, podList []*PodFact) error {
-	for _, pod := range podList {
-		// Cleanup any local paths. This step is needed if an earlier create_db
-		// fails -- admintools does not clean everything up.
-		if err := prepLocalData(ctx, g.Vdb, g.PRunner, pod.name); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // ConstructConfigParms builds a map of all of the config parameters to use.

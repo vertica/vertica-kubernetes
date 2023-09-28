@@ -22,6 +22,7 @@ import (
 // Parms holds all of the option for a create DB invocation.
 type Parms struct {
 	Initiator             types.NamespacedName
+	PodNames              []types.NamespacedName
 	Hosts                 []string
 	PostDBCreateSQLFile   string
 	CatalogPath           string
@@ -48,6 +49,12 @@ func (s *Parms) Make(opts ...Option) {
 func WithInitiator(nm types.NamespacedName) Option {
 	return func(s *Parms) {
 		s.Initiator = nm
+	}
+}
+
+func WithPods(nm []types.NamespacedName) Option {
+	return func(s *Parms) {
+		s.PodNames = nm
 	}
 }
 

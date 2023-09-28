@@ -22,6 +22,7 @@ import (
 // Parms holds all of the option for a revive DB invocation.
 type Parms struct {
 	Initiator             types.NamespacedName
+	PodNames              []types.NamespacedName
 	Hosts                 []string
 	DBName                string
 	CommunalPath          string
@@ -36,6 +37,12 @@ type Option func(*Parms)
 func (s *Parms) Make(opts ...Option) {
 	for _, opt := range opts {
 		opt(s)
+	}
+}
+
+func WithPods(nm []types.NamespacedName) Option {
+	return func(s *Parms) {
+		s.PodNames = nm
 	}
 }
 

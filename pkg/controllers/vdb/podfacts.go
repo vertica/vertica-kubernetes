@@ -1078,11 +1078,13 @@ func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.Namespac
 	return false, types.NamespacedName{}
 }
 
-// getHostList will return a host list from the given pods
-func getHostList(podList []*PodFact) []string {
+// getHostList will return a host and podName list from the given pods
+func getHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName) {
 	hostList := make([]string, 0, len(podList))
+	podNames := make([]types.NamespacedName, 0, len(podList))
 	for _, pod := range podList {
 		hostList = append(hostList, pod.podIP)
+		podNames = append(podNames, pod.name)
 	}
-	return hostList
+	return hostList, podNames
 }
