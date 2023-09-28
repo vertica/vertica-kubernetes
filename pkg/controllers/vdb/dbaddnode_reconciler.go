@@ -181,7 +181,7 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 	start := time.Now()
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
-		addnode.WithExpecteNodeNames(expectedNodeNames)
+		addnode.WithExpecteNodeNames(expectedNodeNames),
 		addnode.WithSubcluster(podsToAdd[0].subclusterName),
 	}
 	for i := range podsToAdd {
