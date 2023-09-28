@@ -113,20 +113,6 @@ func (d *DBAddNodeReconciler) findAddNodePods(scName string) ([]*PodFact, ctrl.R
 	return podList, ctrl.Result{}
 }
 
-// findExpectedNodeNames will return a list of pods that should have been in the database
-// before running db_add_node (which are also called expected nodes)
-func (d *DBAddNodeReconciler) findExpectedNodeNames() []string {
-	var expectedNodeNames []string
-
-	for _, v := range d.PFacts.Detail {
-		if v.dbExists {
-			expectedNodeNames = append(expectedNodeNames, v.name.Name)
-		}
-	}
-
-	return expectedNodeNames
-}
-
 // reconcileSubcluster will reconcile a single subcluster.  Add node will be
 // triggered if we determine that it hasn't been run.
 func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
@@ -150,7 +136,7 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, podsToAdd []*PodFa
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	expectedNodeNames := d.findExpectedNodeNames()
+	expectedNodeNames := d.PFacts.findExpectedNodeNames()
 	if err := d.runAddNodeForPod(ctx, expectedNodeNames, podsToAdd, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
 		// reconcile successfully. We don't want to fail and requeue because

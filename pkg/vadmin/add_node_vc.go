@@ -43,7 +43,6 @@ func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error
 
 	// call vcluster-ops library to add_node
 	vopts := v.genAddNodeOptions(&s, certs)
-
 	vdb, err := v.VAddNode(&vopts)
 	if err != nil {
 		_, err = v.logFailure("VAddNode", events.AddNodeFailed, err)
