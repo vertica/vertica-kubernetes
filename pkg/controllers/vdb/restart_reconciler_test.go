@@ -42,6 +42,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
@@ -55,6 +58,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 2
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -84,6 +90,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 2
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -119,6 +128,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 5
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -158,6 +170,9 @@ var _ = Describe("restart_reconciler", func() {
 		sc.Size = 2
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -175,6 +190,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.DBName = "vertdb"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -211,6 +229,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.DBName = "db"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -239,6 +260,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.DBName = "b"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -318,6 +342,9 @@ var _ = Describe("restart_reconciler", func() {
 		sc.Size = ScSize
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -356,6 +383,9 @@ var _ = Describe("restart_reconciler", func() {
 		sc.Size = ScSize
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -383,6 +413,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 2
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -413,6 +446,9 @@ var _ = Describe("restart_reconciler", func() {
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		transientSc := vdb.BuildTransientSubcluster("")
@@ -436,6 +472,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.KSafety = vapi.KSafety0
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -474,6 +513,9 @@ var _ = Describe("restart_reconciler", func() {
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -515,6 +557,9 @@ var _ = Describe("restart_reconciler", func() {
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -539,6 +584,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 2
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -572,6 +620,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 4
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -608,6 +659,9 @@ var _ = Describe("restart_reconciler", func() {
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
