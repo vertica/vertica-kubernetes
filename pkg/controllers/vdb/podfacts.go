@@ -1088,3 +1088,17 @@ func getHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 	}
 	return hostList, podNames
 }
+
+// findExpectedNodeNames will return a list of pods that should have been in the database
+// before running db_add_node (which are also called expected nodes)
+func (p *PodFacts) findExpectedNodeNames() []string {
+	var expectedNodeNames []string
+
+	for _, v := range p.Detail {
+		if v.dbExists {
+			expectedNodeNames = append(expectedNodeNames, v.vnodeName)
+		}
+	}
+
+	return expectedNodeNames
+}

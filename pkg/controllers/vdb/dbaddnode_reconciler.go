@@ -129,14 +129,15 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 }
 
 // runAddNode will add nodes to the given subcluster
-func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
+func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, podsToAdd []*PodFact) (ctrl.Result, error) {
 	initiatorPod, ok := d.PFacts.findPodToRunVsql(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if err := d.runAddNodeForPod(ctx, pods, initiatorPod); err != nil {
+	expectedNodeNames := d.PFacts.findExpectedNodeNames()
+	if err := d.runAddNodeForPod(ctx, expectedNodeNames, podsToAdd, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
 		// reconcile successfully. We don't want to fail and requeue because
 		// this isn't going to get fixed until someone manually adds a new
@@ -155,17 +156,21 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, pods []*PodFact) (
 
 // runAddNodeForPod will execute the command to add a single node to the cluster
 // Returns the stdout from the command.
-func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context, pods []*PodFact, initiatorPod *PodFact) error {
-	podNameStr := genPodNames(pods)
+func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
+	expectedNodeNames []string,
+	podsToAdd []*PodFact,
+	initiatorPod *PodFact) error {
+	podNameStr := genPodNames(podsToAdd)
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
 		"Starting add database node for pod(s) '%s'", podNameStr)
 	start := time.Now()
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
-		addnode.WithSubcluster(pods[0].subclusterName),
+		addnode.WithSubcluster(podsToAdd[0].subclusterName),
+		addnode.WithExpectedNodeNames(expectedNodeNames),
 	}
-	for i := range pods {
-		opts = append(opts, addnode.WithHost(pods[i].dnsName, pods[i].name))
+	for i := range podsToAdd {
+		opts = append(opts, addnode.WithHost(podsToAdd[i].dnsName, podsToAdd[i].name))
 	}
 	err := d.Dispatcher.AddNode(ctx, opts...)
 	if err != nil {

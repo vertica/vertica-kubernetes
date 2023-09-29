@@ -66,6 +66,8 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	*opts.HonorUserInput = true
 	*opts.ForceRemoval = true
 	*opts.SkipRebalanceShards = true
+	opts.ExpectedNodeNames = s.ExpectedNodeNames
+	v.Log.Info("Nodes in request", "ExpectedNodeNames", opts.ExpectedNodeNames, "NewHosts", opts.NewHosts)
 
 	if v.VDB.Spec.Communal.Path != "" {
 		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath
