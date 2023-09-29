@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -165,7 +166,7 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 		"Starting add database node for pod(s) '%s'", podNameStr)
 	start := time.Now()
 
-	d.Log.Info("Expected node names in catalog: %+v", expectedNodeNames)
+	d.Log.Info(fmt.Sprintf("Expected node names in catalog: %+v", expectedNodeNames))
 
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
