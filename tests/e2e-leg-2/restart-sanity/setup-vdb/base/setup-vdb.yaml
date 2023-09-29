@@ -15,6 +15,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-restart
+  annotations:
+    vertica.com/restart-timeout: "1500"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -27,7 +29,6 @@ spec:
   dbName: spilchendb2
   shardCount: 20
   requeueTime: 4
-  restartTimeout: 1500
   subclusters:
     - name: defsc
       size: 3

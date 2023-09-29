@@ -264,40 +264,28 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.DataPath = "/newpath"
 		validateImmutableFields(vdbUpdate, false)
-		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
-		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
-			Status: v1.ConditionTrue,
-		}
+		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change depot path after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.DepotPath = "/newdepot"
 		validateImmutableFields(vdbUpdate, false)
-		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
-		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
-			Status: v1.ConditionTrue,
-		}
+		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change catalog path after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.CatalogPath = "/newcatalog"
 		validateImmutableFields(vdbUpdate, false)
-		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
-		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
-			Status: v1.ConditionTrue,
-		}
+		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change shardCount after DB init", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.ShardCount = 10
 		validateImmutableFields(vdbUpdate, false)
-		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
-		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
-			Status: v1.ConditionTrue,
-		}
+		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change isPrimary after creation", func() {
@@ -341,10 +329,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate := createVDBHelper()
 		vdbUpdate.Spec.Local.DepotVolume = EmptyDir
 		validateImmutableFields(vdbUpdate, false)
-		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
-		vdbUpdate.Status.Conditions[DBInitializedIndex] = VerticaDBCondition{
-			Status: v1.ConditionTrue,
-		}
+		resetStatusConditionsForDBInitialized(vdbUpdate)
 		validateImmutableFields(vdbUpdate, true)
 	})
 
@@ -438,19 +423,20 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).Should(BeNil())
 
-		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
-		vdbUpdate.Status.Conditions[ImageChangeInProgressIndex] = VerticaDBCondition{
-			Status: v1.ConditionTrue,
-		}
+		resetStatusConditionsForImageChangeInProgress(vdbUpdate)
 		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).ShouldNot(BeNil())
 	})
 
 	It("should fail for various issues with temporary subcluster routing template", func() {
 		vdb := createVDBHelper()
-		vdb.Spec.TemporarySubclusterRouting.Template.Name = vdb.Spec.Subclusters[0].Name
-		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
-		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Template: Subcluster{
+				Name:      vdb.Spec.Subclusters[0].Name,
+				Size:      1,
+				IsPrimary: false,
+			},
+		}
 		validateSpecValuesHaveErr(vdb, true)
 
 		vdb.Spec.TemporarySubclusterRouting.Template.Name = "transient"
@@ -467,11 +453,34 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should fail setting template and names in temporary routing", func() {
 		vdb := createVDBHelper()
-		vdb.Spec.TemporarySubclusterRouting.Template.Name = "my-transient-sc"
-		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
-		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
-		vdb.Spec.TemporarySubclusterRouting.Names = []string{vdb.Spec.Subclusters[0].Name}
+		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Template: Subcluster{
+				Name:      "my-transient-sc",
+				Size:      1,
+				IsPrimary: false,
+			},
+			Names: []string{vdb.Spec.Subclusters[0].Name},
+		}
 		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should fail if you set or clear the temporarySubclusterRouting field", func() {
+		vdbOrig := MakeVDB()
+		vdbOrig.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Names: []string{"sc1"},
+		}
+		vdbUpdate := MakeVDB()
+		vdbUpdate.Spec.TemporarySubclusterRouting = nil
+		resetStatusConditionsForImageChangeInProgress(vdbUpdate)
+		resetStatusConditionsForImageChangeInProgress(vdbOrig)
+		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
+		Ω(allErrs).ShouldNot(BeNil())
+
+		// Swap the case
+		vdbUpdate.Spec.TemporarySubclusterRouting = vdbOrig.Spec.TemporarySubclusterRouting
+		vdbOrig.Spec.TemporarySubclusterRouting = nil
+		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
+		Ω(allErrs).ShouldNot(BeNil())
 	})
 
 	It("should fail if temporary routing to a subcluster doesn't exist", func() {
@@ -479,7 +488,9 @@ var _ = Describe("verticadb_webhook", func() {
 		const ValidScName = "sc1"
 		const InvalidScName = "notexists"
 		vdb.Spec.Subclusters[0].Name = ValidScName
-		vdb.Spec.TemporarySubclusterRouting.Names = []string{InvalidScName}
+		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Names: []string{InvalidScName},
+		}
 		validateSpecValuesHaveErr(vdb, true)
 
 		vdb.Spec.TemporarySubclusterRouting.Names = []string{ValidScName, InvalidScName}
@@ -493,13 +504,14 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate := createVDBHelper()
 		vdbOrig := createVDBHelper()
 
-		vdbUpdate.Status.Conditions = make([]VerticaDBCondition, ImageChangeInProgressIndex+1)
-		vdbUpdate.Status.Conditions[ImageChangeInProgressIndex] = VerticaDBCondition{
-			Status: v1.ConditionTrue,
-		}
+		resetStatusConditionsForImageChangeInProgress(vdbUpdate)
 
-		vdbUpdate.Spec.TemporarySubclusterRouting.Names = []string{"sc1", "sc2"}
-		vdbOrig.Spec.TemporarySubclusterRouting.Names = []string{"sc3", "sc4"}
+		vdbUpdate.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Names: []string{"sc1", "sc2"},
+		}
+		vdbOrig.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Names: []string{"sc3", "sc4"},
+		}
 		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).ShouldNot(BeNil())
 
@@ -576,10 +588,12 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sc1", Size: 1, IsPrimary: true},
 			{Name: "sc2", Size: 1, IsPrimary: false, IsTransient: true},
 		}
-		vdb.Spec.TemporarySubclusterRouting.Template = Subcluster{
-			Name:      "transient",
-			Size:      1,
-			IsPrimary: false,
+		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Template: Subcluster{
+				Name:      "transient",
+				Size:      1,
+				IsPrimary: false,
+			},
 		}
 		validateSpecValuesHaveErr(vdb, true)
 	})
@@ -759,5 +773,20 @@ func checkErrorsForImmutableFields(vdbOrig, vdbUpdate *VerticaDB, expectError bo
 		Expect(allErrs).ShouldNot(BeNil())
 	} else {
 		Expect(allErrs).Should(BeNil())
+	}
+}
+
+func resetStatusConditionsForImageChangeInProgress(v *VerticaDB) {
+	resetStatusConditionsForCondition(v, ImageChangeInProgressIndex)
+}
+
+func resetStatusConditionsForDBInitialized(v *VerticaDB) {
+	resetStatusConditionsForCondition(v, DBInitializedIndex)
+}
+
+func resetStatusConditionsForCondition(v *VerticaDB, conditionIndex int) {
+	v.Status.Conditions = make([]VerticaDBCondition, conditionIndex+1)
+	v.Status.Conditions[conditionIndex] = VerticaDBCondition{
+		Status: v1.ConditionTrue,
 	}
 }

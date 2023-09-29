@@ -1156,9 +1156,9 @@ func (v *VerticaDB) FindSubclusterForServiceName(svcName string) (scs []*Subclus
 // RequiresTransientSubcluster checks if an online upgrade requires a
 // transient subcluster.  A transient subcluster exists if the template is
 // filled out.
-func (v *VerticaDB) RequiresTransientSubcluster() bool {
-	return v.Spec.TemporarySubclusterRouting.Template.Name != "" &&
-		v.Spec.TemporarySubclusterRouting.Template.Size > 0
+func (v *VerticaDBSpec) RequiresTransientSubcluster() bool {
+	return v.TemporarySubclusterRouting.Template.Name != "" &&
+		v.TemporarySubclusterRouting.Template.Size > 0
 }
 
 // isConditionIndexSet will check a status condition when the index is already

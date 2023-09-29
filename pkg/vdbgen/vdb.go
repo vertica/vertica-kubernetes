@@ -146,6 +146,7 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.TypeMeta.APIVersion = vapi.GroupVersion.String()
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
+	d.Objs.Vdb.Annotations = make(map[string]string)
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName
 	d.Objs.Vdb.Spec.AutoRestartVertica = true
 	d.Objs.Vdb.ObjectMeta.Name = d.Opts.VdbName
@@ -155,7 +156,7 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.Spec.Local.DepotVolume = vapi.DepotVolumeType(d.Opts.DepotVolume)
 
 	if d.Opts.IgnoreClusterLease {
-		d.Objs.Vdb.Spec.IgnoreClusterLease = true
+		d.Objs.Vdb.SetIgnoreClusterLease(true)
 	}
 	if d.Opts.Image != "" {
 		d.Objs.Vdb.Spec.Image = d.Opts.Image

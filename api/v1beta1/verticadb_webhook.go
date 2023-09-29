@@ -704,7 +704,7 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 			allErrs = append(allErrs, err)
 		}
 	}
-	if len(v.Spec.TemporarySubclusterRouting.Names) > 0 && v.RequiresTransientSubcluster() {
+	if len(v.Spec.TemporarySubclusterRouting.Names) > 0 && v.Spec.RequiresTransientSubcluster() {
 		err := field.Invalid(fieldPrefix,
 			v.Spec.TemporarySubclusterRouting,
 			"cannot use a template and a list of subcluster names at the same time")
@@ -981,10 +981,22 @@ func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, 
 			"subcluster names for temporasySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
-	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Template, oldObj.Spec.TemporarySubclusterRouting.Template) {
+	// If either object went through the conversion webhook they will have the
+	// default ServiceType of ClusterIP added. Set the same default in both
+	// objects so the subsequent DeepEqual will match. We first copy to a new
+	// object to avoid changing the receiver.
+	oldTemplate := oldObj.Spec.TemporarySubclusterRouting.Template.DeepCopy()
+	newTemplate := v.Spec.TemporarySubclusterRouting.Template.DeepCopy()
+	if oldTemplate.ServiceType == "" {
+		oldTemplate.ServiceType = v1.ServiceTypeClusterIP
+	}
+	if newTemplate.ServiceType == "" {
+		newTemplate.ServiceType = v1.ServiceTypeClusterIP
+	}
+	if !reflect.DeepEqual(newTemplate, oldTemplate) {
 		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("template"),
-			v.Spec.TemporarySubclusterRouting.Template,
-			"template for temporasySubclusterRouting cannot change when an upgrade is in progress")
+			newTemplate,
+			"template for temporarySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

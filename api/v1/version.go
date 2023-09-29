@@ -18,6 +18,7 @@ package v1
 import (
 	"regexp"
 
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 )
 
@@ -54,7 +55,7 @@ const (
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
 // within the vdb
 func (v *VerticaDB) GetVerticaVersionStr() (string, bool) {
-	ver, ok := v.ObjectMeta.Annotations[VersionAnnotation]
+	ver, ok := v.ObjectMeta.Annotations[vmeta.VersionAnnotation]
 	return ver, ok
 }
 
@@ -79,9 +80,9 @@ func ParseVersionOutput(op string) map[string]string {
 	// Vertica Analytic Database v11.0.0-20210601
 	// vertica(v11.0.0-20210601) built by @re-docker2 from master@da8f0e93f1ee720d8e4f8e1366a26c0d9dd7f9e7 on 'Tue Jun  1 05:04:35 2021' $BuildId$
 	regMap := map[string]string{
-		VersionAnnotation:   `(v[0-9a-zA-Z.-]+)\n`,
-		BuildRefAnnotation:  `built by .* from .*@([^ ]+) `,
-		BuildDateAnnotation: `on '([A-Za-z0-9: ]+)'`,
+		vmeta.VersionAnnotation:   `(v[0-9a-zA-Z.-]+)\n`,
+		vmeta.BuildRefAnnotation:  `built by .* from .*@([^ ]+) `,
+		vmeta.BuildDateAnnotation: `on '([A-Za-z0-9: ]+)'`,
 	}
 
 	// We build up this annotation map while we iterate through each regular
@@ -107,6 +108,6 @@ func (v *VerticaDB) IsUpgradePathSupported(newAnnotations map[string]string) (ok
 		// Version info is not in the vdb.  Fine to skip.
 		return true, ""
 	}
-	ok, failureReason = vinf.IsValidUpgradePath(newAnnotations[VersionAnnotation])
+	ok, failureReason = vinf.IsValidUpgradePath(newAnnotations[vmeta.VersionAnnotation])
 	return
 }

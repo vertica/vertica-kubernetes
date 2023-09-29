@@ -17,3 +17,10 @@ metadata:
   name: v-auto-restart-vertica
 status:
   upNodeCount: 0
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-auto-restart-vertica-defsc
+status:
+  availableReplicas: 0

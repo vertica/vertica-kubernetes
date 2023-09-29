@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -168,7 +169,7 @@ var _ = Describe("createdb_reconciler", func() {
 	It("should use option with create_db if skipping install", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreateSkipPackageInstall
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v12.0.1-0"
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v12.0.1-0"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)

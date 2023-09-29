@@ -45,12 +45,16 @@ var _ = Describe("verticadb_types", func() {
 		}
 		// Transient is only required if specified
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeFalse())
-		vdb.Spec.TemporarySubclusterRouting.Names = []string{"sc1"}
+		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Names: []string{"sc1"},
+		}
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeFalse())
-		vdb.Spec.TemporarySubclusterRouting.Template = Subcluster{
-			Name:      "the-transient-sc-name",
-			Size:      1,
-			IsPrimary: false,
+		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
+			Template: Subcluster{
+				Name:      "the-transient-sc-name",
+				Size:      1,
+				IsPrimary: false,
+			},
 		}
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeTrue())
 	})

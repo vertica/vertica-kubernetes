@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator -t 480 $NAMESPACE"
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE -t 480 $NAMESPACE"

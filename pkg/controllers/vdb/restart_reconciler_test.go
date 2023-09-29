@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -285,8 +286,8 @@ var _ = Describe("restart_reconciler", func() {
 
 	It("should call start_db with --ignore-cluster-lease and --timeout options", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.IgnoreClusterLease = true
-		vdb.Spec.RestartTimeout = 500
+		vdb.Annotations[vmeta.IgnoreClusterLeaseAnnotation] = "true"
+		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "500"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
 		createS3CredSecret(ctx, vdb)
@@ -311,7 +312,7 @@ var _ = Describe("restart_reconciler", func() {
 
 	It("should call restart_node with --timeout option", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.RestartTimeout = 800
+		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "800"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
 		createS3CredSecret(ctx, vdb)
@@ -432,10 +433,12 @@ var _ = Describe("restart_reconciler", func() {
 	It("should skip restart_node of transient nodes", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
-		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
-			Name:      "the-transient-sc",
-			Size:      1,
-			IsPrimary: false,
+		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
+			Template: vapi.Subcluster{
+				Name:      "the-transient-sc",
+				Size:      1,
+				IsPrimary: false,
+			},
 		}
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)

@@ -449,7 +449,7 @@ func (o *OnlineUpgradeReconciler) recreateSubclusterWithNewImage(ctx context.Con
 }
 
 func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	if o.Vdb.Spec.IgnoreUpgradePath {
+	if o.Vdb.GetIgnoreUpgradePath() {
 		return ctrl.Result{}, nil
 	}
 
@@ -735,7 +735,8 @@ func (o *OnlineUpgradeReconciler) getSubclusterForTemporaryRouting(ctx context.C
 	var routingSc *vapi.Subcluster
 
 	// If no subcluster routing is specified, we will pick existing subclusters.
-	if len(o.Vdb.Spec.TemporarySubclusterRouting.Names) == 0 {
+	if o.Vdb.Spec.TemporarySubclusterRouting == nil ||
+		len(o.Vdb.Spec.TemporarySubclusterRouting.Names) == 0 {
 		return o.pickDefaultSubclusterForTemporaryRouting(offlineSc)
 	}
 

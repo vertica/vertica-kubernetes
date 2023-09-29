@@ -154,7 +154,9 @@ func (v *VerticaDB) Default() {
 	if v.Spec.Communal.Endpoint == "" && v.IsGCloud() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
-	v.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+	if v.Spec.TemporarySubclusterRouting != nil {
+		v.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+	}
 	v.setDefaultServiceName()
 }
 
@@ -686,6 +688,9 @@ func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorLi
 // hasValidTemporarySubclusterRouting verifies the contents of
 // temporarySubclusterRouting are valid
 func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.TemporarySubclusterRouting == nil {
+		return allErrs
+	}
 	scMap := v.GenSubclusterMap()
 	fieldPrefix := field.NewPath("spec").Child("temporarySubclusterRouting")
 	if v.Spec.TemporarySubclusterRouting.Template.Name != "" {
@@ -808,7 +813,7 @@ func (v *VerticaDB) transientSubclusterMustMatchTemplate(allErrs field.ErrorList
 		}
 
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
-		if sc.Name != v.Spec.TemporarySubclusterRouting.Template.Name {
+		if v.Spec.TemporarySubclusterRouting != nil && sc.Name != v.Spec.TemporarySubclusterRouting.Template.Name {
 			err := field.Invalid(fieldPrefix.Child("Name").Index(i),
 				sc.Name,
 				"Transient subcluster name doesn't match template")
@@ -1003,16 +1008,32 @@ func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, 
 	if !oldObj.isImageChangeInProgress() {
 		return allErrs
 	}
+	if v.Spec.TemporarySubclusterRouting == nil && oldObj.Spec.TemporarySubclusterRouting == nil {
+		return allErrs
+	}
+	fieldPrefix := field.NewPath("spec").Child("temporarySubclusterRouting")
+	if v.Spec.TemporarySubclusterRouting == nil && oldObj.Spec.TemporarySubclusterRouting != nil {
+		err := field.Invalid(fieldPrefix,
+			v.Spec.TemporarySubclusterRouting,
+			"cannot clear the temporarySubclusterRouting field during an upgrade")
+		return append(allErrs, err)
+	}
+	if v.Spec.TemporarySubclusterRouting != nil && oldObj.Spec.TemporarySubclusterRouting == nil {
+		err := field.Invalid(fieldPrefix,
+			v.Spec.TemporarySubclusterRouting,
+			"cannot set the temporarySubclusterRouting field during an upgrade")
+		return append(allErrs, err)
+	}
 	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Names, oldObj.Spec.TemporarySubclusterRouting.Names) {
-		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("names"),
+		err := field.Invalid(fieldPrefix.Child("names"),
 			v.Spec.TemporarySubclusterRouting.Names,
-			"subcluster names for temporasySubclusterRouting cannot change when an upgrade is in progress")
+			"subcluster names for temporarySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
 	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Template, oldObj.Spec.TemporarySubclusterRouting.Template) {
-		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("template"),
+		err := field.Invalid(fieldPrefix.Child("template"),
 			v.Spec.TemporarySubclusterRouting.Template,
-			"template for temporasySubclusterRouting cannot change when an upgrade is in progress")
+			"template for temporarySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
