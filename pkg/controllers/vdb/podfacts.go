@@ -1096,7 +1096,7 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 
 	for _, v := range p.Detail {
 		if v.dbExists {
-			expectedNodeNames = append(expectedNodeNames, v.name.Name)
+			expectedNodeNames = append(expectedNodeNames, v.vnodeName)
 		}
 	}
 

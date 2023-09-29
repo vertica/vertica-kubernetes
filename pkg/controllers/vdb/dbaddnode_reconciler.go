@@ -164,6 +164,9 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeStart,
 		"Starting add database node for pod(s) '%s'", podNameStr)
 	start := time.Now()
+
+	d.Log.Info("Expected node names in catalog: %+v", expectedNodeNames)
+
 	opts := []addnode.Option{
 		addnode.WithInitiator(initiatorPod.name, initiatorPod.podIP),
 		addnode.WithSubcluster(podsToAdd[0].subclusterName),
