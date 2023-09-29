@@ -382,7 +382,7 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 		// build communal storage params if there is not one
 		if r.ConfigurationParams == nil {
 			res, err := r.ConstructConfigParms(ctx)
-			if err != nil {
+			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 		}
@@ -415,7 +415,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		// build communal storage params if there is not one
 		if r.ConfigurationParams == nil {
 			res, err := r.ConstructConfigParms(ctx)
-			if err != nil {
+			if verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
 		}
