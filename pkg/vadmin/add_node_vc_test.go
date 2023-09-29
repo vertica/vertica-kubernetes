@@ -81,7 +81,7 @@ var _ = Describe("add_node_vc", func() {
 		opts := []addnode.Option{
 			addnode.WithInitiator(TestInitiatorPodName, TestInitiatorPodIP),
 			addnode.WithSubcluster(TestSCName),
-			addnode.WithExpecteNodeNames(testExpectedNodeNames),
+			addnode.WithExpectedNodeNames(testExpectedNodeNames),
 		}
 		for i, n := range TestNewHosts {
 			opts = append(opts, addnode.WithHost(n, TestNewPodNames[i]))

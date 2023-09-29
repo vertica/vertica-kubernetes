@@ -61,7 +61,7 @@ func WithSubcluster(subcluster string) Option {
 	}
 }
 
-func WithExpecteNodeNames(nodeNames []string) Option {
+func WithExpectedNodeNames(nodeNames []string) Option {
 	return func(s *Parms) {
 		s.ExpectedNodeNames = nodeNames
 	}
