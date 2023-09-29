@@ -13,8 +13,6 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-delete:
-  - apiVersion: cert-manager.io/v1
-    kind: Certificate
-  - apiVersion: cert-manager.io/v1
-    kind: Issuer
+commands:
+  - command: sh -c "cd ../../.. && make undeploy-operator || true"
+  - script: cd ../../.. && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set webhook.certSource=cert-manager"

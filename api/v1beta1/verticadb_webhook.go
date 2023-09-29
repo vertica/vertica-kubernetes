@@ -1,17 +1,16 @@
 /*
-Copyright 2021.
+ (c) Copyright [2021-2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
 */
 
 //nolint:lll
@@ -125,13 +124,6 @@ func (v *VerticaDB) IsKnownCommunalPrefix() bool {
 	return false
 }
 
-// HasKerberosConfig returns true if VerticaDB is setup for Kerberos authentication.
-func (v *VerticaDB) HasKerberosConfig() bool {
-	// We have a webhook check that makes sure if the principal is set, the
-	// other things are set too.
-	return v.Spec.Communal.KerberosServiceName != ""
-}
-
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
@@ -161,7 +153,7 @@ var _ webhook.Validator = &VerticaDB{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateCreate() error {
-	verticadblog.Info("validate create", "name", v.Name)
+	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
 	if allErrs == nil {
@@ -172,7 +164,7 @@ func (v *VerticaDB) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
-	verticadblog.Info("validate update", "name", v.Name)
+	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 	if allErrs == nil {

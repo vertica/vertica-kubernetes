@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -162,7 +162,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
-	if vdb.Spec.Communal.HadoopConfig != "" {
+	if vdb.Spec.HadoopConfig != "" {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name:      vapi.HadoopConfigMountName,
 			MountPath: paths.HadoopConfPath,
@@ -259,7 +259,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
-	if vdb.Spec.Communal.HadoopConfig != "" {
+	if vdb.Spec.HadoopConfig != "" {
 		vols = append(vols, buildHadoopConfigVolume(vdb))
 	}
 	if vdb.Spec.KerberosSecret != "" {
@@ -466,7 +466,7 @@ func buildHadoopConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.HadoopConfigMountName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HadoopConfig},
+				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.HadoopConfig},
 			},
 		},
 	}

@@ -75,11 +75,6 @@ do
 done
 # Include WEBHOOK_CERT_SOURCE in the config map
 perl -i -0777 -pe 's/(\ndata:)/$1\n  WEBHOOK_CERT_SOURCE: {{ include "vdb-op.certSource" . }}/g' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
-# 6. Template the caBundle
-for fn in $(ls $TEMPLATE_DIR/*webhookconfiguration.yaml)
-do
-  perl -i -pe 's/clientConfig:/clientConfig:\n    caBundle: {{ .Values.webhook.caBundle }}/' $fn
-done
 # 7. Template the resource limits and requests
 perl -i -0777 -pe 's/resources: template-placeholder/resources:\n          {{- toYaml .Values.resources | nindent 10 }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
@@ -113,10 +108,10 @@ do
 done
 perl -i -pe 's/^/{{- if .Values.webhook.enable -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
-# Related to this change is the --skip-webhook-patch option. This is needed if
-# the helm chart provided the CA bundle or using cert-manager, which handles
-# the CA bundle update itself.
-perl -i -0777 -pe 's/(--webhook-cert-secret.*)/$1\n{{- if or (eq .Values.webhook.certSource "cert-manager") (.Values.webhook.caBundle) }}\n        - --skip-webhook-patch\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+# Add in the --use-cert-manager option if we use cert-manager to generate the
+# TLS for the webhook. This is needed to tell the operator to add the
+# appropriate annotation for CA bundle injections.
+perl -i -0777 -pe 's/(--webhook-cert-secret.*)/$1\n{{- if eq .Values.webhook.certSource "cert-manager" }}\n        - --use-cert-manager\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 11.  Template the prometheus metrics service
 perl -i -pe 's/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml

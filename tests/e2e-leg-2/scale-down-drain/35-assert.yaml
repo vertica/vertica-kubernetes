@@ -26,6 +26,6 @@ message: Pod 'v-scale-down-drain-sec1-1' has active connections preventing the d
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1beta1
+  apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-scale-down-drain

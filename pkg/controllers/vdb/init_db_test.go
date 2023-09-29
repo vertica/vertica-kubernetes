@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -112,7 +112,7 @@ var _ = Describe("init_db", func() {
 	It("should set hdfs config dir in config parms map if hdfs communal path is used", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster1"
-		vdb.Spec.Communal.HadoopConfig = "hadoop-conf"
+		vdb.Spec.HadoopConfig = "hadoop-conf"
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -122,7 +122,7 @@ var _ = Describe("init_db", func() {
 	It("should have minimal config parms map if hdfs is used and no hdfs config dir was specified", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster2"
-		vdb.Spec.Communal.HadoopConfig = ""
+		vdb.Spec.HadoopConfig = ""
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 

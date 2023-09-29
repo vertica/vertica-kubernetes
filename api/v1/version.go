@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package v1beta1
+package v1
 
 import (
 	"regexp"

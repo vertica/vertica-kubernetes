@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -68,8 +68,8 @@ var _ = Describe("obj_reconcile", func() {
 		isController := true
 		blockOwnerDeletion := true
 		expOwnerRef := metav1.OwnerReference{
-			Kind:               "VerticaDB",
-			APIVersion:         "vertica.com/v1beta1",
+			Kind:               vapi.VerticaDBKind,
+			APIVersion:         vapi.GroupVersion.String(),
 			Name:               vdb.Name,
 			UID:                vdb.UID,
 			Controller:         &isController,
@@ -510,7 +510,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if the hadoop conf is not found", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.Communal.HadoopConfig = "not-here-3"
+			vdb.Spec.HadoopConfig = "not-here-3"
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 

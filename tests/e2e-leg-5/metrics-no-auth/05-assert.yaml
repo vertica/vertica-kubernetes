@@ -31,7 +31,7 @@ spec:
     - --dev=true
     - --prefix-name=verticadb-operator
     - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
-    - --skip-webhook-patch
+    - --use-cert-manager
     - --verticadb-concurrency=5
     - --verticaautoscaler-concurrency=1
     - --eventtrigger-concurrency=1
