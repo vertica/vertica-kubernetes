@@ -19,6 +19,7 @@ COPY ./packages/${VERTICA_RPM} /tmp/
 # container image
 COPY ./packages/cleanup.sh /tmp/
 COPY ./packages/package-checksum-patcher.py /tmp/
+COPY ./packages/httpstls.json /tmp/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
@@ -40,6 +41,8 @@ RUN set -x \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   && yum localinstall -q -y /tmp/${VERTICA_RPM} \
+  && mkdir -p /opt/vertica/config/https_certs \
+  && cp /tmp/httpstls.json /opt/vertica/config/https_certs/ \
   # Run install_vertica script to prepare environment
   && /opt/vertica/sbin/install_vertica \
   --accept-eula \

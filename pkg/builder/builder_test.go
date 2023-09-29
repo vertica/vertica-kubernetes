@@ -107,13 +107,6 @@ var _ = Describe("builder", func() {
 		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
 	})
 
-	It("should mount config/https_certs if vclusterops flag is set to true", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = "true"
-		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("config/https_certs")))
-	})
-
 	It("should have a specific mount name and no subPath for depot if depotVolume is EmptyDir", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Local.DepotVolume = vapi.PersistentVolume

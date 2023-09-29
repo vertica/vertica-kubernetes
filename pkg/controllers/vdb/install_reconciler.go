@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -70,19 +69,19 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
-	// We generate https conf file and skip the install phase when running
+	// We check the https conf file and skip the install phase when running
 	// the vclusterOps feature flag
 	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
-		return d.installForVClusterOps(ctx)
+		return d.checkInstallForVClusterOps()
 	}
 
 	return d.installForAdmintools(ctx)
 }
 
-// installForVClusterOps will go through the install phase for vclusterOps.
-// It only generates the http certs.
-func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Result, error) {
-	err := d.generateHTTPCerts(ctx)
+// checkInstallForVClusterOps will check the install for vclusterops
+// i.e httpstls.json exists in pods.
+func (d *InstallReconciler) checkInstallForVClusterOps() (ctrl.Result, error) {
+	err := d.checkIfHTTPTLSConfFileExists()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -183,28 +182,14 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 	return nil
 }
 
-// generateHTTPCerts will generate the necessary config file to be able to start and
-// communicate with the Vertica's https server.
-func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
+// checkIfHTTPTLSConfFileExists will check if httpstls.json exists in running pods.
+func (d *InstallReconciler) checkIfHTTPTLSConfFileExists() error {
 	for _, p := range d.PFacts.Detail {
 		if !p.isPodRunning {
 			continue
 		}
 		if !p.fileExists[paths.HTTPTLSConfFile] {
-			frwt := httpconf.FileWriter{}
-			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerTLSSecret)
-			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
-			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
-			}
-			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
-				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
-			_ = os.Remove(fname)
-			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
-			}
-			// Invalidate the pod facts cache since its out of date due the https generation
-			d.PFacts.Invalidate()
+			return fmt.Errorf("file %s is missing in pod %s", paths.HTTPTLSConfFileName, p.name)
 		}
 	}
 	return nil
@@ -312,12 +297,6 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 
 	if !p.dirExists[paths.ConfigSharePath] {
 		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
-		numCmds++
-	}
-
-	// vclusterops depends on https services to be running.
-	if vmeta.UseVClusterOps(d.Vdb.Annotations) && !p.dirExists[paths.HTTPTLSConfDir] {
-		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 		numCmds++
 	}
 

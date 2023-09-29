@@ -105,19 +105,8 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	}
 }
 
-// buildConfigVolumeMount returns the volume mount for config.
-// If vclusterops flag is enabled we mount only /opt/vertica/config/https_certs
+// buildConfigVolumeMount returns the volume mount for config (admintools only).
 func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
-	// When using vclusterOps, we don't have any state in /opt/vertica/config to preserve. There is no
-	// equivalent file like admintools.conf. The only state we need to preserve is the the contents of
-	// the https_certs directory.
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return corev1.VolumeMount{
-			Name:      vapi.LocalDataPVC,
-			SubPath:   vdb.GetPVSubPath("config/https_certs"),
-			MountPath: paths.HTTPTLSConfDir,
-		}
-	}
 	return corev1.VolumeMount{
 		Name:      vapi.LocalDataPVC,
 		SubPath:   vdb.GetPVSubPath("config"),
@@ -125,12 +114,19 @@ func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
 	}
 }
 
+// buildAdmintoolsOnlyVolumeMounts returns the volume mounts that are needed
+// only by admintools since in vclusterops mode, no files are being written in those locations.
+func buildAdmintoolsOnlyVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
+		buildConfigVolumeMount(vdb),
+	}
+}
+
 // buildVolumeMounts returns the volume mounts to include in the sts pod spec
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
-		buildConfigVolumeMount(vdb),
-		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("data"), MountPath: vdb.Spec.Local.DataPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
@@ -153,6 +149,10 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("catalog"), MountPath: vdb.Spec.Local.GetCatalogPath(),
 		})
+	}
+
+	if !vmeta.UseVClusterOps(vdb.Annotations) {
+		volMnts = append(volMnts, buildAdmintoolsOnlyVolumeMounts(vdb)...)
 	}
 
 	if vdb.Spec.LicenseSecret != "" {
