@@ -57,3 +57,6 @@ done
 # Copy the Role that allows users to work with the CRs that the verticadb
 # operator manages.
 cp $REPO_DIR/config/rbac/verticadb-operator-cr-user-role.yaml $RELEASE_ARTIFACT_TARGET_DIR
+# Copy the Role that must be linked to the ServiceAccount running the vertica
+# server pods.
+cp $REPO_DIR/config/rbac/vertica-server-role.yaml $RELEASE_ARTIFACT_TARGET_DIR
