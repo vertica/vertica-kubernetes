@@ -95,6 +95,7 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		ReadinessProbeOverride:   src.ReadinessProbeOverride,
 		LivenessProbeOverride:    src.LivenessProbeOverride,
 		StartupProbeOverride:     src.StartupProbeOverride,
+		ServiceAccountName:       src.ServiceAccountName,
 	}
 	for i := range src.ReviveOrder {
 		dst.ReviveOrder[i] = v1.SubclusterPodCount(src.ReviveOrder[i])
@@ -148,6 +149,7 @@ func convertFromSpec(src *v1.VerticaDBSpec) VerticaDBSpec {
 		ReadinessProbeOverride:   src.ReadinessProbeOverride,
 		LivenessProbeOverride:    src.LivenessProbeOverride,
 		StartupProbeOverride:     src.StartupProbeOverride,
+		ServiceAccountName:       src.ServiceAccountName,
 	}
 	for i := range src.ReviveOrder {
 		dst.ReviveOrder[i] = SubclusterPodCount(src.ReviveOrder[i])
