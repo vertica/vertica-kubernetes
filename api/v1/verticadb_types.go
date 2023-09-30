@@ -362,6 +362,14 @@ type VerticaDBSpec struct {
 	// here are applied to the default startup probe we create. If this is
 	// omitted, we use the default probe.
 	StartupProbeOverride *corev1.Probe `json:"startupProbeOverride,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ServiceAccount","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// +kubebuilder:validation:Optional
+	// The name of a serviceAccount to use to run the Vertica pods. If the
+	// service account is not specified or does not exist, the operator will
+	// create one, using the specified name if provided, along with a Role and
+	// RoleBinding.
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
