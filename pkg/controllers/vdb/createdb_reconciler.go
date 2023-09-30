@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -97,8 +97,9 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 
 // execCmd will do the actual execution of creating a database.
 // This handles logging of necessary events.
-func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string) (ctrl.Result, error) {
-	opts, err := c.genOptions(ctx, initiatorPod, hostList)
+func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.NamespacedName,
+	hostList []string, podNames []types.NamespacedName) (ctrl.Result, error) {
+	opts, err := c.genOptions(ctx, initiatorPod, podNames, hostList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -246,7 +247,7 @@ func (c *CreateDBReconciler) getFirstPrimarySubcluster() *vapi.Subcluster {
 }
 
 // genOptions will return the options to use for the create db command
-func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName,
+func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.NamespacedName, podNames []types.NamespacedName,
 	hostList []string) ([]createdb.Option, error) {
 	licPath, err := license.GetPath(ctx, c.VRec.Client, c.Vdb)
 	if err != nil {
@@ -255,6 +256,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 
 	opts := []createdb.Option{
 		createdb.WithInitiator(initiatorPod),
+		createdb.WithPods(podNames),
 		createdb.WithHosts(hostList),
 		createdb.WithCatalogPath(c.Vdb.Spec.Local.GetCatalogPath()),
 		createdb.WithDBName(c.Vdb.Spec.DBName),

@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	ctrl "sigs.k8s.io/controller-runtime"
 )

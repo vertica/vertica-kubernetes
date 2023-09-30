@@ -19,7 +19,7 @@ status:
   replicas: 3
   readyReplicas: 3
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-autoscale-by-subcluster

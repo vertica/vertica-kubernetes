@@ -12,7 +12,7 @@
 # limitations under the License.
 
 # We double duty this test to inject default upgradeRequeueTime by not setting RequeueTime
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade

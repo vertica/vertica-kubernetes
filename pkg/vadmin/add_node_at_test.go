@@ -32,10 +32,11 @@ var _ = Describe("add_node_at", func() {
 	It("should call admintools -t db_add_node", func() {
 		dispatcher, vdb, fpr := mockAdmintoolsDispatcher()
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		nm1 := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		Ω(dispatcher.AddNode(ctx,
 			addnode.WithInitiator(nm, "10.9.1.1"),
-			addnode.WithHost("v-main-1"),
-			addnode.WithHost("v-main-2"),
+			addnode.WithHost("v-main-1", nm),
+			addnode.WithHost("v-main-2", nm1),
 		)).Should(Succeed())
 		hist := fpr.FindCommands("-t db_add_node")
 		Ω(len(hist)).Should(Equal(1))
@@ -45,6 +46,7 @@ var _ = Describe("add_node_at", func() {
 	It("should return a special error when the license limit was reached", func() {
 		dispatcher, vdb, fpr := mockAdmintoolsDispatcher()
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		nm1 := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		fpr.Results[nm] = []cmds.CmdResult{
 			{
 				Err: errors.New("admintools command failed"),
@@ -55,7 +57,7 @@ var _ = Describe("add_node_at", func() {
 		}
 		err := dispatcher.AddNode(ctx,
 			addnode.WithInitiator(nm, "10.9.1.2"),
-			addnode.WithHost("v-main-0"),
+			addnode.WithHost("v-main-0", nm1),
 		)
 		Ω(err).ShouldNot(Succeed())
 		_, ok := err.(*addnode.LicenseLimitError)

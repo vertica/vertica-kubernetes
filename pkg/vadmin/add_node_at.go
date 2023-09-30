@@ -29,8 +29,16 @@ import (
 func (a *Admintools) AddNode(ctx context.Context, opts ...addnode.Option) error {
 	s := addnode.Parms{}
 	s.Make(opts...)
-	cmd := a.genAddNodeCommand(&s)
 
+	// Cleanup for any prior failed attempt.
+	for _, pod := range s.PodNames {
+		err := a.prepLocalData(ctx, pod)
+		if err != nil {
+			return err
+		}
+	}
+
+	cmd := a.genAddNodeCommand(&s)
 	stdout, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
 	if err != nil {
 		switch {

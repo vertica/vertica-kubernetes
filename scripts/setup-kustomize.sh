@@ -142,7 +142,6 @@ EOF
       cat <<EOF >> kustomization.yaml
 patches:
 - target:
-    version: v1beta1
     kind: VerticaDB
   patch: |-
     - op: replace
@@ -726,6 +725,8 @@ function create_volume_expansion_overlay {
 
 cd $REPO_DIR/tests
 
+# Refresh the operator upgrade testsuite
+$REPO_DIR/scripts/setup-operator-upgrade-testsuite.sh
 # Create the configMap that is used to control the communal endpoint and creds.
 create_communal_cfg
 # Copy over the cert that was used to set up the communal endpoint

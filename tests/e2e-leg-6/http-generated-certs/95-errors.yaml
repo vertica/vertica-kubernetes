@@ -20,7 +20,7 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: verticadb-operator
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 ---
 apiVersion: v1

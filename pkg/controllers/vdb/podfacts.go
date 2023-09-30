@@ -27,7 +27,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/lithammer/dedent"
 	"github.com/pkg/errors"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
@@ -1078,11 +1078,27 @@ func (p *PodFacts) anyUninstalledTransientPodsNotRunning() (bool, types.Namespac
 	return false, types.NamespacedName{}
 }
 
-// getHostList will return a host list from the given pods
-func getHostList(podList []*PodFact) []string {
+// getHostList will return a host and podName list from the given pods
+func getHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName) {
 	hostList := make([]string, 0, len(podList))
+	podNames := make([]types.NamespacedName, 0, len(podList))
 	for _, pod := range podList {
 		hostList = append(hostList, pod.podIP)
+		podNames = append(podNames, pod.name)
 	}
-	return hostList
+	return hostList, podNames
+}
+
+// findExpectedNodeNames will return a list of pods that should have been in the database
+// before running db_add_node (which are also called expected nodes)
+func (p *PodFacts) findExpectedNodeNames() []string {
+	var expectedNodeNames []string
+
+	for _, v := range p.Detail {
+		if v.dbExists {
+			expectedNodeNames = append(expectedNodeNames, v.vnodeName)
+		}
+	}
+
+	return expectedNodeNames
 }

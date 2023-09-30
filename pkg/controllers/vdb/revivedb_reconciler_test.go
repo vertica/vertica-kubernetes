@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
@@ -102,12 +102,12 @@ var _ = Describe("revivedb_reconcile", func() {
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
 		vdb.Spec.IgnoreClusterLease = false
-		opts := r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
+		opts := r.genReviveOpts(types.NamespacedName{}, []string{"hostA"}, []types.NamespacedName{})
 		parms := revivedb.Parms{}
 		parms.Make(opts...)
 		Expect(parms.IgnoreClusterLease).Should(BeFalse())
 		vdb.Spec.IgnoreClusterLease = true
-		opts = r.genReviveOpts(types.NamespacedName{}, []string{"hostA"})
+		opts = r.genReviveOpts(types.NamespacedName{}, []string{"hostA"}, []types.NamespacedName{})
 		parms = revivedb.Parms{}
 		parms.Make(opts...)
 		Expect(parms.IgnoreClusterLease).Should(BeTrue())

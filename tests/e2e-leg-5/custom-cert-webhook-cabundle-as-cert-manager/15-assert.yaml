@@ -14,14 +14,6 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  labels:
-    control-plane: controller-manager
+  name: v-custom-cert-webhook-cabundle-as-cert-manager-sc1-0
 status:
   phase: Running
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: verticadb-operator-manager-config
-data:
-  WEBHOOK_CERT_SOURCE: secret

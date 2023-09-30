@@ -426,6 +426,851 @@ spec:
           or Revive, this field is required and cannot change after creation.
         displayName: Endpoint
         path: communal.endpoint
+      - description: If true, the operator will include the VerticaDB's UID in the
+          path.  This option exists if you reuse the communal path in the same endpoint
+          as it forces each database path to be unique.
+        displayName: Include UIDIn Path
+        path: communal.includeUIDInPath
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Name of the Kerberos realm.  This is set in the database config
+          parameter KerberosRealm during bootstrapping.
+        displayName: Kerberos Realm
+        path: communal.kerberosRealm
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The service name portion of the Vertica Kerberos principal. This
+          is set in the database config parameter KerberosServiceName during bootstrapping.
+        displayName: Kerberos Service Name
+        path: communal.kerberosServiceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The path to the communal storage. We support S3, Google Cloud
+          Storage, and HDFS paths.  The protocol in the path (e.g. s3:// or webhdfs://)
+          dictates the type of storage.  The path, whether it be a S3 bucket or HDFS
+          path, must exist prior to creating the VerticaDB.  When initPolicy is Create,
+          this field is required and the path must be empty.  When initPolicy is Revive,
+          this field is required and must be non-empty.
+        displayName: Path
+        path: communal.path
+      - description: The region containing the bucket.  If you do not set the correct
+          region, you might experience a delay before the bootstrap fails because
+          Vertica retries several times before giving up.
+        displayName: Region
+        path: communal.region
+      - description: 'The server-side encryption type Vertica will use to read/write
+          from encrypted S3 communal storage. Available values are: SSE-S3, SSE-KMS,
+          SSE-C and empty string (""). - SSE-S3: the S3 service manages encryption
+          keys. - SSE-KMS: encryption keys are managed by the Key Management Service
+          (KMS). KMS key identifier must be supplied through communal.additionalConfig
+          map. - SSE-C: the client manages encryption keys and provides them to S3
+          for each operation. The client key must be supplied through communal.s3SseCustomerKeySecret.
+          - Empty string (""): No encryption. This is the default value. This value
+          cannot change after the initial creation of the VerticaDB.'
+        displayName: S3 Server Side Encryption
+        path: communal.s3ServerSideEncryption
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:SSE-S3
+        - urn:alm:descriptor:com.tectonic.ui:select:SSE-KMS
+        - urn:alm:descriptor:com.tectonic.ui:select:SSE-C
+      - description: The name of a secret that contains the key to use for the S3SseCustomerKey
+          config option in the server. It is required when S3ServerSideEncryption
+          is SSE-C. When set, the secret must have a key named clientKey.
+        displayName: S3 Sse Customer Key Secret
+        path: communal.s3SseCustomerKeySecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: The name of the database.  This cannot be updated once the CRD
+          is created.
+        displayName: DBName
+        path: dbName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Controls if the spread communication between pods is encrypted.  Valid
+          values are 'vertica' or an empty string if not enabled.  When set to 'vertica',
+          Vertica generates the spread encryption key for the cluster when the database
+          starts up.  This can only be set during initial creation of the CR.  If
+          set for initPolicy other than Create, then it has no effect.
+        displayName: Encrypt Spread Comm
+        path: encryptSpreadComm
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: A config map that contains the contents of the /etc/hadoop directory.
+          This gets mounted in the container and is used to configure connections
+          to an HDFS communal path
+        displayName: Hadoop Config
+        path: hadoopConfig
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Control the Vertica''s http server.  The http server provides
+          a REST interface that can be used for management and monitoring of the server.  Valid
+          values are: Enabled, Disabled, Auto or an empty string.  An empty string
+          currently defaults to Auto.'
+        displayName: HTTPServer Mode
+        path: httpServerMode
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'A secret that contains the TLS credentials to use for the Vertica
+          HTTP server.  If this is empty, the operator will create a secret to use
+          and add the name of the generate secret in this field.  When set, the secret
+          must have the following keys defined: - tls.key: The private key to be used
+          by the HTTP server - tls.crt: The signed certificate chain for the private
+          key - ca.crt: The CA certificate'
+        displayName: HTTPServer TLSSecret
+        path: httpServerTLSSecret
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Ignore the cluster lease when doing a revive or start_db.  Use
+          this with caution, as ignoring the cluster lease when another system is
+          using the same communal storage will cause corruption.
+        displayName: Ignore Cluster Lease
+        path: ignoreClusterLease
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: When set to False, this parameter will ensure that when changing
+          the vertica version that we follow the upgrade path.  The Vertica upgrade
+          path means you cannot downgrade a Vertica release, nor can you skip any
+          released Vertica versions when upgrading.
+        displayName: Ignore Upgrade Path
+        path: ignoreUpgradePath
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: The docker image name that contains the Vertica server.  Whenever
+          this changes, the operator treats this as an upgrade.  The upgrade can be
+          done either in an online or offline fashion.  See the upgradePolicy to understand
+          how to control the behavior.
+        displayName: Image
+        path: image
+      - description: This dictates the image pull policy to use
+        displayName: Image Pull Policy
+        path: imagePullPolicy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
+      - description: 'ImagePullSecrets is an optional list of references to secrets
+          in the same namespace to use for pulling the image. If specified, these
+          secrets will be passed to individual puller implementations for them to
+          use. For example, in the case of docker, only DockerConfig type secrets
+          are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod'
+        displayName: Image Pull Secrets
+        path: imagePullSecrets
+      - description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+        displayName: Name
+        path: imagePullSecrets[0].name
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: The initialization policy defines how to setup the database.  Available
+          options are to create a new database or revive an existing one.
+        displayName: Init Policy
+        path: initPolicy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:Create
+        - urn:alm:descriptor:com.tectonic.ui:select:Revive
+        - urn:alm:descriptor:com.tectonic.ui:select:ScheduleOnly
+      - description: "Sets the fault tolerance for the cluster.  Allowable values
+          are 0 or 1.  0 is only suitable for test environments because we have no
+          fault tolerance and the cluster can only have between 1 and 3 pods.  If
+          set to 1, we have fault tolerance if nodes die and the cluster has a minimum
+          of 3 pods. \n This value cannot change after the initial creation of the
+          VerticaDB."
+        displayName: KSafety
+        path: kSafety
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:0
+        - urn:alm:descriptor:com.tectonic.ui:select:1
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'A secret that contains files required for Kereberos setup.  The
+          secret must have the following keys: - krb5.conf: The contents of the Kerberos
+          config file - krb5.keytab: The keytab file that stores credentials for each
+          Vertica principal. These files will be mounted in /etc.  We use the same
+          keytab file on each host, so it must contain all of the Vertica principals.'
+        displayName: Kerberos Secret
+        path: kerberosSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Custom labels that will be added to all of the objects that the
+          operator will create.
+        displayName: Labels
+        path: labels
+      - description: The name of a secret that contains the contents of license files.
+          The secret must be in the same namespace as the CRD. Each of the keys in
+          the secret will be mounted as files in /home/dbadmin/licensing/mnt. If this
+          is set prior to creating a database, it will include one of the licenses
+          from the secret -- if there are multiple licenses it will pick one by selecting
+          the first one alphabetically.  The user is responsible for installing any
+          additional licenses or if the license was added to the secret after DB creation.
+        displayName: License Secret
+        path: licenseSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Allows tuning of the Vertica pods liveness probe. Each of the
+          values here are applied to the default liveness probe we create. If this
+          is omitted, we use the default probe.
+        displayName: Liveness Probe Override
+        path: livenessProbeOverride
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Contain details about the local storage
+        displayName: Local
+        path: local
+      - description: The path in the container to the catalog.  When initializing
+          the database with revive, this path must match the catalog path used when
+          the database was first created. For backwards compatibility, if this is
+          omitted, then it shares the same path as the dataPath.
+        displayName: Catalog Path
+        path: local.catalogPath
+      - description: The path in the container to the local directory for the 'DATA,TEMP'
+          storage location usage. When initializing the database with revive, the
+          local path here must match the path that was used when the database was
+          first created.
+        displayName: Data Path
+        path: local.dataPath
+      - description: The path in the container to the depot -- 'DEPOT' storage location
+          usage. When initializing the database with revive, this path must match
+          the depot path used when the database was first created.
+        displayName: Depot Path
+        path: local.depotPath
+      - description: 'The type of volume to use for the depot. Allowable values will
+          be: EmptyDir and PersistentVolume or an empty string. An empty string currently
+          defaults to PersistentVolume.'
+        displayName: Depot Volume
+        path: local.depotVolume
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:PersistentVolume
+        - urn:alm:descriptor:com.tectonic.ui:select:EmptyDir
+      - description: The minimum size of the local data volume when picking a PV.  If
+          changing this after the PV have been created, two things may happen. First,
+          it will cause a resize of the PV to the new size. And, if depot is stored
+          in the PV, a resize of the depot happens too.
+        displayName: Request Size
+        path: local.requestSize
+      - description: The local data stores the local catalog, depot and config files.
+          Portions of the local data are persisted with a persistent volume (PV) using
+          a persistent volume claim (PVC). The catalog and config files are always
+          stored in the PV. The depot may be include too if depotVolume is set to
+          'PersistentVolume'. This field is used to define the name of the storage
+          class to use for the PV. This will be set when creating the PVC. By default,
+          it is not set. This means that that the PVC we create will have the default
+          storage class set in Kubernetes.
+        displayName: Storage Class
+        path: local.storageClass
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:StorageClass
+      - description: This can be used to override any pod-level securityContext for
+          the Vertica pod. It will be merged with the default context. If omitted,
+          then the default context is used.
+        displayName: Pod Security Context
+        path: podSecurityContext
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Allows tuning of the Vertica pods readiness probe. Each of the
+          values here are applied to the default readiness probe we create. If this
+          is omitted, we use the default probe.
+        displayName: Readiness Probe Override
+        path: readinessProbeOverride
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: If a reconciliation iteration needs to be requeued this controls
+          the amount of time in seconds to wait.  If this is set to 0, then the requeue
+          time will increase using an exponential backoff algorithm.  Caution, when
+          setting this to some positive value the exponential backoff is disabled.
+          This should be reserved for test environments as an error scenario could
+          easily consume the logs.
+        displayName: Requeue Time
+        path: requeueTime
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The timeout, in seconds, to use when admintools restarts a node
+          or the entire cluster.  If omitted, we use the admintools default timeout
+          of 20 minutes.
+        displayName: Restart Timeout
+        path: restartTimeout
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: "This specifies the order of nodes when doing a revive.  Each
+          entry contains an index to a subcluster, which is an index in Subclusters[],
+          and a pod count of the number of pods include from the subcluster. \n For
+          example, suppose the database you want to revive has the following setup:
+          v_db_node0001: subcluster A v_db_node0002: subcluster A v_db_node0003: subcluster
+          B v_db_node0004: subcluster A v_db_node0005: subcluster B v_db_node0006:
+          subcluster B \n And the Subcluster[] array is defined as {'A', 'B'}.  The
+          revive order would be: - {subclusterIndex:0, podCount:2}  # 2 pods from
+          subcluster A - {subclusterIndex:1, podCount:1}  # 1 pod from subcluster
+          B - {subclusterIndex:0, podCount:1}  # 1 pod from subcluster A - {subclusterIndex:1,
+          podCount:2}  # 2 pods from subcluster B \n If InitPolicy is not Revive,
+          this field can be ignored."
+        displayName: Revive Order
+        path: reviveOrder
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The number of pods paired with this subcluster.  If this is omitted
+          then, all remaining pods in the subcluster will be used.
+        displayName: Pod Count
+        path: reviveOrder[0].podCount
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: The index of the subcluster.  This is an index into Subclusters[]
+        displayName: Subcluster Index
+        path: reviveOrder[0].subclusterIndex
+      - description: Allows you to set any additional securityContext for the Vertica
+          server container.  We merge the values with the securityContext generated
+          by the operator.  The operator adds its own capabilities to this.  If you
+          want those capabilities to be removed you must explicitly include them in
+          the drop list.
+        displayName: Security Context
+        path: securityContext
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'The number of shards to create in the database. This cannot
+          be updated once the CRD is created.  Refer to this page to determine an
+          optimal size: https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/SizingEonCluster.htm
+          The default was chosen using this link and the default subcluster size of
+          3.'
+        displayName: Shard Count
+        path: shardCount
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: Optional sidecar containers that run along side the vertica server.  The
+          operator adds the same volume mounts that are in the vertica server container
+          to each sidecar container.
+        displayName: Sidecars
+        path: sidecars
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'An optional secret that has the files for /home/dbadmin/.ssh.  If
+          this is omitted, the ssh files from the image are used.  You can this option
+          if you have a cluster that talks to Vertica notes outside of Kubernetes,
+          as it has the public keys to be able to ssh to those nodes.  It must have
+          the following keys present: id_rsa, id_rsa.pub and authorized_keys.'
+        displayName: SSHSecret
+        path: sshSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Allows tuning of the Vertica pods startup probe. Each of the
+          values here are applied to the default startup probe we create. If this
+          is omitted, we use the default probe.
+        displayName: Startup Probe Override
+        path: startupProbeOverride
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - displayName: Subclusters
+        path: subclusters
+      - description: 'Like nodeSelector this allows you to constrain the pod only
+          to certain pods. It is more expressive than just using node selectors. More
+          info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity'
+        displayName: Affinity
+        path: subclusters[0].affinity
+      - description: Describes node affinity scheduling rules for the pod.
+        displayName: Node Affinity
+        path: subclusters[0].affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: Describes pod affinity scheduling rules (e.g. co-locate this
+          pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Affinity
+        path: subclusters[0].affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: Describes pod anti-affinity scheduling rules (e.g. avoid putting
+          this pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Anti Affinity
+        path: subclusters[0].affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: 'Allows the service object to be attached to a list of external
+          IPs that you specify. If not set, the external IP list is left empty in
+          the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
+        displayName: External IPs
+        path: subclusters[0].externalIPs
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: This allows a different image to be used for the subcluster than
+          the one in VerticaDB.  This is intended to be used internally by the online
+          image change process.
+        displayName: Image Override
+        path: subclusters[0].imageOverride
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Indicates whether the subcluster is a primary or secondary. You
+          must have at least one primary subcluster in the database.
+        displayName: Is Primary
+        path: subclusters[0].isPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Internal state that indicates whether this is a transient read-only
+          subcluster used for online upgrade.  A subcluster that exists temporarily
+          to serve traffic for subclusters that are restarting with the new image.
+        displayName: Is Transient
+        path: subclusters[0].isTransient
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'Specify IP address of LoadBalancer service for this subcluster.
+          This field is ignored when serviceType != "LoadBalancer". More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer'
+        displayName: Load Balancer IP
+        path: subclusters[0].loadBalancerIP
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The name of the subcluster. This is a required parameter. This
+          cannot change after CRD creation.
+        displayName: Name
+        path: subclusters[0].name
+      - description: When setting serviceType to NodePort, this parameter allows you
+          to define the port that is opened at each node for Vertica client connections.
+          If using NodePort and this is omitted, Kubernetes will choose the port automatically.
+          This port must be from within the defined range allocated by the control
+          plane (default is 30000-32767).
+        displayName: Node Port
+        path: subclusters[0].nodePort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'A map of label keys and values to restrict Vertica node scheduling
+          to workers with matching labels. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector'
+        displayName: Node Selector
+        path: subclusters[0].nodeSelector
+      - description: 'The priority class name given to pods in this subcluster. This
+          affects where the pod gets scheduled. More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass'
+        displayName: Priority Class Name
+        path: subclusters[0].priorityClassName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'This defines the resource requests and limits for pods in the
+          subcluster. It is advisable that the request and limits match as this ensures
+          the pods are assigned to the guaranteed QoS class. This will reduces the
+          chance that pods are chosen by the OOM killer. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+        displayName: Resources
+        path: subclusters[0].resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: A map of key/value pairs appended to service metadata.annotations.
+        displayName: Service Annotations
+        path: subclusters[0].serviceAnnotations
+      - description: Identifies the name of the service object that will serve this
+          subcluster.  If multiple subclusters share the same service name then they
+          all share the same service object.  This allows for a single service object
+          to round robin between multiple subclusters.  If this is left blank, a service
+          object matching the subcluster name is used.  The actual name of the service
+          object is always prefixed with the name of the owning VerticaDB.
+        displayName: Service Name
+        path: subclusters[0].serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Identifies the type of Kubernetes service to use for external
+          client connectivity. The default is to use a ClusterIP, which sets a stable
+          IP and port to use that is accessible only from within Kubernetes itself.
+          Depending on the service type chosen the user may need to set other config
+          knobs to further config it. These other knobs follow this one. More info:
+          https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types'
+        displayName: Service Type
+        path: subclusters[0].serviceType
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
+        - urn:alm:descriptor:com.tectonic.ui:select:NodePort
+        - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
+      - description: "The number of pods that the subcluster will have. This determines
+          the number of Vertica nodes that it will have. Changing this number will
+          either delete or schedule new pods. \n The database has a k-safety of 1.
+          So, if this is a primary subcluster, the minimum value is 3. If this is
+          a secondary subcluster, the minimum is 0. \n Note, you must have a valid
+          license to pick a value larger than 3. The default license that comes in
+          the vertica container is for the community edition, which can only have
+          3 nodes. The license can be set with the db.licenseSecret parameter."
+        displayName: Size
+        path: subclusters[0].size
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: 'Any tolerations and taints to use to aid in where to schedule
+          a pod. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: subclusters[0].tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Like the nodePort parameter, except this controls the node port
+          to use for the http endpoint in the Vertica server.  The same rules apply:
+          it must be defined within the range allocated by the control plane, if omitted
+          Kubernetes will choose the port automatically.'
+        displayName: Vertica HTTPNode Port
+        path: subclusters[0].verticaHTTPNodePort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: An optional name for a secret that contains the password for
+          the database's superuser. If this is not set, then we assume no such password
+          is set for the database. If this is set, it is up the user to create this
+          secret before deployment. The secret must have a key named password.
+        displayName: Superuser Password Secret
+        path: superuserPasswordSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: When doing an online upgrade, we designate a subcluster to accept
+          traffic while the other subclusters restart.  The designated subcluster
+          is specified here.  The name of the subcluster can refer to an existing
+          one or an entirely new subcluster.  If the subcluster is new, it will exist
+          only for the duration of the upgrade.  If this struct is left empty the
+          operator will default to picking existing subclusters.
+        displayName: Temporary Subcluster Routing
+        path: temporarySubclusterRouting
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Names of existing subclusters to use for temporary routing of
+          client connections.  The operator will use the first subcluster that is
+          online.
+        displayName: Names
+        path: temporarySubclusterRouting.names
+      - description: A new subcluster will be created using this as a template.  This
+          subcluster will only exist for the life of the online upgrade.  It will
+          accept client traffic for a subcluster that are in the process of being
+          restarted.
+        displayName: Template
+        path: temporarySubclusterRouting.template
+      - description: 'Like nodeSelector this allows you to constrain the pod only
+          to certain pods. It is more expressive than just using node selectors. More
+          info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity'
+        displayName: Affinity
+        path: temporarySubclusterRouting.template.affinity
+      - description: Describes node affinity scheduling rules for the pod.
+        displayName: Node Affinity
+        path: temporarySubclusterRouting.template.affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: Describes pod affinity scheduling rules (e.g. co-locate this
+          pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Affinity
+        path: temporarySubclusterRouting.template.affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: Describes pod anti-affinity scheduling rules (e.g. avoid putting
+          this pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Anti Affinity
+        path: temporarySubclusterRouting.template.affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: 'Allows the service object to be attached to a list of external
+          IPs that you specify. If not set, the external IP list is left empty in
+          the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
+        displayName: External IPs
+        path: temporarySubclusterRouting.template.externalIPs
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: This allows a different image to be used for the subcluster than
+          the one in VerticaDB.  This is intended to be used internally by the online
+          image change process.
+        displayName: Image Override
+        path: temporarySubclusterRouting.template.imageOverride
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Indicates whether the subcluster is a primary or secondary. You
+          must have at least one primary subcluster in the database.
+        displayName: Is Primary
+        path: temporarySubclusterRouting.template.isPrimary
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Internal state that indicates whether this is a transient read-only
+          subcluster used for online upgrade.  A subcluster that exists temporarily
+          to serve traffic for subclusters that are restarting with the new image.
+        displayName: Is Transient
+        path: temporarySubclusterRouting.template.isTransient
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: 'Specify IP address of LoadBalancer service for this subcluster.
+          This field is ignored when serviceType != "LoadBalancer". More info: https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer'
+        displayName: Load Balancer IP
+        path: temporarySubclusterRouting.template.loadBalancerIP
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The name of the subcluster. This is a required parameter. This
+          cannot change after CRD creation.
+        displayName: Name
+        path: temporarySubclusterRouting.template.name
+      - description: When setting serviceType to NodePort, this parameter allows you
+          to define the port that is opened at each node for Vertica client connections.
+          If using NodePort and this is omitted, Kubernetes will choose the port automatically.
+          This port must be from within the defined range allocated by the control
+          plane (default is 30000-32767).
+        displayName: Node Port
+        path: temporarySubclusterRouting.template.nodePort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'A map of label keys and values to restrict Vertica node scheduling
+          to workers with matching labels. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector'
+        displayName: Node Selector
+        path: temporarySubclusterRouting.template.nodeSelector
+      - description: 'The priority class name given to pods in this subcluster. This
+          affects where the pod gets scheduled. More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass'
+        displayName: Priority Class Name
+        path: temporarySubclusterRouting.template.priorityClassName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'This defines the resource requests and limits for pods in the
+          subcluster. It is advisable that the request and limits match as this ensures
+          the pods are assigned to the guaranteed QoS class. This will reduces the
+          chance that pods are chosen by the OOM killer. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+        displayName: Resources
+        path: temporarySubclusterRouting.template.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: A map of key/value pairs appended to service metadata.annotations.
+        displayName: Service Annotations
+        path: temporarySubclusterRouting.template.serviceAnnotations
+      - description: Identifies the name of the service object that will serve this
+          subcluster.  If multiple subclusters share the same service name then they
+          all share the same service object.  This allows for a single service object
+          to round robin between multiple subclusters.  If this is left blank, a service
+          object matching the subcluster name is used.  The actual name of the service
+          object is always prefixed with the name of the owning VerticaDB.
+        displayName: Service Name
+        path: temporarySubclusterRouting.template.serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Identifies the type of Kubernetes service to use for external
+          client connectivity. The default is to use a ClusterIP, which sets a stable
+          IP and port to use that is accessible only from within Kubernetes itself.
+          Depending on the service type chosen the user may need to set other config
+          knobs to further config it. These other knobs follow this one. More info:
+          https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types'
+        displayName: Service Type
+        path: temporarySubclusterRouting.template.serviceType
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:ClusterIP
+        - urn:alm:descriptor:com.tectonic.ui:select:NodePort
+        - urn:alm:descriptor:com.tectonic.ui:select:LoadBalancer
+      - description: "The number of pods that the subcluster will have. This determines
+          the number of Vertica nodes that it will have. Changing this number will
+          either delete or schedule new pods. \n The database has a k-safety of 1.
+          So, if this is a primary subcluster, the minimum value is 3. If this is
+          a secondary subcluster, the minimum is 0. \n Note, you must have a valid
+          license to pick a value larger than 3. The default license that comes in
+          the vertica container is for the community edition, which can only have
+          3 nodes. The license can be set with the db.licenseSecret parameter."
+        displayName: Size
+        path: temporarySubclusterRouting.template.size
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: 'Any tolerations and taints to use to aid in where to schedule
+          a pod. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: temporarySubclusterRouting.template.tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Like the nodePort parameter, except this controls the node port
+          to use for the http endpoint in the Vertica server.  The same rules apply:
+          it must be defined within the range allocated by the control plane, if omitted
+          Kubernetes will choose the port automatically.'
+        displayName: Vertica HTTPNode Port
+        path: temporarySubclusterRouting.template.verticaHTTPNodePort
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Defines how upgrade will be managed.  Available values are:
+          Offline, Online and Auto. - Offline: means we take down the entire cluster
+          then bring it back up with the new image. - Online: will keep the cluster
+          up when the upgrade occurs.  The data will go into read-only mode until
+          the Vertica nodes from the primary subcluster reform the cluster with the
+          new image. - Auto: will pick between Offline or Online.  Online is only
+          chosen if a license Secret exists, the k-Safety of the database is 1 and
+          we are running with a Vertica version that supports read-only subclusters.'
+        displayName: Upgrade Policy
+        path: upgradePolicy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:Auto
+        - urn:alm:descriptor:com.tectonic.ui:select:Online
+        - urn:alm:descriptor:com.tectonic.ui:select:Offline
+      - description: If a reconciliation iteration during an operation such as Upgrade
+          needs to be requeued, this controls the amount of time in seconds to delay
+          adding the key to the reconcile queue.  If RequeueTime is set, it overrides
+          this value. If RequeueTime is not set either, then we set the default value
+          only for upgrades. For other reconciles we use the exponential backoff algorithm.
+        displayName: Upgrade Requeue Time
+        path: upgradeRequeueTime
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Additional volume mounts to include in the Vertica container.  These
+          reference volumes that are in the Volumes list.  The mount path must not
+          conflict with a mount path that the operator adds internally.
+        displayName: Volume Mounts
+        path: volumeMounts
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: "Custom volumes that are added to sidecars and the Vertica container.
+          For these volumes to be visible in either container, they must have a corresonding
+          volumeMounts entry.  For sidecars, this is included in `spec.sidecars[*].volumeMounts`.
+          \ For the Vertica container, it is included in `spec.volumeMounts`. \n This
+          accepts any valid volume type.  A unique name must be given for each volume
+          and it cannot conflict with any of the internally generated volumes."
+        displayName: Volumes
+        path: volumes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      statusDescriptors:
+      - description: A count of the number of pods that have been added to the database.
+        displayName: Added To DBCount
+        path: addedToDBCount
+      - description: Conditions for VerticaDB
+        displayName: Conditions
+        path: conditions
+      - description: Last time the condition transitioned from one status to another.
+        displayName: Last Transition Time
+        path: conditions[0].lastTransitionTime
+      - description: Status is the status of the condition can be True, False or Unknown
+        displayName: Status
+        path: conditions[0].status
+      - description: Type is the name of the condition
+        displayName: Type
+        path: conditions[0].type
+      - description: A count of the number of pods that have been installed into the
+          vertica cluster.
+        displayName: Install Count
+        path: installCount
+      - description: The number of subclusters in the database
+        displayName: Subcluster Count
+        path: subclusterCount
+      - description: Status per subcluster.
+        displayName: Subclusters
+        path: subclusters
+      - description: A count of the number of pods that have been added to the database
+          for this subcluster.
+        displayName: Added To DBCount
+        path: subclusters[0].addedToDBCount
+      - displayName: Detail
+        path: subclusters[0].detail
+      - description: This is set to true if the DB exists and the pod has been added
+          to it.
+        displayName: Added To DB
+        path: subclusters[0].detail[0].addedToDB
+      - description: This is set to true if /opt/vertica/config has been bootstrapped.
+        displayName: Installed
+        path: subclusters[0].detail[0].installed
+      - description: True means the vertica process on this pod is in read-only state
+        displayName: Read Only
+        path: subclusters[0].detail[0].readOnly
+      - description: True means the vertica process is running on this pod and it
+          can accept connections on port 5433.
+        displayName: Up Node
+        path: subclusters[0].detail[0].upNode
+      - description: This is the vnode name that Vertica internally assigned this
+          pod (e.g. v_<dbname>_nodexxxx)
+        displayName: VNode Name
+        path: subclusters[0].detail[0].vnodeName
+      - description: A count of the number of pods that have been installed into the
+          subcluster.
+        displayName: Install Count
+        path: subclusters[0].installCount
+      - description: Name of the subcluster
+        displayName: Name
+        path: subclusters[0].name
+      - description: Object ID of the subcluster.
+        displayName: Oid
+        path: subclusters[0].oid
+      - description: A count of the number of pods that are in read-only state in
+          this subcluster.
+        displayName: Read Only Count
+        path: subclusters[0].readOnlyCount
+      - description: A count of the number of pods that have a running vertica process
+          in this subcluster.
+        displayName: Up Node Count
+        path: subclusters[0].upNodeCount
+      - description: A count of the number of pods that have a running vertica process.
+        displayName: Up Node Count
+        path: upNodeCount
+      - description: Status message for the current running upgrade.   If no upgrade
+          is occurring, this message remains blank.
+        displayName: Upgrade Status
+        path: upgradeStatus
+      version: v1
+    - description: VerticaDB is the CR that defines a Vertica Eon mode cluster that
+        is managed by the verticadb-operator.
+      displayName: Vertica DB
+      kind: VerticaDB
+      name: verticadbs.vertica.com
+      resources:
+      - kind: Pod
+        name: ""
+        version: v1
+      - kind: Service
+        name: ""
+        version: v1
+      - kind: Statefulset
+        name: ""
+        version: apps/v1
+      specDescriptors:
+      - description: Custom annotations that will be added to all of the objects that
+          the operator will create.
+        displayName: Annotations
+        path: annotations
+      - description: State to indicate whether the operator will restart Vertica if
+          the process is not running. Under normal cicumstances this is set to true.
+          The purpose of this is to allow a maintenance window, such as a manual upgrade,
+          without the operator interfering.
+        displayName: Auto Restart Vertica
+        path: autoRestartVertica
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Secrets that will be mounted in the vertica container.  The
+          purpose of this is to allow custom certs to be available.  The full path
+          is: /certs/<secretName>/<key_i> Where <secretName> is the name provided
+          in the secret and <key_i> is one of the keys in the secret.'
+        displayName: Cert Secrets
+        path: certSecrets
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+        displayName: Name
+        path: certSecrets[0].name
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Contains details about the communal storage.
+        displayName: Communal
+        path: communal
+      - description: Contains a map of server configuration parameters. To avoid duplicate
+          values, if a parameter is already set through another CR field, (like S3ServerSideEncryption
+          through communal.s3ServerSideEncryption), the corresponding key/value pair
+          is skipped. If a config value is set that isn't supported by the server
+          version you are running, the server will fail to start. These are set only
+          during initial bootstrap. After the database has been initialized, changing
+          the options in the CR will have no affect in the server.
+        displayName: Additional Config
+        path: communal.additionalConfig
+      - description: The absolute path to a certificate bundle of trusted CAs. This
+          CA bundle is used when establishing TLS connections to external services
+          such as AWS, Azure or swebhdf:// scheme.  Typically this would refer to
+          a path to one of the certSecrets.
+        displayName: Ca File
+        path: communal.caFile
+      - description: "The name of a secret that contains the credentials to connect
+          to the communal endpoint (only applies to s3://, gs:// or azb://). Certain
+          keys need to be set, depending on the endpoint type: - s3:// or gs:// -
+          If storing credentials in a secret, the secret must have the following keys
+          set: accesskey and secretkey.  When using Google Cloud Storage, the IDs
+          set in the secret are taken from the hash-based message authentication code
+          (HMAC) keys. - azb:// - It must have the following keys set: accountName
+          - Name of the Azure account blobEndpoint - (Optional) Set this to the location
+          of the endpoint. If using an emulator like Azurite, it can be set to something
+          like 'http://<IP-addr>:<port>' accountKey - If accessing with an account
+          key set it here sharedAccessSignature - If accessing with a shared access
+          signature, set it here \n This field is optional. For AWS, authentication
+          to communal storage can be provided through an attached IAM profile: attached
+          to the EC2 instance or to a ServiceAccount with IRSA (see https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
+          IRSA requires a Vertica server running at least with version >= 12.0.3."
+        displayName: Credential Secret
+        path: communal.credentialSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: The URL to the communal endpoint. The endpoint must be prefaced
+          with http:// or https:// to know what protocol to connect with. If using
+          S3 or Google Cloud Storage as communal storage and initPolicy is Create
+          or Revive, this field is required and cannot change after creation.
+        displayName: Endpoint
+        path: communal.endpoint
       - description: A config map that contains the contents of the /etc/hadoop directory.
           This gets mounted in the container and is used to configure connections
           to an HDFS communal path

@@ -36,7 +36,7 @@ reason: StopDBSucceeded
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1beta1
+  apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-client-access
 ---
@@ -46,6 +46,6 @@ reason: ClusterRestartSucceeded
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1beta1
+  apiVersion: vertica.com/v1
   kind: VerticaDB
   name: v-client-access
