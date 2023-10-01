@@ -23,12 +23,13 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	appsv1 "k8s.io/api/apps/v1"
@@ -122,22 +123,19 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.Communal.HadoopConfig != "" {
+	if o.Vdb.Spec.HadoopConfig != "" {
 		_, res, err := getConfigMap(ctx, o.VRec, o.Vdb,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.Communal.HadoopConfig))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HadoopConfig))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
-	// Skip if HTTP server is explicitly disabled. For auto, some of the work
-	// isn't needed here. But we don't know the version, so we assume we need
-	// it.
-	if !o.Vdb.IsHTTPServerDisabled() {
-		// When the HTTP server is enabled, a secret must exist that has the
-		// certs to use for it.  There is a reconciler that is run before this
-		// that will create the secret.  We will requeue if we find the Vdb
-		// doesn't have the secret set.
+	if vmeta.UseVClusterOps(o.Vdb.Annotations) {
+		// When running the NMA, needed for vclusterops, a secret must exist
+		// that has the certs to use for it.  There is a reconciler that is run
+		// before this that will create the secret.  We will requeue if we find
+		// the Vdb doesn't have the secret set.
 		if o.Vdb.Spec.HTTPServerTLSSecret == "" {
 			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
 				"The httpServerTLSSecret must be set when Vertica's http server is enabled")
@@ -407,7 +405,7 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, &o.VRec.DeploymentNames)
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)

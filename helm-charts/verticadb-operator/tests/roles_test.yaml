@@ -1,14 +1,7 @@
 suite: Role tests
 templates:
   - verticadb-operator-leader-election-role-role.yaml
-  - verticadb-operator-manager-role-role.yaml
 tests:
-  - it: should be allowed to skip creation of roles
-    set:
-      skipRoleAndRoleBindingCreation: true
-    asserts:
-      - hasDocuments:
-          count: 0
   - it: should include Roles by default
     asserts:
       - hasDocuments:

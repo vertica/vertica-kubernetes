@@ -39,7 +39,6 @@ fi
 # Add in the templating
 # 1. Template the namespace
 perl -i -0777 -pe 's/verticadb-operator-system/{{ .Release.Namespace }}/g' $TEMPLATE_DIR/*
-perl -i -0777 -pe 's/(verticadb-operator)(-.*-webhook-configuration)/$1-{{ .Release.Namespace }}$2/' $TEMPLATE_DIR/*
 # 2. Template image names
 perl -i -0777 -pe "s|image: controller|image: '{{ with .Values.image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 perl -i -0777 -pe "s|image: gcr.io/kubebuilder/kube-rbac-proxy:v.*|image: '{{ with .Values.rbac_proxy_image }}{{ join \"/\" (list .repo .name) }}{{ end }}'|" $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
@@ -76,11 +75,6 @@ do
 done
 # Include WEBHOOK_CERT_SOURCE in the config map
 perl -i -0777 -pe 's/(\ndata:)/$1\n  WEBHOOK_CERT_SOURCE: {{ include "vdb-op.certSource" . }}/g' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
-# 6. Template the caBundle
-for fn in $(ls $TEMPLATE_DIR/*webhookconfiguration.yaml)
-do
-  perl -i -pe 's/clientConfig:/clientConfig:\n    caBundle: {{ .Values.webhook.caBundle }}/' $fn
-done
 # 7. Template the resource limits and requests
 perl -i -0777 -pe 's/resources: template-placeholder/resources:\n          {{- toYaml .Values.resources | nindent 10 }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
@@ -94,43 +88,13 @@ perl -i -0777 -pe "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/ve
 
 # 9.  Template the serviceaccount, roles and rolebindings
 perl -i -0777 -pe 's/serviceAccountName: verticadb-operator-controller-manager/serviceAccountName: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-perl -i -0777 -pe 's/--service-account-name=.*/--service-account-name={{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
-for f in verticadb-operator-controller-manager-sa.yaml
-do
-    perl -i -pe 's/^/{{- if not .Values.serviceAccountNameOverride -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
-    echo "{{- end }}" >> $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-manager-role-role.yaml \
-    verticadb-operator-manager-rolebinding-rb.yaml \
-    verticadb-operator-leader-election-role-role.yaml \
-    verticadb-operator-leader-election-rolebinding-rb.yaml
-do
-    perl -i -pe 's/^/{{- if not .Values.skipRoleAndRoleBindingCreation -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
-    echo "{{- end }}" >> $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-manager-rolebinding-rb.yaml \
+for f in  \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
     verticadb-operator-proxy-rolebinding-crb.yaml \
     verticadb-operator-metrics-reader-crb.yaml \
     verticadb-operator-manager-clusterrolebinding-crb.yaml
 do
     perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
-done
-# ClusterRole and ClusterRoleBinding's all need the namespace included in their
-# names to make them unique for multiple operator deployments.
-perl -i -0777 -pe 's/-manager-clusterrolebinding/-{{ .Release.Namespace }}-manager-clusterolebinding/g' $TEMPLATE_DIR/verticadb-operator-manager-clusterrolebinding-crb.yaml
-for f in verticadb-operator-manager-clusterrolebinding-crb.yaml \
-    verticadb-operator-manager-role-cr.yaml
-do
-  perl -i -0777 -pe 's/-manager-role/-{{ .Release.Namespace }}-manager-role/g' $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-metrics-reader-cr.yaml verticadb-operator-metrics-reader-crb.yaml
-do
-    perl -i -0777 -pe 's/-metrics-reader/-{{ .Release.Namespace }}-metrics-reader/g' $TEMPLATE_DIR/$f
-done
-for f in verticadb-operator-proxy-role-cr.yaml verticadb-operator-proxy-rolebinding-crb.yaml
-do
-    perl -i -0777 -pe 's/-(proxy-role.*)/-{{ .Release.Namespace }}-$1/g' $TEMPLATE_DIR/$f
 done
 
 # 10.  Template the webhook access enablement
@@ -144,10 +108,10 @@ do
 done
 perl -i -pe 's/^/{{- if .Values.webhook.enable -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
 echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
-# Related to this change is the --skip-webhook-patch option. This is needed if
-# the helm chart provided the CA bundle or using cert-manager, which handles
-# the CA bundle update itself.
-perl -i -0777 -pe 's/(--webhook-cert-secret.*)/$1\n{{- if or (eq .Values.webhook.certSource "cert-manager") (.Values.webhook.caBundle) }}\n        - --skip-webhook-patch\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
+# Add in the --use-cert-manager option if we use cert-manager to generate the
+# TLS for the webhook. This is needed to tell the operator to add the
+# appropriate annotation for CA bundle injections.
+perl -i -0777 -pe 's/(--webhook-cert-secret.*)/$1\n{{- if eq .Values.webhook.certSource "cert-manager" }}\n        - --use-cert-manager\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 
 # 11.  Template the prometheus metrics service
 perl -i -pe 's/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
@@ -211,14 +175,10 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yam
 {{- end }}
 EOF
 
-# 19. There are clusterrole/clusterrolebinding that are only needed if the
-# operator is going to patch the webhook. This is needed only if the operator
-# is generating its own self-signed cert for the webhook or a secret was
-# provided. For cert-manager, the cert-manager operator injects the CA and the
-# operator doesn't need to handle that.
-for f in verticadb-operator-manager-role-cr.yaml \
-    verticadb-operator-manager-clusterrolebinding-crb.yaml
+# 19. Template the per-CR concurrency parameters
+for f in $TEMPLATE_DIR/verticadb-operator-controller-manager-deployment.yaml
 do
-    perl -i -pe 's/^/{{- if and (.Values.webhook.enable) (or (eq .Values.webhook.certSource "internal") (.Values.webhook.tlsSecret)) -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
-    echo "{{- end }}" >> $TEMPLATE_DIR/$f
+    perl -i -0777 -pe 's/(--verticadb-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.verticadb \}\}/g' $f
+    perl -i -0777 -pe 's/(--verticaautoscaler-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.verticaautoscaler \}\}/g' $f
+    perl -i -0777 -pe 's/(--eventtrigger-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.eventtrigger \}\}/g' $f
 done

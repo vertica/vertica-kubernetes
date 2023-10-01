@@ -40,8 +40,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
+	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
@@ -63,22 +63,9 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(vapi.AddToScheme(scheme))
+	utilruntime.Must(vapiB1.AddToScheme(scheme))
+	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
-}
-
-// getWatchNamespace returns the Namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which specifies the Namespace to watch.
-	// An empty value means the operator is running with cluster scope.
-	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
-
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
-	}
-	return ns, nil
 }
 
 // getIsWebhookEnabled will return true if the webhook is enabled
@@ -108,10 +95,6 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 		Cfg:    restCfg,
 		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 		OpCfg:  *oc,
-		DeploymentNames: builder.DeploymentNames{
-			ServiceAccountName: oc.ServiceAccountName,
-			PrefixName:         oc.PrefixName,
-		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)
@@ -149,16 +132,19 @@ func addWebhooksToManager(mgr manager.Manager) {
 	webhookServer := mgr.GetWebhookServer()
 	webhookServer.TLSMinVersion = "1.3"
 
-	if err := (&vapi.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
+	if err := (&vapiB1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiB1.Version)
 		os.Exit(1)
 	}
-	if err := (&vapi.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler")
+	if err := (&vapiV1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiV1.Version)
+	}
+	if err := (&vapiB1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler", "version", vapiB1.Version)
 		os.Exit(1)
 	}
-	if err := (&vapi.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "EventTrigger")
+	if err := (&vapiB1.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EventTrigger", "version", vapiB1.Version)
 		os.Exit(1)
 	}
 }
@@ -166,26 +152,37 @@ func addWebhooksToManager(mgr manager.Manager) {
 // setupWebhook will setup the webhook in the manager if enabled
 func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config, oc *opcfg.OperatorConfig) error {
 	if getIsWebhookEnabled() {
-		watchNamespace, err := getWatchNamespace()
+		ns, err := getOperatorNamespace()
 		if err != nil {
-			// We cannot setup webhooks if we are watching multiple namespaces
-			// because the webhook config uses a namespaceSelector.
-			setupLog.Info("Disabling webhook since we are not watching a single namespace")
-			return nil
+			return fmt.Errorf("failed to setup the webhook: %w", err)
 		}
 		if oc.WebhookCertSecret == "" {
-			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, watchNamespace); err != nil {
+			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, ns); err != nil {
 				return err
 			}
-		} else if !oc.SkipWebhookPatch {
+		} else if !oc.UseCertManager {
 			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
-				oc.PrefixName, watchNamespace); err != nil {
+				oc.PrefixName, ns); err != nil {
+				return err
+			}
+		} else {
+			if err := security.AddCertManagerAnnotation(ctx, &setupLog, restCfg, oc.PrefixName, ns); err != nil {
 				return err
 			}
 		}
 		addWebhooksToManager(mgr)
 	}
 	return nil
+}
+
+// getOperatorNamespace retrieves the namespace that the operator is running in
+func getOperatorNamespace() (string, error) {
+	const namespaceEnvVar = "OPERATOR_NAMESPACE"
+	ns, found := os.LookupEnv(namespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("the environment variable %s must be set", namespaceEnvVar)
+	}
+	return ns, nil
 }
 
 // getReadinessProbeCallack returns the check to use for the readiness probe
@@ -225,12 +222,6 @@ func main() {
 
 	restCfg := ctrl.GetConfigOrDie()
 
-	watchNamespace, err := getWatchNamespace()
-	if err != nil {
-		setupLog.Info("unable to get WatchNamespace, " +
-			"the manager will watch and manage resources in all namespaces")
-	}
-
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     oc.MetricsAddr,
@@ -238,13 +229,13 @@ func main() {
 		HealthProbeBindAddress: oc.ProbeAddr,
 		LeaderElection:         oc.EnableLeaderElection,
 		LeaderElectionID:       "5c1e6227.vertica.com",
-		Namespace:              watchNamespace,
+		Namespace:              "", // Empty namespace means watch all namespaces
 		CertDir:                CertDir,
 		Controller: v1alpha1.ControllerConfigurationSpec{
 			GroupKindConcurrency: map[string]int{
-				vapi.GkVDB.String(): 1,
-				vapi.GkVAS.String(): 1,
-				vapi.GkET.String():  1,
+				vapiB1.GkVDB.String(): oc.VerticaDBConcurrency,
+				vapiB1.GkVAS.String(): oc.VerticaAutoscalerConcurrency,
+				vapiB1.GkET.String():  oc.EventTriggerConcurrency,
 			},
 		},
 	})

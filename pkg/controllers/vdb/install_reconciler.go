@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -80,17 +80,11 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 }
 
 // installForVClusterOps will go through the install phase for vclusterOps.
-// It only generates the http certs and requeue if at least one pod has not done the install
+// It only generates the http certs.
 func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Result, error) {
-	hasUninstalledPods, err := d.generateHTTPCerts(ctx)
+	err := d.generateHTTPCerts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-	if hasUninstalledPods {
-		// We do not proceed to the next actor until
-		// all pods have done the install
-		d.Log.Info("Requeue reconcile cycle because not all nodes have done the install for vclusterOps")
-		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil
 }
@@ -117,7 +111,6 @@ func (d *InstallReconciler) installForAdmintools(ctx context.Context) (ctrl.Resu
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
-		d.generateHTTPCertsForAdmintools,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -190,21 +183,9 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 	return nil
 }
 
-// generateHTTPCertsForAdmintools is a wrapper for admintools that calls a function that
-// generates the necessary certs to be able to start and communicate with the Vertica's http server.
-func (d *InstallReconciler) generateHTTPCertsForAdmintools(ctx context.Context) error {
-	_, err := d.generateHTTPCerts(ctx)
-	return err
-}
-
-// generateHTTPCerts will generate the necessary certs to be able to start and
-// communicate with the Vertica's http server.
-func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) (bool, error) {
-	// Early out if the http service isn't enabled
-	if !d.doHTTPInstall(true) {
-		return false, nil
-	}
-	installedPodCount := 0
+// generateHTTPCerts will generate the necessary config file to be able to start and
+// communicate with the Vertica's https server.
+func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 	for _, p := range d.PFacts.Detail {
 		if !p.isPodRunning {
 			continue
@@ -214,20 +195,19 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) (bool, error)
 			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerTLSSecret)
 			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
 			if err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
+				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
 			}
 			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
 				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
 			_ = os.Remove(fname)
 			if err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
+				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
 			}
 			// Invalidate the pod facts cache since its out of date due the https generation
 			d.PFacts.Invalidate()
 		}
-		installedPodCount++
 	}
-	return installedPodCount != len(d.PFacts.Detail), nil
+	return nil
 }
 
 // getInstallTargets finds the list of hosts/pods that we need to initialize the config for
@@ -308,11 +288,6 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 	}
 }
 
-// doHTTPInstall will return true if the installer should setup for the http server
-func (d *InstallReconciler) doHTTPInstall(logEvent bool) bool {
-	return hasCompatibleVersionForHTTPServer(d.VRec, d.Vdb, logEvent, "http server cert setup")
-}
-
 // genCreateConfigDirsScript will create a script to be run in a pod to create
 // the necessary dirs for install. This will return an empty string if nothing
 // needs to happen.
@@ -340,7 +315,8 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 		numCmds++
 	}
 
-	if d.doHTTPInstall(false) && !p.dirExists[paths.HTTPTLSConfDir] {
+	// vclusterops depends on https services to be running.
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) && !p.dirExists[paths.HTTPTLSConfDir] {
 		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 		numCmds++
 	}

@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -191,7 +191,8 @@ func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
 func mockVClusterOpsDispatcher() *VClusterOps {
-	vdb := vapi.MakeVDBForHTTP("test-secret")
+	vdb := vapi.MakeVDB()
+	vdb.Spec.HTTPServerTLSSecret = "test-secret"
 	mockVops := MockVClusterOps{}
 	evWriter := aterrors.TestEVWriter{}
 	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword, &evWriter)

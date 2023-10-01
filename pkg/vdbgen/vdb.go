@@ -31,7 +31,7 @@ import (
 	_ "github.com/vertica/vertica-sql-go"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -804,7 +804,7 @@ func (d *DBGenerator) setHadoopConfig(_ context.Context) error {
 	d.Objs.HadoopConfig.TypeMeta.Kind = ConfigKindName
 	d.Objs.HadoopConfig.ObjectMeta.Name = fmt.Sprintf("%s-hadoop-conf", d.Opts.VdbName)
 	d.Objs.HadoopConfig.Data = d.HadoopConfData
-	d.Objs.Vdb.Spec.Communal.HadoopConfig = d.Objs.HadoopConfig.ObjectMeta.Name
+	d.Objs.Vdb.Spec.HadoopConfig = d.Objs.HadoopConfig.ObjectMeta.Name
 
 	return nil
 }

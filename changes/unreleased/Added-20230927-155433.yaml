@@ -1,0 +1,5 @@
+kind: Added
+body: Ability to specify pre-existing serviceAccount in the VerticaDB CR
+time: 2023-09-27T15:54:33.833815-03:00
+custom:
+  Issue: "521"

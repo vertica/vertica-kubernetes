@@ -22,27 +22,20 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 TIMEOUT=30
-NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 HELM_RELEASE_NAME=$(grep 'HELM_RELEASE_NAME?=' $REPO_DIR/Makefile | cut -d'=' -f2)
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-e <helm_release_name>] [-i]"
+    echo "usage: $(basename $0) [-e <helm_release_name>] [-i]"
     echo
     echo "Options:"
-    echo "  -n <namespace>          Undeploy the operator found in this namespace.  If this is "
-    echo "                          omitted it will pick the current namespace as set in the "
-    echo "                          kubectl config."
     echo "  -e <helm_release_name>  Name of the helm release to look for and undeploy if present."
     echo "  -i                      Ignore, and don't fail, when deployment isn't present."
     exit 1
 }
 
-while getopts "n:hi" opt
+while getopts "hi" opt
 do
     case $opt in
-        n)
-            NAMESPACE=$OPTARG
-            ;;
         h) 
             usage
             ;;
@@ -59,20 +52,38 @@ do
     esac
 done
 
-if [ -z "$NAMESPACE" ]
-then
-    NAMESPACE=default
-fi
+function remove_cluster_objects
+{
+    set +o xtrace
+    # Sometimes cluster scoped operator can stick around after removing the
+    # helm chart or OLM deployment. This can happen if you don't uninstall the
+    # release, but instead delete the namespace where the release is located.
+    # This ensures that we properly clean those up.
+    for obj in clusterrole clusterrolebinding mutatingwebhookconfigurations validatingwebhookconfigurations
+    do
+        if kubectl get $obj | grep '^verticadb-operator-'
+        then
+            kubectl delete $obj $(kubectl get $obj | grep '^verticadb-operator-' | cut -d' ' -f1) || true
+        fi
+    done
+    set -o xtrace
+}
 
 set -o xtrace
 
-if kubectl get -n $NAMESPACE clusterserviceversion | grep -cqe "^verticadb-operator" 2> /dev/null
+if helm list --all-namespaces --filter $HELM_RELEASE_NAME | grep -q $HELM_RELEASE_NAME
 then
-    $SCRIPT_DIR/undeploy-olm.sh -n $NAMESPACE
-elif helm list -n $NAMESPACE| grep -cqe "^$HELM_RELEASE_NAME"
+    NS=$(helm list --all-namespaces --filter vdb-op --output json | jq -r '[.[].namespace][0]')
+    helm uninstall -n $NS $HELM_RELEASE_NAME
+    remove_cluster_objects  
+elif kubectl get subscription --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null || \
+   kubectl get operatorgroups --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null ||
+   kubectl get csv --all-namespaces=true | grep -cqe "VerticaDB Operator" 2> /dev/null
 then
-	helm uninstall -n $NAMESPACE $HELM_RELEASE_NAME
+    $SCRIPT_DIR/undeploy-olm.sh
+    remove_cluster_objects
 else
+    remove_cluster_objects
     echo "** No operator deployment detected"
     if [ -n "$IGNORE_NOT_FOUND" ]
     then

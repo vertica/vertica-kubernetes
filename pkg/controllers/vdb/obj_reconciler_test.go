@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -68,8 +68,8 @@ var _ = Describe("obj_reconcile", func() {
 		isController := true
 		blockOwnerDeletion := true
 		expOwnerRef := metav1.OwnerReference{
-			Kind:               "VerticaDB",
-			APIVersion:         "vertica.com/v1beta1",
+			Kind:               vapi.VerticaDBKind,
+			APIVersion:         vapi.GroupVersion.String(),
 			Name:               vdb.Name,
 			UID:                vdb.UID,
 			Controller:         &isController,
@@ -153,7 +153,8 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(desiredNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(desiredExternalIPs))
 			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(desiredLoadBalancerIP))
-			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(desiredServiceAnnotations))
+			Expect(foundSvc.ObjectMeta.Annotations["foo"]).Should(Equal(desiredServiceAnnotations["foo"]))
+			Expect(foundSvc.ObjectMeta.Annotations["dib"]).Should(Equal(desiredServiceAnnotations["dib"]))
 
 			// Update crd
 			newType := corev1.ServiceTypeLoadBalancer
@@ -179,7 +180,8 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(foundSvc.Spec.Ports[0].NodePort).Should(Equal(newNodePort))
 			Expect(foundSvc.Spec.ExternalIPs).Should(Equal(newExternalIPs))
 			Expect(foundSvc.Spec.LoadBalancerIP).Should(Equal(newLoadBalancerIP))
-			Expect(foundSvc.ObjectMeta.Annotations).Should(Equal(newServiceAnnotations))
+			Expect(foundSvc.ObjectMeta.Annotations["foo"]).Should(Equal(newServiceAnnotations["foo"]))
+			Expect(foundSvc.ObjectMeta.Annotations["dib"]).Should(Equal(newServiceAnnotations["dib"]))
 		})
 
 		It("should have custom labels and annotations in service objects and statefulsets", func() {
@@ -508,7 +510,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if the hadoop conf is not found", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.Communal.HadoopConfig = "not-here-3"
+			vdb.Spec.HadoopConfig = "not-here-3"
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 
@@ -646,10 +648,10 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(*sts.Spec.Replicas).Should(Equal(int32(1)))
 		})
 
-		It("should requeue if HTTP server is enabled but HTTP secret isn't setup properly", func() {
+		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.HTTPServerMode = vapi.HTTPServerModeEnabled
 			vdb.Spec.HTTPServerTLSSecret = ""
+			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 

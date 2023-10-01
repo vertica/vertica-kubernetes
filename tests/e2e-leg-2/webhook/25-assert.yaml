@@ -12,7 +12,7 @@
 # limitations under the License.
 
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-webhook

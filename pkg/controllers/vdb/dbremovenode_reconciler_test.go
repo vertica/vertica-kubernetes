@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -65,7 +65,7 @@ var _ = Describe("dbremovenode_reconcile", func() {
 			"/opt/vertica/bin/admintools",
 			"db_remove_node",
 			"--hosts",
-			fmt.Sprintf("%s.%s", uninstallPod.Spec.Hostname, uninstallPod.Spec.Subdomain),
+			fmt.Sprintf("%s.%s.%s", uninstallPod.Spec.Hostname, uninstallPod.Spec.Subdomain, uninstallPod.Namespace),
 		))
 	})
 

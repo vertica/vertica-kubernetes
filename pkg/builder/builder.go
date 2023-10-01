@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -162,7 +162,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
-	if vdb.Spec.Communal.HadoopConfig != "" {
+	if vdb.Spec.HadoopConfig != "" {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name:      vapi.HadoopConfigMountName,
 			MountPath: paths.HadoopConfPath,
@@ -253,13 +253,13 @@ func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 }
 
 // buildVolumes builds up a list of volumes to include in the sts
-func buildVolumes(vdb *vapi.VerticaDB, deployNames *DeploymentNames) []corev1.Volume {
+func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
-	vols = append(vols, buildPodInfoVolume(vdb, deployNames))
+	vols = append(vols, buildPodInfoVolume(vdb))
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
-	if vdb.Spec.Communal.HadoopConfig != "" {
+	if vdb.Spec.HadoopConfig != "" {
 		vols = append(vols, buildHadoopConfigVolume(vdb))
 	}
 	if vdb.Spec.KerberosSecret != "" {
@@ -292,10 +292,9 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 // buildPodInfoVolume constructs the volume that has the /etc/podinfo files.
-func buildPodInfoVolume(vdb *vapi.VerticaDB, deployNames *DeploymentNames) corev1.Volume {
+func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	projSources := []corev1.VolumeProjection{
 		{DownwardAPI: buildDownwardAPIProjection()},
-		{ConfigMap: buildOperatorConfigMapProjection(deployNames)},
 		// If these is a superuser password, include that in the projection
 		{Secret: buildSuperuserPasswordProjection(vdb)},
 	}
@@ -385,17 +384,18 @@ func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
 					FieldPath: fmt.Sprintf("metadata.annotations['%s']", vmeta.KubernetesBuildDateAnnotation),
 				},
 			},
-		},
-	}
-}
-
-// buildOperatorConfigMapProjection creates a projection for inclusion in /etc/podinfo
-func buildOperatorConfigMapProjection(deployNames *DeploymentNames) *corev1.ConfigMapProjection {
-	return &corev1.ConfigMapProjection{
-		LocalObjectReference: corev1.LocalObjectReference{Name: deployNames.getConfigMapName()},
-		Items: []corev1.KeyToPath{
-			{Key: "DEPLOY_WITH", Path: "operator-deployment-method"},
-			{Key: "VERSION", Path: "operator-version"},
+			{
+				Path: "operator-deployment-method",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", "vertica.com/operator-deployment-method"),
+				},
+			},
+			{
+				Path: "operator-version",
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: fmt.Sprintf("metadata.annotations['%s']", "vertica.com/operator-version"),
+				},
+			},
 		},
 	}
 }
@@ -466,7 +466,7 @@ func buildHadoopConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.HadoopConfigMountName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HadoopConfig},
+				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.HadoopConfig},
 			},
 		},
 	}
@@ -521,7 +521,7 @@ func buildDepotVolume() corev1.Volume {
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
-func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *DeploymentNames) corev1.PodSpec {
+func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -529,9 +529,9 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *Deploym
 		Tolerations:                   sc.Tolerations,
 		ImagePullSecrets:              GetK8sLocalObjectReferenceArray(vdb.Spec.ImagePullSecrets),
 		Containers:                    makeContainers(vdb, sc),
-		Volumes:                       buildVolumes(vdb, deployNames),
+		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
-		ServiceAccountName:            deployNames.ServiceAccountName,
+		ServiceAccountName:            vdb.Spec.ServiceAccountName,
 		SecurityContext:               buildPodSecurityPolicy(vdb),
 	}
 }
@@ -846,7 +846,7 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // BuildStsSpec builds manifest for a subclusters statefulset
-func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, deployNames *DeploymentNames) *appsv1.StatefulSet {
+func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	isControllerRef := true
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -866,7 +866,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, sc, deployNames),
+				Spec: buildPodSpec(vdb, sc),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -912,7 +912,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc, DefaultDeploymentNames()),
+		Spec: buildPodSpec(vdb, sc),
 	}
 	// Setup default values for the DC table annotations.  These are normally
 	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test

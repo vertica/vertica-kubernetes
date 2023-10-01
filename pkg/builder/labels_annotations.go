@@ -16,9 +16,10 @@
 package builder
 
 import (
+	"os"
 	"strconv"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
@@ -106,6 +107,15 @@ func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType st
 // included on new objects.
 func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	annotations := make(map[string]string, len(vdb.Spec.Annotations))
+	// Surface operator config as annotations. This is picked up by the downward
+	// API and surfaced as files for the server to collect in the
+	// dc_kubernetes_events table.
+	if val, ok := os.LookupEnv("DEPLOY_WITH"); ok {
+		annotations[vmeta.OperatorDeploymentMethodAnnotation] = val
+	}
+	if val, ok := os.LookupEnv("VERSION"); ok {
+		annotations[vmeta.OperatorVersionAnnotation] = val
+	}
 	for k, v := range vdb.Spec.Annotations {
 		annotations[k] = v
 	}

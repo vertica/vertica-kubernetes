@@ -52,10 +52,10 @@ const (
 	vdbNameField = ".spec.references.object.name"
 )
 
-//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=eventtriggers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=eventtriggers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,namespace=WATCH_NAMESPACE,resources=eventtriggers/finalizers,verbs=update
-//+kubebuilder:rbac:groups="batch",namespace=WATCH_NAMESPACE,resources=jobs,verbs=get;list;watch;create
+//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=vertica.com,resources=eventtriggers/finalizers,verbs=update
+//+kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

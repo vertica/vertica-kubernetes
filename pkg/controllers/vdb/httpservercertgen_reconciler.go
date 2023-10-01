@@ -19,12 +19,16 @@ import (
 	"context"
 	"fmt"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/go-logr/logr"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,23 +39,39 @@ import (
 type HTTPServerCertGenReconciler struct {
 	VRec *VerticaDBReconciler
 	Vdb  *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	Log  logr.Logger
 }
 
-func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB) controllers.ReconcileActor {
+func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB) controllers.ReconcileActor {
 	return &HTTPServerCertGenReconciler{
 		VRec: vdbrecon,
 		Vdb:  vdb,
+		Log:  log.WithName("HTTPServerCertGenReconciler"),
 	}
 }
 
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	const PKKeySize = 2048
-	// Early out if http server is explicitly disabled or we already have a TLS secret.
-	// For auto, we continue even if the version may not support it. Assuming
-	// its needed will save a few reconcile iteration during bootstrap.
-	if h.Vdb.IsHTTPServerDisabled() || h.Vdb.Spec.HTTPServerTLSSecret != "" {
+	// Early out if the NMA isn't going to be used.
+	if !vmeta.UseVClusterOps(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
+	}
+	// If the secret name is set, check that it exists. As a convenience we will
+	// regenerate the secret using the same name.
+	if h.Vdb.Spec.HTTPServerTLSSecret != "" {
+		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.HTTPServerTLSSecret)
+		secret := corev1.Secret{}
+		err := h.VRec.Client.Get(ctx, nm, &secret)
+		if errors.IsNotFound(err) {
+			h.Log.Info("httpServerTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
+		} else if err != nil {
+			return ctrl.Result{},
+				fmt.Errorf("failed while attempting to reade the tls secret %s: %w", h.Vdb.Spec.HTTPServerTLSSecret, err)
+		} else {
+			// Secret is filled in and exists. We can exit.
+			return ctrl.Result{}, nil
+		}
 	}
 	caCert, err := security.NewSelfSignedCACertificate(PKKeySize)
 	if err != nil {
@@ -81,10 +101,9 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 	blockOwnerDeletion := false
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-http-server-tls-", h.Vdb.Name),
-			Namespace:    h.Vdb.Namespace,
-			Annotations:  builder.MakeAnnotationsForObject(h.Vdb),
-			Labels:       builder.MakeCommonLabels(h.Vdb, nil, false),
+			Namespace:   h.Vdb.Namespace,
+			Annotations: builder.MakeAnnotationsForObject(h.Vdb),
+			Labels:      builder.MakeCommonLabels(h.Vdb, nil, false),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         vapi.GroupVersion.String(),
@@ -102,6 +121,14 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 			corev1.TLSCertKey:         cert.TLSCrt(),
 			paths.HTTPServerCACrtName: caCert.TLSCrt(),
 		},
+	}
+	// Either generate a name or use the one already present in the vdb. Using
+	// the name already present is the case where the name was filled in but the
+	// secret didn't exist.
+	if h.Vdb.Spec.HTTPServerTLSSecret == "" {
+		secret.GenerateName = fmt.Sprintf("%s-http-server-tls-", h.Vdb.Name)
+	} else {
+		secret.Name = h.Vdb.Spec.HTTPServerTLSSecret
 	}
 	err := h.VRec.Client.Create(ctx, &secret)
 	return &secret, err
