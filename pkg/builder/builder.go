@@ -749,8 +749,8 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 		sc = vdb.Spec.SecurityContext
 	}
 
-	// In vclusterops mode, we don't need neither SYS_CHROOT
-	// nor AUDIT_WRITE
+	// In vclusterops mode, we don't need SYS_CHROOT
+	// and AUDIT_WRITE to run on OpenShift
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		return sc
 	}
