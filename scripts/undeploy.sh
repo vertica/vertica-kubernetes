@@ -71,16 +71,16 @@ function remove_cluster_objects
 
 set -o xtrace
 
-if kubectl get subscription --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null || \
+if helm list --all-namespaces --filter $HELM_RELEASE_NAME | grep -q $HELM_RELEASE_NAME
+then
+    NS=$(helm list --all-namespaces --filter vdb-op --output json | jq -r '[.[].namespace][0]')
+    helm uninstall -n $NS $HELM_RELEASE_NAME
+    remove_cluster_objects  
+elif kubectl get subscription --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null || \
    kubectl get operatorgroups --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null ||
    kubectl get csv --all-namespaces=true | grep -cqe "VerticaDB Operator" 2> /dev/null
 then
     $SCRIPT_DIR/undeploy-olm.sh
-    remove_cluster_objects
-elif helm list --all-namespaces --filter $HELM_RELEASE_NAME --no-headers | grep -q $HELM_RELEASE_NAME
-then
-    NS=$(helm list --all-namespaces --filter vdb-op --output json | jq -r '[.[].namespace][0]')
-    helm uninstall -n $NS $HELM_RELEASE_NAME
     remove_cluster_objects
 else
     remove_cluster_objects
