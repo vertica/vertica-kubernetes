@@ -20,13 +20,15 @@ import (
 	"io"
 	"text/template"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
-// CreateKillPodTestStep will generate a kuttl test step for killing a random number of pods
-func CreateKillPodTestStep(wr io.Writer, locations *Locations, dbcfg *DatabaseCfg) (err error) {
-	tin := makeKillPodInput(locations, dbcfg)
-	t, err := template.New("KillPods").Parse(KillPodTemplate)
+// CreateKillVerticaPodTestStep will generate a kuttl test step for killing a random number of pods
+func CreateKillVerticaPodTestStep(log logr.Logger, wr io.Writer, locations *Locations, dbcfg *DatabaseCfg) (err error) {
+	tin := makeKillVerticaPodInput(locations, dbcfg)
+	log.Info("Creating kill vertica pod step", "vdb", dbcfg.VerticaDBName, "namespace", dbcfg.Namespace, "podsToKill", tin.PodsToKill)
+	t, err := template.New("KillVerticaPods").Parse(KillVerticaPodTemplate)
 	if err != nil {
 		return err
 	}
@@ -38,22 +40,23 @@ func CreateKillPodTestStep(wr io.Writer, locations *Locations, dbcfg *DatabaseCf
 	return nil
 }
 
-type killPodInput struct {
+type killVerticaPodInput struct {
 	ScriptDir  string
 	PodsToKill int
+	Namespace  string
 }
 
-var KillPodTemplate = `
+var KillVerticaPodTemplate = `
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: {{ .ScriptDir }}/random-pod-deleter.sh -n $NAMESPACE {{ .PodsToKill }}
-    namespaced: true
+  - command: {{ .ScriptDir }}/random-pod-deleter.sh -n {{ .Namespace }} {{ .PodsToKill }}
 `
 
-func makeKillPodInput(loc *Locations, dbcfg *DatabaseCfg) *killPodInput {
-	return &killPodInput{
+func makeKillVerticaPodInput(loc *Locations, dbcfg *DatabaseCfg) *killVerticaPodInput {
+	return &killVerticaPodInput{
 		ScriptDir:  loc.ScriptsDir,
 		PodsToKill: rand.IntnRange(dbcfg.MinPodsToKill, dbcfg.MaxPodsToKill+1),
+		Namespace:  dbcfg.Namespace,
 	}
 }

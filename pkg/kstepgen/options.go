@@ -30,24 +30,26 @@ type Config struct {
 	// is an indication that operator successfully reconciled everything
 	// according to the VerticaDB changes.
 	SteadyStateTimeout int `json:"steadyStateTimeout"`
+	// What percentage of time do we kill the operator pod instead of vertica
+	// pods.
+	PctKillOperator int `json:"pctKillOperator"`
 
 	// Config for each database that you want to test against.
 	Databases []DatabaseCfg `json:"databases"`
 }
 
 type StepTypeWeights struct {
-	Scaling int `json:"scaling"`
-	KillPod int `json:"killPod"`
-	Sleep   int `json:"sleep"`
+	Scaling         int `json:"scaling"`
+	KillVerticaPod  int `json:"killVerticaPod"`
+	KillOperatorPod int `json:"killOperatorPod"`
+	Sleep           int `json:"sleep"`
 }
 
 const (
 	ScalingTestStep = iota
-	KillPodTestStep
+	KillVerticaPodTestStep
+	KillOperatorPodTestStep
 	SleepTestStep
-	// When adding new steps be sure to include it in StepTypeWeights
-	LastTestStep  = SleepTestStep
-	FirstTestStep = ScalingTestStep
 )
 
 type DatabaseCfg struct {
@@ -70,14 +72,27 @@ type DatabaseCfg struct {
 	// The maximum sleep time in a test step
 	MaxSleepTime int `json:"maxSleepTime"`
 
-	// The minimum number of subclusters for a scaling test step
-	MinSubclusters int `json:"minSubclusters"`
-	// The maximum number of subclusters for a scaling test step
-	MaxSubclusters int `json:"maxSubclusters"`
-	// The minimum number of pods, across all subclusters, for a scaling test step
-	MinPods int `json:"minPods"`
-	// The maximum number of pods, across all subclusters, for a scaling test step
-	MaxPods int `json:"maxPods"`
+	// How often, as a percentage, that we will wait for the scaling event to
+	// finish to completing in a test step. This is represented as a number
+	// between 0 and 100. 100 meaning we will add the assertion to the step each
+	// time and 0 means we will never add the assertion.
+	PctAssertScaling int `json:"pctAssertScaling"`
+	// Details about all subclusters we will resize/add/remove
+	Subclusters []SubclusterCfg `json:"subclusters"`
+}
+
+// SubclusterCfg provides config for a single subcluster
+type SubclusterCfg struct {
+	// The name of the subcluster
+	Name string `json:"name"`
+	// The minimum size of the subcluster
+	MinSize int `json:"minSize"`
+	// The maximum size of the subcluster
+	MaxSize int `json:"maxSize"`
+	// When true the subcluster is removed if the size is 0
+	RemoveWhenZero bool `json:"removeWhenZero,omitempty"`
+	// True if this subcluster should be a primary one
+	IsPrimary bool `json:"isPrimary"`
 }
 
 // Locations contains various paths needed to run this program

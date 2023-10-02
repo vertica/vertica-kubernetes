@@ -20,12 +20,14 @@ import (
 	"io"
 	"text/template"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // CreateSleepTestStep will generate a kuttl test step for sleeping a random amount of time
-func CreateSleepTestStep(wr io.Writer, dbcfg *DatabaseCfg) (err error) {
+func CreateSleepTestStep(log logr.Logger, wr io.Writer, dbcfg *DatabaseCfg) (err error) {
 	tin := makeSleepInput(dbcfg)
+	log.Info("Creating sleep step", "sleepTime", tin.SleepTime)
 	t, err := template.New("Sleep").Parse(SleepTemplate)
 	if err != nil {
 		return err

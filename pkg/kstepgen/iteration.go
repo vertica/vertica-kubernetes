@@ -22,25 +22,27 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 type Iteration struct {
+	log                 logr.Logger
 	totalStepWeight     int
 	totalDatabaseWeight int
 	cfg                 *Config
-	assertBuf           bytes.Buffer
-	file                *os.File
 	locations           *Locations
+	finalAssert         *bytes.Buffer
 }
 
-func MakeIteration(locations *Locations, cfg *Config) Iteration {
-	stepTot := cfg.StepTypeWeight.KillPod + cfg.StepTypeWeight.Scaling + cfg.StepTypeWeight.Sleep
+func MakeIteration(log logr.Logger, locations *Locations, cfg *Config) Iteration {
+	stepTot := cfg.StepTypeWeight.KillVerticaPod + cfg.StepTypeWeight.Scaling + cfg.StepTypeWeight.Sleep
 	dbTot := 0
 	for i := range cfg.Databases {
 		dbTot += cfg.Databases[i].Weight
 	}
 	return Iteration{
+		log:                 log,
 		totalStepWeight:     stepTot,
 		totalDatabaseWeight: dbTot,
 		cfg:                 cfg,
@@ -49,6 +51,7 @@ func MakeIteration(locations *Locations, cfg *Config) Iteration {
 }
 
 func (it *Iteration) CreateIteration() error {
+	it.log.Info("Creating new iteration", "stepCount", it.cfg.StepCount)
 	if err := it.setupIteration(); err != nil {
 		return err
 	}
@@ -57,14 +60,11 @@ func (it *Iteration) CreateIteration() error {
 			return err
 		}
 	}
-	if it.assertBuf.Len() > 0 {
-		file, err := os.Create(fmt.Sprintf("%s/%02d-assert.yaml", it.locations.OutputDir, it.cfg.StepCount))
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		if _, err := file.Write(it.assertBuf.Bytes()); err != nil {
-			return err
+
+	// Write out the final assert. This was generated from the final scaling event.
+	if it.finalAssert != nil && it.finalAssert.Len() > 0 {
+		if err := it.writeAssertBuffer(it.finalAssert, it.cfg.StepCount); err != nil {
+			return fmt.Errorf("failed to write final assert: %w", err)
 		}
 	}
 
@@ -79,17 +79,44 @@ func (it *Iteration) CreateIteration() error {
 }
 
 func (it *Iteration) createStep(stepNum int) error {
-	fn := fmt.Sprintf("%s/%02d-step.yaml", it.locations.OutputDir, stepNum)
-	var err error
-	it.file, err = os.Create(fn)
+	stepBuffer, assertBuffer, writeAssertInThisStep, err := it.genTestStep()
 	if err != nil {
 		return err
 	}
-	defer it.file.Close()
 
-	err = it.genTestStep()
+	fn := fmt.Sprintf("%s/%02d-step.yaml", it.locations.OutputDir, stepNum)
+	stepFile, err := os.Create(fn)
+	if err != nil {
+		return fmt.Errorf("failed to open step file %s: %w", fn, err)
+	}
+	defer stepFile.Close()
+	it.log.Info("Creating step", "name", stepFile.Name())
+	_, err = stepFile.Write(stepBuffer.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to write step buffer %s: %w", fn, err)
+	}
+
+	// We always save the assert buffer for the final step. We can write the
+	// same buffer out now in the current step.
+	if assertBuffer.Len() > 0 {
+		it.finalAssert = assertBuffer
+	}
+	if writeAssertInThisStep && assertBuffer.Len() > 0 {
+		return it.writeAssertBuffer(assertBuffer, stepNum)
+	}
+	return nil
+}
+
+func (it *Iteration) writeAssertBuffer(assertBuffer *bytes.Buffer, stepNum int) error {
+	fn := fmt.Sprintf("%s/%02d-assert.yaml", it.locations.OutputDir, stepNum)
+	file, err := os.Create(fn)
 	if err != nil {
 		return err
+	}
+	defer file.Close()
+	it.log.Info("Creating assert", "file", file.Name())
+	if _, err := file.Write(assertBuffer.Bytes()); err != nil {
+		return fmt.Errorf("failed to write assert buffer %s: %w", fn, err)
 	}
 	return nil
 }
@@ -100,9 +127,13 @@ func (it *Iteration) getRandomTestStep() int {
 	if r <= cum {
 		return int(ScalingTestStep)
 	}
-	cum += it.cfg.StepTypeWeight.KillPod
+	cum += it.cfg.StepTypeWeight.KillVerticaPod
 	if r <= cum {
-		return int(KillPodTestStep)
+		return int(KillVerticaPodTestStep)
+	}
+	cum += it.cfg.StepTypeWeight.KillOperatorPod
+	if r <= cum {
+		return int(KillOperatorPodTestStep)
 	}
 	return int(SleepTestStep)
 }
@@ -125,25 +156,33 @@ func (it *Iteration) getRandomDatabase() *DatabaseCfg {
 	return &it.cfg.Databases[len(it.cfg.Databases)-1]
 }
 
-func (it *Iteration) genTestStep() error {
+func (it *Iteration) genTestStep() (stepBuffer, assertBuffer *bytes.Buffer, writeAssertInThisStep bool, err error) {
+	stepBuffer = new(bytes.Buffer)
+	assertBuffer = new(bytes.Buffer)
+
 	dbcfg := it.getRandomDatabase()
 	switch it.getRandomTestStep() {
 	case ScalingTestStep:
-		if err := CreateScalingTestStep(it.file, &it.assertBuf, it.cfg, dbcfg); err != nil {
-			return err
+		if writeAssertInThisStep, err = CreateScalingTestStep(it.log, stepBuffer, assertBuffer, it.cfg, dbcfg); err != nil {
+			return
 		}
 
-	case KillPodTestStep:
-		if err := CreateKillPodTestStep(it.file, it.locations, dbcfg); err != nil {
-			return err
+	case KillVerticaPodTestStep:
+		if err = CreateKillVerticaPodTestStep(it.log, stepBuffer, it.locations, dbcfg); err != nil {
+			return
+		}
+
+	case KillOperatorPodTestStep:
+		if err = CreateKillOperatorPodTestStep(it.log, stepBuffer, it.cfg, it.locations); err != nil {
+			return
 		}
 
 	case SleepTestStep:
-		if err := CreateSleepTestStep(it.file, dbcfg); err != nil {
-			return err
+		if err = CreateSleepTestStep(it.log, stepBuffer, dbcfg); err != nil {
+			return
 		}
 	}
-	return nil
+	return
 }
 
 func (it *Iteration) setupIteration() error {

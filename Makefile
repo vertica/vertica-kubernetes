@@ -24,7 +24,7 @@ include $(KUSTOMIZE_CFG)
 
 # The location of the config file to use for the soak run. If this isn't set,
 # then the `make run-soak-tests` target will fail.
-SOAK_CFG?=
+SOAK_CFG?=local-soak.cfg
 # The number of iterations to run the soak test for. A negative number will
 # cause an infinite number of iterations to run.
 NUM_SOAK_ITERATIONS?=1

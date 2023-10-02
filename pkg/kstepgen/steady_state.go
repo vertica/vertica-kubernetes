@@ -21,7 +21,8 @@ import (
 	"text/template"
 )
 
-// CreateSleepTestStep will generate a kuttl test step for sleeping a random amount of time
+// CreateSteadyStateStep will generate a kuttl test step that will wait for the
+// operator to get to the steady state and no more reconcile iterations.
 func CreateSteadyStateStep(wr io.Writer, locations *Locations, cfg *Config) (err error) {
 	tin := makeSteadyStateInput(locations, cfg)
 	t, err := template.New("SteadyState").Parse(SteadyStateTemplate)
@@ -47,7 +48,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 timeout: {{ .StepTimeout }}
 commands:
-  - command: {{ .ScriptDir }}/wait-for-verticadb-steady-state.sh -n {{ .Namespace }} -t {{ .SteadyStateTimeout }}
+  - command: {{ .ScriptDir }}/wait-for-verticadb-steady-state.sh -n {{ .OperatorNamespace }} -t {{ .SteadyStateTimeout }}
 `
 
 // makeSteadyStateInput will create the steadyStateInput for the template

@@ -17,26 +17,32 @@
 package kstepgen
 
 import (
-	"fmt"
 	"io"
 	"text/template"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 // CreateScalingTestStep will generate kuttl test step for random scaling
-func CreateScalingTestStep(stepWriter, assertWriter io.Writer, cfg *Config, dbcfg *DatabaseCfg) (err error) {
+func CreateScalingTestStep(log logr.Logger, stepWriter, assertWriter io.Writer, cfg *Config, dbcfg *DatabaseCfg) (bool, error) {
 	tin := makeTemplateInput(cfg, dbcfg)
+	log.Info("Creating scaling step", "vdb", dbcfg.VerticaDBName, "namespace", dbcfg.Namespace, "totalPodCount", tin.TotalPodCount)
 	if err := generateVerticaDB(stepWriter, tin); err != nil {
-		return err
+		return false, err
 	}
-	return generateKuttlAssert(assertWriter, tin)
+	if err := generateKuttlAssert(assertWriter, tin); err != nil {
+		return false, err
+	}
+	log.Info("Skip generating scaling assert")
+	return shouldGenerateScalingAssert(dbcfg), nil
 }
 
 type scalingInput struct {
 	Config
-	PodCount    int
-	Subclusters []subclusterDetail
+	DBCfg         *DatabaseCfg
+	Subclusters   []subclusterDetail
+	TotalPodCount int
 }
 
 type subclusterDetail struct {
@@ -46,10 +52,11 @@ type subclusterDetail struct {
 }
 
 var VerticaCRDTemplate = `
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: {{ .Name }}
+  name: {{ .DBCfg.VerticaDBName }}
+  namespace: {{ .DBCfg.Namespace }}
 spec:
   subclusters:
     {{- range .Subclusters }}
@@ -60,25 +67,28 @@ spec:
 `
 
 var KuttlAssertTemplate = `
-{{- $vdbName := .Name }}
+{{- $vdbName := .DBCfg.VerticaDBName }}
+{{- $vdbNamespace := .DBCfg.Namespace }}
 {{- range .Subclusters }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ $vdbName }}-{{ .Name }}
+  namespace: {{ $vdbNamespace }}
 status:
   replicas: {{ .Size }}
   readyReplicas: {{ .Size }}
 ---
 {{- end }}
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: {{ .Name }}
+  name: {{ $vdbName }}
+  namespace: {{ $vdbNamespace }}
 status:
-  installCount: {{ .PodCount }}
-  upNodeCount: {{ .PodCount }}
-  addedToDBCount: {{ .PodCount }}
+  installCount: {{ .TotalPodCount }}
+  upNodeCount: {{ .TotalPodCount }}
+  addedToDBCount: {{ .TotalPodCount }}
   subclusterCount: {{ len .Subclusters }}
 `
 
@@ -111,39 +121,31 @@ func generateKuttlAssert(wr io.Writer, tin *scalingInput) error {
 // makeTemplateInput will fill out a templateInput and return it
 func makeTemplateInput(cfg *Config, dbcfg *DatabaseCfg) *scalingInput {
 	tin := &scalingInput{
-		Config:      *cfg,
-		PodCount:    rand.IntnRange(dbcfg.MinPods, dbcfg.MaxPods+1),
-		Subclusters: []subclusterDetail{},
+		Config:        *cfg,
+		DBCfg:         dbcfg,
+		Subclusters:   []subclusterDetail{},
+		TotalPodCount: 0,
 	}
-	numSubclusters := rand.Intn(dbcfg.MaxSubclusters-dbcfg.MinSubclusters+1) + dbcfg.MinSubclusters
-	podsAssigned := 0
-	for i := 0; i < numSubclusters; i++ {
-		scMaxPod := tin.PodCount - podsAssigned - (numSubclusters - i - 1)
-		scMinPod := 1
-		if i+1 == numSubclusters {
-			scMinPod = scMaxPod
+	for _, sc := range dbcfg.Subclusters {
+		newSize := rand.IntnRange(sc.MinSize, sc.MaxSize+1)
+		if newSize == 0 && sc.RemoveWhenZero {
+			continue
 		}
-		sc := subclusterDetail{
-			Name:      fmt.Sprintf("sc%d", i),
-			Size:      rand.Intn(scMaxPod-scMinPod+1) + scMinPod,
-			IsPrimary: getRandomIsPrimary(),
-		}
-		// First subcluster is always primary
-		if i == 0 {
-			sc.IsPrimary = true
-		}
-		tin.Subclusters = append(tin.Subclusters, sc)
-		podsAssigned += sc.Size
+		tin.TotalPodCount += newSize
+		tin.Subclusters = append(tin.Subclusters, subclusterDetail{
+			Name:      sc.Name,
+			IsPrimary: sc.IsPrimary,
+			Size:      newSize,
+		})
 	}
 	return tin
 }
 
-// getRandomIsPrimary randomly picks primary or secondary subcluster
-func getRandomIsPrimary() bool {
+func shouldGenerateScalingAssert(dbcfg *DatabaseCfg) bool {
 	const (
-		IsPrimaryRandRangeMin = 0
-		IsPrimaryRandRangeMax = 100
-		IsPrimaryRandPercent  = 75
+		PctMin = 0
+		PctMax = 100
 	)
-	return rand.IntnRange(IsPrimaryRandRangeMin, IsPrimaryRandRangeMax) < IsPrimaryRandPercent
+	assertChance := rand.IntnRange(PctMin, PctMax+1)
+	return assertChance <= dbcfg.PctAssertScaling
 }

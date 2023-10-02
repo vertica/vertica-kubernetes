@@ -21,14 +21,42 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/vertica/vertica-kubernetes/pkg/kstepgen"
-	yaml "gopkg.in/yaml.v2"
+	"go.uber.org/zap"
 )
 
 const (
 	ConfigArg = iota
 	NumPositionalArgs
 )
+
+func setupLog() logr.Logger {
+	cfg := zap.Config{
+		Level:       zap.NewAtomicLevelAt(zap.InfoLevel),
+		Development: false,
+		// Sampling is enabled at 100:100, meaning that after the first 100 log
+		// entries with the same level and message in the same second, it will
+		// log every 100th entry with the same level and message in the same second.
+		Sampling: &zap.SamplingConfig{
+			Initial:    100,
+			Thereafter: 100,
+		},
+		Encoding:         "console",
+		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
+		OutputPaths:      []string{"stderr"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	var err error
+	zapLg, err := cfg.Build()
+	if err != nil {
+		fmt.Printf("Failed to setup the logger: %s", err.Error())
+		os.Exit(1)
+	}
+	return zapr.NewLogger(zapLg)
+}
 
 func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -57,7 +85,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	it := kstepgen.MakeIteration(&locations, &config)
+	it := kstepgen.MakeIteration(setupLog(), &locations, &config)
 	if err := it.CreateIteration(); err != nil {
 		fmt.Printf("Failed to create iteration: %s", err.Error())
 		os.Exit(1)

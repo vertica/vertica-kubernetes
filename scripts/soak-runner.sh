@@ -36,7 +36,7 @@ function usage() {
 while getopts "i:hv" opt
 do
     case $opt in
-        c)
+        i)
             ITERATIONS=$OPTARG
             ;;
         h) 
@@ -61,9 +61,11 @@ fi
 CONFIG_FILE=$1
 
 KUTTL_OUT="int-tests-output/soak.out"
+KUTTL_STEP_GEN_OUT="int-tests-output/kuttl_step_gen.out"
 STEP_OUTPUT_DIR="./tests/soak/steps"
 
 rm $KUTTL_OUT 2> /dev/null || :
+rm $KUTTL_STEP_GEN_OUT 2> /dev/null || :
 
 ITERATIONS_STR=$ITERATIONS
 if [[ $ITERATIONS -lt 0 ]]
@@ -73,19 +75,21 @@ fi
 
 logInfo "Running $ITERATIONS_STR iterations of $TEST_STEPS steps"
 
-for (( i=0; i != $ITERATIONS; i++ ))
+curIter=0
+until [[ $curIter -eq $ITERATIONS ]]
 do
-    logInfo "Iteration $(($i+1))"
+    logInfo "Iteration $((curIter+1))"
 
     # Generate the kuttl test steps for this iteration
-    logInfo "\tGenerating test steps"
-    bin/kuttl-step-gen --output-dir=$STEP_OUTPUT_DIR --scripts-dir="../../../scripts" $CONFIG_FILE
+    logInfo "\tGenerating test steps. Appending output to $KUTTL_STEP_GEN_OUT"
+    bin/kuttl-step-gen --output-dir=$STEP_OUTPUT_DIR --scripts-dir="../../../scripts" $CONFIG_FILE 2>> $KUTTL_STEP_GEN_OUT
 
     KUTTL_CFG="kuttl-soak-test-iteration.yaml"
     logInfo "\tRunning kuttl.  Appending output to $KUTTL_OUT"
-    trap "logError \"*** Failed\"; set -o xtrace; tail $KUTTL_OUT" EXIT
+    trap "logError \"Failed. End of test run:\"; tail $KUTTL_OUT" EXIT
     kubectl kuttl test --config $KUTTL_CFG >> $KUTTL_OUT
     trap "" EXIT
+    ((curIter=curIter+1))
 done
 
 logInfo "All iterations done"
