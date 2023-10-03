@@ -11,29 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: ServiceAccount
 metadata:
-  name: v-client-access
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-    catalogPath: /catalog
-  dbName: vertdb
-  encryptSpreadComm: vertica
-  subclusters:
-    - name: sc1
-      size: 2
-  kSafety: "0"
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: vertica-server-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vertica-server-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vertica-server-role
+subjects:
+- kind: ServiceAccount
+  name: vertica-server-sa

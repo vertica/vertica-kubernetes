@@ -521,7 +521,7 @@ func buildDepotVolume() corev1.Volume {
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
-func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, serviceAccountName string) corev1.PodSpec {
+func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -531,7 +531,7 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, serviceAccountName s
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
-		ServiceAccountName:            serviceAccountName,
+		ServiceAccountName:            vdb.Spec.ServiceAccountName,
 		SecurityContext:               buildPodSecurityPolicy(vdb),
 	}
 }
@@ -748,6 +748,13 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 	if vdb.Spec.SecurityContext != nil {
 		sc = vdb.Spec.SecurityContext
 	}
+
+	// In vclusterops mode, we don't need SYS_CHROOT
+	// and AUDIT_WRITE to run on OpenShift
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return sc
+	}
+
 	if sc.Capabilities == nil {
 		sc.Capabilities = &corev1.Capabilities{}
 	}
@@ -756,8 +763,6 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 		"SYS_CHROOT",
 		// Needed to run sshd on OpenShift
 		"AUDIT_WRITE",
-		// Needed to be able to collect stacks via vstack
-		"SYS_PTRACE",
 	}
 	for i := range capabilitiesNeeded {
 		foundCap := false
@@ -846,7 +851,7 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // BuildStsSpec builds manifest for a subclusters statefulset
-func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, serviceAccountName string) *appsv1.StatefulSet {
+func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	isControllerRef := true
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -866,7 +871,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, sc, serviceAccountName),
+				Spec: buildPodSpec(vdb, sc),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -912,7 +917,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc, "test-default"),
+		Spec: buildPodSpec(vdb, sc),
 	}
 	// Setup default values for the DC table annotations.  These are normally
 	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test

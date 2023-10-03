@@ -10,30 +10,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+ 
+# The vertica pod needs to run with a ServiceAccount that is bound to this
+# role. Use this if you intend to provide the ServiceAccount name in the
+# VerticaDB CR.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
 metadata:
-  name: v-client-access
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-    catalogPath: /catalog
-  dbName: vertdb
-  encryptSpreadComm: vertica
-  subclusters:
-    - name: sc1
-      size: 2
-  kSafety: "0"
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: vertica-server-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list

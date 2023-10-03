@@ -11,29 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-client-access
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-    catalogPath: /catalog
-  dbName: vertdb
-  encryptSpreadComm: vertica
-  subclusters:
-    - name: sc1
-      size: 2
-  kSafety: "0"
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete ns $NAMESPACE

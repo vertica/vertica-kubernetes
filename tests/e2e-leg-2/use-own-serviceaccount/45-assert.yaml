@@ -14,26 +14,8 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-client-access
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-    catalogPath: /catalog
-  dbName: vertdb
-  encryptSpreadComm: vertica
+  name: v-use-own-serviceaccount
+status:
   subclusters:
-    - name: sc1
-      size: 2
-  kSafety: "0"
-  securityContext:
-    capabilities:
-      add: ["SYS_PTRACE"]
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - addedToDBCount: 1
+      upNodeCount: 1

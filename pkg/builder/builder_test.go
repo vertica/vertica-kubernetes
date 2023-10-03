@@ -45,12 +45,22 @@ var _ = Describe("builder", func() {
 		}
 	})
 
-	It("should add our own capabilities to the securityContext", func() {
+	It("should add our own capabilities to the securityContext for admintools only", func() {
 		vdb := vapi.MakeVDB()
 		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE", "SYS_PTRACE"}))
+		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE"}))
+
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Spec.SecurityContext = &v1.SecurityContext{
+			Capabilities: &v1.Capabilities{},
+		}
+		baseContainer = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"SYS_CHROOT"}))
+		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
+
 	})
 
 	It("should add omit our own capabilities in the securityContext if we are dropping them", func() {
@@ -63,7 +73,7 @@ var _ = Describe("builder", func() {
 		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "SYS_PTRACE"}))
+		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT"}))
 		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
 	})
 
@@ -172,7 +182,7 @@ var _ = Describe("builder", func() {
 
 	It("should have the fsGroup set for the dbadmin GID", func() {
 		vdb := vapi.MakeVDB()
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
 	})
 
@@ -193,10 +203,10 @@ var _ = Describe("builder", func() {
 				},
 			},
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 		vdb.Spec.StartupProbeOverride = nil
-		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeTrue())
 	})
 
@@ -216,7 +226,7 @@ var _ = Describe("builder", func() {
 				},
 			},
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(c.Containers[0].ReadinessProbe.Exec).Should(BeNil())
 		Expect(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
 		Expect(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
@@ -230,7 +240,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations = map[string]string{
 			vmeta.GcpGsmAnnotation: "true",
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 	})
 
@@ -242,7 +252,7 @@ var _ = Describe("builder", func() {
 				{Name: "net.ipv4.tcp_keepalive_intvl", Value: "5"},
 			},
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
 		Expect(len(c.SecurityContext.Sysctls)).Should(Equal(2))
 		Expect(c.SecurityContext.Sysctls[0].Name).Should(Equal("net.ipv4.tcp_keepalive_time"))
@@ -254,7 +264,7 @@ var _ = Describe("builder", func() {
 	It("should mount ssh secret for dbadmin and root", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.SSHSecret = "my-secret"
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		cnt := &c.Containers[0]
 		i, ok := getFirstSSHSecretVolumeMountIndex(cnt)
 		Expect(ok).Should(BeTrue())
