@@ -339,8 +339,19 @@ The soak test will test the operator over a long interval. It splits the test in
 
 The tests in an iteration are run through kuttl.  The random test generation is done by the kuttl-step-gen tool.
 
-You can run this test with the following make target:
+Here are the steps needed to run this test.
 
+1. Create the databases that you want to test.
+2. Create a config file to outline the databases to test and how you want the test framework to react. A sample one can be found in tests/soak/soak-sample.cfg.
+```shell
+$ cp tests/soak/soak-sample.cfg local-soak.cfg
+$ vim local-soak.cfg
+```
+3. Decide on the number of iterations you would like to run:
+```shell
+$ export NUM_SOAK_ITERATIONS=10  # Can use -1 for infinite
+```
+4. Kick off the run.
 ```shell
 $ make run-soak-tests
 ```
