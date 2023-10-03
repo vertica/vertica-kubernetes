@@ -18,7 +18,7 @@ metadata:
 status:
   replicas: 3
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade

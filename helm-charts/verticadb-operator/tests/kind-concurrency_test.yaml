@@ -1,0 +1,23 @@
+suite: test that verifies we can control the concurrency of reconcile iterations
+templates:
+  - verticadb-operator-controller-manager-deployment.yaml
+tests:
+  - it: we can specify a concurrency for various CRs
+    set:
+      reconcileConcurrency:
+        verticadb: 8
+        verticaautoscaler: 2
+        eventtrigger: 3
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content:
+            --verticadb-concurrency=8
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content:
+            --verticaautoscaler-concurrency=2
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content:
+            --eventtrigger-concurrency=3

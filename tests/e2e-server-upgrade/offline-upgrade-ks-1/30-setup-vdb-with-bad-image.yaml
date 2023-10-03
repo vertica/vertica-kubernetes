@@ -15,7 +15,7 @@
 # of this is abort an upgrade that is improgress and get it back to a good
 # state.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade

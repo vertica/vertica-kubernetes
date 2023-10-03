@@ -10,6 +10,9 @@ nameReference:
   - kind: ValidatingWebhookConfiguration
     group: admissionregistration.k8s.io
     path: webhooks/clientConfig/service/name
+  - kind: CustomResourceDefinition
+    group: apiextensions.k8s.io
+    path: spec/conversion/webhook/clientConfig/service/name
 
 namespace:
 - kind: MutatingWebhookConfiguration
@@ -20,6 +23,9 @@ namespace:
   group: admissionregistration.k8s.io
   path: webhooks/clientConfig/service/namespace
   create: true
+- kind: CustomResourceDefinition
+  group: apiextensions.k8s.io
+  path: spec/conversion/webhook/clientConfig/service/namespace
 
 varReference:
 - path: metadata/annotations

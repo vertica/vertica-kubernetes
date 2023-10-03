@@ -42,14 +42,6 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 BUNDLE_DOCKERFILE=docker-bundle/Dockerfile
 
-# Set the namespace
-GET_NAMESPACE_SH=kubectl config view --minify --output 'jsonpath={..namespace}' 2> /dev/null
-ifeq (, $(shell ${GET_NAMESPACE_SH}))
-	NAMESPACE?=default
-else
-	NAMESPACE?=$(shell ${GET_NAMESPACE_SH})
-endif
-
 LOGDIR?=$(shell pwd)
 
 # Command we run to see if we are running in a kind environment
@@ -156,9 +148,9 @@ E2E_TEST_DIRS?=tests/e2e-leg-1
 # Additional arguments to pass to 'kubectl kuttl'
 E2E_ADDITIONAL_ARGS?=
 
-# Specify how to deploy the operator.  Allowable values are 'helm', 'olm' or 'random'.
+# Specify how to deploy the operator.  Allowable values are 'helm' or 'olm'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
-# already.  When deploying with random, it will randomly pick between olm and helm.
+# already.
 DEPLOY_WITH?=helm
 export DEPLOY_WITH
 # Clear this variable if you don't want to wait for the helm deployment to
@@ -167,6 +159,8 @@ export DEPLOY_WITH
 DEPLOY_WAIT?=--wait
 # Name of the test OLM catalog that we will create and deploy with in e2e tests
 OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
+# Name of the namespace to deploy the operator in
+NAMESPACE?=verticadb-operator
 
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
@@ -211,7 +205,6 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate Role and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd paths="./..." output:crd:artifacts:config=config/crd/bases
-	perl -i.$$$$ -nE 'print unless /WATCH_NAMESPACE/' config/rbac/role.yaml ; rm -f config/rbac/role.yaml.$$$$ ## delete any line with the dummy namespace WATCH_NAMESPACE
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -259,7 +252,7 @@ init-e2e-env: install-kuttl-plugin install-stern-plugin kustomize ## Download ne
 
 .PHONY: run-int-tests
 run-int-tests: init-e2e-env vdb-gen setup-e2e-communal ## Run the integration tests
-ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
+ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm))
 	$(MAKE) setup-olm
 endif
 	kubectl kuttl test --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) $(E2E_TEST_DIRS)
@@ -270,7 +263,7 @@ run-scorecard-tests: bundle ## Run the scorecard tests
 
 .PHONY: run-server-upgrade-tests
 run-server-upgrade-tests: install-kuttl-plugin install-stern-plugin setup-e2e-communal ## Run integration tests for Vertica server upgrade
-ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
+ifeq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm))
 	$(MAKE) setup-olm
 endif
 ifeq ($(BASE_VERTICA_IMG), <not-set>)
@@ -391,7 +384,7 @@ docker-buildx-operator: test ## Build and push docker image for the manager for 
 
 .PHONY: bundle 
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
-ifneq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm random))
+ifneq ($(DEPLOY_WITH), $(filter $(DEPLOY_WITH), olm))
 	$(error Bundle can only be generated when deploying with OLM.  Current deployment method: $(DEPLOY_WITH))
 endif
 	scripts/gen-csv.sh $(USE_IMAGE_DIGESTS_FLAG)  $(VERSION) $(BUNDLE_METADATA_OPTS)
@@ -448,7 +441,7 @@ vdb-gen: generate manifests ## Builds the vdb-gen tool
 ##@ Deployment
 
 ifndef ignore-not-found
-  ignore-not-found = false
+  ignore-not-found = true
 endif
 
 # When changing this version be sure to update tests/external-images-common-ci.txt
@@ -468,7 +461,7 @@ config-transformer: manifests kustomize kubernetes-split-yaml ## Generate releas
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build config/crd | kubectl apply --server-side=true -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -480,24 +473,18 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set logging.dev=${DEV_MODE} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set logging.dev=${DEV_MODE} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
-else ifeq ($(DEPLOY_WITH), random)
-ifeq ($(shell (( $$RANDOM % 2 )); echo $$?),0)
-	DEPLOY_WITH=helm $(MAKE) deploy-operator
-else
-	DEPLOY_WITH=olm $(MAKE) deploy-operator
-endif
 else
 	$(error Unknown deployment method: $(DEPLOY_WITH))
 endif
 
 .PHONY: undeploy-operator
 undeploy-operator: ## Undeploy operator that was previously deployed
-	scripts/undeploy.sh -n $(NAMESPACE) $(if $(filter false,$(ignore-not-found)),,-i)
+	scripts/undeploy.sh $(if $(filter false,$(ignore-not-found)),,-i)
 
 .PHONY: deploy
 deploy: deploy-operator
@@ -631,3 +618,8 @@ push-tag: ## Push the tag up to GitHub
 echo-versions:  ## Print the current versions for various components
 	@echo "VERSION=$(VERSION)"
 	@echo "VLOGGER_VERSION=$(VLOGGER_VERSION)"
+
+.PHONY: echo-vars
+echo-vars:  echo-images echo-versions  ## Print out internal state
+	@echo "DEPLOY_WITH=$(DEPLOY_WITH)"
+

@@ -21,12 +21,6 @@ var _ = Describe("eventtrigger_webhook", func() {
 		Expect(et.ValidateUpdate(et)).ShouldNot(Succeed())
 	})
 
-	It("should fail if reference object apiVersion is not known", func() {
-		et := MakeET()
-		et.Spec.References[0].Object.APIVersion = "version"
-		Expect(et.ValidateCreate()).ShouldNot(Succeed())
-	})
-
 	It("should fail on multiple reference objects", func() {
 		et := MakeET()
 		name := MakeVDBName().Name

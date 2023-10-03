@@ -30,6 +30,9 @@ spec:
     - name: sc1
       size: 2
   kSafety: "0"
+  securityContext:
+    capabilities:
+      add: ["SYS_PTRACE"]
   certSecrets: []
   imagePullSecrets: []
   volumes: []

@@ -21,9 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
-	"github.com/vertica/vertica-kubernetes/pkg/test"
+	test "github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -70,9 +71,9 @@ var _ = Describe("createet_reconciler", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		cond := []vapi.VerticaDBCondition{
-			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
-			{Type: vapi.DBInitialized, Status: corev1.ConditionTrue},
+		cond := []v1vapi.VerticaDBCondition{
+			{Type: v1vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
+			{Type: v1vapi.DBInitialized, Status: corev1.ConditionTrue},
 		}
 		Expect(setVerticaStatus(ctx, k8sClient, vdb, cond)).Should(Succeed())
 
@@ -119,9 +120,9 @@ var _ = Describe("createet_reconciler", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		cond := []vapi.VerticaDBCondition{
-			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
-			{Type: vapi.DBInitialized, Status: corev1.ConditionTrue},
+		cond := []v1vapi.VerticaDBCondition{
+			{Type: v1vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
+			{Type: v1vapi.DBInitialized, Status: corev1.ConditionTrue},
 		}
 		Expect(setVerticaStatus(ctx, k8sClient, vdb, cond)).Should(Succeed())
 
@@ -148,9 +149,13 @@ func getEventTriggerStatus(ctx context.Context, nm types.NamespacedName) vapi.Ev
 	return etrigger
 }
 
-func setVerticaStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, conditions []vapi.VerticaDBCondition) error {
+func setVerticaStatus(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, conditions []v1vapi.VerticaDBCondition) error {
+	v1vdb := v1vapi.VerticaDB{}
+	err := vdb.ConvertTo(&v1vdb)
+	Expect(err).Should(Succeed())
+
 	for idx := range conditions {
-		if err := vdbstatus.UpdateCondition(ctx, clnt, vdb, conditions[idx]); err != nil {
+		if err := vdbstatus.UpdateCondition(ctx, clnt, &v1vdb, conditions[idx]); err != nil {
 			return err
 		}
 	}

@@ -27,14 +27,17 @@ import (
 )
 
 const (
-	DefaultZapcoreLevel    = zapcore.InfoLevel
-	First                  = 100
-	ThereAfter             = 100
-	DefaultMaxFileSize     = 500
-	DefaultMaxFileAge      = 7
-	DefaultMaxFileRotation = 3
-	DefaultLevel           = "info"
-	DefaultDevMode         = true
+	DefaultZapcoreLevel                   = zapcore.InfoLevel
+	First                                 = 100
+	ThereAfter                            = 100
+	DefaultMaxFileSize                    = 500
+	DefaultMaxFileAge                     = 7
+	DefaultMaxFileRotation                = 3
+	DefaultLevel                          = "info"
+	DefaultDevMode                        = true
+	DefaultVerticaDBConcurrency           = 5
+	DefaultVerticaAutoscalerDBConcurrency = 1
+	DefaultEventTriggerDBConcurrency      = 1
 )
 
 type OperatorConfig struct {
@@ -42,15 +45,19 @@ type OperatorConfig struct {
 	EnableLeaderElection bool
 	ProbeAddr            string
 	EnableProfiler       bool
-	ServiceAccountName   string
 	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
 	WebhookCertSecret    string // when this is empty we will generate the webhook cert
 	DevMode              bool
-	// If the webhook is enabled but we don't require a webhook config patch.
-	// This should be true only if the webhook CA bundle was provided during
-	// deployment or using cert-manager, which handles the CA bundle injection
-	// itself.
-	SkipWebhookPatch bool
+	// This is set if the webhook is enabled and its TLS is set via
+	// cert-manager. cert-manager will handle the CA bundle injection in the
+	// various k8s objects.
+	UseCertManager bool
+	// The *Currency parms control the concurrency of go routines handling each
+	// CR.  For instance, VerticaDBConcurrency is the number of go routines to
+	// handle reconciliation of VerticaDB CRs.
+	VerticaDBConcurrency         int
+	VerticaAutoscalerConcurrency int
+	EventTriggerConcurrency      int
 	Logging
 }
 
@@ -73,15 +80,13 @@ func (o *OperatorConfig) SetFlagArgs() {
 	flag.BoolVar(&o.EnableProfiler, "enable-profiler", false,
 		"Enables runtime profiling collection.  The profiling data can be inspected by connecting to port 6060 "+
 			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
-	flag.StringVar(&o.ServiceAccountName, "service-account-name", "verticadb-operator-controller-manager",
-		"The name of the serviceAccount to use.")
 	flag.StringVar(&o.PrefixName, "prefix-name", "verticadb-operator",
 		"The common prefix for all objects created during the operator deployment")
 	flag.StringVar(&o.WebhookCertSecret, "webhook-cert-secret", "",
 		"Specifies the secret that contains the webhook cert. If this option is omitted, "+
 			"then the operator will generate the certificate.")
-	flag.BoolVar(&o.SkipWebhookPatch, "skip-webhook-patch", false,
-		"If the operator should skip updating the CA bundle in the webhook config")
+	flag.BoolVar(&o.UseCertManager, "use-cert-manager", false,
+		"If the operator uses cert-manager to generate the TLS for the webhook.")
 	flag.BoolVar(&o.DevMode, "dev", DefaultDevMode,
 		"Enables development mode if true and production mode otherwise.")
 	flag.StringVar(&o.FilePath, "filepath", "",
@@ -95,6 +100,13 @@ func (o *OperatorConfig) SetFlagArgs() {
 		"The maximum number of files that are kept in rotation before the old ones are removed.")
 	flag.StringVar(&o.Level, "level", DefaultLevel,
 		"The minimum logging level.  Valid values are: debug, info, warn, and error.")
+	flag.IntVar(&o.VerticaDBConcurrency, "verticadb-concurrency", DefaultVerticaDBConcurrency,
+		"The amount of concurrency to reconcile VerticaDB CRs")
+	flag.IntVar(&o.VerticaAutoscalerConcurrency, "verticaautoscaler-concurrency",
+		DefaultVerticaAutoscalerDBConcurrency,
+		"The amount of concurrency to reconcile VerticaAutoscaler CRs")
+	flag.IntVar(&o.EventTriggerConcurrency, "eventtrigger-concurrency", DefaultVerticaDBConcurrency,
+		"The amount of concurrency to reconcile EventTrigger CRs")
 }
 
 // getEncoderConfig returns a concrete encoders configuration

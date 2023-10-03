@@ -18,7 +18,7 @@ package metrics
 import (
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 

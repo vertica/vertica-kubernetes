@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -39,8 +40,8 @@ var _ = Describe("webhook", func() {
 		defer deleteWebhookConfiguration(ctx)
 
 		caCrt := []byte("==== CERT ====")
-		Expect(PatchWebhookCABundle(ctx, &logger, restCfg, caCrt, prefixName, ns)).Should(Succeed())
-		verifyCABundleEquals(ctx, prefixName, ns, caCrt)
+		Expect(PatchWebhookCABundle(ctx, &logger, restCfg, caCrt, prefixName, "default")).Should(Succeed())
+		verifyCABundleEquals(ctx, prefixName, caCrt)
 	})
 
 	It("should update webhook configuration with cert in given secret", func() {
@@ -53,7 +54,7 @@ var _ = Describe("webhook", func() {
 		defer deleteSecret(ctx, secretName)
 
 		Expect(PatchWebhookCABundleFromSecret(ctx, &logger, restCfg, secretName, prefixName, ns)).Should(Succeed())
-		verifyCABundleEquals(ctx, prefixName, ns, mockCert)
+		verifyCABundleEquals(ctx, prefixName, mockCert)
 	})
 
 	It("should be a no-op if updating webhook configuration by cert is missing", func() {
@@ -65,7 +66,7 @@ var _ = Describe("webhook", func() {
 		defer deleteSecret(ctx, secretName)
 
 		Expect(PatchWebhookCABundleFromSecret(ctx, &logger, restCfg, secretName, prefixName, ns)).Should(Succeed())
-		verifyCABundleEquals(ctx, prefixName, ns, nil)
+		verifyCABundleEquals(ctx, prefixName, nil)
 	})
 
 	It("should write out certs to a file", func() {
@@ -86,6 +87,19 @@ var _ = Describe("webhook", func() {
 		Expect(files[0].Name()).Should(Equal(corev1.TLSCertKey))
 		Expect(files[1].Name()).Should(Equal(corev1.TLSPrivateKeyKey))
 	})
+
+	It("should add annotations to the CRD", func() {
+		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+		crd := extv1.CustomResourceDefinition{}
+		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+		Expect(crd.Annotations).ShouldNot(BeNil())
+		_, ok := crd.Annotations[certManagerAnnotationName]
+		Expect(ok).Should(BeFalse())
+		Expect(AddCertManagerAnnotation(ctx, &logger, restCfg, prefixName, ns)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+		_, ok = crd.Annotations[certManagerAnnotationName]
+		Expect(ok).Should(BeTrue())
+	})
 })
 
 func createWebhookConfiguration(ctx context.Context) {
@@ -93,7 +107,7 @@ func createWebhookConfiguration(ctx context.Context) {
 	host := "https://127.0.0.1"
 	validatingCfg := admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: getValidatingWebhookConfigName(prefixName, ns),
+			Name: getValidatingWebhookConfigName(prefixName),
 		},
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{
 			{
@@ -107,7 +121,7 @@ func createWebhookConfiguration(ctx context.Context) {
 	Expect(k8sClient.Create(ctx, &validatingCfg)).Should(Succeed())
 	mutatingCfg := admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: getMutatingWebhookConfigName(prefixName, ns),
+			Name: getMutatingWebhookConfigName(prefixName),
 		},
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
 			{
@@ -123,13 +137,13 @@ func createWebhookConfiguration(ctx context.Context) {
 
 func deleteWebhookConfiguration(ctx context.Context) {
 	nm := types.NamespacedName{
-		Name: getValidatingWebhookConfigName(prefixName, ns),
+		Name: getValidatingWebhookConfigName(prefixName),
 	}
 	vcfg := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, vcfg)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, vcfg)).Should(Succeed())
 	nm = types.NamespacedName{
-		Name: getMutatingWebhookConfigName(prefixName, ns),
+		Name: getMutatingWebhookConfigName(prefixName),
 	}
 	mcfg := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, mcfg)).Should(Succeed())
@@ -157,9 +171,9 @@ func deleteSecret(ctx context.Context, secretName string) {
 	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }
 
-func verifyCABundleEquals(ctx context.Context, prefixName, ns string, caCrt []byte) {
+func verifyCABundleEquals(ctx context.Context, prefixName string, caCrt []byte) {
 	nm := types.NamespacedName{
-		Name: getValidatingWebhookConfigName(prefixName, ns),
+		Name: getValidatingWebhookConfigName(prefixName),
 	}
 	vcfg := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, vcfg)).Should(Succeed())
@@ -171,7 +185,7 @@ func verifyCABundleEquals(ctx context.Context, prefixName, ns string, caCrt []by
 	}
 	Expect(vcfg.Webhooks[0].ClientConfig.CABundle).Should(Equal(caCrt))
 	nm = types.NamespacedName{
-		Name: getMutatingWebhookConfigName(prefixName, ns),
+		Name: getMutatingWebhookConfigName(prefixName),
 	}
 	mcfg := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	Expect(k8sClient.Get(ctx, nm, mcfg)).Should(Succeed())
