@@ -1,0 +1,6 @@
+kind: Changed
+body: Removed linux capabilities for vclusterOps deployments to make it easier to
+  deploy in OpenShift
+time: 2023-10-03T09:40:45.847298082-03:00
+custom:
+  Issue: "524"
