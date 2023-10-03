@@ -748,6 +748,13 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 	if vdb.Spec.SecurityContext != nil {
 		sc = vdb.Spec.SecurityContext
 	}
+
+	// In vclusterops mode, we don't need SYS_CHROOT
+	// and AUDIT_WRITE to run on OpenShift
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return sc
+	}
+
 	if sc.Capabilities == nil {
 		sc.Capabilities = &corev1.Capabilities{}
 	}
@@ -756,8 +763,6 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 		"SYS_CHROOT",
 		// Needed to run sshd on OpenShift
 		"AUDIT_WRITE",
-		// Needed to be able to collect stacks via vstack
-		"SYS_PTRACE",
 	}
 	for i := range capabilitiesNeeded {
 		foundCap := false
