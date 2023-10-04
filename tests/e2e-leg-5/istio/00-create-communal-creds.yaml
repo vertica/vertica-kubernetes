@@ -10,11 +10,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-apiVersion: security.istio.io/v1beta1
-kind: PeerAuthentication
-metadata:
-  name: default
-spec:
-  mtls:
-    mode: PERMISSIVE
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kustomize build ../../manifests/communal-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
+  - script: kustomize build ../../manifests/priv-container-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
