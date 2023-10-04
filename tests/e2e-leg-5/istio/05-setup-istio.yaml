@@ -19,3 +19,4 @@ commands:
 - command: sh -c "../../../bin/istioctl uninstall --purge --skip-confirmation || true"
 - command: sh -c "../../../bin/istioctl install --set profile=demo --skip-confirmation"
 - command: kubectl label namespace $NAMESPACE istio-injection=enabled
+- command: kubectl label namespace verticadb-operator istio-injection=enabled
