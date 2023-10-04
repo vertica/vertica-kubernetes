@@ -378,7 +378,8 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
 	// If a communal path is set, include all of the EON parameters.
-	if r.Vdb.Spec.Communal.Path != "" {
+	// Only for vclusterops as admintools relies on a config file.
+	if meta.UseVClusterOps(r.Vdb.Annotations) && r.Vdb.Spec.Communal.Path != "" {
 		// build communal storage params if there is not one
 		if r.ConfigurationParams == nil {
 			res, err := r.ConstructConfigParms(ctx)
@@ -411,7 +412,8 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		startdb.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
 	// If a communal path is set, include all of the EON parameters.
-	if r.Vdb.Spec.Communal.Path != "" {
+	// Only for vclusterops as admintools relies on a config file.
+	if meta.UseVClusterOps(r.Vdb.Annotations) && r.Vdb.Spec.Communal.Path != "" {
 		// build communal storage params if there is not one
 		if r.ConfigurationParams == nil {
 			res, err := r.ConstructConfigParms(ctx)
