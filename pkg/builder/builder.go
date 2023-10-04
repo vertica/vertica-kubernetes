@@ -97,6 +97,12 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			ClusterIP:                "None",
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
+			// We must include all communication ports for vertica pods in this
+			// headless service. This is needed to allow a service mesh like
+			// istio to work with mTLS. That service uses the information here
+			// to know what communication needs mTLS added to it. Included here
+			// are the ports common regardless of deployment method. We then add
+			// specific ports that are deployment method dependent a few lines down.
 			Ports: []corev1.ServicePort{
 				{Port: VerticaClusterCommPort, Name: "tcp-verticaclustercomm"},
 				{Port: SpreadClientPort, Name: "tcp-spreadclient"},
