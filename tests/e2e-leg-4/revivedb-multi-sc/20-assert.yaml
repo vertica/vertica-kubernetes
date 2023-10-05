@@ -19,6 +19,14 @@ status:
   replicas: 1
   readyReplicas: 1
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-create-multi-sc-secondary
+status:
+  replicas: 1
+  readyReplicas: 1
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
@@ -29,5 +37,5 @@ status:
       addedToDBCount: 1
       upNodeCount: 1
     - installCount: 1
-      addedToDBCount: 0
-      upNodeCount: 0
+      addedToDBCount: 1
+      upNodeCount: 1
