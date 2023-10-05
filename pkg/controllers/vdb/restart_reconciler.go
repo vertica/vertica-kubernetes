@@ -107,6 +107,13 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// If create/revive db failed, we skip restarting the cluster for redoing create/revive db
+	isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
+	if !isSet || e != nil {
+		r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
+		return ctrl.Result{}, e
+	}
+
 	// We have two paths.  If the entire cluster is down we have separate
 	// admin commands to run.  Cluster operations only apply if the entire
 	// vertica cluster is managed by k8s.  We skip that if initPolicy is
