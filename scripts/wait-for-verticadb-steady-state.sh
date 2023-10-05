@@ -20,7 +20,7 @@
 TIMEOUT=30  # Default, can be overridden
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-t <timeout>] <vdb-namespace>"
+    echo "usage: $(basename $0) [-n <namespace>] [-t <timeout>] [<vdb-namespace>]"
     echo
     echo "Options:"
     echo "  -n    Namespace the operator is deployed in.  Defaults to current namespace"
@@ -49,14 +49,19 @@ do
     esac
 done
 
-if [ $(( $# - $OPTIND )) -lt 0 ]
+if [ $(( $# - $OPTIND )) -eq 0 ]
 then
-    usage
+    # All entries will have a key/value like this:
+    # "verticadb": "kuttl-test-sterling-coyote/v-auto-restart",
+    # We are going to look for the namespace portion.
+    VDB_FILTER="${@:$OPTIND:1}/"
+else
+    # No verticadb namespace, so include everything in the vdb filter
+    VDB_FILTER="."
 fi
 
-VDB_NS=${@:$OPTIND:1}
 
-NS_OPT="-n verticadb-operator"
+NS_OPT="-n verticadb-operator "
 if [[ -n "$NAMESPACE" ]]
 then
     NS_OPT="-n $NAMESPACE "
@@ -64,12 +69,10 @@ fi
 
 LOG_CMD="kubectl ${NS_OPT}logs -l control-plane=controller-manager -c manager --tail=-1"
 WEBHOOK_FILTER="--invert-match -e 'controller-runtime.webhook.webhooks' -e 'verticadb-resource'"
-# All entries will have a key/value like this:
-# "verticadb": "kuttl-test-sterling-coyote/v-auto-restart",
-# We are going to look for the namespace portion.
-VDB_FILTER="$VDB_NS/"
+DEPRECATION_FILTER="--invert-match 'VerticaDB is deprecated'"
 timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | \
     grep $WEBHOOK_FILTER | \
+    grep $DEPRECATION_FILTER | \
     grep $VDB_FILTER | \
     tail -1 | grep --quiet '\"result\": {\"Requeue\":false,\"RequeueAfter\":0}, \"err\": null'; do sleep 1; done" &
 pid=$!

@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,7 +46,11 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 		return fmt.Errorf("the re-ip list should not be empty")
 	}
 
-	return nil
+	// verify eon options
+	if options.IsEon.ToBool() != TestIsEon {
+		return fmt.Errorf("failed to retrieve eon mode")
+	}
+	return m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.CommunalStorageParameters)
 }
 
 var _ = Describe("re_ip_vc", func() {
@@ -65,6 +70,7 @@ var _ = Describe("re_ip_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.HTTPServerTLSSecret = "re-ip-test-secret"
+		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
 
@@ -72,7 +78,9 @@ var _ = Describe("re_ip_vc", func() {
 			reip.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), hosts[0].IP),
 			reip.WithHost(hosts[0].VNode, hosts[0].Compat21Node, hosts[0].IP),
 			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP),
-			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP))
+			reip.WithHost(hosts[1].VNode, hosts[1].Compat21Node, hosts[1].IP),
+			reip.WithCommunalPath(TestCommunalPath),
+			reip.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})

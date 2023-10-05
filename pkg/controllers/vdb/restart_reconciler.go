@@ -63,6 +63,7 @@ type RestartReconciler struct {
 	InitiatorPodIP  string               // The IP of the initiating pod
 	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
 	Dispatcher      vadmin.Dispatcher
+	ConfigParamsGenerator
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
@@ -77,6 +78,11 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PFacts:          pfacts,
 		RestartReadOnly: restartReadOnly,
 		Dispatcher:      dispatcher,
+		ConfigParamsGenerator: ConfigParamsGenerator{
+			VRec: vdbrecon,
+			Log:  log.WithName("RestartReconciler"),
+			Vdb:  vdb,
+		},
 	}
 }
 
@@ -371,6 +377,20 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	opts := []reip.Option{
 		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
+	// If a communal path is set, include all of the EON parameters.
+	if r.Vdb.Spec.Communal.Path != "" {
+		// build communal storage params if there is not one
+		if r.ConfigurationParams == nil {
+			res, err := r.ConstructConfigParms(ctx)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+		}
+		opts = append(opts,
+			reip.WithCommunalPath(r.Vdb.GetCommunalPath()),
+			reip.WithConfigurationParams(r.ConfigurationParams.GetMap()),
+		)
+	}
 	for i := range pods {
 		if !pods[i].isPodRunning {
 			r.Log.Info("Not all pods are running. Need to requeue restart reconciler.", "pod", pods[i].name)
@@ -389,6 +409,20 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
 	opts := []startdb.Option{
 		startdb.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
+	}
+	// If a communal path is set, include all of the EON parameters.
+	if r.Vdb.Spec.Communal.Path != "" {
+		// build communal storage params if there is not one
+		if r.ConfigurationParams == nil {
+			res, err := r.ConstructConfigParms(ctx)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+		}
+		opts = append(opts,
+			startdb.WithCommunalPath(r.Vdb.GetCommunalPath()),
+			startdb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
+		)
 	}
 	for i := range downPods {
 		opts = append(opts, startdb.WithHost(downPods[i].podIP))
