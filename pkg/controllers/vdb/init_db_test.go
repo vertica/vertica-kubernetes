@@ -44,10 +44,12 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
 			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec: vdbRec,
+				Log:  logger,
+				Vdb:  vdb,
+			},
 		}
 		Expect(g.getCommunalAuth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
 	})
@@ -58,10 +60,12 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
 			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec: vdbRec,
+				Log:  logger,
+				Vdb:  vdb,
+			},
 		}
 
 		Expect(g.getCommunalEndpoint()).Should(Equal("192.168.0.1"))
@@ -95,11 +99,13 @@ var _ = Describe("init_db", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, ScSize)
 
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
 			PRunner: fpr,
 			PFacts:  pfacts,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec: vdbRec,
+				Log:  logger,
+				Vdb:  vdb,
+			},
 		}
 		podList := []*PodFact{}
 		for i := range pfacts.Detail {
@@ -128,11 +134,13 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			PRunner:             fpr,
-			ConfigurationParams: types.MakeCiMap(),
+			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 
 		res, err := g.ConstructConfigParms(ctx)
@@ -204,11 +212,13 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			PRunner:             fpr,
-			ConfigurationParams: types.MakeCiMap(),
+			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 
 		res, err := g.ConstructConfigParms(ctx)
@@ -262,11 +272,13 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			PRunner:             fpr,
-			ConfigurationParams: types.MakeCiMap(),
+			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		res, err := g.setS3SseCustomerKey(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
@@ -307,10 +319,12 @@ var _ = Describe("init_db", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 
 		res, err := g.ConstructConfigParms(ctx)
@@ -322,8 +336,10 @@ var _ = Describe("init_db", func() {
 		vdb := vapi.MakeVDB()
 
 		g := GenericDatabaseInitializer{
-			Vdb:                 vdb,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
 		g.setServerSideEncryptionAlgorithm()
@@ -343,9 +359,11 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Vdb:                 vdb,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		g.setAdditionalConfigParms()
 		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "parm1")).Should(Equal(true))
@@ -359,10 +377,12 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Vdb:                 vdb,
-			Log:                 logger,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Vdb:                 vdb,
+				Log:                 logger,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		g.ConfigurationParams.Set("Parm1", "value")
 		g.setAdditionalConfigParms()
@@ -394,10 +414,12 @@ func ContructAuthParmsMap(ctx context.Context, vdb *vapi.VerticaDB, key string) 
 
 func ConstructDBInitializer(ctx context.Context, vdb *vapi.VerticaDB) *GenericDatabaseInitializer {
 	g := &GenericDatabaseInitializer{
-		VRec:                vdbRec,
-		Log:                 logger,
-		Vdb:                 vdb,
-		ConfigurationParams: types.MakeCiMap(),
+		ConfigParamsGenerator: ConfigParamsGenerator{
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			ConfigurationParams: types.MakeCiMap(),
+		},
 	}
 
 	res, err := g.ConstructConfigParms(ctx)

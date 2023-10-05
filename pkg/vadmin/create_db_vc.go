@@ -75,7 +75,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	}
 
 	// Additional configuration parameters for create db.
-	opts.CommunalStorageParameters = s.ConfigurationParams
+	opts.ConfigurationParameters = s.ConfigurationParams
 
 	if s.ShardCount > 0 {
 		opts.ShardCount = &s.ShardCount

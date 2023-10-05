@@ -10,3 +10,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- command: sh -c "cd ../../.. && make istioctl"
+- command: sh -c "../../../bin/istioctl operator init"
+- command: sh -c "../../../bin/istioctl uninstall --purge --skip-confirmation || true"
+- command: sh -c "../../../bin/istioctl install --set profile=demo --skip-confirmation"
+- command: kubectl label namespace $NAMESPACE istio-injection=enabled
+- command: kubectl label namespace verticadb-operator istio-injection=enabled

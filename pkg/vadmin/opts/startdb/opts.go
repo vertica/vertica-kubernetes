@@ -21,9 +21,11 @@ import (
 
 // Parms holds all of the option for a start DB invocation.
 type Parms struct {
-	InitiatorName types.NamespacedName
-	InitiatorIP   string
-	Hosts         []string
+	InitiatorName       types.NamespacedName
+	InitiatorIP         string
+	Hosts               []string
+	CommunalPath        string
+	ConfigurationParams map[string]string
 }
 
 type Option func(*Parms)
@@ -48,5 +50,17 @@ func WithHost(hostName string) Option {
 			s.Hosts = make([]string, 0)
 		}
 		s.Hosts = append(s.Hosts, hostName)
+	}
+}
+
+func WithCommunalPath(path string) Option {
+	return func(s *Parms) {
+		s.CommunalPath = path
+	}
+}
+
+func WithConfigurationParams(parms map[string]string) Option {
+	return func(s *Parms) {
+		s.ConfigurationParams = parms
 	}
 }
