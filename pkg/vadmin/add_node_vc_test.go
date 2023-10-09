@@ -38,7 +38,6 @@ var TestPod5Name = types.NamespacedName{
 	Namespace: "ns",
 }
 var TestNewPodNames = []types.NamespacedName{TestPod4Name, TestPod5Name}
-
 var testExpectedNodeNames = []string{"v_" + TestDBName + "_node0001",
 	"v_" + TestDBName + "_node0002",
 	"v_" + TestDBName + "_node0003"}

@@ -156,7 +156,6 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, podsToAdd []*PodFa
 
 // runAddNodeForPod will execute the command to add a single node to the cluster
 // Returns the stdout from the command.
-
 func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 	expectedNodeNames []string,
 	podsToAdd []*PodFact,

@@ -107,7 +107,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// If create/revive db failed, we skip restarting the cluster for redoing create/revive db
+	// If create/revive db failed, we skip restarting the cluster for redoing create/revive db in vclusterops
 	if meta.UseVClusterOps(r.Vdb.Annotations) {
 		isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
 		if !isSet || e != nil {
