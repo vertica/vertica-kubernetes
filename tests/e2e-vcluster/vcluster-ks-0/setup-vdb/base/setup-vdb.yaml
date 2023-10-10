@@ -38,6 +38,7 @@ spec:
       size: 1
       isPrimary: false
   kSafety: "0"
+  encryptSpreadComm: vertica
   certSecrets: []
   imagePullSecrets: []
   volumes: []
