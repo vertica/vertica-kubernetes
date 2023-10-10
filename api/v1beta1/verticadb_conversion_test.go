@@ -63,4 +63,29 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
 		Ω(v1beta1VDB.Spec.RestartTimeout).Should(Equal(88))
 	})
+
+	It("should convert temporarySubclusterRouting", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Spec.TemporarySubclusterRouting).Should(BeNil())
+
+		v1beta1VDB.Spec.TemporarySubclusterRouting.Names = []string{"s1", "s2"}
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Spec.TemporarySubclusterRouting).ShouldNot(BeNil())
+		Ω(v1VDB.Spec.TemporarySubclusterRouting.Names).Should(HaveLen(2))
+		Ω(v1VDB.Spec.TemporarySubclusterRouting.Names).Should(ContainElements("s1", "s2"))
+
+		v1VDB.Spec.TemporarySubclusterRouting.Names = []string{}
+		const transientSCName = "transient-1"
+		const transientSCSize = 3
+		v1VDB.Spec.TemporarySubclusterRouting.Template = v1.Subcluster{
+			Name: transientSCName,
+			Size: transientSCSize,
+		}
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.TemporarySubclusterRouting.Names).Should(HaveLen(0))
+		Ω(v1beta1VDB.Spec.TemporarySubclusterRouting.Template.Name).Should(Equal(transientSCName))
+		Ω(v1beta1VDB.Spec.TemporarySubclusterRouting.Template.Size).Should(Equal(int32(transientSCSize)))
+	})
 })

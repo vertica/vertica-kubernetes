@@ -47,7 +47,7 @@ func (v *VerticaDB) ConvertFrom(srcRaw conversion.Hub) error {
 	v.Annotations = convertFromAnnotations(src)
 	v.UID = src.UID
 	v.Labels = src.Labels
-	v.Spec = convertFromSpec(src, &src.Spec)
+	v.Spec = convertFromSpec(src)
 	v.Status = convertFromStatus(&src.Status)
 	return nil
 }
@@ -59,8 +59,9 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	for k, v := range src.Annotations {
 		newAnnotations[k] = v
 	}
-	// Only include annotations for removed parameters if it is not the default
-	// value.
+	// Each parameter in the v1 API that we removed will have a corresponding
+	// annotation to allow conversion between the two versions. But we only want
+	// to set the annotation if the parameter values wasn't the default.
 	if src.Spec.IgnoreClusterLease {
 		newAnnotations[vmeta.IgnoreClusterLeaseAnnotation] = strconv.FormatBool(src.Spec.IgnoreClusterLease)
 	}
@@ -148,7 +149,8 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 }
 
 // convertFromSpec will convert from a v1 VerticaDBSpec to a v1beta1 version
-func convertFromSpec(src *v1.VerticaDB, srcSpec *v1.VerticaDBSpec) VerticaDBSpec {
+func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
+	srcSpec := &src.Spec
 	dst := VerticaDBSpec{
 		ImagePullPolicy:          srcSpec.ImagePullPolicy,
 		ImagePullSecrets:         convertFromLocalReferenceSlice(srcSpec.ImagePullSecrets),
