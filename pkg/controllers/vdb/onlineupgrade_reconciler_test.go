@@ -300,6 +300,9 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = vapi.OnlineUpgradeVersion
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateSvcs(ctx, k8sClient, vdb)

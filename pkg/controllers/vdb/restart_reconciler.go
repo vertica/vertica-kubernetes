@@ -103,17 +103,15 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	if err := r.PFacts.Collect(ctx, r.Vdb); err != nil {
-		return ctrl.Result{}, err
+	// If create/revive db failed, we skip restarting the cluster for redoing create/revive db in vclusterops
+	isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
+	if !isSet || e != nil {
+		r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
+		return ctrl.Result{}, e
 	}
 
-	// If create/revive db failed, we skip restarting the cluster for redoing create/revive db in vclusterops
-	if meta.UseVClusterOps(r.Vdb.Annotations) {
-		isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
-		if !isSet || e != nil {
-			r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
-			return ctrl.Result{}, e
-		}
+	if err := r.PFacts.Collect(ctx, r.Vdb); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// We have two paths.  If the entire cluster is down we have separate
