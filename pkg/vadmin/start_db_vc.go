@@ -78,6 +78,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
+	opts.AddSpreadEncryptionKey = v.VDB.Spec.EncryptSpreadComm == "vertica"
 
 	// timeout option
 	opts.StatePollingTimeout = v.VDB.Spec.RestartTimeout
