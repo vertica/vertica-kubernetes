@@ -44,6 +44,7 @@ const (
 	SSHPort                 = 22
 	VerticaClusterCommPort  = 5434
 	SpreadClientPort        = 4803
+	NMAPort                 = 5554
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv        = "POD_IP"
@@ -84,7 +85,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 
 // BuildHlSvc creates the desired spec for the headless service.
 func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
-	return &corev1.Service{
+	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
@@ -96,13 +97,28 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			ClusterIP:                "None",
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
+			// We must include all communication ports for vertica pods in this
+			// headless service. This is needed to allow a service mesh like
+			// istio to work with mTLS. That service uses the information here
+			// to know what communication needs mTLS added to it. Included here
+			// are the ports common regardless of deployment method. We then add
+			// specific ports that are deployment method dependent a few lines down.
 			Ports: []corev1.ServicePort{
-				{Port: SSHPort, Name: "tcp-ssh"},
 				{Port: VerticaClusterCommPort, Name: "tcp-verticaclustercomm"},
 				{Port: SpreadClientPort, Name: "tcp-spreadclient"},
 			},
 		},
 	}
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		svc.Spec.Ports = append(svc.Spec.Ports,
+			corev1.ServicePort{Port: VerticaHTTPPort, Name: "tcp-httpservice"},
+			corev1.ServicePort{Port: NMAPort, Name: "tcp-nma"},
+		)
+	} else {
+		svc.Spec.Ports = append(svc.Spec.Ports,
+			corev1.ServicePort{Port: SSHPort, Name: "tcp-ssh"})
+	}
+	return svc
 }
 
 // buildConfigVolumeMount returns the volume mount for config.

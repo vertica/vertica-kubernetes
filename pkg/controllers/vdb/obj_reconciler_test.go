@@ -127,7 +127,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(k8sClient.Get(ctx, hlNameLookup, foundSvc)).Should(Succeed())
 			Expect(foundSvc.Spec.ClusterIP).Should(Equal("None"))
 			Expect(foundSvc.Spec.Type).Should(Equal(corev1.ServiceTypeClusterIP))
-			Expect(foundSvc.Spec.Ports[0].Port).Should(Equal(int32(22)))
+			Expect(foundSvc.Spec.Ports[0].Port).Should(Equal(int32(builder.VerticaClusterCommPort)))
 		})
 
 		It("should have custom type, nodePort, externalIPs, loadBalancerIP, serviceAnnotations and update them in ext service", func() {
