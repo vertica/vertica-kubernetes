@@ -58,7 +58,8 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	if !g.PFacts.doesDBExist() {
+	isSet, e := g.Vdb.IsConditionSet(vapi.DBInitialized)
+	if !g.PFacts.doesDBExist() || !isSet || e != nil {
 		res, err := g.runInit(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
