@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -74,7 +75,7 @@ var _ = Describe("start_db_vc", func() {
 	It("should call vcluster-ops library with start_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.RestartTimeout = 10
+		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
 		dispatcher.VDB.Spec.HTTPServerTLSSecret = "start-db-test-secret"
 		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)

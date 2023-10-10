@@ -54,7 +54,7 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	// If a serviceAccount name was specified and it exists, then we can exit
 	// this reconciler early.
 	if s.Vdb.Spec.ServiceAccountName != "" {
-		if exists, err := s.hasUserProvidedServiceAccount(ctx, s.Vdb.Spec.ServiceAccountName); exists || err != nil {
+		if userProvidedSA, err := s.hasUserProvidedServiceAccount(ctx, s.Vdb.Spec.ServiceAccountName); userProvidedSA || err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -256,6 +256,10 @@ func (s *ServiceAccountReconciler) saveServiceAccountNameInVDB(ctx context.Conte
 			return err
 		}
 
+		// ServiceAccount already set. Nothing to do.
+		if s.Vdb.Spec.ServiceAccountName == saName {
+			return nil
+		}
 		s.Vdb.Spec.ServiceAccountName = saName
 		s.Log.Info("Updating serviceAccountName in VerticaDB", "name", saName)
 		return s.VRec.Client.Update(ctx, s.Vdb)

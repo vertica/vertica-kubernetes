@@ -135,7 +135,7 @@ func (v *VersionReconciler) getVersion(ctx context.Context, pod *PodFact) (strin
 func (v *VersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
 
-	if v.EnforceUpgradePath && !v.Vdb.Spec.IgnoreUpgradePath {
+	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {
 		ok, failureReason := v.Vdb.IsUpgradePathSupported(versionAnnotations)
 		if !ok {
 			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,

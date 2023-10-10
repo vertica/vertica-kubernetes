@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,8 +31,8 @@ var _ = Describe("start_db_at", func() {
 
 	It("should call admintools -t start_db", func() {
 		dispatcher, vdb, fpr := mockAdmintoolsDispatcher()
-		vdb.Spec.IgnoreClusterLease = true
-		vdb.Spec.RestartTimeout = 10
+		vdb.SetIgnoreClusterLease(true)
+		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		res, err := dispatcher.StartDB(ctx,
 			startdb.WithInitiator(nm, "11.8.1.1"),

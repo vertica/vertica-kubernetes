@@ -231,7 +231,7 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName,
 			revivedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 		)
 	}
-	if r.Vdb.Spec.IgnoreClusterLease {
+	if r.Vdb.GetIgnoreClusterLease() {
 		opts = append(opts, revivedb.WithIgnoreClusterLease())
 	}
 	return opts

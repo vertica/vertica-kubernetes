@@ -25,6 +25,7 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 )
@@ -51,9 +52,9 @@ var _ = Describe("re_ip_at", func() {
 
 	It("should use --force option in reip if on version that supports it", func() {
 		at, vdb, _ := mockAdmintoolsDispatcher()
-		vdb.Annotations[vapi.VersionAnnotation] = vapi.MinimumVersion
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.MinimumVersion
 		Expect(at.genReIPCommand()).ShouldNot(ContainElement("--force"))
-		vdb.Annotations[vapi.VersionAnnotation] = vapi.ReIPAllowedWithUpNodesVersion
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.ReIPAllowedWithUpNodesVersion
 		Expect(at.genReIPCommand()).Should(ContainElement("--force"))
 	})
 

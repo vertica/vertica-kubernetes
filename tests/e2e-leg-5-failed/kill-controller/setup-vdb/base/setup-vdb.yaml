@@ -20,7 +20,7 @@ spec:
   image: kustomize-vertica-image
   sshSecret: ssh-keys
   communal:
-    includeUIDInPath: false
+    includeUIDInPath: true
   local:
     requestSize: 100Mi
   dbName: db

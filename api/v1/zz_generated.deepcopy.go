@@ -334,7 +334,11 @@ func (in *VerticaDBSpec) DeepCopyInto(out *VerticaDBSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	in.TemporarySubclusterRouting.DeepCopyInto(&out.TemporarySubclusterRouting)
+	if in.TemporarySubclusterRouting != nil {
+		in, out := &in.TemporarySubclusterRouting, &out.TemporarySubclusterRouting
+		*out = new(SubclusterSelection)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Sidecars != nil {
 		in, out := &in.Sidecars, &out.Sidecars
 		*out = make([]corev1.Container, len(*in))

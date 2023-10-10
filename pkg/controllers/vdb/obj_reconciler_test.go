@@ -597,6 +597,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should update service object if labels are changing", func() {
 			vdb := vapi.MakeVDB()
+			vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{}
 			sc := &vdb.Spec.Subclusters[0]
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)

@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
@@ -35,10 +36,12 @@ var _ = Describe("upgrade", func() {
 
 	It("should correctly pick the upgrade type", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
-			Name:      "t",
-			Size:      1,
-			IsPrimary: false,
+		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
+			Template: vapi.Subcluster{
+				Name:      "t",
+				Size:      1,
+				IsPrimary: false,
+			},
 		}
 
 		// No version -- always pick offline
@@ -53,15 +56,15 @@ var _ = Describe("upgrade", func() {
 		vdb.Spec.UpgradePolicy = vapi.AutoUpgrade
 		vdb.Spec.LicenseSecret = "license"
 		vdb.Spec.KSafety = vapi.KSafety1
-		delete(vdb.ObjectMeta.Annotations, vapi.VersionAnnotation)
+		delete(vdb.ObjectMeta.Annotations, vmeta.VersionAnnotation)
 		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Older version
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v11.0.0"
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v11.0.0"
 		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Correct version
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = vapi.OnlineUpgradeVersion
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
 		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Missing license
@@ -74,7 +77,7 @@ var _ = Describe("upgrade", func() {
 		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 
 		// Old version and online requested
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v11.0.2"
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v11.0.2"
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
 		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
 	})

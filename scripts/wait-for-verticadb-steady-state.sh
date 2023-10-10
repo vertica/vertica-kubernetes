@@ -89,5 +89,5 @@ NC='\033[0m'  # No color
 printf "\n${RED}Timed out waiting for steady state to be achieved.\n"
 printf "\n${GREEN}Command:"
 printf "\n\t$LOG_CMD\n\n${NC}"
-printf "$($LOG_CMD | grep $WEBHOOK_FILTER | grep $VDB_FILTER | tail)\n"
+$LOG_CMD | grep $WEBHOOK_FILTER | grep $VDB_FILTER
 exit 1

@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
@@ -206,7 +207,7 @@ var _ = Describe("init_db", func() {
 		vdb.Spec.Communal.KerberosServiceName = "vert"
 		// Setting this annotation will set the version in the vdb.  The version
 		// was picked because it isn't compatible with Kerberos.
-		vdb.Annotations[vapi.VersionAnnotation] = "v11.0.1"
+		vdb.Annotations[vmeta.VersionAnnotation] = "v11.0.1"
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
@@ -314,7 +315,7 @@ var _ = Describe("init_db", func() {
 		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
 		// Setting this annotation will set the version in the vdb.  The version
 		// was picked because it isn't compatible with server-side encryption.
-		vdb.Annotations[vapi.VersionAnnotation] = testSseVerticaOlderVersion
+		vdb.Annotations[vmeta.VersionAnnotation] = testSseVerticaOlderVersion
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 

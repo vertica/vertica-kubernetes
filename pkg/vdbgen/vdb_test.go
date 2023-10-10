@@ -60,7 +60,7 @@ var _ = Describe("vdb", func() {
 		Expect(string(dbGen.Objs.Vdb.Spec.InitPolicy)).Should(Equal(vapi.CommunalInitPolicyRevive))
 		Expect(dbGen.Objs.Vdb.Spec.DBName).Should(Equal("mydb"))
 		Expect(dbGen.Objs.Vdb.ObjectMeta.Name).Should(Equal("vertdb"))
-		Expect(dbGen.Objs.Vdb.Spec.IgnoreClusterLease).Should(BeTrue())
+		Expect(dbGen.Objs.Vdb.GetIgnoreClusterLease()).Should(BeTrue())
 		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("my-img:latest"))
 		Expect(dbGen.Objs.Vdb.Spec.Local.DepotVolume).Should(Equal(vapi.EmptyDir))
 	})

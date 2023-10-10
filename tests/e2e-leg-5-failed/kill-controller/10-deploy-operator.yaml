@@ -11,28 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-revive-3-node
-  annotations:
-    vertica.com/ignore-cluster-lease: true
-spec:
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: false
-  initPolicy: Revive
-  local:
-    dataPath: /my-data
-    depotPath: /my-depot
-    depotVolume: EmptyDir
-    requestSize: 100Mi
-  dbName: vertdb
-  requeueTime: 5
-  subclusters:
-    - name: main
-      size: 3
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: sh -c "cd ../../.. && make undeploy-operator || true"
+  - script: cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE
+

@@ -17,7 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
+	"strconv"
+
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -27,9 +30,8 @@ func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1.VerticaDB)
 	dst.Name = v.Name
 	dst.Namespace = v.Namespace
-	dst.Annotations = v.Annotations
+	dst.Annotations = convertToAnnotations(v)
 	dst.UID = v.UID
-	dst.Annotations = v.Annotations
 	dst.Labels = v.Labels
 	dst.Spec = convertToSpec(&v.Spec)
 	dst.Status = convertToStatus(&v.Status)
@@ -42,42 +44,76 @@ func (v *VerticaDB) ConvertFrom(srcRaw conversion.Hub) error {
 	verticadblog.Info("ConvertFrom", "GroupVersion", GroupVersion, "name", src.Name, "namespace", src.Namespace, "uid", src.UID)
 	v.Name = src.Name
 	v.Namespace = src.Namespace
-	v.Annotations = src.Annotations
+	v.Annotations = convertFromAnnotations(src)
 	v.UID = src.UID
-	v.Annotations = src.Annotations
 	v.Labels = src.Labels
-	v.Spec = convertFromSpec(&src.Spec)
+	v.Spec = convertFromSpec(src)
 	v.Status = convertFromStatus(&src.Status)
 	return nil
+}
+
+// convertToAnnotations will create the annotations for a v1.VerticaDB CR taken
+// from a v1beta1.VerticaDB.
+func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
+	newAnnotations = make(map[string]string, len(src.Annotations))
+	for k, v := range src.Annotations {
+		newAnnotations[k] = v
+	}
+	// Each parameter in the v1 API that we removed will have a corresponding
+	// annotation to allow conversion between the two versions. But we only want
+	// to set the annotation if the parameter values wasn't the default.
+	if src.Spec.IgnoreClusterLease {
+		newAnnotations[vmeta.IgnoreClusterLeaseAnnotation] = strconv.FormatBool(src.Spec.IgnoreClusterLease)
+	}
+	if src.Spec.IgnoreUpgradePath {
+		newAnnotations[vmeta.IgnoreUpgradePathAnnotation] = strconv.FormatBool(src.Spec.IgnoreUpgradePath)
+	}
+	if src.Spec.RestartTimeout != 0 {
+		newAnnotations[vmeta.RestartTimeoutAnnotation] = strconv.FormatInt(int64(src.Spec.RestartTimeout), 10)
+	}
+	return
+}
+
+// convertFromAnnotations will create the annotations for a v1beta1.VerticaDB CR taken
+// from a v1.VerticaDB.
+func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string) {
+	newAnnotations = make(map[string]string, len(src.Annotations))
+	// Some annotations, which are used to fill CR parameters are left off
+	// during the conversion. We don't want two sources for the same info.
+	omitKeys := map[string]any{
+		vmeta.IgnoreClusterLeaseAnnotation: true,
+		vmeta.IgnoreUpgradePathAnnotation:  true,
+		vmeta.RestartTimeoutAnnotation:     true,
+	}
+	for key, val := range src.Annotations {
+		if _, ok := omitKeys[key]; ok {
+			continue
+		}
+		newAnnotations[key] = val
+	}
+	return
 }
 
 // convertToSpec will convert to a v1 VerticaDBSpec from a v1beta1 version
 func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 	dst := v1.VerticaDBSpec{
-		ImagePullPolicy:         src.ImagePullPolicy,
-		ImagePullSecrets:        convertToLocalReferenceSlice(src.ImagePullSecrets),
-		Image:                   src.Image,
-		Labels:                  src.Labels,
-		Annotations:             src.Annotations,
-		AutoRestartVertica:      src.AutoRestartVertica,
-		DBName:                  src.DBName,
-		ShardCount:              src.ShardCount,
-		SuperuserPasswordSecret: src.SuperuserPasswordSecret,
-		LicenseSecret:           src.LicenseSecret,
-		IgnoreClusterLease:      src.IgnoreClusterLease,
-		InitPolicy:              v1.CommunalInitPolicy(src.InitPolicy),
-		UpgradePolicy:           v1.UpgradePolicyType(src.UpgradePolicy),
-		IgnoreUpgradePath:       src.IgnoreUpgradePath,
-		ReviveOrder:             make([]v1.SubclusterPodCount, len(src.ReviveOrder)),
-		RestartTimeout:          src.RestartTimeout,
-		Communal:                convertToCommunal(&src.Communal),
-		HadoopConfig:            src.Communal.HadoopConfig,
-		Local:                   convertToLocal(&src.Local),
-		Subclusters:             make([]v1.Subcluster, len(src.Subclusters)),
-		TemporarySubclusterRouting: v1.SubclusterSelection{
-			Names:    src.TemporarySubclusterRouting.Names,
-			Template: convertToSubcluster(&src.TemporarySubclusterRouting.Template),
-		},
+		ImagePullPolicy:          src.ImagePullPolicy,
+		ImagePullSecrets:         convertToLocalReferenceSlice(src.ImagePullSecrets),
+		Image:                    src.Image,
+		Labels:                   src.Labels,
+		Annotations:              src.Annotations,
+		AutoRestartVertica:       src.AutoRestartVertica,
+		DBName:                   src.DBName,
+		ShardCount:               src.ShardCount,
+		SuperuserPasswordSecret:  src.SuperuserPasswordSecret,
+		LicenseSecret:            src.LicenseSecret,
+		InitPolicy:               v1.CommunalInitPolicy(src.InitPolicy),
+		UpgradePolicy:            v1.UpgradePolicyType(src.UpgradePolicy),
+		ReviveOrder:              make([]v1.SubclusterPodCount, len(src.ReviveOrder)),
+		Communal:                 convertToCommunal(&src.Communal),
+		HadoopConfig:             src.Communal.HadoopConfig,
+		Local:                    convertToLocal(&src.Local),
+		Subclusters:              make([]v1.Subcluster, len(src.Subclusters)),
 		KSafety:                  v1.KSafetyType(src.KSafety),
 		RequeueTime:              src.RequeueTime,
 		UpgradeRequeueTime:       src.UpgradeRequeueTime,
@@ -103,59 +139,68 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubcluster(&src.Subclusters[i])
 	}
+	if src.RequiresTransientSubcluster() || len(src.TemporarySubclusterRouting.Names) > 0 {
+		dst.TemporarySubclusterRouting = &v1.SubclusterSelection{
+			Names:    src.TemporarySubclusterRouting.Names,
+			Template: convertToSubcluster(&src.TemporarySubclusterRouting.Template),
+		}
+	}
 	return dst
 }
 
 // convertFromSpec will convert from a v1 VerticaDBSpec to a v1beta1 version
-func convertFromSpec(src *v1.VerticaDBSpec) VerticaDBSpec {
+func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
+	srcSpec := &src.Spec
 	dst := VerticaDBSpec{
-		ImagePullPolicy:         src.ImagePullPolicy,
-		ImagePullSecrets:        convertFromLocalReferenceSlice(src.ImagePullSecrets),
-		Image:                   src.Image,
-		Labels:                  src.Labels,
-		Annotations:             src.Annotations,
-		AutoRestartVertica:      src.AutoRestartVertica,
-		DBName:                  src.DBName,
-		ShardCount:              src.ShardCount,
-		SuperuserPasswordSecret: src.SuperuserPasswordSecret,
-		LicenseSecret:           src.LicenseSecret,
-		IgnoreClusterLease:      src.IgnoreClusterLease,
-		InitPolicy:              CommunalInitPolicy(src.InitPolicy),
-		UpgradePolicy:           UpgradePolicyType(src.UpgradePolicy),
-		IgnoreUpgradePath:       src.IgnoreUpgradePath,
-		ReviveOrder:             make([]SubclusterPodCount, len(src.ReviveOrder)),
-		RestartTimeout:          src.RestartTimeout,
-		Communal:                convertFromCommunal(&src.Communal, src.HadoopConfig),
-		Local:                   convertFromLocal(&src.Local),
-		Subclusters:             make([]Subcluster, len(src.Subclusters)),
-		TemporarySubclusterRouting: SubclusterSelection{
-			Names:    src.TemporarySubclusterRouting.Names,
-			Template: convertFromSubcluster(&src.TemporarySubclusterRouting.Template),
-		},
-		KSafety:                  KSafetyType(src.KSafety),
-		RequeueTime:              src.RequeueTime,
-		UpgradeRequeueTime:       src.UpgradeRequeueTime,
-		Sidecars:                 src.Sidecars,
-		Volumes:                  src.Volumes,
-		VolumeMounts:             src.VolumeMounts,
-		CertSecrets:              convertFromLocalReferenceSlice(src.CertSecrets),
-		KerberosSecret:           src.KerberosSecret,
-		SSHSecret:                src.SSHSecret,
-		EncryptSpreadComm:        src.EncryptSpreadComm,
-		SecurityContext:          src.SecurityContext,
-		PodSecurityContext:       src.PodSecurityContext,
-		DeprecatedHTTPServerMode: HTTPServerModeType(src.DeprecatedHTTPServerMode),
-		HTTPServerTLSSecret:      src.HTTPServerTLSSecret,
-		ReadinessProbeOverride:   src.ReadinessProbeOverride,
-		LivenessProbeOverride:    src.LivenessProbeOverride,
-		StartupProbeOverride:     src.StartupProbeOverride,
-		ServiceAccountName:       src.ServiceAccountName,
+		ImagePullPolicy:          srcSpec.ImagePullPolicy,
+		ImagePullSecrets:         convertFromLocalReferenceSlice(srcSpec.ImagePullSecrets),
+		Image:                    srcSpec.Image,
+		Labels:                   srcSpec.Labels,
+		Annotations:              srcSpec.Annotations,
+		AutoRestartVertica:       srcSpec.AutoRestartVertica,
+		DBName:                   srcSpec.DBName,
+		ShardCount:               srcSpec.ShardCount,
+		SuperuserPasswordSecret:  srcSpec.SuperuserPasswordSecret,
+		LicenseSecret:            srcSpec.LicenseSecret,
+		IgnoreClusterLease:       src.GetIgnoreClusterLease(),
+		InitPolicy:               CommunalInitPolicy(srcSpec.InitPolicy),
+		UpgradePolicy:            UpgradePolicyType(srcSpec.UpgradePolicy),
+		IgnoreUpgradePath:        src.GetIgnoreUpgradePath(),
+		ReviveOrder:              make([]SubclusterPodCount, len(srcSpec.ReviveOrder)),
+		RestartTimeout:           src.GetRestartTimeout(),
+		Communal:                 convertFromCommunal(&srcSpec.Communal, srcSpec.HadoopConfig),
+		Local:                    convertFromLocal(&srcSpec.Local),
+		Subclusters:              make([]Subcluster, len(srcSpec.Subclusters)),
+		KSafety:                  KSafetyType(srcSpec.KSafety),
+		RequeueTime:              srcSpec.RequeueTime,
+		UpgradeRequeueTime:       srcSpec.UpgradeRequeueTime,
+		Sidecars:                 srcSpec.Sidecars,
+		Volumes:                  srcSpec.Volumes,
+		VolumeMounts:             srcSpec.VolumeMounts,
+		CertSecrets:              convertFromLocalReferenceSlice(srcSpec.CertSecrets),
+		KerberosSecret:           srcSpec.KerberosSecret,
+		SSHSecret:                srcSpec.SSHSecret,
+		EncryptSpreadComm:        srcSpec.EncryptSpreadComm,
+		SecurityContext:          srcSpec.SecurityContext,
+		PodSecurityContext:       srcSpec.PodSecurityContext,
+		DeprecatedHTTPServerMode: HTTPServerModeType(srcSpec.DeprecatedHTTPServerMode),
+		HTTPServerTLSSecret:      srcSpec.HTTPServerTLSSecret,
+		ReadinessProbeOverride:   srcSpec.ReadinessProbeOverride,
+		LivenessProbeOverride:    srcSpec.LivenessProbeOverride,
+		StartupProbeOverride:     srcSpec.StartupProbeOverride,
+		ServiceAccountName:       srcSpec.ServiceAccountName,
 	}
-	for i := range src.ReviveOrder {
-		dst.ReviveOrder[i] = SubclusterPodCount(src.ReviveOrder[i])
+	for i := range srcSpec.ReviveOrder {
+		dst.ReviveOrder[i] = SubclusterPodCount(srcSpec.ReviveOrder[i])
 	}
-	for i := range src.Subclusters {
-		dst.Subclusters[i] = convertFromSubcluster(&src.Subclusters[i])
+	for i := range srcSpec.Subclusters {
+		dst.Subclusters[i] = convertFromSubcluster(&srcSpec.Subclusters[i])
+	}
+	if srcSpec.TemporarySubclusterRouting != nil {
+		dst.TemporarySubclusterRouting = SubclusterSelection{
+			Template: convertFromSubcluster(&srcSpec.TemporarySubclusterRouting.Template),
+			Names:    srcSpec.TemporarySubclusterRouting.Names,
+		}
 	}
 	return dst
 }
