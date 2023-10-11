@@ -11,18 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-# 3 minute timeout mainly to wait for the docker image pull
-timeout: 180
----
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: test-verify-ip-family
+  name: v-client-access-sc1
 status:
-  containerStatuses:
-    - name: test
-      state:
-        terminated:
-          exitCode: 0
+  replicas: 2
+  readyReplicas: 2
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-client-access
+status:
+  subclusters:
+    - installCount: 2
+      addedToDBCount: 2
+      upNodeCount: 2

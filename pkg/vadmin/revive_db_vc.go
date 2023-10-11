@@ -56,7 +56,7 @@ func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *
 	v.Log.Info("Setup revive database options", "hosts", opts.RawHosts)
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 	opts.CommunalStorageLocation = &s.CommunalPath
-	opts.CommunalStorageParameters = s.ConfigurationParams
+	opts.ConfigurationParameters = s.ConfigurationParams
 	*opts.IgnoreClusterLease = s.IgnoreClusterLease
 
 	// auth options

@@ -162,13 +162,13 @@ func (m *MockVClusterOps) VerifyHosts(options *vops.DatabaseOptions, hosts []str
 }
 
 // VerifyCommunalStorageOptions is used in vcluster-ops unit test for verifying communal storage options
-func (m *MockVClusterOps) VerifyCommunalStorageOptions(communalStoragePath string, communalStorageParams map[string]string) error {
+func (m *MockVClusterOps) VerifyCommunalStorageOptions(communalStoragePath string, configurationParams map[string]string) error {
 	if communalStoragePath != TestCommunalPath {
 		return fmt.Errorf("failed to retrieve communal storage path")
 	}
 
-	if !reflect.DeepEqual(communalStorageParams, TestCommunalStorageParams) {
-		return fmt.Errorf("failed to retrieve communal storage params")
+	if !reflect.DeepEqual(configurationParams, TestCommunalStorageParams) {
+		return fmt.Errorf("failed to retrieve configuration params")
 	}
 
 	return nil
