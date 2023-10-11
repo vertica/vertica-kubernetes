@@ -58,9 +58,13 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// create a database if it doesn't exist, or redo the create/revive process if the database creation/revival fails
-	isSet, e := g.Vdb.IsConditionSet(vapi.DBInitialized)
-	if !g.PFacts.doesDBExist() || !isSet || e != nil {
+	// Create/revive the process if it doesn't fail
+	// or redo the create/revive process if the database creation/revival fails
+	isSet, err := g.Vdb.IsConditionSet(vapi.DBInitialized)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !isSet {
 		res, err := g.runInit(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err

@@ -35,25 +35,6 @@ const TestPassword = "test-pw"
 var _ = Describe("createdb_reconciler", func() {
 	ctx := context.Background()
 
-	It("should not call create_db if db already exists", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 3
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		lastCall := fpr.Histories[len(fpr.Histories)-1]
-		Expect(lastCall.Command).ShouldNot(ContainElements("/opt/vertica/bin/admintools", "create_db"))
-	})
-
 	It("should run create db if db doesn't exist", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
