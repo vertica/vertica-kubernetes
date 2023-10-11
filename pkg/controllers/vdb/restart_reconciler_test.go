@@ -44,9 +44,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
@@ -62,9 +59,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -96,9 +90,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -136,9 +127,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -180,9 +168,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -202,9 +187,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -243,9 +225,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -276,9 +255,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -364,9 +340,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -407,9 +380,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -439,9 +409,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -474,9 +441,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		transientSc := vdb.BuildTransientSubcluster("")
@@ -502,9 +466,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -545,9 +506,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -591,9 +549,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -620,9 +575,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -658,9 +610,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -699,9 +648,6 @@ var _ = Describe("restart_reconciler", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
-		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
-		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 

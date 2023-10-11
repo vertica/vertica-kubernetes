@@ -58,8 +58,8 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// Create/revive the process if it doesn't fail
-	// or redo the create/revive process if the database creation/revival fails
+	// redo the create/revive process if the database creation/revival fails
+	// or create/revive the process if it doesn't fail
 	isSet, err := g.Vdb.IsConditionSet(vapi.DBInitialized)
 	if err != nil {
 		return ctrl.Result{}, err
