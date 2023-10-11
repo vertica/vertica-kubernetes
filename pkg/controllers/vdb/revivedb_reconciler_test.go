@@ -58,6 +58,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)

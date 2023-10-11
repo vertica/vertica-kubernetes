@@ -42,6 +42,8 @@ var _ = Describe("createdb_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
+		condition := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+		vdb.Status.Conditions = []vapi.VerticaDBCondition{{}, condition}
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
