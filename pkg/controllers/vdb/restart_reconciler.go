@@ -103,6 +103,17 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
+	// If the create/revive database process fails, we skip restarting the cluster to redo the create/revive process.
+	// restart reconciler is only skipped for VClusterOps.
+	// In Admintools, the IP is cached in admintool.conf and needs to be updated.
+	if meta.UseVClusterOps(r.Vdb.Annotations) {
+		isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
+		if !isSet || e != nil {
+			r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
+			return ctrl.Result{}, e
+		}
+	}
+
 	if err := r.PFacts.Collect(ctx, r.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}

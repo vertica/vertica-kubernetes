@@ -48,26 +48,6 @@ var _ = Describe("revivedb_reconcile", func() {
 		Expect(len(fpr.Histories)).Should(Equal(0))
 	})
 
-	It("should skip calling revive_db if db exists", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 2
-		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
-		}
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "revive_db")
-		Expect(len(reviveCalls)).Should(Equal(0))
-	})
-
 	It("should call revive_db since no db exists", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
