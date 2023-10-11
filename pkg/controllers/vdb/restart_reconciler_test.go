@@ -464,7 +464,7 @@ var _ = Describe("restart_reconciler", func() {
 	It("should requeue if k-safety is 0, there are no UP nodes and some pods aren't running", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
-		vdb.Spec.KSafety = vapi.KSafety0
+		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)

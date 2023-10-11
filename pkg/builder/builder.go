@@ -1110,7 +1110,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 	// start the cluster after each pod gets delete and rescheduled.
 	// kSafety0 is for test purposes, which is why its okay to have a different
 	// strategy for it.
-	if vdb.Spec.KSafety == vapi.KSafety0 {
+	if vdb.HasKSafety0() {
 		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
 	}
 	return appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}

@@ -78,13 +78,13 @@ var _ = Describe("createdb_reconciler", func() {
 
 	It("host list should contain 1 pod when kSafety is 0", func() {
 		const firstScSize = 3
-		hostListLength := createMultiPodSubclusterForKsafe(ctx, vapi.KSafety0, firstScSize)
+		hostListLength := createMultiPodSubclusterForKsafe(ctx, "0", firstScSize)
 		Expect(hostListLength).Should(Equal(1))
 	})
 
 	It("host list should contain all pods when kSafety is 1", func() {
 		const firstScSize = 3
-		hostListLength := createMultiPodSubclusterForKsafe(ctx, vapi.KSafety1, firstScSize)
+		hostListLength := createMultiPodSubclusterForKsafe(ctx, "1", firstScSize)
 		Expect(hostListLength).Should(Equal(firstScSize))
 	})
 
@@ -192,10 +192,10 @@ var _ = Describe("createdb_reconciler", func() {
 })
 
 // Helper function for kSafety verification
-func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe vapi.KSafetyType, firstScSize int32) int {
+func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe string, firstScSize int32) int {
 	vdb := vapi.MakeVDB()
 	vdb.Spec.Subclusters[0].Size = firstScSize
-	vdb.Spec.KSafety = ksafe
+	vdb.Annotations[vmeta.KSafetyAnnotation] = ksafe
 	vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{Name: "secondary", Size: 2})
 	test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 	defer test.DeletePods(ctx, k8sClient, vdb)

@@ -67,6 +67,14 @@ const (
 	// entire cluster.  If omitted, we use the default timeout of 20 minutes.
 	RestartTimeoutAnnotation = "vertica.com/restart-timeout"
 
+	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
+	// suitable for test environments because we have no fault tolerance and the cluster
+	// can only have between 1 and 3 pods.  If set to 1, which is the default,
+	// we have fault tolerance if nodes die and the cluster has a minimum of 3
+	// pods.  This value is only used during bootstrap of the VerticaDB.
+	KSafetyAnnotation   = "vertica.com/k-safety"
+	KSafetyDefaultValue = "1"
+
 	// Annotations that we add by parsing vertica --version output
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
@@ -110,6 +118,11 @@ func GetRestartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, RestartTimeoutAnnotation)
 }
 
+// HasKSafety0 returns true if k-safety is set to 0. False implies 1.
+func HasKSafety0(annotations map[string]string) bool {
+	return lookupStringAnnotation(annotations, KSafetyAnnotation, KSafetyDefaultValue) == "0"
+}
+
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
 // treat it as if it were a boolean.
 func lookupBoolAnnotation(annotations map[string]string, annotation string) bool {
@@ -132,6 +145,13 @@ func lookupIntAnnotation(annotations map[string]string, annotation string) int {
 			return defaultValue
 		}
 		return int(varAsInt)
+	}
+	return defaultValue
+}
+
+func lookupStringAnnotation(annotations map[string]string, annotation, defaultValue string) string {
+	if val, ok := annotations[annotation]; ok {
+		return val
 	}
 	return defaultValue
 }

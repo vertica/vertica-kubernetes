@@ -196,13 +196,6 @@ func (v *VerticaDB) ValidateDelete() error {
 func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList {
 	var allErrs field.ErrorList
 	oldObj := old.(*VerticaDB)
-	// kSafety cannot change after creation
-	if v.Spec.KSafety != oldObj.Spec.KSafety {
-		err := field.Invalid(field.NewPath("spec").Child("kSafety"),
-			v.Spec.KSafety,
-			"kSafety cannot change after creation.")
-		allErrs = append(allErrs, err)
-	}
 
 	// initPolicy cannot change after creation
 	if v.Spec.InitPolicy != oldObj.Spec.InitPolicy {
@@ -463,26 +456,21 @@ func (v *VerticaDB) validateKsafety(allErrs field.ErrorList) field.ErrorList {
 		return allErrs
 	}
 	sizeSum := v.getClusterSize()
-	switch v.Spec.KSafety {
-	case KSafety0:
+	switch v.HasKSafety0() {
+	case true:
 		if sizeSum < KSafety0MinHosts || sizeSum > KSafety0MaxHosts {
-			err := field.Invalid(field.NewPath("spec").Child("kSafety"),
-				v.Spec.KSafety,
+			err := field.Invalid(field.NewPath("annotations").Child(vmeta.KSafetyAnnotation),
+				v.Annotations[vmeta.KSafetyAnnotation],
 				fmt.Sprintf("with kSafety 0, the total size of the cluster must have between %d and %d hosts", KSafety0MinHosts, KSafety0MaxHosts))
 			allErrs = append(allErrs, err)
 		}
-	case KSafety1:
+	case false:
 		if sizeSum < KSafety1MinHosts {
-			err := field.Invalid(field.NewPath("spec").Child("kSafety"),
-				v.Spec.KSafety,
+			err := field.Invalid(field.NewPath("annotations").Child(vmeta.KSafetyAnnotation),
+				v.Annotations[vmeta.KSafetyAnnotation],
 				fmt.Sprintf("with kSafety 1, the total size of the cluster must have at least %d hosts", KSafety1MinHosts))
 			allErrs = append(allErrs, err)
 		}
-	default:
-		err := field.Invalid(field.NewPath("spec").Child("kSafety"),
-			v.Spec.KSafety,
-			fmt.Sprintf("kSafety can only be %s or %s", KSafety0, KSafety1))
-		allErrs = append(allErrs, err)
 	}
 	return allErrs
 }

@@ -25,7 +25,6 @@ spec:
     requestSize: 100Mi
   dbName: vert
   shardCount: 3
-  kSafety: "1"
   subclusters:
     - name: sc1
       size: 2
