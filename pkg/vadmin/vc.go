@@ -35,7 +35,7 @@ func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, erro
 	tlsCerts := &corev1.Secret{}
 	err := v.Client.Get(ctx, nm, tlsCerts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not retrieve httpServerTLSSecret named %s: %w", nm.Name, err)
 	}
 
 	tlsKey, ok := tlsCerts.Data[corev1.TLSPrivateKeyKey]
