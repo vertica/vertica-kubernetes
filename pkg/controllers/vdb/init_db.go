@@ -126,9 +126,13 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 // checkPodList ensures all of the pods that we will use for the init call are running
 func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 	for _, pod := range podList {
-		// Bail if find one of the pods isn't running or doesn't have the
-		// annotations that we use in the k8s Vertica DC table.
-		if !pod.isPodRunning || !pod.hasDCTableAnnotations {
+		// Bail if:
+		// - find one of the pods isn't running
+		// - installer hasn't run yet for the pod.
+		// - doesn't have the annotations that we use in the k8s Vertica DC
+		//   table. This has to be present before we start vertica to populate
+		//   the DC table correctly.
+		if !pod.isPodRunning || !pod.isInstalled || !pod.hasDCTableAnnotations {
 			return false
 		}
 	}
