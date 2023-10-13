@@ -187,7 +187,7 @@ func (g *ConfigParamsGenerator) setDefaultSubclusterConfig() {
 }
 
 func (g *ConfigParamsGenerator) setPreferredKSafetyConfig() {
-	if g.Vdb.HasKSafety0() {
+	if g.Vdb.IsKSafety0() {
 		g.ConfigurationParams.Set("InitialPreferredKSafe", "0")
 	}
 }

@@ -113,8 +113,8 @@ func GetRestartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, RestartTimeoutAnnotation)
 }
 
-// HasKSafety0 returns true if k-safety is set to 0. False implies 1.
-func HasKSafety0(annotations map[string]string) bool {
+// IsKSafety0 returns true if k-safety is set to 0. False implies 1.
+func IsKSafety0(annotations map[string]string) bool {
 	return lookupStringAnnotation(annotations, KSafetyAnnotation, KSafetyDefaultValue) == "0"
 }
 

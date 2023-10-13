@@ -291,7 +291,7 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vap
 func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vapi.Subcluster) {
 	// If ksafety is 0, this is a toy database since we cannot grow beyond 3
 	// nodes.  Don't bother logging anything in that case.
-	if vdb.HasKSafety0() {
+	if vdb.IsKSafety0() {
 		return
 	}
 	ratio := float32(vdb.Spec.ShardCount) / float32(sc.Size)

@@ -271,7 +271,7 @@ var _ = Describe("vdb", func() {
 				AddRow("2"))
 
 		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.HasKSafety0()).Should(BeTrue())
+		Expect(dbGen.Objs.Vdb.IsKSafety0()).Should(BeTrue())
 	})
 
 	It("should always set ksafety to '1' when the fetched value >= 1", func() {
@@ -288,7 +288,7 @@ var _ = Describe("vdb", func() {
 				AddRow("4"))
 
 		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.HasKSafety0()).Should(BeFalse())
+		Expect(dbGen.Objs.Vdb.IsKSafety0()).Should(BeFalse())
 	})
 
 	It("should raise an error if ksafety is '0' and the number of nodes > 3", func() {

@@ -290,7 +290,7 @@ func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 		// Online upgrade with a transient subcluster works by scaling out new
 		// subclusters to handle the primaries as they come up with the new
 		// versions.  If we don't have a license, it isn't going to work.
-		if (vdb.RequiresTransientSubcluster() && vdb.Spec.LicenseSecret == "") || vdb.HasKSafety0() {
+		if (vdb.RequiresTransientSubcluster() && vdb.Spec.LicenseSecret == "") || vdb.IsKSafety0() {
 			return false
 		}
 	}

@@ -416,14 +416,14 @@ func (v *VerticaDB) GetRestartTimeout() int {
 	return vmeta.GetRestartTimeout(v.Annotations)
 }
 
-// HasKSafety0 returns true if k-safety of 0 is set.
-func (v *VerticaDB) HasKSafety0() bool {
-	return vmeta.HasKSafety0(v.Annotations)
+// IsKSafety0 returns true if k-safety of 0 is set.
+func (v *VerticaDB) IsKSafety0() bool {
+	return vmeta.IsKSafety0(v.Annotations)
 }
 
 // GetKSafety returns the string value of the k-safety value
 func (v *VerticaDB) GetKSafety() string {
-	if v.HasKSafety0() {
+	if v.IsKSafety0() {
 		return "0"
 	}
 	return "1"

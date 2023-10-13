@@ -456,7 +456,7 @@ func (v *VerticaDB) validateKsafety(allErrs field.ErrorList) field.ErrorList {
 		return allErrs
 	}
 	sizeSum := v.getClusterSize()
-	switch v.HasKSafety0() {
+	switch v.IsKSafety0() {
 	case true:
 		if sizeSum < KSafety0MinHosts || sizeSum > KSafety0MaxHosts {
 			err := field.Invalid(field.NewPath("annotations").Child(vmeta.KSafetyAnnotation),
