@@ -27,4 +27,8 @@ status:
   subclusters:
     - installCount: 3
       upNodeCount: 3
-
+  conditions:
+  - type: AutoRestartVertica
+    status: "True"
+  - type: DBInitialized
+    status: "True"

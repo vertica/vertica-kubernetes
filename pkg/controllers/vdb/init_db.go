@@ -58,7 +58,13 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	if !g.PFacts.doesDBExist() {
+	// redo the create/revive process if the database creation/revival fails
+	// or create/revive the process if it doesn't fail
+	isSet, err := g.Vdb.IsConditionSet(vapi.DBInitialized)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !isSet {
 		res, err := g.runInit(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
@@ -120,9 +126,13 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 // checkPodList ensures all of the pods that we will use for the init call are running
 func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 	for _, pod := range podList {
-		// Bail if find one of the pods isn't running or doesn't have the
-		// annotations that we use in the k8s Vertica DC table.
-		if !pod.isPodRunning || !pod.hasDCTableAnnotations {
+		// Bail if:
+		// - find one of the pods isn't running
+		// - installer hasn't run yet for the pod.
+		// - doesn't have the annotations that we use in the k8s Vertica DC
+		//   table. This has to be present before we start vertica to populate
+		//   the DC table correctly.
+		if !pod.isPodRunning || !pod.isInstalled || !pod.hasDCTableAnnotations {
 			return false
 		}
 	}
