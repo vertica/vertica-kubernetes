@@ -15,13 +15,14 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
+  annotations:
+    vertica.com/k-safety: "0"
 spec:
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: true
   local:
     requestSize: 100Mi
-  kSafety: "0"
   upgradePolicy: Online
   subclusters:
     - name: pri

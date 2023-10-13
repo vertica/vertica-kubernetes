@@ -15,6 +15,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-http-generated-certs
+  annotations:
+    vertica.com/k-safety: "0"
 spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
@@ -27,7 +29,6 @@ spec:
   subclusters:
     - name: sc
       size: 2
-  kSafety: "0"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

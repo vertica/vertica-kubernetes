@@ -21,7 +21,6 @@ spec:
     includeUIDInPath: true
   local:
     requestSize: 100Mi
-  kSafety: "1"
   labels:
     app.kubernetes.io/name: "e2e-server-upgrade"
   upgradePolicy: Offline

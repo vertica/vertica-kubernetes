@@ -16,4 +16,4 @@ kind: VerticaDB
 metadata:
   name: v-disable-webhook
 spec:
-  kSafety: "1"
+  shardCount: 99
