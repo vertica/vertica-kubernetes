@@ -101,7 +101,6 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV JAVA_HOME "/usr"
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
-COPY ./packages/cleanup-initial.sh /tmp/cleanup-initial.sh
 
 # For the init program (process 1), we use s6-overlay. This ensures none of the
 # processes we start ever become zombie's. It will also restart long running
@@ -155,8 +154,7 @@ RUN set -x \
   && chmod u+s /usr/sbin/cron \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
-  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
-  && sh /tmp/cleanup-initial.sh
+  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 
 ENTRYPOINT [ "/init" ]
 
