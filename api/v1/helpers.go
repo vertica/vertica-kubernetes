@@ -94,7 +94,6 @@ func MakeVDB() *VerticaDB {
 				DepotVolume: PersistentVolume,
 				RequestSize: resource.MustParse("10Gi"),
 			},
-			KSafety:                  KSafety1,
 			DBName:                   "db",
 			ShardCount:               12,
 			DeprecatedHTTPServerMode: HTTPServerModeDisabled,
@@ -415,4 +414,17 @@ func (v *VerticaDB) SetIgnoreUpgradePath(val bool) {
 // GetRestartTimeout returns the timeout value for restart node and start db
 func (v *VerticaDB) GetRestartTimeout() int {
 	return vmeta.GetRestartTimeout(v.Annotations)
+}
+
+// IsKSafety0 returns true if k-safety of 0 is set.
+func (v *VerticaDB) IsKSafety0() bool {
+	return vmeta.IsKSafety0(v.Annotations)
+}
+
+// GetKSafety returns the string value of the k-safety value
+func (v *VerticaDB) GetKSafety() string {
+	if v.IsKSafety0() {
+		return "0"
+	}
+	return "1"
 }

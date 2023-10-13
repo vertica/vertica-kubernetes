@@ -71,6 +71,9 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.RestartTimeout != 0 {
 		newAnnotations[vmeta.RestartTimeoutAnnotation] = strconv.FormatInt(int64(src.Spec.RestartTimeout), 10)
 	}
+	if src.Spec.KSafety != KSafetyType(vmeta.KSafetyDefaultValue) {
+		newAnnotations[vmeta.KSafetyAnnotation] = string(src.Spec.KSafety)
+	}
 	return
 }
 
@@ -84,6 +87,7 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 		vmeta.IgnoreClusterLeaseAnnotation: true,
 		vmeta.IgnoreUpgradePathAnnotation:  true,
 		vmeta.RestartTimeoutAnnotation:     true,
+		vmeta.KSafetyAnnotation:            true,
 	}
 	for key, val := range src.Annotations {
 		if _, ok := omitKeys[key]; ok {
@@ -114,7 +118,6 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		HadoopConfig:             src.Communal.HadoopConfig,
 		Local:                    convertToLocal(&src.Local),
 		Subclusters:              make([]v1.Subcluster, len(src.Subclusters)),
-		KSafety:                  v1.KSafetyType(src.KSafety),
 		RequeueTime:              src.RequeueTime,
 		UpgradeRequeueTime:       src.UpgradeRequeueTime,
 		Sidecars:                 src.Sidecars,
@@ -171,7 +174,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		Communal:                 convertFromCommunal(&srcSpec.Communal, srcSpec.HadoopConfig),
 		Local:                    convertFromLocal(&srcSpec.Local),
 		Subclusters:              make([]Subcluster, len(srcSpec.Subclusters)),
-		KSafety:                  KSafetyType(srcSpec.KSafety),
+		KSafety:                  KSafetyType(src.GetKSafety()),
 		RequeueTime:              srcSpec.RequeueTime,
 		UpgradeRequeueTime:       srcSpec.UpgradeRequeueTime,
 		Sidecars:                 srcSpec.Sidecars,

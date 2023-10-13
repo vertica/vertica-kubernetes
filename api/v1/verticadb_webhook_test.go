@@ -56,14 +56,14 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 	It("should not have 0 pod when kSafety is 0", func() {
 		vdb := createVDBHelper()
-		vdb.Spec.KSafety = KSafety0
+		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 0
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should not have more than 3 pods when kSafety is 0", func() {
 		vdb := createVDBHelper()
-		vdb.Spec.KSafety = KSafety0
+		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 5
 		validateSpecValuesHaveErr(vdb, true)
@@ -244,11 +244,6 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate := createVDBHelper()
 		allErrs := vdb.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).Should(BeNil())
-	})
-	It("should not change kSafety after creation", func() {
-		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.KSafety = KSafety0
-		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should not change initPolicy after creation", func() {
 		vdbUpdate := createVDBHelper()
@@ -745,7 +740,6 @@ func createVDBHelper() *VerticaDB {
 	// check other field values in the MakeVDB function
 	sc := &vdb.Spec.Subclusters[0]
 	sc.IsPrimary = true
-	vdb.Spec.KSafety = KSafety1
 	requestSize, _ := resource.ParseQuantity("500Gi")
 	vdb.Spec.Local.RequestSize = requestSize
 	vdb.Status.Subclusters = []SubclusterStatus{}

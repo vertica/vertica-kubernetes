@@ -23,7 +23,6 @@ spec:
   local:
     requestSize: 100Mi
   upgradePolicy: Offline
-  kSafety: "1"
   subclusters:
     - name: sc1
       size: 3

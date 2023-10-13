@@ -34,6 +34,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 )
 
@@ -210,11 +211,10 @@ func (d *DBGenerator) setKSafety(ctx context.Context) error {
 		return errors.New("could not get ksafety from meta-function GET_DESIGN_KSAFE()")
 	}
 	var designKSafe string
-	ksafety := vapi.KSafety1
 	if err := rows.Scan(&designKSafe); err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
-	if designKSafe == string(vapi.KSafety0) {
+	if designKSafe == "0" {
 		if nodeCount, err := d.countNodes(ctx); err == nil {
 			// vdbgen will fail if ksafety is 0 and there are more than max nodes
 			if nodeCount > vapi.KSafety0MaxHosts {
@@ -223,10 +223,8 @@ func (d *DBGenerator) setKSafety(ctx context.Context) error {
 		} else {
 			return err
 		}
-		ksafety = vapi.KSafety0
+		d.Objs.Vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
 	}
-	d.Objs.Vdb.Spec.KSafety = ksafety
-
 	return nil
 }
 

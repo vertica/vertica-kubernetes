@@ -168,7 +168,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
 		)
 	}
-	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
+	if c.Vdb.IsKSafety0() {
 		sb.WriteString("select set_preferred_ksafe(0);\n")
 	}
 	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
@@ -226,9 +226,9 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 	// Check if the shard/node ratio of the first subcluster is good
 	c.VRec.checkShardToNodeRatio(c.Vdb, sc)
 
-	// In case that kSafety == 0 (KSafety0), we only pick one pod from the first
+	// In case that kSafety is 0, we only pick one pod from the first
 	// primary subcluster. The remaining pods would be added with db_add_node.
-	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
+	if c.Vdb.IsKSafety0() {
 		return podList[0:1], true
 	}
 	return podList, true
