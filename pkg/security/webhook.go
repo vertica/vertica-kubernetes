@@ -259,9 +259,6 @@ func getValidatingWebhookConfigName(prefixName string) string {
 }
 
 func getMutatingWebhookConfigName(prefixName string) string {
-	if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok && val == vmeta.OLMDeploymentType {
-		return fmt.Sprintf("%s-mutating-webhook-configuration", prefixName)
-	}
 	return fmt.Sprintf("%s-mutating-webhook-configuration", prefixName)
 }
 
