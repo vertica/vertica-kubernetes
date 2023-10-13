@@ -47,11 +47,6 @@ const (
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
 	OperatorVersionAnnotation          = "vertica.com/operator-version"
 
-	// This is an indicator added to the VerticaDB annotation that the CR was
-	// converted from a different version of the API. The API it was converted
-	// from is the value of the annotation.
-	APIConversionAnnotation = "vertica.com/converted-from-api-version"
-
 	// Ignore the cluster lease when doing a revive or start_db.  Use this with
 	// caution, as ignoring the cluster lease when another system is using the
 	// same communal storage will cause corruption.

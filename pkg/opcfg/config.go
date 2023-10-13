@@ -21,6 +21,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -122,7 +124,7 @@ func (o *OperatorConfig) getEncoderConfig(devMode bool) zapcore.EncoderConfig {
 
 // getLogger is a wrapper that calls other functions
 // to build a logger.
-func (o *OperatorConfig) GetLogger() *zap.Logger {
+func (o *OperatorConfig) GetLogger() logr.Logger {
 	encoderConfig := o.getEncoderConfig(o.DevMode)
 	writes := []zapcore.WriteSyncer{}
 	opts := []zap.Option{}
@@ -144,7 +146,7 @@ func (o *OperatorConfig) GetLogger() *zap.Logger {
 		// This enables sampling only in prod
 		core = zapcore.NewSamplerWithOptions(core, time.Second, First, ThereAfter)
 	}
-	return zap.New(core, opts...)
+	return zapr.NewLogger(zap.New(core, opts...))
 }
 
 // getLogWriter returns an io.writer (setting up rolling files) converted

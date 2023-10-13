@@ -183,13 +183,7 @@ func (v *VerticaDB) ValidateDelete() error {
 func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList {
 	var allErrs field.ErrorList
 	oldObj := old.(*VerticaDB)
-	// kSafety cannot change after creation. If unset, use the default ksafety
-	// in the comparison.
-	oldKSafety := oldObj.Spec.KSafety
-	if oldKSafety == "" {
-		oldKSafety = KSafety1
-	}
-	if v.Spec.KSafety != oldKSafety {
+	if v.Spec.KSafety != oldObj.Spec.KSafety {
 		err := field.Invalid(field.NewPath("spec").Child("kSafety"),
 			v.Spec.KSafety,
 			"kSafety cannot change after creation.")

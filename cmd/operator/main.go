@@ -29,7 +29,6 @@ import (
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec
 
-	"github.com/go-logr/zapr"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -157,20 +156,34 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 			return fmt.Errorf("failed to setup the webhook: %w", err)
 		}
 		if oc.WebhookCertSecret == "" {
+			setupLog.Info("geneating webhook cert")
 			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, ns); err != nil {
 				return err
 			}
+		} else if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok && val == vmeta.OLMDeploymentType {
+			// OLM will generate the cert themselves and they have their own
+			// mechanism to update the webhook configs. We only need to include
+			// the CA bundle in the CRD for the conversion webhook.
+			setupLog.Info("OLM deployment detected. Only updating the conversion webhook", "deploymentType", val)
+			if err := security.PatchConversionWebhookFromSecret(ctx, &setupLog, restCfg,
+				oc.WebhookCertSecret, oc.PrefixName, ns); err != nil {
+				return err
+			}
 		} else if !oc.UseCertManager {
+			setupLog.Info("using provided webhook cert", "secret", oc.WebhookCertSecret)
 			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
 				oc.PrefixName, ns); err != nil {
 				return err
 			}
 		} else {
+			setupLog.Info("using cert-manager for webhook cert")
 			if err := security.AddCertManagerAnnotation(ctx, &setupLog, restCfg, oc.PrefixName, ns); err != nil {
 				return err
 			}
 		}
 		addWebhooksToManager(mgr)
+	} else {
+		setupLog.Info("webhook setup is because webhook is not enabled")
 	}
 	return nil
 }
@@ -205,7 +218,7 @@ func main() {
 		log.Printf("Now logging in file %s", oc.FilePath)
 	}
 
-	ctrl.SetLogger(zapr.NewLogger(logger))
+	ctrl.SetLogger(logger)
 
 	if oc.EnableProfiler {
 		go func() {
