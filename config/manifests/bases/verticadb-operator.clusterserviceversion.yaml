@@ -504,11 +504,9 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: 'Control the Vertica''s http server.  The http server provides
-          a REST interface that can be used for management and monitoring of the server.  Valid
-          values are: Enabled, Disabled, Auto or an empty string.  An empty string
-          currently defaults to Auto.'
-        displayName: HTTPServer Mode
+      - description: 'Deprecated: setup of TLS certs for http access is controlled
+          by the deployment type now.'
+        displayName: Deprecated HTTPServer Mode
         path: httpServerMode
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -520,22 +518,6 @@ spec:
           key - ca.crt: The CA certificate'
         displayName: HTTPServer TLSSecret
         path: httpServerTLSSecret
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
-      - description: Ignore the cluster lease when doing a revive or start_db.  Use
-          this with caution, as ignoring the cluster lease when another system is
-          using the same communal storage will cause corruption.
-        displayName: Ignore Cluster Lease
-        path: ignoreClusterLease
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-        - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: When set to False, this parameter will ensure that when changing
-          the vertica version that we follow the upgrade path.  The Vertica upgrade
-          path means you cannot downgrade a Vertica release, nor can you skip any
-          released Vertica versions when upgrading.
-        displayName: Ignore Upgrade Path
-        path: ignoreUpgradePath
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
       - description: The docker image name that contains the Vertica server.  Whenever
@@ -569,18 +551,6 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:Create
         - urn:alm:descriptor:com.tectonic.ui:select:Revive
         - urn:alm:descriptor:com.tectonic.ui:select:ScheduleOnly
-      - description: "Sets the fault tolerance for the cluster.  Allowable values
-          are 0 or 1.  0 is only suitable for test environments because we have no
-          fault tolerance and the cluster can only have between 1 and 3 pods.  If
-          set to 1, we have fault tolerance if nodes die and the cluster has a minimum
-          of 3 pods. \n This value cannot change after the initial creation of the
-          VerticaDB."
-        displayName: KSafety
-        path: kSafety
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:select:0
-        - urn:alm:descriptor:com.tectonic.ui:select:1
-        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'A secret that contains files required for Kereberos setup.  The
           secret must have the following keys: - krb5.conf: The contents of the Kerberos
           config file - krb5.keytab: The keytab file that stores credentials for each
@@ -684,14 +654,6 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: The timeout, in seconds, to use when admintools restarts a node
-          or the entire cluster.  If omitted, we use the admintools default timeout
-          of 20 minutes.
-        displayName: Restart Timeout
-        path: restartTimeout
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
-        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: "This specifies the order of nodes when doing a revive.  Each
           entry contains an index to a subcluster, which is an index in Subclusters[],
           and a pod count of the number of pods include from the subcluster. \n For
@@ -727,6 +689,15 @@ spec:
         path: securityContext
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: The name of a serviceAccount to use to run the Vertica pods.
+          If the service account is not specified or does not exist, the operator
+          will create one, using the specified name if provided, along with a Role
+          and RoleBinding.
+        displayName: Service Account Name
+        path: serviceAccountName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ServiceAccount
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'The number of shards to create in the database. This cannot
           be updated once the CRD is created.  Refer to this page to determine an
           optimal size: https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/SizingEonCluster.htm
@@ -1349,20 +1320,18 @@ spec:
         path: encryptSpreadComm
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: 'Control the Vertica''s http server.  The http server provides
-          a REST interface that can be used for management and monitoring of the server.  Valid
-          values are: Enabled, Disabled, Auto or an empty string.  An empty string
-          currently defaults to Auto.'
-        displayName: HTTPServer Mode
+      - description: 'Deprecated: setup of TLS certs for http access is controlled
+          by the deployment type now.'
+        displayName: Deprecated HTTPServer Mode
         path: httpServerMode
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
-      - description: 'A secret that contains the TLS credentials to use for the Vertica
-          HTTP server.  If this is empty, the operator will create a secret to use
-          and add the name of the generate secret in this field.  When set, the secret
-          must have the following keys defined: - tls.key: The private key to be used
-          by the HTTP server - tls.crt: The signed certificate chain for the private
-          key - ca.crt: The CA certificate'
+      - description: 'A secret that contains the TLS credentials to use for the node
+          management agent. If this is empty, the operator will create a secret to
+          use and add the name of the generate secret in this field.  When set, the
+          secret must have the following keys defined: - tls.key: The private key
+          to be used by the HTTP server - tls.crt: The signed certificate chain for
+          the private key - ca.crt: The CA certificate'
         displayName: HTTPServer TLSSecret
         path: httpServerTLSSecret
         x-descriptors:
@@ -1572,6 +1541,15 @@ spec:
         path: securityContext
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: The name of a serviceAccount to use to run the Vertica pods.
+          If the service account is not specified or does not exist, the operator
+          will create one, using the specified name if provided, along with a Role
+          and RoleBinding.
+        displayName: Service Account Name
+        path: serviceAccountName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ServiceAccount
+        - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'The number of shards to create in the database. This cannot
           be updated once the CRD is created.  Refer to this page to determine an
           optimal size: https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/SizingEonCluster.htm
