@@ -50,7 +50,7 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 	if options.IsEon.ToBool() != TestIsEon {
 		return fmt.Errorf("failed to retrieve eon mode")
 	}
-	return m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.CommunalStorageParameters)
+	return m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
 }
 
 var _ = Describe("re_ip_vc", func() {
