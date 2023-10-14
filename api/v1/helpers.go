@@ -440,3 +440,9 @@ func (v *VerticaDB) GetUpgradeRequeueTimeDuration() time.Duration {
 	}
 	return time.Second * time.Duration(v.GetUpgradeRequeueTime())
 }
+
+// GetSSHSecretName returns the name of the secret that contains SSH keys to use
+// for admintools style of deployments.
+func (v *VerticaDB) GetSSHSecretName() string {
+	return vmeta.GetSSHSecretName(v.Annotations)
+}

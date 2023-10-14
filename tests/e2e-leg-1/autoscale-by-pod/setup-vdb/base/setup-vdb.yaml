@@ -17,10 +17,10 @@ metadata:
   name: v-autoscale-by-pod
   annotations:
     vertica.com/requeue-time: "5"
+    vertica.com/ssh-secret: "ssh-keys"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  sshSecret: ssh-keys
   communal:
     includeUIDInPath: true
   local:

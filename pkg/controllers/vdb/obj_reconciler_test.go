@@ -548,12 +548,12 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if the ssh secret has a missing keys", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.SSHSecret = "my-secret-v3"
-			nm := names.GenNamespacedName(vdb, vdb.Spec.SSHSecret)
+			vdb.Annotations[vmeta.SSHSecAnnotation] = "my-secret-v3"
+			nm := names.GenNamespacedName(vdb, vdb.GetSSHSecretName())
 			secret := builder.BuildSecretBase(nm)
 			secret.Data[paths.SSHKeyPaths[0]] = []byte("conf") // Only 1 of the keys
 			Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-			defer deleteSecret(ctx, vdb, vdb.Spec.SSHSecret)
+			defer deleteSecret(ctx, vdb, vdb.GetSSHSecretName())
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
 

@@ -80,6 +80,9 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.UpgradeRequeueTime != 0 {
 		newAnnotations[vmeta.UpgradeRequeueTimeAnnotation] = strconv.FormatInt(int64(src.Spec.UpgradeRequeueTime), 10)
 	}
+	if src.Spec.SSHSecret != "" {
+		newAnnotations[vmeta.SSHSecAnnotation] = src.Spec.SSHSecret
+	}
 	return
 }
 
@@ -96,6 +99,7 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 		vmeta.KSafetyAnnotation:            true,
 		vmeta.RequeueTimeAnnotation:        true,
 		vmeta.UpgradeRequeueTimeAnnotation: true,
+		vmeta.SSHSecAnnotation:             true,
 	}
 	for key, val := range src.Annotations {
 		if _, ok := omitKeys[key]; ok {
@@ -131,7 +135,6 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		VolumeMounts:             src.VolumeMounts,
 		CertSecrets:              convertToLocalReferenceSlice(src.CertSecrets),
 		KerberosSecret:           src.KerberosSecret,
-		SSHSecret:                src.SSHSecret,
 		EncryptSpreadComm:        src.EncryptSpreadComm,
 		SecurityContext:          src.SecurityContext,
 		PodSecurityContext:       src.PodSecurityContext,
@@ -188,7 +191,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		VolumeMounts:             srcSpec.VolumeMounts,
 		CertSecrets:              convertFromLocalReferenceSlice(srcSpec.CertSecrets),
 		KerberosSecret:           srcSpec.KerberosSecret,
-		SSHSecret:                srcSpec.SSHSecret,
+		SSHSecret:                src.GetSSHSecretName(),
 		EncryptSpreadComm:        srcSpec.EncryptSpreadComm,
 		SecurityContext:          srcSpec.SecurityContext,
 		PodSecurityContext:       srcSpec.PodSecurityContext,

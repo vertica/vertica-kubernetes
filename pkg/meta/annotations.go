@@ -88,6 +88,15 @@ const (
 	// reconciles we use the exponential backoff algorithm.
 	UpgradeRequeueTimeAnnotation = "vertica.com/upgrade-requeue-time"
 
+	// A secret that has the files for /home/dbadmin/.ssh.  If this is
+	// omitted, the ssh files from the image are used (if applicable). SSH is
+	// only required when deploying via admintools and is present only in images
+	// tailored for that deployment type.  You can use this option if you have a
+	// cluster that talks to Vertica notes outside of Kubernetes, as it has the
+	// public keys to be able to ssh to those nodes.  It must have the following
+	// keys present: id_rsa, id_rsa.pub and authorized_keys.
+	SSHSecAnnotation = "vertica.com/ssh-secret"
+
 	// Annotations that we add by parsing vertica --version output
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
@@ -146,6 +155,12 @@ func GetRequeueTime(annotations map[string]string) int {
 // reconciliations during an upgrade.
 func GetUpgradeRequeueTime(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, UpgradeRequeueTimeAnnotation)
+}
+
+// GetSSHSecretName returns the name of the secret that contains SSH keys to use
+// for admintools style of deployments.
+func GetSSHSecretName(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, SSHSecAnnotation, "")
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

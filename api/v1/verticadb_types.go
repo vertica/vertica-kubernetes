@@ -230,15 +230,6 @@ type VerticaDBSpec struct {
 	KerberosSecret string `json:"kerberosSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// An optional secret that has the files for /home/dbadmin/.ssh.  If this is
-	// omitted, the ssh files from the image are used.  You can this option if
-	// you have a cluster that talks to Vertica notes outside of Kubernetes, as
-	// it has the public keys to be able to ssh to those nodes.  It must have
-	// the following keys present: id_rsa, id_rsa.pub and authorized_keys.
-	SSHSecret string `json:"sshSecret,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Controls if the spread communication between pods is encrypted.  Valid
 	// values are 'vertica' or an empty string if not enabled.  When set to
