@@ -256,13 +256,6 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// Deprecated: setup of TLS certs for http access is controlled by the
-	// deployment type now.
-	DeprecatedHTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=""
-	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for the Vertica HTTP
 	// server.  If this is empty, the operator will create a secret to use and
 	// add the name of the generate secret in this field.  When set, the secret

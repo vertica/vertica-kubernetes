@@ -94,9 +94,8 @@ func MakeVDB() *VerticaDB {
 				DepotVolume: PersistentVolume,
 				RequestSize: resource.MustParse("10Gi"),
 			},
-			DBName:                   "db",
-			ShardCount:               12,
-			DeprecatedHTTPServerMode: HTTPServerModeDisabled,
+			DBName:     "db",
+			ShardCount: 12,
 			Subclusters: []Subcluster{
 				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, IsPrimary: true},
 			},
@@ -109,7 +108,6 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.DeprecatedHTTPServerMode = HTTPServerModeEnabled
 	vdb.Spec.HTTPServerTLSSecret = httpServerTLSSecretName
 	return vdb
 }
@@ -300,38 +298,6 @@ func (v *VerticaDB) FindSubclusterStatus(scName string) (SubclusterStatus, bool)
 		}
 	}
 	return SubclusterStatus{}, false
-}
-
-// IsHTTPServerDisabled explicitly checks if the http server is disabled. If set
-// to auto or enabled, this returns false.
-func (v *VerticaDB) IsHTTPServerDisabled() bool {
-	return v.Spec.DeprecatedHTTPServerMode == HTTPServerModeDisabled
-}
-
-// IsHTTPServerEnabled will return true if the http server is enabled to run for
-// this instance of the vdb.
-func (v *VerticaDB) IsHTTPServerEnabled() bool {
-	if v.IsHTTPServerDisabled() {
-		return false
-	}
-	if v.Spec.DeprecatedHTTPServerMode == HTTPServerModeEnabled {
-		return true
-	}
-	// For auto (or an empty string), we only use the http server if we are on a
-	// vertica version that supports it.
-	inf, ok := v.MakeVersionInfo()
-	// We cannot make any inference about the version, so assume https server
-	// isn't enabled
-	if !ok {
-		return false
-	}
-	return inf.IsEqualOrNewer(HTTPServerAutoMinVersion)
-}
-
-// IsHTTPServerAuto returns true if http server is auto.
-func (v *VerticaDB) IsHTTPServerAuto() bool {
-	return v.Spec.DeprecatedHTTPServerMode == HTTPServerModeAuto ||
-		v.Spec.DeprecatedHTTPServerMode == ""
 }
 
 // IsEON returns true if the instance is an EON database. Officially, all
