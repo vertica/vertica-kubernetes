@@ -15,6 +15,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-mount-certs
+  annotations:
+    vertica.com/k-safety: "0"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -25,7 +27,6 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  kSafety: "0"
   certSecrets:
     - name: my-cert-1
     - name: my-cert-2

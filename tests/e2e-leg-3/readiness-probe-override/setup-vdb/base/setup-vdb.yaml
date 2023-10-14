@@ -15,6 +15,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-readiness-probe-override
+  annotations:
+    vertica.com/k-safety: "0"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -29,7 +31,6 @@ spec:
     - name: admin
       size: 1
       isPrimary: true
-  kSafety: "0"
   readinessProbeOverride:
     timeoutSeconds: 5
     periodSeconds: 20

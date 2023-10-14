@@ -20,8 +20,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-disable-webhook
-spec:
-  kSafety: "0"
+  annotations:
+    vertica.com/k-safety: "0"
 status:
   subclusters:
     - installCount: 1

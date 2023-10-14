@@ -28,7 +28,6 @@ spec:
     - name: main
       size: 3
       isPrimary: true
-  kSafety: "1"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

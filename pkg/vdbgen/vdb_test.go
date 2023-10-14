@@ -260,7 +260,8 @@ var _ = Describe("vdb", func() {
 		createMock()
 		defer deleteMock()
 
-		dbGen := DBGenerator{Conn: db}
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.setParmsFromOptions()
 
 		mock.ExpectQuery(Queries[KSafetyQueryKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
@@ -270,7 +271,7 @@ var _ = Describe("vdb", func() {
 				AddRow("2"))
 
 		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.Spec.KSafety).Should(Equal(vapi.KSafety0))
+		Expect(dbGen.Objs.Vdb.IsKSafety0()).Should(BeTrue())
 	})
 
 	It("should always set ksafety to '1' when the fetched value >= 1", func() {
@@ -287,7 +288,7 @@ var _ = Describe("vdb", func() {
 				AddRow("4"))
 
 		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.Spec.KSafety).Should(Equal(vapi.KSafety1))
+		Expect(dbGen.Objs.Vdb.IsKSafety0()).Should(BeFalse())
 	})
 
 	It("should raise an error if ksafety is '0' and the number of nodes > 3", func() {

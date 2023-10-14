@@ -427,7 +427,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should have updateStrategy OnDelete for kSafety 0", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.KSafety = vapi.KSafety0
+			vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 
@@ -436,7 +436,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should have updateStrategy RollingUpdate for kSafety 1", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.KSafety = vapi.KSafety1
+			vdb.Annotations[vmeta.KSafetyAnnotation] = "1"
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
 

@@ -184,17 +184,6 @@ type VerticaDBSpec struct {
 	// left empty the operator will default to picking existing subclusters.
 	TemporarySubclusterRouting *SubclusterSelection `json:"temporarySubclusterRouting,omitempty"`
 
-	// +kubebuilder:default:="1"
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:0","urn:alm:descriptor:com.tectonic.ui:select:1","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
-	// suitable for test environments because we have no fault tolerance and the cluster
-	// can only have between 1 and 3 pods.  If set to 1, we have fault tolerance if nodes
-	// die and the cluster has a minimum of 3 pods.
-	//
-	// This value cannot change after the initial creation of the VerticaDB.
-	KSafety KSafetyType `json:"kSafety,omitempty"`
-
 	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
@@ -401,13 +390,6 @@ const URTime = 30
 
 // Valid values for EncryptSpreadComm
 const EncryptSpreadCommWithVertica = "vertica"
-
-type KSafetyType string
-
-const (
-	KSafety0 KSafetyType = "0"
-	KSafety1 KSafetyType = "1"
-)
 
 type UpgradePolicyType string
 

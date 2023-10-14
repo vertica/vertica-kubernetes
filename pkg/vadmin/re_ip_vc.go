@@ -87,7 +87,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
 		opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 		*opts.CommunalStorageLocation = s.CommunalPath
-		opts.CommunalStorageParameters = s.ConfigurationParams
+		opts.ConfigurationParameters = s.ConfigurationParams
 	}
 
 	// auth options

@@ -110,10 +110,10 @@ func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	// Surface operator config as annotations. This is picked up by the downward
 	// API and surfaced as files for the server to collect in the
 	// dc_kubernetes_events table.
-	if val, ok := os.LookupEnv("DEPLOY_WITH"); ok {
+	if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok {
 		annotations[vmeta.OperatorDeploymentMethodAnnotation] = val
 	}
-	if val, ok := os.LookupEnv("VERSION"); ok {
+	if val, ok := os.LookupEnv(vmeta.OperatorVersionEnvVar); ok {
 		annotations[vmeta.OperatorVersionAnnotation] = val
 	}
 	for k, v := range vdb.Spec.Annotations {

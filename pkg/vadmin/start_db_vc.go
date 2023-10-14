@@ -70,12 +70,12 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	opts.ConfigurationParameters = s.ConfigurationParams
 
-	// Provide communal storage options to vclusterops only after revive_db because
+	// Provide communal storage location to vclusterops only after revive_db because
 	// we do not need to access communal storage in start_db after create_db.
 	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
 		*opts.CommunalStorageLocation = s.CommunalPath
-		opts.CommunalStorageParameters = s.ConfigurationParams
 	}
 
 	// auth options

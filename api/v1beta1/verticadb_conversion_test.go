@@ -88,4 +88,28 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.Spec.TemporarySubclusterRouting.Template.Name).Should(Equal(transientSCName))
 		Ω(v1beta1VDB.Spec.TemporarySubclusterRouting.Template.Size).Should(Equal(int32(transientSCSize)))
 	})
+
+	It("should convert kSafety", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		v1beta1VDB.Spec.KSafety = KSafety0
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Annotations[vmeta.KSafetyAnnotation]).Should(Equal("0"))
+		v1beta1VDB.Spec.KSafety = KSafety1
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Annotations[vmeta.KSafetyAnnotation]).Should(BeEmpty())
+
+		// v1 -> v1beta1
+		v1VDB.Annotations[vmeta.KSafetyAnnotation] = "0"
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.KSafety).Should(Equal(KSafety0))
+		v1VDB.Annotations[vmeta.KSafetyAnnotation] = "1"
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.KSafety).Should(Equal(KSafety1))
+		v1VDB.Annotations[vmeta.KSafetyAnnotation] = "huh"
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.KSafety).Should(Equal(KSafety1))
+	})
 })
