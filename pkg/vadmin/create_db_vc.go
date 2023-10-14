@@ -30,6 +30,8 @@ import (
 
 // CreateDB will construct a new DB using the vcluster-ops library
 func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ctrl.Result, error) {
+	v.setupForAPICall("CreateDB")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster CreateDB")
 
 	// get the certs

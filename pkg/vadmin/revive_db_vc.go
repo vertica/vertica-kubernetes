@@ -29,6 +29,8 @@ import (
 // ReviveDB will initialized a database using an existing communal path. It does
 // this using the vclusterops library.
 func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
+	v.setupForAPICall("ReviveDB")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting VCluster ReviveDB")
 
 	certs, err := v.retrieveHTTPSCerts(ctx)

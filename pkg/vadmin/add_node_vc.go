@@ -30,6 +30,8 @@ import (
 
 // AddNode will add a new vertica node to the cluster
 func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error {
+	v.setupForAPICall("AddNode")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster AddNode")
 
 	// get the certs
