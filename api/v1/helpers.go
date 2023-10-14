@@ -428,3 +428,8 @@ func (v *VerticaDB) GetKSafety() string {
 	}
 	return "1"
 }
+
+// GetRequeueTime returns the time in seconds to wait for the next reconiliation iteration.
+func (v *VerticaDB) GetRequeueTime() int {
+	return vmeta.GetRequeueTime(v.Annotations)
+}

@@ -15,7 +15,9 @@
 
 package meta
 
-import "strconv"
+import (
+	"strconv"
+)
 
 const (
 	// Annotations that we set in each of the pod.  These are set by the
@@ -70,6 +72,14 @@ const (
 	KSafetyAnnotation   = "vertica.com/k-safety"
 	KSafetyDefaultValue = "1"
 
+	// If a reconciliation iteration needs to be requeued this controls the
+	// amount of time in seconds to wait.  If this is set to 0, or not set, then
+	// the requeue time will increase using an exponential backoff algorithm.
+	// Caution, when setting this to some positive value the exponential backoff
+	// is disabled.  This should be reserved for test environments as an error
+	// scenario could easily consume the logs.
+	RequeueTimeAnnotation = "vertica.com/requeue-time"
+
 	// Annotations that we add by parsing vertica --version output
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
@@ -116,6 +126,12 @@ func GetRestartTimeout(annotations map[string]string) int {
 // IsKSafety0 returns true if k-safety is set to 0. False implies 1.
 func IsKSafety0(annotations map[string]string) bool {
 	return lookupStringAnnotation(annotations, KSafetyAnnotation, KSafetyDefaultValue) == "0"
+}
+
+// GetRequeueTime returns the amount of seconds to wait between reconciliation
+// that are requeued. 0 means use the exponential backoff algorithm.
+func GetRequeueTime(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, RequeueTimeAnnotation)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

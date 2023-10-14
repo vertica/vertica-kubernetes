@@ -112,4 +112,22 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
 		Ω(v1beta1VDB.Spec.KSafety).Should(Equal(KSafety1))
 	})
+
+	It("should convert requeueTime", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		v1beta1VDB.Spec.RequeueTime = 33
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Annotations[vmeta.RequeueTimeAnnotation]).Should(Equal("33"))
+		v1beta1VDB.Spec.RequeueTime = 0
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Annotations[vmeta.RequeueTimeAnnotation]).Should(BeEmpty())
+
+		// v1 -> v1beta1
+		v1VDB.Annotations[vmeta.RequeueTimeAnnotation] = "13"
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.RequeueTime).Should(Equal(13))
+	})
 })

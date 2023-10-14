@@ -17,6 +17,7 @@ metadata:
   name: v-restart
   annotations:
     vertica.com/restart-timeout: "1500"
+    vertica.com/requeue-time: "4"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -28,7 +29,6 @@ spec:
     requestSize: 100Mi
   dbName: spilchendb2
   shardCount: 20
-  requeueTime: 4
   subclusters:
     - name: defsc
       size: 3

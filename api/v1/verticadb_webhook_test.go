@@ -602,9 +602,9 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should prevent negative values for requeueTime", func() {
 		vdb := MakeVDB()
-		vdb.Spec.RequeueTime = -30
+		vdb.Annotations[vmeta.RequeueTimeAnnotation] = "-30"
 		validateSpecValuesHaveErr(vdb, true)
-		vdb.Spec.RequeueTime = 0
+		vdb.Annotations[vmeta.RequeueTimeAnnotation] = "0"
 		vdb.Spec.UpgradeRequeueTime = -1
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.UpgradeRequeueTime = 0

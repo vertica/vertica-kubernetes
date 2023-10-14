@@ -15,6 +15,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-autoscale-by-subcluster
+  annotations:
+    vertica.com/requeue-time: "5"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
@@ -28,7 +30,6 @@ spec:
   subclusters:
     - name: pri
       size: 3
-  requeueTime: 5
   certSecrets: []
   imagePullSecrets: []
   volumes: []

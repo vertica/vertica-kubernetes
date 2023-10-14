@@ -17,6 +17,7 @@ metadata:
   name: v-revive-3-node
   annotations:
     vertica.com/ignore-cluster-lease: true
+    vertica.com/requeue-time: "5"
 spec:
   image: kustomize-vertica-image
   communal:
@@ -28,7 +29,6 @@ spec:
     depotVolume: EmptyDir
     requestSize: 100Mi
   dbName: vertdb
-  requeueTime: 5
   subclusters:
     - name: main
       size: 3
