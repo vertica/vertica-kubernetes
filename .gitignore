@@ -73,3 +73,6 @@ config/release-manifests
 # bundle files are all auto generated, so omit them
 docker-bundle/Dockerfile
 bundle/
+
+# Generated file from 'go generate'
+cmd/operator/*.go-generate.txt
