@@ -605,9 +605,9 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Annotations[vmeta.RequeueTimeAnnotation] = "-30"
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Annotations[vmeta.RequeueTimeAnnotation] = "0"
-		vdb.Spec.UpgradeRequeueTime = -1
+		vdb.Annotations[vmeta.UpgradeRequeueTimeAnnotation] = "-1"
 		validateSpecValuesHaveErr(vdb, true)
-		vdb.Spec.UpgradeRequeueTime = 0
+		vdb.Annotations[vmeta.UpgradeRequeueTimeAnnotation] = "0"
 		validateSpecValuesHaveErr(vdb, false)
 	})
 

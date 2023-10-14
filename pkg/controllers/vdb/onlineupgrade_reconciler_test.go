@@ -328,7 +328,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		// may need a restart.  It would have gotten far enough to update the
 		// sts for the primaries.
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(
-			ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+			ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
@@ -359,7 +359,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 		Expect(vdb.Status.UpgradeStatus).Should(Equal("Checking if new version is compatible"))
 	})
 
@@ -405,7 +405,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Names: []string{vdb.Spec.Subclusters[0].Name},
 		}
-		vdb.Spec.UpgradeRequeueTime = 100 // Set a non-default UpgradeRequeueTime for the test
+		vdb.Annotations[vmeta.UpgradeRequeueTimeAnnotation] = "100" // Set a non-default UpgradeRequeueTime for the test
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
 
 		test.CreateVDB(ctx, k8sClient, vdb)

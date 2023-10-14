@@ -115,7 +115,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 			// If Reconcile was aborted with a requeue, set the RequeueAfter interval to prevent exponential backoff
 			if err == nil {
 				res.Requeue = false
-				res.RequeueAfter = o.Vdb.GetUpgradeRequeueTime()
+				res.RequeueAfter = o.Vdb.GetUpgradeRequeueTimeDuration()
 			}
 			return res, err
 		}

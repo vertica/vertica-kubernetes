@@ -184,14 +184,6 @@ type VerticaDBSpec struct {
 	// left empty the operator will default to picking existing subclusters.
 	TemporarySubclusterRouting *SubclusterSelection `json:"temporarySubclusterRouting,omitempty"`
 
-	// +kubebuilder:default:=30
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// If a reconciliation iteration during an operation such as Upgrade needs to be requeued, this controls the
-	// amount of time in seconds to delay adding the key to the reconcile queue.  If RequeueTime is set, it overrides this value.
-	//  If RequeueTime is not set either, then we set the default value only for upgrades. For other reconciles we use the exponential backoff algorithm.
-	UpgradeRequeueTime int `json:"upgradeRequeueTime,omitempty"`
-
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Optional sidecar containers that run along side the vertica server.  The

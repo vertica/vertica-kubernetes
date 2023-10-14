@@ -80,6 +80,14 @@ const (
 	// scenario could easily consume the logs.
 	RequeueTimeAnnotation = "vertica.com/requeue-time"
 
+	// If a reconciliation iteration during an operation such as Upgrade needs
+	// to be requeued, this controls the amount of time in seconds to delay
+	// adding the key to the reconcile queue.  If the RequeueTimeAnnotation is
+	// set, it overrides this value.  If RequeueTimeAnnotation is not set
+	// either, then we set the default value only for upgrades. For other
+	// reconciles we use the exponential backoff algorithm.
+	UpgradeRequeueTimeAnnotation = "vertica.com/upgrade-requeue-time"
+
 	// Annotations that we add by parsing vertica --version output
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
@@ -132,6 +140,12 @@ func IsKSafety0(annotations map[string]string) bool {
 // that are requeued. 0 means use the exponential backoff algorithm.
 func GetRequeueTime(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, RequeueTimeAnnotation)
+}
+
+// GetUpgradeRequeueTime returns the amount of seconds to wait between
+// reconciliations during an upgrade.
+func GetUpgradeRequeueTime(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, UpgradeRequeueTimeAnnotation)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
