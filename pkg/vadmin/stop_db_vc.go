@@ -27,6 +27,8 @@ import (
 
 // StopDB will stop all the vertica hosts of a running cluster
 func (v *VClusterOps) StopDB(_ context.Context, opts ...stopdb.Option) error {
+	v.setupForAPICall("StopDB")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StopDB")
 
 	// get stop_db options

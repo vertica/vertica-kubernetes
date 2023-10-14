@@ -27,6 +27,8 @@ import (
 
 // RemoveNode will remove an existng vertica node from the cluster.
 func (v *VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option) error {
+	v.setupForAPICall("RemoveNode")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RemoveNode")
 
 	// get the certs

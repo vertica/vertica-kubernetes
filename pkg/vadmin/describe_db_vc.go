@@ -26,6 +26,8 @@ import (
 
 // DescribeDB will get information about a database from communal storage.
 func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option) (string, ctrl.Result, error) {
+	v.setupForAPICall("DescribeDB")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster DescribeDB")
 
 	certs, err := v.retrieveHTTPSCerts(ctx)

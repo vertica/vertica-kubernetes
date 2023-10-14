@@ -30,6 +30,8 @@ import (
 
 // ReIP will update the catalog on disk with new IPs for all of the nodes given.
 func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error) {
+	v.setupForAPICall("ReIP")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ReIP")
 
 	// get the certs

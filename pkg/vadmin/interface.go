@@ -20,6 +20,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vlog"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -117,25 +118,68 @@ func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner
 // vclusterops library to perform all of the admin operations via RESTful
 // interfaces.
 type VClusterOps struct {
-	Log    logr.Logger
-	VDB    *vapi.VerticaDB
-	Client client.Client
-	VClusterProvider
+	BaseLog  logr.Logger // The base logger that all log objects are derived from
+	Log      logr.Logger // A copy of the current log that is currently in use in the vclusterops package
+	VDB      *vapi.VerticaDB
+	Client   client.Client
 	Password string
 	EVWriter events.EVWriter
+	VClusterProvider
+	// Setup function for VClusterProvider and Log in this struct
+	APISetupFunc func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger)
 }
 
 // MakeVClusterOps will create a dispatcher that uses the vclusterops library for admin commands.
-func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client, vopsi VClusterProvider,
-	passwd string, evWriter events.EVWriter) Dispatcher {
+func MakeVClusterOps(log logr.Logger, vdb *vapi.VerticaDB, cli client.Client,
+	passwd string, evWriter events.EVWriter,
+	apiSetupFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) Dispatcher {
 	return &VClusterOps{
-		Log:              log,
+		BaseLog:          log,
 		VDB:              vdb,
 		Client:           cli,
-		VClusterProvider: vopsi,
 		Password:         passwd,
 		EVWriter:         evWriter,
+		APISetupFunc:     apiSetupFunc,
+		VClusterProvider: nil, // Setup via the APISetupFunc before each API call
 	}
+}
+
+// SetupVClusterOps will provide a VClusterProvider that uses the *real*
+// vclusterops package. This meant to be called ahead of each API to setup a
+// custom logger for the API call. This function pointer is stored in
+// APISetupFunc and is called via setupForAPICall.
+func SetupVClusterOps(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
+	// We use a function to construct the VClusterProvider. This is called
+	// ahead of each API rather than once so that we can setup a custom
+	// logger for each API call.
+	apiLog := log.WithName(apiName)
+	return &vops.VClusterCommands{
+			Log: vlog.Printer{
+				Log:           apiLog,
+				LogToFileOnly: false,
+			},
+		},
+		apiLog
+}
+
+// setupForAPICall will setup the vcluster provider ahead of an API call. This
+// must be called before each API call. Callers should call the tear down
+// function (tearDownForAPICall) with defer.
+//
+//	func foo() {
+//	    setupForAPICall("VCreateDatabase")
+//	    defer tearDownForAPICall()
+//	    ...
+//	    v.VCreateDatabase(..)
+//	}
+func (v *VClusterOps) setupForAPICall(apiName string) {
+	v.VClusterProvider, v.Log = v.APISetupFunc(v.BaseLog, apiName)
+}
+
+// tearDownForAPICall will cleanup from the setupForAPICall. This function
+// should be called with defer immediately after calling setupForAPICall.
+func (v *VClusterOps) tearDownForAPICall() {
+	v.VClusterProvider = nil
 }
 
 type HTTPSCerts struct {

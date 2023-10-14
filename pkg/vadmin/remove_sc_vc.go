@@ -29,6 +29,8 @@ import (
 
 // RemoveSubcluster will remove the given subcluster from the vertica cluster.
 func (v *VClusterOps) RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error {
+	v.setupForAPICall("RemoveSubcluster")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RemoveSubcluster")
 
 	// get the certs

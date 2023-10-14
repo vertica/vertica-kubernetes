@@ -193,9 +193,14 @@ func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
 	vdb.Spec.HTTPServerTLSSecret = "test-secret"
-	mockVops := MockVClusterOps{}
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword, &evWriter)
+	// We use a function to construct the VClusterProvider. This is called
+	// ahead of each API rather than once so that we can setup a custom
+	// logger for each API call.
+	setupAPIFunc := func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
+		return &MockVClusterOps{}, logr.Logger{}
+	}
+	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, TestPassword, &evWriter, setupAPIFunc)
 	return dispatcher.(*VClusterOps)
 }
 

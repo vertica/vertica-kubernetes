@@ -31,6 +31,8 @@ import (
 // lost cluster quorum. The IP given for each vnode may not match the current IP
 // in the vertica catalogs.
 func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
+	v.setupForAPICall("RestartNode")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RestartNode")
 
 	certs, err := v.retrieveHTTPSCerts(ctx)

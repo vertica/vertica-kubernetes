@@ -30,6 +30,8 @@ import (
 
 // StartDB will start a subset of nodes of the database
 func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
+	v.setupForAPICall("StartDB")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StartDB")
 
 	// get the certs
