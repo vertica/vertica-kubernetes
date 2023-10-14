@@ -8,6 +8,9 @@ WORKDIR /workspace
 COPY go.mod go.mod
 COPY go.sum go.sum
 
+# Copy files generated through `go generate`
+COPY cmd/operator/*.go-generate.txt .
+
 # Copy the go source
 COPY cmd/operator/main.go main.go
 COPY api/ api/

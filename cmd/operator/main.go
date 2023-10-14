@@ -24,6 +24,9 @@ import (
 	"strconv"
 	"time"
 
+	// Allows us to pull in things generated from `go generate`
+	_ "embed"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	"net/http"
@@ -54,9 +57,19 @@ const (
 	CertDir = "/tmp/k8s-webhook-server/serving-certs"
 )
 
+//go:generate sh -c "printf %s $(git rev-parse HEAD) > git-commit.go-generate.txt"
+//go:generate sh -c "printf %s $(date +%Y-%m-%dT%T -u) > build-date.go-generate.txt"
+//go:generate sh -c "printf %s $(go list -m -f '{{ .Version }}' github.com/vertica/vcluster) > vcluster-version.go-generate.txt"
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	//go:embed git-commit.go-generate.txt
+	GitCommit string
+	//go:embed build-date.go-generate.txt
+	BuildDate string
+	//go:embed vcluster-version.go-generate.txt
+	VClusterVersion string
 )
 
 func init() {
@@ -219,6 +232,8 @@ func main() {
 	}
 
 	ctrl.SetLogger(logger)
+	setupLog.Info("Build info", "gitCommit", GitCommit,
+		"buildDate", BuildDate, "vclusterVersion", VClusterVersion)
 
 	if oc.EnableProfiler {
 		go func() {
