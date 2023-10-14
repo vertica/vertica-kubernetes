@@ -15,6 +15,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
+  annotations:
+    vertica.com/requeue-time: "4"
 spec:
   image: kustomize-vertica-image
   communal:
@@ -29,7 +31,6 @@ spec:
       size: 3
       isPrimary: true
   certSecrets: []
-  requeueTime: 4
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

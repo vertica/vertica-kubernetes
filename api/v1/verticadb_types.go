@@ -184,17 +184,6 @@ type VerticaDBSpec struct {
 	// left empty the operator will default to picking existing subclusters.
 	TemporarySubclusterRouting *SubclusterSelection `json:"temporarySubclusterRouting,omitempty"`
 
-	// +kubebuilder:default:=0
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// If a reconciliation iteration needs to be requeued this controls the
-	// amount of time in seconds to wait.  If this is set to 0, then the requeue
-	// time will increase using an exponential backoff algorithm.  Caution, when
-	// setting this to some positive value the exponential backoff is disabled.
-	// This should be reserved for test environments as an error scenario could
-	// easily consume the logs.
-	RequeueTime int `json:"requeueTime,omitempty"`
-
 	// +kubebuilder:default:=30
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}

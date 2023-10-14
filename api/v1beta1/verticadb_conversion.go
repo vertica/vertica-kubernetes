@@ -74,6 +74,9 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.KSafety != KSafetyType(vmeta.KSafetyDefaultValue) {
 		newAnnotations[vmeta.KSafetyAnnotation] = string(src.Spec.KSafety)
 	}
+	if src.Spec.RequeueTime != 0 {
+		newAnnotations[vmeta.RequeueTimeAnnotation] = strconv.FormatInt(int64(src.Spec.RequeueTime), 10)
+	}
 	return
 }
 
@@ -88,6 +91,7 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 		vmeta.IgnoreUpgradePathAnnotation:  true,
 		vmeta.RestartTimeoutAnnotation:     true,
 		vmeta.KSafetyAnnotation:            true,
+		vmeta.RequeueTimeAnnotation:        true,
 	}
 	for key, val := range src.Annotations {
 		if _, ok := omitKeys[key]; ok {
@@ -118,7 +122,6 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		HadoopConfig:             src.Communal.HadoopConfig,
 		Local:                    convertToLocal(&src.Local),
 		Subclusters:              make([]v1.Subcluster, len(src.Subclusters)),
-		RequeueTime:              src.RequeueTime,
 		UpgradeRequeueTime:       src.UpgradeRequeueTime,
 		Sidecars:                 src.Sidecars,
 		Volumes:                  src.Volumes,
@@ -175,7 +178,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		Local:                    convertFromLocal(&srcSpec.Local),
 		Subclusters:              make([]Subcluster, len(srcSpec.Subclusters)),
 		KSafety:                  KSafetyType(src.GetKSafety()),
-		RequeueTime:              srcSpec.RequeueTime,
+		RequeueTime:              src.GetRequeueTime(),
 		UpgradeRequeueTime:       srcSpec.UpgradeRequeueTime,
 		Sidecars:                 srcSpec.Sidecars,
 		Volumes:                  srcSpec.Volumes,

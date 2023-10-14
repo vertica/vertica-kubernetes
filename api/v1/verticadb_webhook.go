@@ -814,10 +814,10 @@ func (v *VerticaDB) transientSubclusterMustMatchTemplate(allErrs field.ErrorList
 // validateRequeueTimes is a check for the various requeue times in the CR.
 func (v *VerticaDB) validateRequeueTimes(allErrs field.ErrorList) field.ErrorList {
 	prefix := field.NewPath("spec")
-	if v.Spec.RequeueTime < 0 {
-		err := field.Invalid(prefix.Child("requeueTime"),
-			v.Spec.RequeueTime,
-			"requeueTime cannot be negative")
+	if v.GetRequeueTime() < 0 {
+		err := field.Invalid(field.NewPath("metadata").Child("annotations").Key(vmeta.RequeueTimeAnnotation),
+			v.Annotations[vmeta.RequeueTimeAnnotation],
+			"requeue time cannot be negative")
 		allErrs = append(allErrs, err)
 	}
 	if v.Spec.UpgradeRequeueTime < 0 {

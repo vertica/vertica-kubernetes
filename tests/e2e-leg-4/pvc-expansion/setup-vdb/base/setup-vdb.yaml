@@ -17,6 +17,7 @@ metadata:
   name: v-pvc-expansion
   annotations:
     vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
 spec:
   image: kustomize-vertica-image
   sidecars:
@@ -32,7 +33,6 @@ spec:
     - name: main
       size: 1
   certSecrets: []
-  requeueTime: 5
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
