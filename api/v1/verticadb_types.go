@@ -256,13 +256,6 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// Deprecated: setup of TLS certs for http access is controlled by the
-	// deployment type now.
-	DeprecatedHTTPServerMode HTTPServerModeType `json:"httpServerMode,omitempty"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// +kubebuilder:default:=""
-	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for the Vertica HTTP
 	// server.  If this is empty, the operator will create a secret to use and
 	// add the name of the generate secret in this field.  When set, the secret
@@ -432,14 +425,6 @@ type CommunalStorage struct {
 	// is Create, this field is required and the path must be empty.  When
 	// initPolicy is Revive, this field is required and must be non-empty.
 	Path string `json:"path"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// If true, the operator will include the VerticaDB's UID in the path.  This
-	// option exists if you reuse the communal path in the same endpoint as it
-	// forces each database path to be unique.
-	IncludeUIDInPath bool `json:"includeUIDInPath,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

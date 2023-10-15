@@ -20,10 +20,10 @@ metadata:
     # Set requeueTime since we are intentionally failing.  This prevents the
     # exponential backoff kicking in, which can cause the test to timeout.
     vertica.com/requeue-time: "4"
+    vertica.com/include-uid-in-path: false
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: false
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: db

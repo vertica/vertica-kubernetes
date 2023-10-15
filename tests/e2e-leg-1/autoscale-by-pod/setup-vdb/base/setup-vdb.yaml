@@ -18,11 +18,11 @@ metadata:
   annotations:
     vertica.com/requeue-time: "5"
     vertica.com/ssh-secret: "ssh-keys"
+    vertica.com/include-uid-in-path: true
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vert

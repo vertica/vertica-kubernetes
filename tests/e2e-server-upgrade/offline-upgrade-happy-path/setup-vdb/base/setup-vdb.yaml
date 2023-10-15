@@ -17,10 +17,10 @@ metadata:
   name: v-base-upgrade
   annotations:
     vertica.com/requeue-time: "4"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   labels:

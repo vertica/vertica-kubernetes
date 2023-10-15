@@ -83,7 +83,10 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.SSHSecret != "" {
 		newAnnotations[vmeta.SSHSecAnnotation] = src.Spec.SSHSecret
 	}
-	return
+	if src.Spec.Communal.IncludeUIDInPath {
+		newAnnotations[vmeta.IncludeUIDInPathAnnotation] = strconv.FormatBool(src.Spec.Communal.IncludeUIDInPath)
+	}
+	return newAnnotations
 }
 
 // convertFromAnnotations will create the annotations for a v1beta1.VerticaDB CR taken
@@ -100,6 +103,7 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 		vmeta.RequeueTimeAnnotation:        true,
 		vmeta.UpgradeRequeueTimeAnnotation: true,
 		vmeta.SSHSecAnnotation:             true,
+		vmeta.IncludeUIDInPathAnnotation:   true,
 	}
 	for key, val := range src.Annotations {
 		if _, ok := omitKeys[key]; ok {
@@ -113,37 +117,36 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 // convertToSpec will convert to a v1 VerticaDBSpec from a v1beta1 version
 func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 	dst := v1.VerticaDBSpec{
-		ImagePullPolicy:          src.ImagePullPolicy,
-		ImagePullSecrets:         convertToLocalReferenceSlice(src.ImagePullSecrets),
-		Image:                    src.Image,
-		Labels:                   src.Labels,
-		Annotations:              src.Annotations,
-		AutoRestartVertica:       src.AutoRestartVertica,
-		DBName:                   src.DBName,
-		ShardCount:               src.ShardCount,
-		SuperuserPasswordSecret:  src.SuperuserPasswordSecret,
-		LicenseSecret:            src.LicenseSecret,
-		InitPolicy:               v1.CommunalInitPolicy(src.InitPolicy),
-		UpgradePolicy:            v1.UpgradePolicyType(src.UpgradePolicy),
-		ReviveOrder:              make([]v1.SubclusterPodCount, len(src.ReviveOrder)),
-		Communal:                 convertToCommunal(&src.Communal),
-		HadoopConfig:             src.Communal.HadoopConfig,
-		Local:                    convertToLocal(&src.Local),
-		Subclusters:              make([]v1.Subcluster, len(src.Subclusters)),
-		Sidecars:                 src.Sidecars,
-		Volumes:                  src.Volumes,
-		VolumeMounts:             src.VolumeMounts,
-		CertSecrets:              convertToLocalReferenceSlice(src.CertSecrets),
-		KerberosSecret:           src.KerberosSecret,
-		EncryptSpreadComm:        src.EncryptSpreadComm,
-		SecurityContext:          src.SecurityContext,
-		PodSecurityContext:       src.PodSecurityContext,
-		DeprecatedHTTPServerMode: v1.HTTPServerModeType(src.DeprecatedHTTPServerMode),
-		HTTPServerTLSSecret:      src.HTTPServerTLSSecret,
-		ReadinessProbeOverride:   src.ReadinessProbeOverride,
-		LivenessProbeOverride:    src.LivenessProbeOverride,
-		StartupProbeOverride:     src.StartupProbeOverride,
-		ServiceAccountName:       src.ServiceAccountName,
+		ImagePullPolicy:         src.ImagePullPolicy,
+		ImagePullSecrets:        convertToLocalReferenceSlice(src.ImagePullSecrets),
+		Image:                   src.Image,
+		Labels:                  src.Labels,
+		Annotations:             src.Annotations,
+		AutoRestartVertica:      src.AutoRestartVertica,
+		DBName:                  src.DBName,
+		ShardCount:              src.ShardCount,
+		SuperuserPasswordSecret: src.SuperuserPasswordSecret,
+		LicenseSecret:           src.LicenseSecret,
+		InitPolicy:              v1.CommunalInitPolicy(src.InitPolicy),
+		UpgradePolicy:           v1.UpgradePolicyType(src.UpgradePolicy),
+		ReviveOrder:             make([]v1.SubclusterPodCount, len(src.ReviveOrder)),
+		Communal:                convertToCommunal(&src.Communal),
+		HadoopConfig:            src.Communal.HadoopConfig,
+		Local:                   convertToLocal(&src.Local),
+		Subclusters:             make([]v1.Subcluster, len(src.Subclusters)),
+		Sidecars:                src.Sidecars,
+		Volumes:                 src.Volumes,
+		VolumeMounts:            src.VolumeMounts,
+		CertSecrets:             convertToLocalReferenceSlice(src.CertSecrets),
+		KerberosSecret:          src.KerberosSecret,
+		EncryptSpreadComm:       src.EncryptSpreadComm,
+		SecurityContext:         src.SecurityContext,
+		PodSecurityContext:      src.PodSecurityContext,
+		HTTPServerTLSSecret:     src.HTTPServerTLSSecret,
+		ReadinessProbeOverride:  src.ReadinessProbeOverride,
+		LivenessProbeOverride:   src.LivenessProbeOverride,
+		StartupProbeOverride:    src.StartupProbeOverride,
+		ServiceAccountName:      src.ServiceAccountName,
 	}
 	for i := range src.ReviveOrder {
 		dst.ReviveOrder[i] = v1.SubclusterPodCount(src.ReviveOrder[i])
@@ -164,43 +167,42 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 	srcSpec := &src.Spec
 	dst := VerticaDBSpec{
-		ImagePullPolicy:          srcSpec.ImagePullPolicy,
-		ImagePullSecrets:         convertFromLocalReferenceSlice(srcSpec.ImagePullSecrets),
-		Image:                    srcSpec.Image,
-		Labels:                   srcSpec.Labels,
-		Annotations:              srcSpec.Annotations,
-		AutoRestartVertica:       srcSpec.AutoRestartVertica,
-		DBName:                   srcSpec.DBName,
-		ShardCount:               srcSpec.ShardCount,
-		SuperuserPasswordSecret:  srcSpec.SuperuserPasswordSecret,
-		LicenseSecret:            srcSpec.LicenseSecret,
-		IgnoreClusterLease:       src.GetIgnoreClusterLease(),
-		InitPolicy:               CommunalInitPolicy(srcSpec.InitPolicy),
-		UpgradePolicy:            UpgradePolicyType(srcSpec.UpgradePolicy),
-		IgnoreUpgradePath:        src.GetIgnoreUpgradePath(),
-		ReviveOrder:              make([]SubclusterPodCount, len(srcSpec.ReviveOrder)),
-		RestartTimeout:           src.GetRestartTimeout(),
-		Communal:                 convertFromCommunal(&srcSpec.Communal, srcSpec.HadoopConfig),
-		Local:                    convertFromLocal(&srcSpec.Local),
-		Subclusters:              make([]Subcluster, len(srcSpec.Subclusters)),
-		KSafety:                  KSafetyType(src.GetKSafety()),
-		RequeueTime:              src.GetRequeueTime(),
-		UpgradeRequeueTime:       src.GetUpgradeRequeueTime(),
-		Sidecars:                 srcSpec.Sidecars,
-		Volumes:                  srcSpec.Volumes,
-		VolumeMounts:             srcSpec.VolumeMounts,
-		CertSecrets:              convertFromLocalReferenceSlice(srcSpec.CertSecrets),
-		KerberosSecret:           srcSpec.KerberosSecret,
-		SSHSecret:                src.GetSSHSecretName(),
-		EncryptSpreadComm:        srcSpec.EncryptSpreadComm,
-		SecurityContext:          srcSpec.SecurityContext,
-		PodSecurityContext:       srcSpec.PodSecurityContext,
-		DeprecatedHTTPServerMode: HTTPServerModeType(srcSpec.DeprecatedHTTPServerMode),
-		HTTPServerTLSSecret:      srcSpec.HTTPServerTLSSecret,
-		ReadinessProbeOverride:   srcSpec.ReadinessProbeOverride,
-		LivenessProbeOverride:    srcSpec.LivenessProbeOverride,
-		StartupProbeOverride:     srcSpec.StartupProbeOverride,
-		ServiceAccountName:       srcSpec.ServiceAccountName,
+		ImagePullPolicy:         srcSpec.ImagePullPolicy,
+		ImagePullSecrets:        convertFromLocalReferenceSlice(srcSpec.ImagePullSecrets),
+		Image:                   srcSpec.Image,
+		Labels:                  srcSpec.Labels,
+		Annotations:             srcSpec.Annotations,
+		AutoRestartVertica:      srcSpec.AutoRestartVertica,
+		DBName:                  srcSpec.DBName,
+		ShardCount:              srcSpec.ShardCount,
+		SuperuserPasswordSecret: srcSpec.SuperuserPasswordSecret,
+		LicenseSecret:           srcSpec.LicenseSecret,
+		IgnoreClusterLease:      src.GetIgnoreClusterLease(),
+		InitPolicy:              CommunalInitPolicy(srcSpec.InitPolicy),
+		UpgradePolicy:           UpgradePolicyType(srcSpec.UpgradePolicy),
+		IgnoreUpgradePath:       src.GetIgnoreUpgradePath(),
+		ReviveOrder:             make([]SubclusterPodCount, len(srcSpec.ReviveOrder)),
+		RestartTimeout:          src.GetRestartTimeout(),
+		Communal:                convertFromCommunal(src),
+		Local:                   convertFromLocal(&srcSpec.Local),
+		Subclusters:             make([]Subcluster, len(srcSpec.Subclusters)),
+		KSafety:                 KSafetyType(src.GetKSafety()),
+		RequeueTime:             src.GetRequeueTime(),
+		UpgradeRequeueTime:      src.GetUpgradeRequeueTime(),
+		Sidecars:                srcSpec.Sidecars,
+		Volumes:                 srcSpec.Volumes,
+		VolumeMounts:            srcSpec.VolumeMounts,
+		CertSecrets:             convertFromLocalReferenceSlice(srcSpec.CertSecrets),
+		KerberosSecret:          srcSpec.KerberosSecret,
+		SSHSecret:               src.GetSSHSecretName(),
+		EncryptSpreadComm:       srcSpec.EncryptSpreadComm,
+		SecurityContext:         srcSpec.SecurityContext,
+		PodSecurityContext:      srcSpec.PodSecurityContext,
+		HTTPServerTLSSecret:     srcSpec.HTTPServerTLSSecret,
+		ReadinessProbeOverride:  srcSpec.ReadinessProbeOverride,
+		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
+		StartupProbeOverride:    srcSpec.StartupProbeOverride,
+		ServiceAccountName:      srcSpec.ServiceAccountName,
 	}
 	for i := range srcSpec.ReviveOrder {
 		dst.ReviveOrder[i] = SubclusterPodCount(srcSpec.ReviveOrder[i])
@@ -307,7 +309,6 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 func convertToCommunal(src *CommunalStorage) v1.CommunalStorage {
 	return v1.CommunalStorage{
 		Path:                   src.Path,
-		IncludeUIDInPath:       src.IncludeUIDInPath,
 		Endpoint:               src.Endpoint,
 		CredentialSecret:       src.CredentialSecret,
 		CaFile:                 src.CaFile,
@@ -321,20 +322,21 @@ func convertToCommunal(src *CommunalStorage) v1.CommunalStorage {
 }
 
 // convertFromCommunal will convert from a v1 CommunalStorage to a v1beta1 version
-func convertFromCommunal(src *v1.CommunalStorage, hadoopConfig string) CommunalStorage {
+func convertFromCommunal(src *v1.VerticaDB) CommunalStorage {
+	comSpec := src.Spec.Communal
 	return CommunalStorage{
-		Path:                   src.Path,
-		IncludeUIDInPath:       src.IncludeUIDInPath,
-		Endpoint:               src.Endpoint,
-		CredentialSecret:       src.CredentialSecret,
-		HadoopConfig:           hadoopConfig,
-		CaFile:                 src.CaFile,
-		Region:                 src.Region,
-		KerberosServiceName:    src.KerberosServiceName,
-		KerberosRealm:          src.KerberosRealm,
-		S3ServerSideEncryption: ServerSideEncryptionType(src.S3ServerSideEncryption),
-		S3SseCustomerKeySecret: src.S3SseCustomerKeySecret,
-		AdditionalConfig:       src.AdditionalConfig,
+		Path:                   comSpec.Path,
+		IncludeUIDInPath:       src.IncludeUIDInPath(),
+		Endpoint:               comSpec.Endpoint,
+		CredentialSecret:       comSpec.CredentialSecret,
+		HadoopConfig:           src.Spec.HadoopConfig,
+		CaFile:                 comSpec.CaFile,
+		Region:                 comSpec.Region,
+		KerberosServiceName:    comSpec.KerberosServiceName,
+		KerberosRealm:          comSpec.KerberosRealm,
+		S3ServerSideEncryption: ServerSideEncryptionType(comSpec.S3ServerSideEncryption),
+		S3SseCustomerKeySecret: comSpec.S3SseCustomerKeySecret,
+		AdditionalConfig:       comSpec.AdditionalConfig,
 	}
 }
 

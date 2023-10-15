@@ -18,11 +18,11 @@ metadata:
   annotations:
     vertica.com/k-safety: "0"
     vertica.com/ssh-secret: "ssh-keys"
+    vertica.com/include-uid-in-path: false
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: false
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertdb

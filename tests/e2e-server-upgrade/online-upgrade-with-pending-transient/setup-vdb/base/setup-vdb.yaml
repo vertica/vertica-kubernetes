@@ -18,10 +18,10 @@ metadata:
   annotations:
     vertica.com/k-safety: "0"
     vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   upgradePolicy: Online

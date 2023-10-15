@@ -18,6 +18,7 @@ metadata:
   annotations:
     vertica.com/k-safety: "0"
     vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
   sidecars:
@@ -25,8 +26,7 @@ spec:
       image: kustomize-vlogger-image
   dbName: data_base
   initPolicy: CreateSkipPackageInstall
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 1Gi
   subclusters:

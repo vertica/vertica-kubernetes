@@ -18,6 +18,7 @@ package v1
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
 var _ = Describe("verticadb_types", func() {
@@ -26,14 +27,14 @@ var _ = Describe("verticadb_types", func() {
 	It("should include UID in path if IncludeUIDInPath is set", func() {
 		vdb := MakeVDB()
 		vdb.ObjectMeta.UID = FakeUID
-		vdb.Spec.Communal.IncludeUIDInPath = true
+		vdb.Annotations[vmeta.IncludeUIDInPathAnnotation] = "true"
 		Expect(vdb.GetCommunalPath()).Should(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
 
 	It("should not include UID in path if IncludeUIDInPath is not set", func() {
 		vdb := MakeVDB()
 		vdb.ObjectMeta.UID = FakeUID
-		vdb.Spec.Communal.IncludeUIDInPath = false
+		vdb.Annotations[vmeta.IncludeUIDInPathAnnotation] = "false"
 		Expect(vdb.GetCommunalPath()).ShouldNot(ContainSubstring(string(vdb.ObjectMeta.UID)))
 	})
 
