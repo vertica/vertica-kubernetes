@@ -17,10 +17,10 @@ metadata:
   name: v-custom-cert-webhook-cabundle-in-secret
   annotations:
     vertica.com/k-safety: "0"
+    vertica.com/ssh-secret: "ssh-keys"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  sshSecret: ssh-keys
   communal:
     includeUIDInPath: false
   local:

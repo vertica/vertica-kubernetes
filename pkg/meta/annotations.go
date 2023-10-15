@@ -80,6 +80,23 @@ const (
 	// scenario could easily consume the logs.
 	RequeueTimeAnnotation = "vertica.com/requeue-time"
 
+	// If a reconciliation iteration during an operation such as Upgrade needs
+	// to be requeued, this controls the amount of time in seconds to delay
+	// adding the key to the reconcile queue.  If the RequeueTimeAnnotation is
+	// set, it overrides this value.  If RequeueTimeAnnotation is not set
+	// either, then we set the default value only for upgrades. For other
+	// reconciles we use the exponential backoff algorithm.
+	UpgradeRequeueTimeAnnotation = "vertica.com/upgrade-requeue-time"
+
+	// A secret that has the files for /home/dbadmin/.ssh.  If this is
+	// omitted, the ssh files from the image are used (if applicable). SSH is
+	// only required when deploying via admintools and is present only in images
+	// tailored for that deployment type.  You can use this option if you have a
+	// cluster that talks to Vertica notes outside of Kubernetes, as it has the
+	// public keys to be able to ssh to those nodes.  It must have the following
+	// keys present: id_rsa, id_rsa.pub and authorized_keys.
+	SSHSecAnnotation = "vertica.com/ssh-secret"
+
 	// Annotations that we add by parsing vertica --version output
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
@@ -132,6 +149,18 @@ func IsKSafety0(annotations map[string]string) bool {
 // that are requeued. 0 means use the exponential backoff algorithm.
 func GetRequeueTime(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, RequeueTimeAnnotation)
+}
+
+// GetUpgradeRequeueTime returns the amount of seconds to wait between
+// reconciliations during an upgrade.
+func GetUpgradeRequeueTime(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, UpgradeRequeueTimeAnnotation)
+}
+
+// GetSSHSecretName returns the name of the secret that contains SSH keys to use
+// for admintools style of deployments.
+func GetSSHSecretName(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, SSHSecAnnotation, "")
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

@@ -263,7 +263,7 @@ var _ = Describe("builder", func() {
 
 	It("should mount ssh secret for dbadmin and root", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.SSHSecret = "my-secret"
+		vdb.Annotations[vmeta.SSHSecAnnotation] = "my-secret"
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		cnt := &c.Containers[0]
 		i, ok := getFirstSSHSecretVolumeMountIndex(cnt)

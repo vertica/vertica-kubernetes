@@ -184,14 +184,6 @@ type VerticaDBSpec struct {
 	// left empty the operator will default to picking existing subclusters.
 	TemporarySubclusterRouting *SubclusterSelection `json:"temporarySubclusterRouting,omitempty"`
 
-	// +kubebuilder:default:=30
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// If a reconciliation iteration during an operation such as Upgrade needs to be requeued, this controls the
-	// amount of time in seconds to delay adding the key to the reconcile queue.  If RequeueTime is set, it overrides this value.
-	//  If RequeueTime is not set either, then we set the default value only for upgrades. For other reconciles we use the exponential backoff algorithm.
-	UpgradeRequeueTime int `json:"upgradeRequeueTime,omitempty"`
-
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// Optional sidecar containers that run along side the vertica server.  The
@@ -236,15 +228,6 @@ type VerticaDBSpec struct {
 	// These files will be mounted in /etc.  We use the same keytab file on each
 	// host, so it must contain all of the Vertica principals.
 	KerberosSecret string `json:"kerberosSecret,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// An optional secret that has the files for /home/dbadmin/.ssh.  If this is
-	// omitted, the ssh files from the image are used.  You can this option if
-	// you have a cluster that talks to Vertica notes outside of Kubernetes, as
-	// it has the public keys to be able to ssh to those nodes.  It must have
-	// the following keys present: id_rsa, id_rsa.pub and authorized_keys.
-	SSHSecret string `json:"sshSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}

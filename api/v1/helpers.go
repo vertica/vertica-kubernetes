@@ -272,14 +272,6 @@ func (v *VerticaDB) isConditionIndexSet(inx int) bool {
 	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
 }
 
-// GetUpgradeRequeueTime returns default upgrade requeue time if not set in the CRD
-func (v *VerticaDB) GetUpgradeRequeueTime() time.Duration {
-	if v.Spec.UpgradeRequeueTime == 0 {
-		return time.Second * time.Duration(URTime)
-	}
-	return time.Second * time.Duration(v.Spec.UpgradeRequeueTime)
-}
-
 // buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
 func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
 	return &Subcluster{
@@ -432,4 +424,25 @@ func (v *VerticaDB) GetKSafety() string {
 // GetRequeueTime returns the time in seconds to wait for the next reconiliation iteration.
 func (v *VerticaDB) GetRequeueTime() int {
 	return vmeta.GetRequeueTime(v.Annotations)
+}
+
+// GetUpgradeRequeueTime returns the time in seconds to wait between
+// reconciliations during an upgrade. This is the raw value as set in the CR.
+func (v *VerticaDB) GetUpgradeRequeueTime() int {
+	return vmeta.GetUpgradeRequeueTime(v.Annotations)
+}
+
+// GetUpgradeRequeueTimeDuration returns default upgrade requeue time if not set
+// in the CRD. The value returned is of type Duration.
+func (v *VerticaDB) GetUpgradeRequeueTimeDuration() time.Duration {
+	if v.GetUpgradeRequeueTime() == 0 {
+		return time.Second * time.Duration(URTime)
+	}
+	return time.Second * time.Duration(v.GetUpgradeRequeueTime())
+}
+
+// GetSSHSecretName returns the name of the secret that contains SSH keys to use
+// for admintools style of deployments.
+func (v *VerticaDB) GetSSHSecretName() string {
+	return vmeta.GetSSHSecretName(v.Annotations)
 }

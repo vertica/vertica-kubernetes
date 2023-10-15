@@ -77,6 +77,12 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.RequeueTime != 0 {
 		newAnnotations[vmeta.RequeueTimeAnnotation] = strconv.FormatInt(int64(src.Spec.RequeueTime), 10)
 	}
+	if src.Spec.UpgradeRequeueTime != 0 {
+		newAnnotations[vmeta.UpgradeRequeueTimeAnnotation] = strconv.FormatInt(int64(src.Spec.UpgradeRequeueTime), 10)
+	}
+	if src.Spec.SSHSecret != "" {
+		newAnnotations[vmeta.SSHSecAnnotation] = src.Spec.SSHSecret
+	}
 	return
 }
 
@@ -92,6 +98,8 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 		vmeta.RestartTimeoutAnnotation:     true,
 		vmeta.KSafetyAnnotation:            true,
 		vmeta.RequeueTimeAnnotation:        true,
+		vmeta.UpgradeRequeueTimeAnnotation: true,
+		vmeta.SSHSecAnnotation:             true,
 	}
 	for key, val := range src.Annotations {
 		if _, ok := omitKeys[key]; ok {
@@ -122,13 +130,11 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		HadoopConfig:             src.Communal.HadoopConfig,
 		Local:                    convertToLocal(&src.Local),
 		Subclusters:              make([]v1.Subcluster, len(src.Subclusters)),
-		UpgradeRequeueTime:       src.UpgradeRequeueTime,
 		Sidecars:                 src.Sidecars,
 		Volumes:                  src.Volumes,
 		VolumeMounts:             src.VolumeMounts,
 		CertSecrets:              convertToLocalReferenceSlice(src.CertSecrets),
 		KerberosSecret:           src.KerberosSecret,
-		SSHSecret:                src.SSHSecret,
 		EncryptSpreadComm:        src.EncryptSpreadComm,
 		SecurityContext:          src.SecurityContext,
 		PodSecurityContext:       src.PodSecurityContext,
@@ -179,13 +185,13 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		Subclusters:              make([]Subcluster, len(srcSpec.Subclusters)),
 		KSafety:                  KSafetyType(src.GetKSafety()),
 		RequeueTime:              src.GetRequeueTime(),
-		UpgradeRequeueTime:       srcSpec.UpgradeRequeueTime,
+		UpgradeRequeueTime:       src.GetUpgradeRequeueTime(),
 		Sidecars:                 srcSpec.Sidecars,
 		Volumes:                  srcSpec.Volumes,
 		VolumeMounts:             srcSpec.VolumeMounts,
 		CertSecrets:              convertFromLocalReferenceSlice(srcSpec.CertSecrets),
 		KerberosSecret:           srcSpec.KerberosSecret,
-		SSHSecret:                srcSpec.SSHSecret,
+		SSHSecret:                src.GetSSHSecretName(),
 		EncryptSpreadComm:        srcSpec.EncryptSpreadComm,
 		SecurityContext:          srcSpec.SecurityContext,
 		PodSecurityContext:       srcSpec.PodSecurityContext,

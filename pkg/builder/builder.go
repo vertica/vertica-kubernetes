@@ -189,7 +189,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildKerberosVolumeMounts()...)
 	}
 
-	if vdb.Spec.SSHSecret != "" {
+	if vdb.GetSSHSecretName() != "" {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
@@ -281,7 +281,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.Spec.KerberosSecret != "" {
 		vols = append(vols, buildKerberosVolume(vdb))
 	}
-	if vdb.Spec.SSHSecret != "" {
+	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
 	if vdb.Spec.HTTPServerTLSSecret != "" {
@@ -504,7 +504,7 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.SSHMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.SSHSecret,
+				SecretName: vdb.GetSSHSecretName(),
 			},
 		},
 	}
