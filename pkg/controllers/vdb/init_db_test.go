@@ -191,20 +191,10 @@ var _ = Describe("init_db", func() {
 		contructAuthParmsHelper(ctx, vdb, "", "")
 	})
 
-	It("should include Kerberos parms if there are kerberos settings", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Communal.KerberosRealm = "EXAMPLE.COM"
-		vdb.Spec.Communal.KerberosServiceName = "vertica"
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-
-		contructAuthParmsHelper(ctx, vdb, "KerberosRealm", "")
-	})
-
 	It("should requeue if trying to use Kerberos but have an older engine version", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Communal.KerberosRealm = "VERTICACORP.COM"
-		vdb.Spec.Communal.KerberosServiceName = "vert"
+		vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig] = "VERTICACORP.COM"
+		vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig] = "vert"
 		// Setting this annotation will set the version in the vdb.  The version
 		// was picked because it isn't compatible with Kerberos.
 		vdb.Annotations[vmeta.VersionAnnotation] = "v11.0.1"

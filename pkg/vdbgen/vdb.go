@@ -148,6 +148,7 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 	d.Objs.Vdb.Annotations = make(map[string]string)
+	d.Objs.Vdb.Spec.Communal.AdditionalConfig = make(map[string]string)
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName
 	d.Objs.Vdb.Spec.AutoRestartVertica = true
 	d.Objs.Vdb.ObjectMeta.Name = d.Opts.VdbName
@@ -928,10 +929,8 @@ func (d *DBGenerator) readKrb5KeytabFile(_ context.Context) error {
 }
 
 func (d *DBGenerator) setKrb5Secret(_ context.Context) error {
-	const KerberosServiceNameKey = "KerberosServiceName"
-	const KerberosRealmKey = "KerberosRealm"
-	realm, okRealm := d.DBCfg[KerberosRealmKey]
-	svcName, okSvc := d.DBCfg[KerberosServiceNameKey]
+	realm, okRealm := d.DBCfg[vmeta.KerberosRealmConfig]
+	svcName, okSvc := d.DBCfg[vmeta.KerberosServiceNameConfig]
 
 	if !okRealm || !okSvc {
 		// Not an error, this just means there is no Kerberos setup
@@ -946,8 +945,8 @@ func (d *DBGenerator) setKrb5Secret(_ context.Context) error {
 	}
 
 	d.Objs.HasKerberosSecret = true
-	d.Objs.Vdb.Spec.Communal.KerberosRealm = realm
-	d.Objs.Vdb.Spec.Communal.KerberosServiceName = svcName
+	d.Objs.Vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig] = realm
+	d.Objs.Vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig] = svcName
 	d.Objs.KerberosSecret.TypeMeta.APIVersion = SecretAPIVersion
 	d.Objs.KerberosSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.KerberosSecret.ObjectMeta.Name = fmt.Sprintf("%s-krb5", d.Opts.VdbName)

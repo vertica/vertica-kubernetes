@@ -307,18 +307,23 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 
 // convertToCommunal will convert to a v1 VerticaDBCondition from a v1beta1 version
 func convertToCommunal(src *CommunalStorage) v1.CommunalStorage {
-	return v1.CommunalStorage{
+	cs := v1.CommunalStorage{
 		Path:                   src.Path,
 		Endpoint:               src.Endpoint,
 		CredentialSecret:       src.CredentialSecret,
 		CaFile:                 src.CaFile,
 		Region:                 src.Region,
-		KerberosServiceName:    src.KerberosServiceName,
-		KerberosRealm:          src.KerberosRealm,
 		S3ServerSideEncryption: v1.ServerSideEncryptionType(src.S3ServerSideEncryption),
 		S3SseCustomerKeySecret: src.S3SseCustomerKeySecret,
 		AdditionalConfig:       src.AdditionalConfig,
 	}
+	if src.KerberosServiceName != "" {
+		cs.AdditionalConfig[vmeta.KerberosServiceNameConfig] = src.KerberosServiceName
+	}
+	if src.KerberosRealm != "" {
+		cs.AdditionalConfig[vmeta.KerberosRealmConfig] = src.KerberosRealm
+	}
+	return cs
 }
 
 // convertFromCommunal will convert from a v1 CommunalStorage to a v1beta1 version
@@ -332,8 +337,8 @@ func convertFromCommunal(src *v1.VerticaDB) CommunalStorage {
 		HadoopConfig:           src.Spec.HadoopConfig,
 		CaFile:                 comSpec.CaFile,
 		Region:                 comSpec.Region,
-		KerberosServiceName:    comSpec.KerberosServiceName,
-		KerberosRealm:          comSpec.KerberosRealm,
+		KerberosServiceName:    comSpec.AdditionalConfig[vmeta.KerberosServiceNameConfig],
+		KerberosRealm:          comSpec.AdditionalConfig[vmeta.KerberosRealmConfig],
 		S3ServerSideEncryption: ServerSideEncryptionType(comSpec.S3ServerSideEncryption),
 		S3SseCustomerKeySecret: comSpec.S3SseCustomerKeySecret,
 		AdditionalConfig:       comSpec.AdditionalConfig,

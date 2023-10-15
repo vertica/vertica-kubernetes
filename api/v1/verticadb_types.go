@@ -474,18 +474,6 @@ type CommunalStorage struct {
 	// Vertica retries several times before giving up.
 	Region string `json:"region,omitempty"`
 
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// The service name portion of the Vertica Kerberos principal. This is set
-	// in the database config parameter KerberosServiceName during bootstrapping.
-	KerberosServiceName string `json:"kerberosServiceName,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// Name of the Kerberos realm.  This is set in the database config parameter
-	// KerberosRealm during bootstrapping.
-	KerberosRealm string `json:"kerberosRealm,omitempty"`
-
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:SSE-S3","urn:alm:descriptor:com.tectonic.ui:select:SSE-KMS","urn:alm:descriptor:com.tectonic.ui:select:SSE-C"}

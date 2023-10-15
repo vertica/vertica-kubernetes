@@ -184,4 +184,24 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
 		Ω(v1beta1VDB.Spec.Communal.IncludeUIDInPath).Should(BeTrue())
 	})
+
+	It("should convert kerberos fields", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		v1beta1VDB.Spec.Communal.KerberosRealm = "krealm"
+		v1beta1VDB.Spec.Communal.KerberosServiceName = "kservice"
+		v1beta1VDB.Spec.Communal.AdditionalConfig = make(map[string]string)
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig]).Should(Equal("krealm"))
+		Ω(v1VDB.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]).Should(Equal("kservice"))
+
+		// v1 -> v1beta1
+		v1VDB.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig] = "new-krealm"
+		v1VDB.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig] = "new-kservice"
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.Communal.KerberosRealm).Should(Equal("new-krealm"))
+		Ω(v1beta1VDB.Spec.Communal.KerberosServiceName).Should(Equal("new-kservice"))
+	})
 })

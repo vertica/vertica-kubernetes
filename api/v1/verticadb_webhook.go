@@ -66,71 +66,6 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// IsHDFS returns true if the communal path is stored in an HDFS path
-func (v *VerticaDB) IsHDFS() bool {
-	for _, p := range hdfsPrefixes {
-		if strings.HasPrefix(v.Spec.Communal.Path, p) {
-			return true
-		}
-	}
-	return false
-}
-
-// IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
-func (v *VerticaDB) IsS3() bool {
-	return strings.HasPrefix(v.Spec.Communal.Path, S3Prefix)
-}
-
-// ISGCloud returns true if VerticaDB has a communal path in Google Cloud Storage
-func (v *VerticaDB) IsGCloud() bool {
-	return strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix)
-}
-
-// IsAzure returns true if VerticaDB has a communal path in Azure Blob Storage
-func (v *VerticaDB) IsAzure() bool {
-	return strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix)
-}
-
-// IsSseS3 returns true if VerticaDB is setup for S3 SSE-S3 server-side encryption
-func (v *VerticaDB) IsSseS3() bool {
-	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseS3))
-}
-
-// IsSseKMS returns true if VerticaDB is setup for S3 SSE-KMS server-side encryption
-func (v *VerticaDB) IsSseKMS() bool {
-	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseKMS))
-}
-
-// IsSseC returns true if VerticaDB is setup for S3 SSE-C server-side encryption
-func (v *VerticaDB) IsSseC() bool {
-	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseC))
-}
-
-// IsKnownSseType returns true if VerticaDB is setup for S3 server-side encryption
-func (v *VerticaDB) IsKnownSseType() bool {
-	if v.IsSseS3() || v.IsSseKMS() || v.IsSseC() {
-		return true
-	}
-	return false
-}
-
-// IsKnownCommunalPrefix returns true if the communal has a known prefix that
-// indicates the type of communal storage. False means the communal path was
-// empty or is a POSIX path.
-func (v *VerticaDB) IsKnownCommunalPrefix() bool {
-	if v.IsHDFS() || v.IsS3() || v.IsGCloud() || v.IsAzure() {
-		return true
-	}
-	return false
-}
-
-// HasKerberosConfig returns true if VerticaDB is setup for Kerberos authentication.
-func (v *VerticaDB) HasKerberosConfig() bool {
-	// We have a webhook check that makes sure if the principal is set, the
-	// other things are set too.
-	return v.Spec.Communal.KerberosServiceName != ""
-}
-
 //+kubebuilder:webhook:path=/mutate-vertica-com-v1beta1-verticadb,mutating=true,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=mverticadb.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &VerticaDB{}
@@ -644,21 +579,22 @@ func (v *VerticaDB) canUpdateScName(oldObj *VerticaDB) bool {
 func (v *VerticaDB) hasValidKerberosSetup(allErrs field.ErrorList) field.ErrorList {
 	// Handle two valid cases.  None of the Kerberos settings are used or they
 	// all are.  This will detect cases when only a portion of them are set.
-	if (v.Spec.Communal.KerberosRealm == "" && v.Spec.Communal.KerberosServiceName == "") ||
-		(v.Spec.Communal.KerberosRealm != "" && v.Spec.Communal.KerberosServiceName != "" && v.Spec.KerberosSecret != "") {
+	if (v.GetKerberosRealm() == "" && v.GetKerberosServiceName() == "") ||
+		(v.GetKerberosRealm() != "" && v.GetKerberosServiceName() != "" && v.Spec.KerberosSecret != "") {
 		return allErrs
 	}
 
-	if v.Spec.Communal.KerberosRealm == "" {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("kerberosRealm"),
-			v.Spec.Communal.KerberosRealm,
-			"kerberosRealm must be set if setting up Kerberos")
+	prefix := field.NewPath("spec").Child("communal").Child("additionalConfig")
+	if v.GetKerberosRealm() == "" {
+		err := field.Invalid(prefix.Key(vmeta.KerberosRealmConfig),
+			v.GetKerberosRealm(),
+			`communal.additionalConfig["kerberosRealm"] must be set if setting up Kerberos`)
 		allErrs = append(allErrs, err)
 	}
-	if v.Spec.Communal.KerberosServiceName == "" {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("kerberosServiceName"),
-			v.Spec.Communal.KerberosServiceName,
-			"kerberosServiceName must be set if setting up Kerberos")
+	if v.GetKerberosServiceName() == "" {
+		err := field.Invalid(prefix.Key(vmeta.KerberosServiceNameConfig),
+			v.GetKerberosServiceName(),
+			`communal.additionalConfig["kerberosServiceName"] must be set if setting up Kerberos`)
 		allErrs = append(allErrs, err)
 	}
 	if v.Spec.KerberosSecret == "" {

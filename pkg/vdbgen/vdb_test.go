@@ -516,6 +516,7 @@ var _ = Describe("vdb", func() {
 
 		dbGen := DBGenerator{Conn: db, Opts: &Options{},
 			Krb5ConfData: []byte("data1"), Krb5KeytabData: []byte("data2")}
+		dbGen.setParmsFromOptions()
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).

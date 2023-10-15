@@ -82,7 +82,10 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 		if res = g.hasCompatibleVersionForKerberos(); verrors.IsReconcileAborted(res, nil) {
 			return res, nil
 		}
-		g.setKerberosAuthParms()
+		err = g.setKerberosAuthParms()
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	g.setEncryptSpreadCommConfigIfNecessary()
@@ -163,14 +166,20 @@ func (g *ConfigParamsGenerator) setHDFSAuthParms(_ context.Context) (ctrl.Result
 
 // setKerberosAuthParms adds Kerberos related auth parms to the config parms map.
 // Must have Kerberos config in the Vdb.
-func (g *ConfigParamsGenerator) setKerberosAuthParms() {
-	g.ConfigurationParams.Set("KerberosServiceName", g.Vdb.Spec.Communal.KerberosServiceName)
-	g.ConfigurationParams.Set("KerberosRealm", g.Vdb.Spec.Communal.KerberosRealm)
+func (g *ConfigParamsGenerator) setKerberosAuthParms() error {
+	// KerberosServiceName and KeberosRealm use to be separate parms in the CR.
+	// They should now exist in AdditionalConfig.
+	for _, key := range []string{meta.KerberosServiceNameConfig, meta.KerberosRealmConfig} {
+		if _, ok := g.ConfigurationParams.Get(key); !ok {
+			return fmt.Errorf("missing the %s config parameter in spec.communal.additionalConfig", key)
+		}
+	}
 	g.ConfigurationParams.Set("KerberosKeytabFile", paths.Krb5Keytab)
 	// We disable KerberosEnableKeytabPermissionCheck, otherwise the engine will
 	// complain that the keytab file doesn't have read/write permissions from
 	// dbadmin only.
 	g.ConfigurationParams.Set("KerberosEnableKeytabPermissionCheck", "0")
+	return nil
 }
 
 func (g *ConfigParamsGenerator) setEncryptSpreadCommConfigIfNecessary() {
