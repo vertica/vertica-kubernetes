@@ -18,10 +18,10 @@ metadata:
   annotations:
     vertica.com/ignore-cluster-lease: true
     vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: false
+  communal: {}
   initPolicy: Revive
   local:
     dataPath: /my-data

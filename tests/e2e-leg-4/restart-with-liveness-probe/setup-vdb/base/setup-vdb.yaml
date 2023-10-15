@@ -17,10 +17,10 @@ metadata:
   name: v-restart-with-liveness-probe
   annotations:
     vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: db

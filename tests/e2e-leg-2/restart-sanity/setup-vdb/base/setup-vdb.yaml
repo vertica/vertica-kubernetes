@@ -18,12 +18,12 @@ metadata:
   annotations:
     vertica.com/restart-timeout: "1500"
     vertica.com/requeue-time: "4"
+    vertica.com/include-uid-in-path: true
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     depotVolume: EmptyDir
     requestSize: 100Mi

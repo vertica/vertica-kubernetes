@@ -83,7 +83,10 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.SSHSecret != "" {
 		newAnnotations[vmeta.SSHSecAnnotation] = src.Spec.SSHSecret
 	}
-	return
+	if src.Spec.Communal.IncludeUIDInPath {
+		newAnnotations[vmeta.IncludeUIDInPathAnnotation] = strconv.FormatBool(src.Spec.Communal.IncludeUIDInPath)
+	}
+	return newAnnotations
 }
 
 // convertFromAnnotations will create the annotations for a v1beta1.VerticaDB CR taken
@@ -100,6 +103,7 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 		vmeta.RequeueTimeAnnotation:        true,
 		vmeta.UpgradeRequeueTimeAnnotation: true,
 		vmeta.SSHSecAnnotation:             true,
+		vmeta.IncludeUIDInPathAnnotation:   true,
 	}
 	for key, val := range src.Annotations {
 		if _, ok := omitKeys[key]; ok {
@@ -179,7 +183,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		IgnoreUpgradePath:       src.GetIgnoreUpgradePath(),
 		ReviveOrder:             make([]SubclusterPodCount, len(srcSpec.ReviveOrder)),
 		RestartTimeout:          src.GetRestartTimeout(),
-		Communal:                convertFromCommunal(&srcSpec.Communal, srcSpec.HadoopConfig),
+		Communal:                convertFromCommunal(src),
 		Local:                   convertFromLocal(&srcSpec.Local),
 		Subclusters:             make([]Subcluster, len(srcSpec.Subclusters)),
 		KSafety:                 KSafetyType(src.GetKSafety()),
@@ -305,7 +309,6 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 func convertToCommunal(src *CommunalStorage) v1.CommunalStorage {
 	return v1.CommunalStorage{
 		Path:                   src.Path,
-		IncludeUIDInPath:       src.IncludeUIDInPath,
 		Endpoint:               src.Endpoint,
 		CredentialSecret:       src.CredentialSecret,
 		CaFile:                 src.CaFile,
@@ -319,20 +322,21 @@ func convertToCommunal(src *CommunalStorage) v1.CommunalStorage {
 }
 
 // convertFromCommunal will convert from a v1 CommunalStorage to a v1beta1 version
-func convertFromCommunal(src *v1.CommunalStorage, hadoopConfig string) CommunalStorage {
+func convertFromCommunal(src *v1.VerticaDB) CommunalStorage {
+	comSpec := src.Spec.Communal
 	return CommunalStorage{
-		Path:                   src.Path,
-		IncludeUIDInPath:       src.IncludeUIDInPath,
-		Endpoint:               src.Endpoint,
-		CredentialSecret:       src.CredentialSecret,
-		HadoopConfig:           hadoopConfig,
-		CaFile:                 src.CaFile,
-		Region:                 src.Region,
-		KerberosServiceName:    src.KerberosServiceName,
-		KerberosRealm:          src.KerberosRealm,
-		S3ServerSideEncryption: ServerSideEncryptionType(src.S3ServerSideEncryption),
-		S3SseCustomerKeySecret: src.S3SseCustomerKeySecret,
-		AdditionalConfig:       src.AdditionalConfig,
+		Path:                   comSpec.Path,
+		IncludeUIDInPath:       src.IncludeUIDInPath(),
+		Endpoint:               comSpec.Endpoint,
+		CredentialSecret:       comSpec.CredentialSecret,
+		HadoopConfig:           src.Spec.HadoopConfig,
+		CaFile:                 comSpec.CaFile,
+		Region:                 comSpec.Region,
+		KerberosServiceName:    comSpec.KerberosServiceName,
+		KerberosRealm:          comSpec.KerberosRealm,
+		S3ServerSideEncryption: ServerSideEncryptionType(comSpec.S3ServerSideEncryption),
+		S3SseCustomerKeySecret: comSpec.S3SseCustomerKeySecret,
+		AdditionalConfig:       comSpec.AdditionalConfig,
 	}
 }
 

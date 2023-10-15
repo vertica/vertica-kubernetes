@@ -427,14 +427,6 @@ type CommunalStorage struct {
 	Path string `json:"path"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=false
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// If true, the operator will include the VerticaDB's UID in the path.  This
-	// option exists if you reuse the communal path in the same endpoint as it
-	// forces each database path to be unique.
-	IncludeUIDInPath bool `json:"includeUIDInPath,omitempty"`
-
-	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The URL to the communal endpoint. The endpoint must be prefaced with http:// or
 	// https:// to know what protocol to connect with. If using S3 or Google

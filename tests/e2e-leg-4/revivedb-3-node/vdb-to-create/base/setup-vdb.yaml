@@ -17,10 +17,10 @@ metadata:
   name: v-create-3-node
   annotations:
     vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: false
+  communal: {}
   initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /my-data

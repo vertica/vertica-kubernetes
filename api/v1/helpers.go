@@ -189,7 +189,7 @@ func (v *VerticaDB) GetCommunalPath() string {
 	// each new instance of vdb. This means we can't use the same base path for
 	// different databases and we don't require any cleanup if the vdb was
 	// recreated.
-	if !v.Spec.Communal.IncludeUIDInPath {
+	if !v.IncludeUIDInPath() {
 		return v.Spec.Communal.Path
 	}
 	return fmt.Sprintf("%s/%s", v.Spec.Communal.Path, v.UID)
@@ -411,4 +411,10 @@ func (v *VerticaDB) GetUpgradeRequeueTimeDuration() time.Duration {
 // for admintools style of deployments.
 func (v *VerticaDB) GetSSHSecretName() string {
 	return vmeta.GetSSHSecretName(v.Annotations)
+}
+
+// IncludeUIDInPath will return true if the UID should be included in the
+// communal path to make it unique.
+func (v *VerticaDB) IncludeUIDInPath() bool {
+	return vmeta.IncludeUIDInPath(v.Annotations)
 }

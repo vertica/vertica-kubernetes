@@ -15,13 +15,14 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-istio-tproxy
+  annotations:
+    vertica.com/include-uid-in-path: true
 spec:
   annotations:
     sidecar.istio.io/interceptionMode: TPROXY
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   subclusters:

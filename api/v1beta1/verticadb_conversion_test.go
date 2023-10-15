@@ -166,4 +166,22 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
 		Ω(v1beta1VDB.Spec.SSHSecret).Should(Equal("s2"))
 	})
+
+	It("should convert includeUIDInPath", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		v1beta1VDB.Spec.Communal.IncludeUIDInPath = true
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Annotations[vmeta.IncludeUIDInPathAnnotation]).Should(Equal("true"))
+		v1beta1VDB.Spec.Communal.IncludeUIDInPath = false
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Annotations[vmeta.IncludeUIDInPathAnnotation]).Should(BeEmpty())
+
+		// v1 -> v1beta1
+		v1VDB.Annotations[vmeta.IncludeUIDInPathAnnotation] = "true"
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.Communal.IncludeUIDInPath).Should(BeTrue())
+	})
 })

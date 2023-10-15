@@ -97,6 +97,11 @@ const (
 	// keys present: id_rsa, id_rsa.pub and authorized_keys.
 	SSHSecAnnotation = "vertica.com/ssh-secret"
 
+	// If true, the operator will include the VerticaDB's UID in the path.  This
+	// option exists if you reuse the communal path in the same endpoint as it
+	// forces each database path to be unique.
+	IncludeUIDInPathAnnotation = "vertica.com/include-uid-in-path"
+
 	// Annotations that we add by parsing vertica --version output
 	VersionAnnotation   = "vertica.com/version"
 	BuildDateAnnotation = "vertica.com/buildDate"
@@ -161,6 +166,12 @@ func GetUpgradeRequeueTime(annotations map[string]string) int {
 // for admintools style of deployments.
 func GetSSHSecretName(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, SSHSecAnnotation, "")
+}
+
+// IncludeUIDInPath will return true if the UID should be included in the
+// communal path to make it unique.
+func IncludeUIDInPath(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, IncludeUIDInPathAnnotation)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

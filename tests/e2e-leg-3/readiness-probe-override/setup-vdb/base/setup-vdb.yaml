@@ -17,11 +17,11 @@ metadata:
   name: v-readiness-probe-override
   annotations:
     vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: true
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   subclusters:
