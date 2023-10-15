@@ -192,7 +192,7 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 		}
 		if !p.fileExists[paths.HTTPTLSConfFile] {
 			frwt := httpconf.FileWriter{}
-			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.HTTPServerTLSSecret)
+			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.NmaTLSSecret)
 			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))

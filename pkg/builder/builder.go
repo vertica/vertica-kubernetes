@@ -193,7 +193,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vdb.Spec.HTTPServerTLSSecret != "" {
+	if vdb.Spec.NmaTLSSecret != "" {
 		volMnts = append(volMnts, buildHTTPServerVolumeMount()...)
 	}
 
@@ -284,7 +284,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vdb.Spec.HTTPServerTLSSecret != "" {
+	if vdb.Spec.NmaTLSSecret != "" {
 		vols = append(vols, buildHTTPServerSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
@@ -515,7 +515,7 @@ func buildHTTPServerSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.HTTPServerCertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.HTTPServerTLSSecret,
+				SecretName: vdb.Spec.NmaTLSSecret,
 			},
 		},
 	}
@@ -603,7 +603,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 			// implemented we no longer need to provide the above environment
 			// variables.
 			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-			{Name: NMASecretNameEnv, Value: vdb.Spec.HTTPServerTLSSecret},
+			{Name: NMASecretNameEnv, Value: vdb.Spec.NmaTLSSecret},
 		}...)
 	}
 	return corev1.Container{

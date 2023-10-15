@@ -30,7 +30,7 @@ func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, erro
 
 	nm := types.NamespacedName{
 		Namespace: v.VDB.Namespace,
-		Name:      v.VDB.Spec.HTTPServerTLSSecret,
+		Name:      v.VDB.Spec.NmaTLSSecret,
 	}
 	tlsCerts := &corev1.Secret{}
 	err := v.Client.Get(ctx, nm, tlsCerts)

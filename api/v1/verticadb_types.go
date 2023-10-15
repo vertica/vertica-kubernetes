@@ -256,14 +256,14 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to use for the Vertica HTTP
-	// server.  If this is empty, the operator will create a secret to use and
-	// add the name of the generate secret in this field.  When set, the secret
-	// must have the following keys defined:
+	// A secret that contains the TLS credentials to use for Vertica's node
+	// management agent (NMA).  If this is empty, the operator will create a
+	// secret to use and add the name of the generate secret in this field.
+	// When set, the secret must have the following keys defined:
 	// - tls.key: The private key to be used by the HTTP server
 	// - tls.crt: The signed certificate chain for the private key
 	// - ca.crt: The CA certificate
-	HTTPServerTLSSecret string `json:"httpServerTLSSecret,omitempty"`
+	NmaTLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional

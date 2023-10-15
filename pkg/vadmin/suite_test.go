@@ -192,7 +192,7 @@ func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
-	vdb.Spec.HTTPServerTLSSecret = "test-secret"
+	vdb.Spec.NmaTLSSecret = "test-secret"
 	evWriter := aterrors.TestEVWriter{}
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
