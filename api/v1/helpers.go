@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -87,6 +88,7 @@ func MakeVDB() *VerticaDB {
 				Path:             "s3://nimbusdb/mspilchen",
 				Endpoint:         "http://minio",
 				CredentialSecret: "s3-auth",
+				AdditionalConfig: make(map[string]string),
 			},
 			Local: LocalStorage{
 				DataPath:    "/data",
@@ -417,4 +419,77 @@ func (v *VerticaDB) GetSSHSecretName() string {
 // communal path to make it unique.
 func (v *VerticaDB) IncludeUIDInPath() bool {
 	return vmeta.IncludeUIDInPath(v.Annotations)
+}
+
+// IsHDFS returns true if the communal path is stored in an HDFS path
+func (v *VerticaDB) IsHDFS() bool {
+	for _, p := range hdfsPrefixes {
+		if strings.HasPrefix(v.Spec.Communal.Path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsS3 returns true if VerticaDB has a communal path for S3 compatible storage.
+func (v *VerticaDB) IsS3() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, S3Prefix)
+}
+
+// ISGCloud returns true if VerticaDB has a communal path in Google Cloud Storage
+func (v *VerticaDB) IsGCloud() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, GCloudPrefix)
+}
+
+// IsAzure returns true if VerticaDB has a communal path in Azure Blob Storage
+func (v *VerticaDB) IsAzure() bool {
+	return strings.HasPrefix(v.Spec.Communal.Path, AzurePrefix)
+}
+
+// IsSseS3 returns true if VerticaDB is setup for S3 SSE-S3 server-side encryption
+func (v *VerticaDB) IsSseS3() bool {
+	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseS3))
+}
+
+// IsSseKMS returns true if VerticaDB is setup for S3 SSE-KMS server-side encryption
+func (v *VerticaDB) IsSseKMS() bool {
+	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseKMS))
+}
+
+// IsSseC returns true if VerticaDB is setup for S3 SSE-C server-side encryption
+func (v *VerticaDB) IsSseC() bool {
+	return strings.EqualFold(string(v.Spec.Communal.S3ServerSideEncryption), string(SseC))
+}
+
+// IsKnownSseType returns true if VerticaDB is setup for S3 server-side encryption
+func (v *VerticaDB) IsKnownSseType() bool {
+	if v.IsSseS3() || v.IsSseKMS() || v.IsSseC() {
+		return true
+	}
+	return false
+}
+
+// IsKnownCommunalPrefix returns true if the communal has a known prefix that
+// indicates the type of communal storage. False means the communal path was
+// empty or is a POSIX path.
+func (v *VerticaDB) IsKnownCommunalPrefix() bool {
+	if v.IsHDFS() || v.IsS3() || v.IsGCloud() || v.IsAzure() {
+		return true
+	}
+	return false
+}
+
+// HasKerberosConfig returns true if VerticaDB is setup for Kerberos authentication.
+func (v *VerticaDB) HasKerberosConfig() bool {
+	// We have a webhook check that makes sure if the principal is set, the
+	// other things are set too.
+	return v.GetKerberosServiceName() != ""
+}
+
+func (v *VerticaDB) GetKerberosRealm() string {
+	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig]
+}
+
+func (v *VerticaDB) GetKerberosServiceName() string {
+	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
 }

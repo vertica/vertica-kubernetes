@@ -404,8 +404,8 @@ var _ = Describe("verticadb_webhook", func() {
 		for _, vals := range kerberosSetup {
 			vdb := createVDBHelper()
 			vdb.Spec.KerberosSecret = vals[0]
-			vdb.Spec.Communal.KerberosRealm = vals[1]
-			vdb.Spec.Communal.KerberosServiceName = vals[2]
+			vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig] = vals[1]
+			vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig] = vals[2]
 			validateSpecValuesHaveErr(vdb, true)
 		}
 	})
