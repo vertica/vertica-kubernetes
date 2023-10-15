@@ -684,7 +684,7 @@ type Subcluster struct {
 	// NodePort and this is omitted, Kubernetes will choose the port
 	// automatically. This port must be from within the defined range allocated
 	// by the control plane (default is 30000-32767).
-	NodePort int32 `json:"nodePort,omitempty"`
+	ClientNodePort int32 `json:"clientNodePort,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}

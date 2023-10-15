@@ -138,7 +138,7 @@ var _ = Describe("obj_reconcile", func() {
 			desiredLoadBalancerIP := "80.20.21.22"
 			desiredServiceAnnotations := map[string]string{"foo": "bar", "dib": "dab"}
 			vdb.Spec.Subclusters[0].ServiceType = desiredType
-			vdb.Spec.Subclusters[0].NodePort = desiredNodePort
+			vdb.Spec.Subclusters[0].ClientNodePort = desiredNodePort
 			vdb.Spec.Subclusters[0].ExternalIPs = desiredExternalIPs
 			vdb.Spec.Subclusters[0].LoadBalancerIP = desiredLoadBalancerIP
 			vdb.Spec.Subclusters[0].ServiceAnnotations = desiredServiceAnnotations
@@ -163,7 +163,7 @@ var _ = Describe("obj_reconcile", func() {
 			newLoadBalancerIP := "80.20.21.20"
 			newServiceAnnotations := map[string]string{"foo": "bar", "dib": "baz"}
 			vdb.Spec.Subclusters[0].ServiceType = newType
-			vdb.Spec.Subclusters[0].NodePort = newNodePort
+			vdb.Spec.Subclusters[0].ClientNodePort = newNodePort
 			vdb.Spec.Subclusters[0].ExternalIPs = newExternalIPs
 			vdb.Spec.Subclusters[0].LoadBalancerIP = newLoadBalancerIP
 			vdb.Spec.Subclusters[0].ServiceAnnotations = newServiceAnnotations
@@ -710,7 +710,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should not change generated node port's if service object changes", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.Subclusters[0].ServiceType = corev1.ServiceTypeNodePort
-			vdb.Spec.Subclusters[0].NodePort = 0            // k8s to generate one
+			vdb.Spec.Subclusters[0].ClientNodePort = 0      // k8s to generate one
 			vdb.Spec.Subclusters[0].VerticaHTTPNodePort = 0 // k8s to generate one
 			createCrd(vdb, true)
 			defer deleteCrd(vdb)
@@ -741,7 +741,7 @@ var _ = Describe("obj_reconcile", func() {
 		It("should preserve user specified HTTP node port when service object changes", func() {
 			vdb := vapi.MakeVDB()
 			vdb.Spec.Subclusters[0].ServiceType = corev1.ServiceTypeNodePort
-			vdb.Spec.Subclusters[0].NodePort = 0 // k8s to generate one
+			vdb.Spec.Subclusters[0].ClientNodePort = 0 // k8s to generate one
 			const HTTPNodePort int32 = 30000
 			vdb.Spec.Subclusters[0].VerticaHTTPNodePort = HTTPNodePort
 			createCrd(vdb, true)
@@ -753,7 +753,7 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(svc.Spec.Ports[1].NodePort).Should(Equal(HTTPNodePort))
 
 			const VerticaNodePort int32 = 30001
-			vdb.Spec.Subclusters[0].NodePort = VerticaNodePort
+			vdb.Spec.Subclusters[0].ClientNodePort = VerticaNodePort
 			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
 

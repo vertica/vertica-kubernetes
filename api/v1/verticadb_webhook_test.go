@@ -159,14 +159,14 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.ServiceType = v1.ServiceTypeNodePort
-		sc.NodePort = 5555
+		sc.ClientNodePort = 5555
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should not have nodePort bigger than 32767", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.ServiceType = v1.ServiceTypeNodePort
-		sc.NodePort = 55555
+		sc.ClientNodePort = 55555
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should not have duplicate subcluster names", func() {
@@ -367,7 +367,7 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should only allow nodePort if serviceType allows for it", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeNodePort
-		vdb.Spec.Subclusters[0].NodePort = 30000
+		vdb.Spec.Subclusters[0].ClientNodePort = 30000
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeClusterIP
 		validateSpecValuesHaveErr(vdb, true)
@@ -527,7 +527,7 @@ var _ = Describe("verticadb_webhook", func() {
 				IsPrimary:          true,
 				ServiceName:        ServiceName,
 				ServiceType:        "NodePort",
-				NodePort:           30008,
+				ClientNodePort:     30008,
 				ExternalIPs:        []string{"8.1.2.3", "8.2.4.6"},
 				LoadBalancerIP:     "9.0.1.2",
 				ServiceAnnotations: map[string]string{"foo": "bar", "dib": "dab"},
@@ -538,7 +538,7 @@ var _ = Describe("verticadb_webhook", func() {
 				IsPrimary:          false,
 				ServiceName:        ServiceName,
 				ServiceType:        "ClusterIP",
-				NodePort:           30009,
+				ClientNodePort:     30009,
 				ExternalIPs:        []string{"8.1.2.3", "7.2.4.6"},
 				LoadBalancerIP:     "9.3.4.5",
 				ServiceAnnotations: map[string]string{"foo": "bar", "dib": "baz"},
@@ -547,7 +547,7 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Subclusters[1].ServiceType = vdb.Spec.Subclusters[0].ServiceType
 		validateSpecValuesHaveErr(vdb, true)
-		vdb.Spec.Subclusters[1].NodePort = vdb.Spec.Subclusters[0].NodePort
+		vdb.Spec.Subclusters[1].ClientNodePort = vdb.Spec.Subclusters[0].ClientNodePort
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Subclusters[1].ExternalIPs[1] = vdb.Spec.Subclusters[0].ExternalIPs[1]
 		validateSpecValuesHaveErr(vdb, true)
@@ -561,11 +561,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Subclusters = []Subcluster{
 			{
-				Name:        "sc1",
-				Size:        2,
-				IsPrimary:   true,
-				ServiceType: "NodePort",
-				NodePort:    30008,
+				Name:           "sc1",
+				Size:           2,
+				IsPrimary:      true,
+				ServiceType:    "NodePort",
+				ClientNodePort: 30008,
 			},
 			{
 				Name:        "sc2",

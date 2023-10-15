@@ -19,4 +19,4 @@ metadata:
 spec:
   subclusters:
     - name: sc1
-      nodePort: 30000
+      clientNodePort: 30000

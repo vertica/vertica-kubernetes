@@ -446,9 +446,9 @@ func (v *VerticaDB) hasValidNodePort(allErrs field.ErrorList) field.ErrorList {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceType == v1.ServiceTypeNodePort {
 			pathPrefix := field.NewPath("spec").Child("subclusters").Index(i)
-			if isNodePortNumberInvalid(sc.NodePort) {
+			if isNodePortNumberInvalid(sc.ClientNodePort) {
 				allErrs = v.genNodePortInvalidError(allErrs, pathPrefix,
-					"nodePort", v.Spec.Subclusters[i].NodePort)
+					"clientNodePort", v.Spec.Subclusters[i].ClientNodePort)
 			}
 			if isNodePortNumberInvalid(sc.VerticaHTTPNodePort) {
 				allErrs = v.genNodePortInvalidError(allErrs, pathPrefix,
@@ -464,10 +464,10 @@ func (v *VerticaDB) isNodePortProperlySpecified(allErrs field.ErrorList) field.E
 		sc := &v.Spec.Subclusters[i]
 		// NodePort can only be set for LoadBalancer and NodePort
 		if sc.ServiceType != v1.ServiceTypeLoadBalancer && sc.ServiceType != v1.ServiceTypeNodePort {
-			if sc.NodePort != 0 {
-				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("nodePort"),
-					v.Spec.Subclusters[i].NodePort,
-					fmt.Sprintf("nodePort can only be specified for service types %s and %s",
+			if sc.ClientNodePort != 0 {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(i).Child("clientNodePort"),
+					v.Spec.Subclusters[i].ClientNodePort,
+					fmt.Sprintf("clientNodePort can only be specified for service types %s and %s",
 						v1.ServiceTypeLoadBalancer, v1.ServiceTypeNodePort))
 				allErrs = append(allErrs, err)
 			}
@@ -704,10 +704,10 @@ func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) f
 						"serviceAnnotations don't match other subcluster(s) sharing the same serviceName")
 					allErrs = append(allErrs, err)
 				}
-				if sc.NodePort != osc.NodePort {
-					err := field.Invalid(fieldPrefix.Child("nodePort").Index(i),
-						sc.NodePort,
-						"nodePort doesn't match other subcluster(s) sharing the same serviceName")
+				if sc.ClientNodePort != osc.ClientNodePort {
+					err := field.Invalid(fieldPrefix.Child("clientNodePort").Index(i),
+						sc.ClientNodePort,
+						"clientNodePort doesn't match other subcluster(s) sharing the same serviceName")
 					allErrs = append(allErrs, err)
 				}
 				if sc.ServiceType != osc.ServiceType {

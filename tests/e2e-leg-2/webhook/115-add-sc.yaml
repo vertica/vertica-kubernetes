@@ -21,6 +21,6 @@ spec:
       size: 1
       isPrimary: true
       serviceType: ClusterIP
-      nodePort: 0
+      clientNodePort: 0
     - name: sc2
       size: 1
