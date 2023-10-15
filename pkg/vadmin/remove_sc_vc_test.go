@@ -49,9 +49,9 @@ var _ = Describe("remove_sc_vc", func() {
 	It("should call vcluster-ops library with remove_subcluster task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPServerTLSSecret = "remove-sc-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		dispatcher.VDB.Spec.NmaTLSSecret = "remove-sc-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
 		Ω(dispatcher.RemoveSubcluster(ctx,
 			removesc.WithInitiator(TestInitiatorPodName, TestInitiatorIP),
 			removesc.WithSubcluster(TestSCName))).Should(Succeed())

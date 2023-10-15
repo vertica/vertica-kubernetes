@@ -250,12 +250,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vapi.VerticaDB) (string, error) {
-	if vdb.Spec.SuperuserPasswordSecret == "" {
+	if vdb.Spec.PasswordSecret == "" {
 		return "", nil
 	}
 
 	if vmeta.UseGCPSecretManager(vdb.Annotations) {
-		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.SuperuserPasswordSecret)
+		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.PasswordSecret)
 		if err != nil {
 			return "", fmt.Errorf("failed to read superuser password from GSM: %w", err)
 		}

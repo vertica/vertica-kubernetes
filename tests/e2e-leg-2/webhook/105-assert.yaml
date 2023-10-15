@@ -20,4 +20,4 @@ spec:
   subclusters:
   - name: sc1
     serviceType: NodePort
-    nodePort: 30000
+    clientNodePort: 30000

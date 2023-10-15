@@ -74,7 +74,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
-				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.NodePort},
+				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
 				{Port: VerticaHTTPPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
@@ -193,7 +193,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vdb.Spec.HTTPServerTLSSecret != "" {
+	if vdb.Spec.NmaTLSSecret != "" {
 		volMnts = append(volMnts, buildHTTPServerVolumeMount()...)
 	}
 
@@ -284,7 +284,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vdb.Spec.HTTPServerTLSSecret != "" {
+	if vdb.Spec.NmaTLSSecret != "" {
 		vols = append(vols, buildHTTPServerSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
@@ -433,7 +433,7 @@ func probeContainsSuperuserPassword(probe *corev1.Probe) bool {
 // requiresSuperuserPasswordSecretMount returns true if the superuser password
 // needs to be mounted in the pod.
 func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
-	if vdb.Spec.SuperuserPasswordSecret == "" {
+	if vdb.Spec.PasswordSecret == "" {
 		return false
 	}
 
@@ -454,7 +454,7 @@ func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
 func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
 	if requiresSuperuserPasswordSecretMount(vdb) {
 		return &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
+			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
 			Items: []corev1.KeyToPath{
 				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
 			},
@@ -515,7 +515,7 @@ func buildHTTPServerSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.HTTPServerCertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.HTTPServerTLSSecret,
+				SecretName: vdb.Spec.NmaTLSSecret,
 			},
 		},
 	}
@@ -603,7 +603,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 			// implemented we no longer need to provide the above environment
 			// variables.
 			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-			{Name: NMASecretNameEnv, Value: vdb.Spec.HTTPServerTLSSecret},
+			{Name: NMASecretNameEnv, Value: vdb.Spec.NmaTLSSecret},
 		}...)
 	}
 	return corev1.Container{
@@ -1120,7 +1120,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 // process is up and accepting connections.
 func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 	passwd := ""
-	if vdb.Spec.SuperuserPasswordSecret != "" {
+	if vdb.Spec.PasswordSecret != "" {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 

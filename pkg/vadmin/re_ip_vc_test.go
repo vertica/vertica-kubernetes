@@ -69,10 +69,10 @@ var _ = Describe("re_ip_vc", func() {
 	It("should call vcluster-ops library with re_ip task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPServerTLSSecret = "re-ip-test-secret"
+		dispatcher.VDB.Spec.NmaTLSSecret = "re-ip-test-secret"
 		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
 
 		ctrlRes, err := dispatcher.ReIP(ctx,
 			reip.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), hosts[0].IP),

@@ -22,7 +22,7 @@ metadata:
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
+  passwordSecret: su-passwd
   communal: {}
   local:
     depotVolume: EmptyDir

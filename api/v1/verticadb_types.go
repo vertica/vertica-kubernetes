@@ -93,7 +93,7 @@ type VerticaDBSpec struct {
 	// database's superuser. If this is not set, then we assume no such password
 	// is set for the database. If this is set, it is up the user to create this
 	// secret before deployment. The secret must have a key named password.
-	SuperuserPasswordSecret string `json:"superuserPasswordSecret,omitempty"`
+	PasswordSecret string `json:"passwordSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
@@ -256,14 +256,14 @@ type VerticaDBSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
-	// A secret that contains the TLS credentials to use for the Vertica HTTP
-	// server.  If this is empty, the operator will create a secret to use and
-	// add the name of the generate secret in this field.  When set, the secret
-	// must have the following keys defined:
+	// A secret that contains the TLS credentials to use for Vertica's node
+	// management agent (NMA).  If this is empty, the operator will create a
+	// secret to use and add the name of the generate secret in this field.
+	// When set, the secret must have the following keys defined:
 	// - tls.key: The private key to be used by the HTTP server
 	// - tls.crt: The signed certificate chain for the private key
 	// - ca.crt: The CA certificate
-	HTTPServerTLSSecret string `json:"httpServerTLSSecret,omitempty"`
+	NmaTLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional
@@ -684,7 +684,7 @@ type Subcluster struct {
 	// NodePort and this is omitted, Kubernetes will choose the port
 	// automatically. This port must be from within the defined range allocated
 	// by the control plane (default is 30000-32767).
-	NodePort int32 `json:"nodePort,omitempty"`
+	ClientNodePort int32 `json:"clientNodePort,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}

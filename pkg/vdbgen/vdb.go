@@ -706,7 +706,7 @@ func (d *DBGenerator) setPasswordSecret(_ context.Context) error {
 	d.Objs.SuperuserPasswordSecret.TypeMeta.APIVersion = SecretAPIVersion
 	d.Objs.SuperuserPasswordSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.SuperuserPasswordSecret.ObjectMeta.Name = fmt.Sprintf("%s-su-passwd", d.Opts.VdbName)
-	d.Objs.Vdb.Spec.SuperuserPasswordSecret = d.Objs.SuperuserPasswordSecret.ObjectMeta.Name
+	d.Objs.Vdb.Spec.PasswordSecret = d.Objs.SuperuserPasswordSecret.ObjectMeta.Name
 	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{builder.SuperuserPasswordKey: []byte(d.Opts.Password)}
 
 	return nil

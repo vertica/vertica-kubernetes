@@ -74,9 +74,9 @@ var _ = Describe("add_node_vc", func() {
 
 	It("should call vcluster-ops library with add_node task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.HTTPServerTLSSecret = "add-node-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		dispatcher.VDB.Spec.NmaTLSSecret = "add-node-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		opts := []addnode.Option{
 			addnode.WithInitiator(TestInitiatorPodName, TestInitiatorPodIP),

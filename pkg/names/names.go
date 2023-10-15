@@ -70,7 +70,7 @@ func GenKrb5SecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 
 // GenSUPasswdSecretName returns the name of the secret that has the superuser password
 func GenSUPasswdSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
-	return GenNamespacedName(vdb, vdb.Spec.SuperuserPasswordSecret)
+	return GenNamespacedName(vdb, vdb.Spec.PasswordSecret)
 }
 
 // GenPodName returns the name of a specific pod in a subcluster
