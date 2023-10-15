@@ -188,7 +188,7 @@ var _ = Describe("builder", func() {
 
 	It("should not mount superuser password if probe's overridden", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.SuperuserPasswordSecret = "some-secret"
+		vdb.Spec.PasswordSecret = "some-secret"
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
 				TCPSocket: &v1.TCPSocketAction{
@@ -235,7 +235,7 @@ var _ = Describe("builder", func() {
 
 	It("should not use canary query probe if using GSM", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.SuperuserPasswordSecret = "project/team/dbadmin/secret/1"
+		vdb.Spec.PasswordSecret = "project/team/dbadmin/secret/1"
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
 		vdb.Annotations = map[string]string{
 			vmeta.GcpGsmAnnotation: "true",
@@ -319,7 +319,7 @@ func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {
 	v := getPodInfoVolume(podSpec.Volumes)
 	for i := range v.Projected.Sources {
 		if v.Projected.Sources[i].Secret != nil {
-			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == vdb.Spec.SuperuserPasswordSecret {
+			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == vdb.Spec.PasswordSecret {
 				return true
 			}
 		}

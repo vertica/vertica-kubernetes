@@ -433,7 +433,7 @@ func probeContainsSuperuserPassword(probe *corev1.Probe) bool {
 // requiresSuperuserPasswordSecretMount returns true if the superuser password
 // needs to be mounted in the pod.
 func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
-	if vdb.Spec.SuperuserPasswordSecret == "" {
+	if vdb.Spec.PasswordSecret == "" {
 		return false
 	}
 
@@ -454,7 +454,7 @@ func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
 func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
 	if requiresSuperuserPasswordSecretMount(vdb) {
 		return &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
+			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
 			Items: []corev1.KeyToPath{
 				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
 			},
@@ -1120,7 +1120,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 // process is up and accepting connections.
 func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 	passwd := ""
-	if vdb.Spec.SuperuserPasswordSecret != "" {
+	if vdb.Spec.PasswordSecret != "" {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 

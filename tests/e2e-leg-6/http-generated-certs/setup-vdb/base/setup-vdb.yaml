@@ -20,7 +20,7 @@ metadata:
     vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
+  passwordSecret: su-passwd
   communal: {}
   local:
     requestSize: 100Mi

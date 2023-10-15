@@ -93,7 +93,7 @@ type VerticaDBSpec struct {
 	// database's superuser. If this is not set, then we assume no such password
 	// is set for the database. If this is set, it is up the user to create this
 	// secret before deployment. The secret must have a key named password.
-	SuperuserPasswordSecret string `json:"superuserPasswordSecret,omitempty"`
+	PasswordSecret string `json:"passwordSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
