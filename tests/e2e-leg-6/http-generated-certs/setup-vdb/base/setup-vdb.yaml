@@ -17,15 +17,14 @@ metadata:
   name: v-http-generated-certs
   annotations:
     vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
   superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertdb
-  httpServerMode: Enabled
   subclusters:
     - name: sc
       size: 2

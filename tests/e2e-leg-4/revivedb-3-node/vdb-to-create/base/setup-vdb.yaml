@@ -17,7 +17,7 @@ metadata:
   name: v-create-3-node
   annotations:
     vertica.com/requeue-time: "5"
-    vertica.com/include-uid-in-path: true
+    vertica.com/include-uid-in-path: false
 spec:
   image: kustomize-vertica-image
   communal: {}

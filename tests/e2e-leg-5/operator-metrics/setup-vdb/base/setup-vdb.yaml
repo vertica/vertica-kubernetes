@@ -17,10 +17,10 @@ metadata:
   name: v-operator-metrics
   annotations:
     vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertdb
