@@ -27,10 +27,10 @@ spec:
   subclusters:
     - name: queries
       size: 1
-      isPrimary: false
+      type: secondary
     - name: admin
       size: 1
-      isPrimary: true
+      type: primary
   readinessProbeOverride:
     timeoutSeconds: 5
     periodSeconds: 20

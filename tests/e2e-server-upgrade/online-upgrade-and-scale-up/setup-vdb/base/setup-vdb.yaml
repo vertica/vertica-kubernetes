@@ -27,11 +27,12 @@ spec:
   subclusters:
     - name: pri
       size: 1
-      isPrimary: true
+      type: primary
   temporarySubclusterRouting:
     template:
       name: transient
       size: 1
+      type: secondary
   certSecrets: []
   imagePullSecrets: []
   volumes: []

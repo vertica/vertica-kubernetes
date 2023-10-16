@@ -100,14 +100,14 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		r.ATPod = pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)]
 
-		vdb.Spec.Subclusters[0].IsPrimary = false
+		vdb.Spec.Subclusters[0].Type = vapi.SecondarySubcluster
 		Expect(r.createSubcluster(ctx, &vdb.Spec.Subclusters[0])).Should(Succeed())
 		hists := fpr.FindCommands("db_add_subcluster")
 		Expect(len(hists)).Should(Equal(1))
 		Expect(hists[0].Command).Should(ContainElement("--is-secondary"))
 
 		fpr.Histories = []cmds.CmdHistory{}
-		vdb.Spec.Subclusters[0].IsPrimary = true
+		vdb.Spec.Subclusters[0].Type = vapi.PrimarySubcluster
 		Expect(r.createSubcluster(ctx, &vdb.Spec.Subclusters[0])).Should(Succeed())
 		hists = fpr.FindCommands("db_add_subcluster")
 		Expect(len(hists)).Should(Equal(1))

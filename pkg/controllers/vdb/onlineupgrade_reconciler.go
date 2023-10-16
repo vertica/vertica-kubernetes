@@ -163,7 +163,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		)
 		return ctrl.Result{}, nil
 	}
-	if res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubclusterType, procFunc); verrors.IsReconcileAborted(res, err) {
+	if res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubcluster, procFunc); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	o.StatusMsgs = append(o.StatusMsgs, "Destroying transient secondary subcluster")
@@ -360,7 +360,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		if res, err := o.postNextStatusMsg(ctx); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
-		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubclusterType, fn); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.iterateSubclusterType(ctx, vapi.PrimarySubcluster, fn); verrors.IsReconcileAborted(res, err) {
 			o.Log.Info("Error iterating subclusters over function", "i", i)
 			return res, err
 		}
@@ -372,7 +372,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 // rerouting traffic to the transient while it does the restart.
 func (o *OnlineUpgradeReconciler) restartSecondaries(ctx context.Context) (ctrl.Result, error) {
 	o.Log.Info("Starting the handling of secondaries")
-	res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubclusterType, o.processSecondary)
+	res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubcluster, o.processSecondary)
 	return res, err
 }
 
@@ -548,7 +548,7 @@ func (o *OnlineUpgradeReconciler) removeTransientFromVdb(ctx context.Context) (c
 		// Remove the transient.
 		removedTransient := false
 		for i := len(o.Vdb.Spec.Subclusters) - 1; i >= 0; i-- {
-			if o.Vdb.Spec.Subclusters[i].IsTransient {
+			if o.Vdb.Spec.Subclusters[i].IsTransient() {
 				o.Vdb.Spec.Subclusters = append(o.Vdb.Spec.Subclusters[:i], o.Vdb.Spec.Subclusters[i+1:]...)
 				removedTransient = true
 			}
@@ -615,7 +615,7 @@ func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error 
 	}
 	for i := range stss.Items {
 		sts := &stss.Items[i]
-		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubclusterType {
+		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster {
 			img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
 			imageFound := false
 			for j := range o.PrimaryImages {
@@ -770,10 +770,10 @@ func (o *OnlineUpgradeReconciler) pickDefaultSubclusterForTemporaryRouting(offli
 	// the first secondary we can find.  If there are no secondaries, then
 	// selecting the first subcluster will do.  The upgrade won't be online in
 	// this case, but there isn't anything we can do.
-	if offlineSc.IsPrimary {
+	if offlineSc.IsPrimary() {
 		for i := range o.Vdb.Spec.Subclusters {
 			sc := &o.Vdb.Spec.Subclusters[i]
-			if !sc.IsPrimary {
+			if !sc.IsPrimary() {
 				return sc
 			}
 		}

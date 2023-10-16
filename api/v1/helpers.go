@@ -56,7 +56,7 @@ func MakeVDBName() types.NamespacedName {
 // FindTransientSubcluster will return a pointer to the transient subcluster if one exists
 func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
-		if v.Spec.Subclusters[i].IsTransient {
+		if v.Spec.Subclusters[i].IsTransient() {
 			return &v.Spec.Subclusters[i]
 		}
 	}
@@ -99,7 +99,7 @@ func MakeVDB() *VerticaDB {
 			DBName:     "db",
 			ShardCount: 12,
 			Subclusters: []Subcluster{
-				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, IsPrimary: true},
+				{Name: "defaultsubcluster", Size: 3, ServiceType: corev1.ServiceTypeClusterIP, Type: PrimarySubcluster},
 			},
 		},
 	}
@@ -197,19 +197,6 @@ func (v *VerticaDB) GetCommunalPath() string {
 	return fmt.Sprintf("%s/%s", v.Spec.Communal.Path, v.UID)
 }
 
-const (
-	PrimarySubclusterType   = "primary"
-	SecondarySubclusterType = "secondary"
-)
-
-// GetType returns the type of the subcluster in string form
-func (s *Subcluster) GetType() string {
-	if s.IsPrimary {
-		return PrimarySubclusterType
-	}
-	return SecondarySubclusterType
-}
-
 // GenCompatibleFQDN returns a name of the subcluster that is
 // compatible inside a fully-qualified domain name.
 func (s *Subcluster) GenCompatibleFQDN() string {
@@ -277,9 +264,8 @@ func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
 	return &Subcluster{
 		Name:              v.Spec.TemporarySubclusterRouting.Template.Name,
 		Size:              v.Spec.TemporarySubclusterRouting.Template.Size,
-		IsTransient:       true,
 		ImageOverride:     imageOverride,
-		IsPrimary:         false,
+		Type:              TransientSubcluster,
 		NodeSelector:      v.Spec.TemporarySubclusterRouting.Template.NodeSelector,
 		Affinity:          v.Spec.TemporarySubclusterRouting.Template.Affinity,
 		PriorityClassName: v.Spec.TemporarySubclusterRouting.Template.PriorityClassName,
@@ -343,7 +329,7 @@ func (v *VerticaDB) IsKnownDepotVolumeType() bool {
 func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary {
+		if sc.IsPrimary() {
 			return sc
 		}
 	}
@@ -492,4 +478,27 @@ func (v *VerticaDB) GetKerberosRealm() string {
 
 func (v *VerticaDB) GetKerberosServiceName() string {
 	return v.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig]
+}
+
+func (s *Subcluster) IsPrimary() bool {
+	return s.Type == PrimarySubcluster
+}
+
+func (s *Subcluster) IsSecondary() bool {
+	return s.Type == SecondarySubcluster
+}
+
+func (s *Subcluster) IsTransient() bool {
+	return s.Type == TransientSubcluster
+}
+
+// GetType returns the type of the subcluster in string form
+func (s *Subcluster) GetType() string {
+	// Transient subclusters are considered secondary subclusters. This exists
+	// for historical reasons because we added separate labels for
+	// primary/secondary and transient.
+	if s.IsTransient() {
+		return SecondarySubcluster
+	}
+	return s.Type
 }

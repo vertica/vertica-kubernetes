@@ -264,8 +264,7 @@ func convertToSubcluster(src *Subcluster) v1.Subcluster {
 	return v1.Subcluster{
 		Name:                src.Name,
 		Size:                src.Size,
-		IsPrimary:           src.IsPrimary,
-		IsTransient:         src.IsTransient,
+		Type:                convertToSubclusterType(src),
 		ImageOverride:       src.ImageOverride,
 		NodeSelector:        src.NodeSelector,
 		Affinity:            v1.Affinity(src.Affinity),
@@ -287,8 +286,8 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 	return Subcluster{
 		Name:                src.Name,
 		Size:                src.Size,
-		IsPrimary:           src.IsPrimary,
-		IsTransient:         src.IsTransient,
+		IsPrimary:           src.IsPrimary(),
+		IsTransient:         src.IsTransient(),
 		ImageOverride:       src.ImageOverride,
 		NodeSelector:        src.NodeSelector,
 		Affinity:            Affinity(src.Affinity),
@@ -461,4 +460,16 @@ func convertFromStatusCondition(src v1.VerticaDBCondition) VerticaDBCondition {
 		Status:             src.Status,
 		LastTransitionTime: src.LastTransitionTime,
 	}
+}
+
+// convertToSubclusterType returns the v1 Subcluster type for a given v1beta1
+// Subcluster
+func convertToSubclusterType(src *Subcluster) string {
+	if src.IsPrimary {
+		return v1.PrimarySubcluster
+	}
+	if src.IsTransient {
+		return v1.TransientSubcluster
+	}
+	return v1.SecondarySubcluster
 }

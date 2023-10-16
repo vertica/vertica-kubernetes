@@ -52,9 +52,9 @@ var _ = Describe("verticadb_types", func() {
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeFalse())
 		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
 			Template: Subcluster{
-				Name:      "the-transient-sc-name",
-				Size:      1,
-				IsPrimary: false,
+				Name: "the-transient-sc-name",
+				Size: 1,
+				Type: TransientSubcluster,
 			},
 		}
 		Expect(vdb.RequiresTransientSubcluster()).Should(BeTrue())
@@ -63,10 +63,10 @@ var _ = Describe("verticadb_types", func() {
 	It("should return the first primary subcluster", func() {
 		vdb := MakeVDB()
 		vdb.Spec.Subclusters = []Subcluster{
-			{Name: "sec1", IsPrimary: false, Size: 1},
-			{Name: "sec2", IsPrimary: false, Size: 1},
-			{Name: "pri1", IsPrimary: true, Size: 1},
-			{Name: "pri2", IsPrimary: true, Size: 1},
+			{Name: "sec1", Type: SecondarySubcluster, Size: 1},
+			{Name: "sec2", Type: SecondarySubcluster, Size: 1},
+			{Name: "pri1", Type: PrimarySubcluster, Size: 1},
+			{Name: "pri2", Type: PrimarySubcluster, Size: 1},
 		}
 		sc := vdb.GetFirstPrimarySubcluster()
 		Ω(sc).ShouldNot(BeNil())

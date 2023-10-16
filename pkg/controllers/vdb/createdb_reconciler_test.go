@@ -128,8 +128,8 @@ var _ = Describe("createdb_reconciler", func() {
 	It("should always run AT commands from the first pod of the first primary subcluster", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sec", IsPrimary: false, Size: 1},
-			{Name: "pri", IsPrimary: true, Size: 2},
+			{Name: "sec", Type: vapi.SecondarySubcluster, Size: 1},
+			{Name: "pri", Type: vapi.PrimarySubcluster, Size: 2},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

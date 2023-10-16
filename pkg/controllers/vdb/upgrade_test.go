@@ -38,9 +38,9 @@ var _ = Describe("upgrade", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Template: vapi.Subcluster{
-				Name:      "t",
-				Size:      1,
-				IsPrimary: false,
+				Name: "t",
+				Size: 1,
+				Type: vapi.SecondarySubcluster,
 			},
 		}
 
@@ -95,8 +95,8 @@ var _ = Describe("upgrade", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Image = OldImage
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Size: 2, IsPrimary: true},
-			{Name: "sc2", Size: 3, IsPrimary: false},
+			{Name: "sc1", Size: 2, Type: vapi.PrimarySubcluster},
+			{Name: "sc2", Size: 3, Type: vapi.SecondarySubcluster},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -121,8 +121,8 @@ var _ = Describe("upgrade", func() {
 	It("should delete pods of all subclusters", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Size: 1, IsPrimary: true},
-			{Name: "sc2", Size: 1, IsPrimary: false},
+			{Name: "sc1", Size: 1, Type: vapi.PrimarySubcluster},
+			{Name: "sc2", Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -142,8 +142,8 @@ var _ = Describe("upgrade", func() {
 	It("should delete pods of specific subcluster", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Size: 1, IsPrimary: false},
-			{Name: "sc2", Size: 1, IsPrimary: false},
+			{Name: "sc1", Size: 1, Type: vapi.SecondarySubcluster},
+			{Name: "sc2", Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)

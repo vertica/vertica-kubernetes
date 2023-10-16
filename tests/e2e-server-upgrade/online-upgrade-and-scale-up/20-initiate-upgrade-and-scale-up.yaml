@@ -24,7 +24,7 @@ spec:
   subclusters:
     - name: pri
       size: 1
-      isPrimary: true
+      type: primary
     - name: sec
       size: 1
-      isPrimary: false
+      type: secondary

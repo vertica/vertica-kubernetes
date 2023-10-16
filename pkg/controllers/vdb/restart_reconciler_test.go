@@ -435,9 +435,9 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Subclusters[0].Size = 1
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Template: vapi.Subcluster{
-				Name:      "the-transient-sc",
-				Size:      1,
-				IsPrimary: false,
+				Name: "the-transient-sc",
+				Size: 1,
+				Type: vapi.SecondarySubcluster,
 			},
 		}
 		createS3CredSecret(ctx, vdb)

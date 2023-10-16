@@ -28,11 +28,11 @@ func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	m := map[string]string{
 		vmeta.SubclusterNameLabel:      sc.Name,
 		vmeta.SubclusterTypeLabel:      sc.GetType(),
-		vmeta.SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient),
+		vmeta.SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient()),
 	}
 	// Transient subclusters never have the service name label set.  At various
 	// parts of the upgrade, it will accept traffic from all of the subclusters.
-	if !sc.IsTransient {
+	if !sc.IsTransient() {
 		m[vmeta.SubclusterSvcNameLabel] = sc.GetServiceName()
 	}
 	return m

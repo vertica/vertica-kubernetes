@@ -28,13 +28,13 @@ spec:
   subclusters:
     - name: pri1
       size: 1
-      isPrimary: true
+      type: primary
     - name: pri2
       size: 1
-      isPrimary: true
+      type: primary
     - name: sec1
       size: 1
-      isPrimary: false
+      type: secondary
   temporarySubclusterRouting:
     names:
       - sec1

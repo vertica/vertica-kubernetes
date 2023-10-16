@@ -602,20 +602,16 @@ type Subcluster struct {
 	// db.licenseSecret parameter.
 	Size int32 `json:"size"`
 
-	// +kubebuilder:default:=true
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:booleanSwitch"
-	// Indicates whether the subcluster is a primary or secondary. You must have
-	// at least one primary subcluster in the database.
-	IsPrimary bool `json:"isPrimary"`
-
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
-	// Internal state that indicates whether this is a transient read-only
-	// subcluster used for online upgrade.  A subcluster that exists
-	// temporarily to serve traffic for subclusters that are restarting with the
-	// new image.
-	IsTransient bool `json:"isTransient,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:primary","urn:alm:descriptor:com.tectonic.ui:select:secondary"}
+	// Indicates the type of subcluster it is. Valid values are: primary,
+	// secondary or transient. You must have at least one primary subcluster in
+	// the database. If omitted, the webhook will choose a suitable default;
+	// primary if none exists, otherwise it will default to a secondary.
+	// Transient should only be set internally by the operator during online
+	// upgrade. It is used to indicate a subcluster that exists temporarily to
+	// serve traffic for subclusters that are restarting with a new image.
+	Type string `json:"type"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -835,6 +831,14 @@ type VerticaDBCondition struct {
 	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 }
+
+const (
+	// The different type names for the subcluster type. A webhook exists to
+	// allow the types to be set as any type.
+	PrimarySubcluster   = "primary"
+	SecondarySubcluster = "secondary"
+	TransientSubcluster = "transient"
+)
 
 // SubclusterStatus defines the per-subcluster status that we track
 type SubclusterStatus struct {

@@ -128,7 +128,7 @@ var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaDB) Default() {
-	verticadblog.Info("default", "name", v.Name)
+	verticadblog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
 
 	// imagePullPolicy: if not set should default to Always if the tag in the image is latest,
 	// otherwise it should be IfNotPresent (set in verticadb_types.go)
