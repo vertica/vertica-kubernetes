@@ -197,7 +197,7 @@ func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Re
 		sc := &o.Vdb.Spec.Subclusters[i]
 		// Transient subclusters never have their own service objects.  They always
 		// reuse ones we have for other primary/secondary subclusters.
-		if !sc.IsTransient {
+		if !sc.IsTransient() {
 			// Multiple subclusters may share the same service name. Only
 			// reconcile for the first subcluster.
 			svcName := names.GenExtSvcName(o.Vdb, sc)

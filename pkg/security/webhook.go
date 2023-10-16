@@ -240,7 +240,6 @@ func patchConversionWebhookConfig(ctx context.Context, log *logr.Logger, cfg *re
 				CABundle: caCert,
 			},
 			ConversionReviewVersions: []string{
-				v1vapi.Version,
 				v1beta1vapi.Version,
 			},
 		}

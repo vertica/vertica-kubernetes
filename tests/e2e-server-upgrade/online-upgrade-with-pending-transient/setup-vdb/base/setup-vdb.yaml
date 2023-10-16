@@ -28,7 +28,6 @@ spec:
   subclusters:
     - name: pri
       size: 1
-      isPrimary: true
   temporarySubclusterRouting:
     template:
       name: transient

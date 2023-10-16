@@ -263,7 +263,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	pf := PodFact{
 		name:           names.GenPodName(vdb, sc, podIndex),
 		subclusterName: sc.Name,
-		isPrimary:      sc.IsPrimary,
+		isPrimary:      sc.IsPrimary(),
 		podIndex:       podIndex,
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.

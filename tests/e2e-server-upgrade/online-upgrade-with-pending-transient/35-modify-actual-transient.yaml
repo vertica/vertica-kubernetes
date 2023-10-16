@@ -20,10 +20,9 @@ metadata:
 spec:
   subclusters:
     - name: pri
-      isPrimary: true
+      type: Primary
       size: 1
     - name: transient
-      isTransient: true
-      isPrimary: false
+      type: Transient
       resources: {}
       size: 1

@@ -19,4 +19,4 @@ spec:
   subclusters:
     - name: pri-sc
       size: 1
-      isPrimary: true
+      type: primary

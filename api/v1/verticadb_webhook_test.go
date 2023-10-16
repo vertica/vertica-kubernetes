@@ -17,6 +17,7 @@ package v1
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -51,7 +52,7 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should have at least one primary subcluster", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
-		sc.IsPrimary = false
+		sc.Type = SecondarySubcluster
 		validateSpecValuesHaveErr(vdb, true)
 	})
 	It("should not have 0 pod when kSafety is 0", func() {
@@ -285,7 +286,7 @@ var _ = Describe("verticadb_webhook", func() {
 	})
 	It("should not change isPrimary after creation", func() {
 		vdbUpdate := createVDBHelper()
-		vdbUpdate.Spec.Subclusters[0].IsPrimary = !vdbUpdate.Spec.Subclusters[0].IsPrimary
+		vdbUpdate.Spec.Subclusters[0].Type = SecondarySubcluster
 		validateImmutableFields(vdbUpdate, true)
 	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
@@ -427,9 +428,9 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
 			Template: Subcluster{
-				Name:      vdb.Spec.Subclusters[0].Name,
-				Size:      1,
-				IsPrimary: false,
+				Name: vdb.Spec.Subclusters[0].Name,
+				Size: 1,
+				Type: SecondarySubcluster,
 			},
 		}
 		validateSpecValuesHaveErr(vdb, true)
@@ -439,10 +440,10 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 
 		vdb.Spec.TemporarySubclusterRouting.Template.Size = 1
-		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = true
+		vdb.Spec.TemporarySubclusterRouting.Template.Type = PrimarySubcluster
 		validateSpecValuesHaveErr(vdb, true)
 
-		vdb.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		vdb.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
@@ -450,9 +451,9 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
 			Template: Subcluster{
-				Name:      "my-transient-sc",
-				Size:      1,
-				IsPrimary: false,
+				Name: "my-transient-sc",
+				Size: 1,
+				Type: SecondarySubcluster,
 			},
 			Names: []string{vdb.Spec.Subclusters[0].Name},
 		}
@@ -524,7 +525,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{
 				Name:               "sc1",
 				Size:               2,
-				IsPrimary:          true,
+				Type:               PrimarySubcluster,
 				ServiceName:        ServiceName,
 				ServiceType:        "NodePort",
 				ClientNodePort:     30008,
@@ -535,7 +536,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{
 				Name:               "sc2",
 				Size:               1,
-				IsPrimary:          false,
+				Type:               SecondarySubcluster,
 				ServiceName:        ServiceName,
 				ServiceType:        "ClusterIP",
 				ClientNodePort:     30009,
@@ -563,14 +564,14 @@ var _ = Describe("verticadb_webhook", func() {
 			{
 				Name:           "sc1",
 				Size:           2,
-				IsPrimary:      true,
+				Type:           PrimarySubcluster,
 				ServiceType:    "NodePort",
 				ClientNodePort: 30008,
 			},
 			{
 				Name:        "sc2",
 				Size:        1,
-				IsPrimary:   false,
+				Type:        PrimarySubcluster,
 				ServiceType: "ClusterIP",
 			},
 		}
@@ -580,14 +581,14 @@ var _ = Describe("verticadb_webhook", func() {
 	It("prevent transient subcluster having a different name then the template", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Size: 1, IsPrimary: true},
-			{Name: "sc2", Size: 1, IsPrimary: false, IsTransient: true},
+			{Name: "sc1", Size: 1, Type: PrimarySubcluster},
+			{Name: "sc2", Size: 1, Type: TransientSubcluster},
 		}
 		vdb.Spec.TemporarySubclusterRouting = &SubclusterSelection{
 			Template: Subcluster{
-				Name:      "transient",
-				Size:      1,
-				IsPrimary: false,
+				Name: "transient",
+				Size: 1,
+				Type: SecondarySubcluster,
 			},
 		}
 		validateSpecValuesHaveErr(vdb, true)
@@ -733,13 +734,59 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.ShardCount = 1
 		validateSpecValuesHaveErr(vdb, false)
 	})
+
+	It("should assign a missing subcluster type", func() {
+		vdb := MakeVDB()
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: ""},
+		}
+		vdb.Default()
+		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
+
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: ""},
+			{Name: "sc2", Type: SecondarySubcluster},
+		}
+		vdb.Default()
+		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
+
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: ""},
+			{Name: "sc2", Type: PrimarySubcluster},
+		}
+		vdb.Default()
+		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(SecondarySubcluster))
+
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Type: ""},
+			{Name: "sc2", Type: ""},
+		}
+		vdb.Default()
+		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
+		Ω(vdb.Spec.Subclusters[1].Type).Should(Equal(SecondarySubcluster))
+	})
+
+	It("should tolerate case sensitivity for subcluster type", func() {
+		vdb := MakeVDB()
+		ucPrimary := strings.ToUpper(PrimarySubcluster)
+		ucSecondary := strings.ToUpper(SecondarySubcluster)
+		Ω(ucPrimary).ShouldNot(Equal(PrimarySubcluster))
+		Ω(ucSecondary).ShouldNot(Equal(SecondarySubcluster))
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "pri", Type: ucPrimary},
+			{Name: "sec", Type: ucSecondary},
+		}
+		vdb.Default()
+		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
+		Ω(vdb.Spec.Subclusters[1].Type).Should(Equal(SecondarySubcluster))
+	})
 })
 
 func createVDBHelper() *VerticaDB {
 	vdb := MakeVDB()
 	// check other field values in the MakeVDB function
 	sc := &vdb.Spec.Subclusters[0]
-	sc.IsPrimary = true
+	sc.Type = PrimarySubcluster
 	requestSize, _ := resource.ParseQuantity("500Gi")
 	vdb.Spec.Local.RequestSize = requestSize
 	vdb.Status.Subclusters = []SubclusterStatus{}

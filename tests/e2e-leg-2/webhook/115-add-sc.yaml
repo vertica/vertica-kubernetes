@@ -19,8 +19,9 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-      isPrimary: true
+      type: primary
       serviceType: ClusterIP
       clientNodePort: 0
     - name: sc2
       size: 1
+      type: primary

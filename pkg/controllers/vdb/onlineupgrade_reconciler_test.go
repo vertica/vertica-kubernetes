@@ -40,7 +40,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	It("should skip transient subcluster setup only when primaries have matching image", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{Name: "transient", Size: 1, IsPrimary: false},
+			Template: vapi.Subcluster{Name: "transient", Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -55,13 +55,13 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	It("should create and delete transient subcluster", func() {
 		vdb := vapi.MakeVDB()
 		scs := []vapi.Subcluster{
-			{Name: "sc1-secondary", IsPrimary: false, Size: 5},
-			{Name: "sc2-secondary", IsPrimary: false, Size: 1},
-			{Name: "sc3-primary", IsPrimary: true, Size: 3},
+			{Name: "sc1-secondary", Type: vapi.SecondarySubcluster, Size: 5},
+			{Name: "sc2-secondary", Type: vapi.SecondarySubcluster, Size: 1},
+			{Name: "sc3-primary", Type: vapi.PrimarySubcluster, Size: 3},
 		}
 		vdb.Spec.Subclusters = scs
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{Name: "transient", Size: 1, IsPrimary: false},
+			Template: vapi.Subcluster{Name: "transient", Size: 1, Type: vapi.SecondarySubcluster},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -121,14 +121,14 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		const ScName = "sc1"
 		const TransientScName = "transient"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, IsPrimary: true, Size: 1},
+			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		sc := &vdb.Spec.Subclusters[0]
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Template: vapi.Subcluster{
-				Name:      TransientScName,
-				Size:      1,
-				IsPrimary: false,
+				Name: TransientScName,
+				Size: 1,
+				Type: vapi.SecondarySubcluster,
 			},
 		}
 		vdb.Spec.Image = OldImage
@@ -163,14 +163,14 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		const ScName = "sc1"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, IsPrimary: true, Size: 1},
+			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		sc := &vdb.Spec.Subclusters[0]
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Template: vapi.Subcluster{
-				Name:      "some-sc-not-to-be-created",
-				Size:      1,
-				IsPrimary: false,
+				Name: "some-sc-not-to-be-created",
+				Size: 1,
+				Type: vapi.SecondarySubcluster,
 			},
 		}
 		vdb.Spec.Image = OldImage
@@ -197,7 +197,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		const ScName = "sc1"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, IsPrimary: true, Size: 1},
+			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Template: vapi.Subcluster{Name: "wont-be-created"},
@@ -221,8 +221,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		const PriScName = "pri"
 		const SecScName = "sec"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, IsPrimary: true, Size: 1},
-			{Name: SecScName, IsPrimary: false, Size: 1},
+			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
+			{Name: SecScName, Type: vapi.SecondarySubcluster, Size: 1},
 		}
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Names: []string{"dummy-non-existent", SecScName, PriScName},
@@ -271,8 +271,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		const SecScName = "sec"
 		const SubclusterTypeTrue = "true"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, IsPrimary: true, Size: 1},
-			{Name: SecScName, IsPrimary: false, Size: 1},
+			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
+			{Name: SecScName, Type: vapi.SecondarySubcluster, Size: 1},
 		}
 		vdb.Spec.Image = OldImage
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -286,16 +286,16 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeTrue())
-		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
+		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubcluster)).Should(BeTrue())
+		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubcluster)).Should(BeFalse())
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeFalse())
-		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeTrue())
+		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubcluster)).Should(BeFalse())
+		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubcluster)).Should(BeTrue())
 
 		sts.Labels[vmeta.SubclusterTypeLabel] = SubclusterTypeTrue // Fake a transient subcluster
-		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubclusterType)).Should(BeFalse())
-		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubclusterType)).Should(BeFalse())
+		Expect(r.isMatchingSubclusterType(sts, vapi.PrimarySubcluster)).Should(BeFalse())
+		Expect(r.isMatchingSubclusterType(sts, vapi.SecondarySubcluster)).Should(BeFalse())
 	})
 
 	It("should update image in each sts", func() {
@@ -303,8 +303,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		const Pri1ScName = "pri1"
 		const Pri2ScName = "pri2"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: Pri1ScName, IsPrimary: true, Size: 1},
-			{Name: Pri2ScName, IsPrimary: true, Size: 1},
+			{Name: Pri1ScName, Type: vapi.PrimarySubcluster, Size: 1},
+			{Name: Pri2ScName, Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Names: []string{Pri2ScName, Pri1ScName},
@@ -340,7 +340,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	It("should have an upgradeStatus set when it fails part way through", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", IsPrimary: true, Size: 1},
+			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Names: []string{vdb.Spec.Subclusters[0].Name},
@@ -366,7 +366,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	It("should requeue if there are active connections in the subcluster", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", IsPrimary: true, Size: 1},
+			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		sc := &vdb.Spec.Subclusters[0]
 		vdb.Spec.Image = OldImage
@@ -398,7 +398,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 	It("should requeue after a specified UpgradeRequeueAfter time", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", IsPrimary: true, Size: 1},
+			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
@@ -425,13 +425,13 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		const ScName = "sc1"
 		const TransientScName = "a-transient"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: ScName, IsPrimary: true, Size: 1},
+			{Name: ScName, Type: vapi.PrimarySubcluster, Size: 1},
 		}
 		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
 			Template: vapi.Subcluster{
-				Name:      TransientScName,
-				Size:      1,
-				IsPrimary: false,
+				Name: TransientScName,
+				Size: 1,
+				Type: vapi.SecondarySubcluster,
 			},
 		}
 		vdb.Spec.Image = OldImage
@@ -468,7 +468,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		const PriScName = "pri1"
 		const SecScName = "sec2"
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, IsPrimary: true, Size: 1},
+			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
 		}
 
 		r := createOnlineUpgradeReconciler(ctx, vdb)
@@ -477,8 +477,8 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(routingSc.Name).Should(Equal(PriScName))
 
 		r.Vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: PriScName, IsPrimary: true, Size: 1},
-			{Name: SecScName, IsPrimary: false, Size: 1},
+			{Name: PriScName, Type: vapi.PrimarySubcluster, Size: 1},
+			{Name: SecScName, Type: vapi.SecondarySubcluster, Size: 1},
 		}
 		scMap = vdb.GenSubclusterMap()
 		routingSc = r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[0], scMap)

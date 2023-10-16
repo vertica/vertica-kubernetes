@@ -104,8 +104,8 @@ var _ = Describe("sc_finder", func() {
 		scNames := []string{"first", "second"}
 		scSizes := []int32{2, 3}
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: scNames[0], Size: scSizes[0], IsPrimary: true},
-			{Name: scNames[1], Size: scSizes[1], IsPrimary: false},
+			{Name: scNames[0], Size: scSizes[0], Type: vapi.PrimarySubcluster},
+			{Name: scNames[1], Size: scSizes[1], Type: vapi.SecondarySubcluster},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		vdbCopy := *vdb // Make a copy for cleanup since we will mutate vdb

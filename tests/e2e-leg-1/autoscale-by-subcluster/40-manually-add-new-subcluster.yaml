@@ -19,19 +19,19 @@ spec:
   subclusters:
     - name: pri
       size: 3
-      isPrimary: true
+      type: primary
     - name: as-0
       size: 2
-      isPrimary: false
+      type: secondary
       serviceName: as
     - name: as-1
       size: 2
-      isPrimary: false
+      type: secondary
       serviceName: as
     - name: manual
       size: 1
-      isPrimary: false
+      type: secondary
     - name: as-2
       size: 2
-      isPrimary: false
+      type: secondary
       serviceName: as

@@ -204,4 +204,42 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.Spec.Communal.KerberosRealm).Should(Equal("new-krealm"))
 		Ω(v1beta1VDB.Spec.Communal.KerberosServiceName).Should(Equal("new-kservice"))
 	})
+
+	It("should convert between subcluster type", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		v1beta1VDB.Spec.Subclusters[0].IsPrimary = true
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Spec.Subclusters[0].Type).Should(Equal(v1.PrimarySubcluster))
+		v1beta1VDB.Spec.Subclusters[0].IsPrimary = false
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Spec.Subclusters[0].Type).Should(Equal(v1.SecondarySubcluster))
+
+		// v1 -> v1beta1
+		v1VDB.Spec.Subclusters[0].Type = v1.PrimarySubcluster
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.Subclusters[0].IsPrimary).Should(BeTrue())
+		v1VDB.Spec.Subclusters[0].Type = v1.SecondarySubcluster
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.Subclusters[0].IsPrimary).Should(BeFalse())
+	})
+
+	It("should convert isTransient", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		v1beta1VDB.Spec.Subclusters[0].IsPrimary = false
+		v1beta1VDB.Spec.Subclusters[0].IsTransient = true
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Spec.Subclusters[0].Type).Should(Equal(v1.TransientSubcluster))
+
+		// v1 -> v1beta1
+		v1VDB.Spec.Subclusters[0].Type = v1.TransientSubcluster
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Spec.Subclusters[0].IsPrimary).Should(BeFalse())
+		Ω(v1beta1VDB.Spec.Subclusters[0].IsTransient).Should(BeTrue())
+	})
 })

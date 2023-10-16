@@ -28,7 +28,7 @@ spec:
   subclusters:
     - name: main
       size: 3
-      isPrimary: true
+      type: primary
   certSecrets: []
   imagePullSecrets: []
   volumes: []

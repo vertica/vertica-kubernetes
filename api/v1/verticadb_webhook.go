@@ -90,12 +90,11 @@ func (v *VerticaDB) Default() {
 		v.Spec.Communal.Endpoint = DefaultGCloudEndpoint
 	}
 	if v.Spec.TemporarySubclusterRouting != nil {
-		v.Spec.TemporarySubclusterRouting.Template.IsPrimary = false
+		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
 	v.setDefaultServiceName()
+	v.fillInMissingSubclusterTypes()
 }
-
-//+kubebuilder:webhook:path=/validate-vertica-com-v1beta1-verticadb,mutating=false,failurePolicy=fail,sideEffects=None,groups=vertica.com,resources=verticadbs,verbs=create;update,versions=v1beta1,name=vverticadb.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &VerticaDB{}
 
@@ -177,9 +176,9 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	// validate that for existing subclusters that we don't change the
 	// primary/secondary type
 	if ok, inx := v.isSubclusterTypeIsChanging(oldObj); ok {
-		err := field.Invalid(field.NewPath("spec").Child("subclusters").Child("isPrimary"),
-			v.Spec.Subclusters[inx],
-			fmt.Sprintf("subcluster %s cannot have its isPrimary type change", v.Spec.Subclusters[inx].Name))
+		err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(inx).Child("type"),
+			v.Spec.Subclusters[inx].Type,
+			fmt.Sprintf("subcluster %s cannot have it's type change", v.Spec.Subclusters[inx].Name))
 		allErrs = append(allErrs, err)
 	}
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
@@ -373,7 +372,7 @@ func (v *VerticaDB) hasValidDBName(allErrs field.ErrorList) field.ErrorList {
 func (v *VerticaDB) hasPrimarySubcluster(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if sc.IsPrimary {
+		if sc.IsPrimary() {
 			return allErrs
 		}
 	}
@@ -617,9 +616,9 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 	fieldPrefix := field.NewPath("spec").Child("temporarySubclusterRouting")
 	if v.Spec.TemporarySubclusterRouting.Template.Name != "" {
 		templateFieldPrefix := fieldPrefix.Child("template")
-		if v.Spec.TemporarySubclusterRouting.Template.IsPrimary {
-			err := field.Invalid(templateFieldPrefix.Child("isPrimary"),
-				v.Spec.TemporarySubclusterRouting.Template.IsPrimary,
+		if !v.Spec.TemporarySubclusterRouting.Template.IsSecondary() {
+			err := field.Invalid(templateFieldPrefix.Child("type"),
+				v.Spec.TemporarySubclusterRouting.Template.Type,
 				"subcluster template must be a secondary subcluster")
 			allErrs = append(allErrs, err)
 		}
@@ -629,7 +628,7 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 				"size of subcluster template must be greater than zero")
 			allErrs = append(allErrs, err)
 		}
-		if sc, ok := scMap[v.Spec.TemporarySubclusterRouting.Template.Name]; ok && !sc.IsTransient {
+		if sc, ok := scMap[v.Spec.TemporarySubclusterRouting.Template.Name]; ok && !sc.IsTransient() {
 			err := field.Invalid(templateFieldPrefix.Child("name"),
 				v.Spec.TemporarySubclusterRouting.Template.Name,
 				"cannot choose a name of an existing subcluster")
@@ -654,18 +653,18 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 }
 
 func (v *VerticaDB) isSubclusterTypeIsChanging(oldObj *VerticaDB) (ok bool, scInx int) {
-	// Create a map of subclusterName -> isPrimary using the old object.
-	nameToPrimaryMap := map[string]bool{}
+	// Create a map of subclusterName -> type using the old object.
+	nameToPrimaryMap := map[string]string{}
 	for i := range oldObj.Spec.Subclusters {
 		sc := oldObj.Spec.Subclusters[i]
-		nameToPrimaryMap[sc.Name] = sc.IsPrimary
+		nameToPrimaryMap[sc.Name] = sc.Type
 	}
-	// Go through new object to see that IsPrimary isn't changing for any
+	// Go through new object to see that type isn't changing for any
 	// existing subcluster
 	for i := range v.Spec.Subclusters {
 		sc := v.Spec.Subclusters[i]
-		isPrimary, ok := nameToPrimaryMap[sc.Name]
-		if ok && isPrimary != sc.IsPrimary {
+		oldType, ok := nameToPrimaryMap[sc.Name]
+		if ok && oldType != sc.Type {
 			return true, i
 		}
 	}
@@ -730,7 +729,7 @@ func (v *VerticaDB) matchingServiceNamesAreConsistent(allErrs field.ErrorList) f
 func (v *VerticaDB) transientSubclusterMustMatchTemplate(allErrs field.ErrorList) field.ErrorList {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
-		if !sc.IsTransient {
+		if !sc.IsTransient() {
 			continue
 		}
 
@@ -1035,6 +1034,45 @@ func (v *VerticaDB) setDefaultServiceName() {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceName == "" {
 			sc.ServiceName = sc.GetServiceName()
+		}
+	}
+}
+
+// fillInMissingSubclusterTypes will populate the subcluster type if they are missing.
+func (v *VerticaDB) fillInMissingSubclusterTypes() {
+	// First pass of the subclusters. We do this to see if there are any types
+	// missing, determine the default subcluster type if there are missing
+	// ones, and correct case sensitivity of the type.
+	hasMissingType := false
+	defaultSubclusterType := PrimarySubcluster
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		switch {
+		case sc.Type == "":
+			hasMissingType = true
+		case strings.EqualFold(sc.Type, PrimarySubcluster):
+			sc.Type = PrimarySubcluster // Correct for case
+			defaultSubclusterType = SecondarySubcluster
+		case strings.EqualFold(sc.Type, SecondarySubcluster):
+			sc.Type = SecondarySubcluster // Correct for case
+		case strings.EqualFold(sc.Type, TransientSubcluster):
+			sc.Type = TransientSubcluster // Correct for case
+		}
+	}
+
+	if !hasMissingType {
+		return
+	}
+
+	// Second pass it to fill in the missing types. If there are no primary
+	// subclusters, the first subcluster with missing type is a primary
+	// subcluster. Otherwise, we set the type to be a Secondary subcluster.
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.Type == "" {
+			sc.Type = defaultSubclusterType
+			defaultSubclusterType = SecondarySubcluster
+			verticadblog.Info("Assigning default subcluster type", "name", sc.Name, "type", sc.Type)
 		}
 	}
 }

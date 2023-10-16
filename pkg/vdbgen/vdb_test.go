@@ -407,9 +407,9 @@ var _ = Describe("vdb", func() {
 				AddRow(Sc3Name, true))
 
 		expScDetail := []vapi.Subcluster{
-			{Name: Sc1Name, Size: 4, IsPrimary: true},
-			{Name: Sc2Name, Size: 1, IsPrimary: false},
-			{Name: Sc3Name, Size: 2, IsPrimary: true},
+			{Name: Sc1Name, Size: 4, Type: vapi.PrimarySubcluster},
+			{Name: Sc2Name, Size: 1, Type: vapi.SecondarySubcluster},
+			{Name: Sc3Name, Size: 2, Type: vapi.PrimarySubcluster},
 		}
 		expReviveOrder := []vapi.SubclusterPodCount{
 			{SubclusterIndex: 0, PodCount: 3},

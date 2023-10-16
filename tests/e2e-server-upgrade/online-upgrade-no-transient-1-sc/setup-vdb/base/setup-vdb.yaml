@@ -27,7 +27,7 @@ spec:
   subclusters:
     - name: pri
       size: 3
-      isPrimary: true
+      type: primary
   # Intentionally leaving out temporarySubclusterRouting to test the
   # default.  Leaving the default in as comments.
   # temporarySubclusterRouting:

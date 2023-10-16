@@ -601,11 +601,17 @@ func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
 		}
 
 		inx, ok := subclusterInxMap[name]
+		var scType string
+		if isPrimary {
+			scType = vapi.PrimarySubcluster
+		} else {
+			scType = vapi.SecondarySubcluster
+		}
 		if !ok {
 			inx = len(d.Objs.Vdb.Spec.Subclusters)
 			// Add an empty subcluster.  We increment the count a few lines down.
 			d.Objs.Vdb.Spec.Subclusters = append(d.Objs.Vdb.Spec.Subclusters,
-				vapi.Subcluster{Name: name, Size: 0, IsPrimary: isPrimary})
+				vapi.Subcluster{Name: name, Size: 0, Type: scType})
 			subclusterInxMap[name] = inx
 		}
 		d.Objs.Vdb.Spec.Subclusters[inx].Size++
