@@ -883,8 +883,8 @@ func (v *VerticaDB) hasValidProbeOverride(allErrs field.ErrorList, fieldPath *fi
 	return allErrs
 }
 
-func (v *VerticaDB) isImageChangeInProgress() bool {
-	return v.isConditionIndexSet(ImageChangeInProgressIndex)
+func (v *VerticaDB) isUpgradeInProgress() bool {
+	return v.isConditionIndexSet(UpgradeInProgressIndex)
 }
 
 func (v *VerticaDB) isDBInitialized() bool {
@@ -896,7 +896,7 @@ func (v *VerticaDB) isDBInitialized() bool {
 // when it isn't allowed.
 func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	if v.Spec.UpgradePolicy == oldObj.Spec.UpgradePolicy ||
-		!oldObj.isImageChangeInProgress() {
+		!oldObj.isUpgradeInProgress() {
 		return allErrs
 	}
 	err := field.Invalid(field.NewPath("spec").Child("upgradePolicy"),
@@ -911,7 +911,7 @@ func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field
 func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// TemporarySubclusterRouting is allowed to change as long as an image
 	// change isn't in progress
-	if !oldObj.isImageChangeInProgress() {
+	if !oldObj.isUpgradeInProgress() {
 		return allErrs
 	}
 	if v.Spec.TemporarySubclusterRouting == nil && oldObj.Spec.TemporarySubclusterRouting == nil {

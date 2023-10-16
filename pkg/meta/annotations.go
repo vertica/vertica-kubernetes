@@ -27,6 +27,10 @@ const (
 	KubernetesGitCommitAnnotation = "kubernetes.io/gitcommit" // Git commit of the k8s server
 	KubernetesBuildDateAnnotation = "kubernetes.io/buildDate" // Build date of the k8s server
 
+	// A status annotation that shows the number of ready vertica hosts to the
+	// number of total hosts
+	ReadyStatusAnnotation = "vertica.com/ready-status"
+
 	// If this annotation is on any CR, the operator will skip processing. This can
 	// be used to avoid getting in an infinity error-retry loop. Or, if you know
 	// no additional work will ever exist for an object. Just set this to a

@@ -25,6 +25,5 @@ metadata:
   name: v-udx-cpp
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1

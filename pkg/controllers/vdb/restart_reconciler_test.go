@@ -387,7 +387,7 @@ var _ = Describe("restart_reconciler", func() {
 		// Update the status to indicate install count includes both pods
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: ScSize, Detail: []vapi.VerticaDBPodStatus{}},
+			{Name: vdb.Spec.Subclusters[0].Name, Detail: []vapi.VerticaDBPodStatus{{Installed: true}, {Installed: true}}},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 

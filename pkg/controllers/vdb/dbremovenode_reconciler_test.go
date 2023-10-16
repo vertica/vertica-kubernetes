@@ -100,8 +100,9 @@ var _ = Describe("dbremovenode_reconcile", func() {
 	It("should skip remove node and requeue because pod we need to remove node from isn't running", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
+		sc.Size = 2
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
+			{Name: sc.Name, AddedToDBCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{{Installed: true}, {Installed: true}}},
 		}
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)

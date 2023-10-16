@@ -17,8 +17,7 @@ metadata:
   name: v-restart
 status:
   subclusters:
-    - installCount: 3
-      addedToDBCount: 3
+    - addedToDBCount: 3
       upNodeCount: 3
 ---
 apiVersion: v1

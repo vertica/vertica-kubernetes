@@ -27,3 +27,25 @@ patchesStrategicMerge:
 # the following config is for teaching kustomize how to do kustomization for CRDs.
 configurations:
   - kustomizeconfig.yaml
+
+patches:
+  # We add a patch to the CRD to add an additional printer column. Normally this
+  # is added as a kubebuilder annotation in verticadb_types.go. However, we need
+  # access to annotations and the way to access that breaks the parser in
+  # controller-gen.
+- target:
+    kind: CustomResourceDefinition
+    name: verticadbs.vertica.com
+  patch: |-
+    - op: add
+      path: /spec/versions/0/additionalPrinterColumns/1
+      value:
+        jsonPath: .metadata.annotations.vertica\.com\/version
+        name: Version
+        type: string
+    - op: add
+      path: /spec/versions/0/additionalPrinterColumns/2
+      value:
+        jsonPath: .metadata.annotations.vertica\.com\/ready-status
+        name: Ready
+        type: string

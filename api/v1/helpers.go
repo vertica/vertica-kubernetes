@@ -502,3 +502,21 @@ func (s *Subcluster) GetType() string {
 	}
 	return s.Type
 }
+
+func (v *VerticaDBStatus) InstallCount() int32 {
+	var c int32
+	for i := range v.Subclusters {
+		c += v.Subclusters[i].InstallCount()
+	}
+	return c
+}
+
+func (s *SubclusterStatus) InstallCount() int32 {
+	var c int32
+	for i := range s.Detail {
+		if s.Detail[i].Installed {
+			c++
+		}
+	}
+	return c
+}

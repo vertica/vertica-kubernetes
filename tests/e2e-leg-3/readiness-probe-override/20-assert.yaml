@@ -33,6 +33,5 @@ metadata:
   name: v-readiness-probe-override
 status:
   subclusterCount: 2
-  installCount: 2
   addedToDBCount: 2
   upNodeCount: 2
