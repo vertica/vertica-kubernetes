@@ -16,7 +16,6 @@ kind: VerticaDB
 metadata:
   name: v-restart-with-liveness-probe
 status:
-  installCount: 3
   addedToDBCount: 3
   upNodeCount: 3
   subclusterCount: 2

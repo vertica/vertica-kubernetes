@@ -461,7 +461,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 		// 1.  We have done the install, but haven't yet updated the status field.
 		// 2.  We have done the install, but the admintools.conf was deleted after the fact.
 		// So, we continue after this to further refine the actual install state.
-		pf.isInstalled = scs.InstallCount > pf.podIndex
+		pf.isInstalled = scs.InstallCount() > pf.podIndex
 	}
 	// Nothing else can be gathered if the pod isn't running.
 	if !pf.isPodRunning {

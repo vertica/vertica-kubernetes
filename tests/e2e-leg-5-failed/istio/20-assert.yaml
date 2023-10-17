@@ -27,7 +27,3 @@ metadata:
 spec:
   annotations:
     sidecar.istio.io/interceptionMode: TPROXY
-status:
-  subclusters:
-    - installCount: 3
-

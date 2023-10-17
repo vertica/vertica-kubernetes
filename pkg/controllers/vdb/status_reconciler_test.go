@@ -45,10 +45,10 @@ var _ = Describe("status_reconcile", func() {
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(fetchVdb.Status.Subclusters[0].InstallCount).Should(Equal(int32(3)))
+		Expect(fetchVdb.Status.Subclusters[0].InstallCount()).Should(Equal(int32(3)))
 
 		// vdb should be updated too
-		Expect(vdb.Status.Subclusters[0].InstallCount).Should(Equal(int32(3)))
+		Expect(vdb.Status.Subclusters[0].InstallCount()).Should(Equal(int32(3)))
 	})
 
 	It("should not fail if no objects exist yet in the crd", func() {
@@ -66,7 +66,7 @@ var _ = Describe("status_reconcile", func() {
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
 		stat := &fetchVdb.Status
-		Expect(stat.InstallCount).Should(Equal(int32(0)))
+		Expect(stat.InstallCount()).Should(Equal(int32(0)))
 		Expect(stat.SubclusterCount).Should(Equal(int32(1)))
 	})
 
@@ -86,10 +86,10 @@ var _ = Describe("status_reconcile", func() {
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(fetchVdb.Status.Subclusters[0].InstallCount).Should(Equal(int32(1)))
+		Expect(fetchVdb.Status.Subclusters[0].InstallCount()).Should(Equal(int32(1)))
 		Expect(fetchVdb.Status.Subclusters[0].AddedToDBCount).Should(Equal(int32(1)))
 		Expect(fetchVdb.Status.Subclusters[0].UpNodeCount).Should(Equal(int32(1)))
-		Expect(fetchVdb.Status.Subclusters[1].InstallCount).Should(Equal(int32(4)))
+		Expect(fetchVdb.Status.Subclusters[1].InstallCount()).Should(Equal(int32(4)))
 		Expect(fetchVdb.Status.Subclusters[1].AddedToDBCount).Should(Equal(int32(4)))
 		Expect(fetchVdb.Status.Subclusters[1].UpNodeCount).Should(Equal(int32(4)))
 	})
@@ -114,7 +114,7 @@ var _ = Describe("status_reconcile", func() {
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(fetchVdb.Status.Subclusters[ScIndex].InstallCount).Should(Equal(int32(1)))
+		Expect(fetchVdb.Status.Subclusters[ScIndex].InstallCount()).Should(Equal(int32(1)))
 		Expect(fetchVdb.Status.Subclusters[ScIndex].AddedToDBCount).Should(Equal(int32(1)))
 		Expect(fetchVdb.Status.Subclusters[ScIndex].UpNodeCount).Should(Equal(int32(1)))
 	})
@@ -129,7 +129,13 @@ var _ = Describe("status_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size, Detail: make([]vapi.VerticaDBPodStatus, 0)},
+			{Name: sc.Name, AddedToDBCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{
+				{Installed: true, AddedToDB: true},
+				{Installed: true, AddedToDB: true},
+				{Installed: true, AddedToDB: true},
+				{Installed: true, AddedToDB: true},
+				{Installed: true, AddedToDB: true},
+			}},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
@@ -140,14 +146,14 @@ var _ = Describe("status_reconcile", func() {
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(fetchVdb.Status.Subclusters[0].InstallCount).Should(Equal(int32(5)))
+		Expect(fetchVdb.Status.Subclusters[0].InstallCount()).Should(Equal(int32(5)))
 
 		test.ScaleDownSubcluster(ctx, k8sClient, vdb, sc, 2)
 		pfacts.Invalidate()
 
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(fetchVdb.Status.Subclusters[0].InstallCount).Should(Equal(int32(2)))
+		Expect(fetchVdb.Status.Subclusters[0].InstallCount()).Should(Equal(int32(2)))
 	})
 
 	It("should preserve old status when subclusters is not running", func() {

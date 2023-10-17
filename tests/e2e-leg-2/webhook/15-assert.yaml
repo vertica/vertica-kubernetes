@@ -25,5 +25,4 @@ metadata:
   name: v-webhook
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1

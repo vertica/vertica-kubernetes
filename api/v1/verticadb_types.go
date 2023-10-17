@@ -734,10 +734,6 @@ type Affinity struct {
 // VerticaDBStatus defines the observed state of VerticaDB
 type VerticaDBStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// A count of the number of pods that have been installed into the vertica cluster.
-	InstallCount int32 `json:"installCount"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been added to the database.
 	AddedToDBCount int32 `json:"addedToDBCount"`
 
@@ -772,10 +768,10 @@ const (
 	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized VerticaDBConditionType = "DBInitialized"
-	// ImageChangeInProgress indicates if the vertica server is in the process
-	// of having its image change (aka upgrade).  We have two additional conditions to
+	// UpgradeInProgress indicates if the vertica server is in the process
+	// of having its image change.  We have two additional conditions to
 	// distinguish between online and offline upgrade.
-	ImageChangeInProgress    VerticaDBConditionType = "ImageChangeInProgress"
+	UpgradeInProgress        VerticaDBConditionType = "UpgradeInProgress"
 	OfflineUpgradeInProgress VerticaDBConditionType = "OfflineUpgradeInProgress"
 	OnlineUpgradeInProgress  VerticaDBConditionType = "OnlineUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
@@ -787,7 +783,7 @@ const (
 const (
 	AutoRestartVerticaIndex = iota
 	DBInitializedIndex
-	ImageChangeInProgressIndex
+	UpgradeInProgressIndex
 	OfflineUpgradeInProgressIndex
 	OnlineUpgradeInProgressIndex
 	VerticaRestartNeededIndex
@@ -798,7 +794,7 @@ const (
 var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
 	AutoRestartVertica:       AutoRestartVerticaIndex,
 	DBInitialized:            DBInitializedIndex,
-	ImageChangeInProgress:    ImageChangeInProgressIndex,
+	UpgradeInProgress:        UpgradeInProgressIndex,
 	OfflineUpgradeInProgress: OfflineUpgradeInProgressIndex,
 	OnlineUpgradeInProgress:  OnlineUpgradeInProgressIndex,
 	VerticaRestartNeeded:     VerticaRestartNeededIndex,
@@ -809,7 +805,7 @@ var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
 var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
 	AutoRestartVerticaIndex:       AutoRestartVertica,
 	DBInitializedIndex:            DBInitialized,
-	ImageChangeInProgressIndex:    ImageChangeInProgress,
+	UpgradeInProgressIndex:        UpgradeInProgress,
 	OfflineUpgradeInProgressIndex: OfflineUpgradeInProgress,
 	OnlineUpgradeInProgressIndex:  OnlineUpgradeInProgress,
 	VerticaRestartNeededIndex:     VerticaRestartNeeded,
@@ -851,21 +847,12 @@ type SubclusterStatus struct {
 	Oid string `json:"oid"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// A count of the number of pods that have been installed into the subcluster.
-	InstallCount int32 `json:"installCount"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have been added to the database for this subcluster.
 	AddedToDBCount int32 `json:"addedToDBCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// A count of the number of pods that have a running vertica process in this subcluster.
 	UpNodeCount int32 `json:"upNodeCount"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +kubebuilder:validation:Optional
-	// A count of the number of pods that are in read-only state in this subcluster.
-	ReadOnlyCount int32 `json:"readOnlyCount"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Detail []VerticaDBPodStatus `json:"detail"`
@@ -886,10 +873,6 @@ type VerticaDBPodStatus struct {
 	// True means the vertica process is running on this pod and it can accept
 	// connections on port 5433.
 	UpNode bool `json:"upNode"`
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +kubebuilder:validation:Optional
-	// True means the vertica process on this pod is in read-only state
-	ReadOnly bool `json:"readOnly"`
 }
 
 //+kubebuilder:object:root=true
@@ -898,9 +881,6 @@ type VerticaDBPodStatus struct {
 //+kubebuilder:resource:categories=all;vertica,shortName=vdb
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
-//+kubebuilder:printcolumn:name="Installed",type="integer",JSONPath=".status.installCount"
-//+kubebuilder:printcolumn:name="DBAdded",type="integer",JSONPath=".status.addedToDBCount"
-//+kubebuilder:printcolumn:name="Up",type="integer",JSONPath=".status.upNodeCount"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Statefulset,apps/v1,""},{Pod,v1,""},{Service,v1,""}}
 
 // VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.

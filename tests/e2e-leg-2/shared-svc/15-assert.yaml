@@ -63,5 +63,4 @@ kind: VerticaDB
 metadata:
   name: v-shared-svc
 status:
-  installCount: 3
   subclusterCount: 3

@@ -419,7 +419,7 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).Should(BeNil())
 
-		resetStatusConditionsForImageChangeInProgress(vdbUpdate)
+		resetStatusConditionsForUpgradeInProgress(vdbUpdate)
 		allErrs = vdbOrig.validateImmutableFields(vdbUpdate)
 		Expect(allErrs).ShouldNot(BeNil())
 	})
@@ -467,8 +467,8 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		vdbUpdate := MakeVDB()
 		vdbUpdate.Spec.TemporarySubclusterRouting = nil
-		resetStatusConditionsForImageChangeInProgress(vdbUpdate)
-		resetStatusConditionsForImageChangeInProgress(vdbOrig)
+		resetStatusConditionsForUpgradeInProgress(vdbUpdate)
+		resetStatusConditionsForUpgradeInProgress(vdbOrig)
 		allErrs := vdbOrig.validateImmutableFields(vdbUpdate)
 		Ω(allErrs).ShouldNot(BeNil())
 
@@ -500,7 +500,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate := createVDBHelper()
 		vdbOrig := createVDBHelper()
 
-		resetStatusConditionsForImageChangeInProgress(vdbUpdate)
+		resetStatusConditionsForUpgradeInProgress(vdbUpdate)
 
 		vdbUpdate.Spec.TemporarySubclusterRouting = &SubclusterSelection{
 			Names: []string{"sc1", "sc2"},
@@ -817,8 +817,8 @@ func checkErrorsForImmutableFields(vdbOrig, vdbUpdate *VerticaDB, expectError bo
 	}
 }
 
-func resetStatusConditionsForImageChangeInProgress(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, ImageChangeInProgressIndex)
+func resetStatusConditionsForUpgradeInProgress(v *VerticaDB) {
+	resetStatusConditionsForCondition(v, UpgradeInProgressIndex)
 }
 
 func resetStatusConditionsForDBInitialized(v *VerticaDB) {

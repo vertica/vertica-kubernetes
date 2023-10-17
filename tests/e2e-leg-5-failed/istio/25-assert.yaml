@@ -25,8 +25,7 @@ metadata:
   name: v-istio-tproxy
 status:
   subclusters:
-    - installCount: 3
-      upNodeCount: 3
+    - upNodeCount: 3
   conditions:
   - type: AutoRestartVertica
     status: "True"

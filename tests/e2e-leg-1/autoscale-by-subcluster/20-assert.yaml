@@ -25,6 +25,5 @@ metadata:
   name: v-autoscale-by-subcluster
 status:
   subclusters:
-    - installCount: 3
-      addedToDBCount: 3
+    - addedToDBCount: 3
   subclusterCount: 1

@@ -21,10 +21,9 @@ status:
       status: "True"
     - type: DBInitialized
       status: "True"
-    - type: ImageChangeInProgress
+    - type: UpgradeInProgress
       status: "False"
     - type: OfflineUpgradeInProgress
       status: "False"
   subclusterCount: 1
-  installCount: 3
   upNodeCount: 3

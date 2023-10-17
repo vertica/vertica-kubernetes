@@ -48,6 +48,7 @@ var _ = Describe("podfacts", func() {
 	It("should use status fields to check if db exists when pods aren't running", func() {
 		vdb := vapi.MakeVDB()
 		sc := &vdb.Spec.Subclusters[0]
+		sc.Size = 1
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -55,7 +56,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
+			{Name: sc.Name, AddedToDBCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{{Installed: true}}},
 		}
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pf, ok := pfacts.Detail[nm]
@@ -64,7 +65,7 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.dbExists).Should(BeTrue())
 
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, InstallCount: 0, AddedToDBCount: 0},
+			{Name: sc.Name, AddedToDBCount: 0, Detail: []vapi.VerticaDBPodStatus{{Installed: false}}},
 		}
 		pfacts.Invalidate()
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
@@ -77,7 +78,7 @@ var _ = Describe("podfacts", func() {
 	It("should indicate installation if pod not running but status has been updated", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: 1},
+			{Name: vdb.Spec.Subclusters[0].Name, Detail: []vapi.VerticaDBPodStatus{{Installed: true}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)

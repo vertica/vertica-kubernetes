@@ -109,8 +109,11 @@ func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.Vertica
 	for i := range vdb.Status.Subclusters {
 		scs := &vdb.Status.Subclusters[i]
 		if scs.Name == sc.Name {
-			scs.InstallCount = newSize
 			scs.AddedToDBCount = newSize
+			scs.Detail = []vapi.VerticaDBPodStatus{}
+			for j := int32(0); j < newSize; j++ {
+				scs.Detail = append(scs.Detail, vapi.VerticaDBPodStatus{Installed: true})
+			}
 			break
 		}
 	}
