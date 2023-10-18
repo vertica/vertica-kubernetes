@@ -4,7 +4,7 @@ This guide explains how to set up an environment to develop and test the Vertica
 
 # Repo structure
 
-This repository contains the following directories and files:
+This repo contains the following directories and files:
 
 - `docker-vertica/`: files that build a Vertica server container. This container is designed for [Administration Tools (admintools)](https://docs.vertica.com/latest/en/admin/using-admin-tools/admin-tools-reference/) deployments.
 
@@ -136,7 +136,7 @@ kind-registry
 7. Run soak tests
 8. Troubleshooting
 
-## Container overview
+### Container overview
 
 The Vertica development and testing environment builds and deploys the following containers:
 
@@ -148,7 +148,7 @@ The Vertica development and testing environment builds and deploys the following
 
 For details about each container, review the Dockerfile in its associated directory. For example, you can find the **docker-vertica** container's [Dockerfile](./docker-vertica/Dockerfile) in the `vertica-kubernetes/docker-vertica/` directory.
 
-## Custom containers
+### Custom containers
 
 To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
 
@@ -163,7 +163,7 @@ If necessary, these variables can include the url of the registry. For example, 
 
 Vertica provides two container sizes: the default, full image, and the minimal image that does not include the 240MB Tensorflow package.
 
-## Build and push the containers
+### Build and push the containers
 
 The [Makefile](./Makefile) provides a target that builds the containers and pushes them to the Kind cluster in the current context:
 
@@ -202,7 +202,7 @@ The [Makefile](./Makefile) provides a target that builds the containers and push
    680c97b6b97f   registry:2             "/entrypoint.sh /etc…"   13 minutes ago   Up 13 minutes   127.0.0.1:5000->5000/tcp    kind-registry
    ```
 
-2. Make these containers available to the Kubernetes cluster. Push them to the Kubernetes cluster with the following make target:
+2. Make these containers available to the Kind cluster. Push them to the cluster with the following make target:
 
    ```shell
    make docker-push
@@ -243,29 +243,29 @@ Build Cache     57        0         3.051GB   3.051GB
 
 For details about the `df` command output and its flags and options, see the [Docker documentation](https://docs.docker.com/engine/reference/commandline/system_df/).
 
-## 2. Generating controller files
+## Generate controller files
 
-Vertica uses the [operator-sdk framework](https://sdk.operatorframework.io/) for the operator. It provides tools to generate code so that you do not have to manually write boilerplate code. Depending on what you changed you may need to periodically regenerate files with the following command:
+Vertica uses the [Operator-sdk framework](https://sdk.operatorframework.io/) for the operator. It provides tools to generate code so that you do not have to manually write boilerplate code. Depending on what you changed you may need to periodically regenerate files with the following command:
 
 ```shell
 make generate manifests
 ```
 
-## 3. Running Linters
+## Linters
 
 We run three different linters:
 
-1. **Helm lint**: Uses the chart verification test that is built into Helm.
-2. **Go lint**: Uses a few linters that you can run with golang.
-3. **Dockerfile lint**: Uses hadolint to check the various Dockerfile's that we have in our repo
+- [Helm lint](https://helm.sh/docs/helm/helm_lint/): Uses the chart verification test that is built into Helm.
+- [golint](https://pkg.go.dev/golang.org/x/lint/golint): Uses a few linters that you can run with golang.
+- [Dockerfile lint](https://github.com/hadolint/hadolint): Uses hadolint to check the various Dockerfiles that we have in our repo.
 
-Both of these linters can be run with this command:
+Run all linters with the `lint` target:
 
 ```shell
 make lint
 ```
 
-## 4. Running Unit Tests
+## Unit Tests
 
 We have unit tests for both the Helm chart and the Go operator.
 
@@ -279,7 +279,7 @@ The Helm chart testing and Go lang unit tests can be run like this:
 make run-unit-tests
 ```
 
-## 5. Running the Operator
+## Run the Operator
 
 There are two ways to run the operator:
 
@@ -332,7 +332,7 @@ To remove the operator, regardless of how it was deployed, run the `undeploy` ma
 make undeploy
 ```
 
-## 6. Running e2e Tests
+## e2e Tests
 
 The end-to-end (e2e) tests are run through Kubernetes itself. We use kuttl as the testing framework. The operator must be running **as a Kubernetes deployment**, which means the operator container needs to be built and pushed to a repository before starting.
 
