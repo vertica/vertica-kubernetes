@@ -136,13 +136,13 @@ Vertica provides two container sizes: the default, full image, and the minimal i
 1. Run the `docker-build` make target to build the necessary containers. The following command uses the default image:
 
    ```shell
-   $ make docker-build
+   make docker-build
    ```
 
    To build the minimal container, invoke the make target with `MINIMAL_VERTICA_IMG=YES`:
 
    ```shell
-   $ make docker-build MINIMAL_VERTICA_IMG=YES
+   make docker-build MINIMAL_VERTICA_IMG=YES
    ```
 
    Due to the size of the vertica image, this step can take in excess of 10 minutes when run on a laptop.
@@ -150,7 +150,7 @@ Vertica provides two container sizes: the default, full image, and the minimal i
 2. Make these containers available to the Kubernetes cluster. Push them to the Kubernetes cluster with the following make target:
 
    ```shell
-   $ make docker-push
+   make docker-push
    ```
 
    This command honors the same environment variables used when creating the image.
@@ -162,7 +162,7 @@ If your image builds fail silently, confirm that there is enough disk space in y
 Vertica uses the [operator-sdk framework](https://sdk.operatorframework.io/) for the operator. It provides tools to generate code so that you do not have to manually write boilerplate code. Depending on what you changed you may need to periodically regenerate files with the following command:
 
 ```shell
-$ make generate manifests
+make generate manifests
 ```
 
 ## 3. Running Linters
@@ -176,7 +176,7 @@ We run three different linters:
 Both of these linters can be run with this command:
 
 ```shell
-$ make lint
+make lint
 ```
 
 ## 4. Running Unit Tests
@@ -190,7 +190,7 @@ Unit tests for the Go operator use the Go testing infrastructure. Some of the te
 The Helm chart testing and Go lang unit tests can be run like this:
 
 ```shell
-$ make run-unit-tests
+make run-unit-tests
 ```
 
 ## 5. Running the Operator
@@ -372,20 +372,20 @@ Here are the steps needed to run this test.
 2. Create a config file to outline the databases to test and how you want the test framework to react. A sample one can be found in tests/soak/soak-sample.cfg.
 
 ```shell
-$ cp tests/soak/soak-sample.cfg local-soak.cfg
-$ vim local-soak.cfg
+cp tests/soak/soak-sample.cfg local-soak.cfg
+vim local-soak.cfg
 ```
 
 3. Decide on the number of iterations you would like to run:
 
 ```shell
-$ export NUM_SOAK_ITERATIONS=10  # Can use -1 for infinite
+export NUM_SOAK_ITERATIONS=10  # Can use -1 for infinite
 ```
 
 4. Kick off the run.
 
 ```shell
-$ make run-soak-tests
+make run-soak-tests
 ```
 
 ## Help
@@ -393,7 +393,7 @@ $ make run-soak-tests
 To see the full list of make targets, run the following command:
 
 ```shell
-$ make help
+make help
 ```
 
 # Problem Determination
@@ -405,7 +405,7 @@ The following sections provide troubleshooting tips for your deployment.
 The operator generates Kubernetes events for some key scenarios. This can be a useful tool when trying to understand what the operator is doing. Use the following command to view the events:
 
 ```shell
-$ kubectl describe vdb mydb
+kubectl describe vdb mydb
 
 ...<snip>...
 Events:
@@ -438,7 +438,7 @@ You might need to inspect the contents of the vertica.log to diagnose a problem 
   The `sidecars[i].image` shown here is a container that Vertica publishes on its docker repository. After the sidecar container is running, inspect the logs with the following command:
 
   ```shell
-  $ kubectl logs <vertica-pod-name> -c vlogger
+  kubectl logs <vertica-pod-name> -c vlogger
   ```
 
 ## Memory Profiling
@@ -450,7 +450,7 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
 1. Use `kubectl edit` to open the running deployment for editing:
 
    ```shell
-   $ kubectl edit deployment verticadb-operator-controller-manager
+   kubectl edit deployment verticadb-operator-controller-manager
    ```
 
 2. Locate where the arguments are passed to the manager, and add `--enable-profiler`:
@@ -471,7 +471,7 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
 4. Port forward 6060 to access the webUI for the profiler. The name of the pod differs for each deployment, so be sure to find the one specific to your cluster:
 
    ```shell
-   $ kubectl port-forward pod/verticadb-operator-controller-manager-5dd5b54df4-2krcr 6060:6060
+   kubectl port-forward pod/verticadb-operator-controller-manager-5dd5b54df4-2krcr 6060:6060
    ```
 
 5. Use a web browser or the standalone tool to connect to `http://localhost:6060/debug/pprof`.
@@ -479,5 +479,5 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
    Invoke the standalone tool with the following command:
 
    ```shell
-   $ go tool pprof http://localhost:6060/debug/pprof
+   go tool pprof http://localhost:6060/debug/pprof
    ```
