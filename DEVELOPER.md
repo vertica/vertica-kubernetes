@@ -53,10 +53,10 @@ All automated e2e tests in this repo run against a Kind cluster.
 
 ## Setup
 
-The `scripts/kind.sh` script makes it easy to set up Kind and create a cluster to test Vertica. The following command creates a single-node cluster named `testcluster`:
+The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test Vertica. The following command creates a single-node cluster named `testcluster`:
 
 ```shell
-scripts/kind.sh init testcluster
+./scripts/kind.sh init testcluster
 ```
 
 After the command completes, use kubectx to change the context and use the cluster. The cluster has its own context named `kind-<cluster-name>`:
@@ -77,19 +77,21 @@ You have a master node that is ready to deploy Vertica CRDs for testing purposes
 
 ## Cleanup
 
-After you are done with the cluster, you can delete it with our helper script. Substitute `cluster1` with the name of your cluster:
+When you no longer need a cluster, you can delete it with the helper script. The following command deletes the cluster named `testcluster`:
 
 ```shell
-$ scripts/kind.sh term cluster1
+./scripts/kind.sh term testcluster
+...
+Deleting cluster "testcluster" ...
+kind-registry
 ```
 
-If you forgot the cluster name, run Kind directly to get all of the installed clusters:
-
-```shell
-$ PATH=$PATH:$HOME/go/bin
-$ kind get clusters
-cluster1
-```
+> **NOTE**: If you forgot the cluster name, run Kind directly to return all installed clusters. You must add Kind to your path:
+>
+> ```shell
+> PATH=$PATH:path/to/vertica-kubernetes/bin/kind
+> kind get clusters
+> ```
 
 # Add a changelog entry
 
