@@ -571,14 +571,16 @@ func buildPodSecurityPolicy(vdb *vapi.VerticaDB) *corev1.PodSecurityContext {
 	if vdb.Spec.PodSecurityContext != nil {
 		vdb.Spec.PodSecurityContext.DeepCopyInto(&psc)
 	}
-	if psc.FSGroup == nil {
-		// Set the FSGroup so that mounted volumes have the dbadmin gid. This gives
-		// pods write access to the volumes. Note in 1.9.0 and prior versions of the
-		// operator we did not have this and instead relied on the vertica image to
-		// set the required permissions via chmod.
-		const DefaultDbadminGID = 5000
-		dbadminGID := int64(DefaultDbadminGID)
-		psc.FSGroup = &dbadminGID
+	if !vmeta.UseVClusterOps(vdb.Annotations) {
+		if psc.FSGroup == nil {
+			// Set the FSGroup so that mounted volumes have the dbadmin gid. This gives
+			// pods write access to the volumes. Note in 1.9.0 and prior versions of the
+			// operator we did not have this and instead relied on the vertica image to
+			// set the required permissions via chmod.
+			const DefaultDbadminGID = 5000
+			dbadminGID := int64(DefaultDbadminGID)
+			psc.FSGroup = &dbadminGID
+		}
 	}
 	return &psc
 }

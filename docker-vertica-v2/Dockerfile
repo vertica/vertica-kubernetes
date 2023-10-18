@@ -144,11 +144,8 @@ RUN set -x \
   && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-  && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
-  && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
-  # Allow passwordless sudo access from dbadmin
-  && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
-  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
+  # The operator puts scratch files in /home/dbadmin, so must exist in the container.
+  && mkdir -p /home/dbadmin \
   # Create a symlink to python3 interpreter in vertica
   && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
   && chmod u+s /usr/sbin/cron \
@@ -162,7 +159,6 @@ ENTRYPOINT [ "/init" ]
 EXPOSE 5433
 # vertica-http port
 EXPOSE 8443
-USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
 LABEL maintainer="K8s Team"
