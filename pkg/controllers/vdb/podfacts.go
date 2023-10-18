@@ -165,11 +165,12 @@ type CheckerFunc func(context.Context, *vapi.VerticaDB, *PodFact, *GatherState) 
 
 // A collection of facts for many pods.
 type PodFacts struct {
-	VRec           *VerticaDBReconciler
-	PRunner        cmds.PodRunner
-	Detail         PodFactDetail
-	NeedCollection bool
-	OverrideFunc   CheckerFunc // Set this if you want to be able to control the PodFact
+	VRec               *VerticaDBReconciler
+	PRunner            cmds.PodRunner
+	Detail             PodFactDetail
+	VDBResourceVersion string // The resourceVersion of the VerticaDB at the time the pod facts were gathered
+	NeedCollection     bool
+	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
 }
 
 // GatherState is the data exchanged with the gather pod facts script. We
@@ -210,6 +211,10 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	if !p.NeedCollection {
 		return nil
 	}
+	// Store the resource version of the VerticaDB at the time we collect. This
+	// can be used to asses whether the facts, as it pertains to the VerticaDB,
+	// are up to date.
+	p.VDBResourceVersion = vdb.ResourceVersion
 	p.Detail = make(PodFactDetail) // Clear as there may be some items cached
 
 	// Find all of the subclusters to collect facts for.  We want to include all
@@ -235,6 +240,22 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 // Next call to Collect will gather up the facts again.
 func (p *PodFacts) Invalidate() {
 	p.NeedCollection = true
+}
+
+// HasVerticaDBChangedSinceCollection will return true if we detect the
+// VerticaDB has changed since the last time we collected podfacts. This always
+// returns true if we haven't collected podfacts yet.
+func (p *PodFacts) HasVerticaDBChangedSinceCollection(ctx context.Context, vdb *vapi.VerticaDB) (bool, error) {
+	// If we need a collection, then we have no choice but say "yes, things have changed".
+	if p.NeedCollection {
+		return true, nil
+	}
+	// We always need to refetch the vdb to get the latest resource version
+	nm := vdb.ExtractNamespacedName()
+	if err := p.VRec.Client.Get(ctx, nm, vdb); err != nil {
+		return false, fmt.Errorf("failed to fetch vdb: %w", err)
+	}
+	return p.VDBResourceVersion != vdb.ResourceVersion, nil
 }
 
 // collectSubcluster will collect facts about each pod in a specific subcluster

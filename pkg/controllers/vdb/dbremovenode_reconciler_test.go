@@ -35,9 +35,12 @@ var _ = Describe("dbremovenode_reconcile", func() {
 
 	It("dbremovenode should not return an error if the sts doesn't exist", func() {
 		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		recon := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -74,16 +77,27 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 3
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdbCopy)
-		sc.Size = 1 // mimic a pending db_remove_node
 
-		uninstallPods := []types.NamespacedName{names.GenPodName(vdb, sc, 1), names.GenPodName(vdb, sc, 2)}
+		// Resize the subcluster to remove two nodes
+		nm := vdb.ExtractNamespacedName()
+		fetchedVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, nm, fetchedVdb)).Should(Succeed())
+		fetchedVdb.Spec.Subclusters[0].Size = 1
+		Expect(k8sClient.Update(ctx, fetchedVdb)).Should(Succeed())
+
+		uninstallPods := []types.NamespacedName{
+			names.GenPodName(fetchedVdb, sc, 1), names.GenPodName(fetchedVdb, sc, 2),
+		}
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeDBRemoveNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
+		Expect(pfacts.Collect(ctx, fetchedVdb)).Should(Succeed())
+		dispatcher := vdbRec.makeDispatcher(logger, fetchedVdb, fpr, TestPassword)
+		r := MakeDBRemoveNodeReconciler(vdbRec, logger, fetchedVdb, fpr, pfacts, dispatcher)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res.Requeue).Should(BeFalse())
@@ -124,6 +138,8 @@ var _ = Describe("dbremovenode_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 3
 		vdbCopy := vdb.DeepCopy() // Take a copy so that we cleanup with the original size
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdbCopy)
 		sc.Size = 2 // Set to 2 to mimic a pending uninstall of the last pod
