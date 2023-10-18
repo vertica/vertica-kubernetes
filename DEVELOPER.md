@@ -73,7 +73,7 @@ NAME                        STATUS   ROLES                  AGE   VERSION
 testcluster-control-plane   Ready    control-plane,master   49s   v1.23.0
 ```
 
-You have a master node that is ready to deploy Vertica CRDs for testing purposes.
+You have a master node that is ready to deploy and test Vertica resources.
 
 ## Cleanup
 
@@ -86,7 +86,7 @@ Deleting cluster "testcluster" ...
 kind-registry
 ```
 
-> **NOTE**: If you forgot the cluster name, run Kind directly to return all installed clusters. You must add Kind to your path:
+> **NOTE**: If you forgot the cluster name, run Kind directly to return all installed clusters. You must add `kind` to your path:
 >
 > ```shell
 > PATH=$PATH:path/to/vertica-kubernetes/bin/kind
