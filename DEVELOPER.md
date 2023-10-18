@@ -6,7 +6,7 @@ This guide explains how to set up an environment to develop and test the Vertica
 
 This repository contains the following directories and files:
 
-- `docker-vertica/`: files that build a Vertica server container. This container is designed for [Administration Tools](https://docs.vertica.com/latest/en/admin/using-admin-tools/admin-tools-reference/) deployments.
+- `docker-vertica/`: files that build a Vertica server container. This container is designed for [Administration Tools (admintools)](https://docs.vertica.com/latest/en/admin/using-admin-tools/admin-tools-reference/) deployments.
 
   The build process requires that you provide a Vertica RPM package that is version 11.0.0 or higher.
 
@@ -43,37 +43,57 @@ Before you begin, you must manually install the following software:
 - [changie](https://github.com/miniscruff/changie) (version 1.2.0)
 - [jq](https://stedolan.github.io/jq/download/) (version 1.5+)
 
+> **NOTE**
 > Some [Makefile](./Makefile) targets install additional software in this repo's `bin/` directory.
 
 # Kind
 
-Kind (**K**ubernetes **IN** **D**ocker) runs a local Kubernetes cluster where each node runs in a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;it is the preferred method to test Kubernetes locally.
+Kind (**K**ubernetes **IN** **D**ocker) runs a local Kubernetes cluster where each node runs in a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;Kind is the preferred method to test Kubernetes locally.
 
 All automated e2e tests in this repo run against a Kind cluster.
 
 ## Cluster setup
 
-The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test Vertica. The following command creates a single-node cluster named `testcluster`:
+The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test Vertica.
 
-```shell
-./scripts/kind.sh init testcluster
-```
+1. The following command creates a single-node cluster named `testcluster`:
 
-After the command completes, use kubectx to change the context and use the cluster. The cluster has its own context named `kind-<cluster-name>`:
+   ```shell
+   ./scripts/kind.sh init testcluster
+   ```
 
-```shell
-kubectx kind-testcluster
-```
+   **OUTPUT**
 
-To test the container, check the status of the nodes with kubectl:
+   ```shell
+   docker image ls
+   REPOSITORY     TAG       IMAGE ID       CREATED         SIZE
+   registry       2         0ae1560ca86f   2 weeks ago     25.4MB
+   kindest/node   v1.23.0   b3dd68fe0a8c   22 months ago   1.46GB
+   ```
 
-```shell
-kubectl get nodes
-NAME                        STATUS   ROLES                  AGE   VERSION
-testcluster-control-plane   Ready    control-plane,master   49s   v1.23.0
-```
+   ```shell
+   docker container ls
+   CONTAINER ID   IMAGE                  COMMAND                  CREATED              STATUS              PORTS                       NAMES
+   43d69fe7859f   kindest/node:v1.23.0   "/usr/local/bin/entr…"   About a minute ago   Up About a minute   127.0.0.1:37801->6443/tcp   testcluster-control-plane
+   680c97b6b97f   registry:2             "/entrypoint.sh /etc…"   About a minute ago   Up About a minute   127.0.0.1:5000->5000/tcp    kind-registry
+   ```
 
-You have a master node that is ready to deploy and test Vertica resources.
+2. After the command completes, use kubectx to change the context and use the cluster. The cluster has its own context named `kind-<cluster-name>`:
+
+   ```shell
+   kubectx kind-testcluster
+   Switched to context "kind-testcluster".
+   ```
+
+3. To test the container, check the status of the nodes with kubectl:
+
+   ```shell
+   kubectl get nodes
+   NAME                        STATUS   ROLES                  AGE   VERSION
+   testcluster-control-plane   Ready    control-plane,master   49s   v1.23.0
+   ```
+
+You have a master node and control plane that is ready to deploy and test Vertica resources.
 
 ## Cluster cleanup
 
@@ -86,33 +106,49 @@ Deleting cluster "testcluster" ...
 kind-registry
 ```
 
-> **NOTE**: If you forgot the cluster name, run Kind directly to return all installed clusters. You must add `kind` to your path:
+> **NOTE**
+> If you forgot the cluster name, run Kind directly to return all installed clusters. You must add `kind` to your path:
 >
 > ```shell
 > PATH=$PATH:path/to/vertica-kubernetes/bin/kind
 > kind get clusters
+> testcluster
 > ```
 
 # Developer Workflow
 
-**IMPORTANT**: You must have a Vertica version 11.0.0 or higher RPM to build the _docker-vertica_ container. **This repo DOES NOT include an RPM**.
+> **IMPORTANT**
+> This repo's build tools require a Vertica version 11.0.0 or higher RPM for both admintools and vcluster deployments.
+>
+> You must name the RPM `vertica-x86_64.RHEL6.latest.rpm` and store it in the `docker-vertica/packages/` and `docker-vertica-v2/packages/` directories:
+>
+> ```shell
+> cp /path/to/vertica-x86_64.RHEL6.latest.rpm docker-vertica/packages/
+> cp /path/to/vertica-x86_64.RHEL6.latest.rpm docker-vertica-v2/packages/
+> ```
 
-Store the RPM in the `docker-vertica/packages` and `docker-vertica-v2/packages` directories with the name `vertica-x86_64.RHEL6.latest.rpm`:
+1. build and push container
+2. Generate controller files
+3. Run linters
+4. Run unit tests
+5. Run the operator
+6. Run e2e tests
+7. Run soak tests
+8. Troubleshooting
 
-```shell
-$ cp /dir/vertica-x86_64.RHEL6.latest.rpm docker-vertica/packages/
-$ cp /dir/vertica-x86_64.RHEL6.latest.rpm docker-vertica-v2/packages/
-```
+## Container overview
 
-## 1. Building and Pushing Vertica Container
+The Vertica development and testing environment builds and deploys the following containers:
 
-We currently use the following containers:
+- **docker-vertica**: long-running container that runs the Vertica daemon. This container is designed for admintools deployments.
+- **docker-vertica-v2**: long-running container that runs the Vertica daemon. This container is designed for vcluster deployments.
+- **docker-operator**: runs the VerticaDB operator and webhook.
+- **docker-vlogger**: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT.
+- **docker-bundle**: OLM deployments only. This container stores the operator [bundle](https://github.com/operator-framework/operator-registry/blob/v1.16.1/docs/design/operator-bundle.md). The contents of this directory are generated with the `docker-build-bundle` Make target.
 
-- **docker-vertica/Dockerfile**: The long-running container that runs the vertica daemon. This version is designed for admintools based deployments.
-- **docker-vertica-v2/Dockerfile**: The long-running container that runs the vertica daemon. This version is designed for vclusterops based deployments.
-- **docker-operator/Dockerfile**: The container that runs the operator and webhook
-- **docker-vlogger/Dockerfile**: The container that runs the vertica logger. It will tail the output of vertica.log to stdout. This is used for testing purposes. Some e2e tests use this as a sidecar to the Vertica server container.
-- **docker-bundle/Dockerfile**: The container that contains the 'bundle' for the operator. This is used by OLM. The contents of the docker-bundle/ directory are generated with `make docker-build-bundle`.
+For details about each container, review the Dockerfile in its associated directory. For example, you can find the **docker-vertica** container's [Dockerfile](./docker-vertica/Dockerfile) in the `vertica-kubernetes/docker-vertica/` directory.
+
+## Custom containers
 
 To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
 
@@ -127,19 +163,44 @@ If necessary, these variables can include the url of the registry. For example, 
 
 Vertica provides two container sizes: the default, full image, and the minimal image that does not include the 240MB Tensorflow package.
 
-1. Run the `docker-build` make target to build the necessary containers. The following command uses the default image:
+## Build and push the containers
+
+The [Makefile](./Makefile) provides a target that builds the containers and pushes them to the Kind cluster in the current context:
+
+> **NOTE**
+> Due to the size of the Vertica image, this step might take up to 10 minutes.
+
+1. To build the containers, run the `docker-build` target. By itself, the target uses the default image:
 
    ```shell
    make docker-build
    ```
 
-   To build the minimal container, invoke the make target with `MINIMAL_VERTICA_IMG=YES`:
+   To build the minimal container, include `MINIMAL_VERTICA_IMG=YES`:
 
    ```shell
    make docker-build MINIMAL_VERTICA_IMG=YES
    ```
 
-   Due to the size of the vertica image, this step can take in excess of 10 minutes when run on a laptop.
+   **OUTPUT**
+
+   ```shell
+   docker image ls
+   REPOSITORY           TAG       IMAGE ID       CREATED          SIZE
+   vertica-logger       1.0.0     62661d7c7b1d   19 seconds ago   7.39MB
+   verticadb-operator   1.11.2    c9681519d897   22 seconds ago   64.3MB
+   vertica-k8s          1.11.2    c7e8e144911d   2 minutes ago    1.34GB
+   ubuntu               lunar     639282825872   2 weeks ago      70.3MB
+   registry             2         0ae1560ca86f   2 weeks ago      25.4MB
+   kindest/node         v1.23.0   b3dd68fe0a8c   22 months ago    1.46GB
+   ```
+
+   ```shell
+   docker container ls
+   CONTAINER ID   IMAGE                  COMMAND                  CREATED          STATUS          PORTS                       NAMES
+   43d69fe7859f   kindest/node:v1.23.0   "/usr/local/bin/entr…"   13 minutes ago   Up 13 minutes   127.0.0.1:37801->6443/tcp   testcluster-control-plane
+   680c97b6b97f   registry:2             "/entrypoint.sh /etc…"   13 minutes ago   Up 13 minutes   127.0.0.1:5000->5000/tcp    kind-registry
+   ```
 
 2. Make these containers available to the Kubernetes cluster. Push them to the Kubernetes cluster with the following make target:
 
@@ -147,9 +208,40 @@ Vertica provides two container sizes: the default, full image, and the minimal i
    make docker-push
    ```
 
-   This command honors the same environment variables used when creating the image.
+   This command honors any environment variables that you used when you created the image.
 
-If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images.
+   **OUTPUT**
+
+   ```shell
+   docker image ls
+   REPOSITORY           TAG       IMAGE ID       CREATED         SIZE
+   vertica-logger       1.0.0     62661d7c7b1d   6 minutes ago   7.39MB
+   verticadb-operator   1.11.2    c9681519d897   6 minutes ago   64.3MB
+   vertica-k8s          1.11.2    c7e8e144911d   8 minutes ago   1.34GB
+   ubuntu               lunar     639282825872   2 weeks ago     70.3MB
+   registry             2         0ae1560ca86f   2 weeks ago     25.4MB
+   kindest/node         v1.23.0   b3dd68fe0a8c   22 months ago   1.46GB
+   ```
+
+   ```shell
+   docker container ls
+   CONTAINER ID   IMAGE                  COMMAND                  CREATED          STATUS          PORTS                       NAMES
+   43d69fe7859f   kindest/node:v1.23.0   "/usr/local/bin/entr…"   19 minutes ago   Up 19 minutes   127.0.0.1:37801->6443/tcp   testcluster-control-plane
+   680c97b6b97f   registry:2             "/entrypoint.sh /etc…"   19 minutes ago   Up 19 minutes   127.0.0.1:5000->5000/tcp    kind-registry
+   ```
+
+If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
+
+```shell
+docker system df
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          6         2         2.968GB   1.487GB (50%)
+Containers      2         2         3.099MB   0B (0%)
+Local Volumes   23        2         17.19GB   12.88GB (74%)
+Build Cache     57        0         3.051GB   3.051GB
+```
+
+For details about the `df` command output and its flags and options, see the [Docker documentation](https://docs.docker.com/engine/reference/commandline/system_df/).
 
 ## 2. Generating controller files
 
