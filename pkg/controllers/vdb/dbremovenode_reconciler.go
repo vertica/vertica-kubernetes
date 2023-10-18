@@ -82,6 +82,21 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	// There is a timing scenario where it's possible to skip the drain and just
+	// proceed to remove the nodes. This can occur if the vdb scale down occurs
+	// in the middle of a reconciliation.  This scale down will use the latest
+	// info in the vdb, which may be newer than the state that the drain node
+	// reconiler uses. This check has be close to where we decide about the
+	// scale down.
+	if changed, err := d.PFacts.HasVerticaDBChangedSinceCollection(ctx, d.Vdb); changed || err != nil {
+		if changed {
+			d.Log.Info("Requeue because vdb has changed since last pod facts collection",
+				"oldResourceVersion", d.PFacts.VDBResourceVersion,
+				"newResourceVersion", d.Vdb.ResourceVersion)
+		}
+		return ctrl.Result{Requeue: changed}, err
+	}
+
 	// Use the finder so that we check only the subclusters that are in the vdb.
 	// Any nodes that are in subclusters that we are removing are handled by the
 	// DBRemoveSubcusterReconciler.
