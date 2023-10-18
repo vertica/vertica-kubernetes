@@ -51,7 +51,7 @@ Kind (**K**ubernetes **IN** **D**ocker) runs a local Kubernetes cluster where ea
 
 All automated e2e tests in this repo run against a Kind cluster.
 
-## Setup
+## Cluster setup
 
 The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test Vertica. The following command creates a single-node cluster named `testcluster`:
 
@@ -75,7 +75,7 @@ testcluster-control-plane   Ready    control-plane,master   49s   v1.23.0
 
 You have a master node that is ready to deploy and test Vertica resources.
 
-## Cleanup
+## Cluster cleanup
 
 When you no longer need a cluster, you can delete it with the helper script. The following command deletes the cluster named `testcluster`:
 
