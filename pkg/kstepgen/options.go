@@ -91,8 +91,8 @@ type SubclusterCfg struct {
 	MaxSize int `json:"maxSize"`
 	// When true the subcluster is removed if the size is 0
 	RemoveWhenZero bool `json:"removeWhenZero,omitempty"`
-	// True if this subcluster should be a primary one
-	IsPrimary bool `json:"isPrimary"`
+	// Type of subcluster. Either primary or secondary.
+	Type string `json:"type"`
 }
 
 // Locations contains various paths needed to run this program
