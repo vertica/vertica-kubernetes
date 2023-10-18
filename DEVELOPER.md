@@ -2,15 +2,15 @@
 
 This guide explains how to set up an environment to develop and test the Vertica operator.
 
-# Repo Structure
+# Repo structure
 
 This repository contains the following directories and files:
 
-- `docker-vertica/`: files that build a Vertica server container that is designed for [Administration Tools](https://docs.vertica.com/latest/en/admin/using-admin-tools/admin-tools-reference/) deployments.
+- `docker-vertica/`: files that build a Vertica server container. This container is designed for [Administration Tools](https://docs.vertica.com/latest/en/admin/using-admin-tools/admin-tools-reference/) deployments.
 
   The build process requires that you provide a Vertica RPM package that is version 11.0.0 or higher.
 
-- `docker-vertica-v2/`: files that build the v2 Vertica server container that is designed for vclusterops deployments.
+- `docker-vertica-v2/`: files that build the v2 Vertica server container. This container is designed for vclusterops deployments.
 - `docker-operator/`: files that build the [VerticaDB operator](https://docs.vertica.com/latest/en/containerized/db-operator/) container.
 - `docker-vlogger/`: files that build the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT.
 - `scripts/`: scripts that run Makefile targets and execute end-to-end (e2e) tests with tools in this repository.
@@ -25,9 +25,9 @@ This repository contains the following directories and files:
 - `hack/`: file that contains the copyright boilerplate included on all generated files.
 - `helm-charts/`: Helm charts that this repository builds.
 
-# Software Setup
+# Software requirements
 
-Prior to developing, the following software needs to be installed manually. There is other software that needed, but it is downloaded through make targets in the repo's bin directory.
+Before you begin, you must manually install the following software:
 
 - [docker](https://docs.docker.com/get-docker/) (version 23.0)
 - [go](https://golang.org/doc/install) (version 1.20)
@@ -35,10 +35,15 @@ Prior to developing, the following software needs to be installed manually. Ther
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
 - [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)
 - [kubens](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubens) (version 0.9.1)
-- [krew](https://github.com/kubernetes-sigs/krew/releases/tag/v0.4.1) (version 0.4.1) $HOME/.krew/bin must be in your path
+- [krew](https://github.com/kubernetes-sigs/krew/releases/tag/v0.4.1) (version 0.4.1)
+
+  After installation, you must add `$HOME/.krew/bin` to your PATH.
+
 - [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
 - [changie](https://github.com/miniscruff/changie) (version 1.2.0)
 - [jq](https://stedolan.github.io/jq/download/) (version 1.5+)
+
+> Some [Makefile](./Makefile) targets install additional software in this repo's `bin/` directory.
 
 # Kind
 
