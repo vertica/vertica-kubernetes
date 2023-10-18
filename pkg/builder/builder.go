@@ -197,6 +197,17 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildHTTPServerVolumeMount()...)
 	}
 
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		// Include a temp directory to be used by vcluster scrutinize. We want
+		// the temp directory to be large enough to store compressed logs and
+		// such. These can be quite big, so we cannot risk storing those in
+		// local disk on the node, which may fill up and cause the pod to be
+		// rescheduled.
+		volMnts = append(volMnts, corev1.VolumeMount{
+			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("scrutinize"), MountPath: paths.ScrutinizeTmp,
+		})
+	}
+
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
