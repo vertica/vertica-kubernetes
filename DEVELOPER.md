@@ -47,27 +47,33 @@ Before you begin, you must manually install the following software:
 
 # Kind
 
+Kind (**K**ubernetes **IN** **D**ocker) runs a local Kubernetes cluster where each node runs in a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;it is the preferred method to test Kubernetes locally.
+
+All automated e2e tests in this repo run against a Kind cluster.
+
 ## Setup
 
-[Kind](https://kind.sigs.k8s.io/) is the preferred way to set up a Kubernetes cluster for local testing. The machine requirements for running Kind are minimal - it is possible to set this up on your own laptop. All of the automated e2e tests run against a kind cluster.
-
-We have a wrapper that you can use to set up Kind and create a cluster that is suitable for testing Vertica. The following command creates a cluster named `cluster1` with one node. It completes after a few minutes:
+The `scripts/kind.sh` script makes it easy to set up Kind and create a cluster to test Vertica. The following command creates a single-node cluster named `testcluster`:
 
 ```shell
-$ scripts/kind.sh init cluster1
+scripts/kind.sh init testcluster
 ```
 
-When the command completes, change the context to use the cluster. The cluster has its own kubectl context named `kind-cluster1`:
+After the command completes, use kubectx to change the context and use the cluster. The cluster has its own context named `kind-<cluster-name>`:
 
 ```shell
-$ kubectx kind-cluster1
+kubectx kind-testcluster
 ```
 
-To test the container, check the status of the nodes:
+To test the container, check the status of the nodes with kubectl:
 
 ```shell
-$ kubectl get nodes
+kubectl get nodes
+NAME                        STATUS   ROLES                  AGE   VERSION
+testcluster-control-plane   Ready    control-plane,master   49s   v1.23.0
 ```
+
+You have a master node that is ready to deploy Vertica CRDs for testing purposes.
 
 ## Cleanup
 
