@@ -180,6 +180,7 @@ function ensure_hostpath_perms {
         #
         # You may be prompted for sudo access to change the ownership of the
         # hostpath. So turning on trace so that it is obvious.
+        # SPILLY - this may be problematic
         set -o xtrace
         sudo chown -R 5000 $FULL_PATH
         set +o xtrace

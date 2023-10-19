@@ -29,6 +29,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -619,6 +620,11 @@ func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 // acceptEulaIfMissing is a wrapper function that calls another function that
 // accepts the end user license agreement.
 func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
+	// The EULA is specific to admintools based deployments. Skipping for
+	// vcluster. SPILLY move this into the vadmin abstraction
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+		return nil
+	}
 	return acceptEulaIfMissing(ctx, r.PFacts, r.PRunner)
 }
 

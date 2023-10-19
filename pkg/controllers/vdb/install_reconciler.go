@@ -82,9 +82,14 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 // installForVClusterOps will go through the install phase for vclusterOps.
 // It only generates the http certs.
 func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Result, error) {
-	err := d.generateHTTPCerts(ctx)
-	if err != nil {
-		return ctrl.Result{}, err
+	fns := []func(context.Context) error{
+		d.createConfigDirsIfNecessary,
+		d.generateHTTPCerts,
+	}
+	for _, fn := range fns {
+		if err := fn(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }
@@ -295,40 +300,42 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
-	if !p.dirExists[paths.ConfigLogrotatePath] {
-		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
-		numCmds++
-	}
 
-	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
-		numCmds++
-	}
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		if !p.dirExists[paths.HTTPTLSConfDir] {
+			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
+			numCmds++
+		}
+	} else {
+		if !p.dirExists[paths.ConfigLogrotatePath] {
+			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
+			numCmds++
+		}
 
-	if !p.fileExists[paths.LogrotateBaseConfFile] {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
-		numCmds++
-	}
+		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
+			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigSharePath] {
-		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
-		numCmds++
-	}
+		if !p.fileExists[paths.LogrotateBaseConfFile] {
+			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
+			numCmds++
+		}
 
-	// vclusterops depends on https services to be running.
-	if vmeta.UseVClusterOps(d.Vdb.Annotations) && !p.dirExists[paths.HTTPTLSConfDir] {
-		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
-		numCmds++
-	}
+		if !p.dirExists[paths.ConfigSharePath] {
+			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigLicensingPath] {
-		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
-		numCmds++
-	}
+		if !p.dirExists[paths.ConfigLicensingPath] {
+			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
-		numCmds++
+		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
+			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
+			numCmds++
+		}
 	}
 
 	if numCmds == 0 {
