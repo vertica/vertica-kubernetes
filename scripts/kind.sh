@@ -176,11 +176,11 @@ function ensure_hostpath_perms {
         FULL_PATH=$MOUNT_PATH/$EXPECTED_SUBPATH
         mkdir -p $FULL_PATH
         # When the vertica container runs it uses a dbadmin user with uid/gid
-        # of 5000. We need to ensure the hostpath is writable by that user.
+        # of 5000 by default. We need to ensure the hostpath is writable by
+        # that user.
         #
         # You may be prompted for sudo access to change the ownership of the
         # hostpath. So turning on trace so that it is obvious.
-        # SPILLY - this may be problematic
         set -o xtrace
         sudo chown -R 5000 $FULL_PATH
         set +o xtrace

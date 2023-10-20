@@ -28,7 +28,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -107,7 +106,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// If the create/revive database process fails, we skip restarting the cluster to redo the create/revive process.
 	// restart reconciler is only skipped for VClusterOps.
 	// In Admintools, the IP is cached in admintool.conf and needs to be updated.
-	if meta.UseVClusterOps(r.Vdb.Annotations) {
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 		isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
 		if !isSet || e != nil {
 			r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
@@ -621,7 +620,7 @@ func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 // accepts the end user license agreement.
 func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
 	// The EULA is specific to admintools based deployments. Skipping for
-	// vcluster. SPILLY move this into the vadmin abstraction
+	// vcluster.
 	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 		return nil
 	}
@@ -636,7 +635,7 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
 	// necessary to keep installed-only nodes up to date in admintools.conf. For
 	// this reason, we can skip if using vclusterOps.
 	if isRestartNode {
-		if meta.UseVClusterOps(r.Vdb.Annotations) {
+		if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 			return nil
 		}
 		return r.PFacts.findReIPPods(dBCheckOnlyWithoutDBs)
@@ -644,7 +643,7 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
 	// For cluster restart, we re-ip all nodes that have been added to the DB.
 	// And if using admintools, we also need to re-ip installed pods that
 	// haven't been added to the db to keep admintools.conf in-sync.
-	if meta.UseVClusterOps(r.Vdb.Annotations) {
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 		return r.PFacts.findReIPPods(dBCheckOnlyWithDBs)
 	}
 	return r.PFacts.findReIPPods(dBCheckAny)

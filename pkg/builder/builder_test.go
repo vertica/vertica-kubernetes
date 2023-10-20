@@ -117,13 +117,6 @@ var _ = Describe("builder", func() {
 		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
 	})
 
-	It("should mount config/https_certs if vclusterops flag is set to true", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = "true"
-		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("config/https_certs")))
-	})
-
 	It("should have a specific mount name and no subPath for depot if depotVolume is EmptyDir", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Local.DepotVolume = vapi.PersistentVolume
@@ -178,12 +171,6 @@ var _ = Describe("builder", func() {
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(c.LivenessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
 		Expect(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
-	})
-
-	It("should have the fsGroup set for the dbadmin GID", func() {
-		vdb := vapi.MakeVDB()
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
 	})
 
 	It("should not mount superuser password if probe's overridden", func() {
@@ -253,7 +240,6 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
 		Expect(len(c.SecurityContext.Sysctls)).Should(Equal(2))
 		Expect(c.SecurityContext.Sysctls[0].Name).Should(Equal("net.ipv4.tcp_keepalive_time"))
 		Expect(c.SecurityContext.Sysctls[0].Value).Should(Equal("45"))

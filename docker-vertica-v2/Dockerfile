@@ -61,11 +61,6 @@ RUN set -x \
   && yum clean all \
   && sh /tmp/cleanup.sh
 
-# SPILLY - remove this
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN set -x \
-  && chown -R dbadmin:verticadba /home/dbadmin/
-
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION} as initial
 
@@ -96,7 +91,6 @@ COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
 ENV JAVA_HOME "/usr"
-ENV PS1 "[\H] \w\$ "
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
 
@@ -131,7 +125,6 @@ RUN set -x \
   openssl \
   procps \
   sysstat \
-  sudo \
   vim-tiny \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
@@ -142,9 +135,13 @@ RUN set -x \
   && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-  && /usr/sbin/groupadd -r verticadba \
-  && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba dbadmin \
+  # Cannot set sudo because the ID we run the container may not exist in the
+  # passwd file. Set a simple root password so you can do some commands as root
+  # if you need be. This isn't a security violation per se since you can control
+  # at the pod level or above if the container is allowed to have elevated privileges.
+  && echo "root:root" | chpasswd \
   && echo "* -       nofile  65536" >> /etc/security/limits.conf \
+  && echo 'export PS1="[\H] \w\$ "' >> /etc/bash.bashrc \
   # Create a symlink to python3 interpreter in vertica
   && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
   && chmod u+s /usr/sbin/cron \
@@ -158,7 +155,6 @@ ENTRYPOINT [ "/init" ]
 EXPOSE 5433
 # vertica-http port
 EXPOSE 8443
-USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
 LABEL maintainer="K8s Team"
