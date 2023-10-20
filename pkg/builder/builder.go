@@ -54,6 +54,7 @@ const (
 	CatalogPathEnv  = "CATALOG_PATH"
 	DepotPathEnv    = "DEPOT_PATH"
 	DatabaseNameEnv = "DATABASE_NAME"
+	VSqlUserEnv     = "VSQL_USER"
 
 	// Environment variables that are set when deployed with vclusterops
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
@@ -592,6 +593,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		{Name: DepotPathEnv, Value: vdb.Spec.Local.DepotPath},
 		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
 		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
+		{Name: VSqlUserEnv, Value: vdb.GetVerticaUser()},
 	}...)
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
