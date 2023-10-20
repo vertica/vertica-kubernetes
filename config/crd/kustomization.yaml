@@ -9,9 +9,7 @@ resources:
 
 patchesStrategicMerge:
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
-  # patches here are for enabling the conversion webhook for all CRDs except
-  # the VerticaDB. For that, the operator will add in the conversion webhook
-  # patch.
+  - patches/webhook_in_verticadbs.yaml
   - patches/webhook_in_verticaautoscalers.yaml
   - patches/webhook_in_eventtriggers.yaml
   #+kubebuilder:scaffold:crdkustomizewebhookpatch
