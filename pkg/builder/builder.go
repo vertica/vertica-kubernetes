@@ -122,13 +122,23 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	return svc
 }
 
-// buildConfigVolumeMount returns the volume mount for config.
+// buildConfigVolumeMounts returns the volume mount for config.
 // If vclusterops flag is enabled we mount only /opt/vertica/config/https_certs
-func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
-	return corev1.VolumeMount{
-		Name:      vapi.LocalDataPVC,
-		SubPath:   vdb.GetPVSubPath("config"),
-		MountPath: paths.ConfigPath,
+func buildConfigVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		// We need to mount config and config/https_certs because of the NMA cache
+		// file. It will write out /opt/vertica/config/https_certs/tls_path_cache.yaml.
+		// It does this before the install so that subdirectory must exist.
+		{
+			Name:      vapi.LocalDataPVC,
+			SubPath:   vdb.GetPVSubPath("config/https_certs"),
+			MountPath: paths.HTTPTLSConfDir,
+		},
+		{
+			Name:      vapi.LocalDataPVC,
+			SubPath:   vdb.GetPVSubPath("config"),
+			MountPath: paths.ConfigPath,
+		},
 	}
 }
 
@@ -136,11 +146,11 @@ func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
-		buildConfigVolumeMount(vdb),
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("data"), MountPath: vdb.Spec.Local.DataPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
+	volMnts = append(volMnts, buildConfigVolumeMounts(vdb)...)
 	// Only mount separate depot/catalog paths if the paths are different in the
 	// container. Otherwise, you will get multiple mount points shared the same
 	// path, which will prevent any pods from starting.
