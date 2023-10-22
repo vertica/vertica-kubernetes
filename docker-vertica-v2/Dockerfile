@@ -135,6 +135,7 @@ RUN set -x \
   && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
+  && /usr/sbin/useradd -r -m -s /bin/bash dbadmin \
   # Cannot set sudo because the ID we run the container may not exist in the
   # passwd file. Set a simple root password so you can do some commands as root
   # if you need be. This isn't a security violation per se since you can control
@@ -155,6 +156,7 @@ ENTRYPOINT [ "/init" ]
 EXPOSE 5433
 # vertica-http port
 EXPOSE 8443
+USER dbadmin
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
 LABEL maintainer="K8s Team"
