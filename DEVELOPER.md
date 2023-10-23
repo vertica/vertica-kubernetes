@@ -48,7 +48,7 @@ Before you begin, you must manually install the following software:
 
 # Kind
 
-Kind (**K**ubernetes **IN** **D**ocker) runs a local Kubernetes cluster where each node runs in a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;Kind is the preferred method to test Kubernetes locally.
+Kind (**K**ubernetes **IN** **D**ocker) runs a Kubernetes cluster where each cluster node is a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;Kind is the preferred method to test and develop Kubernetes locally.
 
 All automated e2e tests in this repo run against a Kind cluster.
 
@@ -56,58 +56,56 @@ All automated e2e tests in this repo run against a Kind cluster.
 
 The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test Vertica.
 
-1. The following command creates a single-node cluster named `testcluster`:
+1. The following command creates a single-node cluster named `devcluster`:
 
    ```shell
-   ./scripts/kind.sh init testcluster
+   ./scripts/kind.sh init devcluster
    ```
 
-   **OUTPUT**
+   The previous command pulls the [kindest/node](https://hub.docker.com/r/kindest/node/) image and the [kind registry image](https://kind.sigs.k8s.io/docs/user/local-registry/), and starts them as containers:
 
    ```shell
    docker image ls
    REPOSITORY     TAG       IMAGE ID       CREATED         SIZE
-   registry       2         0ae1560ca86f   2 weeks ago     25.4MB
+   registry       2         ff1857193a0b   2 days ago      25.4MB
    kindest/node   v1.23.0   b3dd68fe0a8c   22 months ago   1.46GB
-   ```
 
-   ```shell
    docker container ls
    CONTAINER ID   IMAGE                  COMMAND                  CREATED              STATUS              PORTS                       NAMES
-   43d69fe7859f   kindest/node:v1.23.0   "/usr/local/bin/entr…"   About a minute ago   Up About a minute   127.0.0.1:37801->6443/tcp   testcluster-control-plane
-   680c97b6b97f   registry:2             "/entrypoint.sh /etc…"   About a minute ago   Up About a minute   127.0.0.1:5000->5000/tcp    kind-registry
+   6740fc7ab88a   kindest/node:v1.23.0   "/usr/local/bin/entr…"   About a minute ago   Up About a minute   127.0.0.1:38577->6443/tcp   devcluster-control-plane
+   907665ae2da6   registry:2             "/entrypoint.sh /etc…"   2 minutes ago        Up About a minute   127.0.0.1:5000->5000/tcp    kind-registry
    ```
 
-2. After the command completes, use kubectx to change the context and use the cluster. The cluster has its own context named `kind-<cluster-name>`:
+2. After the command completes, use `kubectx` to change to the new cluster's context, which is named `kind-<cluster-name>`:
 
    ```shell
-   kubectx kind-testcluster
-   Switched to context "kind-testcluster".
+   kubectx kind-devcluster
+   Switched to context "kind-devcluster".
    ```
 
-3. To test the container, check the status of the nodes with kubectl:
+3. To test the container, check the status of the cluster nodes with kubectl:
 
    ```shell
    kubectl get nodes
-   NAME                        STATUS   ROLES                  AGE   VERSION
-   testcluster-control-plane   Ready    control-plane,master   49s   v1.23.0
+   NAME                       STATUS   ROLES                  AGE     VERSION
+   devcluster-control-plane   Ready    control-plane,master   9m41s   v1.23.0
    ```
 
-You have a master node and control plane that is ready to deploy and test Vertica resources.
+You have a master node and control plane that is ready to deploy and Vertica Kubernetes resources locally.
 
 ## Cluster cleanup
 
-When you no longer need a cluster, you can delete it with the helper script. The following command deletes the cluster named `testcluster`:
+When you no longer need a cluster, you can delete it with the helper script. The following command deletes the cluster named `devcluster`:
 
 ```shell
-./scripts/kind.sh term testcluster
+./scripts/kind.sh term devcluster
 ...
-Deleting cluster "testcluster" ...
+Deleting cluster "devcluster" ...
 kind-registry
 ```
 
 > **NOTE**
-> If you forgot the cluster name, run Kind directly to return all installed clusters. You must add `kind` to your path:
+> If you forgot a cluster name, run Kind directly to return all installed clusters. First, you must add `kind` to your path:
 >
 > ```shell
 > PATH=$PATH:path/to/vertica-kubernetes/bin/kind
@@ -115,7 +113,7 @@ kind-registry
 > testcluster
 > ```
 
-# Developer Workflow
+# Development setup
 
 > **IMPORTANT**
 > This repo's build tools require a Vertica version 11.0.0 or higher RPM for both admintools and vcluster deployments.
@@ -136,18 +134,6 @@ kind-registry
 7. Run soak tests
 8. Troubleshooting
 
-### Container overview
-
-The Vertica development and testing environment builds and deploys the following containers:
-
-- **docker-vertica**: long-running container that runs the Vertica daemon. This container is designed for admintools deployments.
-- **docker-vertica-v2**: long-running container that runs the Vertica daemon. This container is designed for vcluster deployments.
-- **docker-operator**: runs the VerticaDB operator and webhook.
-- **docker-vlogger**: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT.
-- **docker-bundle**: OLM deployments only. This container stores the operator [bundle](https://github.com/operator-framework/operator-registry/blob/v1.16.1/docs/design/operator-bundle.md). The contents of this directory are generated with the `docker-build-bundle` Make target.
-
-For details about each container, review the Dockerfile in its associated directory. For example, you can find the **docker-vertica** container's [Dockerfile](./docker-vertica/Dockerfile) in the `vertica-kubernetes/docker-vertica/` directory.
-
 ### Custom containers
 
 To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
@@ -165,7 +151,7 @@ Vertica provides two container sizes: the default, full image, and the minimal i
 
 ### Build and push the containers
 
-The [Makefile](./Makefile) provides a target that builds the containers and pushes them to the Kind cluster in the current context:
+The [Makefile](./Makefile) provides targest that build the images and push them to the Kind cluster in the current context:
 
 > **NOTE**
 > Due to the size of the Vertica image, this step might take up to 10 minutes.
@@ -182,7 +168,7 @@ The [Makefile](./Makefile) provides a target that builds the containers and push
    make docker-build MINIMAL_VERTICA_IMG=YES
    ```
 
-   **OUTPUT**
+   When the command completes, you have the following images on your machine:
 
    ```shell
    docker image ls
@@ -191,18 +177,17 @@ The [Makefile](./Makefile) provides a target that builds the containers and push
    verticadb-operator   1.11.2    c9681519d897   22 seconds ago   64.3MB
    vertica-k8s          1.11.2    c7e8e144911d   2 minutes ago    1.34GB
    ubuntu               lunar     639282825872   2 weeks ago      70.3MB
-   registry             2         0ae1560ca86f   2 weeks ago      25.4MB
-   kindest/node         v1.23.0   b3dd68fe0a8c   22 months ago    1.46GB
+   ...
    ```
 
-   ```shell
-   docker container ls
-   CONTAINER ID   IMAGE                  COMMAND                  CREATED          STATUS          PORTS                       NAMES
-   43d69fe7859f   kindest/node:v1.23.0   "/usr/local/bin/entr…"   13 minutes ago   Up 13 minutes   127.0.0.1:37801->6443/tcp   testcluster-control-plane
-   680c97b6b97f   registry:2             "/entrypoint.sh /etc…"   13 minutes ago   Up 13 minutes   127.0.0.1:5000->5000/tcp    kind-registry
-   ```
+   - **vertica-k8s**: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
+   - **verticadb-operator**: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
+   - **vertica-logger**: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
 
-2. Make these containers available to the Kind cluster. Push them to the cluster with the following make target:
+   > **NOTE**
+   > OLM deployments create an image for the operator [bundle](https://github.com/operator-framework/operator-registry/blob/v1.16.1/docs/design/operator-bundle.md). The contents of this directory are generated with the `docker-build-bundle` Make target.
+
+2. Next, you have to make these containers available to the Kind cluster's control plane. Push them to the cluster with the following make target:
 
    ```shell
    make docker-push
@@ -210,42 +195,26 @@ The [Makefile](./Makefile) provides a target that builds the containers and push
 
    This command honors any environment variables that you used when you created the image.
 
-   **OUTPUT**
-
-   ```shell
-   docker image ls
-   REPOSITORY           TAG       IMAGE ID       CREATED         SIZE
-   vertica-logger       1.0.0     62661d7c7b1d   6 minutes ago   7.39MB
-   verticadb-operator   1.11.2    c9681519d897   6 minutes ago   64.3MB
-   vertica-k8s          1.11.2    c7e8e144911d   8 minutes ago   1.34GB
-   ubuntu               lunar     639282825872   2 weeks ago     70.3MB
-   registry             2         0ae1560ca86f   2 weeks ago     25.4MB
-   kindest/node         v1.23.0   b3dd68fe0a8c   22 months ago   1.46GB
-   ```
-
-   ```shell
-   docker container ls
-   CONTAINER ID   IMAGE                  COMMAND                  CREATED          STATUS          PORTS                       NAMES
-   43d69fe7859f   kindest/node:v1.23.0   "/usr/local/bin/entr…"   19 minutes ago   Up 19 minutes   127.0.0.1:37801->6443/tcp   testcluster-control-plane
-   680c97b6b97f   registry:2             "/entrypoint.sh /etc…"   19 minutes ago   Up 19 minutes   127.0.0.1:5000->5000/tcp    kind-registry
-   ```
-
 If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
 
 ```shell
 docker system df
 TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
-Images          6         2         2.968GB   1.487GB (50%)
+Images          6         2         2.983GB   1.501GB (50%)
 Containers      2         2         3.099MB   0B (0%)
-Local Volumes   23        2         17.19GB   12.88GB (74%)
-Build Cache     57        0         3.051GB   3.051GB
+Local Volumes   25        2         21.53GB   17.19GB (79%)
+Build Cache     57        0         3.456GB   3.456GB
 ```
 
-For details about the `df` command output and its flags and options, see the [Docker documentation](https://docs.docker.com/engine/reference/commandline/system_df/).
+For details about the `df` command options, flags, and output, see the [Docker documentation](https://docs.docker.com/engine/reference/commandline/system_df/).
+
+# Developer Workflows
 
 ## Generate controller files
 
-Vertica uses the [Operator-sdk framework](https://sdk.operatorframework.io/) for the operator. It provides tools to generate code so that you do not have to manually write boilerplate code. Depending on what you changed you may need to periodically regenerate files with the following command:
+The VerticaDB operator uses the [Operator SDK framework](https://sdk.operatorframework.io/). This framework provides tools that generate manifests so that you do not have to manually write boilerplate code.
+
+After you make changes to your development environment, you might need to regenerate these files. Run the following command:
 
 ```shell
 make generate manifests
@@ -253,11 +222,11 @@ make generate manifests
 
 ## Linters
 
-We run three different linters:
+A linter analyzes your code to asses the code quality and identify errors. Vertica on Kubernetes runs three different linters:
 
-- [Helm lint](https://helm.sh/docs/helm/helm_lint/): Uses the chart verification test that is built into Helm.
-- [golint](https://pkg.go.dev/golang.org/x/lint/golint): Uses a few linters that you can run with golang.
-- [Dockerfile lint](https://github.com/hadolint/hadolint): Uses hadolint to check the various Dockerfiles that we have in our repo.
+- [Helm lint](https://helm.sh/docs/helm/helm_lint/): Runs the chart verification test that is built into Helm.
+- [golint](https://pkg.go.dev/golang.org/x/lint/golint): Runs a few linters that you can run with Go.
+- [hadolint](https://github.com/hadolint/hadolint): Checks the various Dockerfiles that we have in our repo.
 
 Run all linters with the `lint` target:
 
