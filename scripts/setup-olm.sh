@@ -87,6 +87,8 @@ then
         # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
         kubectl delete catalogsource operatorhubio-catalog -n $OLM_NS || true
     fi
+else
+    OLM_NS=openshift-marketplace
 fi
 
 kubectl delete catalogsource $CATALOG_SOURCE_NAME -n $OLM_NS || true
