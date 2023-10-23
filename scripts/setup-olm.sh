@@ -87,12 +87,6 @@ then
         # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
         kubectl delete catalogsource operatorhubio-catalog -n $OLM_NS || true
     fi
-else
-    OLM_NS=openshift-marketplace
-    # Delete the custom scc if it already exists
-    kubectl delete scc anyuid-extra || :
-    # Create the custom scc
-    kubectl apply -f $CUSTOM_SCC_DIR/custom-scc.yaml
 fi
 
 kubectl delete catalogsource $CATALOG_SOURCE_NAME -n $OLM_NS || true
