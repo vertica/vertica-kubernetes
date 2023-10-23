@@ -180,9 +180,9 @@ The [Makefile](./Makefile) provides targest that build the images and push them 
    ...
    ```
 
-   - **vertica-k8s**: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
-   - **verticadb-operator**: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
-   - **vertica-logger**: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
+   - `vertica-k8s`: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
+   - `verticadb-operator`: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
+   - `vertica-logger`: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
 
    > **NOTE**
    > OLM deployments create an image for the operator [bundle](https://github.com/operator-framework/operator-registry/blob/v1.16.1/docs/design/operator-bundle.md). The contents of this directory are generated with the `docker-build-bundle` Make target.
@@ -210,21 +210,94 @@ For details about the `df` command options, flags, and output, see the [Docker d
 
 # Developer Workflows
 
-## Misc
-
 ### Generate controller files
 
-The VerticaDB operator uses the [Operator SDK framework](https://sdk.operatorframework.io/). This framework provides tools that generate manifests so that you do not have to manually write boilerplate code.
+The VerticaDB operator uses the [Operator SDK framework](https://sdk.operatorframework.io/). This framework provides tools that generate files so that you do not have to manually write boilerplate code.
 
-After you make changes to your development environment, you might need to regenerate these files. Run the following command:
+The following make target generates these boilerplate files and the manifests that deploy the VerticaDB operator:
 
 ```shell
 make generate manifests
 ```
 
-### Linters
+> **NOTE**
+> After you make changes to your development environment, you might need to regenerate these files.
 
-A linter analyzes your code to asses the code quality and identify errors. Vertica on Kubernetes runs three different linters:
+## Run the VerticaDB operator
+
+You have two options to run the VerticaDB operator:
+
+- [Local](#local-operator): run the operator synchronously in a shell.
+- [Deployment object](#deployment-object): Package the operator in a container and deploy in Kubernetes as a deployment object.
+
+The operator is cluster-scoped for both options, so it monitors CRs in all namespaces.
+
+### Local operator
+
+> **NOTE**
+> When you run the operator locally, you cannot run [e2e tests](#e2e-tests). You can run only [ad-hoc tests](#unit-tests).
+
+The local deployment option is the fastest method to get the operator up and running, but it has limitations:
+
+- A local operator does not mimic the way that the operator runs in a real Kubernetes environment.
+- The webhook is disabled. The webhook requires TLS certs that are available only when the operator is packaged in a container.
+
+#### Install
+
+To run the operator locally, enter the following command:
+
+```shell
+make install run
+```
+
+#### Stop
+
+To stop the operator, press **Ctrl + C**.
+
+### Deployment object
+
+When you run the operator as a deployment obejct, it runs in a container in a real Kubernetes environment. By default, the operator is deployed in the `verticadb-operator` namespace and it creates it if necessary.
+
+Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You can control the deployment model by passing the `DEPLOY_WITH` environment variable to the `make` command. `DEPLOY_WITH` accepts the following arguments:
+
+- `helm`
+- `olm`
+
+The operator pod contains a webhook, which requires TLS certificates and each deployment model is different.
+
+#### Helm
+
+Deploy the operator with Helm and all its prerequisites with the following command:
+
+```shell
+DEPLOY_WITH=helm make config-transformer deploy
+```
+
+The Helm charts generate a self-signed TLS certificate. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
+
+#### OLM
+
+When installing with OLM, you need to have OLM setup. For details, see the [OLM documentation](https://olm.operatorframework.io/docs/advanced-tasks/adding-admission-and-conversion-webhooks/#certificate-authority-requirements).
+
+To deploy olm all of its prereqs, use the following command:
+
+```shell
+DEPLOY_WITH=olm make setup-olm deploy
+```
+
+#### Remove
+
+To remove the operator, run the `undeploy` make target. This command removes the operator for both Helm and OLM deployments:
+
+```shell
+make undeploy
+```
+
+# Testing
+
+## Linting
+
+A linter analyzes files to asses the code quality and identify errors. Vertica on Kubernetes runs three different linters:
 
 - [Helm lint](https://helm.sh/docs/helm/helm_lint/): Runs the chart verification test that is built into Helm.
 - [golint](https://pkg.go.dev/golang.org/x/lint/golint): Runs a few linters that you can run with Go.
@@ -236,82 +309,25 @@ Run all linters with the `lint` target:
 make lint
 ```
 
-## Run the Operator
-
-There are two ways to run the operator:
-
-1. Locally in your shell.
-2. Packaged in a container and deployed in Kubernetes as a deployment object
-
-### Option 1: Locally
-
-This method runs the operator synchronously in your shell. It is the fastest way get up and running, but it does not mimic the way that the operator runs in a real Kubernetes environment.
-
-Enter the following command:
-
-```shell
-make install run
-```
-
-Press **Ctrl+C** to stop the operator.
-
-**NOTE:** When you run the operator locally, you can run only ad-hoc tests, not the e2e tests
-
-This disables the webhook from running too, as running the webhook requires TLS certs to be available.
-
-The operator is cluster scoped, so it will monitor CR's in all namespaces.
-
-### Option 2: Kubernetes Deployment
-
-When run in this mode you deploy the operator container in a real k8s environment. The operator is cluster scoped, so you need to only deploy it once. By default it will deploy the operator in the verticadb-operator namespace, creating it if necessary.
-
-The default deployment model will install the operator with helm. You can also have it install with olm. You can control this by specifing the `DEPLOY_WITH` environment variable; valid values are: helm or olm.
-
-The operator pod contains a webhook, which needs TLS certificates setup. When deploying with helm, the default behaviour is generate a self-signed TLS certificate internally. Although, there are helm chart parameters to provide a custom TLS certificate or have one created through cert-manager (see the webhook.certSource helm chart parameter for info).
-
-When installing with olm, you need to have olm setup.
-
-To deploy helm and all of its prereqs, use the following command:
-
-```shell
-DEPLOY_WITH=helm make config-transformer deploy
-```
-
-To deploy olm all of its prereqs, use the following command:
-
-```shell
-DEPLOY_WITH=olm make setup-olm deploy
-```
-
-To remove the operator, regardless of how it was deployed, run the `undeploy` make target:
-
-```shell
-make undeploy
-```
-
-# Testing
-
 ## Unit Tests
 
-We have unit tests for both the Helm chart and the Go operator.
-
-Unit tests for the Helm chart are stored in `helm-charts/verticadb-operator/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic). For details about the test format, review the [helm-unittest GitHub repo](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md).
-
-Unit tests for the Go operator use the Go testing infrastructure. Some of the tests stand up a mock Kubernetes control plane using envtest, and runs the operator against that. Per Go standards, the test files are included in package directories and end with `_test.go`.
-
-The Helm chart testing and Go lang unit tests can be run like this:
+This repo contains unit tests for both the Helm chart and the VerticaDB operator. Run the unit tests with the following make target:
 
 ```shell
 make run-unit-tests
 ```
 
+Helm chart unit tests are stored in `helm-charts/verticadb-operator/tests` and use the [helm-unittest plugin](https://github.com/quintush/helm-unittest). The helm-unittest repo includes [test samples and templates](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic) so you can model your own tests. For details about the test format, see the [helm-unittest GitHub repository](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md).
+
+Unit tests for the VerticaDB operator use the Go testing infrastructure. Some tests run the operator against a mock Kubernetes control plane created with [envtest](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest). Per Go standards, test files are stored in package directories and end with `_test.go`.
+
 ## e2e Tests
 
-The end-to-end (e2e) tests are run through Kubernetes itself. We use kuttl as the testing framework. The operator must be running **as a Kubernetes deployment**, which means the operator container needs to be built and pushed to a repository before starting.
+The end-to-end (e2e) tests are run through Kubernetes with the kuttl testing framework. The e2e tests only run on operators that were [deployed as an object](#deployment-object).
 
 Ensure that your Kubernetes cluster has a default storageClass. Most of the e2e tests do not specify any storageClass and use the default. For details about setting your storageClass, refer to the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
 
-1. Push the operator with the following command:
+1. Push the operator with the following command (if the operator is not already present):
    ```shell
    make docker-build-operator docker-push-operator
    ```
