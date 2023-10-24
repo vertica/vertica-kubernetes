@@ -46,6 +46,14 @@ Before you begin, you must manually install the following software:
 > **NOTE**
 > Some [Makefile](./Makefile) targets install additional software in this repo's `bin/` directory.
 
+# Help
+
+This repo uses a [Makefile](./Makefile) to run most commands. For a full list of make targets, run the following command:
+
+```shell
+make help
+```
+
 # Kind
 
 Kind (**K**ubernetes **IN** **D**ocker) runs a Kubernetes cluster where each cluster node is a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;Kind is the preferred method to test and develop Kubernetes locally.
@@ -486,14 +494,6 @@ The following steps run the soak tests:
 The e2e tests use [stern](https://github.com/stern/stern) to persist some pod logs to help debug any failures. The e2e tests create the `int-tests-output/` directory to store the logs.
 
 The stern process completes when the kuttle tests run to completion. If you abort a kuttle test, then you must stop the stern process manually.
-
-## Help
-
-To see the full list of make targets, run the following command:
-
-```shell
-make help
-```
 
 # Add a changelog entry
 
