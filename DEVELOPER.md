@@ -46,14 +46,6 @@ Before you begin, you must manually install the following software:
 > **NOTE**
 > Some [Makefile](./Makefile) targets install additional software in this repo's `bin/` directory.
 
-# Help
-
-This repo uses a [Makefile](./Makefile) to run most commands. For a full list of make targets, run the following command:
-
-```shell
-make help
-```
-
 # Kind
 
 Kind (**K**ubernetes **IN** **D**ocker) runs a Kubernetes cluster where each cluster node is a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;Kind is the preferred method to test and develop Kubernetes locally.
@@ -132,6 +124,14 @@ kind-registry
 > cp /path/to/vertica-x86_64.RHEL6.latest.rpm docker-vertica/packages/
 > cp /path/to/vertica-x86_64.RHEL6.latest.rpm docker-vertica-v2/packages/
 > ```
+
+## Help
+
+The developer workflows use a [Makefile](./Makefile) to run most commands. For a full list and description of make targets, run the following command:
+
+```shell
+make help
+```
 
 1. build and push container
 2. Generate controller files
@@ -358,104 +358,90 @@ To run the tests:
 You can run individual tests from the command line with the [KUTTLE CLI](https://kuttl.dev/docs/cli.html#setup-the-kuttl-kubectl-plugin).
 
 > **NOTE**
-> Before you can run an individual test, you need to set up a communal endpoint. To set up a MinIO endpoint, run the following make target:
+> Before you can run an individual test, you need to set up a communal endpoint. To set up a [MinIO](https://min.io/) endpoint, run the following make target:
 >
 > ```shell
 > make setup-minio
 > ```
 >
-> To set up a different communal endpoint, see XXXXXXXXXXXXXXXXXX.
+> To set up a different communal endpoint, see [Custom communal endpoint](#custom-communal-endpoint).
 
-To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory. The `--skip-delete` does not delete any resources that the tests create to help with debugging:
+To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory. The `--skip-delete` does not delete any resources that the tests create, which helps with debugging:
 
 ```shell
 kubectl kuttl test --test http-custom-certs --skip-delete
 ```
 
-The communal endpoint must be setup prior to calling the tests in this manner. You can set that up with a call to `make setup-minio`.
+### Custom communal endpoint
 
-### Customizing Communal Endpoints
+Internally, the e2e make target (`run-int-tests`) sets up a [MinIO](https://min.io/) endpoint with TLS for testing. However, you might want to test with a communal endpoint that mimics your development environment. The default configuration is stored in the [tests/kustomize-defaults.cfg](./tests/kustomize-defaults.cfg) file, but you can create a configuration file that overrides these defaults for the e2e tests.
 
-The default endpoint for e2e tests is minio with TLS, which is created through the `make setup-minio` target. The endpoint are set for the test when calling `scripts/setup-kustomize.sh`. That script can take a config file that you can use to override the endpoint and credentials.
+The following steps create a configuration file and run e2e tests with a custom communal endpoint:
 
-Here are the steps on how to override them:
-
-1. Make a copy of tests/kustomize-defaults.cfg
-
+1. Copy `tests/kustomize-defaults.cfg` to another file for editing. The following command creates a copy named `my-defaults.cfg`:
    ```shell
    cp tests/kustomize-defaults.cfg my-defaults.cfg
    ```
+2. Edit `my-defaults.cfg` and add information about your communal endpoint.
 
-2. Edit my-defaults.cfg by setting your own access point, bucket, region and credentials that you want to use.
+   For details about the required settings for each supported storage location, see [Communal storage settings](#communal-storage-settings). For general help about supported communal storage, see [Configuring communal storage](https://docs.vertica.com/latest/en/containerized/configuring-communal-storage/).
 
-3. Set the KUSTOMIZE_CFG environment vairable to point to my-defaults.cfg
+3. To override the default configuration file, set the `KUSTOMIZE_CFG` environment variable to `my-defaults.cfg`:
 
    ```shell
    export KUSTOMIZE_CFG=my-defaults.cfg
    ```
 
-4. Setup the commmunal endpoint.
-
-   1. AWS S3 BUCKET
-
-      If you have an AWS account, you can configure your environment so that it uses AWS instead of minio.
-
-      `Prerequisite:` The s3 bucket must already be created prior to running the tests.
-
-      Here are the steps to set that up:
-
-      - Edit my-defaults.cfg and fill in the details.
-
-        - Fill in the ACCESSKEY and SECRETKEY with your unique IDs.
-        - Use the chart below to know what to fill in depending on what AWS region you want to write to.
-
-        | Env Name                   |                                                   Description |            Sample value            |
-        | :------------------------- | ------------------------------------------------------------: | :--------------------------------: |
-        | ENDPOINT                   | Endpoint and credentials for s3 communal access in the tests. | https://s3.us-east-1.amazonaws.com |
-        | REGION                     |                                               The AWS region. |             us-east-1              |
-        | S3_BUCKET                  |                                This is the name of the bucket |         aws-s3-bucket-name         |
-        | PATH_PREFIX                |     his is used to place the communal path in a subdirectory. |             /\<userID>             |
-        | COMMUNAL_EP_CERT_SECRET    |                                                               |           \<leave blank>           |
-        | COMMUNAL_EP_CERT_NAMESPACE |                                                               |           \<leave blank>           |
-
-   2. Google Cloud Storage
-
-      `Prerequisite:` The Google Cloud bucket must already be created prior to running the tests.
-
-      Here are the steps:
-
-      1. You need to create a ‘User account HMAC’. This will give you an access key and secret that you can use later on.
-      2. Edit my-defaults.cfg and fill in the details. Use the chart below as a guide.
-
-      | Env Name          |                                                                                                       Description |  Sample value  |
-      | :---------------- | ----------------------------------------------------------------------------------------------------------------: | :------------: |
-      | ACCESSKEY         |                                                       Use the access key that you got when you generated the HMAC |
-      | SECRETKEY         |                                                           Use the secret that you got when you generated the HMAC |
-      | PATH_PROTOCOL     |                                                       This tells the kustomize scripts to setup for Google cloud. |     gs://      |
-      | BUCKET_OR_CLUSTER |                                                                                        Name of the bucket to use. | gc-bucket-name |
-      | PATH_PREFIX       | Include your user name here so that all dbs that we know who created the DBs. It must begin and end with a slash. |   /johndoe/    |
-
-   3. Azure Blob Storage
-
-      1. You have to decide whether to connect with the accountKey or a shared access signature (SAS). If it is a SAS, you can generate one in a self-serve manner.
-         - In the WebUI (https://portal.azure.com) go to the storage container that you want access to
-         - On the left is a link called “Shared access tokens”. Click that.
-         - Fill in the form to create a SAS token.
-      2. Edit my-defaults.cfg and fill in the details. Use the chart below as a guide.
-
-      | Env Name              |                                                                                                                                                                               Description |  Sample value  |
-      | :-------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------------: |
-      | CONTAINERNAME         |                                                                                                                                                               Name of the azure container | container-name |
-      | ACCOUNTKEY            |                                                                                                      If authenticating with an account key, fill this in. Otherwise it can be left blank. |
-      | SHAREDACCESSSIGNATURE | If authenticating with a SAS, fill this in. This can be left blank if using an accountKey. Before to include it in quotes ("") because of the special characters that are typically used. |
-      | PATH_PROTOCOL         |                                                                                                                                  Set this to tell the e2e tests that Azure is being used. |     azb://     |
-      | BUCKET_OR_CLUSTER     |                                                                                                                                                                  Fill in the account name |  account-name  |
-      | PATH_PREFIX           |                                                                         Include your user name here so that all dbs that we know who created the DBs. It must begin and end with a slash. |   /johndoe/    |
-
-5. Run the integration tests.
+4. Run the integration tests:
    ```shell
-   kubectl kuttl test
+   make run-int-tests | tee kuttl.out
    ```
+
+#### Communal storage settings
+
+The following sections define the required information supported communal storage endpoints in e2e tests.
+
+##### Amazon Web Services S3
+
+> You must create the S3 bucket before you run the tests.
+
+| Environment variable | Description                                              | Example                              |
+| :------------------- | :------------------------------------------------------- | :----------------------------------- |
+| `ACCESSKEY`          | Your AWS access key credential.                          |                                      |
+| `SECRETKEY`          | Your AWS secret key credential.                          |                                      |
+| `ENDPOINT`           | Endpoint and credentials for S3 communal access.         | `https://s3.us-east-1.amazonaws.com` |
+| `REGION`             | AWS region.                                              | `us-east-1`                          |
+| `S3_BUCKET`          | Name of the S3 bucket.                                   | `aws-s3-bucket-name`                 |
+| `PATH_PREFIX`        | Places the communal path in a subdirectory in this repo. | `/<userID>`                          |
+
+##### Google Cloud Storage
+
+> You must create the Google Cloud bucket before you run the tests.
+
+| Environment variable | Description                                                                                | Example          |
+| :------------------- | :----------------------------------------------------------------------------------------- | :--------------- |
+| `ACCESSKEY`          | HMAC access key.                                                                           |                  |
+| `SECRETKEY`          | HMAC secret key.                                                                           |                  |
+| `PATH_PROTOCOL`      | Sets the Google Cloud Storage protocol.                                                    | `gs://`          |
+| `BUCKET_OR_CLUSTER`  | Name of the Google Cloud bucket.                                                           | `gc-bucket-name` |
+| `PATH_PREFIX`        | Identifies the developer that created the database. Must begin and end with a slash (`/`). | `/username/`     |
+
+##### Azure Block Storage
+
+You can access Azure Block Storage with an accountKey or shared access signature (SAS). To generate a SAS token, complete the following:
+
+1. In [Microsoft Azure](https://portal.azure.com), go to the storage container that you want to use for testing.
+2. In the left navigation, select the **Shared access tokens** link.
+3. Complete the form to receive a SAS token.
+
+| Environment variable    | Description                                                                                     | Example          |
+| :---------------------- | :---------------------------------------------------------------------------------------------- | :--------------- |
+| `CONTAINERNAME`         | Name of the Azure container.                                                                    | `container-name` |
+| `ACCOUNTKEY`            | accountKey authentication only.                                                                 |                  |
+| `SHAREDACCESSSIGNATURE` | SAS authentication only. Enclose the SAS token in quotes (`""`) to preserve special characters. | `"sas-token"`    |
+| `PATH_PROTOCOL`         | Sets the Azure Block Storage protocol.                                                          | `azb://`         |
+| `BUCKET_OR_CLUSTER`     | The account name.                                                                               | `account-name`   |
+| `PATH_PREFIX`           | Identifies the developer that created the database. Must begin and end with a slash (`/`).      | `/username/`     |
 
 ### Soak tests
 
