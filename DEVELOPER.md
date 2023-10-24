@@ -403,6 +403,7 @@ The following sections define the required information supported communal storag
 
 ##### Amazon Web Services S3
 
+> **IMPORTANT**
 > You must create the S3 bucket before you run the tests.
 
 | Environment variable | Description                                              | Example                              |
@@ -416,6 +417,7 @@ The following sections define the required information supported communal storag
 
 ##### Google Cloud Storage
 
+> **IMPORTANT**
 > You must create the Google Cloud bucket before you run the tests.
 
 | Environment variable | Description                                                                                | Example          |
@@ -432,7 +434,7 @@ You can access Azure Block Storage with an accountKey or shared access signature
 
 1. In [Microsoft Azure](https://portal.azure.com), go to the storage container that you want to use for testing.
 2. In the left navigation, select the **Shared access tokens** link.
-3. Complete the form to receive a SAS token.
+3. Complete the form to generate a SAS token.
 
 | Environment variable    | Description                                                                                     | Example          |
 | :---------------------- | :---------------------------------------------------------------------------------------------- | :--------------- |
@@ -497,8 +499,7 @@ The operator generates Kubernetes events for some key scenarios. This can be a u
 
 ```shell
 kubectl describe vdb mydb
-
-...<snip>...
+...
 Events:
   Type    Reason                   Age    From                Message
   ----    ------                   ----   ----                -------
@@ -510,13 +511,15 @@ Events:
   Normal  ClusterRestartSucceeded  28s    verticadb-operator  Successfully called 'admintools -t start_db' and it took 8.8401312s
 ```
 
-## Retrieving Logs with vertica.log
+## Retrieve logs with vertica.log
 
-You might need to inspect the contents of the vertica.log to diagnose a problem with the Vertica server. There are a few ways this can be done:
+You might need to inspect the contents of the `vertica.log` to diagnose a problem with the Vertica server. There are a few ways that you can inspect this file:
 
 - Drop into the container and navigate to the directory where is is stored. The exact location depends on your CR. You can refer to the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm) to find the location.
 
-- Deploy a sidecar to capture the vertica.log and print it to stdout. If this sidecar is enabled you can use `kubectl logs` to inspect it. This sidecar can be used by adding the following into your CR:
+- Deploy a sidecar to capture the contents of `vertica.log` and print it to STDOUT. If you use the sidecar logger, you can inspect the file with `kubectl logs`.
+
+  To use a sidecar logger in your CR, add the following into your CR:
 
   ```shell
   spec:
@@ -534,7 +537,7 @@ You might need to inspect the contents of the vertica.log to diagnose a problem 
 
 ## Memory Profiling
 
-The memory profiler lets you view where the big allocations are occurring and to help detect any memory leaks. The toolset is [Google's pprof](https://golang.org/pkg/net/http/pprof/).
+The memory profiler lets you view where the big allocations are occurring and helps detect memory leaks. The toolset is Google's [pprof](https://golang.org/pkg/net/http/pprof/).
 
 By default, the memory profiler is disabled. To enable it, add a parameter when you start the operator. The following steps enable the memory profiler for a deployed operator.
 
@@ -544,7 +547,7 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
    kubectl edit deployment verticadb-operator-controller-manager
    ```
 
-2. Locate where the arguments are passed to the manager, and add `--enable-profiler`:
+2. Locate the `args` array that passes values to the deployment manager, and add `--enable-profiler`:
 
    ```shell
          ...
@@ -559,15 +562,15 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
    ```
 
 3. Wait until the operator is redeployed.
-4. Port forward 6060 to access the webUI for the profiler. The name of the pod differs for each deployment, so be sure to find the one specific to your cluster:
+4. Port forward 6060 to access the profiler's user interface (UI). The name of the pod differs for each deployment, so make sure that you find the one specific to your cluster:
 
    ```shell
    kubectl port-forward pod/verticadb-operator-controller-manager-5dd5b54df4-2krcr 6060:6060
    ```
 
-5. Use a web browser or the standalone tool to connect to `http://localhost:6060/debug/pprof`.
+5. Use a web browser or the standalone tool to connect to the profiler's UI at `http://localhost:6060/debug/pprof`.
    If you use a web browser, replace `localhost` with the host that you used in the previous `kubectl port-forward` command.
-   Invoke the standalone tool with the following command:
+   Alternatively, you can invoke the standalone tool with the following command:
 
    ```shell
    go tool pprof http://localhost:6060/debug/pprof
