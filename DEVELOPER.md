@@ -134,24 +134,31 @@ kind-registry
 7. Run soak tests
 8. Troubleshooting
 
-### Custom containers
+### Custom image names
 
-To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
+You might want to give one or more of the Vertica images a unique name. Before you [build and push the containers](#build-and-push-the-containers), set one of the following environment variables to change the name of the associated image:
 
-By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the following environment variables prior to running the make target.
+- `OPERATOR_IMG`: VerticaDB operator image.
+- `VERTICA_IMG`: Vertica server image. Use this interchangeably for v1 and v2 containers.
+- `VLOGGER_IMG`: Vertica sidecar logger.
+- `BUNDLE_IMG`: OLM bundle image.
 
-- **OPERATOR_IMG**: Operator image name.
-- **VERTICA_IMG**: Vertica image name. Used interchangeably for v1 and v2 containers.
-- **VLOGGER_IMG**: Vertica logger sidecar image name.
-- **BUNDLE_IMG**: OLM bundle image name.
+In a production environment, the default tag is `latest`. In a Kind environment, the default tag is `kind`.
 
-If necessary, these variables can include the url of the registry. For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`.
+The custom name can include the registry URL. The following example creates a custom `verticadb-operator` image name that includes the registry URL:
 
-Vertica provides two container sizes: the default, full image, and the minimal image that does not include the 240MB Tensorflow package.
+```
+export OPERATOR_IMG=myrepo:5000/my-vdb-operator:latest
+```
 
 ### Build and push the containers
 
-The [Makefile](./Makefile) provides targest that build the images and push them to the Kind cluster in the current context:
+Vertica provides two container sizes:
+
+- Full image. This is the default image.
+- Minimal image that does not include the 240MB Tensorflow package.
+
+The [Makefile](./Makefile) provides make targets that build the images and push them to the Kind cluster in the current context:
 
 > **NOTE**
 > Due to the size of the Vertica image, this step might take up to 10 minutes.
@@ -227,7 +234,7 @@ make generate manifests
 
 You have two options to run the VerticaDB operator:
 
-- [Local](#local-operator): run the operator synchronously in a shell.
+- [Local](#local-operator): run the operator synchronously in a shell environment.
 - [Deployment object](#deployment-object): Package the operator in a container and deploy in Kubernetes as a deployment object.
 
 The operator is cluster-scoped for both options, so it monitors CRs in all namespaces.
@@ -239,7 +246,7 @@ The operator is cluster-scoped for both options, so it monitors CRs in all names
 
 The local deployment option is the fastest method to get the operator up and running, but it has limitations:
 
-- A local operator does not mimic the way that the operator runs in a real Kubernetes environment.
+- A local operator does not accurately simulate how the operator runs in a Kubernetes environment.
 - The webhook is disabled. The webhook requires TLS certs that are available only when the operator is packaged in a container.
 
 #### Install
@@ -258,32 +265,23 @@ To stop the operator, press **Ctrl + C**.
 
 When you run the operator as a deployment obejct, it runs in a container in a real Kubernetes environment. By default, the operator is deployed in the `verticadb-operator` namespace and it creates it if necessary.
 
-Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You can control the deployment model by passing the `DEPLOY_WITH` environment variable to the `make` command. `DEPLOY_WITH` accepts the following arguments:
+Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You can control the deployment model with the `DEPLOY_WITH` environment variable in the `make` command:
 
-- `helm`
-- `olm`
+- Deploy the operator with Helm and all its prerequisites with the following command:
+
+  ```shell
+  DEPLOY_WITH=helm make config-transformer deploy
+  ```
+
+  The Helm charts generate a self-signed TLS certificate. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
+
+- When installing with OLM, you need to have OLM setup. To deploy olm all of its prerequisites, use the following command:
+
+  ```shell
+  DEPLOY_WITH=olm make setup-olm deploy
+  ```
 
 The operator pod contains a webhook, which requires TLS certificates and each deployment model is different.
-
-#### Helm
-
-Deploy the operator with Helm and all its prerequisites with the following command:
-
-```shell
-DEPLOY_WITH=helm make config-transformer deploy
-```
-
-The Helm charts generate a self-signed TLS certificate. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
-
-#### OLM
-
-When installing with OLM, you need to have OLM setup. For details, see the [OLM documentation](https://olm.operatorframework.io/docs/advanced-tasks/adding-admission-and-conversion-webhooks/#certificate-authority-requirements).
-
-To deploy olm all of its prereqs, use the following command:
-
-```shell
-DEPLOY_WITH=olm make setup-olm deploy
-```
 
 #### Remove
 
