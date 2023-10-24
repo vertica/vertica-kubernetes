@@ -449,39 +449,43 @@ Here are the steps on how to override them:
    kubectl kuttl test
    ```
 
+### Soak tests
+
+The soak test evaluates the operator over a long interval. The test is split into multiple iterations, and each iteration generates a random workload that is comprised of pod kills and scaling operations. If the tests succeed, the next iteration begins. You can set the number of iterations that the soak test runs.
+
+Soak tests are run with kuttl, and the random test generation is done with the [kuttle-step-gen tool](https://kuttl.dev/docs/testing/steps.html).
+
+To run the soak tests, create a configuration file that outlines the databases that you want to test and how you want the test framework to react. We provide a sample configuration file in [tests/soak/soak-sample.cfg](./tests/soak/soak-sample.cfg).
+
+The following steps run the soak tests:
+
+1. Create the databases that you want to test.
+2. Copy the configuration file and make your edits:
+
+   ```shell
+   cp tests/soak/soak-sample.cfg local-soak.cfg
+   vim local-soak.cfg
+   ```
+
+3. Set the number of iterations that you want to run with the `NUM_SOAK_ITERATIONS` environment variable:
+
+   ```shell
+   export NUM_SOAK_ITERATIONS=10
+   ```
+
+   To run infinite soak tests, set `NUM_SOAK_ITERATIONS` to `-1`.
+
+4. To start the tests, run the following make target:
+
+   ```shell
+   make run-soak-tests
+   ```
+
 ### Review pod logs
 
 The e2e tests use [stern](https://github.com/stern/stern) to persist some pod logs to help debug any failures. The e2e tests create the `int-tests-output/` directory to store the logs.
 
-Cleanup of the stern process is only done if kuttl runs to completition. If you abort the kuttl run, then you will need to stop the stern process manually.
-
-## Soak Tests
-
-The soak test will test the operator over a long interval. It splits the test into multiple iterations. Each iteration generates a random workload that is comprised of pod kills and scaling. At the end of each iteration, the test waits for everything to come up. If the test is successful, it proceeds to another iteration. It repeats this process for a set number of iterations or indefinitely.
-
-The tests in an iteration are run through kuttl. The random test generation is done by the kuttl-step-gen tool.
-
-Here are the steps needed to run this test.
-
-1. Create the databases that you want to test.
-2. Create a config file to outline the databases to test and how you want the test framework to react. A sample one can be found in tests/soak/soak-sample.cfg.
-
-```shell
-cp tests/soak/soak-sample.cfg local-soak.cfg
-vim local-soak.cfg
-```
-
-3. Decide on the number of iterations you would like to run:
-
-```shell
-export NUM_SOAK_ITERATIONS=10  # Can use -1 for infinite
-```
-
-4. Kick off the run.
-
-```shell
-make run-soak-tests
-```
+The stern process completes when the kuttle tests run to completion. If you abort a kuttle test, then you must stop the stern process manually.
 
 ## Help
 
