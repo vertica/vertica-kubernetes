@@ -227,7 +227,7 @@ The following make target generates these boilerplate files and the manifests th
 make generate manifests
 ```
 
-> **NOTE**
+> **IMPORTANT**
 > After you make changes to your development environment, you might need to regenerate these files.
 
 ## Run the VerticaDB operator
@@ -251,41 +251,47 @@ The local deployment option is the fastest method to get the operator up and run
 
 #### Install
 
-To run the operator locally, enter the following command:
+To run the operator in the shell, enter the following command:
 
 ```shell
 make install run
 ```
 
-#### Stop
+#### Stop the operator
 
 To stop the operator, press **Ctrl + C**.
 
 ### Deployment object
 
-When you run the operator as a deployment obejct, it runs in a container in a real Kubernetes environment. By default, the operator is deployed in the `verticadb-operator` namespace and it creates it if necessary.
+When you run the operator as a deployment object, it runs in a container in a real Kubernetes environment.
 
-Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You can control the deployment model with the `DEPLOY_WITH` environment variable in the `make` command:
+Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You specify the deployment model with the `DEPLOY_WITH` environment variable in the `make` command. By default, the operator is deployed in the `verticadb-operator` namespace. If that namespace does not exists, and it creates it if necessary.
 
-- Deploy the operator with Helm and all its prerequisites with the following command:
+The operator pod contains a webhook, which requires TLS certificates. The TLS setup for each deployment model is different.
 
-  ```shell
-  DEPLOY_WITH=helm make config-transformer deploy
-  ```
+#### Helm deployment
 
-  The Helm charts generate a self-signed TLS certificate. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
+Deploy the operator with Helm and all its prerequisites:
 
-- When installing with OLM, you need to have OLM setup. To deploy olm all of its prerequisites, use the following command:
+```shell
+DEPLOY_WITH=helm make config-transformer deploy
+```
 
-  ```shell
-  DEPLOY_WITH=olm make setup-olm deploy
-  ```
+The Helm charts generate a self-signed TLS certificate. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
 
-The operator pod contains a webhook, which requires TLS certificates and each deployment model is different.
+#### OLM deployment
 
-#### Remove
+You must configure OLM deployments when you run an operator with a webhook. For details, see the [OLM documentation](https://olm.operatorframework.io/docs/advanced-tasks/adding-admission-and-conversion-webhooks/).
 
-To remove the operator, run the `undeploy` make target. This command removes the operator for both Helm and OLM deployments:
+Deploy OLM and all its prerequisites:
+
+```shell
+DEPLOY_WITH=olm make setup-olm deploy
+```
+
+#### Remove the operator
+
+The `undeploy` make target removes the operator from the environment. The following command removes both Helm and OLM deployments:
 
 ```shell
 make undeploy
@@ -293,12 +299,14 @@ make undeploy
 
 # Testing
 
+This repo provides linters for your source code and testing tools that verify that your operator is production-ready.
+
 ## Linting
 
 A linter analyzes files to asses the code quality and identify errors. Vertica on Kubernetes runs three different linters:
 
-- [Helm lint](https://helm.sh/docs/helm/helm_lint/): Runs the chart verification test that is built into Helm.
-- [golint](https://pkg.go.dev/golang.org/x/lint/golint): Runs a few linters that you can run with Go.
+- [Helm lint](https://helm.sh/docs/helm/helm_lint/): Runs Helm's built-in chart verification test.
+- [golint](https://pkg.go.dev/golang.org/x/lint/golint): Runs a few Go linters.
 - [hadolint](https://github.com/hadolint/hadolint): Checks the various Dockerfiles that we have in our repo.
 
 Run all linters with the `lint` target:
@@ -321,7 +329,7 @@ Unit tests for the VerticaDB operator use the Go testing infrastructure. Some te
 
 ## e2e Tests
 
-The end-to-end (e2e) tests are run through Kubernetes with the kuttl testing framework. The e2e tests only run on operators that were [deployed as an object](#deployment-object).
+The e2e tests are run through Kubernetes with the kuttl testing framework. The e2e tests only run on operators that were [deployed as an object](#deployment-object).
 
 Ensure that your Kubernetes cluster has a default storageClass. Most of the e2e tests do not specify any storageClass and use the default. For details about setting your storageClass, refer to the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
 
