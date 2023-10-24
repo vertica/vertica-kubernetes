@@ -46,7 +46,6 @@ var _ = Describe("verrors suite", func() {
 		}
 		origErr := rfc7807.New(rfc7807.CommunalStorageNotEmpty).
 			WithDetail("existing db already at /host").
-			WithStatus(500).
 			WithHost("pod-4")
 		wrappedErr := errors.Join(origErr, errors.New("we hit an error"))
 		res, err := vce.LogFailure("test rfc7807", wrappedErr)
@@ -61,7 +60,6 @@ var _ = Describe("verrors suite", func() {
 		}
 		origErr := rfc7807.New(rfc7807.GenericBootstrapCatalogFailure).
 			WithDetail("internal error occurred").
-			WithStatus(500).
 			WithHost("pod-5")
 		res, err := vce.LogFailure("test unknown rfc7807", origErr)
 		Ω(res).Should(Equal(ctrl.Result{}))
