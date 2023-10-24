@@ -17,5 +17,5 @@ commands:
 - command: sh -c "cd ../../.. && make undeploy-operator || true"
 # With istio now setup, we need to reinstall the operator so that it has the
 # istio sidecar running.
-- command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator NAMESPACE=verticadb-operator"
+- command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator NAMESPACE=$NAMESPACE HELM_OVERRIDES='--set webhook.enable=false'"
 
