@@ -2,25 +2,29 @@
 
 This guide explains how to set up an environment to develop and test the Vertica operator.
 
-# Repo Structure
+# Repo structure
 
-- **docker-vertica/**: has the necessary files to build a Vertica server container. The build process requires that you provide a Vertica version 11.0.0 or higher RPM package. The RPM is not included in this repo. This version of the container is designed for admintools based deployments.
-- **docker-vertica-v2/**: has the necessary files to build the v2 version of the Vertica server container. The v2 container is designed for vclusterops deployments.
-- **docker-operator/**: has the necessary files to build the container that holds the operator
-- **docker-vlogger/**: has the necessary files to build the container that runs the vlogger sidecar. This sidecar will tail the vertica.log to stdout. This is used only for development purposes to aid in testing out the sidecar property in the custom resource (CR).
-- **scripts/**: contains scripts for the repository. Some scripts run Makefile targets, while others are used during e2e testing.
-- **api/**: defines the spec of the custom resource definition (CRD)
-- **pkg/**: includes all of the packages that for the operator
-- **cmd/**: contains source code for each of the executables
-- **bin/**: contains the compiled or downloaded binaries that this repository depends on
-- **config/**: generated files of all of the manifests that make up the operator. Of particular importance is *config/crd/bases/vertica.com_verticadbs.yaml*, which shows a sample spec for our CRD.
-- **tests/**: has the test files for e2e and soak testing
-- **changes/**: stores the changelog for past releases and details about the changes for the next release
-- **hack/**: includes a boilerplate file of a copyright that is included on the generated files
-- **helm-charts/**: contains the Helm charts that this repository builds
+This repo contains the following directories and files:
 
-# Software Setup
-Prior to developing, the following software needs to be installed manually.  There is other software that needed, but it is downloaded through make targets in the repo's bin directory.
+- `docker-vertica/`: files that build a Vertica server container. This container is designed for [Administration Tools (admintools)](https://docs.vertica.com/latest/en/admin/using-admin-tools/admin-tools-reference/) deployments.
+- `docker-vertica-v2/`: files that build the v2 Vertica server container. This container is designed for vclusterops deployments.
+- `docker-operator/`: files that build the [VerticaDB operator](https://docs.vertica.com/latest/en/containerized/db-operator/) container.
+- `docker-vlogger/`: files that build the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT.
+- `scripts/`: scripts that run Makefile targets and execute end-to-end (e2e) tests.
+- `api/`: defines the custom resource definition (CRD) spec.
+- `pkg/`: includes all packages for the operator.
+- `cmd/`: source code for all executables in this repository.
+- `bin/`: binary dependencies that this repository compiles or downloads.
+- `config/`: generated files of all manifests that make up the operator. [config/samples/](https://github.com/vertica/vertica-kubernetes/tree/main/config/samples) contains sample specs for all Vertica CRDs.
+
+- `tests/`: test files for e2e and soak tests.
+- `changes/`: changelog for past releases and details about changes for the upcoming release.
+- `hack/`: file that contains the copyright boilerplate included on all generated files.
+- `helm-charts/`: Helm charts that this repository builds.
+
+# Software requirements
+
+Before you begin, you must manually install the following software:
 
 - [docker](https://docs.docker.com/get-docker/) (version 23.0)
 - [go](https://golang.org/doc/install) (version 1.20)
@@ -28,354 +32,485 @@ Prior to developing, the following software needs to be installed manually.  The
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0)
 - [kubectx](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubectx) (version 0.9.1)
 - [kubens](https://github.com/ahmetb/kubectx/releases/download/v0.9.1/kubens) (version 0.9.1)
-- [krew](https://github.com/kubernetes-sigs/krew/releases/tag/v0.4.1) (version 0.4.1) $HOME/.krew/bin must be in your path
+- [krew](https://github.com/kubernetes-sigs/krew/releases/tag/v0.4.1) (version 0.4.1)
+
+  After installation, you must add `$HOME/.krew/bin` to your PATH.
+
 - [kuttl](https://github.com/kudobuilder/kuttl/) (version 0.9.0)
 - [changie](https://github.com/miniscruff/changie) (version 1.2.0)
 - [jq](https://stedolan.github.io/jq/download/) (version 1.5+)
 
-# Kind
+> **NOTE**
+> Some [Makefile](./Makefile) targets install additional software in this repo's `bin/` directory.
 
-## Setup
-[Kind](https://kind.sigs.k8s.io/) is the preferred way to set up a Kubernetes cluster for local testing. The machine requirements for running Kind are minimal - it is possible to set this up on your own laptop. All of the automated e2e tests run against a kind cluster.
+# Help
 
-We have a wrapper that you can use to set up Kind and create a cluster that is suitable for testing Vertica. The following command creates a cluster named `cluster1` with one node.  It completes after a few minutes:  
-
-```shell
-$ scripts/kind.sh init cluster1
-```
-
-When the command completes, change the context to use the cluster. The cluster has its own kubectl context named `kind-cluster1`:
+To simplify complex setup and teardown tasks, this repo uses a [Makefile](./Makefile). For a full list and description of make targets, run the following command:
 
 ```shell
-$ kubectx kind-cluster1
+make help
 ```
 
-To test the container, check the status of the nodes:
+# Kind environment setup
 
-```shell
-$ kubectl get nodes
-```
+Kind (**K**ubernetes **IN** **D**ocker) runs a Kubernetes cluster where each cluster node is a Docker container. Because the requirements are minimal&mdash;you can set it up on a laptop&mdash;Kind is the preferred method to test and develop Kubernetes locally.
 
+All automated e2e tests in this repo run against a Kind cluster.
 
-## Cleanup
+## Cluster setup
 
-After you are done with the cluster, you can delete it with our helper script. Substitute `cluster1` with the name of your cluster:
+The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test Vertica.
 
-```shell
-$ scripts/kind.sh term cluster1
-```
-
-If you forgot the cluster name, run Kind directly to get all of the installed clusters:
-
-```shell
-$ PATH=$PATH:$HOME/go/bin
-$ kind get clusters
-cluster1
-```
-
-# Add a changelog entry
-
-The changelog file is generated by [Changie](https://github.com/miniscruff/changie).  It separates the changelog generation from commit history, so any PR that has a notable change should add new changie entries.
-
-In general you don't necessaryily need to set this up. One of the maintainers usually add changie entries to PRs that require them.
-
-# Developer Workflow
-
-**IMPORTANT**: You must have a Vertica version 11.0.0 or higher RPM to build the *docker-vertica* container. **This repo DOES NOT include an RPM**. 
-
-Store the RPM in the `docker-vertica/packages` and `docker-vertica-v2/packages` directories with the name `vertica-x86_64.RHEL6.latest.rpm`:
-
-```shell
-$ cp /dir/vertica-x86_64.RHEL6.latest.rpm docker-vertica/packages/
-$ cp /dir/vertica-x86_64.RHEL6.latest.rpm docker-vertica-v2/packages/
-```
-
-## 1. Building and Pushing Vertica Container
-
-We currently use the following containers:
-- **docker-vertica/Dockerfile**: The long-running container that runs the vertica daemon. This version is designed for admintools based deployments.
-- **docker-vertica-v2/Dockerfile**: The long-running container that runs the vertica daemon. This version is designed for vclusterops based deployments.
-- **docker-operator/Dockerfile**: The container that runs the operator and webhook
-- **docker-vlogger/Dockerfile**: The container that runs the vertica logger. It will tail the output of vertica.log to stdout. This is used for testing purposes. Some e2e tests use this as a sidecar to the Vertica server container.
-- **docker-bundle/Dockerfile**: The container that contains the 'bundle' for the operator.  This is used by OLM.  The contents of the docker-bundle/ directory are generated with `make docker-build-bundle`.
-
-To run Vertica in Kubernetes, we need to package Vertica inside a container. This container is later referenced in the YAML file when we install the Helm chart.
-
-By default, we create containers that are stored in the local docker daemon. The tag is either `latest` or, if running in a Kind environment, it is `kind`. You can control the container names by setting the following environment variables prior to running the make target.  
-
-- **OPERATOR_IMG**: Operator image name.
-- **VERTICA_IMG**: Vertica image name. Used interchangeably for v1 and v2 containers.
-- **VLOGGER_IMG**: Vertica logger sidecar image name.
-- **BUNDLE_IMG**: OLM bundle image name.
-
-If necessary, these variables can include the url of the registry. For example, `export OPERATOR_IMG=myrepo:5000/verticadb-operator:latest`.
-
-Vertica provides two container sizes: the default, full image, and the minimal image that does not include the 240MB Tensorflow package.
-
-1. Run the `docker-build` make target to build the necessary containers. The following command uses the default image:
-   ```shell
-   $ make docker-build
-   ``` 
-
-   To build the minimal container, invoke the make target with `MINIMAL_VERTICA_IMG=YES`:
+1. The following command creates a single-node cluster named `devcluster`:
 
    ```shell
-   $ make docker-build MINIMAL_VERTICA_IMG=YES
-   ```
-   Due to the size of the vertica image, this step can take in excess of 10 minutes when run on a laptop.
-
-2. Make these containers available to the Kubernetes cluster.  Push them to the Kubernetes cluster with the following make target:
-
-   ```shell
-   $ make docker-push
+   ./scripts/kind.sh init devcluster
    ```
 
-   This command honors the same environment variables used when creating the image.
+   The previous command pulls the [kindest/node](https://hub.docker.com/r/kindest/node/) image and the [kind registry image](https://kind.sigs.k8s.io/docs/user/local-registry/), and starts them as containers:
 
-If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images.
+   ```shell
+   docker image ls
+   REPOSITORY     TAG       IMAGE ID       CREATED         SIZE
+   registry       2         ff1857193a0b   2 days ago      25.4MB
+   kindest/node   v1.23.0   b3dd68fe0a8c   22 months ago   1.46GB
 
-## 2. Generating controller files
+   docker container ls
+   CONTAINER ID   IMAGE                  COMMAND                  CREATED              STATUS              PORTS                       NAMES
+   6740fc7ab88a   kindest/node:v1.23.0   "/usr/local/bin/entr…"   About a minute ago   Up About a minute   127.0.0.1:38577->6443/tcp   devcluster-control-plane
+   907665ae2da6   registry:2             "/entrypoint.sh /etc…"   2 minutes ago        Up About a minute   127.0.0.1:5000->5000/tcp    kind-registry
+   ```
 
-Vertica uses the [operator-sdk framework](https://sdk.operatorframework.io/) for the operator. It provides tools to generate code so that you do not have to manually write boilerplate code. Depending on what you changed you may need to periodically regenerate files with the following command:
+2. After the command completes, use `kubectx` to change to the new cluster's context, which is named `kind-<cluster-name>`:
+
+   ```shell
+   kubectx kind-devcluster
+   Switched to context "kind-devcluster".
+   ```
+
+3. To test the container, check the status of the cluster nodes with kubectl:
+
+   ```shell
+   kubetcl get nodes
+   NAME                       STATUS   ROLES                  AGE   VERSION
+   devcluster-control-plane   Ready    control-plane,master   47s   v1.23.0
+   ```
+
+You have a master node and control plane that is ready to deploy and Vertica Kubernetes resources locally.
+
+## Cluster cleanup
+
+When you no longer need a cluster, you can delete it with the helper script. The following command deletes the cluster named `devcluster`:
 
 ```shell
-$ make generate manifests
+./scripts/kind.sh term devcluster
+...
+Deleting cluster "devcluster" ...
+kind-registry
 ```
 
-## 3. Running Linters
+> **NOTE**
+> If you forgot a cluster name, run Kind directly to return all installed clusters. First, you must add `kind` to your path:
+>
+> ```shell
+> PATH=$PATH:path/to/vertica-kubernetes/bin/kind
+> kind get clusters
+> devcluster
+> ```
 
-We run three different linters:
-1. **Helm lint**: Uses the chart verification test that is built into Helm.
-2. **Go lint**: Uses a few linters that you can run with golang.
-3. **Dockerfile lint**: Uses hadolint to check the various Dockerfile's that we have in our repo
+# Build the images
 
-Both of these linters can be run with this command:
+> **IMPORTANT**
+> This repo requires a Vertica RPM that is version 11.0.0 or higher to build the images.
+>
+> You must name the RPM `vertica-x86_64.RHEL6.latest.rpm` and store it in the `docker-vertica/packages/` and `docker-vertica-v2/packages/` directories:
+>
+> ```shell
+> cp /path/to/vertica-x86_64.RHEL6.latest.rpm docker-vertica/packages/
+> cp /path/to/vertica-x86_64.RHEL6.latest.rpm docker-vertica-v2/packages/
+> ```
+
+## Custom image names
+
+You might want to give one or more of the Vertica images a unique name. Before you [build and push the containers](#build-and-push-the-containers), set one of these environment variables to change the name of the associated image:
+
+- `OPERATOR_IMG`: VerticaDB operator image.
+- `VERTICA_IMG`: Vertica server image. Use this interchangeably for v1 and v2 containers.
+- `VLOGGER_IMG`: Vertica sidecar logger.
+- `BUNDLE_IMG`: Operator Lifecycle Manager (OLM) bundle image.
+
+The custom name can include the registry URL. The following example creates a custom `verticadb-operator` image name that includes the registry URL:
+
+```
+export OPERATOR_IMG=myrepo:5000/my-vdb-operator:latest
+```
+
+In a production environment, the default tag is `latest`. In a Kind environment, the default tag is `kind`.
+
+## Build and push the containers
+
+Vertica provides two container sizes:
+
+- Full image (default image).
+- Minimal image that does not include the 240MB Tensorflow package.
+
+The following steps build the images and push them to the Kind cluster in the current context:
+
+> **NOTE**
+> Due to the size of the Vertica image, this step might take up to 10 minutes.
+
+1. To build the containers, run the `docker-build` target. By itself, the target uses the default image:
+
+   ```shell
+   make docker-build
+   ```
+
+   To build the minimal container, include `MINIMAL_VERTICA_IMG=YES`:
+
+   ```shell
+   make docker-build MINIMAL_VERTICA_IMG=YES
+   ```
+
+   When the command completes, you have the following images on your machine:
+
+   ```shell
+   docker image ls
+   REPOSITORY           TAG       IMAGE ID       CREATED          SIZE
+   vertica-logger       1.0.0     62661d7c7b1d   19 seconds ago   7.39MB
+   verticadb-operator   1.11.2    c9681519d897   22 seconds ago   64.3MB
+   vertica-k8s          1.11.2    c7e8e144911d   2 minutes ago    1.34GB
+   ubuntu               lunar     639282825872   2 weeks ago      70.3MB
+   ...
+   ```
+
+   - `vertica-k8s`: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
+   - `verticadb-operator`: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
+   - `vertica-logger`: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
+   - `ubuntu`: serves as the base image for the `vertica-k8s` image. The `make docker-build` command pulls the latest version each time.
+
+   If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
+
+   ```shell
+   docker system df
+   TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+   Images          6         2         2.983GB   1.501GB (50%)
+   Containers      2         2         3.099MB   0B (0%)
+   Local Volumes   25        2         21.53GB   17.19GB (79%)
+   Build Cache     57        0         3.456GB   3.456GB
+   ```
+
+   For details about the `df` command options, flags, and output, see the [Docker documentation](https://docs.docker.com/engine/reference/commandline/system_df/).
+
+   > **NOTE**
+   > OLM deployments create an image for the operator [bundle](https://github.com/operator-framework/operator-registry/blob/v1.16.1/docs/design/operator-bundle.md). The contents of this directory are generated with the `docker-build-bundle` make target.
+
+2. Next, you have to make these containers available to the Kind cluster. Push them to the cluster with the following command:
+
+   ```shell
+   make docker-push
+   ```
+
+   This command honors any environment variables that you used when you created the image.
+
+# Developer Workflows
+
+The following sections show you how to install and maintain the VerticaDB operator in the Kind development environment.
+
+After you complete this setup, you can deploy and test [Vertica CRDs](https://docs.vertica.com/latest/en/containerized/custom-resource-definitions/) in your local development environment.
+
+## Generate controller files
+
+The VerticaDB operator uses the [Operator SDK framework](https://sdk.operatorframework.io/). This framework provides tools that generate files so that you do not have to manually write boilerplate code.
+
+The following make target generates these boilerplate files and the manifests that deploy the VerticaDB operator:
 
 ```shell
-$ make lint
+make generate manifests
 ```
 
-## 4. Running Unit Tests
+> **IMPORTANT**
+> After you make changes to your development environment, you might need to regenerate these files.
 
-We have unit tests for both the Helm chart and the Go operator.  
+## Run the VerticaDB operator
 
-Unit tests for the Helm chart are stored in `helm-charts/verticadb-operator/tests`. They use the [unittest plugin for helm](https://github.com/quintush/helm-unittest). Some samples that you can use to write your own tests can be found at [unittest github page](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic). For details about the test format, review the [helm-unittest GitHub repo](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md).
+You have two options to run the VerticaDB operator:
 
-Unit tests for the Go operator use the Go testing infrastructure. Some of the tests stand up a mock Kubernetes control plane using envtest, and runs the operator against that. Per Go standards, the test files are included in package directories and end with `_test.go`.
+- [Local](#local-operator): run the operator synchronously in a shell environment.
+- [Deployment object](#deployment-object): Package the operator in a container and deploy in Kubernetes as a deployment object.
 
-The Helm chart testing and Go lang unit tests can be run like this:
+The operator is cluster-scoped for both options, so it monitors CRs in all namespaces.
 
-```shell
-$ make run-unit-tests
-```
+### Local operator
 
-## 5. Running the Operator
+> **NOTE**
+> When you run the operator locally, you cannot run [e2e tests](#e2e-tests). You can run only [ad-hoc tests](#unit-tests).
 
-There are two ways to run the operator:
-1. Locally in your shell.
-2. Packaged in a container and deployed in Kubernetes as a deployment object
+The local deployment option is the fastest method to get the operator up and running, but it has limitations:
 
-### Option 1: Locally
+- A local operator does not accurately simulate how the operator runs in a Kubernetes environment.
+- The webhook is disabled. The webhook requires TLS certs that are available only when the operator is packaged in a container.
 
-This method runs the operator synchronously in your shell. It is the fastest way get up and running, but it does not mimic the way that the operator runs in a real Kubernetes environment.
+#### Install
 
-Enter the following command:
+To run the operator in the shell, enter the following command:
 
 ```shell
 make install run
 ```
 
-Press **Ctrl+C** to stop the operator.
+#### Stop the operator
 
-**NOTE:** When you run the operator locally, you can run only ad-hoc tests, not the e2e tests
+To stop the operator, press **Ctrl + C**.
 
-This disables the webhook from running too, as running the webhook requires TLS certs to be available.
+### Deployment object
 
-The operator is cluster scoped, so it will monitor CR's in all namespaces.
+When you run the operator as a deployment object, it runs in a container in a real Kubernetes environment.
 
-### Option 2: Kubernetes Deployment
+Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You specify the deployment model with the `DEPLOY_WITH` environment variable in the `make` command. By default, the operator is deployed in the `verticadb-operator` namespace. If that namespace does not exists, and it creates it if necessary.
 
-When run in this mode you deploy the operator container in a real k8s environment. The operator is cluster scoped, so you need to only deploy it once. By default it will deploy the operator in the verticadb-operator namespace, creating it if necessary.
+The operator pod contains a webhook, which requires TLS certificates. The TLS setup for each deployment model is different.
 
-The default deployment model will install the operator with helm.  You can also have it install with olm.  You can control this by specifing the `DEPLOY_WITH` environment variable; valid values are: helm or olm.
+#### Helm deployment
 
-The operator pod contains a webhook, which needs TLS certificates setup.  When deploying with helm, the default behaviour is generate a self-signed TLS certificate internally. Although, there are helm chart parameters to provide a custom TLS certificate or have one created through cert-manager (see the webhook.certSource helm chart parameter for info).
-
-When installing with olm, you need to have olm setup.  
-
-To deploy helm and all of its prereqs, use the following command:
+Deploy the operator with Helm and all its prerequisites:
 
 ```shell
 DEPLOY_WITH=helm make config-transformer deploy
 ```
 
-To deploy olm all of its prereqs, use the following command:
+The Helm charts generate a self-signed TLS certificate. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
+
+#### OLM deployment
+
+You must configure OLM deployments when you run an operator with a webhook. For details, see the [OLM documentation](https://olm.operatorframework.io/docs/advanced-tasks/adding-admission-and-conversion-webhooks/).
+
+Deploy OLM and all its prerequisites:
 
 ```shell
 DEPLOY_WITH=olm make setup-olm deploy
 ```
 
-To remove the operator, regardless of how it was deployed, run the `undeploy` make target:
+#### Remove the operator
+
+The `undeploy` make target removes the operator from the environment. The following command removes both Helm and OLM deployments:
+
 ```shell
 make undeploy
+...
+release "vdb-op" uninstalled
 ```
 
-## 6. Running e2e Tests
+## Add a changelog entry
 
-The end-to-end (e2e) tests are run through Kubernetes itself. We use kuttl as the testing framework. The operator must be running **as a Kubernetes deployment**, which means the operator container needs to be built and pushed to a repository before starting.
+The changelog file is generated by [Changie](https://github.com/miniscruff/changie). It separates the changelog generation from commit history, so that any PR that makes a notable change should add new changie entries.
 
-Ensure that your Kubernetes cluster has a default storageClass. Most of the e2e tests do not specify any storageClass and use the default. For details about setting your storageClass, refer to the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
+In general, you do not need to set this up. One of the maintainers usually add changie entries to PRs that require them.
 
-1. Push the operator with the following command:
+# Testing
+
+This repo provides linters for your source code and testing tools that verify that your operator is production-ready.
+
+## Linting
+
+A linter analyzes files to asses the code quality and identify errors. Vertica on Kubernetes runs three different linters:
+
+- [Helm lint](https://helm.sh/docs/helm/helm_lint/): Runs Helm's built-in chart verification test.
+- [golint](https://pkg.go.dev/golang.org/x/lint/golint): Runs a few Go linters.
+- [hadolint](https://github.com/hadolint/hadolint): Checks the various Dockerfiles that we have in our repo.
+
+Run all linters with the `lint` target:
+
+```shell
+make lint
+```
+
+This make target installs the `hadolint/hadolint` image into your local docker repo:
+
+```shell
+[k8admin@docd01 vertica-kubernetes]$ docker image ls
+REPOSITORY               TAG            IMAGE ID       CREATED          SIZE
+...
+hadolint/hadolint        2.12.0         12fa10a87864   11 months ago    2.43MB
+...
+```
+
+## Unit Tests
+
+The unit tests verify both the Helm chart and the VerticaDB operator. Run the unit tests with the following command:
+
+```shell
+make run-unit-tests
+```
+
+This make target pulls the `quintush/helm-unittest` image into your local docker repo:
+
+```shell
+[k8admin@docd01 vertica-kubernetes]$ docker image ls
+REPOSITORY               TAG            IMAGE ID       CREATED          SIZE
+...
+quintush/helm-unittest   3.9.3-0.2.11   83c439b2cf46   9 months ago     105MB
+...
+```
+
+Helm chart unit tests are stored in `helm-charts/verticadb-operator/tests` and use the [helm-unittest plugin](https://github.com/quintush/helm-unittest). The helm-unittest repo includes [test samples and templates](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic) so you can model your own tests. For details about the test format, see the [helm-unittest GitHub repository](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md).
+
+Unit tests for the VerticaDB operator use the Go testing infrastructure. Some tests run the operator against a mock Kubernetes control plane created with [envtest](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest). Per Go standards, test files are stored in package directories and end with `_test.go`.
+
+## e2e Tests
+
+> **IMPORTANT**
+> The e2e tests only run on operators that were [deployed as an object](#deployment-object).
+
+The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing framework. Before you begin, set the default StorageClass for your Kubernetes cluster. Otherwise, most of the e2e tests use the `standard (default)` StorageClass. For details, see the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
+
+To run the tests:
+
+1. Push the operator to the cluster. If the cluster is already present, the command returns with a message that the operator is already present:
    ```shell
    make docker-build-operator docker-push-operator
    ```
-2. Start the test with the following make target.  There is a lot of output generated by the tests, so it is advisable to pipe the output to a file.
+2. Start the tests with the `run-int-tests` make target. These tests generate a large amount of output, so we recommend that you pipe the output to a file. This command uses `tee` to send output to STDOUT and a file named `kuttl.out`:
    ```shell
    make run-int-tests | tee kuttl.out
    ```
 
-### Running Individual Tests
+### Run Individual Tests
 
-You can also call `kubectl kuttl` from the command line if you want more control, such as running a single test or preventing cleanup when the test ends. For example, you can run a single e2e test and persist namespace with this command:
+You can run individual tests from the command line with the [KUTTLE CLI](https://kuttl.dev/docs/cli.html#setup-the-kuttl-kubectl-plugin).
+
+> **NOTE**
+> Before you can run an individual test, you need to set up a communal endpoint. To set up a [MinIO](https://min.io/) endpoint, run the following make target:
+>
+> ```shell
+> make setup-minio
+> ```
+>
+> To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
+
+To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory. The `--skip-delete` does not delete any resources that the tests create, which helps with debugging:
 
 ```shell
-kubectl kuttl test --test <name-of-your-test> --skip-delete
+kubectl kuttl test --test http-custom-certs --skip-delete
 ```
 
-For a complete list of flags that you can use with kuttl, see the [kuttl docs](https://kuttl.dev/docs/cli.html#flags).
+### Custom communal endpoints
 
-The communal endpoint must be setup prior to calling the tests in this manner.  You can set that up with a call to `make setup-minio`.
+Internally, the e2e make target (`run-int-tests`) sets up a [MinIO](https://min.io/) endpoint with TLS for testing. However, you might want to test with a communal endpoint that mimics your development environment. The default MinIO configuration is stored in the [tests/kustomize-defaults.cfg](./tests/kustomize-defaults.cfg) file, but you can create a configuration file that overrides these defaults.
 
-### Customizing Communal Endpoints
+The following steps create a configuration file and run e2e tests with a custom communal endpoint:
 
-The default endpoint for e2e tests is minio with TLS, which is created through the `make setup-minio` target.  The endpoint are set for the test when calling `scripts/setup-kustomize.sh`.  That script can take a config file that you can use to override the endpoint and credentials.
-
-Here are the steps on how to override them:
-
-1. Make a copy of tests/kustomize-defaults.cfg
+1. Copy `tests/kustomize-defaults.cfg` to another file for editing. The following command creates a copy named `my-defaults.cfg`:
    ```shell
    cp tests/kustomize-defaults.cfg my-defaults.cfg
    ```
+2. Edit `my-defaults.cfg` and add information about your communal endpoint.
 
-2. Edit my-defaults.cfg by setting your own access point, bucket, region and credentials that you want to use.
+   For details about the required settings for each supported storage location, see [Communal storage settings](#communal-storage-settings). For general help about supported communal storage, see [Configuring communal storage](https://docs.vertica.com/latest/en/containerized/configuring-communal-storage/).
 
-3. Set the KUSTOMIZE_CFG environment vairable to point to my-defaults.cfg
+3. To override the default configuration file, set the `KUSTOMIZE_CFG` environment variable to `my-defaults.cfg`:
+
    ```shell
    export KUSTOMIZE_CFG=my-defaults.cfg
    ```
 
-4. Setup the commmunal endpoint.
-
-      1. AWS S3 BUCKET
-
-         If you have an AWS account, you can configure your environment so that it uses AWS instead of minio.  
-         
-         `Prerequisite:` The s3 bucket must already be created prior to running the tests.
-
-         Here are the steps to set that up:
-
-         * Edit my-defaults.cfg and fill in the details.
-            * Fill in the ACCESSKEY and SECRETKEY with your unique IDs.
-            * Use the chart below to know what to fill in depending on what AWS region you want to write to.
-
-
-            Env Name | Description | Sample value
-            | :--- | ---: | :---:
-            ENDPOINT  | Endpoint and credentials for s3 communal access in the tests. | https://s3.us-east-1.amazonaws.com
-            REGION  | The AWS region.  | us-east-1
-            S3_BUCKET  | This is the name of the bucket | aws-s3-bucket-name
-            PATH_PREFIX  | his is used to place the communal path in a subdirectory. | /\<userID>
-            COMMUNAL_EP_CERT_SECRET  |  | \<leave blank>
-            COMMUNAL_EP_CERT_NAMESPACE  |  | \<leave blank>
-
-      2. Google Cloud Storage
-
-         `Prerequisite:` The Google Cloud bucket must already be created prior to running the tests.
-         
-         Here are the steps:
-         
-         1. You need to create a ‘User account HMAC’. This will give you an access key and secret that you can use later on.
-         2. Edit my-defaults.cfg and fill in the details. Use the chart below as a guide.
-
-         Env Name | Description | Sample value
-         | :--- | ---: | :---:
-         ACCESSKEY  | Use the access key that you got when you generated the HMAC |
-         SECRETKEY  | Use the secret that you got when you generated the HMAC | 
-         PATH_PROTOCOL  | This tells the kustomize scripts to setup for Google cloud. | gs://
-         BUCKET_OR_CLUSTER  | Name of the bucket to use. | gc-bucket-name
-         PATH_PREFIX  | Include your user name here so that all dbs that we know who created the DBs.  It must begin and end with a slash. | /johndoe/
-
-      3. Azure Blob Storage
-
-         1. You have to decide whether to connect with the accountKey or a shared access signature (SAS).  If it is a SAS, you can generate one in a self-serve manner.
-            - In the WebUI (https://portal.azure.com) go to the storage container that you want access to
-            - On the left is a link called “Shared access tokens”.  Click that.
-            - Fill in the form to create a SAS token.
-         2. Edit my-defaults.cfg and fill in the details.  Use the chart below as a guide.
-
-         Env Name | Description | Sample value
-         | :--- | ---: | :---:
-         CONTAINERNAME  |Name of the azure container | container-name
-         ACCOUNTKEY  | If authenticating with an account key, fill this in.  Otherwise it can be left blank. | 
-         SHAREDACCESSSIGNATURE  | If authenticating with a SAS, fill this in.  This can be left blank if using an accountKey.  Before to include it in quotes ("") because of the special characters that are typically used. | 
-         PATH_PROTOCOL | Set this to tell the e2e tests that Azure is being used. | azb://
-         BUCKET_OR_CLUSTER  | Fill in the account name | account-name
-         PATH_PREFIX  | Include your user name here so that all dbs that we know who created the DBs.  It must begin and end with a slash. | /johndoe/
-
-
-5. Run the integration tests.
+4. Run the integration tests:
    ```shell
-   kubectl kuttl test
+   make run-int-tests | tee kuttl.out
    ```
-   
-### Stern output
 
-The e2e tests use stern to save off logs of some pods.  This is done to aid in debugging any failures.  If needed, the logs are stored in the `int-tests-output` directory by default.  Cleanup of the stern process is only done if kuttl runs to completition.  If you abort the kuttl run, then you will need to stop the stern process manually.
+#### Amazon Web Services S3
 
-## 7. Running Soak Tests
+> **IMPORTANT**
+> You must create the S3 bucket before you run the tests.
 
-The soak test will test the operator over a long interval. It splits the test into multiple iterations. Each iteration generates a random workload that is comprised of pod kills and scaling. At the end of each iteration, the test waits for everything to come up. If the test is successful, it proceeds to another iteration. It repeats this process for a set number of iterations or indefinitely.
+| Environment variable | Description                                              | Example                              |
+| :------------------- | :------------------------------------------------------- | :----------------------------------- |
+| `ACCESSKEY`          | Your AWS access key credential.                          |                                      |
+| `SECRETKEY`          | Your AWS secret key credential.                          |                                      |
+| `ENDPOINT`           | Endpoint and credentials for S3 communal access.         | `https://s3.us-east-1.amazonaws.com` |
+| `REGION`             | AWS region.                                              | `us-east-1`                          |
+| `S3_BUCKET`          | Name of the S3 bucket.                                   | `aws-s3-bucket-name`                 |
+| `PATH_PREFIX`        | Places the communal path in a subdirectory in this repo. | `/<userID>`                          |
 
-The tests in an iteration are run through kuttl.  The random test generation is done by the kuttl-step-gen tool.
+#### Google Cloud Storage
 
-Here are the steps needed to run this test.
+> **IMPORTANT**
+> You must create the Google Cloud bucket before you run the tests.
+
+| Environment variable | Description                                                                                | Example          |
+| :------------------- | :----------------------------------------------------------------------------------------- | :--------------- |
+| `ACCESSKEY`          | HMAC access key.                                                                           |                  |
+| `SECRETKEY`          | HMAC secret key.                                                                           |                  |
+| `PATH_PROTOCOL`      | Sets the Google Cloud Storage protocol.                                                    | `gs://`          |
+| `BUCKET_OR_CLUSTER`  | Name of the Google Cloud bucket.                                                           | `gc-bucket-name` |
+| `PATH_PREFIX`        | Identifies the developer that created the database. Must begin and end with a slash (`/`). | `/username/`     |
+
+#### Azure Block Storage
+
+You can access Azure Block Storage with an accountKey or shared access signature (SAS). To generate a SAS token, complete the following:
+
+1. In [Microsoft Azure](https://portal.azure.com), go to the storage container that you want to use for testing.
+2. In the left navigation, select the **Shared access tokens** link.
+3. Complete the form to generate a SAS token.
+
+| Environment variable    | Description                                                                                     | Example          |
+| :---------------------- | :---------------------------------------------------------------------------------------------- | :--------------- |
+| `CONTAINERNAME`         | Name of the Azure container.                                                                    | `container-name` |
+| `ACCOUNTKEY`            | accountKey authentication only.                                                                 |                  |
+| `SHAREDACCESSSIGNATURE` | SAS authentication only. Enclose the SAS token in quotes (`""`) to preserve special characters. | `"sas-token"`    |
+| `PATH_PROTOCOL`         | Sets the Azure Block Storage protocol.                                                          | `azb://`         |
+| `BUCKET_OR_CLUSTER`     | The account name.                                                                               | `account-name`   |
+| `PATH_PREFIX`           | Identifies the developer that created the database. Must begin and end with a slash (`/`).      | `/username/`     |
+
+### Pod logs
+
+The e2e tests use [stern](https://github.com/stern/stern) to persist some pod logs to help debug any failures. The e2e tests create the `int-tests-output/` directory to store the logs.
+
+The stern process completes when the kuttle tests run to completion. If you abort a kuttle test, then you must stop the stern process manually.
+
+## Soak tests
+
+The soak tests evaluate the operator over a long interval. The test is split into multiple iterations, and each iteration generates a random workload that is comprised of pod kills and scaling operations. If the tests succeed, the next iteration begins. You can set the number of iterations that the soak test runs.
+
+Soak tests are run with kuttl, and the random test generation is done with the [kuttle-step-gen tool](https://kuttl.dev/docs/testing/steps.html).
+
+To run the soak tests, create a configuration file that outlines the databases that you want to test and how you want the test framework to react. We provide a sample configuration file in [tests/soak/soak-sample.cfg](./tests/soak/soak-sample.cfg).
+
+The following steps run the soak tests:
 
 1. Create the databases that you want to test.
-2. Create a config file to outline the databases to test and how you want the test framework to react. A sample one can be found in tests/soak/soak-sample.cfg.
-```shell
-$ cp tests/soak/soak-sample.cfg local-soak.cfg
-$ vim local-soak.cfg
-```
-3. Decide on the number of iterations you would like to run:
-```shell
-$ export NUM_SOAK_ITERATIONS=10  # Can use -1 for infinite
-```
-4. Kick off the run.
-```shell
-$ make run-soak-tests
-```
+2. Copy the configuration file and make your edits:
 
-## Help
+   ```shell
+   cp tests/soak/soak-sample.cfg local-soak.cfg
+   vim local-soak.cfg
+   ```
 
-To see the full list of make targets, run the following command:
+3. Set the number of iterations that you want to run with the `NUM_SOAK_ITERATIONS` environment variable:
 
-```shell
-$ make help
-```
+   ```shell
+   export NUM_SOAK_ITERATIONS=10
+   ```
 
-# Problem Determination
+   To run infinite soak tests, set `NUM_SOAK_ITERATIONS` to `-1`.
+
+4. To start the tests, run the following make target:
+
+   ```shell
+   make run-soak-tests
+   ```
+
+# Troubleshooting
 
 The following sections provide troubleshooting tips for your deployment.
 
 ## Kubernetes Events
 
-The operator generates Kubernetes events for some key scenarios. This can be a useful tool when trying to understand what the operator is doing. Use the following command to view the events:
+The operator generates Kubernetes events for some key scenarios. This is helpful whne you need to understand what tasks the operator is working on. Use the following command to view the events:
 
 ```shell
-$ kubectl describe vdb mydb
-
-...<snip>...
+kubectl describe vdb mydb
+...
 Events:
   Type    Reason                   Age    From                Message
   ----    ------                   ----   ----                -------
@@ -387,41 +522,54 @@ Events:
   Normal  ClusterRestartSucceeded  28s    verticadb-operator  Successfully called 'admintools -t start_db' and it took 8.8401312s
 ```
 
-## Retrieving Logs with vertica.log
+## Retrieve `vertica.log`
 
-You might need to inspect the contents of the vertica.log to diagnose a problem with the Vertica server.  There are a few ways this can be done:
+You might need to inspect the contents of the `vertica.log` to diagnose a problem with the Vertica server. You can SSH into a container or use a sidecar logger.
 
-- Drop into the container and navigate to the directory where is is stored. The exact location depends on your CR.  You can refer to the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm) to find the location.  
+### SSH into a container
 
-- Deploy a sidecar to capture the vertica.log and print it to stdout. If this sidecar is enabled you can use `kubectl logs` to inspect it.  This sidecar can be used by adding the following into your CR:
+Drop into the container and navigate to the directory where is is stored:
 
-  ```shell
-  spec:
-    ...
-    sidecars:
-    - name: vlogger
-      image: vertica/vertica-logger:latest
-  ```
+```shell
+docker exec -it <container-name> /bin/bash
+cd path/to/vertica.log
+```
 
-  The `sidecars[i].image` shown here is a container that Vertica publishes on its docker repository. After the sidecar container is running, inspect the logs with the following command:
+The exact location of `vertica.log` depends on your CR. For additional details about Vertica log files, see the [Vertica documentation](https://docs.vertica.com/latest/en/admin/monitoring/monitoring-log-files/) to find the location.
 
-  ```shell
-  $ kubectl logs <vertica-pod-name> -c vlogger
-  ```
+### Sidecar logger
+
+Deploy a sidecar to capture the contents of `vertica.log` and print it to STDOUT. If you use the sidecar logger, you can inspect the file with `kubectl logs`.
+
+To use a sidecar logger in your CR, add the following into your CR:
+
+```shell
+spec:
+   ...
+   sidecars:
+   - name: vlogger
+   image: vertica/vertica-logger:latest
+```
+
+The `sidecars[i].image` shown here is a container that Vertica publishes on its docker repository. After the sidecar container is running, inspect the logs with the following command:
+
+```shell
+kubectl logs <vertica-pod-name> -c vlogger
+```
 
 ## Memory Profiling
 
-The memory profiler lets you view where the big allocations are occurring and to help detect any memory leaks. The toolset is [Google's pprof](https://golang.org/pkg/net/http/pprof/).
+The memory profiler lets you view where the big allocations are occurring and helps detect memory leaks. The toolset is Google's [pprof](https://golang.org/pkg/net/http/pprof/).
 
-By default, the memory profiler is disabled. To enable it, add a parameter when you start the operator.  The following steps enable the memory profiler for a deployed operator.
+By default, the memory profiler is disabled. To enable it, add a parameter when you start the operator. The following steps enable the memory profiler for a deployed operator.
 
 1. Use `kubectl edit` to open the running deployment for editing:
 
    ```shell
-   $ kubectl edit deployment verticadb-operator-controller-manager
+   kubectl edit deployment verticadb-operator-controller-manager
    ```
 
-2. Locate where the arguments are passed to the manager, and add `--enable-profiler`:
+2. Locate the `args` array that passes values to the deployment manager, and add `--enable-profiler`:
 
    ```shell
          ...
@@ -435,17 +583,17 @@ By default, the memory profiler is disabled. To enable it, add a parameter when 
          ...
    ```
 
-2. Wait until the operator is redeployed.
-3. Port forward 6060 to access the webUI for the profiler. The name of the pod differs for each deployment, so be sure to find the one specific to your cluster:
+3. Wait until the operator is redeployed.
+4. Port forward 6060 to access the profiler's user interface (UI). The name of the pod differs for each deployment, so make sure that you find the one specific to your cluster:
 
    ```shell
-   $ kubectl port-forward pod/verticadb-operator-controller-manager-5dd5b54df4-2krcr 6060:6060
+   kubectl port-forward pod/verticadb-operator-controller-manager-5dd5b54df4-2krcr 6060:6060
    ```
 
-4. Use a web browser or the standalone tool to connect to `http://localhost:6060/debug/pprof`.
+5. Use a web browser or the standalone tool to connect to the profiler's UI at `http://localhost:6060/debug/pprof`.
    If you use a web browser, replace `localhost` with the host that you used in the previous `kubectl port-forward` command.
-   Invoke the standalone tool with the following command:
+   Alternatively, you can invoke the standalone tool with the following command:
 
    ```shell
-   $ go tool pprof http://localhost:6060/debug/pprof
+   go tool pprof http://localhost:6060/debug/pprof
    ```
