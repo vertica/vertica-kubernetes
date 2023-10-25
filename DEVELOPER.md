@@ -7,13 +7,10 @@ This guide explains how to set up an environment to develop and test the Vertica
 This repo contains the following directories and files:
 
 - `docker-vertica/`: files that build a Vertica server container. This container is designed for [Administration Tools (admintools)](https://docs.vertica.com/latest/en/admin/using-admin-tools/admin-tools-reference/) deployments.
-
-  The build process requires that you provide a Vertica RPM package that is version 11.0.0 or higher.
-
 - `docker-vertica-v2/`: files that build the v2 Vertica server container. This container is designed for vclusterops deployments.
 - `docker-operator/`: files that build the [VerticaDB operator](https://docs.vertica.com/latest/en/containerized/db-operator/) container.
 - `docker-vlogger/`: files that build the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT.
-- `scripts/`: scripts that run Makefile targets and execute end-to-end (e2e) tests with tools in this repository.
+- `scripts/`: scripts that run Makefile targets and execute end-to-end (e2e) tests.
 - `api/`: defines the custom resource definition (CRD) spec.
 - `pkg/`: includes all packages for the operator.
 - `cmd/`: source code for all executables in this repository.
@@ -45,6 +42,14 @@ Before you begin, you must manually install the following software:
 
 > **NOTE**
 > Some [Makefile](./Makefile) targets install additional software in this repo's `bin/` directory.
+
+# Help
+
+To simplify complex setup and teardown tasks, this repo uses a [Makefile](./Makefile). For a full list and description of make targets, run the following command:
+
+```shell
+make help
+```
 
 # Kind environment setup
 
@@ -86,9 +91,9 @@ The `scripts/kind.sh` helper script sets up Kind and creates a cluster to test V
 3. To test the container, check the status of the cluster nodes with kubectl:
 
    ```shell
-   kubectl get nodes
-   NAME                       STATUS   ROLES                  AGE     VERSION
-   devcluster-control-plane   Ready    control-plane,master   9m41s   v1.23.0
+   kubetcl get nodes
+   NAME                       STATUS   ROLES                  AGE   VERSION
+   devcluster-control-plane   Ready    control-plane,master   47s   v1.23.0
    ```
 
 You have a master node and control plane that is ready to deploy and Vertica Kubernetes resources locally.
@@ -110,13 +115,13 @@ kind-registry
 > ```shell
 > PATH=$PATH:path/to/vertica-kubernetes/bin/kind
 > kind get clusters
-> testcluster
+> devcluster
 > ```
 
 # Build the images
 
 > **IMPORTANT**
-> This repo's build tools require a Vertica version 11.0.0 or higher RPM for both admintools and vcluster deployments.
+> This repo requires a Vertica RPM that is version 11.0.0 or higher to build the images.
 >
 > You must name the RPM `vertica-x86_64.RHEL6.latest.rpm` and store it in the `docker-vertica/packages/` and `docker-vertica-v2/packages/` directories:
 >
@@ -125,33 +130,14 @@ kind-registry
 > cp /path/to/vertica-x86_64.RHEL6.latest.rpm docker-vertica-v2/packages/
 > ```
 
-## Help
-
-The developer workflows use a [Makefile](./Makefile) to run most commands. For a full list and description of make targets, run the following command:
-
-```shell
-make help
-```
-
-1. build and push container
-2. Generate controller files
-3. Run linters
-4. Run unit tests
-5. Run the operator
-6. Run e2e tests
-7. Run soak tests
-8. Troubleshooting
-
 ## Custom image names
 
-You might want to give one or more of the Vertica images a unique name. Before you [build and push the containers](#build-and-push-the-containers), set one of the following environment variables to change the name of the associated image:
+You might want to give one or more of the Vertica images a unique name. Before you [build and push the containers](#build-and-push-the-containers), set one of these environment variables to change the name of the associated image:
 
 - `OPERATOR_IMG`: VerticaDB operator image.
 - `VERTICA_IMG`: Vertica server image. Use this interchangeably for v1 and v2 containers.
 - `VLOGGER_IMG`: Vertica sidecar logger.
-- `BUNDLE_IMG`: OLM bundle image.
-
-In a production environment, the default tag is `latest`. In a Kind environment, the default tag is `kind`.
+- `BUNDLE_IMG`: Operator Lifecycle Manager (OLM) bundle image.
 
 The custom name can include the registry URL. The following example creates a custom `verticadb-operator` image name that includes the registry URL:
 
@@ -159,14 +145,16 @@ The custom name can include the registry URL. The following example creates a cu
 export OPERATOR_IMG=myrepo:5000/my-vdb-operator:latest
 ```
 
+In a production environment, the default tag is `latest`. In a Kind environment, the default tag is `kind`.
+
 ## Build and push the containers
 
 Vertica provides two container sizes:
 
-- Full image. This is the default image.
+- Full image (default image).
 - Minimal image that does not include the 240MB Tensorflow package.
 
-The [Makefile](./Makefile) provides make targets that build the images and push them to the Kind cluster in the current context:
+The following steps build the images and push them to the Kind cluster in the current context:
 
 > **NOTE**
 > Due to the size of the Vertica image, this step might take up to 10 minutes.
@@ -199,10 +187,23 @@ The [Makefile](./Makefile) provides make targets that build the images and push 
    - `verticadb-operator`: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
    - `vertica-logger`: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
 
-   > **NOTE**
-   > OLM deployments create an image for the operator [bundle](https://github.com/operator-framework/operator-registry/blob/v1.16.1/docs/design/operator-bundle.md). The contents of this directory are generated with the `docker-build-bundle` Make target.
+   If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
 
-2. Next, you have to make these containers available to the Kind cluster's control plane. Push them to the cluster with the following make target:
+   ```shell
+   docker system df
+   TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+   Images          6         2         2.983GB   1.501GB (50%)
+   Containers      2         2         3.099MB   0B (0%)
+   Local Volumes   25        2         21.53GB   17.19GB (79%)
+   Build Cache     57        0         3.456GB   3.456GB
+   ```
+
+   For details about the `df` command options, flags, and output, see the [Docker documentation](https://docs.docker.com/engine/reference/commandline/system_df/).
+
+   > **NOTE**
+   > OLM deployments create an image for the operator [bundle](https://github.com/operator-framework/operator-registry/blob/v1.16.1/docs/design/operator-bundle.md). The contents of this directory are generated with the `docker-build-bundle` make target.
+
+2. Next, you have to make these containers available to the Kind cluster. Push them to the cluster with the following command:
 
    ```shell
    make docker-push
@@ -210,20 +211,11 @@ The [Makefile](./Makefile) provides make targets that build the images and push 
 
    This command honors any environment variables that you used when you created the image.
 
-If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
-
-```shell
-docker system df
-TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
-Images          6         2         2.983GB   1.501GB (50%)
-Containers      2         2         3.099MB   0B (0%)
-Local Volumes   25        2         21.53GB   17.19GB (79%)
-Build Cache     57        0         3.456GB   3.456GB
-```
-
-For details about the `df` command options, flags, and output, see the [Docker documentation](https://docs.docker.com/engine/reference/commandline/system_df/).
-
 # Developer Workflows
+
+The following sections show you how to install and maintain the VerticaDB operator in the Kind development environment.
+
+After you complete this setup, you can deploy and test [Vertica CRDs](https://docs.vertica.com/latest/en/containerized/custom-resource-definitions/) in your local development environment.
 
 ## Generate controller files
 
@@ -303,6 +295,8 @@ The `undeploy` make target removes the operator from the environment. The follow
 
 ```shell
 make undeploy
+...
+release "vdb-op" uninstalled
 ```
 
 ## Add a changelog entry
@@ -331,7 +325,7 @@ make lint
 
 ## Unit Tests
 
-This repo contains unit tests for both the Helm chart and the VerticaDB operator. Run the unit tests with the following make target:
+The unit tests verify both the Helm chart and the VerticaDB operator. Run the unit tests with the following command:
 
 ```shell
 make run-unit-tests
@@ -350,7 +344,7 @@ The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing fra
 
 To run the tests:
 
-1. Push the operator to the cluster. If the cluster is already present, then the command returns:
+1. Push the operator to the cluster. If the cluster is already present, the command returns with a message that the operator is already present:
    ```shell
    make docker-build-operator docker-push-operator
    ```
@@ -370,7 +364,7 @@ You can run individual tests from the command line with the [KUTTLE CLI](https:/
 > make setup-minio
 > ```
 >
-> To set up a different communal endpoint, see [Custom communal endpoint](#custom-communal-endpoint).
+> To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
 
 To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory. The `--skip-delete` does not delete any resources that the tests create, which helps with debugging:
 
@@ -378,9 +372,9 @@ To run an individual test, pass the `--test` command the name of a [test suite d
 kubectl kuttl test --test http-custom-certs --skip-delete
 ```
 
-### Custom communal endpoint
+### Custom communal endpoints
 
-Internally, the e2e make target (`run-int-tests`) sets up a [MinIO](https://min.io/) endpoint with TLS for testing. However, you might want to test with a communal endpoint that mimics your development environment. The default configuration is stored in the [tests/kustomize-defaults.cfg](./tests/kustomize-defaults.cfg) file, but you can create a configuration file that overrides these defaults for the e2e tests.
+Internally, the e2e make target (`run-int-tests`) sets up a [MinIO](https://min.io/) endpoint with TLS for testing. However, you might want to test with a communal endpoint that mimics your development environment. The default MinIO configuration is stored in the [tests/kustomize-defaults.cfg](./tests/kustomize-defaults.cfg) file, but you can create a configuration file that overrides these defaults.
 
 The following steps create a configuration file and run e2e tests with a custom communal endpoint:
 
@@ -455,7 +449,7 @@ The stern process completes when the kuttle tests run to completion. If you abor
 
 ## Soak tests
 
-The soak test evaluates the operator over a long interval. The test is split into multiple iterations, and each iteration generates a random workload that is comprised of pod kills and scaling operations. If the tests succeed, the next iteration begins. You can set the number of iterations that the soak test runs.
+The soak tests evaluate the operator over a long interval. The test is split into multiple iterations, and each iteration generates a random workload that is comprised of pod kills and scaling operations. If the tests succeed, the next iteration begins. You can set the number of iterations that the soak test runs.
 
 Soak tests are run with kuttl, and the random test generation is done with the [kuttle-step-gen tool](https://kuttl.dev/docs/testing/steps.html).
 
