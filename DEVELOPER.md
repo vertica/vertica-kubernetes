@@ -507,29 +507,40 @@ Events:
   Normal  ClusterRestartSucceeded  28s    verticadb-operator  Successfully called 'admintools -t start_db' and it took 8.8401312s
 ```
 
-## Retrieve logs with vertica.log
+## Retrieve `vertica.log`
 
-You might need to inspect the contents of the `vertica.log` to diagnose a problem with the Vertica server. There are a few ways that you can inspect this file:
+You might need to inspect the contents of the `vertica.log` to diagnose a problem with the Vertica server. You can SSH into a container or use a sidecar logger.
 
-- Drop into the container and navigate to the directory where is is stored. The exact location depends on your CR. You can refer to the [Vertica documentation](https://www.vertica.com/docs/11.0.x/HTML/Content/Authoring/AdministratorsGuide/Monitoring/Vertica/MonitoringLogFiles.htm) to find the location.
+### SSH into a container
 
-- Deploy a sidecar to capture the contents of `vertica.log` and print it to STDOUT. If you use the sidecar logger, you can inspect the file with `kubectl logs`.
+Drop into the container and navigate to the directory where is is stored:
 
-  To use a sidecar logger in your CR, add the following into your CR:
+```shell
+docker exec -it <container-name> /bin/bash
+cd path/to/vertica.log
+```
 
-  ```shell
-  spec:
-    ...
-    sidecars:
-    - name: vlogger
-      image: vertica/vertica-logger:latest
-  ```
+The exact location of `vertica.log` depends on your CR. For additional details about Vertica log files, see the [Vertica documentation](https://docs.vertica.com/latest/en/admin/monitoring/monitoring-log-files/) to find the location.
 
-  The `sidecars[i].image` shown here is a container that Vertica publishes on its docker repository. After the sidecar container is running, inspect the logs with the following command:
+### Sidecar logger
 
-  ```shell
-  kubectl logs <vertica-pod-name> -c vlogger
-  ```
+Deploy a sidecar to capture the contents of `vertica.log` and print it to STDOUT. If you use the sidecar logger, you can inspect the file with `kubectl logs`.
+
+To use a sidecar logger in your CR, add the following into your CR:
+
+```shell
+spec:
+   ...
+   sidecars:
+   - name: vlogger
+   image: vertica/vertica-logger:latest
+```
+
+The `sidecars[i].image` shown here is a container that Vertica publishes on its docker repository. After the sidecar container is running, inspect the logs with the following command:
+
+```shell
+kubectl logs <vertica-pod-name> -c vlogger
+```
 
 ## Memory Profiling
 
