@@ -133,8 +133,6 @@ export OLM_CATALOG_IMG
 
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
-# Set this to YES if you want to create a vertica image with no keys inside
-NO_KEYS ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
 # Can be used to specify additional overrides when doing the helm install.
@@ -355,12 +353,12 @@ endif
 .PHONY: docker-build-vertica
 docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker image
 	cd docker-vertica \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
+	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
 
 .PHONY: docker-build-vertica-v2
 docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation vertica server docker image
 	cd docker-vertica-v2 \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
+	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
 
 .PHONY: docker-push-vertica
 docker-push-vertica:  ## Push vertica server image -- either v1 or v2.

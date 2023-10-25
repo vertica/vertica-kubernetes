@@ -6,13 +6,11 @@
 ARG BASE_OS_VERSION="lunar"
 ARG BUILDER_OS_VERSION="stream8"
 ARG MINIMAL=""
-ARG NO_KEYS=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
 FROM quay.io/centos/centos:${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL
-ARG NO_KEYS
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
 
@@ -80,18 +78,11 @@ COPY dbadmin/.ssh /home/dbadmin/.ssh
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && mkdir -p /root/.ssh \
-  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
-    cp -r /home/dbadmin/.ssh /root; \
-    chmod 700 /root/.ssh; \
-    chmod 600 /root/.ssh/*; \
-  fi \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
-  && if [[ ${NO_KEYS^^} == "YES" ]] ; then \
-    rm -rf /home/dbadmin/.ssh/*;  \
-  fi
+  && rm -rf /home/dbadmin/.ssh/*
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION} as initial
@@ -116,7 +107,6 @@ ARG DBADMIN_UID=5000
 # "apt-cache search jre | grep jre"
 ARG JRE_PKG=openjdk-8-jre-headless
 ARG MINIMAL
-ARG NO_KEYS
 ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
@@ -167,10 +157,6 @@ RUN set -x \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     apt-get install -y --no-install-recommends $JRE_PKG; \
-  fi \
-  # install vim except in the -nokeys image \
-  && if [[ ${NO_KEYS^^} != "YES" ]] ; then \
-    apt-get install -y --no-install-recommends vim-tiny; \
   fi \
   && apt-get clean \
   && apt-get autoremove \
