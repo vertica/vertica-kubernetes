@@ -186,6 +186,7 @@ The following steps build the images and push them to the Kind cluster in the cu
    - `vertica-k8s`: long-running container that runs the Vertica daemon. This container is designed for admintools deployments. For details about the admintools deployment image, see the [Dockerfile](./docker-vertica/Dockerfile). For details about the vcluster deployment image, see the [Dockerfile](./docker-vertica-v2/Dockerfile).
    - `verticadb-operator`: runs the VerticaDB operator and webhook. For details, see the [Dockerfile](./docker-operator/Dockerfile).
    - `vertica-logger`: runs the vlogger sidecar container that sends the contents of `vertica.log` to STDOUT. For details, see the [Dockerfile](./docker-vlogger/Dockerfile).
+   - `ubuntu`: serves as the base image for the `vertica-k8s` image. The `make docker-build` command pulls the latest version each time.
 
    If your image builds fail silently, confirm that there is enough disk space in your Docker repository to store the built images:
 
@@ -323,12 +324,32 @@ Run all linters with the `lint` target:
 make lint
 ```
 
+This make target installs the `hadolint/hadolint` image into your local docker repo:
+
+```shell
+[k8admin@docd01 vertica-kubernetes]$ docker image ls
+REPOSITORY               TAG            IMAGE ID       CREATED          SIZE
+...
+hadolint/hadolint        2.12.0         12fa10a87864   11 months ago    2.43MB
+...
+```
+
 ## Unit Tests
 
 The unit tests verify both the Helm chart and the VerticaDB operator. Run the unit tests with the following command:
 
 ```shell
 make run-unit-tests
+```
+
+This make target pulls the `quintush/helm-unittest` image into your local docker repo:
+
+```shell
+[k8admin@docd01 vertica-kubernetes]$ docker image ls
+REPOSITORY               TAG            IMAGE ID       CREATED          SIZE
+...
+quintush/helm-unittest   3.9.3-0.2.11   83c439b2cf46   9 months ago     105MB
+...
 ```
 
 Helm chart unit tests are stored in `helm-charts/verticadb-operator/tests` and use the [helm-unittest plugin](https://github.com/quintush/helm-unittest). The helm-unittest repo includes [test samples and templates](https://github.com/quintush/helm-unittest/tree/master/test/data/v3/basic) so you can model your own tests. For details about the test format, see the [helm-unittest GitHub repository](https://github.com/quintush/helm-unittest/blob/master/DOCUMENT.md).
