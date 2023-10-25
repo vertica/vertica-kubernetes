@@ -79,7 +79,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		const ScSize = 2
 		vdb.Spec.Subclusters[0].Size = ScSize
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: ScSize - 1, Detail: []vapi.VerticaDBPodStatus{}},
+			{Name: vdb.Spec.Subclusters[0].Name, Detail: []vapi.VerticaDBPodStatus{{Installed: true}, {Installed: false}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -101,7 +101,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: sc.Size - 1, Detail: []vapi.VerticaDBPodStatus{}},
+			{Name: vdb.Spec.Subclusters[0].Name, Detail: []vapi.VerticaDBPodStatus{{Installed: true}, {Installed: false}}},
 		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)

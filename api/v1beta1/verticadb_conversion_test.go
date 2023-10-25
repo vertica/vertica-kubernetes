@@ -230,7 +230,6 @@ var _ = Describe("verticadb_conversion", func() {
 		v1beta1VDB := MakeVDB()
 		v1VDB := v1.VerticaDB{}
 
-		// v1beta1 -> v1
 		v1beta1VDB.Spec.Subclusters[0].IsPrimary = false
 		v1beta1VDB.Spec.Subclusters[0].IsTransient = true
 		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
@@ -241,5 +240,65 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
 		Ω(v1beta1VDB.Spec.Subclusters[0].IsPrimary).Should(BeFalse())
 		Ω(v1beta1VDB.Spec.Subclusters[0].IsTransient).Should(BeTrue())
+	})
+
+	It("should convert installCount in status field", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		v1beta1VDB.Status.InstallCount = 3
+		v1beta1VDB.Status.Subclusters = []SubclusterStatus{
+			{
+				InstallCount: 1,
+				Detail:       []VerticaDBPodStatus{{Installed: true}},
+			},
+			{
+				InstallCount: 2,
+				Detail:       []VerticaDBPodStatus{{Installed: true}, {Installed: true}},
+			},
+		}
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Status.InstallCount()).Should(Equal(int32(3)))
+		Ω(v1VDB.Status.Subclusters).Should(HaveLen(2))
+		Ω(v1VDB.Status.Subclusters[0].InstallCount()).Should(Equal(int32(1)))
+		Ω(v1VDB.Status.Subclusters[1].InstallCount()).Should(Equal(int32(2)))
+
+		// v1 -> v1beta1
+		v1VDB.Status.Subclusters = []v1.SubclusterStatus{
+			{
+				Detail: []v1.VerticaDBPodStatus{{Installed: true}, {Installed: true}, {Installed: true}},
+			},
+			{
+				Detail: []v1.VerticaDBPodStatus{{Installed: true}},
+			},
+			{
+				Detail: []v1.VerticaDBPodStatus{{Installed: false}},
+			},
+		}
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Status.InstallCount).Should(Equal(int32(4)))
+		Ω(v1beta1VDB.Status.Subclusters).Should(HaveLen(3))
+		Ω(v1beta1VDB.Status.Subclusters[0].InstallCount).Should(Equal(int32(3)))
+		Ω(v1beta1VDB.Status.Subclusters[1].InstallCount).Should(Equal(int32(1)))
+		Ω(v1beta1VDB.Status.Subclusters[2].InstallCount).Should(Equal(int32(0)))
+	})
+
+	It("should convert condition names", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		v1beta1VDB.Status.Conditions = []VerticaDBCondition{
+			{Type: ImageChangeInProgress},
+		}
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Status.Conditions).Should(HaveLen(1))
+		Ω(v1VDB.Status.Conditions[0].Type).Should(Equal(v1.UpgradeInProgress))
+
+		// v1 -> v1beta1
+		v1beta1VDB.Status.Conditions = nil
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Status.Conditions).Should(HaveLen(1))
+		Ω(v1beta1VDB.Status.Conditions[0].Type).Should(Equal(ImageChangeInProgress))
 	})
 })

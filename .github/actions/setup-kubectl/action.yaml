@@ -1,13 +1,13 @@
 name: 'Download kubectl'
-description: 'Will download kubectl into the current shell'
+description: 'Will download tools for k8s into the current shell'
 runs:
   using: "composite"
   steps:
-    - name: Install kubectl
+    # Note: we don't download kubectl because it should already be included in
+    # the GitHub runner as preinstalled software. Just check that it exists.
+    - name: Test kubectl
       shell: bash
       run: |
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
         kubectl version --client
 
     - name: Install kubens

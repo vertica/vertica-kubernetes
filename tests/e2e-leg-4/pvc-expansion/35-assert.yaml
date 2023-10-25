@@ -17,6 +17,5 @@ metadata:
   name: v-pvc-expansion
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1

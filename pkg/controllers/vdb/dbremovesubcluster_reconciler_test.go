@@ -32,6 +32,8 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 
 	It("should do nothing if none of the statefulsets were created yet", func() {
 		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -47,24 +49,26 @@ var _ = Describe("dbremovedsubcluster_reconcile", func() {
 			{Name: scNames[0], Size: scSizes[0]},
 			{Name: scNames[1], Size: scSizes[1]},
 		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateSvcs(ctx, k8sClient, vdb)
 		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
-		// We create a second vdb without one of the subclusters.  We then use
+		// We update the vdb to remove one of the subclusters.  We then use
 		// the finder to discover this additional subcluster.
-		lookupVdb := vapi.MakeVDB()
-		lookupVdb.Spec.Subclusters[0] = vapi.Subcluster{Name: scNames[0], Size: scSizes[0]}
-		lookupVdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: scNames[0], InstallCount: scSizes[0], AddedToDBCount: scSizes[0]},
-			{Name: scNames[1], InstallCount: scSizes[1], AddedToDBCount: scSizes[1]},
-		}
+		nm := vdb.ExtractNamespacedName()
+		fetchedVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, nm, fetchedVdb)).Should(Succeed())
+		fetchedVdb.Spec.Subclusters = fetchedVdb.Spec.Subclusters[:len(fetchedVdb.Spec.Subclusters)-1]
+		Expect(k8sClient.Update(ctx, fetchedVdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, lookupVdb, fpr, pfacts, dispatcher)
+		Expect(pfacts.Collect(ctx, fetchedVdb)).Should(Succeed())
+		dispatcher := vdbRec.makeDispatcher(logger, fetchedVdb, fpr, TestPassword)
+		r := MakeDBRemoveSubclusterReconciler(vdbRec, logger, fetchedVdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// One command should be AT -t db_remove_subcluster and one should be
 		// changing the default subcluster

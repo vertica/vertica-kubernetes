@@ -46,9 +46,9 @@ type scalingInput struct {
 }
 
 type subclusterDetail struct {
-	Name      string
-	Size      int
-	IsPrimary bool
+	Name string
+	Size int
+	Type string
 }
 
 var VerticaCRDTemplate = `
@@ -62,7 +62,7 @@ spec:
     {{- range .Subclusters }}
     - name: {{ .Name }}
       size: {{ .Size }}
-      isPrimary: {{ .IsPrimary }}
+      type: {{ .Type }}
 	{{- end }}
 `
 
@@ -86,7 +86,6 @@ metadata:
   name: {{ $vdbName }}
   namespace: {{ $vdbNamespace }}
 status:
-  installCount: {{ .TotalPodCount }}
   upNodeCount: {{ .TotalPodCount }}
   addedToDBCount: {{ .TotalPodCount }}
   subclusterCount: {{ len .Subclusters }}
@@ -133,9 +132,9 @@ func makeTemplateInput(cfg *Config, dbcfg *DatabaseCfg) *scalingInput {
 		}
 		tin.TotalPodCount += newSize
 		tin.Subclusters = append(tin.Subclusters, subclusterDetail{
-			Name:      sc.Name,
-			IsPrimary: sc.IsPrimary,
-			Size:      newSize,
+			Name: sc.Name,
+			Type: sc.Type,
+			Size: newSize,
 		})
 	}
 	return tin

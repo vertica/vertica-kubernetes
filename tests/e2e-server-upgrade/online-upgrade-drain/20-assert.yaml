@@ -17,14 +17,11 @@ metadata:
   name: v-base-upgrade
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1
 ---
 apiVersion: v1

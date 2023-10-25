@@ -17,7 +17,6 @@ metadata:
   name: v-base-upgrade
 status:
   subclusterCount: 2
-  installCount: 2
   addedToDBCount: 2
   upNodeCount: 2
 ---

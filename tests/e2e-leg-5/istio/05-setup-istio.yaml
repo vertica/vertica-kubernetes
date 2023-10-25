@@ -11,23 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-istio-tproxy-main
-  annotations:
-    sidecar.istio.io/interceptionMode: TPROXY
-status:
-  replicas: 3
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-istio-tproxy
-spec:
-  annotations:
-    sidecar.istio.io/interceptionMode: TPROXY
-status:
-  subclusters:
-    - installCount: 3
-
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- command: sh -c "cd ../../.. && make istioctl"
+- command: sh -c "../../../bin/istioctl operator init"
+- command: sh -c "../../../bin/istioctl uninstall --purge --skip-confirmation || true"
+- command: sh -c "../../../bin/istioctl install --set profile=demo --skip-confirmation"
+- command: kubectl label namespace $NAMESPACE istio-injection=enabled

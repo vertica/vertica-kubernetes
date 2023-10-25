@@ -222,7 +222,6 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 // convertToStatus will convert to a v1 VerticaDBStatus from a v1beta1 version
 func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 	dst := v1.VerticaDBStatus{
-		InstallCount:    src.InstallCount,
 		AddedToDBCount:  src.AddedToDBCount,
 		UpNodeCount:     src.UpNodeCount,
 		SubclusterCount: src.SubclusterCount,
@@ -242,7 +241,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 // convertFromStatus will convert from a v1 VerticaDBStatus to a v1beta1 version
 func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 	dst := VerticaDBStatus{
-		InstallCount:    src.InstallCount,
+		InstallCount:    src.InstallCount(),
 		AddedToDBCount:  src.AddedToDBCount,
 		UpNodeCount:     src.UpNodeCount,
 		SubclusterCount: src.SubclusterCount,
@@ -393,10 +392,8 @@ func convertToSubclusterStatus(src SubclusterStatus) v1.SubclusterStatus {
 	return v1.SubclusterStatus{
 		Name:           src.Name,
 		Oid:            src.Oid,
-		InstallCount:   src.InstallCount,
 		AddedToDBCount: src.AddedToDBCount,
 		UpNodeCount:    src.UpNodeCount,
-		ReadOnlyCount:  src.ReadOnlyCount,
 		Detail:         convertToPodStatus(src.Detail),
 	}
 }
@@ -406,10 +403,9 @@ func convertFromSubclusterStatus(src v1.SubclusterStatus) SubclusterStatus {
 	return SubclusterStatus{
 		Name:           src.Name,
 		Oid:            src.Oid,
-		InstallCount:   src.InstallCount,
+		InstallCount:   src.InstallCount(),
 		AddedToDBCount: src.AddedToDBCount,
 		UpNodeCount:    src.UpNodeCount,
-		ReadOnlyCount:  src.ReadOnlyCount,
 		Detail:         convertFromPodStatus(src.Detail),
 	}
 }
@@ -423,7 +419,6 @@ func convertToPodStatus(src []VerticaDBPodStatus) []v1.VerticaDBPodStatus {
 			AddedToDB: src[i].AddedToDB,
 			VNodeName: src[i].VNodeName,
 			UpNode:    src[i].UpNode,
-			ReadOnly:  src[i].ReadOnly,
 		}
 	}
 	return pods
@@ -438,7 +433,6 @@ func convertFromPodStatus(src []v1.VerticaDBPodStatus) []VerticaDBPodStatus {
 			AddedToDB: src[i].AddedToDB,
 			VNodeName: src[i].VNodeName,
 			UpNode:    src[i].UpNode,
-			ReadOnly:  src[i].ReadOnly,
 		}
 	}
 	return pods
@@ -447,7 +441,7 @@ func convertFromPodStatus(src []v1.VerticaDBPodStatus) []VerticaDBPodStatus {
 // convertToStatusCondition will convert to a v1 VerticaDBCondition from a v1beta1 version
 func convertToStatusCondition(src VerticaDBCondition) v1.VerticaDBCondition {
 	return v1.VerticaDBCondition{
-		Type:               v1.VerticaDBConditionType(src.Type),
+		Type:               convertToStatusConditionType(src.Type),
 		Status:             src.Status,
 		LastTransitionTime: src.LastTransitionTime,
 	}
@@ -456,7 +450,7 @@ func convertToStatusCondition(src VerticaDBCondition) v1.VerticaDBCondition {
 // convertFromStatusCondition will convert from a v1 VerticaDBCondition to a v1beta1 version
 func convertFromStatusCondition(src v1.VerticaDBCondition) VerticaDBCondition {
 	return VerticaDBCondition{
-		Type:               VerticaDBConditionType(src.Type),
+		Type:               convertFromStatusConditionType(src.Type),
 		Status:             src.Status,
 		LastTransitionTime: src.LastTransitionTime,
 	}
@@ -472,4 +466,20 @@ func convertToSubclusterType(src *Subcluster) string {
 		return v1.TransientSubcluster
 	}
 	return v1.SecondarySubcluster
+}
+
+// convertToStatusConditionType will convert to a v1 VerticaDBConditionType from a v1beta1 version
+func convertToStatusConditionType(srcType VerticaDBConditionType) v1.VerticaDBConditionType {
+	if srcType == ImageChangeInProgress {
+		return v1.UpgradeInProgress
+	}
+	return v1.VerticaDBConditionType(srcType)
+}
+
+// convertFromStatusConditionType will convert from a v1 VerticaDBConditionType to a v1beta1 version
+func convertFromStatusConditionType(srcType v1.VerticaDBConditionType) VerticaDBConditionType {
+	if srcType == v1.UpgradeInProgress {
+		return ImageChangeInProgress
+	}
+	return VerticaDBConditionType(srcType)
 }

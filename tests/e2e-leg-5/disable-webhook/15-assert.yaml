@@ -22,6 +22,3 @@ metadata:
   name: v-disable-webhook
   annotations:
     vertica.com/k-safety: "0"
-status:
-  subclusters:
-    - installCount: 1

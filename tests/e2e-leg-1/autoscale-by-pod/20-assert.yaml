@@ -33,7 +33,5 @@ metadata:
   name: v-autoscale-by-pod
 status:
   subclusters:
-    - installCount: 2
-      addedToDBCount: 2
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 2
+    - addedToDBCount: 1

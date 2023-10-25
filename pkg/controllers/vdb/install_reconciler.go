@@ -223,7 +223,7 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 		startPodIndex := int32(0)
 		scStatus, ok := d.Vdb.FindSubclusterStatus(sc.Name)
 		if ok {
-			startPodIndex += scStatus.InstallCount
+			startPodIndex += scStatus.InstallCount()
 		}
 		for i := startPodIndex; i < sc.Size; i++ {
 			pn := names.GenPodName(d.Vdb, sc, i)
