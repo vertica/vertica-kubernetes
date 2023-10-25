@@ -404,4 +404,21 @@ var _ = Describe("podfacts", func() {
 		Ω(pods).Should(HaveLen(1))
 		Ω(pods[0].dnsName).Should(Equal("p2"))
 	})
+
+	It("should detect when the vdb has changed since collection", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
+		Ω(pf.Collect(ctx, vdb)).Should(Succeed())
+		Ω(pf.HasVerticaDBChangedSinceCollection(ctx, vdb)).Should(BeFalse())
+
+		// Mock a change by adding an annotation
+		if vdb.Annotations == nil {
+			vdb.Annotations = make(map[string]string)
+		}
+		vdb.Annotations["foo"] = "bar"
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+		Ω(pf.HasVerticaDBChangedSinceCollection(ctx, vdb)).Should(BeTrue())
+	})
 })

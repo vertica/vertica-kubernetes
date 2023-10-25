@@ -1,0 +1,5 @@
+kind: Fixed
+body: Timing hole that can skip the drain for scale down.
+time: 2023-10-18T11:16:48.945394946-03:00
+custom:
+  Issue: "552"
