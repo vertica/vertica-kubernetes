@@ -526,7 +526,7 @@ Events:
 
 You might need to inspect the contents of the `vertica.log` to diagnose a problem with the Vertica server. You can SSH into a container or use a sidecar logger.
 
-### SSH into a container
+### Exec into a container
 
 Drop into the container and navigate to the directory where is is stored:
 
