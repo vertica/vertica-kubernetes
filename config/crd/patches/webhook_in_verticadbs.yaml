@@ -12,5 +12,6 @@ spec:
           name: verticadb-operator-webhook-service
           namespace: system
           path: /convert
+          port: 443
       conversionReviewVersions:
       - v1beta1
