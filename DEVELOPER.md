@@ -266,7 +266,7 @@ To stop the operator, press **Ctrl + C**.
 
 When you run the operator as a deployment object, it runs in a container in a real Kubernetes environment.
 
-Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You specify the deployment model with the `DEPLOY_WITH` environment variable in the `make` command. By default, the operator is deployed in the `verticadb-operator` namespace. If that namespace does not exists, and it creates it if necessary.
+Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You specify the deployment model with the `DEPLOY_WITH` environment variable in the `make` command. By default, the operator is deployed in the `verticadb-operator` namespace. If that namespace does not exists, it creates it if necessary.
 
 The operator pod contains a webhook, which requires TLS certificates. The TLS setup for each deployment model is different.
 
