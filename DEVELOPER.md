@@ -387,10 +387,10 @@ You can run individual tests from the command line with the [KUTTLE CLI](https:/
 >
 > To set up a different communal endpoint, see [Custom communal endpoints](#custom-communal-endpoints).
 
-To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory. The `--skip-delete` does not delete any resources that the tests create, which helps with debugging:
+To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory:
 
 ```shell
-kubectl kuttl test --test http-custom-certs --skip-delete
+kubectl kuttl test --test http-custom-certs
 ```
 
 ### Custom communal endpoints
