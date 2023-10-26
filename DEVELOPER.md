@@ -391,7 +391,7 @@ You can run individual tests from the command line with the [KUTTLE CLI](https:/
 To run an individual test, pass the `--test` command the name of a [test suite directory](./tests/). For example, this command runs all tests in the [http-custom-certs](./tests/e2e-leg-6/http-custom-certs/) directory:
 
 ```shell
-kubectl kuttl test --test http-custom-certs
+make init-e2e-env && kubectl kuttl test --test http-custom-certs
 ```
 
 ### Custom communal endpoints
