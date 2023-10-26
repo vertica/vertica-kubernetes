@@ -361,9 +361,7 @@ Unit tests for the VerticaDB operator use the Go testing infrastructure. Some te
 > **IMPORTANT**
 > The e2e tests only run on operators that were [deployed as an object](#deployment-object).
 
-The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing framework. Before you begin, set the default StorageClass for your Kubernetes cluster. Otherwise, most of the e2e tests use the `standard (default)` StorageClass. For details, see the [Kubernetes documentation](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/).
-
-To run the tests:
+The e2e tests use the [kuttl](https://github.com/kudobuilder/kuttl/) testing framework. To run the tests:
 
 1. Push the operator to the cluster. If the cluster is already present, the command returns with a message that the operator is already present:
    ```shell
