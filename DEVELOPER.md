@@ -472,7 +472,7 @@ The stern process completes when the kuttle tests run to completion. If you abor
 
 The soak tests evaluate the operator over a long interval. The test is split into multiple iterations, and each iteration generates a random workload that is comprised of pod kills and scaling operations. If the tests succeed, the next iteration begins. You can set the number of iterations that the soak test runs.
 
-Soak tests are run with kuttl, and the random test generation is done with the [kuttle-step-gen tool](https://kuttl.dev/docs/testing/steps.html).
+Soak tests are run with kuttl, and the random test generation is done with the [kuttl-step-gen tool](cmd/kuttl-step-gen/main.go).
 
 To run the soak tests, create a configuration file that outlines the databases that you want to test and how you want the test framework to react. We provide a sample configuration file in [tests/soak/soak-sample.cfg](./tests/soak/soak-sample.cfg).
 
