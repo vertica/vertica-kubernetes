@@ -278,7 +278,7 @@ Deploy the operator with Helm and all its prerequisites:
 DEPLOY_WITH=helm make config-transformer deploy
 ```
 
-The Helm charts generate a self-signed TLS certificate. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
+The operator generates a self-signed TLS certificate at runtime. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
 
 #### OLM deployment
 
