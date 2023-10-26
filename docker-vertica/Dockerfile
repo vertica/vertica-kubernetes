@@ -84,7 +84,7 @@ RUN set -x \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
-  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
+  && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* 
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION} as initial
