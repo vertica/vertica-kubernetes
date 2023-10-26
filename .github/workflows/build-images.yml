@@ -47,7 +47,7 @@ on:
         value: ${{ jobs.build-server-minimal.outputs.image }}
       legacy-vertica-image:
         description: "The image name of the full vertica server image, but with admintools and SSH support"
-        value: ${{ jobs.build-server-nokeys.outputs.image }}
+        value: ${{ jobs.build-server-legacy.outputs.image }}
       vlogger-image:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
