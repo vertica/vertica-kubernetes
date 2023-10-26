@@ -25,9 +25,7 @@ runs:
       shell: bash
       run: |
         find . -name \*.tar
-        docker load --input full-vertica-image/full-vertica-image.tar
-        docker load --input nokeys-vertica-image/nokeys-vertica-image.tar
-        docker load --input minimal-vertica-image/minimal-vertica-image.tar
+        docker load --input legacy-vertica-image/legacy-vertica-image.tar
         docker load --input operator-image/operator-image.tar
         docker load --input vlogger-image/vlogger-image.tar
         docker image ls -a
