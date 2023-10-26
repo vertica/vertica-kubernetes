@@ -506,7 +506,7 @@ The following sections provide troubleshooting tips for your deployment.
 
 ## Kubernetes Events
 
-The operator generates Kubernetes events for some key scenarios. This is helpful whne you need to understand what tasks the operator is working on. Use the following command to view the events:
+The operator generates Kubernetes events for some key scenarios. This is helpful when you need to understand what tasks the operator is working on. Use the following command to view the events:
 
 ```shell
 kubectl describe vdb mydb
