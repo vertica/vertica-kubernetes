@@ -8,15 +8,15 @@ on:
         type: string
         required: true
       full_vertica_image:
-        description: 'Name of an existing full Vertica server image. If blank we will build one using the default name'
+        description: 'Name of an existing full Vertica server v2 image. If blank we will build one using the default name'
+        type: string
+        required: true
+      minimal_vertica_image:
+        description: 'Name of an existing minimal Vertica server v2 image. If blank we will build one using the default name'
         type: string
         required: true
       legacy_vertica_image:
         description: 'Name of an existing full image with admintools and SSH support. Leave blank to build one with the default name'
-        type: string
-        required: true
-      minimal_vertica_image:
-        description: 'Name of an existing minimal Vertica server image. If blank we will build one using the default name'
         type: string
         required: true
       vlogger_image:
@@ -42,12 +42,12 @@ on:
       full-vertica-image:
         description: "The image name of the full vertica server image"
         value: ${{ jobs.build-server-full.outputs.image }}
-      legacy-vertica-image:
-        description: "The image name of the full vertica server image, but with admintools and SSH support"
-        value: ${{ jobs.build-server-nokeys.outputs.image }}
       minimal-vertica-image:
         description: "The image name of the vertica server, but with optional software removed"
         value: ${{ jobs.build-server-minimal.outputs.image }}
+      legacy-vertica-image:
+        description: "The image name of the full vertica server image, but with admintools and SSH support"
+        value: ${{ jobs.build-server-nokeys.outputs.image }}
       vlogger-image:
         description: "The image name of the vertica logger sidecar"
         value: ${{ jobs.build-vlogger.outputs.image }}
@@ -67,12 +67,6 @@ jobs:
       image: ${{ steps.full_vertica_image.outputs.value }}
     steps:
 
-    - name: set lower case owner name
-      env:
-        OWNER: '${{ github.repository_owner }}'
-      run: |
-        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
-
     - name: Pick the name of the image
       uses: spilchen/switch-case-action@v2
       id: full_vertica_image
@@ -83,7 +77,7 @@ jobs:
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ github.event_name != 'pull_request' && inputs.full_vertica_image == '' || startsWith(inputs.full_vertica_image, 'ghcr.io') }}
+      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.full_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
@@ -255,23 +249,17 @@ jobs:
       image: ${{ steps.minimal_vertica_image.outputs.value }}
     steps:
 
-    - name: set lower case owner name
-      env:
-        OWNER: '${{ github.repository_owner }}'
-      run: |
-        echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
-
     - name: Pick the name of the image
       uses: spilchen/switch-case-action@v2
       id: minimal_vertica_image
       with:
-        default: docker.io/vertica/vertica-k8s-private:latest-master
+        default: docker.io/vertica/vertica-k8s-private:latest-minimal-master
         conditionals-with-values: |
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
     - name: Login to GitHub Container registry for non-PRs
       uses: docker/login-action@v2
-      if: ${{ github.event_name != 'pull_request' && inputs.minimal_vertica_image == '' || startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
+      if: ${{ github.event_name != 'pull_request' && startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}

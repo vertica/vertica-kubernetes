@@ -11,15 +11,15 @@ on:
         type: string
         required: false
       full_vertica_image:
-        description: 'Name of an existing full vertica image. Leave blank to build one with the default name'
+        description: 'Name of an existing full vertica v2 image. Leave blank to build one with the default name'
+        type: string
+        required: false
+      minimal_vertica_image:
+        description: 'Name of an existing minimal vertica v2 image. Leave blank to build one with the default name'
         type: string
         required: false
       legacy_vertica_image:
         description: 'Name of an existing full image with admintools and SSH support. Leave blank to build one with the default name'
-        type: string
-        required: false
-      minimal_vertica_image:
-        description: 'Name of an existing minimal vertica image. Leave blank to build one with the default name'
         type: string
         required: false
       vlogger_image:
@@ -197,7 +197,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
       vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -223,7 +223,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
       vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -236,7 +236,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -272,7 +272,6 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      # pass the legacy vertica image
       vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
       vertica-deployment-method: admintools
     secrets:

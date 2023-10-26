@@ -78,11 +78,13 @@ COPY dbadmin/.ssh /home/dbadmin/.ssh
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   && mkdir -p /root/.ssh \
+  && cp -r /home/dbadmin/.ssh /root \
+  && chmod 700 /root/.ssh \
+  && chmod 600 /root/.ssh/* \
   && chmod 700 /home/dbadmin/.ssh \
   && chmod 600 /home/dbadmin/.ssh/* \
   && chown -R dbadmin:verticadba /home/dbadmin/ \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* \
-  && rm -rf /home/dbadmin/.ssh/*
 
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION} as initial
@@ -136,6 +138,7 @@ RUN set -x \
   # update needed because we just did a clean
   && apt-get -y update \
   && apt-get install -y --no-install-recommends \
+  vim-tiny \
   ca-certificates \
   cron \
   dialog \

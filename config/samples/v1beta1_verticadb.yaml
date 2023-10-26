@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: verticadb-sample
 spec:
-  image: "vertica/vertica-k8s:23.3.0-0-minimal"
+  image: "vertica/vertica-k8s:23.3.0-0-legacy"
   communal:
     # path: "s3://<your-bucket>/"
     endpoint: https://s3.amazonaws.com
