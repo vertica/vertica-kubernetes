@@ -27,7 +27,7 @@ data:
 
     for i in $(seq 1 5)
     do
-        NODE=$(vsql -h v-shared-svc-one -tAc "select node_name from current_session")
+        NODE=$(vsql -U dbadmin -h v-shared-svc-one -tAc "select node_name from current_session")
         echo $NODE
 
         NODES=("v_vertdb_node0001", "v_vertdb_node0002", "v_vertdb_node0003")

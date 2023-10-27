@@ -74,3 +74,9 @@ for obj in verticadbs pods statefulsets deployments
 do
     kubectl get $obj -A -o yaml > $HOST_OP_DIR/$obj.yaml
 done
+
+# Save off the OLM operator log if deployed
+if kubectl get ns olm 2> /dev/null
+then
+    kubectl logs -n olm -l app=olm-operator --tail=-1 > $HOST_OP_DIR/olm-operator.log
+fi

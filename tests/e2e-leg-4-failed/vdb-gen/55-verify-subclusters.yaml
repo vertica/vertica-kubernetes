@@ -31,8 +31,8 @@ data:
 
     EXPECTED_SUBCLUSTER=\$1
     Q="select subcluster_name from subclusters where node_name = (select node_name from sessions where session_id = current_session())"
-    vsql -w superuser -tAc "\$Q"
-    vsql -w superuser -tAc "\$Q" | grep \$EXPECTED_SUBCLUSTER
+    vsql -U dbadmin -w superuser -tAc "\$Q"
+    vsql -U dbadmin -w superuser -tAc "\$Q" | grep \$EXPECTED_SUBCLUSTER
     EOF
 
     VDB_NAME=v-vdb-gen-revive

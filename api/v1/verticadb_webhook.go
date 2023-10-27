@@ -131,56 +131,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	var allErrs field.ErrorList
 	oldObj := old.(*VerticaDB)
 
-	// initPolicy cannot change after creation
-	if v.Spec.InitPolicy != oldObj.Spec.InitPolicy {
-		err := field.Invalid(field.NewPath("spec").Child("initPolicy"),
-			v.Spec.InitPolicy,
-			"initPolicy cannot change after creation.")
-		allErrs = append(allErrs, err)
-	}
-	// dbName cannot change after creation
-	if v.Spec.DBName != oldObj.Spec.DBName {
-		err := field.Invalid(field.NewPath("spec").Child("dbName"),
-			v.Spec.DBName,
-			"dbName cannot change after creation.")
-		allErrs = append(allErrs, err)
-	}
-	// communal.path cannot change after creation
-	if v.Spec.Communal.Path != oldObj.Spec.Communal.Path {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("path"),
-			v.Spec.Communal.Path,
-			"communal.path cannot change after creation")
-		allErrs = append(allErrs, err)
-	}
-	// communal.endpoint cannot change after creation
-	if v.Spec.Communal.Endpoint != oldObj.Spec.Communal.Endpoint {
-		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
-			v.Spec.Communal.Endpoint,
-			"communal.endpoint cannot change after creation")
-		allErrs = append(allErrs, err)
-	}
-	// local.storageClass cannot change after creation
-	if v.Spec.Local.StorageClass != oldObj.Spec.Local.StorageClass {
-		err := field.Invalid(field.NewPath("spec").Child("local").Child("storageClass"),
-			v.Spec.Local.StorageClass,
-			"local.storageClass cannot change after creation")
-		allErrs = append(allErrs, err)
-	}
-	// when update subcluster names, there should be at least one sc's name match its old name
-	if !v.canUpdateScName(oldObj) {
-		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
-			v.Spec.Subclusters,
-			"at least one subcluster name should match its old name")
-		allErrs = append(allErrs, err)
-	}
-	// validate that for existing subclusters that we don't change the
-	// primary/secondary type
-	if ok, inx := v.isSubclusterTypeIsChanging(oldObj); ok {
-		err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(inx).Child("type"),
-			v.Spec.Subclusters[inx].Type,
-			fmt.Sprintf("subcluster %s cannot have it's type change", v.Spec.Subclusters[inx].Name))
-		allErrs = append(allErrs, err)
-	}
+	allErrs = v.checkImmutableBasic(oldObj, allErrs)
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
 	allErrs = v.checkImmutableTemporarySubclusterRouting(oldObj, allErrs)
 	allErrs = v.checkImmutableEncryptSpreadComm(oldObj, allErrs)
@@ -188,6 +139,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableShardCount(oldObj, allErrs)
 	allErrs = v.checkImmutableS3ServerSideEncryption(oldObj, allErrs)
 	allErrs = v.checkImmutableDepotVolume(oldObj, allErrs)
+	allErrs = v.checkImmutablePodSecurityContext(oldObj, allErrs)
 	return allErrs
 }
 
@@ -891,6 +843,60 @@ func (v *VerticaDB) isDBInitialized() bool {
 	return v.isConditionIndexSet(DBInitializedIndex)
 }
 
+func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// initPolicy cannot change after creation
+	if v.Spec.InitPolicy != oldObj.Spec.InitPolicy {
+		err := field.Invalid(field.NewPath("spec").Child("initPolicy"),
+			v.Spec.InitPolicy,
+			"initPolicy cannot change after creation.")
+		allErrs = append(allErrs, err)
+	}
+	// dbName cannot change after creation
+	if v.Spec.DBName != oldObj.Spec.DBName {
+		err := field.Invalid(field.NewPath("spec").Child("dbName"),
+			v.Spec.DBName,
+			"dbName cannot change after creation.")
+		allErrs = append(allErrs, err)
+	}
+	// communal.path cannot change after creation
+	if v.Spec.Communal.Path != oldObj.Spec.Communal.Path {
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("path"),
+			v.Spec.Communal.Path,
+			"communal.path cannot change after creation")
+		allErrs = append(allErrs, err)
+	}
+	// communal.endpoint cannot change after creation
+	if v.Spec.Communal.Endpoint != oldObj.Spec.Communal.Endpoint {
+		err := field.Invalid(field.NewPath("spec").Child("communal").Child("endpoint"),
+			v.Spec.Communal.Endpoint,
+			"communal.endpoint cannot change after creation")
+		allErrs = append(allErrs, err)
+	}
+	// local.storageClass cannot change after creation
+	if v.Spec.Local.StorageClass != oldObj.Spec.Local.StorageClass {
+		err := field.Invalid(field.NewPath("spec").Child("local").Child("storageClass"),
+			v.Spec.Local.StorageClass,
+			"local.storageClass cannot change after creation")
+		allErrs = append(allErrs, err)
+	}
+	// when update subcluster names, there should be at least one sc's name match its old name
+	if !v.canUpdateScName(oldObj) {
+		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
+			v.Spec.Subclusters,
+			"at least one subcluster name should match its old name")
+		allErrs = append(allErrs, err)
+	}
+	// validate that for existing subclusters that we don't change the
+	// primary/secondary type
+	if ok, inx := v.isSubclusterTypeIsChanging(oldObj); ok {
+		err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(inx).Child("type"),
+			v.Spec.Subclusters[inx].Type,
+			fmt.Sprintf("subcluster %s cannot have it's type change", v.Spec.Subclusters[inx].Name))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
 // checkImmutableUpgradePolicy will see if it unsafe to change the
 // upgradePolicy.  It will log an error if it detects a change in that field
 // when it isn't allowed.
@@ -1022,6 +1028,63 @@ func (v *VerticaDB) checkImmutableDepotVolume(oldObj *VerticaDB, allErrs field.E
 		err := field.Invalid(field.NewPath("spec").Child("local").Child("depotVolume"),
 			v.Spec.Local.DepotVolume,
 			"cannot change after the db has been initialized")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) checkImmutablePodSecurityContext(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// PodSecurityContext can change if we haven't yet created/revived the database
+	if !v.isDBInitialized() {
+		return allErrs
+	}
+
+	prefix := field.NewPath("spec").Child("podSecurityContext")
+
+	oldPsc := oldObj.Spec.PodSecurityContext
+	newPsc := v.Spec.PodSecurityContext
+	if (oldPsc == nil && newPsc != nil) || (oldPsc != nil && newPsc == nil) {
+		if oldPsc != nil && (oldPsc.RunAsUser != nil || oldPsc.FSGroup != nil) {
+			err := field.Invalid(prefix,
+				newPsc,
+				"Cannot clear the runAsUser or fsGroup settings after DB initialization")
+			return append(allErrs, err)
+		}
+		if newPsc != nil && (newPsc.RunAsUser != nil || newPsc.FSGroup != nil) {
+			err := field.Invalid(prefix,
+				newPsc,
+				"Cannot set the runAsUser or fsGroup settings after DB initialization")
+			return append(allErrs, err)
+		}
+	}
+	if oldPsc == nil {
+		return allErrs
+	}
+
+	allErrs = checkInt64PtrChange(prefix, "fsGroup", oldPsc.FSGroup, newPsc.FSGroup, allErrs)
+	allErrs = checkInt64PtrChange(prefix, "runAsUser", oldPsc.RunAsUser, newPsc.RunAsUser, allErrs)
+	return allErrs
+}
+
+func checkInt64PtrChange(prefix *field.Path, fieldName string,
+	oldVal, newVal *int64, allErrs field.ErrorList) field.ErrorList {
+	path := prefix.Child(fieldName)
+	if oldVal == nil && newVal != nil {
+		err := field.Invalid(path,
+			newVal,
+			fmt.Sprintf("Cannot set %s after DB initialization", fieldName))
+		return append(allErrs, err)
+	}
+	if oldVal != nil && newVal == nil {
+		err := field.Invalid(path,
+			newVal,
+			fmt.Sprintf("Cannot clear %s after DB initialization", fieldName))
+		return append(allErrs, err)
+	}
+	if *oldVal != *newVal {
+		err := field.Invalid(path,
+			newVal,
+			fmt.Sprintf("Cannot change %s after DB initialization", fieldName))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

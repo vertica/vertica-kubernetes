@@ -119,8 +119,7 @@ Vertica supports [Red Hat OpenShift](https://docs.openshift.com/container-platfo
 
 The VerticaDB operator is available for download in the OpenShift OperatorHub. It is compatible with OpenShift versions 4.8 and higher.
 
-OpenShift manages security with [Security Context Constraints](https://docs.openshift.com/container-platform/4.8/authentication/managing-security-context-constraints.html) (SCCs). Vertica provides the `anyuid-extra` SCC to manage Vertica security on OpenShift. In addition, Vertica is compatible with the default `privileged` SCC.
-
+OpenShift manages security with [Security Context Constraints](https://docs.openshift.com/container-platform/4.8/authentication/managing-security-context-constraints.html) (SCCs). You need to use the 'anyuid' SCC to manage the security of the Veriica pods.
 
 For details about Vertica on OpenShift, see [Red Hat OpenShift Overview](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/OpenShiftK8s.htm).
 

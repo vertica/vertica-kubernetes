@@ -1,6 +1,9 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  # In v2 image, we need to allow write access to the sdk/examples directory
+  - command: kubectl -n $NAMESPACE exec -it v-udx-java-sc1-0 -- bash -c "echo root | su root sh -c 'chmod -R a+w /opt/vertica/sdk/examples || true'"
+    ignoreFailure: true
   # upload the built library binaries
   - command: kubectl -n $NAMESPACE cp ../../../sdk/examples/build v-udx-java-sc1-0:/opt/vertica/sdk/examples
   # upload the expected outputs of executing sql files

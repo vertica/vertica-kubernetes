@@ -31,7 +31,7 @@ data:
       set +o xtrace
 
       timeout 60 bash -c -- "\
-          while ! kubectl exec -it pod/v-http-custom-certs-main-$pod -- vsql -tAc \"select http_server_ctrl('status_bool','')\" | grep -cq '1'
+          while ! kubectl exec -it pod/v-http-custom-certs-main-$pod -- vsql -U dbadmin -tAc \"select http_server_ctrl('status_bool','')\" | grep -cq '1'
           do \
             sleep 0.1; \
           done" &
@@ -42,7 +42,7 @@ data:
       wait $pid
     done
     
-    HTTP_STATUS=$(kubectl exec -it svc/v-http-custom-certs-main -- vsql -c "select http_server_ctrl('status','')")
+    HTTP_STATUS=$(kubectl exec -it svc/v-http-custom-certs-main -- vsql -U dbadmin -c "select http_server_ctrl('status','')")
     echo $HTTP_STATUS
     echo $HTTP_STATUS | grep -cq "Http server is running"
 ---

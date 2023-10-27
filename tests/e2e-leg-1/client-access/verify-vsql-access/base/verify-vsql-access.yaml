@@ -26,11 +26,11 @@ data:
     set -o xtrace
 
     CLUSTER_IP=v-client-access-sc1
-    vsql -h $CLUSTER_IP -c "drop table if exists t1"
-    vsql -h $CLUSTER_IP -c "create table t1 (c1 int)"
-    vsql -h $CLUSTER_IP -c "insert into t1 values (1)"
-    vsql -h $CLUSTER_IP -c "select * from t1"
-    vsql -h $CLUSTER_IP -c "drop table t1"
+    vsql -U dbadmin -h $CLUSTER_IP -c "drop table if exists t1"
+    vsql -U dbadmin -h $CLUSTER_IP -c "create table t1 (c1 int)"
+    vsql -U dbadmin -h $CLUSTER_IP -c "insert into t1 values (1)"
+    vsql -U dbadmin -h $CLUSTER_IP -c "select * from t1"
+    vsql -U dbadmin -h $CLUSTER_IP -c "drop table t1"
 
 ---
 apiVersion: v1

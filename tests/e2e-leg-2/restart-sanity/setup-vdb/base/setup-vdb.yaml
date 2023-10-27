@@ -48,7 +48,7 @@ data:
     set -o xtrace
 
     # Allow local dbadmin access without a password
-    kubectl exec -it svc/v-restart-defsc -- vsql -w superuser -c "\
+    kubectl exec -it svc/v-restart-defsc -- vsql -U dbadmin -w superuser -c "\
           CREATE AUTHENTICATION v_dbadmin_trust METHOD 'trust' LOCAL; \
           GRANT AUTHENTICATION v_dbadmin_trust TO dbadmin; \
           ALTER AUTHENTICATION v_dbadmin_trust PRIORITY 10000; \

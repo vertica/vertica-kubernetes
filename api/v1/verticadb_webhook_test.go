@@ -780,6 +780,50 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
 		Ω(vdb.Spec.Subclusters[1].Type).Should(Equal(SecondarySubcluster))
 	})
+
+	It("should not allow changing of fsGroup/runAsUser after DB init", func() {
+		oldVdb := MakeVDB()
+		oldFSGroup := int64(1000)
+		newFSGroup := int64(1001)
+		oldRunAsUser := int64(1002)
+		newRunAsUser := int64(1003)
+		oldVdb.Spec.PodSecurityContext = &v1.PodSecurityContext{
+			FSGroup:   &oldFSGroup,
+			RunAsUser: &oldRunAsUser,
+		}
+		newVdb := MakeVDB()
+		newVdb.Spec.PodSecurityContext = &v1.PodSecurityContext{
+			FSGroup:   &oldFSGroup,
+			RunAsUser: &oldRunAsUser,
+		}
+		resetStatusConditionsForDBInitialized(oldVdb)
+		resetStatusConditionsForDBInitialized(newVdb)
+		allErrs := newVdb.validateImmutableFields(oldVdb)
+		Ω(allErrs).Should(HaveLen(0))
+
+		newVdb.Spec.PodSecurityContext.FSGroup = &newFSGroup
+		allErrs = newVdb.validateImmutableFields(oldVdb)
+		Ω(allErrs).ShouldNot(HaveLen(0))
+		newVdb.Spec.PodSecurityContext.FSGroup = &oldFSGroup
+
+		newVdb.Spec.PodSecurityContext.FSGroup = nil
+		allErrs = newVdb.validateImmutableFields(oldVdb)
+		Ω(allErrs).ShouldNot(HaveLen(0))
+		newVdb.Spec.PodSecurityContext.FSGroup = &oldFSGroup
+
+		newVdb.Spec.PodSecurityContext.RunAsUser = &newRunAsUser
+		allErrs = newVdb.validateImmutableFields(oldVdb)
+		Ω(allErrs).ShouldNot(HaveLen(0))
+
+		newVdb.Spec.PodSecurityContext.RunAsUser = nil
+		allErrs = newVdb.validateImmutableFields(oldVdb)
+		Ω(allErrs).ShouldNot(HaveLen(0))
+		newVdb.Spec.PodSecurityContext.RunAsUser = &oldRunAsUser
+
+		newVdb.Spec.PodSecurityContext = nil
+		allErrs = newVdb.validateImmutableFields(oldVdb)
+		Ω(allErrs).ShouldNot(HaveLen(0))
+	})
 })
 
 func createVDBHelper() *VerticaDB {

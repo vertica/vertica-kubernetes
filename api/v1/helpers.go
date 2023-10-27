@@ -520,3 +520,8 @@ func (s *SubclusterStatus) InstallCount() int32 {
 	}
 	return c
 }
+
+// GetVerticaUser returns the user name associated with the passwordSecret.
+func (v *VerticaDB) GetVerticaUser() string {
+	return "dbadmin"
+}

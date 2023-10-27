@@ -54,6 +54,7 @@ const (
 	CatalogPathEnv  = "CATALOG_PATH"
 	DepotPathEnv    = "DEPOT_PATH"
 	DatabaseNameEnv = "DATABASE_NAME"
+	VSqlUserEnv     = "VSQL_USER"
 
 	// Environment variables that are set when deployed with vclusterops
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
@@ -124,16 +125,6 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 // buildConfigVolumeMount returns the volume mount for config.
 // If vclusterops flag is enabled we mount only /opt/vertica/config/https_certs
 func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
-	// When using vclusterOps, we don't have any state in /opt/vertica/config to preserve. There is no
-	// equivalent file like admintools.conf. The only state we need to preserve is the the contents of
-	// the https_certs directory.
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return corev1.VolumeMount{
-			Name:      vapi.LocalDataPVC,
-			SubPath:   vdb.GetPVSubPath("config/https_certs"),
-			MountPath: paths.HTTPTLSConfDir,
-		}
-	}
 	return corev1.VolumeMount{
 		Name:      vapi.LocalDataPVC,
 		SubPath:   vdb.GetPVSubPath("config"),
@@ -559,28 +550,8 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		ServiceAccountName:            vdb.Spec.ServiceAccountName,
-		SecurityContext:               buildPodSecurityPolicy(vdb),
+		SecurityContext:               vdb.Spec.PodSecurityContext,
 	}
-}
-
-// buildPodSecurityPolicy will create the security policy for the pod spec
-func buildPodSecurityPolicy(vdb *vapi.VerticaDB) *corev1.PodSecurityContext {
-	// If anything was specified in the vdb, we use that as the base. Otherwise,
-	// we just use an empty context.
-	psc := corev1.PodSecurityContext{}
-	if vdb.Spec.PodSecurityContext != nil {
-		vdb.Spec.PodSecurityContext.DeepCopyInto(&psc)
-	}
-	if psc.FSGroup == nil {
-		// Set the FSGroup so that mounted volumes have the dbadmin gid. This gives
-		// pods write access to the volumes. Note in 1.9.0 and prior versions of the
-		// operator we did not have this and instead relied on the vertica image to
-		// set the required permissions via chmod.
-		const DefaultDbadminGID = 5000
-		dbadminGID := int64(DefaultDbadminGID)
-		psc.FSGroup = &dbadminGID
-	}
-	return &psc
 }
 
 // makeServerContainer builds the spec for the server container
@@ -600,6 +571,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		{Name: DepotPathEnv, Value: vdb.Spec.Local.DepotPath},
 		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
 		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
+		{Name: VSqlUserEnv, Value: vdb.GetVerticaUser()},
 	}...)
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
