@@ -26,7 +26,7 @@ data:
     set -o xtrace
 
     CLUSTER_IP=v-k-safety-0-scaling-sc1
-    KSAFE=$(vsql -h $CLUSTER_IP -tAc "select get_design_ksafe()")
+    KSAFE=$(vsql -U dbadmin -h $CLUSTER_IP -tAc "select get_design_ksafe()")
   
     if [[ $KSAFE == "0" ]]; then
       exit 0
