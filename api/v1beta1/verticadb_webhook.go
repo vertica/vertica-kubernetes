@@ -52,7 +52,7 @@ const (
 	S3Prefix                 = "s3://"
 	GCloudPrefix             = "gs://"
 	AzurePrefix              = "azb://"
-	ApiVersion               = "vertica.com/v1beta1"
+	APIVersion               = "vertica.com/v1beta1"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -131,7 +131,8 @@ var _ webhook.Defaulter = &VerticaDB{}
 func (v *VerticaDB) Default() {
 	verticadblog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
 
-	v.APIVersion = ApiVersion
+	// default deployments of the v1 api use AT
+	v.APIVersion = APIVersion
 	// setting the vertica.com/vcluster-ops to false
 	v.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 
