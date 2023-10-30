@@ -52,6 +52,7 @@ const (
 	S3Prefix                 = "s3://"
 	GCloudPrefix             = "gs://"
 	AzurePrefix              = "azb://"
+	ApiVersion               = "vertica.com/v1"
 )
 
 // hdfsPrefixes are prefixes for an HDFS path.
@@ -73,6 +74,10 @@ var _ webhook.Defaulter = &VerticaDB{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaDB) Default() {
 	verticadblog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
+
+	v.APIVersion = ApiVersion
+	// setting the vertica.com/vcluster-ops to True
+	v.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 	// imagePullPolicy: if not set should default to Always if the tag in the image is latest,
 	// otherwise it should be IfNotPresent (set in verticadb_types.go)
