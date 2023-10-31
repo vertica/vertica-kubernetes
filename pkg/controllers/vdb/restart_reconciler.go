@@ -436,7 +436,9 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		)
 	}
 	for i := range downPods {
-		opts = append(opts, startdb.WithHost(downPods[i].podIP))
+		if !downPods[i].isTransient {
+			opts = append(opts, startdb.WithHost(downPods[i].podIP))
+		}
 	}
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Starting restart of the cluster")
