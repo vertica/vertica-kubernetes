@@ -263,6 +263,23 @@ var _ = Describe("builder", func() {
 			Expect(cnt.VolumeMounts[i+ExpectedPathsPerMount+j].MountPath).Should(ContainSubstring(paths.RootSSHPath))
 		}
 	})
+
+	It("should mount or not mount NMA certs volume according to annotation", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsFalse
+		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Expect(NMACertsVolumeMountExists(vdb, &c)).Should(BeFalse())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsTrue
+		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Expect(NMACertsVolumeMountExists(vdb, &c)).Should(BeTrue())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+	})
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {
@@ -299,6 +316,46 @@ func getPodInfoVolume(vols []v1.Volume) *v1.Volume {
 		}
 	}
 	return nil
+}
+
+func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
+	for i := range vols {
+		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.Spec.NMATLSSecret {
+			return true
+		}
+	}
+	return false
+}
+
+func NMACertsVolumeMountExists(vdb *vapi.VerticaDB, c *v1.Container) bool {
+	for _, vol := range c.VolumeMounts {
+		if vol.Name == vapi.NMACertsMountName && vol.MountPath == paths.NMACertsRoot {
+			return true
+		}
+	}
+	return false
+}
+
+func NMACertsEnvVarsExist(vdb *vapi.VerticaDB, c *v1.Container) bool {
+	envMap := make(map[string]v1.EnvVar)
+	for _, envVar := range c.Env {
+		envMap[envVar.Name] = envVar
+	}
+	_, rootCAOk := envMap[NMARootCAEnv]
+	_, certOk := envMap[NMACertEnv]
+	_, keyOk := envMap[NMAKeyEnv]
+	_, secretNamespaceOk := envMap[NMASecretNamespaceEnv]
+	_, secretNameOk := envMap[NMASecretNameEnv]
+	if vmeta.UseNMACertsMount(vdb.Annotations) {
+		if rootCAOk && certOk && keyOk && !secretNamespaceOk && !secretNameOk {
+			return true
+		}
+	} else {
+		if !rootCAOk && !certOk && !keyOk && secretNamespaceOk && secretNameOk {
+			return true
+		}
+	}
+	return false
 }
 
 func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {

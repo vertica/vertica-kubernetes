@@ -92,8 +92,8 @@ var _ = Describe("create_db_vc", func() {
 
 	It("should call vcluster-ops library with create_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(dispatcher.CreateDB(ctx,
 			createdb.WithHosts(TestHosts),
 			createdb.WithDBName(TestDBName),

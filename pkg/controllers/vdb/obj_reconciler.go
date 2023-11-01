@@ -136,13 +136,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.NmaTLSSecret == "" {
+		if o.Vdb.Spec.NMATLSSecret == "" {
 			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
 				"The nmaTLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.NmaTLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.NMATLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -163,9 +163,9 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.NmaTLSSecret != "" {
+	if o.Vdb.Spec.NMATLSSecret != "" {
 		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.NmaTLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.NMATLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}

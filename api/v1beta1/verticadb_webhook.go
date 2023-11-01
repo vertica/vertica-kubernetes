@@ -47,7 +47,7 @@ const (
 	HadoopConfigMountName    = "hadoop-conf"
 	Krb5SecretMountName      = "krb5"
 	SSHMountName             = "ssh"
-	HTTPServerCertsMountName = "http-server-certs"
+	HTTPServerCertsMountName = "nma-certs"
 	DepotMountName           = "depot"
 	S3Prefix                 = "s3://"
 	GCloudPrefix             = "gs://"

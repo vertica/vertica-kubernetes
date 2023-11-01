@@ -45,6 +45,13 @@ const (
 	VClusterOpsAnnotationTrue  = "true"
 	VClusterOpsAnnotationFalse = "false"
 
+	// This is a feature flag for mounting NMA certs as a secret volume in server containers
+	// if deployment method is vclusterops. When set to true the NMA reads certs from this mounted
+	// volume, when set to false it reads certs directly from k8s secret store.
+	MountNMACerts      = "vertica.com/mount-nma-certs"
+	MountNMACertsTrue  = "true"
+	MountNMACertsFalse = "false"
+
 	// This is a feature flag for accessing the secrets configured in Google Secret Manager.
 	// The value of this annotation is treated as a boolean.
 	GcpGsmAnnotation = "vertica.com/use-gcp-secret-manager"
@@ -124,6 +131,12 @@ func IsPauseAnnotationSet(annotations map[string]string) bool {
 // library rather than admintools.
 func UseVClusterOps(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, VClusterOpsAnnotation)
+}
+
+// UseNMACertsMount returns true if the NMA reads certs from the mounted secret
+// volume rather than directly from k8s secret store.
+func UseNMACertsMount(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, MountNMACerts)
 }
 
 // UseGCPSecretManager returns true if access to the communal secret should go through

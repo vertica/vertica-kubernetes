@@ -121,7 +121,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should have a successful installer reconcile when running vclusterOps feature flag", func() {
 		secretName := "tls-1"
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NmaTLSSecret = secretName
+		vdb.Spec.NMATLSSecret = secretName
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -137,7 +137,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should not wait for all pods to be running to install when vclusterOps is set", func() {
 		secretName := "tls-2"
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NmaTLSSecret = secretName
+		vdb.Spec.NMATLSSecret = secretName
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
@@ -195,7 +195,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	It("should generate https config only with vclusterops", func() {
 		secretName := "tls-secret"
 		vdb := vapi.MakeVDB()
-		vdb.Spec.NmaTLSSecret = secretName
+		vdb.Spec.NMATLSSecret = secretName
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
 		defer test.DeleteSecret(ctx, k8sClient, secretName)
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
