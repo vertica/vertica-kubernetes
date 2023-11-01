@@ -74,9 +74,6 @@ var _ webhook.Defaulter = &VerticaDB{}
 func (v *VerticaDB) Default() {
 	verticadblog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
 
-	// setting the vertica.com/vcluster-ops to True
-	v.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-
 	// imagePullPolicy: if not set should default to Always if the tag in the image is latest,
 	// otherwise it should be IfNotPresent (set in verticadb_types.go)
 	if strings.HasSuffix(v.Spec.Image, ":latest") {

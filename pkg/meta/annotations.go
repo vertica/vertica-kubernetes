@@ -123,7 +123,16 @@ func IsPauseAnnotationSet(annotations map[string]string) bool {
 // UseVClusterOps returns true if all admin commands should use the vclusterOps
 // library rather than admintools.
 func UseVClusterOps(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, VClusterOpsAnnotation)
+	// UseVClusterOps returns true if the annotation isn't set.
+	defaultValue := true
+	if val, ok := annotations[VClusterOpsAnnotation]; ok {
+		varAsBool, err := strconv.ParseBool(val)
+		if err != nil {
+			return false
+		}
+		return varAsBool
+	}
+	return defaultValue
 }
 
 // UseGCPSecretManager returns true if access to the communal secret should go through

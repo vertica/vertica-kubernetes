@@ -86,6 +86,10 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.Communal.IncludeUIDInPath {
 		newAnnotations[vmeta.IncludeUIDInPathAnnotation] = strconv.FormatBool(src.Spec.Communal.IncludeUIDInPath)
 	}
+	// setting the vertica.com/vcluster-ops to false
+	if _, ok := src.Annotations[vmeta.VClusterOpsAnnotation]; !ok {
+		newAnnotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+	}
 	return newAnnotations
 }
 
