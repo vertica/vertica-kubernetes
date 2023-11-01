@@ -117,39 +117,31 @@ const (
 // IsPauseAnnotationSet will check the annotations for a special value that will
 // pause the operator for the CR.
 func IsPauseAnnotationSet(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, PauseOperatorAnnotation)
+	return lookupBoolAnnotation(annotations, PauseOperatorAnnotation, false /* default value */)
 }
 
 // UseVClusterOps returns true if all admin commands should use the vclusterOps
 // library rather than admintools.
 func UseVClusterOps(annotations map[string]string) bool {
 	// UseVClusterOps returns true if the annotation isn't set.
-	defaultValue := true
-	if val, ok := annotations[VClusterOpsAnnotation]; ok {
-		varAsBool, err := strconv.ParseBool(val)
-		if err != nil {
-			return false
-		}
-		return varAsBool
-	}
-	return defaultValue
+	return lookupBoolAnnotation(annotations, VClusterOpsAnnotation, true /* default value */)
 }
 
 // UseGCPSecretManager returns true if access to the communal secret should go through
 // Google's secret manager rather the fetching the secret from k8s meta-data.
 func UseGCPSecretManager(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, GcpGsmAnnotation)
+	return lookupBoolAnnotation(annotations, GcpGsmAnnotation, false /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
 func IgnoreClusterLease(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, IgnoreClusterLeaseAnnotation)
+	return lookupBoolAnnotation(annotations, IgnoreClusterLeaseAnnotation, false /* default value */)
 }
 
 // IgnoreUpgradePath returns true if the upgrade path can be ignored when
 // changing images.
 func IgnoreUpgradePath(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, IgnoreUpgradePathAnnotation)
+	return lookupBoolAnnotation(annotations, IgnoreUpgradePathAnnotation, false /* default value */)
 }
 
 // GetRestartTimeout returns the timeout to use for restart node or start db. If
@@ -184,17 +176,16 @@ func GetSSHSecretName(annotations map[string]string) string {
 // IncludeUIDInPath will return true if the UID should be included in the
 // communal path to make it unique.
 func IncludeUIDInPath(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, IncludeUIDInPathAnnotation)
+	return lookupBoolAnnotation(annotations, IncludeUIDInPathAnnotation, false /* default value */)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
 // treat it as if it were a boolean.
-func lookupBoolAnnotation(annotations map[string]string, annotation string) bool {
-	defaultValue := false
+func lookupBoolAnnotation(annotations map[string]string, annotation string, defaultValue bool) bool {
 	if val, ok := annotations[annotation]; ok {
 		varAsBool, err := strconv.ParseBool(val)
 		if err != nil {
-			return defaultValue
+			return false
 		}
 		return varAsBool
 	}
