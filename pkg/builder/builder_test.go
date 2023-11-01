@@ -271,13 +271,13 @@ var _ = Describe("builder", func() {
 		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
-		Expect(NMACertsVolumeMountExists(vdb, &c)).Should(BeFalse())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
 		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Expect(NMACertsVolumeMountExists(vdb, &c)).Should(BeTrue())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
 		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 })
@@ -327,7 +327,7 @@ func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
 	return false
 }
 
-func NMACertsVolumeMountExists(vdb *vapi.VerticaDB, c *v1.Container) bool {
+func NMACertsVolumeMountExists(c *v1.Container) bool {
 	for _, vol := range c.VolumeMounts {
 		if vol.Name == vapi.NMACertsMountName && vol.MountPath == paths.NMACertsRoot {
 			return true
