@@ -594,7 +594,7 @@ $(OPERATOR_SDK):
 	chmod +x $(OPERATOR_SDK)
 
 ISTIOCTL = $(shell pwd)/bin/istioctl
-ISTIOCTL_VERSION = 1.19.3
+ISTIOCTL_VERSION = 1.17.2
 istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
 $(ISTIOCTL):
 	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-linux-amd64.tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
