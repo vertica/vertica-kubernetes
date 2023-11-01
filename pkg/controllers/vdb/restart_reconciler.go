@@ -160,7 +160,12 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, true)
+	// Re-IP needs to collect all nodes' IPs. When using vclusterops, we do not want to
+	// restart transient nodes because there is not a config file for vclusterops to retrieve
+	// transient nodes' IPs easily. However, using admintools, we can get the correct nodes'
+	// IPs easily from admintools.conf. As a result, we exclude transient pods from the pods
+	// to restart for vclusterops.
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, !vmeta.UseVClusterOps(r.Vdb.Annotations))
 
 	// Kill any read-only vertica process that may still be running. This does
 	// not include any rogue process that is no longer communicating with
@@ -436,9 +441,7 @@ func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodF
 		)
 	}
 	for i := range downPods {
-		if !downPods[i].isTransient {
-			opts = append(opts, startdb.WithHost(downPods[i].podIP))
-		}
+		opts = append(opts, startdb.WithHost(downPods[i].podIP))
 	}
 	r.VRec.Event(r.Vdb, corev1.EventTypeNormal, events.ClusterRestartStarted,
 		"Starting restart of the cluster")
