@@ -187,8 +187,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vmeta.UseNMACertsMount(vdb.Annotations) {
+	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
 			if vdb.Spec.NMATLSSecret != "" {
 				volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 			}
