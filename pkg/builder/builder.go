@@ -588,8 +588,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		if vmeta.UseNMACertsMount(vdb.Annotations) {
 			envVars = append(envVars, []corev1.EnvVar{
-				// Old model is to provide the path to each of the certs that are
-				// mounted in the container.
+				// Provide the path to each of the certs that are mounted in the container.
 				{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
 				{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
 				{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
