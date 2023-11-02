@@ -198,7 +198,7 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
 		err := field.Invalid(fieldPrefix.Child("Type"),
 			sc.Type,
-			"subcluster type is invalid")
+			"subcluster type is invalid. A valid type a user can specify is \"primary\" or \"secondary\". (\"transient\" is a valid type that should only be set by the operator during online upgrade)")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
