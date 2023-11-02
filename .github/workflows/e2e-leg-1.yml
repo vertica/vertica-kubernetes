@@ -73,7 +73,7 @@ jobs:
         export E2E_TEST_DIRS=tests/e2e-leg-1
         export DEPLOY_WITH=olm
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
-        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-1-failed"; fi
+        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-1-at-only"; fi
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt
 
     - uses: actions/upload-artifact@v3
