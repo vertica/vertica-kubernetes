@@ -11,11 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: controller-manager
-status:
-  phase: Running
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+- command: sh -c "cd ../../.. && make undeploy-operator || true"
+- command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator NAMESPACE=verticadb-operator"
+

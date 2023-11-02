@@ -17,4 +17,19 @@ metadata:
   name: default
 spec:
   mtls:
-    mode: PERMISSIVE
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  namespace: verticadb-operator
+  name: default
+spec:
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    "9443":
+      mode: PERMISSIVE
+  selector:
+    matchLabels:
+      control-plane: controller-manager
