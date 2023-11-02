@@ -64,7 +64,7 @@ func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		if errors.IsNotFound(err) {
-			h.Log.Info("httpServerTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
+			h.Log.Info("nmaTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
 			return ctrl.Result{},
 				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.NMATLSSecret, err)
