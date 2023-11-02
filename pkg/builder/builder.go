@@ -596,10 +596,8 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 			}...)
 		} else {
 			envVars = append(envVars, []corev1.EnvVar{
-				// New model is for the NMA to read the secrets directly from k8s.
-				// We provide the secret namespace and name for this reason. Once
-				// implemented we no longer need to provide the above environment
-				// variables.
+				// The NMA will read the secrets directly from k8s. We provide the
+				// secret namespace and name for this reason.
 				{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
 				{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
 			}...)
