@@ -34,21 +34,21 @@ on:
         options:
         - all
         - none
-        - admintools s3
         - admintools leg 1 
         - admintools leg 2
+        - admintools leg 3
+        - admintools leg 4
         - admintools leg 5
         - admintools server upgrade
         - admintools operator upgrade
         - admintools udx
-        - admintools hostpath
-        - vcluster s3
         - vcluster leg 1
         - vcluster leg 2
+        - vcluster leg 3
+        - vcluster leg 4
         - vcluster leg 5
         - vcluster leg 6
         - vcluster udx
-        - vcluster hostpath
       run_security_scan:
         description: 'What images to scan?'
         type: choice
@@ -99,85 +99,7 @@ jobs:
     uses: ./.github/workflows/build-release-assets.yml
     if: ${{ inputs.build_release_assets == 'all' || inputs.build_release_assests == '' }}
 
-  e2e-s3:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools s3' || inputs.e2e_test_suites == '' }}
-    needs: [build] 
-    uses: ./.github/workflows/e2e-s3.yml
-    with:
-      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-      operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
-      vertica-deployment-method: admintools
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  
-  e2e-s3-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster s3' || inputs.e2e_test_suites == '')}}
-    needs: [build] 
-    uses: ./.github/workflows/e2e-s3.yml
-    with:
-      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-      operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
-      vertica-deployment-method: vclusterops
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  e2e-leg-2:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '' }}
-    needs: [build] 
-    uses: ./.github/workflows/e2e-leg-2.yml
-    with:
-      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-      operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
-      vertica-deployment-method: admintools
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  e2e-leg-2-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 2' || inputs.e2e_test_suites == '')}}
-    needs: [build] 
-    uses: ./.github/workflows/e2e-leg-2.yml
-    with:
-      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-      operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
-      vertica-deployment-method: vclusterops
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  e2e-leg-5:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '' }}
-    needs: [build] 
-    uses: ./.github/workflows/e2e-leg-5.yml
-    with:
-      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-      operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
-      vertica-deployment-method: admintools
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  e2e-leg-5-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 5' || inputs.e2e_test_suites == '')}}
-    needs: [build] 
-    uses: ./.github/workflows/e2e-leg-5.yml
-    with:
-      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
-      operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
-      vertica-deployment-method: vclusterops
-    secrets:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  e2e-leg-1:
+  e2e-leg-1-admintools:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 1' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-leg-1.yml
@@ -203,10 +125,36 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  e2e-hostpath:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools hostpath' || inputs.e2e_test_suites == '' }}
+  e2e-leg-2-admintools:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 2' || inputs.e2e_test_suites == '' }}
     needs: [build] 
-    uses: ./.github/workflows/e2e-hostpath.yml
+    uses: ./.github/workflows/e2e-leg-2.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-2-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 2' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-2.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-deployment-method: vclusterops
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-3-admintools:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '' }}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-3.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
@@ -216,14 +164,66 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   
-  e2e-hostpath-vcluster:
-    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster hostpath' || inputs.e2e_test_suites == '')}}
+  e2e-leg-3-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '')}}
     needs: [build] 
-    uses: ./.github/workflows/e2e-hostpath.yml
+    uses: ./.github/workflows/e2e-leg-3.yml
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+      vertica-deployment-method: vclusterops
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-4-admintools:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 4' || inputs.e2e_test_suites == '' }}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-4.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  
+  e2e-leg-4-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 4' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-4.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
+      vertica-deployment-method: vclusterops
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-5-admintools:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 5' || inputs.e2e_test_suites == '' }}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-5.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-5-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 5' || inputs.e2e_test_suites == '')}}
+    needs: [build] 
+    uses: ./.github/workflows/e2e-leg-5.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.minimal-vertica-image }}
       vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -265,7 +265,7 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  e2e-udx:
+  e2e-udx-admintools:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '' }}
     needs: [build] 
     uses: ./.github/workflows/e2e-udx.yml
