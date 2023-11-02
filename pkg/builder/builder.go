@@ -188,9 +188,8 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	}
 
 	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
-			if vdb.Spec.NMATLSSecret != "" {
-				volMnts = append(volMnts, buildNMACertsVolumeMount()...)
-			}
+		if vdb.Spec.NMATLSSecret != "" {
+			volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 		}
 	}
 
@@ -293,9 +292,8 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
 	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
-			if vdb.Spec.NMATLSSecret != "" {
-				vols = append(vols, buildNMACertsSecretVolume(vdb))
-			}
+		if vdb.Spec.NMATLSSecret != "" {
+			vols = append(vols, buildNMACertsSecretVolume(vdb))
 		}
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
