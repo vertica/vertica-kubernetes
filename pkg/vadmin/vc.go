@@ -24,7 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// retrieveHTTPSCerts will retrieve the certs from HTTPServerTLSSecret for calling NMA endpoints
+// retrieveHTTPSCerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
 	certs := HTTPSCerts{}
 
@@ -35,7 +35,7 @@ func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, erro
 	tlsCerts := &corev1.Secret{}
 	err := v.Client.Get(ctx, nm, tlsCerts)
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve httpServerTLSSecret named %s: %w", nm.Name, err)
+		return nil, fmt.Errorf("could not retrieve nmaTLSSecret named %s: %w", nm.Name, err)
 	}
 
 	tlsKey, ok := tlsCerts.Data[corev1.TLSPrivateKeyKey]
