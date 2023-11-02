@@ -170,6 +170,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateLocalStorage(allErrs)
 	allErrs = v.hasValidShardCount(allErrs)
 	allErrs = v.hasValidProbeOverrides(allErrs)
+	allErrs = v.hasValidPodSecurityContext(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -807,6 +808,22 @@ func (v *VerticaDB) hasValidProbeOverrides(allErrs field.ErrorList) field.ErrorL
 	allErrs = v.hasValidProbeOverride(allErrs, parentField.Child("readinessProbeOverride"), v.Spec.ReadinessProbeOverride)
 	allErrs = v.hasValidProbeOverride(allErrs, parentField.Child("startupProbeOverride"), v.Spec.StartupProbeOverride)
 	allErrs = v.hasValidProbeOverride(allErrs, parentField.Child("livenessProbeOverride"), v.Spec.LivenessProbeOverride)
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidPodSecurityContext(allErrs field.ErrorList) field.ErrorList {
+	if v.Spec.PodSecurityContext == nil {
+		return allErrs
+	}
+
+	const RootUIDVal = 0
+	rootUID := int64(RootUIDVal)
+	if v.Spec.PodSecurityContext.RunAsUser != nil && *v.Spec.PodSecurityContext.RunAsUser == rootUID {
+		err := field.Invalid(field.NewPath("spec").Child("podSecurityContext").Child("runAsUser"),
+			v.Spec.PodSecurityContext.RunAsUser,
+			"cannot run vertica pods as root (uid == 0)")
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 

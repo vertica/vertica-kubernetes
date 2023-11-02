@@ -147,7 +147,9 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.TypeMeta.APIVersion = vapi.GroupVersion.String()
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-	d.Objs.Vdb.Annotations = make(map[string]string)
+	d.Objs.Vdb.Annotations = map[string]string{
+		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
+	}
 	d.Objs.Vdb.Spec.Communal.AdditionalConfig = make(map[string]string)
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName
 	d.Objs.Vdb.Spec.AutoRestartVertica = true

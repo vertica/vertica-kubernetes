@@ -188,6 +188,12 @@ EOF
       path: /metadata/annotations/vertica.com~1vcluster-ops
       value: "true"
 EOF
+        else
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1vcluster-ops
+      value: "false"
+EOF
         fi
     fi
 

@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
+	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -113,6 +114,6 @@ func (r *VerticaAutoscalerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Not a strict ownership, but this is used so that the operator will
 		// reconcile the VerticaAutoscaler for any change in the VerticaDB.
 		// This ensures the status fields are kept up to date.
-		Owns(&vapi.VerticaDB{}).
+		Owns(&v1vapi.VerticaDB{}).
 		Complete(r)
 }

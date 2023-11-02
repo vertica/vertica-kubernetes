@@ -824,6 +824,20 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs = newVdb.validateImmutableFields(oldVdb)
 		Ω(allErrs).ShouldNot(HaveLen(0))
 	})
+
+	It("should not allow setting of runAsUser as root", func() {
+		oldVdb := MakeVDB()
+		runAsUser := int64(0)
+		oldVdb.Spec.PodSecurityContext = &v1.PodSecurityContext{
+			RunAsUser: &runAsUser,
+		}
+		allErrs := oldVdb.validateVerticaDBSpec()
+		Ω(allErrs).ShouldNot(HaveLen(0))
+
+		runAsUser++ // Make it non-root
+		allErrs = oldVdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+	})
 })
 
 func createVDBHelper() *VerticaDB {

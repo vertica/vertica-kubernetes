@@ -70,13 +70,9 @@ fi
 LOG_CMD="kubectl ${NS_OPT}logs -l control-plane=controller-manager -c manager --tail=-1"
 WEBHOOK_FILTER="--invert-match -e 'controller-runtime.webhook.webhooks' -e 'verticadb-resource'"
 DEPRECATION_FILTER="--invert-match 'VerticaDB is deprecated'"
-# Messages from AdapterPool can show up periodically. Temporarily filtering
-# those out while we hunt down the source of them (see VER-89861).
-ADAPTER_POOL_FILTER="--invert-match 'AdapterPool'"
 timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | \
     grep $WEBHOOK_FILTER | \
     grep $DEPRECATION_FILTER | \
-    grep $ADAPTER_POOL_FILTER | \
     grep $VDB_FILTER | \
     tail -1 | grep --quiet '\"result\": {\"Requeue\":false,\"RequeueAfter\":0}, \"err\": null'; do sleep 1; done" &
 pid=$!

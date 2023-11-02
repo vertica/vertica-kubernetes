@@ -527,7 +527,7 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.5
 CONTROLLER_TOOLS_VERSION ?= v0.11.1
-KIND_VERSION ?= v0.11.1
+KIND_VERSION ?= v0.20.0
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
 GOLANGCI_LINT_VER ?= 1.54.2
 
@@ -597,7 +597,7 @@ ISTIOCTL = $(shell pwd)/bin/istioctl
 ISTIOCTL_VERSION = 1.17.2
 istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
 $(ISTIOCTL):
-	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-linux-amd64.tar.gz" | tar xvfz - istio-1.17.2/bin/istioctl -O > $(ISTIOCTL)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-linux-amd64.tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
 	chmod +x $(ISTIOCTL)
 
 

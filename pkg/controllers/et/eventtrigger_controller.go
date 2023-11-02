@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
+	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -92,7 +93,7 @@ func (r *EventTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		res, err = act.Reconcile(ctx, &req)
 		// Error or a request to requeue will stop the reconciliation.
 		if verrors.IsReconcileAborted(res, err) {
-			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
+			log.Info("aborting reconcile of EventTrigger", "result", res, "err", err)
 			return res, err
 		}
 	}
@@ -111,7 +112,7 @@ func (r *EventTriggerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&vapi.EventTrigger{}).
 		Owns(&batchv1.Job{}).
 		Watches(
-			&source.Kind{Type: &vapi.VerticaDB{}},
+			&source.Kind{Type: &v1vapi.VerticaDB{}},
 			handler.EnqueueRequestsFromMapFunc(r.findObjectsForVerticaDB),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).

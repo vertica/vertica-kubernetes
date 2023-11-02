@@ -57,7 +57,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(len(fetchVdb.ObjectMeta.Annotations)).Should(Equal(3))
+		Expect(fetchVdb.ObjectMeta.Annotations).ShouldNot(BeNil())
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal("v11.1.1-0"))
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.BuildRefAnnotation]).Should(Equal("releases/VER_10_1_RELEASE_BUILD_10_20210413"))
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.BuildDateAnnotation]).Should(Equal("Wed Jun  2 2021"))

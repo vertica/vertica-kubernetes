@@ -1,2 +1,0 @@
-#!/command/execlineb -P
-/opt/vertica/bin/manage_node_agent.sh stop

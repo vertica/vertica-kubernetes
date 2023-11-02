@@ -12,10 +12,8 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Pod
+kind: Service
 metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: controller-manager
-status:
-  phase: Running
+  name: v-istio-tproxy-main
+spec:
+  type: NodePort

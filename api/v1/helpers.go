@@ -73,10 +73,12 @@ func MakeVDB() *VerticaDB {
 			Kind:       VerticaDBKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        nm.Name,
-			Namespace:   nm.Namespace,
-			UID:         "abcdef-ghi",
-			Annotations: make(map[string]string),
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+			UID:       "abcdef-ghi",
+			Annotations: map[string]string{
+				vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
+			},
 		},
 		Spec: VerticaDBSpec{
 			AutoRestartVertica: true,
