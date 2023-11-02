@@ -292,8 +292,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vmeta.UseNMACertsMount(vdb.Annotations) {
+	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
 			if vdb.Spec.NMATLSSecret != "" {
 				vols = append(vols, buildNMACertsSecretVolume(vdb))
 			}
