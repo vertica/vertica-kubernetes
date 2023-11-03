@@ -112,7 +112,7 @@ func MakeVDB() *VerticaDB {
 func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = HTTPServerMinVersion
-	vdb.Spec.NmaTLSSecret = httpServerTLSSecretName
+	vdb.Spec.NMATLSSecret = httpServerTLSSecretName
 	return vdb
 }
 

@@ -61,9 +61,9 @@ var _ = Describe("restart_node_vc", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
-		dispatcher.VDB.Spec.NmaTLSSecret = "restart-node-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
+		dispatcher.VDB.Spec.NMATLSSecret = "restart-node-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		ctrlRes, err := dispatcher.RestartNode(ctx,
 			restartnode.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),

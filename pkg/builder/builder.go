@@ -56,7 +56,10 @@ const (
 	DatabaseNameEnv = "DATABASE_NAME"
 	VSqlUserEnv     = "VSQL_USER"
 
-	// Environment variables that are set when deployed with vclusterops
+	// Environment variables that are (optionally) set when deployed with vclusterops
+	NMARootCAEnv          = "NMA_ROOTCA_PATH"
+	NMACertEnv            = "NMA_CERT_PATH"
+	NMAKeyEnv             = "NMA_KEY_PATH"
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
 	NMASecretNameEnv      = "NMA_SECRET_NAME"
 )
@@ -184,8 +187,10 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vdb.Spec.NmaTLSSecret != "" {
-		volMnts = append(volMnts, buildHTTPServerVolumeMount()...)
+	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
+		if vdb.Spec.NMATLSSecret != "" {
+			volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+		}
 	}
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
@@ -249,11 +254,11 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	return mnts
 }
 
-func buildHTTPServerVolumeMount() []corev1.VolumeMount {
+func buildNMACertsVolumeMount() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
-			Name:      vapi.HTTPServerCertsMountName,
-			MountPath: paths.HTTPServerCertsRoot,
+			Name:      vapi.NMACertsMountName,
+			MountPath: paths.NMACertsRoot,
 		},
 	}
 }
@@ -286,8 +291,10 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vdb.Spec.NmaTLSSecret != "" {
-		vols = append(vols, buildHTTPServerSecretVolume(vdb))
+	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
+		if vdb.Spec.NMATLSSecret != "" {
+			vols = append(vols, buildNMACertsSecretVolume(vdb))
+		}
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
@@ -512,12 +519,12 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	}
 }
 
-func buildHTTPServerSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
+func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	return corev1.Volume{
-		Name: vapi.HTTPServerCertsMountName,
+		Name: vapi.NMACertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.NmaTLSSecret,
+				SecretName: vdb.Spec.NMATLSSecret,
 			},
 		},
 	}
@@ -575,19 +582,21 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	}...)
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		envVars = append(envVars, []corev1.EnvVar{
-			// Old model is to provide the path to each of the certs that are
-			// mounted in the container.
-			{Name: "NMA_ROOTCA_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, paths.HTTPServerCACrtName)},
-			{Name: "NMA_CERT_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSCertKey)},
-			{Name: "NMA_KEY_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSPrivateKeyKey)},
-			// New model is for the NMA to read the secrets directly from k8s.
-			// We provide the secret namespace and name for this reason. Once
-			// implemented we no longer need to provide the above environment
-			// variables.
-			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-			{Name: NMASecretNameEnv, Value: vdb.Spec.NmaTLSSecret},
-		}...)
+		if vmeta.UseNMACertsMount(vdb.Annotations) {
+			envVars = append(envVars, []corev1.EnvVar{
+				// Provide the path to each of the certs that are mounted in the container.
+				{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
+				{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
+				{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
+			}...)
+		} else {
+			envVars = append(envVars, []corev1.EnvVar{
+				// The NMA will read the secrets directly from k8s. We provide the
+				// secret namespace and name for this reason.
+				{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+				{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+			}...)
+		}
 	}
 	return corev1.Container{
 		Image:           pickImage(vdb, sc),

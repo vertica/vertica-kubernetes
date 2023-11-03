@@ -651,7 +651,7 @@ var _ = Describe("obj_reconcile", func() {
 
 		It("should requeue if vclusterops is enabled but HTTP secret isn't setup properly", func() {
 			vdb := vapi.MakeVDB()
-			vdb.Spec.NmaTLSSecret = ""
+			vdb.Spec.NMATLSSecret = ""
 			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 			createCrd(vdb, false)
 			defer deleteCrd(vdb)
@@ -659,7 +659,7 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.NmaTLSSecret = "dummy"
+			vdb.Spec.NMATLSSecret = "dummy"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 

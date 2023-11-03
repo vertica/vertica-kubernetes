@@ -263,7 +263,7 @@ type VerticaDBSpec struct {
 	// - tls.key: The private key to be used by the HTTP server
 	// - tls.crt: The signed certificate chain for the private key
 	// - ca.crt: The CA certificate
-	NmaTLSSecret string `json:"nmaTLSSecret,omitempty"`
+	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
 	// +kubebuilder:validation:Optional

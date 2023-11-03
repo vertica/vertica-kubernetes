@@ -59,15 +59,15 @@ func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 	// If the secret name is set, check that it exists. As a convenience we will
 	// regenerate the secret using the same name.
-	if h.Vdb.Spec.NmaTLSSecret != "" {
-		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NmaTLSSecret)
+	if h.Vdb.Spec.NMATLSSecret != "" {
+		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)
 		if errors.IsNotFound(err) {
-			h.Log.Info("httpServerTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
+			h.Log.Info("nmaTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
 		} else if err != nil {
 			return ctrl.Result{},
-				fmt.Errorf("failed while attempting to reade the tls secret %s: %w", h.Vdb.Spec.NmaTLSSecret, err)
+				fmt.Errorf("failed while attempting to read the tls secret %s: %w", h.Vdb.Spec.NMATLSSecret, err)
 		} else {
 			// Secret is filled in and exists. We can exit.
 			return ctrl.Result{}, nil
@@ -125,10 +125,10 @@ func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, ca
 	// Either generate a name or use the one already present in the vdb. Using
 	// the name already present is the case where the name was filled in but the
 	// secret didn't exist.
-	if h.Vdb.Spec.NmaTLSSecret == "" {
-		secret.GenerateName = fmt.Sprintf("%s-http-server-tls-", h.Vdb.Name)
+	if h.Vdb.Spec.NMATLSSecret == "" {
+		secret.GenerateName = fmt.Sprintf("%s-nma-tls-", h.Vdb.Name)
 	} else {
-		secret.Name = h.Vdb.Spec.NmaTLSSecret
+		secret.Name = h.Vdb.Spec.NMATLSSecret
 	}
 	err := h.VRec.Client.Create(ctx, &secret)
 	return &secret, err
@@ -142,7 +142,7 @@ func (h *HTTPServerCertGenReconciler) setSecretNameInVDB(ctx context.Context, se
 		if err := h.VRec.Client.Get(ctx, nm, h.Vdb); err != nil {
 			return err
 		}
-		h.Vdb.Spec.NmaTLSSecret = secretName
+		h.Vdb.Spec.NMATLSSecret = secretName
 		return h.VRec.Client.Update(ctx, h.Vdb)
 	})
 }

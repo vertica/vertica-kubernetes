@@ -67,9 +67,9 @@ var _ = Describe("revive_db_vc", func() {
 	It("should call vcluster-ops library with revive_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.NmaTLSSecret = "revive-db-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NmaTLSSecret)
+		dispatcher.VDB.Spec.NMATLSSecret = "revive-db-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		ctrlRes, err := dispatcher.ReviveDB(ctx,
 			revivedb.WithHosts(TestHosts),

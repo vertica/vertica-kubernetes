@@ -36,39 +36,39 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 	It("should be a no-op if not using vclusterops", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
-		vdb.Spec.NmaTLSSecret = ""
+		vdb.Spec.NMATLSSecret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.NmaTLSSecret).Should(Equal(""))
+		Expect(vdb.Spec.NMATLSSecret).Should(Equal(""))
 	})
 
 	It("should be a no-op if not using vclusterops and secret name is set", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		const DummySecretName = "dummy"
-		vdb.Spec.NmaTLSSecret = DummySecretName
+		vdb.Spec.NMATLSSecret = DummySecretName
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.NmaTLSSecret).Should(Equal(DummySecretName))
+		Expect(vdb.Spec.NMATLSSecret).Should(Equal(DummySecretName))
 	})
 
 	It("should create a secret when http server is enabled and secret name is missing", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Spec.NmaTLSSecret = ""
+		vdb.Spec.NMATLSSecret = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.NmaTLSSecret).ShouldNot(Equal(""))
-		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.NmaTLSSecret}
+		Expect(vdb.Spec.NMATLSSecret).ShouldNot(Equal(""))
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.NMATLSSecret}
 		secret := &corev1.Secret{}
 		Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))
@@ -80,18 +80,18 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		const TLSSecretName = "recreate-secret-name"
-		vdb.Spec.NmaTLSSecret = TLSSecretName
+		vdb.Spec.NMATLSSecret = TLSSecretName
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.NmaTLSSecret}
+		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Spec.NMATLSSecret}
 		secret := &corev1.Secret{}
 		err := k8sClient.Get(ctx, nm, secret)
 		Expect(errors.IsNotFound(err)).Should(BeTrue())
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.NmaTLSSecret).Should(Equal(TLSSecretName))
+		Expect(vdb.Spec.NMATLSSecret).Should(Equal(TLSSecretName))
 		Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 		Expect(len(secret.Data[corev1.TLSPrivateKeyKey])).ShouldNot(Equal(0))
 		Expect(len(secret.Data[corev1.TLSCertKey])).ShouldNot(Equal(0))
