@@ -55,6 +55,12 @@ var _ = Describe("verticadb_webhook", func() {
 		sc.Type = SecondarySubcluster
 		validateSpecValuesHaveErr(vdb, true)
 	})
+	It("should have valid subcluster type", func() {
+		vdb := createVDBHelper()
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Type = "invalid"
+		validateSpecValuesHaveErr(vdb, true)
+	})
 	It("should not have 0 pod when kSafety is 0", func() {
 		vdb := createVDBHelper()
 		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"

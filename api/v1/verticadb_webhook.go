@@ -145,6 +145,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 
 func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
+	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidDBName(allErrs)
 	allErrs = v.hasPrimarySubcluster(allErrs)
@@ -183,6 +184,23 @@ func (v *VerticaDB) hasAtLeastOneSC(allErrs field.ErrorList) field.ErrorList {
 		err := field.Invalid(field.NewPath("spec").Child("subclusters"),
 			v.Spec.Subclusters,
 			`there should be at least one subcluster defined`)
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.ErrorList {
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if sc.Type == PrimarySubcluster || sc.Type == SecondarySubcluster || sc.Type == TransientSubcluster {
+			continue
+		}
+		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
+		err := field.Invalid(fieldPrefix.Child("Type"),
+			sc.Type,
+			fmt.Sprintf("subcluster type is invalid. A valid type a user can specify is %q or %q. "+
+				"(%q is a valid type that should only be set by the operator during online upgrade)",
+				PrimarySubcluster, SecondarySubcluster, TransientSubcluster))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
