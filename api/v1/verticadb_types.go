@@ -602,12 +602,13 @@ type Subcluster struct {
 	// db.licenseSecret parameter.
 	Size int32 `json:"size"`
 
+	// +kubebuilder:default:=primary
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:primary","urn:alm:descriptor:com.tectonic.ui:select:secondary"}
 	// Indicates the type of subcluster it is. Valid values are: primary,
-	// secondary or transient. You must have at least one primary subcluster in
-	// the database. If omitted, the webhook will choose a suitable default;
-	// primary if none exists, otherwise it will default to a secondary.
+	// secondary or transient. Types are case-sensitive.
+	// You must have at least one primary subcluster in the database.
+	// If type is omitted, it will default to a primary.
 	// Transient should only be set internally by the operator during online
 	// upgrade. It is used to indicate a subcluster that exists temporarily to
 	// serve traffic for subclusters that are restarting with a new image.
