@@ -35,8 +35,10 @@ type FakePodRunner struct {
 	// The commands that were issue. The commands are in the same order that
 	// commands were received. This is filled in by ExecInPod and can be inspected.
 	Histories []CmdHistory
+	// fake username
+	VerticaSUName string
 	// fake password
-	SUPassword string
+	VerticaSUPassword string
 }
 
 // CmdResults stores the command result.  The key is the pod name.
@@ -76,14 +78,14 @@ func (f *FakePodRunner) ExecInPod(_ context.Context, podName types.NamespacedNam
 // ExecAdmintools calls ExecInPod
 func (f *FakePodRunner) ExecAdmintools(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateAdmintoolsCmd(f.SUPassword, command...)
+	command = UpdateAdmintoolsCmd(f.VerticaSUPassword, command...)
 	return f.ExecInPod(ctx, podName, contName, command...)
 }
 
 // ExecVSQL calls ExecInPod
 func (f *FakePodRunner) ExecVSQL(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateVsqlCmd(f.SUPassword, command...)
+	command = UpdateVsqlCmd(f.VerticaSUName, f.VerticaSUPassword, command...)
 	return f.ExecInPod(ctx, podName, contName, command...)
 }
 

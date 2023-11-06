@@ -77,6 +77,10 @@ if [ -z "${VERTICA_DEPLOYMENT_METHOD}" ]; then
     VERTICA_DEPLOYMENT_METHOD=admintools
 fi
 
+if [ -z "${VERTICA_SUPERUSER_NAME}" ]; then
+    VERTICA_SUPERUSER_NAME=dbadmin
+fi
+
 if [ -z "${VERTICA_IMG}" ]; then
     VERTICA_IMG=$(cd $REPO_DIR && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2)
 fi
@@ -126,6 +130,7 @@ if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
 echo -n "Add server mounts: "
 if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
+echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -193,6 +198,15 @@ EOF
     - op: add
       path: /metadata/annotations/vertica.com~1vcluster-ops
       value: "false"
+EOF
+        fi
+        
+        if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" -a "$VERTICA_SUPERUSER_NAME" != "dbadmin" ]
+        then
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1superuser-name
+      value: $VERTICA_SUPERUSER_NAME
 EOF
         fi
     fi

@@ -23,6 +23,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -96,7 +97,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = vapi.SuperUser
+	*opts.UserName = vmeta.GetSuperuserName(v.VDB.Annotations)
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
 

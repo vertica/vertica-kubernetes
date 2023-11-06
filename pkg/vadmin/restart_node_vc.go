@@ -21,7 +21,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +53,7 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 }
 
 func (v *VClusterOps) genRestartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VRestartNodesOptions {
-	su := vapi.SuperUser
+	su := vmeta.GetSuperuserName(v.VDB.Annotations)
 	honorUserInput := true
 	opts := vops.VRestartNodesOptions{
 		DatabaseOptions: vops.DatabaseOptions{
