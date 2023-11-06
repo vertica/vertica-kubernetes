@@ -69,13 +69,13 @@ func (c *ImageCheckReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (
 	if vmeta.UseVClusterOps(c.Vdb.Annotations) {
 		if res == admintoolsBin {
 			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.WrongImage, "Failed to choose an image suited for vclusterops")
-			return ctrl.Result{}, fmt.Errorf("Failed to choose an image suited: the image %s is an admintools style of deployment "+
+			return ctrl.Result{}, fmt.Errorf("failed to choose an image suited: the image %s is an admintools style of deployment "+
 				",cannot be used for vcluster", c.Vdb.Spec.Image)
 		}
 	} else {
 		if res == "" {
 			c.VRec.Eventf(c.Vdb, corev1.EventTypeWarning, events.WrongImage, "Failed to choose an image suited for admintools")
-			return ctrl.Result{}, fmt.Errorf("Failed to choose an image suited: the image %s is a vcluster style of deployment "+
+			return ctrl.Result{}, fmt.Errorf("failed to choose an image suited: the image %s is a vcluster style of deployment "+
 				",cannot be used for admintools", c.Vdb.Spec.Image)
 		}
 	}
