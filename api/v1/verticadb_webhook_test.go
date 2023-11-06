@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("verticadb_webhook", func() {
@@ -700,6 +701,43 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Subclusters[0].VerticaHTTPNodePort = 8443 // Too low
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Subclusters[0].VerticaHTTPNodePort = 30000 // Okay
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should only allow a single handler to be overidden", func() {
+		vdb := MakeVDB()
+		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				Exec: &v1.ExecAction{
+					Command: []string{"vsql", "-c", "select 1"},
+				},
+				TCPSocket: &v1.TCPSocketAction{
+					Port: intstr.FromInt(5433),
+				},
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ReadinessProbeOverride = nil
+		vdb.Spec.LivenessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				GRPC: &v1.GRPCAction{
+					Port: 5433,
+				},
+				HTTPGet: &v1.HTTPGetAction{
+					Path: "/health",
+				},
+			},
+		}
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
+	It("should verify the shard count", func() {
+		vdb := MakeVDB()
+		vdb.Spec.ShardCount = 0
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ShardCount = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.ShardCount = 1
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
