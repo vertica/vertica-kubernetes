@@ -15,6 +15,9 @@ on:
       vertica-deployment-method:
         type: string
         required: false
+      vertica-superuser-name:
+        type: string
+        required: false
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -79,7 +82,7 @@ jobs:
         if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-4-at-only"; fi
         export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }}
         if [ -z "${VERTICA_SUPERUSER_NAME}" -o "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then 
-          VERTICA_SUPERUSER_NAME="dbadmin"
+          export VERTICA_SUPERUSER_NAME="dbadmin"
         fi
         # All helm deployments will use cert-manager to create the webhook cert
         export HELM_OVERRIDES="--set webhook.certSource=cert-manager"
