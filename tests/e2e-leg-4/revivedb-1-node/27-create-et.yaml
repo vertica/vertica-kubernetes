@@ -21,7 +21,7 @@ data:
     set -o errexit
     set -o xtrace
 
-    kubectl exec -it svc/v-revive-1-node-sc1 -- vsql -U dbadmin -c "SELECT * FROM NODES;" -w superuser
+    kubectl exec -it svc/v-revive-1-node-sc1 -- vsql -c "SELECT * FROM NODES;" -w superuser
 ---
 apiVersion: vertica.com/v1beta1
 kind: EventTrigger
