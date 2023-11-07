@@ -180,8 +180,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Handle setting up the pod security context. This picks the
 		// UID/fsGroup that we will run with.
 		MakePodSecurityReconciler(r, log, vdb),
-		// Handle wrong images for the operator
-		MakeImageCheckReconciler(r, log, vdb, prunner, pfacts),
 		// Update any k8s objects with some exceptions. For instance, preserve
 		// scaling. This is needed *before* upgrade and restart in case a change
 		// was made with the image change that would prevent the pods from
@@ -223,7 +221,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// statefulsets and service objects.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Set version info in the annotations and check that it is the minimum
-		MakeVersionReconciler(r, log, vdb, prunner, pfacts, false),
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),

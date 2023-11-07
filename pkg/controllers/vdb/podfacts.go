@@ -96,6 +96,10 @@ type PodFact struct {
 	// created and this pod has been added to the vertica cluster.
 	dbExists bool
 
+	// Does the admintools bin exist at this pod? This is true if the image
+	// was deployed by Admintools
+	admintoolsExists bool
+
 	// true means the pod has a running vertica process, but it isn't yet
 	// accepting connections because it is in the middle of startup.
 	startupInProgress bool
@@ -187,6 +191,7 @@ type GatherState struct {
 	VNodeName              string          `json:"vnodeName"`
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
+	AdmintoolsExists       bool            `json:"admintoolsExists"`
 }
 
 // dBCheckType identifies how to pick pods in findReIPPods
@@ -426,6 +431,8 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=size %s | tail -1
 		echo -n 'localDataAvail: '
 		df --block-size=1 --output=avail %s | tail -1
+		echo -n 'admintoolsExists: '
+        which admintools &> /dev/null && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
@@ -547,6 +554,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.V
 	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
+	pf.admintoolsExists = gs.AdmintoolsExists
 	// If the vertica process is running, then the database is UP. This is
 	// consistent with the liveness probe, which goes a bit further and checks
 	// if the client port is opened. If the vertica process dies, the liveness
