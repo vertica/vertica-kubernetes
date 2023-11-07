@@ -18,6 +18,7 @@ on:
       vertica-superuser-name:
         type: string
         required: false
+        default: myadmin
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
