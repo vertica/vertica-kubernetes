@@ -432,7 +432,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n 'localDataAvail: '
 		df --block-size=1 --output=avail %s | tail -1
 		echo -n 'admintoolsExists: '
-        which admintools &> /dev/null && echo true || echo false
+		which admintools &> /dev/null && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,

@@ -113,12 +113,12 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
 		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
-		// both the vclusterops annotation and admintools exit are false
+		// both the vclusterops annotation and admintoolsExists are false
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err.Error()).Should(ContainSubstring("image vertica-k8s:latest is meant for vclusterops style"))
 
-		// Update both the vclusterops annotation and admintools exit to true
+		// Update both the vclusterops annotation and admintoolsExists to true
 		vdb.ObjectMeta.Annotations = map[string]string{
 			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
 		}
