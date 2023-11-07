@@ -20,7 +20,6 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
@@ -58,7 +57,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
 	// auth options
-	*opts.UserName = vmeta.GetSuperuserName(v.VDB.Annotations)
+	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
 
