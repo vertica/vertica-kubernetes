@@ -99,4 +99,31 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal(OrigVersion))
 	})
+
+	It("should fail the reconclier if we use wrong image", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 1
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err.Error()).Should(ContainSubstring("image vertica-k8s:latest is meant for vclusterops style"))
+
+		// update vclusterops annotation
+		vdb.ObjectMeta.Annotations = map[string]string{
+			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
+		}
+		r = MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		res, err = r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(Succeed())
+	})
 })

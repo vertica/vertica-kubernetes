@@ -1,0 +1,29 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: vc
+  annotations:
+    vertica.com/vcluster-ops: "true"
+spec:
+  image: vertica-k8s:2.0.0
+  imagePullPolicy: IfNotPresent
+  communal:
+    path: "/communal"
+    includeUIDInPath: true
+  initPolicy: CreateSkipPackageInstall
+  kSafety: "1"
+  local:
+    dataPath: /data
+    catalogPath: /catalog
+    depotPath: /depot
+  subclusters:
+    - name: pri
+      size: 3
+  volumes:
+  - name: hostpath
+    hostPath:
+      path: /host
+  volumeMounts:
+  - name: hostpath
+    mountPath: /communal
+    subPath: Linux64/Test/k8s

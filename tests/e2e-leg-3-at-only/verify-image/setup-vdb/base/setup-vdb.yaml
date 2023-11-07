@@ -15,8 +15,6 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-verify-image
-  annotations:
-    vertica.com/vcluster-ops: "false"
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image

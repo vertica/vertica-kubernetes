@@ -71,19 +71,9 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
-	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
-		if pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for vclusterops deployments")
-			return ctrl.Result{}, fmt.Errorf("image %s is meant for admintools style of deployments and cannot be used for vclusterops",
-				v.Vdb.Spec.Image)
-		}
-	} else {
-		if !pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for admintools deployments")
-			return ctrl.Result{}, fmt.Errorf("image %s is meant for vclusterops style of deployments and cannot be used for admintools",
-				v.Vdb.Spec.Image)
-		}
+	err := v.verifyImage(pod)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if res, err := v.reconcileVersion(ctx, pod); verrors.IsReconcileAborted(res, err) {
@@ -175,4 +165,22 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 		}
 		return nil
 	})
+}
+
+// Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
+func (v *ImageVersionReconciler) verifyImage(pod *PodFact) error {
+	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
+		if pod.admintoolsExists {
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for vclusterops deployments")
+			return fmt.Errorf("image %s is meant for admintools style of deployments and cannot be used for vclusterops",
+				v.Vdb.Spec.Image)
+		}
+	} else {
+		if !pod.admintoolsExists {
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for admintools deployments")
+			return fmt.Errorf("image %s is meant for vclusterops style of deployments and cannot be used for admintools",
+				v.Vdb.Spec.Image)
+		}
+	}
+	return nil
 }
