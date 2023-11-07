@@ -93,7 +93,6 @@ func (v *VerticaDB) Default() {
 		v.Spec.TemporarySubclusterRouting.Template.Type = SecondarySubcluster
 	}
 	v.setDefaultServiceName()
-	v.fillInMissingSubclusterTypes()
 }
 
 var _ webhook.Validator = &VerticaDB{}
@@ -198,7 +197,7 @@ func (v *VerticaDB) hasValidSubclusterTypes(allErrs field.ErrorList) field.Error
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
 		err := field.Invalid(fieldPrefix.Child("Type"),
 			sc.Type,
-			fmt.Sprintf("subcluster type is invalid. A valid type a user can specify is %q or %q. "+
+			fmt.Sprintf("subcluster type is invalid. A valid case-sensitive type a user can specify is %q or %q. "+
 				"(%q is a valid type that should only be set by the operator during online upgrade)",
 				PrimarySubcluster, SecondarySubcluster, TransientSubcluster))
 		allErrs = append(allErrs, err)
@@ -1132,45 +1131,6 @@ func (v *VerticaDB) setDefaultServiceName() {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceName == "" {
 			sc.ServiceName = sc.GetServiceName()
-		}
-	}
-}
-
-// fillInMissingSubclusterTypes will populate the subcluster type if they are missing.
-func (v *VerticaDB) fillInMissingSubclusterTypes() {
-	// First pass of the subclusters. We do this to see if there are any types
-	// missing, determine the default subcluster type if there are missing
-	// ones, and correct case sensitivity of the type.
-	hasMissingType := false
-	defaultSubclusterType := PrimarySubcluster
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		switch {
-		case sc.Type == "":
-			hasMissingType = true
-		case strings.EqualFold(sc.Type, PrimarySubcluster):
-			sc.Type = PrimarySubcluster // Correct for case
-			defaultSubclusterType = SecondarySubcluster
-		case strings.EqualFold(sc.Type, SecondarySubcluster):
-			sc.Type = SecondarySubcluster // Correct for case
-		case strings.EqualFold(sc.Type, TransientSubcluster):
-			sc.Type = TransientSubcluster // Correct for case
-		}
-	}
-
-	if !hasMissingType {
-		return
-	}
-
-	// Second pass it to fill in the missing types. If there are no primary
-	// subclusters, the first subcluster with missing type is a primary
-	// subcluster. Otherwise, we set the type to be a Secondary subcluster.
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		if sc.Type == "" {
-			sc.Type = defaultSubclusterType
-			defaultSubclusterType = SecondarySubcluster
-			verticadblog.Info("Assigning default subcluster type", "name", sc.Name, "type", sc.Type)
 		}
 	}
 }

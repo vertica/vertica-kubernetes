@@ -741,38 +741,7 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
-	It("should assign a missing subcluster type", func() {
-		vdb := MakeVDB()
-		vdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Type: ""},
-		}
-		vdb.Default()
-		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
-
-		vdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Type: ""},
-			{Name: "sc2", Type: SecondarySubcluster},
-		}
-		vdb.Default()
-		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
-
-		vdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Type: ""},
-			{Name: "sc2", Type: PrimarySubcluster},
-		}
-		vdb.Default()
-		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(SecondarySubcluster))
-
-		vdb.Spec.Subclusters = []Subcluster{
-			{Name: "sc1", Type: ""},
-			{Name: "sc2", Type: ""},
-		}
-		vdb.Default()
-		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
-		Ω(vdb.Spec.Subclusters[1].Type).Should(Equal(SecondarySubcluster))
-	})
-
-	It("should tolerate case sensitivity for subcluster type", func() {
+	It("should not tolerate case sensitivity for subcluster type", func() {
 		vdb := MakeVDB()
 		ucPrimary := strings.ToUpper(PrimarySubcluster)
 		ucSecondary := strings.ToUpper(SecondarySubcluster)
@@ -783,8 +752,8 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sec", Type: ucSecondary},
 		}
 		vdb.Default()
-		Ω(vdb.Spec.Subclusters[0].Type).Should(Equal(PrimarySubcluster))
-		Ω(vdb.Spec.Subclusters[1].Type).Should(Equal(SecondarySubcluster))
+		Ω(vdb.Spec.Subclusters[0].Type).ShouldNot(Equal(PrimarySubcluster))
+		Ω(vdb.Spec.Subclusters[1].Type).ShouldNot(Equal(SecondarySubcluster))
 	})
 
 	It("should not allow changing of fsGroup/runAsUser after DB init", func() {
