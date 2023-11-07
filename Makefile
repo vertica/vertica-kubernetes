@@ -22,6 +22,13 @@ include tests/kustomize-defaults.cfg
 KUSTOMIZE_CFG?=$(REPO_DIR)/tests/kustomize-defaults.cfg
 include $(KUSTOMIZE_CFG)
 
+# The location of the config file to use for the soak run. If this isn't set,
+# then the `make run-soak-tests` target will fail.
+SOAK_CFG?=local-soak.cfg
+# The number of iterations to run the soak test for. A negative number will
+# cause an infinite number of iterations to run.
+NUM_SOAK_ITERATIONS?=1
+
 # CHANNELS define the bundle channels used in the bundle. 
 CHANNELS=stable
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
@@ -126,8 +133,6 @@ export OLM_CATALOG_IMG
 
 # Set this to YES if you want to create a vertica image of minimal size
 MINIMAL_VERTICA_IMG ?=
-# Set this to YES if you want to create a vertica image with no keys inside
-NO_KEYS ?=
 # Name of the helm release that we will install/uninstall
 HELM_RELEASE_NAME?=vdb-op
 # Can be used to specify additional overrides when doing the helm install.
@@ -203,19 +208,23 @@ help: ## Display this help.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate Role and CustomResourceDefinition objects.
+manifests: controller-gen go-generate ## Generate Role and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd paths="./..." output:crd:artifacts:config=config/crd/bases
 
 .PHONY: generate
-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
+generate: controller-gen go-generate ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+.PHONY: go-generate
+go-generate:
+	go generate ./...
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
 
 .PHONY: vet
-vet: ## Run go vet against code.
+vet: go-generate ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
@@ -270,6 +279,10 @@ ifeq ($(BASE_VERTICA_IMG), <not-set>)
 	$(error $$BASE_VERTICA_IMG not set)
 endif
 	kubectl kuttl test --report xml --artifacts-dir ${LOGDIR} --parallel $(E2E_PARALLELISM) $(E2E_ADDITIONAL_ARGS) tests/e2e-server-upgrade/
+
+.PHONY: run-soak-tests
+run-soak-tests: install-kuttl-plugin kuttl-step-gen  ## Run the soak tests
+	scripts/soak-runner.sh -i $(NUM_SOAK_ITERATIONS) $(SOAK_CFG)
 
 setup-e2e-communal: ## Setup communal endpoint for use with e2e tests
 ifeq ($(PATH_PROTOCOL), s3://)
@@ -340,12 +353,12 @@ endif
 .PHONY: docker-build-vertica
 docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker image
 	cd docker-vertica \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
+	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
 
 .PHONY: docker-build-vertica-v2
 docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation vertica server docker image
 	cd docker-vertica-v2 \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} NO_KEYS=${NO_KEYS}
+	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
 
 .PHONY: docker-push-vertica
 docker-push-vertica:  ## Push vertica server image -- either v1 or v2.
@@ -434,6 +447,10 @@ echo-images:  ## Print the names of all of the images used
 	@echo "BUNDLE_IMG=$(BUNDLE_IMG)"
 	@echo "OLM_CATALOG_IMG=$(OLM_CATALOG_IMG)"
 
+.PHONY: kuttl-step-gen
+kuttl-step-gen: ## Builds the kuttl-step-gen tool
+	go build -o bin/$@ ./cmd/$@
+
 .PHONY: vdb-gen
 vdb-gen: generate manifests ## Builds the vdb-gen tool
 	go build -o bin/$@ ./cmd/$@
@@ -461,7 +478,7 @@ config-transformer: manifests kustomize kubernetes-split-yaml ## Generate releas
 
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build config/crd | kubectl apply --server-side=true --force-conflicts -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -510,7 +527,7 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v4.5.5
 CONTROLLER_TOOLS_VERSION ?= v0.11.1
-KIND_VERSION ?= v0.11.1
+KIND_VERSION ?= v0.20.0
 KUBERNETES_SPLIT_YAML_VERSION ?= v0.3.0
 GOLANGCI_LINT_VER ?= 1.54.2
 
@@ -580,7 +597,7 @@ ISTIOCTL = $(shell pwd)/bin/istioctl
 ISTIOCTL_VERSION = 1.17.2
 istioctl: $(ISTIOCTL)  ## Download istioctl locally if necessary
 $(ISTIOCTL):
-	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-linux-amd64.tar.gz" | tar xvfz - istio-1.17.2/bin/istioctl -O > $(ISTIOCTL)
+	curl --silent --show-error --retry 10 --retry-max-time 1800 --location --fail "https://github.com/istio/istio/releases/download/$(ISTIOCTL_VERSION)/istio-$(ISTIOCTL_VERSION)-linux-amd64.tar.gz" | tar xvfz - istio-$(ISTIOCTL_VERSION)/bin/istioctl -O > $(ISTIOCTL)
 	chmod +x $(ISTIOCTL)
 
 

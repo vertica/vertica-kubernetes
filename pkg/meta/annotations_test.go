@@ -47,4 +47,9 @@ var _ = Describe("annotations", func() {
 		ann := map[string]string{VClusterOpsAnnotation: VClusterOpsAnnotationTrue}
 		Ω(UseVClusterOps(ann)).Should(BeTrue())
 	})
+
+	It("should treat mountNMACerts annotation as a bool", func() {
+		ann := map[string]string{MountNMACerts: MountNMACertsTrue}
+		Ω(UseNMACertsMount(ann)).Should(BeTrue())
+	})
 })

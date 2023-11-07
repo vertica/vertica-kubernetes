@@ -58,10 +58,9 @@ spec:
   selector:
     vertica.com/subcluster-svc: one
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-shared-svc
 status:
-  installCount: 3
   subclusterCount: 3

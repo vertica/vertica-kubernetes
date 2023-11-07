@@ -1,0 +1,6 @@
+kind: Security
+body: 'Fix go project security vulnerabilities(GHSA-m425-mq94-257g, CVE-2023-39325,
+  CVE-2023-3978)'
+time: 2023-11-03T12:56:08.140492943+01:00
+custom:
+  Issue: "574"

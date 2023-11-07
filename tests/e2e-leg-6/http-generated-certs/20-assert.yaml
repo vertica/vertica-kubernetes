@@ -18,10 +18,7 @@ metadata:
 status:
   replicas: 2
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-http-generated-certs
-status:
-  subclusters:
-    - installCount: 2

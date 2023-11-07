@@ -16,7 +16,7 @@ kind: TestStep
 commands:
   - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-base-upgrade
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
@@ -24,7 +24,7 @@ spec:
   subclusters:
     - name: pri
       size: 1
-      isPrimary: true
+      type: primary
     - name: sec
       size: 1
-      isPrimary: false
+      type: secondary

@@ -24,12 +24,14 @@ import (
 	"strconv"
 	"time"
 
+	// Allows us to pull in things generated from `go generate`
+	_ "embed"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec
 
-	"github.com/go-logr/zapr"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -40,7 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
+	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
@@ -54,15 +57,26 @@ const (
 	CertDir = "/tmp/k8s-webhook-server/serving-certs"
 )
 
+//go:generate sh -c "printf %s $(git rev-parse HEAD) > git-commit.go-generate.txt"
+//go:generate sh -c "printf %s $(date +%Y-%m-%dT%T -u) > build-date.go-generate.txt"
+//go:generate sh -c "printf %s $(go list -m -f '{{ .Version }}' github.com/vertica/vcluster) > vcluster-version.go-generate.txt"
+
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	//go:embed git-commit.go-generate.txt
+	GitCommit string
+	//go:embed build-date.go-generate.txt
+	BuildDate string
+	//go:embed vcluster-version.go-generate.txt
+	VClusterVersion string
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(vapi.AddToScheme(scheme))
+	utilruntime.Must(vapiB1.AddToScheme(scheme))
+	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -130,16 +144,19 @@ func addWebhooksToManager(mgr manager.Manager) {
 	webhookServer := mgr.GetWebhookServer()
 	webhookServer.TLSMinVersion = "1.3"
 
-	if err := (&vapi.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB")
+	if err := (&vapiB1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiB1.Version)
 		os.Exit(1)
 	}
-	if err := (&vapi.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler")
+	if err := (&vapiV1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiV1.Version)
+	}
+	if err := (&vapiB1.VerticaAutoscaler{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaAutoscaler", "version", vapiB1.Version)
 		os.Exit(1)
 	}
-	if err := (&vapi.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "EventTrigger")
+	if err := (&vapiB1.EventTrigger{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "EventTrigger", "version", vapiB1.Version)
 		os.Exit(1)
 	}
 }
@@ -152,16 +169,34 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 			return fmt.Errorf("failed to setup the webhook: %w", err)
 		}
 		if oc.WebhookCertSecret == "" {
+			setupLog.Info("geneating webhook cert")
 			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, ns); err != nil {
 				return err
 			}
-		} else if !oc.SkipWebhookPatch {
+		} else if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok && val == vmeta.OLMDeploymentType {
+			// OLM will generate the cert themselves and they have their own
+			// mechanism to update the webhook configs. We only need to include
+			// the CA bundle in the CRD for the conversion webhook.
+			setupLog.Info("OLM deployment detected. Only updating the conversion webhook", "deploymentType", val)
+			if err := security.PatchConversionWebhookFromSecret(ctx, &setupLog, restCfg,
+				oc.WebhookCertSecret, oc.PrefixName, ns); err != nil {
+				return err
+			}
+		} else if !oc.UseCertManager {
+			setupLog.Info("using provided webhook cert", "secret", oc.WebhookCertSecret)
 			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
 				oc.PrefixName, ns); err != nil {
 				return err
 			}
+		} else {
+			setupLog.Info("using cert-manager for webhook cert")
+			if err := security.AddCertManagerAnnotation(ctx, &setupLog, restCfg, oc.PrefixName, ns); err != nil {
+				return err
+			}
 		}
 		addWebhooksToManager(mgr)
+	} else {
+		setupLog.Info("webhook setup is because webhook is not enabled")
 	}
 	return nil
 }
@@ -196,7 +231,9 @@ func main() {
 		log.Printf("Now logging in file %s", oc.FilePath)
 	}
 
-	ctrl.SetLogger(zapr.NewLogger(logger))
+	ctrl.SetLogger(logger)
+	setupLog.Info("Build info", "gitCommit", GitCommit,
+		"buildDate", BuildDate, "vclusterVersion", VClusterVersion)
 
 	if oc.EnableProfiler {
 		go func() {
@@ -224,9 +261,9 @@ func main() {
 		CertDir:                CertDir,
 		Controller: v1alpha1.ControllerConfigurationSpec{
 			GroupKindConcurrency: map[string]int{
-				vapi.GkVDB.String(): oc.VerticaDBConcurrency,
-				vapi.GkVAS.String(): oc.VerticaAutoscalerConcurrency,
-				vapi.GkET.String():  oc.EventTriggerConcurrency,
+				vapiB1.GkVDB.String(): oc.VerticaDBConcurrency,
+				vapiB1.GkVAS.String(): oc.VerticaAutoscalerConcurrency,
+				vapiB1.GkET.String():  oc.EventTriggerConcurrency,
 			},
 		},
 	})

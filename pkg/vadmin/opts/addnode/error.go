@@ -19,4 +19,6 @@ type LicenseLimitError struct {
 	Msg string // description of error
 }
 
+const LicenseIssueErrorType = "https://integrators.vertica.com/rest/errors/license-issue"
+
 func (e *LicenseLimitError) Error() string { return e.Msg }

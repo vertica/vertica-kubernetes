@@ -47,11 +47,11 @@ func (a *Admintools) genStartDBCommand(s *startdb.Parms) []string {
 		"--database=" + a.VDB.Spec.DBName,
 		"--noprompt",
 	}
-	if a.VDB.Spec.IgnoreClusterLease {
+	if a.VDB.GetIgnoreClusterLease() {
 		cmd = append(cmd, "--ignore-cluster-lease")
 	}
-	if a.VDB.Spec.RestartTimeout != 0 {
-		cmd = append(cmd, fmt.Sprintf("--timeout=%d", a.VDB.Spec.RestartTimeout))
+	if a.VDB.GetRestartTimeout() != 0 {
+		cmd = append(cmd, fmt.Sprintf("--timeout=%d", a.VDB.GetRestartTimeout()))
 	}
 
 	// In all versions that we support we can include a list of hosts to start.

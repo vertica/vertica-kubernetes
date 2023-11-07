@@ -11,17 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: verticadb-sample
+  annotations:
+    vertica.com/include-uid-in-path: "true"
 spec:
   image: "vertica/vertica-k8s:latest"
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
     credentialSecret: s3-auth
-    includeUIDInPath: true
   subclusters:
     - name: defaultsubcluster
       size: 3

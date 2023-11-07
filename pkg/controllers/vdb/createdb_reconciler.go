@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -84,13 +84,15 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	// The remaining create_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with revive_db.
 	g := GenericDatabaseInitializer{
-		initializer:         c,
-		VRec:                c.VRec,
-		Log:                 c.Log,
-		Vdb:                 c.Vdb,
-		PRunner:             c.PRunner,
-		PFacts:              c.PFacts,
-		ConfigurationParams: c.ConfigurationParams,
+		initializer: c,
+		PRunner:     c.PRunner,
+		PFacts:      c.PFacts,
+		ConfigParamsGenerator: ConfigParamsGenerator{
+			VRec:                c.VRec,
+			Log:                 c.Log,
+			Vdb:                 c.Vdb,
+			ConfigurationParams: c.ConfigurationParams,
+		},
 	}
 	return g.checkAndRunInit(ctx)
 }
@@ -131,9 +133,11 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 		)
 	}
 
-	// If setting encryptSpreadComm, we need to drive a restart of the vertica
-	// pods immediately after database creation for the setting to take effect.
-	if c.Vdb.Spec.EncryptSpreadComm != "" {
+	// On older versions of vertica we need to drive a restart if setting
+	// encryptSpreadComm. Set a condition variable so this happens after the
+	// create.
+	vinf, ok := c.Vdb.MakeVersionInfo()
+	if c.Vdb.Spec.EncryptSpreadComm != "" && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
 		cond := vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue}
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
@@ -164,7 +168,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 			fmt.Sprintf(`alter subcluster default_subcluster rename to \"%s\";`, sc.Name),
 		)
 	}
-	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
+	if c.Vdb.IsKSafety0() {
 		sb.WriteString("select set_preferred_ksafe(0);\n")
 	}
 	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
@@ -184,10 +188,11 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 
 // postCmdCleanup will handle any cleanup action after initializing the database
 func (c *CreateDBReconciler) postCmdCleanup(_ context.Context) (ctrl.Result, error) {
-	// If encryptSpreadComm was set we need to initiate a restart of the
-	// cluster.  This is done in a separate reconciler.  We will requeue to
-	// drive it.
-	if c.Vdb.Spec.EncryptSpreadComm != "" {
+	// In old versions if encryptSpreadComm was set we need to initiate a restart of the
+	// cluster.  If this is needed we do it in a separate reconciler but causing
+	// a requeue.
+	vinf, ok := c.Vdb.MakeVersionInfo()
+	if c.Vdb.Spec.EncryptSpreadComm != "" && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
 		c.Log.Info("Requeue reconcile cycle to initiate restart of the server due to encryptSpreadComm setting")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -221,9 +226,9 @@ func (c *CreateDBReconciler) getPodList() ([]*PodFact, bool) {
 	// Check if the shard/node ratio of the first subcluster is good
 	c.VRec.checkShardToNodeRatio(c.Vdb, sc)
 
-	// In case that kSafety == 0 (KSafety0), we only pick one pod from the first
+	// In case that kSafety is 0, we only pick one pod from the first
 	// primary subcluster. The remaining pods would be added with db_add_node.
-	if c.Vdb.Spec.KSafety == vapi.KSafety0 {
+	if c.Vdb.IsKSafety0() {
 		return podList[0:1], true
 	}
 	return podList, true

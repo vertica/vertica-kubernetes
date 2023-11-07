@@ -32,9 +32,9 @@ var _ = Describe("describe_db_vc", func() {
 	It("should call revive_db for the describe db call using vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.HTTPServerTLSSecret = "describe-db-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		dispatcher.VDB.Spec.NMATLSSecret = "describe-db-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		op, ctrlRes, err := dispatcher.DescribeDB(ctx,
 			describedb.WithInitiator(types.NamespacedName{}, TestHosts[0]),

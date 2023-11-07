@@ -17,4 +17,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl exec -i -n $NAMESPACE v-base-upgrade-pri1-0 -- vsql -c "create user joeuser; grant usage on schema public to joeuser;"
+  - command: kubectl exec -i -n $NAMESPACE v-base-upgrade-pri1-0 -- vsql -U dbadmin -c "create user joeuser; grant usage on schema public to joeuser;"

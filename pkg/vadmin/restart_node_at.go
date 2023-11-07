@@ -61,8 +61,8 @@ func (a *Admintools) genRestartNodeCmd(s *restartnode.Parms) []string {
 		"--new-host-ips=" + strings.Join(hostIPs, ","),
 		"--noprompt",
 	}
-	if a.VDB.Spec.RestartTimeout != 0 {
-		cmd = append(cmd, fmt.Sprintf("--timeout=%d", a.VDB.Spec.RestartTimeout))
+	if a.VDB.GetRestartTimeout() != 0 {
+		cmd = append(cmd, fmt.Sprintf("--timeout=%d", a.VDB.GetRestartTimeout()))
 	}
 	return cmd
 }

@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -39,8 +40,8 @@ var _ = Describe("webhook", func() {
 		defer deleteWebhookConfiguration(ctx)
 
 		caCrt := []byte("==== CERT ====")
-		Expect(PatchWebhookCABundle(ctx, &logger, restCfg, caCrt, prefixName)).Should(Succeed())
-		verifyCABundleEquals(ctx, prefixName, caCrt)
+		Expect(PatchWebhookCABundle(ctx, &logger, restCfg, caCrt, prefixName, "default")).Should(Succeed())
+		verifyCABundleEquals(ctx, caCrt)
 	})
 
 	It("should update webhook configuration with cert in given secret", func() {
@@ -53,7 +54,7 @@ var _ = Describe("webhook", func() {
 		defer deleteSecret(ctx, secretName)
 
 		Expect(PatchWebhookCABundleFromSecret(ctx, &logger, restCfg, secretName, prefixName, ns)).Should(Succeed())
-		verifyCABundleEquals(ctx, prefixName, mockCert)
+		verifyCABundleEquals(ctx, mockCert)
 	})
 
 	It("should be a no-op if updating webhook configuration by cert is missing", func() {
@@ -65,7 +66,7 @@ var _ = Describe("webhook", func() {
 		defer deleteSecret(ctx, secretName)
 
 		Expect(PatchWebhookCABundleFromSecret(ctx, &logger, restCfg, secretName, prefixName, ns)).Should(Succeed())
-		verifyCABundleEquals(ctx, prefixName, nil)
+		verifyCABundleEquals(ctx, nil)
 	})
 
 	It("should write out certs to a file", func() {
@@ -85,6 +86,33 @@ var _ = Describe("webhook", func() {
 		})
 		Expect(files[0].Name()).Should(Equal(corev1.TLSCertKey))
 		Expect(files[1].Name()).Should(Equal(corev1.TLSPrivateKeyKey))
+	})
+
+	It("should add annotations to the CRD", func() {
+		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+		crd := extv1.CustomResourceDefinition{}
+		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+		Expect(crd.Annotations).ShouldNot(BeNil())
+		_, ok := crd.Annotations[certManagerAnnotationName]
+		Expect(ok).Should(BeFalse())
+		Expect(AddCertManagerAnnotation(ctx, &logger, restCfg, prefixName, ns)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+		_, ok = crd.Annotations[certManagerAnnotationName]
+		Expect(ok).Should(BeTrue())
+	})
+
+	It("should be able to update the conversion webhook only", func() {
+		crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+		crd := extv1.CustomResourceDefinition{}
+		Expect(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+
+		const secretName = "my-secret"
+		var mockCert = []byte("my-cert")
+		createSecret(ctx, secretName, map[string][]byte{OLMCACertKey: mockCert})
+		defer deleteSecret(ctx, secretName)
+
+		Expect(PatchConversionWebhookFromSecret(ctx, &logger, restCfg, secretName, prefixName, ns)).Should(Succeed())
+		verifyCertForConversionEquals(ctx, mockCert)
 	})
 })
 
@@ -157,7 +185,7 @@ func deleteSecret(ctx context.Context, secretName string) {
 	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }
 
-func verifyCABundleEquals(ctx context.Context, prefixName string, caCrt []byte) {
+func verifyCABundleEquals(ctx context.Context, caCrt []byte) {
 	nm := types.NamespacedName{
 		Name: getValidatingWebhookConfigName(prefixName),
 	}
@@ -181,5 +209,22 @@ func verifyCABundleEquals(ctx context.Context, prefixName string, caCrt []byte) 
 		Expect(mcfg.Webhooks[0].ClientConfig.CABundle).Should(Equal(caCrt))
 	} else {
 		Expect(len(mcfg.Webhooks[0].ClientConfig.CABundle)).Should(Equal(0))
+	}
+	if len(caCrt) > 0 {
+		verifyCertForConversionEquals(ctx, caCrt)
+	}
+}
+
+func verifyCertForConversionEquals(ctx context.Context, caCrt []byte) {
+	crdName := types.NamespacedName{Name: getVerticaDBCRDName()}
+	crd := extv1.CustomResourceDefinition{}
+	Ω(k8sClient.Get(ctx, crdName, &crd)).Should(Succeed())
+	Ω(crd.Spec.Conversion.Strategy).Should(Equal(extv1.WebhookConverter))
+	Ω(crd.Spec.Conversion.Webhook).ShouldNot(BeNil())
+	Ω(crd.Spec.Conversion.Webhook.ClientConfig).ShouldNot(BeNil())
+	if len(caCrt) > 0 {
+		Ω(crd.Spec.Conversion.Webhook.ClientConfig.CABundle).Should(Equal(caCrt))
+	} else {
+		Ω(crd.Spec.Conversion.Webhook.ClientConfig.CABundle).Should(HaveLen(0))
 	}
 }

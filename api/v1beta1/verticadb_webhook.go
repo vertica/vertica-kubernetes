@@ -1,17 +1,16 @@
 /*
-Copyright 2021.
+ (c) Copyright [2021-2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+ http://www.apache.org/licenses/LICENSE-2.0
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
 */
 
 //nolint:lll
@@ -48,7 +47,7 @@ const (
 	HadoopConfigMountName    = "hadoop-conf"
 	Krb5SecretMountName      = "krb5"
 	SSHMountName             = "ssh"
-	HTTPServerCertsMountName = "http-server-certs"
+	HTTPServerCertsMountName = "nma-certs"
 	DepotMountName           = "depot"
 	S3Prefix                 = "s3://"
 	GCloudPrefix             = "gs://"
@@ -125,18 +124,11 @@ func (v *VerticaDB) IsKnownCommunalPrefix() bool {
 	return false
 }
 
-// HasKerberosConfig returns true if VerticaDB is setup for Kerberos authentication.
-func (v *VerticaDB) HasKerberosConfig() bool {
-	// We have a webhook check that makes sure if the principal is set, the
-	// other things are set too.
-	return v.Spec.Communal.KerberosServiceName != ""
-}
-
 var _ webhook.Defaulter = &VerticaDB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaDB) Default() {
-	verticadblog.Info("default", "name", v.Name)
+	verticadblog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
 
 	// imagePullPolicy: if not set should default to Always if the tag in the image is latest,
 	// otherwise it should be IfNotPresent (set in verticadb_types.go)
@@ -161,7 +153,7 @@ var _ webhook.Validator = &VerticaDB{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateCreate() error {
-	verticadblog.Info("validate create", "name", v.Name)
+	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
 	if allErrs == nil {
@@ -172,7 +164,7 @@ func (v *VerticaDB) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
-	verticadblog.Info("validate update", "name", v.Name)
+	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
 	if allErrs == nil {
@@ -712,7 +704,7 @@ func (v *VerticaDB) hasValidTemporarySubclusterRouting(allErrs field.ErrorList) 
 			allErrs = append(allErrs, err)
 		}
 	}
-	if len(v.Spec.TemporarySubclusterRouting.Names) > 0 && v.RequiresTransientSubcluster() {
+	if len(v.Spec.TemporarySubclusterRouting.Names) > 0 && v.Spec.RequiresTransientSubcluster() {
 		err := field.Invalid(fieldPrefix,
 			v.Spec.TemporarySubclusterRouting,
 			"cannot use a template and a list of subcluster names at the same time")
@@ -989,10 +981,22 @@ func (v *VerticaDB) checkImmutableTemporarySubclusterRouting(oldObj *VerticaDB, 
 			"subcluster names for temporasySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
-	if !reflect.DeepEqual(v.Spec.TemporarySubclusterRouting.Template, oldObj.Spec.TemporarySubclusterRouting.Template) {
+	// If either object went through the conversion webhook they will have the
+	// default ServiceType of ClusterIP added. Set the same default in both
+	// objects so the subsequent DeepEqual will match. We first copy to a new
+	// object to avoid changing the receiver.
+	oldTemplate := oldObj.Spec.TemporarySubclusterRouting.Template.DeepCopy()
+	newTemplate := v.Spec.TemporarySubclusterRouting.Template.DeepCopy()
+	if oldTemplate.ServiceType == "" {
+		oldTemplate.ServiceType = v1.ServiceTypeClusterIP
+	}
+	if newTemplate.ServiceType == "" {
+		newTemplate.ServiceType = v1.ServiceTypeClusterIP
+	}
+	if !reflect.DeepEqual(newTemplate, oldTemplate) {
 		err := field.Invalid(field.NewPath("spec").Child("temporarySubclusterRouting").Child("template"),
-			v.Spec.TemporarySubclusterRouting.Template,
-			"template for temporasySubclusterRouting cannot change when an upgrade is in progress")
+			newTemplate,
+			"template for temporarySubclusterRouting cannot change when an upgrade is in progress")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

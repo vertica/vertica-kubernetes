@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/util"
 )
 
@@ -141,7 +141,7 @@ func MakeATParserFromVDB(vdb *vapi.VerticaDB, logger logr.Logger) Parser {
 			db.Nodes = append(db.Nodes, Node{
 				Name:        fmt.Sprintf("v_%s_node%04d", db.Name, nc),
 				CatalogPath: fmt.Sprintf("%s/v_%s_node%04d_catalog", vdb.GetDBCatalogPath(), db.Name, nc),
-				IsPrimary:   vdb.Spec.Subclusters[i].IsPrimary,
+				IsPrimary:   vdb.Spec.Subclusters[i].IsPrimary(),
 				VStorageLocations: []StorageLocation{
 					{
 						Path:  fmt.Sprintf("%s/%s/v_%s_node%04d_data", vdb.Spec.Local.DataPath, db.Name, db.Name, nc),

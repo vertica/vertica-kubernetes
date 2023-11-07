@@ -11,25 +11,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-autoscale-by-subcluster
+  annotations:
+    vertica.com/requeue-time: "5"
+    vertica.com/ssh-secret: "ssh-keys"
+    vertica.com/include-uid-in-path: true
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vert
   shardCount: 3
-  kSafety: "1"
   subclusters:
     - name: pri
       size: 3
-  requeueTime: 5
   certSecrets: []
   imagePullSecrets: []
   volumes: []

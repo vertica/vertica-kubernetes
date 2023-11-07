@@ -80,8 +80,6 @@ fi
 if $SCRIPT_DIR/is-openshift.sh
 then
     OLM_NS=openshift-marketplace
-    # Add custom scc to serviceaccount
-    oc adm policy add-scc-to-user -n $NAMESPACE -z verticadb-operator-controller-manager anyuid-extra
 fi
 
 echo "Namespace: $NAMESPACE"

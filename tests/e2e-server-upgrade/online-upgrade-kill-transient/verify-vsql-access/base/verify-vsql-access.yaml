@@ -26,7 +26,7 @@ data:
 
     # Access to only pri subclusters should be okay.  We call this
     # after restarting the primary.  The secondary should have stayed down.
-    PRI_CONNECTION_NODE=$(vsql -h v-base-upgrade-pri -tAc "select node_name from current_session")
+    PRI_CONNECTION_NODE=$(vsql -U dbadmin -h v-base-upgrade-pri -tAc "select node_name from current_session")
 
     echo $PRI_CONNECTION_NODE
     if [[ $PRI_CONNECTION_NODE != "v_vertdb_node0001" ]]

@@ -21,7 +21,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -30,6 +30,8 @@ import (
 
 // ReIP will update the catalog on disk with new IPs for all of the nodes given.
 func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result, error) {
+	v.setupForAPICall("ReIP")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ReIP")
 
 	// get the certs
@@ -79,6 +81,15 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 		reIPInfo.NodeName = h.VNode
 		reIPInfo.TargetAddress = h.IP
 		opts.ReIPList = append(opts.ReIPList, reIPInfo)
+	}
+
+	// eon options
+	// Provide eon options to vclusterops only after revive_db because
+	// we do not need to access communal storage in re_ip after create_db.
+	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
+		opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+		*opts.CommunalStorageLocation = s.CommunalPath
+		opts.ConfigurationParameters = s.ConfigurationParams
 	}
 
 	// auth options

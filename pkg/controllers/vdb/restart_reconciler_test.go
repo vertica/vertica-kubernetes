@@ -22,8 +22,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
@@ -40,6 +41,8 @@ var _ = Describe("restart_reconciler", func() {
 
 	It("restartReconciler should not return an error if the sts doesn't exist", func() {
 		vdb := vapi.MakeVDB()
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
@@ -53,6 +56,8 @@ var _ = Describe("restart_reconciler", func() {
 	It("should call restart_node on one pod", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -82,6 +87,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.AutoRestartVertica = false
 		vdb.Spec.Subclusters[0].Size = 2
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -117,6 +124,8 @@ var _ = Describe("restart_reconciler", func() {
 	It("failure to restart will cause a requeue", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 5
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -156,6 +165,8 @@ var _ = Describe("restart_reconciler", func() {
 		const ScIndex = 0
 		sc := &vdb.Spec.Subclusters[ScIndex]
 		sc.Size = 2
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
@@ -173,6 +184,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
 		vdb.Spec.DBName = "vertdb"
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -209,6 +222,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
 		vdb.Spec.DBName = "db"
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -237,6 +252,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
 		vdb.Spec.DBName = "b"
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -269,10 +286,12 @@ var _ = Describe("restart_reconciler", func() {
 
 	It("should call start_db with --ignore-cluster-lease and --timeout options", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.IgnoreClusterLease = true
-		vdb.Spec.RestartTimeout = 500
+		vdb.Annotations[vmeta.IgnoreClusterLeaseAnnotation] = "true"
+		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "500"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -293,9 +312,11 @@ var _ = Describe("restart_reconciler", func() {
 
 	It("should call restart_node with --timeout option", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.RestartTimeout = 800
+		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "800"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -316,6 +337,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		const ScSize = 2
 		sc.Size = ScSize
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -354,6 +377,8 @@ var _ = Describe("restart_reconciler", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		const ScSize = 2
 		sc.Size = ScSize
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
@@ -362,7 +387,7 @@ var _ = Describe("restart_reconciler", func() {
 		// Update the status to indicate install count includes both pods
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: ScSize, Detail: []vapi.VerticaDBPodStatus{}},
+			{Name: vdb.Spec.Subclusters[0].Name, Detail: []vapi.VerticaDBPodStatus{{Installed: true}, {Installed: true}}},
 		}
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
@@ -381,6 +406,8 @@ var _ = Describe("restart_reconciler", func() {
 	It("should avoid restart_node of read-only nodes when that setting is used", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 2
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -406,11 +433,15 @@ var _ = Describe("restart_reconciler", func() {
 	It("should skip restart_node of transient nodes", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
-		vdb.Spec.TemporarySubclusterRouting.Template = vapi.Subcluster{
-			Name:      "the-transient-sc",
-			Size:      1,
-			IsPrimary: false,
+		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
+			Template: vapi.Subcluster{
+				Name: "the-transient-sc",
+				Size: 1,
+				Type: vapi.SecondarySubcluster,
+			},
 		}
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -433,7 +464,9 @@ var _ = Describe("restart_reconciler", func() {
 	It("should requeue if k-safety is 0, there are no UP nodes and some pods aren't running", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 3
-		vdb.Spec.KSafety = vapi.KSafety0
+		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -472,6 +505,8 @@ var _ = Describe("restart_reconciler", func() {
 		vdb.Spec.Sidecars = []corev1.Container{
 			{Name: "vlogger", Image: "vertica-vlogger:latest"},
 		}
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -513,6 +548,8 @@ var _ = Describe("restart_reconciler", func() {
 			PeriodSeconds:    45,
 			FailureThreshold: 10,
 		}
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -537,6 +574,8 @@ var _ = Describe("restart_reconciler", func() {
 			FailureThreshold: 5,
 		}
 		vdb.Spec.Subclusters[0].Size = 2
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -570,6 +609,8 @@ var _ = Describe("restart_reconciler", func() {
 			FailureThreshold: 5,
 		}
 		vdb.Spec.Subclusters[0].Size = 4
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		sc := &vdb.Spec.Subclusters[0]
@@ -606,6 +647,8 @@ var _ = Describe("restart_reconciler", func() {
 			PeriodSeconds:    25,
 			FailureThreshold: 2,
 		}
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)

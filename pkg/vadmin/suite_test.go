@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -162,13 +162,13 @@ func (m *MockVClusterOps) VerifyHosts(options *vops.DatabaseOptions, hosts []str
 }
 
 // VerifyCommunalStorageOptions is used in vcluster-ops unit test for verifying communal storage options
-func (m *MockVClusterOps) VerifyCommunalStorageOptions(communalStoragePath string, communalStorageParams map[string]string) error {
+func (m *MockVClusterOps) VerifyCommunalStorageOptions(communalStoragePath string, configurationParams map[string]string) error {
 	if communalStoragePath != TestCommunalPath {
 		return fmt.Errorf("failed to retrieve communal storage path")
 	}
 
-	if !reflect.DeepEqual(communalStorageParams, TestCommunalStorageParams) {
-		return fmt.Errorf("failed to retrieve communal storage params")
+	if !reflect.DeepEqual(configurationParams, TestCommunalStorageParams) {
+		return fmt.Errorf("failed to retrieve configuration params")
 	}
 
 	return nil
@@ -192,10 +192,15 @@ func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 // mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
-	vdb.Spec.HTTPServerTLSSecret = "test-secret"
-	mockVops := MockVClusterOps{}
+	vdb.Spec.NMATLSSecret = "test-secret"
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, &mockVops, TestPassword, &evWriter)
+	// We use a function to construct the VClusterProvider. This is called
+	// ahead of each API rather than once so that we can setup a custom
+	// logger for each API call.
+	setupAPIFunc := func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
+		return &MockVClusterOps{}, logr.Logger{}
+	}
+	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, TestPassword, &evWriter, setupAPIFunc)
 	return dispatcher.(*VClusterOps)
 }
 

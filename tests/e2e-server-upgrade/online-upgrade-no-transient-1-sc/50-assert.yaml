@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
@@ -21,12 +21,11 @@ status:
       status: "True"
     - type: DBInitialized
       status: "True"
-    - type: ImageChangeInProgress
+    - type: UpgradeInProgress
       status: "False"
     - type: OfflineUpgradeInProgress
       status: "False"
     - type: OnlineUpgradeInProgress
       status: "False"
   subclusterCount: 1
-  installCount: 3
   upNodeCount: 3

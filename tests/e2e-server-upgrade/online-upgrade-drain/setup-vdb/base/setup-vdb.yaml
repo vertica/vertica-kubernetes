@@ -12,28 +12,29 @@
 # limitations under the License.
 
 # We double duty this test to inject default upgradeRequeueTime by not setting RequeueTime
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-base-upgrade
+  annotations:
+    vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
-  kSafety: "0"
   upgradePolicy: Online
   subclusters:
     - name: pri1
       size: 1
-      isPrimary: true
+      type: primary
     - name: pri2
       size: 1
-      isPrimary: true
+      type: primary
     - name: sec1
       size: 1
-      isPrimary: false
+      type: secondary
   temporarySubclusterRouting:
     names:
       - sec1

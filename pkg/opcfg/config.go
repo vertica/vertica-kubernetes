@@ -21,6 +21,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
@@ -48,11 +50,10 @@ type OperatorConfig struct {
 	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
 	WebhookCertSecret    string // when this is empty we will generate the webhook cert
 	DevMode              bool
-	// If the webhook is enabled but we don't require a webhook config patch.
-	// This should be true only if the webhook CA bundle was provided during
-	// deployment or using cert-manager, which handles the CA bundle injection
-	// itself.
-	SkipWebhookPatch bool
+	// This is set if the webhook is enabled and its TLS is set via
+	// cert-manager. cert-manager will handle the CA bundle injection in the
+	// various k8s objects.
+	UseCertManager bool
 	// The *Currency parms control the concurrency of go routines handling each
 	// CR.  For instance, VerticaDBConcurrency is the number of go routines to
 	// handle reconciliation of VerticaDB CRs.
@@ -86,8 +87,8 @@ func (o *OperatorConfig) SetFlagArgs() {
 	flag.StringVar(&o.WebhookCertSecret, "webhook-cert-secret", "",
 		"Specifies the secret that contains the webhook cert. If this option is omitted, "+
 			"then the operator will generate the certificate.")
-	flag.BoolVar(&o.SkipWebhookPatch, "skip-webhook-patch", false,
-		"If the operator should skip updating the CA bundle in the webhook config")
+	flag.BoolVar(&o.UseCertManager, "use-cert-manager", false,
+		"If the operator uses cert-manager to generate the TLS for the webhook.")
 	flag.BoolVar(&o.DevMode, "dev", DefaultDevMode,
 		"Enables development mode if true and production mode otherwise.")
 	flag.StringVar(&o.FilePath, "filepath", "",
@@ -123,7 +124,7 @@ func (o *OperatorConfig) getEncoderConfig(devMode bool) zapcore.EncoderConfig {
 
 // getLogger is a wrapper that calls other functions
 // to build a logger.
-func (o *OperatorConfig) GetLogger() *zap.Logger {
+func (o *OperatorConfig) GetLogger() logr.Logger {
 	encoderConfig := o.getEncoderConfig(o.DevMode)
 	writes := []zapcore.WriteSyncer{}
 	opts := []zap.Option{}
@@ -145,7 +146,7 @@ func (o *OperatorConfig) GetLogger() *zap.Logger {
 		// This enables sampling only in prod
 		core = zapcore.NewSamplerWithOptions(core, time.Second, First, ThereAfter)
 	}
-	return zap.New(core, opts...)
+	return zapr.NewLogger(zap.New(core, opts...))
 }
 
 // getLogWriter returns an io.writer (setting up rolling files) converted

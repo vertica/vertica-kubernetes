@@ -20,13 +20,16 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -48,6 +51,14 @@ func MakeServiceAccountReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 // Reconcile will ensure that a serviceAccount, role and rolebindings exists for
 // the vertica pods.
 func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// If a serviceAccount name was specified and it exists, then we can exit
+	// this reconciler early.
+	if s.Vdb.Spec.ServiceAccountName != "" {
+		if userProvidedSA, err := s.hasUserProvidedServiceAccount(ctx, s.Vdb.Spec.ServiceAccountName); userProvidedSA || err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	rbacFinder := iter.MakeRBACFinder(s.VRec.Client, s.Vdb)
 	exists, sa, err := rbacFinder.FindServiceAccount(ctx)
 	if err != nil {
@@ -82,7 +93,8 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 			return ctrl.Result{}, fmt.Errorf("failed to create rolebinding: %w", err)
 		}
 	}
-	return ctrl.Result{}, nil
+
+	return ctrl.Result{}, s.saveServiceAccountNameInVDB(ctx, sa.Name)
 }
 
 // createServiceAccount will create a new service account to be used for the vertica pods
@@ -91,10 +103,9 @@ func (s *ServiceAccountReconciler) createServiceAccount(ctx context.Context) (*c
 	blockOwnerDeletion := false
 	sa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-sa-", s.Vdb.Name),
-			Namespace:    s.Vdb.Namespace,
-			Annotations:  builder.MakeAnnotationsForObject(s.Vdb),
-			Labels:       builder.MakeCommonLabels(s.Vdb, nil, false),
+			Namespace:   s.Vdb.Namespace,
+			Annotations: builder.MakeAnnotationsForObject(s.Vdb),
+			Labels:      builder.MakeCommonLabels(s.Vdb, nil, false),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         vapi.GroupVersion.String(),
@@ -106,6 +117,12 @@ func (s *ServiceAccountReconciler) createServiceAccount(ctx context.Context) (*c
 				},
 			},
 		},
+	}
+	// Only generate a name if one wasn't already specified in the vdb
+	if s.Vdb.Spec.ServiceAccountName == "" {
+		sa.GenerateName = fmt.Sprintf("%s-sa-", s.Vdb.Name)
+	} else {
+		sa.Name = s.Vdb.Spec.ServiceAccountName
 	}
 	err := s.VRec.Client.Create(ctx, &sa)
 	if err != nil {
@@ -138,6 +155,8 @@ func (s *ServiceAccountReconciler) createRole(ctx context.Context) (*rbacv1.Role
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
+			// Any policy changes here must be kept insync with:
+			// config/samples/vertica-server-role.yaml
 			{
 				// We need to allow vertica pods to read secrets directly from
 				// the API. This will be used by the NMA and vcluster CLI to
@@ -202,4 +221,47 @@ func (s *ServiceAccountReconciler) createRoleBinding(ctx context.Context, sa *co
 	}
 	s.Log.Info("rolebinding created", "name", rolebinding.ObjectMeta.Name)
 	return nil
+}
+
+// hasUserProvidedServiceAccount will check if the given serviceAccount name
+// exists and was user provided.
+func (s *ServiceAccountReconciler) hasUserProvidedServiceAccount(ctx context.Context, saName string) (bool, error) {
+	sa := corev1.ServiceAccount{}
+	nm := names.GenNamespacedName(s.Vdb, saName)
+	if err := s.VRec.Client.Get(ctx, nm, &sa); err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	// Check if the serviceAccount has the expected labels. If it doesn't, then
+	// we assume the service account is user provided.
+	if sa.Labels == nil {
+		return true, nil
+	}
+	expLabels := builder.MakeCommonLabels(s.Vdb, nil, false)
+	for k, v := range expLabels {
+		if sa.Labels[k] != v {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// saveServiceAccountNameInVDB will store the given serviceAccountName in the VerticaDB.
+func (s *ServiceAccountReconciler) saveServiceAccountNameInVDB(ctx context.Context, saName string) error {
+	nm := s.Vdb.ExtractNamespacedName()
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := s.VRec.Client.Get(ctx, nm, s.Vdb); err != nil {
+			return err
+		}
+
+		// ServiceAccount already set. Nothing to do.
+		if s.Vdb.Spec.ServiceAccountName == saName {
+			return nil
+		}
+		s.Vdb.Spec.ServiceAccountName = saName
+		s.Log.Info("Updating serviceAccountName in VerticaDB", "name", saName)
+		return s.VRec.Client.Update(ctx, s.Vdb)
+	})
 }

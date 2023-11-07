@@ -11,23 +11,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-http-generated-certs
+  annotations:
+    vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: true
+  passwordSecret: su-passwd
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertdb
-  httpServerMode: Enabled
   subclusters:
     - name: sc
       size: 2
-  kSafety: "0"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

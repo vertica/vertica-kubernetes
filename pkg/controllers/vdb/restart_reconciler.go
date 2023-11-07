@@ -23,12 +23,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
@@ -63,6 +63,7 @@ type RestartReconciler struct {
 	InitiatorPodIP  string               // The IP of the initiating pod
 	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
 	Dispatcher      vadmin.Dispatcher
+	ConfigParamsGenerator
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
@@ -77,6 +78,11 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PFacts:          pfacts,
 		RestartReadOnly: restartReadOnly,
 		Dispatcher:      dispatcher,
+		ConfigParamsGenerator: ConfigParamsGenerator{
+			VRec: vdbrecon,
+			Log:  log.WithName("RestartReconciler"),
+			Vdb:  vdb,
+		},
 	}
 }
 
@@ -95,6 +101,17 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// If the create/revive database process fails, we skip restarting the cluster to redo the create/revive process.
+	// restart reconciler is only skipped for VClusterOps.
+	// In Admintools, the IP is cached in admintool.conf and needs to be updated.
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+		isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
+		if !isSet || e != nil {
+			r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
+			return ctrl.Result{}, e
+		}
 	}
 
 	if err := r.PFacts.Collect(ctx, r.Vdb); err != nil {
@@ -128,7 +145,7 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 	// Check if cluster start needs to include all of the pods.
-	if r.Vdb.Spec.KSafety == vapi.KSafety0 && r.PFacts.countInstalledAndNotRestartable() > 0 {
+	if r.Vdb.IsKSafety0() && r.PFacts.countInstalledAndNotRestartable() > 0 {
 		// For k-safety 0, we need all of the pods because the absence of one
 		// will cause us not to have enough pods for cluster quorum.
 		r.Log.Info("Waiting for all installed pods to be running before attempt a cluster restart")
@@ -143,7 +160,12 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, true)
+	// Re-IP needs to collect all nodes' IPs. When using vclusterops, we do not want to
+	// restart transient nodes because there is not a config file for vclusterops to retrieve
+	// transient nodes' IPs easily. However, using admintools, we can get the correct nodes'
+	// IPs easily from admintools.conf. As a result, we exclude transient pods from the pods
+	// to restart for vclusterops.
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, !vmeta.UseVClusterOps(r.Vdb.Annotations))
 
 	// Kill any read-only vertica process that may still be running. This does
 	// not include any rogue process that is no longer communicating with
@@ -371,6 +393,20 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 	opts := []reip.Option{
 		reip.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
 	}
+	// If a communal path is set, include all of the EON parameters.
+	if r.Vdb.Spec.Communal.Path != "" {
+		// build communal storage params if there is not one
+		if r.ConfigurationParams == nil {
+			res, err := r.ConstructConfigParms(ctx)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+		}
+		opts = append(opts,
+			reip.WithCommunalPath(r.Vdb.GetCommunalPath()),
+			reip.WithConfigurationParams(r.ConfigurationParams.GetMap()),
+		)
+	}
 	for i := range pods {
 		if !pods[i].isPodRunning {
 			r.Log.Info("Not all pods are running. Need to requeue restart reconciler.", "pod", pods[i].name)
@@ -389,6 +425,20 @@ func (r *RestartReconciler) reipNodes(ctx context.Context, pods []*PodFact) (ctr
 func (r *RestartReconciler) restartCluster(ctx context.Context, downPods []*PodFact) (ctrl.Result, error) {
 	opts := []startdb.Option{
 		startdb.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
+	}
+	// If a communal path is set, include all of the EON parameters.
+	if r.Vdb.Spec.Communal.Path != "" {
+		// build communal storage params if there is not one
+		if r.ConfigurationParams == nil {
+			res, err := r.ConstructConfigParms(ctx)
+			if verrors.IsReconcileAborted(res, err) {
+				return res, err
+			}
+		}
+		opts = append(opts,
+			startdb.WithCommunalPath(r.Vdb.GetCommunalPath()),
+			startdb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
+		)
 	}
 	for i := range downPods {
 		opts = append(opts, startdb.WithHost(downPods[i].podIP))
@@ -574,6 +624,11 @@ func (r *RestartReconciler) shouldRequeueIfPodsNotRunning() bool {
 // acceptEulaIfMissing is a wrapper function that calls another function that
 // accepts the end user license agreement.
 func (r *RestartReconciler) acceptEulaIfMissing(ctx context.Context) error {
+	// The EULA is specific to admintools based deployments. Skipping for
+	// vcluster.
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
+		return nil
+	}
 	return acceptEulaIfMissing(ctx, r.PFacts, r.PRunner)
 }
 
@@ -585,7 +640,7 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
 	// necessary to keep installed-only nodes up to date in admintools.conf. For
 	// this reason, we can skip if using vclusterOps.
 	if isRestartNode {
-		if meta.UseVClusterOps(r.Vdb.Annotations) {
+		if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 			return nil
 		}
 		return r.PFacts.findReIPPods(dBCheckOnlyWithoutDBs)
@@ -593,7 +648,7 @@ func (r *RestartReconciler) getReIPPods(isRestartNode bool) []*PodFact {
 	// For cluster restart, we re-ip all nodes that have been added to the DB.
 	// And if using admintools, we also need to re-ip installed pods that
 	// haven't been added to the db to keep admintools.conf in-sync.
-	if meta.UseVClusterOps(r.Vdb.Annotations) {
+	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
 		return r.PFacts.findReIPPods(dBCheckOnlyWithDBs)
 	}
 	return r.PFacts.findReIPPods(dBCheckAny)

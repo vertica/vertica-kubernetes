@@ -22,7 +22,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -60,7 +60,7 @@ var _ = Describe("vdb", func() {
 		Expect(string(dbGen.Objs.Vdb.Spec.InitPolicy)).Should(Equal(vapi.CommunalInitPolicyRevive))
 		Expect(dbGen.Objs.Vdb.Spec.DBName).Should(Equal("mydb"))
 		Expect(dbGen.Objs.Vdb.ObjectMeta.Name).Should(Equal("vertdb"))
-		Expect(dbGen.Objs.Vdb.Spec.IgnoreClusterLease).Should(BeTrue())
+		Expect(dbGen.Objs.Vdb.GetIgnoreClusterLease()).Should(BeTrue())
 		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("my-img:latest"))
 		Expect(dbGen.Objs.Vdb.Spec.Local.DepotVolume).Should(Equal(vapi.EmptyDir))
 	})
@@ -260,7 +260,8 @@ var _ = Describe("vdb", func() {
 		createMock()
 		defer deleteMock()
 
-		dbGen := DBGenerator{Conn: db}
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.setParmsFromOptions()
 
 		mock.ExpectQuery(Queries[KSafetyQueryKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"get_design_ksafe"}).
@@ -270,7 +271,7 @@ var _ = Describe("vdb", func() {
 				AddRow("2"))
 
 		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.Spec.KSafety).Should(Equal(vapi.KSafety0))
+		Expect(dbGen.Objs.Vdb.IsKSafety0()).Should(BeTrue())
 	})
 
 	It("should always set ksafety to '1' when the fetched value >= 1", func() {
@@ -287,7 +288,7 @@ var _ = Describe("vdb", func() {
 				AddRow("4"))
 
 		Expect(dbGen.setKSafety(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.Spec.KSafety).Should(Equal(vapi.KSafety1))
+		Expect(dbGen.Objs.Vdb.IsKSafety0()).Should(BeFalse())
 	})
 
 	It("should raise an error if ksafety is '0' and the number of nodes > 3", func() {
@@ -406,9 +407,9 @@ var _ = Describe("vdb", func() {
 				AddRow(Sc3Name, true))
 
 		expScDetail := []vapi.Subcluster{
-			{Name: Sc1Name, Size: 4, IsPrimary: true},
-			{Name: Sc2Name, Size: 1, IsPrimary: false},
-			{Name: Sc3Name, Size: 2, IsPrimary: true},
+			{Name: Sc1Name, Size: 4, Type: vapi.PrimarySubcluster},
+			{Name: Sc2Name, Size: 1, Type: vapi.SecondarySubcluster},
+			{Name: Sc3Name, Size: 2, Type: vapi.PrimarySubcluster},
 		}
 		expReviveOrder := []vapi.SubclusterPodCount{
 			{SubclusterIndex: 0, PodCount: 3},
@@ -515,6 +516,7 @@ var _ = Describe("vdb", func() {
 
 		dbGen := DBGenerator{Conn: db, Opts: &Options{},
 			Krb5ConfData: []byte("data1"), Krb5KeytabData: []byte("data2")}
+		dbGen.setParmsFromOptions()
 
 		mock.ExpectQuery(Queries[DBCfgKey]).
 			WillReturnRows(sqlmock.NewRows([]string{"key", "value"}).

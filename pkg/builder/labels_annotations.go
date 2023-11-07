@@ -19,7 +19,7 @@ import (
 	"os"
 	"strconv"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
@@ -28,11 +28,11 @@ func MakeSubclusterLabels(sc *vapi.Subcluster) map[string]string {
 	m := map[string]string{
 		vmeta.SubclusterNameLabel:      sc.Name,
 		vmeta.SubclusterTypeLabel:      sc.GetType(),
-		vmeta.SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient),
+		vmeta.SubclusterTransientLabel: strconv.FormatBool(sc.IsTransient()),
 	}
 	// Transient subclusters never have the service name label set.  At various
 	// parts of the upgrade, it will accept traffic from all of the subclusters.
-	if !sc.IsTransient {
+	if !sc.IsTransient() {
 		m[vmeta.SubclusterSvcNameLabel] = sc.GetServiceName()
 	}
 	return m
@@ -110,10 +110,10 @@ func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	// Surface operator config as annotations. This is picked up by the downward
 	// API and surfaced as files for the server to collect in the
 	// dc_kubernetes_events table.
-	if val, ok := os.LookupEnv("DEPLOY_WITH"); ok {
+	if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok {
 		annotations[vmeta.OperatorDeploymentMethodAnnotation] = val
 	}
-	if val, ok := os.LookupEnv("VERSION"); ok {
+	if val, ok := os.LookupEnv(vmeta.OperatorVersionEnvVar); ok {
 		annotations[vmeta.OperatorVersionAnnotation] = val
 	}
 	for k, v := range vdb.Spec.Annotations {

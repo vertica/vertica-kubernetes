@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -118,7 +118,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 			// If Reconcile was aborted with a requeue, set the RequeueAfter interval to prevent exponential backoff
 			if err == nil {
 				res.Requeue = false
-				res.RequeueAfter = o.Vdb.GetUpgradeRequeueTime()
+				res.RequeueAfter = o.Vdb.GetUpgradeRequeueTimeDuration()
 			}
 			return res, err
 		}
@@ -244,7 +244,7 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 // valid version.  This makes sure we don't downgrade or skip a released
 // version.  This depends on the pod to be running with the new version.
 func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Result, error) {
-	if o.Vdb.Spec.IgnoreUpgradePath {
+	if o.Vdb.GetIgnoreUpgradePath() {
 		return ctrl.Result{}, nil
 	}
 

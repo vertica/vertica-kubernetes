@@ -9,19 +9,41 @@ resources:
 
 patchesStrategicMerge:
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
-  # patches here are for enabling the conversion webhook for each CRD
   - patches/webhook_in_verticadbs.yaml
   - patches/webhook_in_verticaautoscalers.yaml
   - patches/webhook_in_eventtriggers.yaml
   #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
-  # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
-  # patches here are for enabling the CA injection for each CRD
-  - patches/cainjection_in_verticadbs.yaml
-  - patches/cainjection_in_verticaautoscalers.yaml
-  - patches/cainjection_in_eventtriggers.yaml
-#+kubebuilder:scaffold:crdkustomizecainjectionpatch
+  # [CERTMANAGER] there was an optional patch to include an annotation that
+  # causes cert-manager to inject the CA bundle in the webhook conversion
+  # config of the CRD. We removed this in favour of the operator adding this
+  # annotation during runtime. Including it here made server side apply of the
+  # CRD difficult as there would always be a conflict. And the value of the
+  # annotation can be different based on your deployment; it needs to know the
+  # location of the cert-manager Certificate.
 
 # the following config is for teaching kustomize how to do kustomization for CRDs.
 configurations:
   - kustomizeconfig.yaml
+
+patches:
+  # We add a patch to the CRD to add an additional printer column. Normally this
+  # is added as a kubebuilder annotation in verticadb_types.go. However, we need
+  # access to annotations and the way to access that breaks the parser in
+  # controller-gen.
+- target:
+    kind: CustomResourceDefinition
+    name: verticadbs.vertica.com
+  patch: |-
+    - op: add
+      path: /spec/versions/0/additionalPrinterColumns/1
+      value:
+        jsonPath: .metadata.annotations.vertica\.com\/version
+        name: Version
+        type: string
+    - op: add
+      path: /spec/versions/0/additionalPrinterColumns/2
+      value:
+        jsonPath: .metadata.annotations.vertica\.com\/ready-status
+        name: Ready
+        type: string

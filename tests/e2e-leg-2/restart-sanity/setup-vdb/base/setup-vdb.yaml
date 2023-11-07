@@ -11,23 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-restart
+  annotations:
+    vertica.com/restart-timeout: "1500"
+    vertica.com/requeue-time: "4"
+    vertica.com/include-uid-in-path: true
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  communal:
-    includeUIDInPath: true
+  passwordSecret: su-passwd
+  communal: {}
   local:
     depotVolume: EmptyDir
     requestSize: 100Mi
   dbName: spilchendb2
   shardCount: 20
-  requeueTime: 4
-  restartTimeout: 1500
   subclusters:
     - name: defsc
       size: 3
@@ -47,7 +48,7 @@ data:
     set -o xtrace
 
     # Allow local dbadmin access without a password
-    kubectl exec -it svc/v-restart-defsc -- vsql -w superuser -c "\
+    kubectl exec -it svc/v-restart-defsc -- vsql -U dbadmin -w superuser -c "\
           CREATE AUTHENTICATION v_dbadmin_trust METHOD 'trust' LOCAL; \
           GRANT AUTHENTICATION v_dbadmin_trust TO dbadmin; \
           ALTER AUTHENTICATION v_dbadmin_trust PRIORITY 10000; \
@@ -60,7 +61,7 @@ metadata:
 spec:
   references:
   - object:
-      apiVersion: vertica.com/v1beta1
+      apiVersion: vertica.com/v1
       kind: VerticaDB
       name: v-restart
   matches:

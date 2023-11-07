@@ -31,9 +31,10 @@ import (
 	_ "github.com/vertica/vertica-sql-go"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 )
 
@@ -146,6 +147,10 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.TypeMeta.APIVersion = vapi.GroupVersion.String()
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
+	d.Objs.Vdb.Annotations = map[string]string{
+		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
+	}
+	d.Objs.Vdb.Spec.Communal.AdditionalConfig = make(map[string]string)
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName
 	d.Objs.Vdb.Spec.AutoRestartVertica = true
 	d.Objs.Vdb.ObjectMeta.Name = d.Opts.VdbName
@@ -155,7 +160,7 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.Spec.Local.DepotVolume = vapi.DepotVolumeType(d.Opts.DepotVolume)
 
 	if d.Opts.IgnoreClusterLease {
-		d.Objs.Vdb.Spec.IgnoreClusterLease = true
+		d.Objs.Vdb.SetIgnoreClusterLease(true)
 	}
 	if d.Opts.Image != "" {
 		d.Objs.Vdb.Spec.Image = d.Opts.Image
@@ -209,11 +214,10 @@ func (d *DBGenerator) setKSafety(ctx context.Context) error {
 		return errors.New("could not get ksafety from meta-function GET_DESIGN_KSAFE()")
 	}
 	var designKSafe string
-	ksafety := vapi.KSafety1
 	if err := rows.Scan(&designKSafe); err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
-	if designKSafe == string(vapi.KSafety0) {
+	if designKSafe == "0" {
 		if nodeCount, err := d.countNodes(ctx); err == nil {
 			// vdbgen will fail if ksafety is 0 and there are more than max nodes
 			if nodeCount > vapi.KSafety0MaxHosts {
@@ -222,10 +226,8 @@ func (d *DBGenerator) setKSafety(ctx context.Context) error {
 		} else {
 			return err
 		}
-		ksafety = vapi.KSafety0
+		d.Objs.Vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
 	}
-	d.Objs.Vdb.Spec.KSafety = ksafety
-
 	return nil
 }
 
@@ -601,11 +603,17 @@ func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
 		}
 
 		inx, ok := subclusterInxMap[name]
+		var scType string
+		if isPrimary {
+			scType = vapi.PrimarySubcluster
+		} else {
+			scType = vapi.SecondarySubcluster
+		}
 		if !ok {
 			inx = len(d.Objs.Vdb.Spec.Subclusters)
 			// Add an empty subcluster.  We increment the count a few lines down.
 			d.Objs.Vdb.Spec.Subclusters = append(d.Objs.Vdb.Spec.Subclusters,
-				vapi.Subcluster{Name: name, Size: 0, IsPrimary: isPrimary})
+				vapi.Subcluster{Name: name, Size: 0, Type: scType})
 			subclusterInxMap[name] = inx
 		}
 		d.Objs.Vdb.Spec.Subclusters[inx].Size++
@@ -706,7 +714,7 @@ func (d *DBGenerator) setPasswordSecret(_ context.Context) error {
 	d.Objs.SuperuserPasswordSecret.TypeMeta.APIVersion = SecretAPIVersion
 	d.Objs.SuperuserPasswordSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.SuperuserPasswordSecret.ObjectMeta.Name = fmt.Sprintf("%s-su-passwd", d.Opts.VdbName)
-	d.Objs.Vdb.Spec.SuperuserPasswordSecret = d.Objs.SuperuserPasswordSecret.ObjectMeta.Name
+	d.Objs.Vdb.Spec.PasswordSecret = d.Objs.SuperuserPasswordSecret.ObjectMeta.Name
 	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{builder.SuperuserPasswordKey: []byte(d.Opts.Password)}
 
 	return nil
@@ -804,7 +812,7 @@ func (d *DBGenerator) setHadoopConfig(_ context.Context) error {
 	d.Objs.HadoopConfig.TypeMeta.Kind = ConfigKindName
 	d.Objs.HadoopConfig.ObjectMeta.Name = fmt.Sprintf("%s-hadoop-conf", d.Opts.VdbName)
 	d.Objs.HadoopConfig.Data = d.HadoopConfData
-	d.Objs.Vdb.Spec.Communal.HadoopConfig = d.Objs.HadoopConfig.ObjectMeta.Name
+	d.Objs.Vdb.Spec.HadoopConfig = d.Objs.HadoopConfig.ObjectMeta.Name
 
 	return nil
 }
@@ -929,10 +937,8 @@ func (d *DBGenerator) readKrb5KeytabFile(_ context.Context) error {
 }
 
 func (d *DBGenerator) setKrb5Secret(_ context.Context) error {
-	const KerberosServiceNameKey = "KerberosServiceName"
-	const KerberosRealmKey = "KerberosRealm"
-	realm, okRealm := d.DBCfg[KerberosRealmKey]
-	svcName, okSvc := d.DBCfg[KerberosServiceNameKey]
+	realm, okRealm := d.DBCfg[vmeta.KerberosRealmConfig]
+	svcName, okSvc := d.DBCfg[vmeta.KerberosServiceNameConfig]
 
 	if !okRealm || !okSvc {
 		// Not an error, this just means there is no Kerberos setup
@@ -947,8 +953,8 @@ func (d *DBGenerator) setKrb5Secret(_ context.Context) error {
 	}
 
 	d.Objs.HasKerberosSecret = true
-	d.Objs.Vdb.Spec.Communal.KerberosRealm = realm
-	d.Objs.Vdb.Spec.Communal.KerberosServiceName = svcName
+	d.Objs.Vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig] = realm
+	d.Objs.Vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig] = svcName
 	d.Objs.KerberosSecret.TypeMeta.APIVersion = SecretAPIVersion
 	d.Objs.KerberosSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.KerberosSecret.ObjectMeta.Name = fmt.Sprintf("%s-krb5", d.Opts.VdbName)

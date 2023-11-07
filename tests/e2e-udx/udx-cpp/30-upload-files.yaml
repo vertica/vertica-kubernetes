@@ -1,10 +1,14 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  # In v2 image, we need to allow write access to the sdk/examples directory
+  - command: kubectl -n $NAMESPACE exec -it v-udx-cpp-sc1-0 -- bash -c "echo root | su root sh -c 'chmod -R a+w /opt/vertica/sdk/examples || true'"
+    ignoreFailure: true
   # upload the built library binaries
   - command: kubectl -n $NAMESPACE cp ../../../sdk/examples/build v-udx-cpp-sc1-0:/opt/vertica/sdk/examples
   # upload the expected outputs of executing sql files
   - command: kubectl -n $NAMESPACE cp ./expected-outputs v-udx-cpp-sc1-0:/opt/vertica/sdk/examples
   # Install packages in the pod that are needed to run the C++ examples. We
   # retry to resolve any intermittent network issues.
-  - command: kubectl -n $NAMESPACE exec -it v-udx-cpp-sc1-0 -- bash -c "for i in $(seq 1 5); do sudo apt-get update && sudo apt-get install -y libboost-all-dev libcurl4-openssl-dev libbz2-dev bzip2 && break || sleep 60; done"
+  - command: kubectl -n $NAMESPACE cp setup-env-runtime.sh v-udx-cpp-sc1-0:/tmp/setup-env-runtime.sh
+  - command: kubectl -n $NAMESPACE exec -it v-udx-cpp-sc1-0 -- bash /tmp/setup-env-runtime.sh

@@ -29,6 +29,8 @@ import (
 // ReviveDB will initialized a database using an existing communal path. It does
 // this using the vclusterops library.
 func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ctrl.Result, error) {
+	v.setupForAPICall("ReviveDB")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting VCluster ReviveDB")
 
 	certs, err := v.retrieveHTTPSCerts(ctx)
@@ -56,7 +58,8 @@ func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *
 	v.Log.Info("Setup revive database options", "hosts", opts.RawHosts)
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
 	opts.CommunalStorageLocation = &s.CommunalPath
-	opts.CommunalStorageParameters = s.ConfigurationParams
+	opts.ConfigurationParameters = s.ConfigurationParams
+	*opts.ForceRemoval = true
 	*opts.IgnoreClusterLease = s.IgnoreClusterLease
 
 	// auth options

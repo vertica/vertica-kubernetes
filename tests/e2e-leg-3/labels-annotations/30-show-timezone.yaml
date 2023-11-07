@@ -14,9 +14,9 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- vsql -c "show timezone"
-  - command: kubectl exec vdb-label-ant-cluster1-1 -n $NAMESPACE -- vsql -c "show timezone"
-  - command: kubectl exec vdb-label-ant-cluster1-2 -n $NAMESPACE -- vsql -c "show timezone"
-  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "vsql -tAc 'show timezone' | grep -q 'America/Halifax'"
-  - command: kubectl exec vdb-label-ant-cluster1-1 -n $NAMESPACE -- sh -c "vsql -tAc 'show timezone' | grep -q 'America/Halifax'"
-  - command: kubectl exec vdb-label-ant-cluster1-2 -n $NAMESPACE -- sh -c "vsql -tAc 'show timezone' | grep -q 'America/Halifax'"
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- vsql -U dbadmin -c "show timezone"
+  - command: kubectl exec vdb-label-ant-cluster1-1 -n $NAMESPACE -- vsql -U dbadmin -c "show timezone"
+  - command: kubectl exec vdb-label-ant-cluster1-2 -n $NAMESPACE -- vsql -U dbadmin -c "show timezone"
+  - command: kubectl exec vdb-label-ant-cluster1-0 -n $NAMESPACE -- sh -c "vsql -U dbadmin -tAc 'show timezone' | grep -q 'America/Halifax'"
+  - command: kubectl exec vdb-label-ant-cluster1-1 -n $NAMESPACE -- sh -c "vsql -U dbadmin -tAc 'show timezone' | grep -q 'America/Halifax'"
+  - command: kubectl exec vdb-label-ant-cluster1-2 -n $NAMESPACE -- sh -c "vsql -U dbadmin -tAc 'show timezone' | grep -q 'America/Halifax'"

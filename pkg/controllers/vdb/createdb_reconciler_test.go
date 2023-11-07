@@ -21,8 +21,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -34,23 +35,6 @@ const TestPassword = "test-pw"
 
 var _ = Describe("createdb_reconciler", func() {
 	ctx := context.Background()
-
-	It("should not call create_db if db already exists", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 3
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		lastCall := fpr.Histories[len(fpr.Histories)-1]
-		Expect(lastCall.Command).ShouldNot(ContainElements("/opt/vertica/bin/admintools", "create_db"))
-	})
 
 	It("should run create db if db doesn't exist", func() {
 		vdb := vapi.MakeVDB()
@@ -94,13 +78,13 @@ var _ = Describe("createdb_reconciler", func() {
 
 	It("host list should contain 1 pod when kSafety is 0", func() {
 		const firstScSize = 3
-		hostListLength := createMultiPodSubclusterForKsafe(ctx, vapi.KSafety0, firstScSize)
+		hostListLength := createMultiPodSubclusterForKsafe(ctx, "0", firstScSize)
 		Expect(hostListLength).Should(Equal(1))
 	})
 
 	It("host list should contain all pods when kSafety is 1", func() {
 		const firstScSize = 3
-		hostListLength := createMultiPodSubclusterForKsafe(ctx, vapi.KSafety1, firstScSize)
+		hostListLength := createMultiPodSubclusterForKsafe(ctx, "1", firstScSize)
 		Expect(hostListLength).Should(Equal(firstScSize))
 	})
 
@@ -144,8 +128,8 @@ var _ = Describe("createdb_reconciler", func() {
 	It("should always run AT commands from the first pod of the first primary subcluster", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sec", IsPrimary: false, Size: 1},
-			{Name: "pri", IsPrimary: true, Size: 2},
+			{Name: "sec", Type: vapi.SecondarySubcluster, Size: 1},
+			{Name: "pri", Type: vapi.PrimarySubcluster, Size: 2},
 		}
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -168,7 +152,7 @@ var _ = Describe("createdb_reconciler", func() {
 	It("should use option with create_db if skipping install", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreateSkipPackageInstall
-		vdb.ObjectMeta.Annotations[vapi.VersionAnnotation] = "v12.0.1-0"
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v12.0.1-0"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -208,10 +192,10 @@ var _ = Describe("createdb_reconciler", func() {
 })
 
 // Helper function for kSafety verification
-func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe vapi.KSafetyType, firstScSize int32) int {
+func createMultiPodSubclusterForKsafe(ctx context.Context, ksafe string, firstScSize int32) int {
 	vdb := vapi.MakeVDB()
 	vdb.Spec.Subclusters[0].Size = firstScSize
-	vdb.Spec.KSafety = ksafe
+	vdb.Annotations[vmeta.KSafetyAnnotation] = ksafe
 	vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{Name: "secondary", Size: 2})
 	test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 	defer test.DeletePods(ctx, k8sClient, vdb)

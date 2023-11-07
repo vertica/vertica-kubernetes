@@ -21,9 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
@@ -44,10 +45,12 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
 			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec: vdbRec,
+				Log:  logger,
+				Vdb:  vdb,
+			},
 		}
 		Expect(g.getCommunalAuth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
 	})
@@ -58,10 +61,12 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
 			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec: vdbRec,
+				Log:  logger,
+				Vdb:  vdb,
+			},
 		}
 
 		Expect(g.getCommunalEndpoint()).Should(Equal("192.168.0.1"))
@@ -95,11 +100,13 @@ var _ = Describe("init_db", func() {
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, ScSize)
 
 		g := GenericDatabaseInitializer{
-			VRec:    vdbRec,
-			Log:     logger,
-			Vdb:     vdb,
 			PRunner: fpr,
 			PFacts:  pfacts,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec: vdbRec,
+				Log:  logger,
+				Vdb:  vdb,
+			},
 		}
 		podList := []*PodFact{}
 		for i := range pfacts.Detail {
@@ -112,7 +119,7 @@ var _ = Describe("init_db", func() {
 	It("should set hdfs config dir in config parms map if hdfs communal path is used", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster1"
-		vdb.Spec.Communal.HadoopConfig = "hadoop-conf"
+		vdb.Spec.HadoopConfig = "hadoop-conf"
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
@@ -122,17 +129,19 @@ var _ = Describe("init_db", func() {
 	It("should have minimal config parms map if hdfs is used and no hdfs config dir was specified", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "webhdfs://myhdfscluster2"
-		vdb.Spec.Communal.HadoopConfig = ""
+		vdb.Spec.HadoopConfig = ""
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			PRunner:             fpr,
-			ConfigurationParams: types.MakeCiMap(),
+			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 
 		res, err := g.ConstructConfigParms(ctx)
@@ -182,33 +191,25 @@ var _ = Describe("init_db", func() {
 		contructAuthParmsHelper(ctx, vdb, "", "")
 	})
 
-	It("should include Kerberos parms if there are kerberos settings", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Communal.KerberosRealm = "EXAMPLE.COM"
-		vdb.Spec.Communal.KerberosServiceName = "vertica"
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-
-		contructAuthParmsHelper(ctx, vdb, "KerberosRealm", "")
-	})
-
 	It("should requeue if trying to use Kerberos but have an older engine version", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Communal.KerberosRealm = "VERTICACORP.COM"
-		vdb.Spec.Communal.KerberosServiceName = "vert"
+		vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosRealmConfig] = "VERTICACORP.COM"
+		vdb.Spec.Communal.AdditionalConfig[vmeta.KerberosServiceNameConfig] = "vert"
 		// Setting this annotation will set the version in the vdb.  The version
 		// was picked because it isn't compatible with Kerberos.
-		vdb.Annotations[vapi.VersionAnnotation] = "v11.0.1"
+		vdb.Annotations[vmeta.VersionAnnotation] = "v11.0.1"
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			PRunner:             fpr,
-			ConfigurationParams: types.MakeCiMap(),
+			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 
 		res, err := g.ConstructConfigParms(ctx)
@@ -262,11 +263,13 @@ var _ = Describe("init_db", func() {
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			PRunner:             fpr,
-			ConfigurationParams: types.MakeCiMap(),
+			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		res, err := g.setS3SseCustomerKey(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
@@ -302,15 +305,17 @@ var _ = Describe("init_db", func() {
 		vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
 		// Setting this annotation will set the version in the vdb.  The version
 		// was picked because it isn't compatible with server-side encryption.
-		vdb.Annotations[vapi.VersionAnnotation] = testSseVerticaOlderVersion
+		vdb.Annotations[vmeta.VersionAnnotation] = testSseVerticaOlderVersion
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Log:                 logger,
-			Vdb:                 vdb,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 
 		res, err := g.ConstructConfigParms(ctx)
@@ -322,8 +327,10 @@ var _ = Describe("init_db", func() {
 		vdb := vapi.MakeVDB()
 
 		g := GenericDatabaseInitializer{
-			Vdb:                 vdb,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
 		g.setServerSideEncryptionAlgorithm()
@@ -343,9 +350,11 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Vdb:                 vdb,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		g.setAdditionalConfigParms()
 		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "parm1")).Should(Equal(true))
@@ -359,10 +368,12 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			VRec:                vdbRec,
-			Vdb:                 vdb,
-			Log:                 logger,
-			ConfigurationParams: types.MakeCiMap(),
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Vdb:                 vdb,
+				Log:                 logger,
+				ConfigurationParams: types.MakeCiMap(),
+			},
 		}
 		g.ConfigurationParams.Set("Parm1", "value")
 		g.setAdditionalConfigParms()
@@ -394,10 +405,12 @@ func ContructAuthParmsMap(ctx context.Context, vdb *vapi.VerticaDB, key string) 
 
 func ConstructDBInitializer(ctx context.Context, vdb *vapi.VerticaDB) *GenericDatabaseInitializer {
 	g := &GenericDatabaseInitializer{
-		VRec:                vdbRec,
-		Log:                 logger,
-		Vdb:                 vdb,
-		ConfigurationParams: types.MakeCiMap(),
+		ConfigParamsGenerator: ConfigParamsGenerator{
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			ConfigurationParams: types.MakeCiMap(),
+		},
 	}
 
 	res, err := g.ConstructConfigParms(ctx)

@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -137,7 +137,7 @@ func (d *DBAddSubclusterReconciler) createSubcluster(ctx context.Context, sc *va
 	err := d.Dispatcher.AddSubcluster(ctx,
 		addsc.WithInitiator(d.ATPod.name, d.ATPod.podIP),
 		addsc.WithSubcluster(sc.Name),
-		addsc.WithIsPrimary(sc.IsPrimary),
+		addsc.WithIsPrimary(sc.IsPrimary()),
 	)
 	if err != nil {
 		return err

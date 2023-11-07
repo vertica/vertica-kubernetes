@@ -21,11 +21,12 @@ import (
 
 // Parms holds all of the option for a revive DB invocation.
 type Parms struct {
-	InitiatorName types.NamespacedName
-	PodNames      []types.NamespacedName
-	InitiatorIP   string
-	Hosts         []string
-	Subcluster    string
+	InitiatorName     types.NamespacedName
+	PodNames          []types.NamespacedName
+	InitiatorIP       string
+	Hosts             []string
+	Subcluster        string
+	ExpectedNodeNames []string
 }
 
 type Option func(*Parms)
@@ -57,5 +58,11 @@ func WithHost(fqdn string, nm types.NamespacedName) Option {
 func WithSubcluster(subcluster string) Option {
 	return func(s *Parms) {
 		s.Subcluster = subcluster
+	}
+}
+
+func WithExpectedNodeNames(nodeNames []string) Option {
+	return func(s *Parms) {
+		s.ExpectedNodeNames = nodeNames
 	}
 }

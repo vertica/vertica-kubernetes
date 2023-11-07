@@ -20,8 +20,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,17 +57,17 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(len(fetchVdb.ObjectMeta.Annotations)).Should(Equal(3))
-		Expect(fetchVdb.ObjectMeta.Annotations[vapi.VersionAnnotation]).Should(Equal("v11.1.1-0"))
-		Expect(fetchVdb.ObjectMeta.Annotations[vapi.BuildRefAnnotation]).Should(Equal("releases/VER_10_1_RELEASE_BUILD_10_20210413"))
-		Expect(fetchVdb.ObjectMeta.Annotations[vapi.BuildDateAnnotation]).Should(Equal("Wed Jun  2 2021"))
+		Expect(fetchVdb.ObjectMeta.Annotations).ShouldNot(BeNil())
+		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal("v11.1.1-0"))
+		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.BuildRefAnnotation]).Should(Equal("releases/VER_10_1_RELEASE_BUILD_10_20210413"))
+		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.BuildDateAnnotation]).Should(Equal("Wed Jun  2 2021"))
 	})
 
 	It("should fail the reconciler if doing a downgrade", func() {
 		vdb := vapi.MakeVDB()
 		const OrigVersion = "v11.0.1"
 		vdb.ObjectMeta.Annotations = map[string]string{
-			vapi.VersionAnnotation: OrigVersion,
+			vmeta.VersionAnnotation: OrigVersion,
 		}
 		vdb.Spec.Subclusters[0].Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -93,6 +94,6 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		// Ensure we didn't update the vdb
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
-		Expect(fetchVdb.ObjectMeta.Annotations[vapi.VersionAnnotation]).Should(Equal(OrigVersion))
+		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal(OrigVersion))
 	})
 })

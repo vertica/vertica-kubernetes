@@ -11,17 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-shared-svc
   annotations:
     vertica.com/run-agent: "YES"
+    vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: true
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertdb
@@ -35,7 +36,6 @@ spec:
     - name: sc3
       size: 1
       serviceName: one
-  kSafety: "0"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

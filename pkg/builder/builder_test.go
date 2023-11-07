@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
@@ -45,12 +45,22 @@ var _ = Describe("builder", func() {
 		}
 	})
 
-	It("should add our own capabilities to the securityContext", func() {
+	It("should add our own capabilities to the securityContext for admintools only", func() {
 		vdb := vapi.MakeVDB()
 		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE", "SYS_PTRACE"}))
+		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE"}))
+
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Spec.SecurityContext = &v1.SecurityContext{
+			Capabilities: &v1.Capabilities{},
+		}
+		baseContainer = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"SYS_CHROOT"}))
+		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
+
 	})
 
 	It("should add omit our own capabilities in the securityContext if we are dropping them", func() {
@@ -63,7 +73,7 @@ var _ = Describe("builder", func() {
 		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
 		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "SYS_PTRACE"}))
+		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT"}))
 		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
 	})
 
@@ -163,15 +173,9 @@ var _ = Describe("builder", func() {
 		Expect(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
 	})
 
-	It("should have the fsGroup set for the dbadmin GID", func() {
-		vdb := vapi.MakeVDB()
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
-		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
-	})
-
 	It("should not mount superuser password if probe's overridden", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.SuperuserPasswordSecret = "some-secret"
+		vdb.Spec.PasswordSecret = "some-secret"
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
 				TCPSocket: &v1.TCPSocketAction{
@@ -186,10 +190,10 @@ var _ = Describe("builder", func() {
 				},
 			},
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 		vdb.Spec.StartupProbeOverride = nil
-		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeTrue())
 	})
 
@@ -209,7 +213,7 @@ var _ = Describe("builder", func() {
 				},
 			},
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(c.Containers[0].ReadinessProbe.Exec).Should(BeNil())
 		Expect(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
 		Expect(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
@@ -218,12 +222,12 @@ var _ = Describe("builder", func() {
 
 	It("should not use canary query probe if using GSM", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.SuperuserPasswordSecret = "project/team/dbadmin/secret/1"
+		vdb.Spec.PasswordSecret = "project/team/dbadmin/secret/1"
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
 		vdb.Annotations = map[string]string{
 			vmeta.GcpGsmAnnotation: "true",
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 	})
 
@@ -235,8 +239,7 @@ var _ = Describe("builder", func() {
 				{Name: "net.ipv4.tcp_keepalive_intvl", Value: "5"},
 			},
 		}
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
-		Expect(*c.SecurityContext.FSGroup).Should(Equal(int64(5000)))
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(len(c.SecurityContext.Sysctls)).Should(Equal(2))
 		Expect(c.SecurityContext.Sysctls[0].Name).Should(Equal("net.ipv4.tcp_keepalive_time"))
 		Expect(c.SecurityContext.Sysctls[0].Value).Should(Equal("45"))
@@ -246,8 +249,8 @@ var _ = Describe("builder", func() {
 
 	It("should mount ssh secret for dbadmin and root", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.SSHSecret = "my-secret"
-		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0], "test-sa")
+		vdb.Annotations[vmeta.SSHSecAnnotation] = "my-secret"
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		cnt := &c.Containers[0]
 		i, ok := getFirstSSHSecretVolumeMountIndex(cnt)
 		Expect(ok).Should(BeTrue())
@@ -259,6 +262,23 @@ var _ = Describe("builder", func() {
 		for j := 0; i < ExpectedPathsPerMount; i++ {
 			Expect(cnt.VolumeMounts[i+ExpectedPathsPerMount+j].MountPath).Should(ContainSubstring(paths.RootSSHPath))
 		}
+	})
+
+	It("should mount or not mount NMA certs volume according to annotation", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsFalse
+		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsTrue
+		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 })
 
@@ -298,11 +318,51 @@ func getPodInfoVolume(vols []v1.Volume) *v1.Volume {
 	return nil
 }
 
+func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
+	for i := range vols {
+		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.Spec.NMATLSSecret {
+			return true
+		}
+	}
+	return false
+}
+
+func NMACertsVolumeMountExists(c *v1.Container) bool {
+	for _, vol := range c.VolumeMounts {
+		if vol.Name == vapi.NMACertsMountName && vol.MountPath == paths.NMACertsRoot {
+			return true
+		}
+	}
+	return false
+}
+
+func NMACertsEnvVarsExist(vdb *vapi.VerticaDB, c *v1.Container) bool {
+	envMap := make(map[string]v1.EnvVar)
+	for _, envVar := range c.Env {
+		envMap[envVar.Name] = envVar
+	}
+	_, rootCAOk := envMap[NMARootCAEnv]
+	_, certOk := envMap[NMACertEnv]
+	_, keyOk := envMap[NMAKeyEnv]
+	_, secretNamespaceOk := envMap[NMASecretNamespaceEnv]
+	_, secretNameOk := envMap[NMASecretNameEnv]
+	if vmeta.UseNMACertsMount(vdb.Annotations) {
+		if rootCAOk && certOk && keyOk && !secretNamespaceOk && !secretNameOk {
+			return true
+		}
+	} else {
+		if !rootCAOk && !certOk && !keyOk && secretNamespaceOk && secretNameOk {
+			return true
+		}
+	}
+	return false
+}
+
 func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {
 	v := getPodInfoVolume(podSpec.Volumes)
 	for i := range v.Projected.Sources {
 		if v.Projected.Sources[i].Secret != nil {
-			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == vdb.Spec.SuperuserPasswordSecret {
+			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == vdb.Spec.PasswordSecret {
 				return true
 			}
 		}

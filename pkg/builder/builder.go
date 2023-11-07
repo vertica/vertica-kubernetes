@@ -22,7 +22,7 @@ import (
 	"sort"
 	"strings"
 
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -44,6 +44,7 @@ const (
 	SSHPort                 = 22
 	VerticaClusterCommPort  = 5434
 	SpreadClientPort        = 4803
+	NMAPort                 = 5554
 
 	// Standard environment variables that are set in each pod
 	PodIPEnv        = "POD_IP"
@@ -53,8 +54,12 @@ const (
 	CatalogPathEnv  = "CATALOG_PATH"
 	DepotPathEnv    = "DEPOT_PATH"
 	DatabaseNameEnv = "DATABASE_NAME"
+	VSqlUserEnv     = "VSQL_USER"
 
-	// Environment variables that are set when deployed with vclusterops
+	// Environment variables that are (optionally) set when deployed with vclusterops
+	NMARootCAEnv          = "NMA_ROOTCA_PATH"
+	NMACertEnv            = "NMA_CERT_PATH"
+	NMAKeyEnv             = "NMA_KEY_PATH"
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
 	NMASecretNameEnv      = "NMA_SECRET_NAME"
 )
@@ -73,7 +78,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 			Selector: selectorLabelCreator(vdb, sc),
 			Type:     sc.ServiceType,
 			Ports: []corev1.ServicePort{
-				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.NodePort},
+				{Port: VerticaClientPort, Name: "vertica", NodePort: sc.ClientNodePort},
 				{Port: VerticaHTTPPort, Name: "vertica-http", NodePort: sc.VerticaHTTPNodePort},
 			},
 			ExternalIPs:    sc.ExternalIPs,
@@ -84,7 +89,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 
 // BuildHlSvc creates the desired spec for the headless service.
 func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
-	return &corev1.Service{
+	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
@@ -96,13 +101,28 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			ClusterIP:                "None",
 			Type:                     "ClusterIP",
 			PublishNotReadyAddresses: true,
+			// We must include all communication ports for vertica pods in this
+			// headless service. This is needed to allow a service mesh like
+			// istio to work with mTLS. That service uses the information here
+			// to know what communication needs mTLS added to it. Included here
+			// are the ports common regardless of deployment method. We then add
+			// specific ports that are deployment method dependent a few lines down.
 			Ports: []corev1.ServicePort{
-				{Port: SSHPort, Name: "tcp-ssh"},
 				{Port: VerticaClusterCommPort, Name: "tcp-verticaclustercomm"},
 				{Port: SpreadClientPort, Name: "tcp-spreadclient"},
 			},
 		},
 	}
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		svc.Spec.Ports = append(svc.Spec.Ports,
+			corev1.ServicePort{Port: VerticaHTTPPort, Name: "tcp-httpservice"},
+			corev1.ServicePort{Port: NMAPort, Name: "tcp-nma"},
+		)
+	} else {
+		svc.Spec.Ports = append(svc.Spec.Ports,
+			corev1.ServicePort{Port: SSHPort, Name: "tcp-ssh"})
+	}
+	return svc
 }
 
 // buildConfigVolumeMount returns the volume mount for config (admintools only).
@@ -162,7 +182,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		})
 	}
 
-	if vdb.Spec.Communal.HadoopConfig != "" {
+	if vdb.Spec.HadoopConfig != "" {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name:      vapi.HadoopConfigMountName,
 			MountPath: paths.HadoopConfPath,
@@ -173,12 +193,25 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildKerberosVolumeMounts()...)
 	}
 
-	if vdb.Spec.SSHSecret != "" {
+	if vdb.GetSSHSecretName() != "" {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vdb.Spec.HTTPServerTLSSecret != "" {
-		volMnts = append(volMnts, buildHTTPServerVolumeMount()...)
+	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
+		if vdb.Spec.NMATLSSecret != "" {
+			volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+		}
+	}
+
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		// Include a temp directory to be used by vcluster scrutinize. We want
+		// the temp directory to be large enough to store compressed logs and
+		// such. These can be quite big, so we cannot risk storing those in
+		// local disk on the node, which may fill up and cause the pod to be
+		// rescheduled.
+		volMnts = append(volMnts, corev1.VolumeMount{
+			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("scrutinize"), MountPath: paths.ScrutinizeTmp,
+		})
 	}
 
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
@@ -231,11 +264,11 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	return mnts
 }
 
-func buildHTTPServerVolumeMount() []corev1.VolumeMount {
+func buildNMACertsVolumeMount() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
-			Name:      vapi.HTTPServerCertsMountName,
-			MountPath: paths.HTTPServerCertsRoot,
+			Name:      vapi.NMACertsMountName,
+			MountPath: paths.NMACertsRoot,
 		},
 	}
 }
@@ -259,17 +292,19 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
-	if vdb.Spec.Communal.HadoopConfig != "" {
+	if vdb.Spec.HadoopConfig != "" {
 		vols = append(vols, buildHadoopConfigVolume(vdb))
 	}
 	if vdb.Spec.KerberosSecret != "" {
 		vols = append(vols, buildKerberosVolume(vdb))
 	}
-	if vdb.Spec.SSHSecret != "" {
+	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vdb.Spec.HTTPServerTLSSecret != "" {
-		vols = append(vols, buildHTTPServerSecretVolume(vdb))
+	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
+		if vdb.Spec.NMATLSSecret != "" {
+			vols = append(vols, buildNMACertsSecretVolume(vdb))
+		}
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
@@ -417,7 +452,7 @@ func probeContainsSuperuserPassword(probe *corev1.Probe) bool {
 // requiresSuperuserPasswordSecretMount returns true if the superuser password
 // needs to be mounted in the pod.
 func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
-	if vdb.Spec.SuperuserPasswordSecret == "" {
+	if vdb.Spec.PasswordSecret == "" {
 		return false
 	}
 
@@ -438,7 +473,7 @@ func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
 func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
 	if requiresSuperuserPasswordSecretMount(vdb) {
 		return &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.SuperuserPasswordSecret},
+			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
 			Items: []corev1.KeyToPath{
 				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
 			},
@@ -466,7 +501,7 @@ func buildHadoopConfigVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.HadoopConfigMountName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.Communal.HadoopConfig},
+				LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.HadoopConfig},
 			},
 		},
 	}
@@ -488,18 +523,18 @@ func buildSSHVolume(vdb *vapi.VerticaDB) corev1.Volume {
 		Name: vapi.SSHMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.SSHSecret,
+				SecretName: vdb.GetSSHSecretName(),
 			},
 		},
 	}
 }
 
-func buildHTTPServerSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
+func buildNMACertsSecretVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	return corev1.Volume{
-		Name: vapi.HTTPServerCertsMountName,
+		Name: vapi.NMACertsMountName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: vdb.Spec.HTTPServerTLSSecret,
+				SecretName: vdb.Spec.NMATLSSecret,
 			},
 		},
 	}
@@ -521,7 +556,7 @@ func buildDepotVolume() corev1.Volume {
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
-func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, serviceAccountName string) corev1.PodSpec {
+func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	termGracePeriod := int64(0)
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
@@ -531,29 +566,9 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster, serviceAccountName s
 		Containers:                    makeContainers(vdb, sc),
 		Volumes:                       buildVolumes(vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
-		ServiceAccountName:            serviceAccountName,
-		SecurityContext:               buildPodSecurityPolicy(vdb),
+		ServiceAccountName:            vdb.Spec.ServiceAccountName,
+		SecurityContext:               vdb.Spec.PodSecurityContext,
 	}
-}
-
-// buildPodSecurityPolicy will create the security policy for the pod spec
-func buildPodSecurityPolicy(vdb *vapi.VerticaDB) *corev1.PodSecurityContext {
-	// If anything was specified in the vdb, we use that as the base. Otherwise,
-	// we just use an empty context.
-	psc := corev1.PodSecurityContext{}
-	if vdb.Spec.PodSecurityContext != nil {
-		vdb.Spec.PodSecurityContext.DeepCopyInto(&psc)
-	}
-	if psc.FSGroup == nil {
-		// Set the FSGroup so that mounted volumes have the dbadmin gid. This gives
-		// pods write access to the volumes. Note in 1.9.0 and prior versions of the
-		// operator we did not have this and instead relied on the vertica image to
-		// set the required permissions via chmod.
-		const DefaultDbadminGID = 5000
-		dbadminGID := int64(DefaultDbadminGID)
-		psc.FSGroup = &dbadminGID
-	}
-	return &psc
 }
 
 // makeServerContainer builds the spec for the server container
@@ -573,22 +588,25 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		{Name: DepotPathEnv, Value: vdb.Spec.Local.DepotPath},
 		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
 		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
+		{Name: VSqlUserEnv, Value: vdb.GetVerticaUser()},
 	}...)
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		envVars = append(envVars, []corev1.EnvVar{
-			// Old model is to provide the path to each of the certs that are
-			// mounted in the container.
-			{Name: "NMA_ROOTCA_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, paths.HTTPServerCACrtName)},
-			{Name: "NMA_CERT_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSCertKey)},
-			{Name: "NMA_KEY_PATH", Value: fmt.Sprintf("%s/%s", paths.HTTPServerCertsRoot, corev1.TLSPrivateKeyKey)},
-			// New model is for the NMA to read the secrets directly from k8s.
-			// We provide the secret namespace and name for this reason. Once
-			// implemented we no longer need to provide the above environment
-			// variables.
-			{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-			{Name: NMASecretNameEnv, Value: vdb.Spec.HTTPServerTLSSecret},
-		}...)
+		if vmeta.UseNMACertsMount(vdb.Annotations) {
+			envVars = append(envVars, []corev1.EnvVar{
+				// Provide the path to each of the certs that are mounted in the container.
+				{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
+				{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
+				{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
+			}...)
+		} else {
+			envVars = append(envVars, []corev1.EnvVar{
+				// The NMA will read the secrets directly from k8s. We provide the
+				// secret namespace and name for this reason.
+				{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+				{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+			}...)
+		}
 	}
 	return corev1.Container{
 		Image:           pickImage(vdb, sc),
@@ -748,6 +766,13 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 	if vdb.Spec.SecurityContext != nil {
 		sc = vdb.Spec.SecurityContext
 	}
+
+	// In vclusterops mode, we don't need SYS_CHROOT
+	// and AUDIT_WRITE to run on OpenShift
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return sc
+	}
+
 	if sc.Capabilities == nil {
 		sc.Capabilities = &corev1.Capabilities{}
 	}
@@ -756,8 +781,6 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 		"SYS_CHROOT",
 		// Needed to run sshd on OpenShift
 		"AUDIT_WRITE",
-		// Needed to be able to collect stacks via vstack
-		"SYS_PTRACE",
 	}
 	for i := range capabilitiesNeeded {
 		foundCap := false
@@ -846,7 +869,7 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 }
 
 // BuildStsSpec builds manifest for a subclusters statefulset
-func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster, serviceAccountName string) *appsv1.StatefulSet {
+func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	isControllerRef := true
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -866,7 +889,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					Labels:      MakeLabelsForPodObject(vdb, sc),
 					Annotations: MakeAnnotationsForObject(vdb),
 				},
-				Spec: buildPodSpec(vdb, sc, serviceAccountName),
+				Spec: buildPodSpec(vdb, sc),
 			},
 			UpdateStrategy:      makeUpdateStrategy(vdb),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -912,7 +935,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
-		Spec: buildPodSpec(vdb, sc, "test-default"),
+		Spec: buildPodSpec(vdb, sc),
 	}
 	// Setup default values for the DC table annotations.  These are normally
 	// added by the AnnotationAndLabelPodReconciler.  However, this function is for test
@@ -1089,7 +1112,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 	// start the cluster after each pod gets delete and rescheduled.
 	// kSafety0 is for test purposes, which is why its okay to have a different
 	// strategy for it.
-	if vdb.Spec.KSafety == vapi.KSafety0 {
+	if vdb.IsKSafety0() {
 		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
 	}
 	return appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
@@ -1099,7 +1122,7 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 // process is up and accepting connections.
 func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 	passwd := ""
-	if vdb.Spec.SuperuserPasswordSecret != "" {
+	if vdb.Spec.PasswordSecret != "" {
 		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
 	}
 

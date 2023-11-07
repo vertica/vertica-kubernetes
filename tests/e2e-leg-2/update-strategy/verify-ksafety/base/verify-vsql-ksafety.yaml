@@ -26,14 +26,14 @@ data:
     set -o xtrace
 
     CLUSTER_IP=v-ks-0-update-strategy
-    KSAFE=$(vsql -h $CLUSTER_IP -tAc "select get_design_ksafe()")
+    KSAFE=$(vsql -U dbadmin -h $CLUSTER_IP -tAc "select get_design_ksafe()")
 
     if [[ $KSAFE != "0" ]]; then
       exit 5  # incorrect value of ksafe
     fi
 
     CLUSTER_IP=v-ks-1-update-strategy
-    KSAFE=$(vsql -h $CLUSTER_IP -tAc "select get_design_ksafe()")
+    KSAFE=$(vsql -U dbadmin -h $CLUSTER_IP -tAc "select get_design_ksafe()")
 
     if [[ $KSAFE != "1" ]]; then
       exit 5  # incorrect value of ksafe

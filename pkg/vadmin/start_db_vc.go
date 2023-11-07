@@ -22,7 +22,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,6 +30,8 @@ import (
 
 // StartDB will start a subset of nodes of the database
 func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error) {
+	v.setupForAPICall("StartDB")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StartDB")
 
 	// get the certs
@@ -70,6 +72,13 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	opts.ConfigurationParameters = s.ConfigurationParams
+
+	// Provide communal storage location to vclusterops only after revive_db because
+	// we do not need to access communal storage in start_db after create_db.
+	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
+		*opts.CommunalStorageLocation = s.CommunalPath
+	}
 
 	// auth options
 	opts.Key = certs.Key
@@ -80,6 +89,6 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.HonorUserInput = true
 
 	// timeout option
-	opts.StatePollingTimeout = v.VDB.Spec.RestartTimeout
+	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
 	return opts, nil
 }

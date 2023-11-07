@@ -19,12 +19,11 @@ status:
   replicas: 1
   readyReplicas: 1
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-udx-cpp
 status:
   subclusters:
-    - installCount: 1
-      addedToDBCount: 1
+    - addedToDBCount: 1
       upNodeCount: 1

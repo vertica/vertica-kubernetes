@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
@@ -46,26 +46,6 @@ var _ = Describe("revivedb_reconcile", func() {
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
-	})
-
-	It("should skip calling revive_db if db exists", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 2
-		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: sc.Name, InstallCount: sc.Size, AddedToDBCount: sc.Size},
-		}
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
-		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		reviveCalls := fpr.FindCommands("/opt/vertica/bin/admintools", "revive_db")
-		Expect(len(reviveCalls)).Should(Equal(0))
 	})
 
 	It("should call revive_db since no db exists", func() {
@@ -101,12 +81,12 @@ var _ = Describe("revivedb_reconcile", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
-		vdb.Spec.IgnoreClusterLease = false
+		vdb.SetIgnoreClusterLease(false)
 		opts := r.genReviveOpts(types.NamespacedName{}, []string{"hostA"}, []types.NamespacedName{})
 		parms := revivedb.Parms{}
 		parms.Make(opts...)
 		Expect(parms.IgnoreClusterLease).Should(BeFalse())
-		vdb.Spec.IgnoreClusterLease = true
+		vdb.SetIgnoreClusterLease(true)
 		opts = r.genReviveOpts(types.NamespacedName{}, []string{"hostA"}, []types.NamespacedName{})
 		parms = revivedb.Parms{}
 		parms.Make(opts...)

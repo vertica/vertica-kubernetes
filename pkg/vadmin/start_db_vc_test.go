@@ -22,6 +22,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,6 +42,10 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 
 	// verify eon options
 	err = m.VerifyInitiatorIPAndEonMode(&options.DatabaseOptions)
+	if err != nil {
+		return err
+	}
+	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
 		return err
 	}
@@ -69,16 +75,19 @@ var _ = Describe("start_db_vc", func() {
 	It("should call vcluster-ops library with start_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		dispatcher.VDB.Spec.RestartTimeout = 10
-		dispatcher.VDB.Spec.HTTPServerTLSSecret = "start-db-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		dispatcher.VDB.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
+		dispatcher.VDB.Spec.NMATLSSecret = "start-db-test-secret"
+		dispatcher.VDB.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
 		ctrlRes, err := dispatcher.StartDB(ctx,
 			startdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
 			startdb.WithHost(nodeIPs[0]),
 			startdb.WithHost(nodeIPs[1]),
-			startdb.WithHost(nodeIPs[2]))
+			startdb.WithHost(nodeIPs[2]),
+			startdb.WithCommunalPath(TestCommunalPath),
+			startdb.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})

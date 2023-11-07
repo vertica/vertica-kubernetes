@@ -20,13 +20,15 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 )
 
 // RemoveNode will remove an existng vertica node from the cluster.
 func (v *VClusterOps) RemoveNode(ctx context.Context, opts ...removenode.Option) error {
+	v.setupForAPICall("RemoveNode")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RemoveNode")
 
 	// get the certs

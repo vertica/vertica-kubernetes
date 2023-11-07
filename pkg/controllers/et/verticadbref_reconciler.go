@@ -40,7 +40,7 @@ func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	for _, ref := range r.Et.Spec.References {
-		if ref.Object.Kind != vapi.VerticaDBKind || ref.Object.APIVersion != vapi.GroupVersion.String() {
+		if ref.Object.Kind != vapi.VerticaDBKind {
 			continue
 		}
 

@@ -19,6 +19,6 @@ status:
   # Include a reference object in the status. The reference doesn't exist yet,
   # but the operator should still fill in minimal info for it.
   references:
-  - apiVersion: vertica.com/v1beta1
+  - apiVersion: vertica.com/v1
     kind: VerticaDB
     name: v-http-generated-certs

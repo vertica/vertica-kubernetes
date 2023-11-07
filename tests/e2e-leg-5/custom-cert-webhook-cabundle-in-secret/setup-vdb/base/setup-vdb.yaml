@@ -11,23 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-custom-cert-webhook-cabundle-in-secret
+  annotations:
+    vertica.com/k-safety: "0"
+    vertica.com/ssh-secret: "ssh-keys"
+    vertica.com/include-uid-in-path: false
 spec:
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
-  sshSecret: ssh-keys
-  communal:
-    includeUIDInPath: false
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertdb
   subclusters:
     - name: sc1
       size: 1
-  kSafety: "0"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

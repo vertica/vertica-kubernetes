@@ -22,13 +22,15 @@ import (
 	"github.com/vertica/vcluster/rfc7807"
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 )
 
 // RemoveSubcluster will remove the given subcluster from the vertica cluster.
 func (v *VClusterOps) RemoveSubcluster(ctx context.Context, opts ...removesc.Option) error {
+	v.setupForAPICall("RemoveSubcluster")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RemoveSubcluster")
 
 	// get the certs

@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -80,6 +80,21 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	// no-op for ScheduleOnly init policy
 	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return ctrl.Result{}, nil
+	}
+
+	// There is a timing scenario where it's possible to skip the drain and just
+	// proceed to remove the nodes. This can occur if the vdb scale down occurs
+	// in the middle of a reconciliation.  This scale down will use the latest
+	// info in the vdb, which may be newer than the state that the drain node
+	// reconiler uses. This check has be close to where we decide about the
+	// scale down.
+	if changed, err := d.PFacts.HasVerticaDBChangedSinceCollection(ctx, d.Vdb); changed || err != nil {
+		if changed {
+			d.Log.Info("Requeue because vdb has changed since last pod facts collection",
+				"oldResourceVersion", d.PFacts.VDBResourceVersion,
+				"newResourceVersion", d.Vdb.ResourceVersion)
+		}
+		return ctrl.Result{Requeue: changed}, err
 	}
 
 	// Use the finder so that we check only the subclusters that are in the vdb.

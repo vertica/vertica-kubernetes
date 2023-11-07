@@ -22,8 +22,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/vertica/vcluster/rfc7807"
 	"github.com/vertica/vcluster/vclusterops"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -35,15 +36,20 @@ type vcErrors struct {
 	EVWriter             events.EVWriter
 }
 
-// rfc7807TypeToEventMap is a mapping from known rfc7807 errors to the event
+// rfc7807TypeToEventReasonMap is a mapping from known rfc7807 errors to the event
 // reason type. Some errors are intentionally omitted. These will use the
 // generic failure reason that is setup for the command.
-var rfc7807TypeToEventMap = map[string]string{
+var rfc7807TypeToEventReasonMap = map[string]string{
 	// rfc7807.GenericBootstrapCatalogFailure.Type left out
 	rfc7807.CommunalStorageNotEmpty.Type: events.CommunalPathIsNotEmpty,
 	// rfc7807.CommunalStoragePathInvalid.Type left out
 	rfc7807.CommunalRWAccessError.Type: events.CommunalEndpointIssue,
 	rfc7807.CommunalAccessError.Type:   events.CommunalEndpointIssue,
+	addnode.LicenseIssueErrorType:      events.AddNodeLicenseFail,
+}
+
+var rfc7807TypeToEventMessageDetailFlagMap = map[string]bool{
+	addnode.LicenseIssueErrorType: true,
 }
 
 func (v *vcErrors) LogFailure(cmd string, err error) (ctrl.Result, error) {
@@ -79,15 +85,29 @@ func (v *vcErrors) logRfc7807Failure(cmd string, vproblem *rfc7807.VProblem) (ct
 	v.Log.Error(vproblem, "vclusterOps command failed", "cmd", cmd,
 		"type", vproblem.Type, "title", vproblem.Title, "detail", vproblem.Detail,
 		"host", vproblem.Host, "status", vproblem.Status)
-	reason, ok := rfc7807TypeToEventMap[vproblem.Type]
-	if !ok {
+	reason, isKnownErrorEvent := rfc7807TypeToEventReasonMap[vproblem.Type]
+	if !isKnownErrorEvent {
 		reason = v.GenericFailureReason
 	}
-	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, reason, vproblem.Title)
+	isDetailedMsg, ok := rfc7807TypeToEventMessageDetailFlagMap[vproblem.Type]
 	if !ok {
+		isDetailedMsg = false
+	}
+	var eventMsg string
+	if isDetailedMsg {
+		eventMsg = fmt.Sprintf("%s: %s", vproblem.Title, vproblem.Detail)
+	} else {
+		eventMsg = vproblem.Title
+	}
+	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, reason, eventMsg)
+	if !isKnownErrorEvent {
 		return ctrl.Result{}, fmt.Errorf("failed command %s: %w", cmd, vproblem)
 	}
-	// All known errors we return with requeue set to true.
+	// Return LicenseLimitError in case of license issue
+	if vproblem.Type == addnode.LicenseIssueErrorType {
+		return ctrl.Result{}, &addnode.LicenseLimitError{Msg: vproblem.Detail}
+	}
+	// All other known errors we return with requeue set to true.
 	return ctrl.Result{Requeue: true}, nil
 }
 

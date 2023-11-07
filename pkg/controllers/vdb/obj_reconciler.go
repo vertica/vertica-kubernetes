@@ -23,7 +23,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -123,9 +123,9 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.Communal.HadoopConfig != "" {
+	if o.Vdb.Spec.HadoopConfig != "" {
 		_, res, err := getConfigMap(ctx, o.VRec, o.Vdb,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.Communal.HadoopConfig))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HadoopConfig))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -136,13 +136,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// that has the certs to use for it.  There is a reconciler that is run
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
-		if o.Vdb.Spec.HTTPServerTLSSecret == "" {
+		if o.Vdb.Spec.NMATLSSecret == "" {
 			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
-				"The httpServerTLSSecret must be set when Vertica's http server is enabled")
+				"The nmaTLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
 		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
-			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HTTPServerTLSSecret))
+			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.NMATLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
@@ -157,15 +157,15 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		}
 	}
 
-	if o.Vdb.Spec.SSHSecret != "" {
-		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.Spec.SSHSecret, paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
+	if o.Vdb.GetSSHSecretName() != "" {
+		if res, err := o.checkSecretHasKeys(ctx, "SSH", o.Vdb.GetSSHSecretName(), paths.SSHKeyPaths); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
 
-	if o.Vdb.Spec.HTTPServerTLSSecret != "" {
+	if o.Vdb.Spec.NMATLSSecret != "" {
 		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.HTTPServerTLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.NMATLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -197,7 +197,7 @@ func (o *ObjReconciler) checkForCreatedSubclusters(ctx context.Context) (ctrl.Re
 		sc := &o.Vdb.Spec.Subclusters[i]
 		// Transient subclusters never have their own service objects.  They always
 		// reuse ones we have for other primary/secondary subclusters.
-		if !sc.IsTransient {
+		if !sc.IsTransient() {
 			// Multiple subclusters may share the same service name. Only
 			// reconcile for the first subcluster.
 			svcName := names.GenExtSvcName(o.Vdb, sc)
@@ -321,7 +321,7 @@ func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc 
 		// differs from what is currently in use. Otherwise, they must stay the
 		// same. This protects us from changing the k8s generated node port each
 		// time there is a Service object update.
-		explicitNodePortByIndex := []int32{sc.NodePort, sc.VerticaHTTPNodePort}
+		explicitNodePortByIndex := []int32{sc.ClientNodePort, sc.VerticaHTTPNodePort}
 		for i := range curSvc.Spec.Ports {
 			if explicitNodePortByIndex[i] != 0 {
 				if expSvc.Spec.Ports[i].NodePort != curSvc.Spec.Ports[i].NodePort {
@@ -404,13 +404,9 @@ func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, 
 // true if any create/update was done.
 func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	nm := names.GenStsName(o.Vdb, sc)
-	saName, err := o.getServiceAccountName(ctx)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	curSts := &appsv1.StatefulSet{}
-	expSts := builder.BuildStsSpec(nm, o.Vdb, sc, saName)
-	err = o.VRec.Client.Get(ctx, nm, curSts)
+	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
+	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		err = ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme)
@@ -474,23 +470,6 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
-}
-
-// getServiceAccountName returns the name of the service account to use for the vertica pods
-func (o *ObjReconciler) getServiceAccountName(ctx context.Context) (string, error) {
-	rbacFinder := iter.MakeRBACFinder(o.VRec.Client, o.Vdb)
-	exists, sa, err := rbacFinder.FindServiceAccount(ctx)
-	if err != nil {
-		return "", fmt.Errorf("error during service account lookup: %w", err)
-	}
-	if exists {
-		return sa.Name, nil
-	}
-	// For test purposes, we will use the default service account. k8s ensures
-	// this always exist in the namespace.
-	const DefaultServiceAccount = "default"
-	o.Log.Info("Count not find a service account for vdb using default", "name", DefaultServiceAccount)
-	return DefaultServiceAccount, nil
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

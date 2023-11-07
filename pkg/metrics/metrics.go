@@ -18,7 +18,8 @@ package metrics
 import (
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	k8sMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
@@ -250,6 +251,6 @@ func getReviveInstanceID(vdb *vapi.VerticaDB) string {
 	if vdb.Annotations == nil {
 		return ""
 	}
-	reviveInstanceID := vdb.Annotations[vapi.ReviveInstanceIDAnnotation]
+	reviveInstanceID := vdb.Annotations[vmeta.ReviveInstanceIDAnnotation]
 	return reviveInstanceID
 }

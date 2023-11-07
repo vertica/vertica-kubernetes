@@ -11,14 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-operator-metrics
+  annotations:
+    vertica.com/k-safety: "0"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 100Mi
   dbName: vertdb
@@ -26,11 +28,10 @@ spec:
   subclusters:
     - name: sec-sc
       size: 1
-      isPrimary: false
+      type: secondary
     - name: pri-sc
       size: 1
-      isPrimary: true
-  kSafety: "0"
+      type: primary
   certSecrets: []
   imagePullSecrets: []
   volumes: []

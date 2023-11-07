@@ -58,9 +58,9 @@ var _ = Describe("remove_node_vc", func() {
 
 	It("should call vcluster-ops library with remove_node task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.HTTPServerTLSSecret = "remove-node-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		dispatcher.VDB.Spec.NMATLSSecret = "remove-node-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		opts := []removenode.Option{
 			removenode.WithInitiator(TestInitiatorPodName, TestInitiatorPodIP),

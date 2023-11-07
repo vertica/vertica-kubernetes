@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -100,14 +100,14 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		r.ATPod = pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)]
 
-		vdb.Spec.Subclusters[0].IsPrimary = false
+		vdb.Spec.Subclusters[0].Type = vapi.SecondarySubcluster
 		Expect(r.createSubcluster(ctx, &vdb.Spec.Subclusters[0])).Should(Succeed())
 		hists := fpr.FindCommands("db_add_subcluster")
 		Expect(len(hists)).Should(Equal(1))
 		Expect(hists[0].Command).Should(ContainElement("--is-secondary"))
 
 		fpr.Histories = []cmds.CmdHistory{}
-		vdb.Spec.Subclusters[0].IsPrimary = true
+		vdb.Spec.Subclusters[0].Type = vapi.PrimarySubcluster
 		Expect(r.createSubcluster(ctx, &vdb.Spec.Subclusters[0])).Should(Succeed())
 		hists = fpr.FindCommands("db_add_subcluster")
 		Expect(len(hists)).Should(Equal(1))

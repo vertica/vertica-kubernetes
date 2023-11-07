@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -82,13 +82,15 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	// The remaining revive_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with create_db.
 	g := GenericDatabaseInitializer{
-		initializer:         r,
-		VRec:                r.VRec,
-		Log:                 r.Log,
-		Vdb:                 r.Vdb,
-		PRunner:             r.PRunner,
-		PFacts:              r.PFacts,
-		ConfigurationParams: r.ConfigurationParams,
+		initializer: r,
+		PRunner:     r.PRunner,
+		PFacts:      r.PFacts,
+		ConfigParamsGenerator: ConfigParamsGenerator{
+			VRec:                r.VRec,
+			Log:                 r.Log,
+			Vdb:                 r.Vdb,
+			ConfigurationParams: r.ConfigurationParams,
+		},
 	}
 	return g.checkAndRunInit(ctx)
 }
@@ -229,7 +231,7 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName,
 			revivedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 		)
 	}
-	if r.Vdb.Spec.IgnoreClusterLease {
+	if r.Vdb.GetIgnoreClusterLease() {
 		opts = append(opts, revivedb.WithIgnoreClusterLease())
 	}
 	return opts

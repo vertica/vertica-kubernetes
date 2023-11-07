@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -66,7 +66,10 @@ var _ = Describe("k8s/uninstall_reconcile", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 2
 		vdb.Status.Subclusters = []vapi.SubclusterStatus{
-			{Name: vdb.Spec.Subclusters[0].Name, InstallCount: sc.Size, Detail: []vapi.VerticaDBPodStatus{}},
+			{
+				Name:   vdb.Spec.Subclusters[0].Name,
+				Detail: []vapi.VerticaDBPodStatus{{Installed: true}, {Installed: true}},
+			},
 		}
 		vdbCopy := vdb.DeepCopy() // Take a copy so that cleanup with original size
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)

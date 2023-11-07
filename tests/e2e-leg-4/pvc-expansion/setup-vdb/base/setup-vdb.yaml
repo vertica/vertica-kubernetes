@@ -11,10 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-pvc-expansion
+  annotations:
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
+    vertica.com/include-uid-in-path: true
 spec:
   image: kustomize-vertica-image
   sidecars:
@@ -22,16 +26,13 @@ spec:
       image: kustomize-vlogger-image
   dbName: data_base
   initPolicy: CreateSkipPackageInstall
-  communal:
-    includeUIDInPath: true
+  communal: {}
   local:
     requestSize: 1Gi
   subclusters:
     - name: main
       size: 1
-  kSafety: "0"
   certSecrets: []
-  requeueTime: 5
   imagePullSecrets: []
   volumes: []
   volumeMounts: []

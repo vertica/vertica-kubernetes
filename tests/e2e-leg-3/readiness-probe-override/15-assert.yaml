@@ -11,13 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-readiness-probe-override
 status:
   subclusterCount: 2
-  installCount: 2
-  subclusters:
-    - installCount: 1
-    - installCount: 1

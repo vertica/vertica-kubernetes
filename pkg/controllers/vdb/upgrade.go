@@ -21,7 +21,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -110,7 +110,7 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) {
 	i.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", i.ContinuingUpgrade,
 		"New Image", i.Vdb.Spec.Image)
-	if err := i.toggleImageChangeInProgress(ctx, corev1.ConditionTrue); err != nil {
+	if err := i.toggleUpgradeInProgress(ctx, corev1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -129,7 +129,7 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
-	if err := i.toggleImageChangeInProgress(ctx, corev1.ConditionFalse); err != nil {
+	if err := i.toggleUpgradeInProgress(ctx, corev1.ConditionFalse); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -140,12 +140,12 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 	return ctrl.Result{}, nil
 }
 
-// toggleImageChangeInProgress is a helper for updating the
-// ImageChangeInProgress condition's.  We set the ImageChangeInProgress plus the
+// toggleUpgradeInProgress is a helper for updating the
+// UpgradeInProgress condition's.  We set the UpgradeInProgress plus the
 // one defined in i.StatusCondition.
-func (i *UpgradeManager) toggleImageChangeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
+func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
 	err := vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
-		vapi.VerticaDBCondition{Type: vapi.ImageChangeInProgress, Status: newVal},
+		vapi.VerticaDBCondition{Type: vapi.UpgradeInProgress, Status: newVal},
 	)
 	if err != nil {
 		return err
@@ -290,7 +290,7 @@ func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 		// Online upgrade with a transient subcluster works by scaling out new
 		// subclusters to handle the primaries as they come up with the new
 		// versions.  If we don't have a license, it isn't going to work.
-		if (vdb.RequiresTransientSubcluster() && vdb.Spec.LicenseSecret == "") || vdb.Spec.KSafety == vapi.KSafety0 {
+		if (vdb.RequiresTransientSubcluster() && vdb.Spec.LicenseSecret == "") || vdb.IsKSafety0() {
 			return false
 		}
 	}

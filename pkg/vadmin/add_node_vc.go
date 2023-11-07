@@ -22,7 +22,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
@@ -30,6 +30,8 @@ import (
 
 // AddNode will add a new vertica node to the cluster
 func (v *VClusterOps) AddNode(ctx context.Context, opts ...addnode.Option) error {
+	v.setupForAPICall("AddNode")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster AddNode")
 
 	// get the certs
@@ -66,6 +68,8 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	*opts.HonorUserInput = true
 	*opts.ForceRemoval = true
 	*opts.SkipRebalanceShards = true
+	opts.ExpectedNodeNames = s.ExpectedNodeNames
+	v.Log.Info("Nodes in request", "ExpectedNodeNames", opts.ExpectedNodeNames, "NewHosts", opts.NewHosts)
 
 	if v.VDB.Spec.Communal.Path != "" {
 		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath

@@ -38,6 +38,9 @@ var TestPod5Name = types.NamespacedName{
 	Namespace: "ns",
 }
 var TestNewPodNames = []types.NamespacedName{TestPod4Name, TestPod5Name}
+var testExpectedNodeNames = []string{"v_" + TestDBName + "_node0001",
+	"v_" + TestDBName + "_node0002",
+	"v_" + TestDBName + "_node0003"}
 
 // mock version of VAddNode() that is invoked inside VClusterOps.AddNode()
 func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordinationDatabase, error) {
@@ -60,6 +63,9 @@ func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordin
 	if !*options.SkipRebalanceShards {
 		return vdb, fmt.Errorf("SkipRebalanceShards must be true")
 	}
+	if !reflect.DeepEqual(options.ExpectedNodeNames, testExpectedNodeNames) {
+		return vdb, fmt.Errorf("fail to retrieve ExpectedNodeNames")
+	}
 	return vdb, nil
 }
 
@@ -68,13 +74,14 @@ var _ = Describe("add_node_vc", func() {
 
 	It("should call vcluster-ops library with add_node task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
-		dispatcher.VDB.Spec.HTTPServerTLSSecret = "add-node-test-secret"
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
-		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.HTTPServerTLSSecret)
+		dispatcher.VDB.Spec.NMATLSSecret = "add-node-test-secret"
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		opts := []addnode.Option{
 			addnode.WithInitiator(TestInitiatorPodName, TestInitiatorPodIP),
 			addnode.WithSubcluster(TestSCName),
+			addnode.WithExpectedNodeNames(testExpectedNodeNames),
 		}
 		for i, n := range TestNewHosts {
 			opts = append(opts, addnode.WithHost(n, TestNewPodNames[i]))

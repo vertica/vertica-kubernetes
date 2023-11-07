@@ -20,9 +20,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"k8s.io/client-go/util/retry"
@@ -134,7 +135,7 @@ func (p *MetricReconciler) setReviveInstanceIDAnnotation(ctx context.Context) er
 	if err != nil {
 		return err
 	}
-	ann := map[string]string{vapi.ReviveInstanceIDAnnotation: strings.TrimSpace(op)}
+	ann := map[string]string{vmeta.ReviveInstanceIDAnnotation: strings.TrimSpace(op)}
 
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch to get latest Vdb incase this is a retry

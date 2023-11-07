@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -30,9 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vlog"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
@@ -60,6 +59,7 @@ type VerticaDBReconciler struct {
 //+kubebuilder:rbac:groups=vertica.com,resources=verticadbs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=vertica.com,resources=verticadbs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create
@@ -69,15 +69,23 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 // +kubebuilder:rbac:groups="",resources=pods/status,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 
+// We need the ability to update CRDs so that we can refresh the client cert for
+// the conversion webhook.
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;update;patch
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&vapi.VerticaDB{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&rbacv1.Role{}).
+		Owns(&rbacv1.RoleBinding{}).
 		Owns(&corev1.Service{}).
 		Owns(&appsv1.StatefulSet{}).
 		Complete(r)
@@ -135,9 +143,9 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			// If any function needs a requeue and we have a RequeueTime set,
 			// then overwrite RequeueAfter.
 			// Functions such as Upgrade may already set RequeueAfter and Requeue to false
-			if (res.Requeue || res.RequeueAfter > 0) && vdb.Spec.RequeueTime > 0 {
+			if (res.Requeue || res.RequeueAfter > 0) && vdb.GetRequeueTime() > 0 {
 				res.Requeue = false
-				res.RequeueAfter = time.Second * time.Duration(vdb.Spec.RequeueTime)
+				res.RequeueAfter = time.Second * time.Duration(vdb.GetRequeueTime())
 			}
 			log.Info("aborting reconcile of VerticaDB", "result", res, "err", err)
 			return res, err
@@ -169,6 +177,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeHTTPServerCertGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
 		MakeServiceAccountReconciler(r, log, vdb),
+		// Handle setting up the pod security context. This picks the
+		// UID/fsGroup that we will run with.
+		MakePodSecurityReconciler(r, log, vdb),
 		// Update any k8s objects with some exceptions. For instance, preserve
 		// scaling. This is needed *before* upgrade and restart in case a change
 		// was made with the image change that would prevent the pods from
@@ -243,12 +254,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vapi.VerticaDB) (string, error) {
-	if vdb.Spec.SuperuserPasswordSecret == "" {
+	if vdb.Spec.PasswordSecret == "" {
 		return "", nil
 	}
 
 	if vmeta.UseGCPSecretManager(vdb.Annotations) {
-		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.SuperuserPasswordSecret)
+		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.PasswordSecret)
 		if err != nil {
 			return "", fmt.Errorf("failed to read superuser password from GSM: %w", err)
 		}
@@ -282,7 +293,7 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vap
 func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vapi.Subcluster) {
 	// If ksafety is 0, this is a toy database since we cannot grow beyond 3
 	// nodes.  Don't bother logging anything in that case.
-	if vdb.Spec.KSafety == vapi.KSafety0 {
+	if vdb.IsKSafety0() {
 		return
 	}
 	ratio := float32(vdb.Spec.ShardCount) / float32(sc.Size)
@@ -298,13 +309,7 @@ func (r *VerticaDBReconciler) checkShardToNodeRatio(vdb *vapi.VerticaDB, sc *vap
 func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner,
 	passwd string) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		vcc := vops.VClusterCommands{
-			Log: vlog.Printer{
-				Log:           log.WithName("vcluster"),
-				LogToFileOnly: false,
-			},
-		}
-		return vadmin.MakeVClusterOps(log, vdb, r.Client, &vcc, passwd, r.EVRec)
+		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 	}
 	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec, r.OpCfg.DevMode)
 }

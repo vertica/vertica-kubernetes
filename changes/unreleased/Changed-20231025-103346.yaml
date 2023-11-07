@@ -1,0 +1,5 @@
+kind: Changed
+body: Allow any uid/gid to be set for vertica pods
+time: 2023-10-25T10:33:46.782573905-03:00
+custom:
+  Issue: "556"

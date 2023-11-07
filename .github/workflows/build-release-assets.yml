@@ -53,12 +53,6 @@ jobs:
         name: release-artifacts
         path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/*-crd.yaml 
 
-    - name: Upload Custom SCC
-      uses: actions/upload-artifact@v3
-      with:
-        name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/samples/custom-scc.yaml
-    
     - name: Upload RBAC to run Operator
       uses: actions/upload-artifact@v3
       with:

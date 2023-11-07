@@ -21,7 +21,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,6 +31,8 @@ import (
 // lost cluster quorum. The IP given for each vnode may not match the current IP
 // in the vertica catalogs.
 func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
+	v.setupForAPICall("RestartNode")
+	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RestartNode")
 
 	certs, err := v.retrieveHTTPSCerts(ctx)
@@ -68,6 +70,6 @@ func (v *VClusterOps) genRestartNodeOptions(s *restartnode.Parms, certs *HTTPSCe
 		Nodes: s.RestartHosts,
 	}
 	// timeout option
-	opts.StatePollingTimeout = v.VDB.Spec.RestartTimeout
+	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
 	return &opts
 }

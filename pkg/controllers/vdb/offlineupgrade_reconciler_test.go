@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -49,7 +49,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		updateVdbToCauseUpgrade(ctx, vdb, NewImage)
 
 		r, _, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
 		Expect(sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image).Should(Equal(NewImage))
@@ -66,7 +66,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		updateVdbToCauseUpgrade(ctx, vdb, "container1:newimage")
 
 		r, fpr, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(1))
 	})
@@ -81,13 +81,13 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
 
 		r, _, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 		// Delete the sts in preparation of recrating everything with the new
 		// image.  Pods will come up not running to force a requeue by the
 		// restart reconciler.
 		test.DeletePods(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 	})
 
 	It("should delete pods during an upgrade", func() {
@@ -100,7 +100,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
 
 		r, _, _ := createOfflineUpgradeReconciler(vdb)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 
 		finder := iter.MakeSubclusterFinder(k8sClient, vdb)
 		pods, err := finder.FindPods(ctx, iter.FindExisting)
@@ -120,7 +120,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		r, fpr, pfacts := createOfflineUpgradeReconciler(vdb)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].upNode = false
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 		h := fpr.FindCommands("admintools -t stop_db")
 		Expect(len(h)).Should(Equal(0))
 	})
@@ -149,7 +149,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		// Read the latest vdb to get status conditions, etc.
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), vdb)).Should(Succeed())
 
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTime()}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 		Expect(r.Manager.ContinuingUpgrade).Should(Equal(true))
 	})
 })

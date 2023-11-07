@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -208,7 +208,7 @@ func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, 
 		startPodIndex := int32(0)
 		scStatus, ok := d.Vdb.FindSubclusterStatus(sc.Name)
 		if ok {
-			startPodIndex += scStatus.InstallCount
+			startPodIndex += scStatus.InstallCount()
 		}
 		for i := startPodIndex; i < sc.Size; i++ {
 			pn := names.GenPodName(d.Vdb, sc, i)
@@ -280,34 +280,42 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
-	if !p.dirExists[paths.ConfigLogrotatePath] {
-		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
-		numCmds++
-	}
 
-	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
-		numCmds++
-	}
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		if !p.dirExists[paths.HTTPTLSConfDir] {
+			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
+			numCmds++
+		}
+	} else {
+		if !p.dirExists[paths.ConfigLogrotatePath] {
+			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
+			numCmds++
+		}
 
-	if !p.fileExists[paths.LogrotateBaseConfFile] {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
-		numCmds++
-	}
+		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
+			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigSharePath] {
-		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
-		numCmds++
-	}
+		if !p.fileExists[paths.LogrotateBaseConfFile] {
+			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigLicensingPath] {
-		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
-		numCmds++
-	}
+		if !p.dirExists[paths.ConfigSharePath] {
+			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
-		numCmds++
+		if !p.dirExists[paths.ConfigLicensingPath] {
+			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
+			numCmds++
+		}
+
+		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
+			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
+			numCmds++
+		}
 	}
 
 	if numCmds == 0 {

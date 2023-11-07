@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	. "github.com/onsi/gomega" //nolint:revive,stylecheck
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
@@ -59,7 +59,7 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	scIndex int32, podRunningState PodRunningState) {
 	sts := &appsv1.StatefulSet{}
 	if err := c.Get(ctx, names.GenStsName(vdb, sc), sts); kerrors.IsNotFound(err) {
-		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc, "test-sa")
+		sts = builder.BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
 		ExpectWithOffset(offset, c.Create(ctx, sts)).Should(Succeed())
 	}
 	for j := int32(0); j < sc.Size; j++ {
@@ -109,8 +109,11 @@ func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.Vertica
 	for i := range vdb.Status.Subclusters {
 		scs := &vdb.Status.Subclusters[i]
 		if scs.Name == sc.Name {
-			scs.InstallCount = newSize
 			scs.AddedToDBCount = newSize
+			scs.Detail = []vapi.VerticaDBPodStatus{}
+			for j := int32(0); j < newSize; j++ {
+				scs.Detail = append(scs.Detail, vapi.VerticaDBPodStatus{Installed: true})
+			}
 			break
 		}
 	}
@@ -256,14 +259,6 @@ func DeleteSvcs(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	if !kerrors.IsNotFound(err) {
 		ExpectWithOffset(1, c.Delete(ctx, svc)).Should(Succeed())
 	}
-}
-
-func CreateVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
-	ExpectWithOffset(1, c.Create(ctx, vas)).Should(Succeed())
-}
-
-func DeleteVAS(ctx context.Context, c client.Client, vas *vapi.VerticaAutoscaler) {
-	ExpectWithOffset(1, c.Delete(ctx, vas)).Should(Succeed())
 }
 
 func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {

@@ -20,14 +20,16 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -60,12 +62,23 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	if err := s.updateStatusFields(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := s.updateReadyStatusAnnotation(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+// updateStatusFields will refresh the status fields in the vdb
+func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 	// Use all subclusters, even ones that are scheduled for removal.  We keep
 	// reporting status on the deleted ones until the statefulsets are gone.
 	finder := iter.MakeSubclusterFinder(s.Client, s.Vdb)
 	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	refreshStatus := func(vdbChg *vapi.VerticaDB) error {
@@ -89,21 +102,42 @@ func (s *StatusReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		return nil
 	}
 
-	if err := vdbstatus.Update(ctx, s.Client, s.Vdb, refreshStatus); err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	return vdbstatus.Update(ctx, s.Client, s.Vdb, refreshStatus)
+}
+
+// updateReadyStatusAnnotation will refresh the annotation we keep for ready status
+func (s *StatusReconciler) updateReadyStatusAnnotation(ctx context.Context) error {
+	nm := s.Vdb.ExtractNamespacedName()
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := s.Client.Get(ctx, nm, s.Vdb); err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		if s.Vdb.Annotations == nil {
+			s.Vdb.Annotations = make(map[string]string, 1)
+		}
+		oldStatus := s.Vdb.Annotations[vmeta.ReadyStatusAnnotation]
+		s.Vdb.Annotations[vmeta.ReadyStatusAnnotation] = fmt.Sprintf("%d/%d",
+			s.Vdb.Status.UpNodeCount, s.Vdb.Status.AddedToDBCount)
+		if oldStatus != s.Vdb.Annotations[vmeta.ReadyStatusAnnotation] {
+			s.Log.Info("Refresh ready status annotation",
+				"status", s.Vdb.Annotations[vmeta.ReadyStatusAnnotation])
+			return s.Client.Update(ctx, s.Vdb)
+		}
+		return nil
+	})
 }
 
 // calculateClusterStatus will roll up the subcluster status.
 func (s *StatusReconciler) calculateClusterStatus(stat *vapi.VerticaDBStatus) {
 	stat.SubclusterCount = 0
-	stat.InstallCount = 0
 	stat.AddedToDBCount = 0
 	stat.UpNodeCount = 0
 	for _, sc := range stat.Subclusters {
 		stat.SubclusterCount++
-		stat.InstallCount += sc.InstallCount
 		stat.AddedToDBCount += sc.AddedToDBCount
 		stat.UpNodeCount += sc.UpNodeCount
 	}
@@ -124,7 +158,6 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 			continue
 		}
 		curStat.Detail[podIndex].UpNode = pf.upNode
-		curStat.Detail[podIndex].ReadOnly = pf.readOnly
 		curStat.Detail[podIndex].Installed = pf.isInstalled
 		curStat.Detail[podIndex].AddedToDB = pf.dbExists
 		if pf.vnodeName != "" {
@@ -135,22 +168,14 @@ func (s *StatusReconciler) calculateSubclusterStatus(ctx context.Context, sc *va
 		}
 	}
 	// Refresh the counts
-	curStat.InstallCount = 0
 	curStat.AddedToDBCount = 0
 	curStat.UpNodeCount = 0
-	curStat.ReadOnlyCount = 0
 	for _, v := range curStat.Detail {
-		if v.Installed {
-			curStat.InstallCount++
-		}
 		if v.AddedToDB {
 			curStat.AddedToDBCount++
 		}
 		if v.UpNode {
 			curStat.UpNodeCount++
-		}
-		if v.ReadOnly {
-			curStat.ReadOnlyCount++
 		}
 	}
 	return nil

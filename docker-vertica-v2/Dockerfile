@@ -4,15 +4,13 @@
 #
 
 ARG BASE_OS_VERSION="lunar"
-ARG BUILDER_OS_VERSION="stream8"
+ARG BUILDER_OS_VERSION="8"
 ARG MINIMAL=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
-FROM quay.io/centos/centos:${BUILDER_OS_VERSION} as builder
+FROM almalinux:${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM="vertica-x86_64.RHEL6.latest.rpm"
 ARG MINIMAL
-ARG DBADMIN_GID=5000
-ARG DBADMIN_UID=5000
 
 COPY ./packages/${VERTICA_RPM} /tmp/
 # this is a script which removes unnecessary stuff from the
@@ -25,7 +23,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   # Update is needed to be confident that we're picking up
   # fixed libraries.
-  && yum -q -y update \
+  && yum -y update \
   # Using --nobest to make it easier yum install to work. This stage isn't used
   # for the final image, so any package is good enough. We just need to install
   # the vertica rpm and copy that over.
@@ -38,9 +36,9 @@ RUN set -x \
   openssl \
   which \
   zlib-devel \
-  && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
-  && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
-  && yum localinstall -q -y /tmp/${VERTICA_RPM} \
+  && /usr/sbin/groupadd -r verticadba \
+  && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba dbadmin \
+  && yum localinstall -y /tmp/${VERTICA_RPM} \
   && mkdir -p /opt/vertica/config/https_certs \
   && cp /tmp/httpstls.json /opt/vertica/config/https_certs/ \
   # Run install_vertica script to prepare environment
@@ -66,10 +64,6 @@ RUN set -x \
   && yum clean all \
   && sh /tmp/cleanup.sh
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN set -x \
-  && chown -R dbadmin:verticadba /home/dbadmin/
-
 ##############################################################################################
 FROM ubuntu:${BASE_OS_VERSION} as initial
 
@@ -86,8 +80,6 @@ RUN set -x \
 FROM scratch
 COPY --from=initial / /
 
-ARG DBADMIN_GID=5000
-ARG DBADMIN_UID=5000
 # Controls the version of jre to be installed by apt-get. The list of all
 # available jre packages can be queried through apt-cache. For instance,
 # "apt-cache search jre | grep jre"
@@ -96,7 +88,7 @@ ARG MINIMAL
 ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
-COPY --from=builder --chown=$DBADMIN_UID:$DBADMIN_GID /home/dbadmin /home/dbadmin
+COPY --from=builder /home/dbadmin /home/dbadmin
 COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
@@ -104,7 +96,6 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV JAVA_HOME "/usr"
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
-COPY ./packages/cleanup-initial.sh /tmp/cleanup-initial.sh
 
 # For the init program (process 1), we use s6-overlay. This ensures none of the
 # processes we start ever become zombie's. It will also restart long running
@@ -137,7 +128,6 @@ RUN set -x \
   openssl \
   procps \
   sysstat \
-  sudo \
   vim-tiny \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
@@ -148,18 +138,19 @@ RUN set -x \
   && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
   # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
   && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-  && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
-  && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
-  # Allow passwordless sudo access from dbadmin
-  && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
-  && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
+  # Cannot set sudo because the ID we run the container may not exist in the
+  # passwd file. Set a simple root password so you can do some commands as root
+  # if you need be. This isn't a security violation per se since you can control
+  # at the pod level or above if the container is allowed to have elevated privileges.
+  && echo "root:root" | chpasswd \
+  && echo "* -       nofile  65536" >> /etc/security/limits.conf \
+  && echo 'export PS1="[\H] \w\$ "' >> /etc/bash.bashrc \
   # Create a symlink to python3 interpreter in vertica
   && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
   && chmod u+s /usr/sbin/cron \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
-  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
-  && sh /tmp/cleanup-initial.sh
+  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 
 ENTRYPOINT [ "/init" ]
 
@@ -167,7 +158,9 @@ ENTRYPOINT [ "/init" ]
 EXPOSE 5433
 # vertica-http port
 EXPOSE 8443
-USER dbadmin
+# Choosing a system user that isn't root to avoid a twistlock violation. The
+# actual user is selected at runtime by setting the UID/GID in the pod spec.
+USER daemon
 LABEL os-family="ubuntu"
 LABEL image-name="vertica_k8s"
 LABEL maintainer="K8s Team"
