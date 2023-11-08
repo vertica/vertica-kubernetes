@@ -27,7 +27,6 @@ RUN set -x \
   # for the final image, so any package is good enough. We just need to install
   # the vertica rpm and copy that over.
   && yum install -y --nobest \
-  cronie \
   dialog \
   glibc \
   glibc-langpack-en \
@@ -86,7 +85,6 @@ ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
-COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
@@ -111,7 +109,6 @@ RUN set -x \
   && apt-get -y update \
   && apt-get install -y --no-install-recommends \
   ca-certificates \
-  cron \
   curl \
   dialog \
   gdb \
@@ -145,7 +142,6 @@ RUN set -x \
   && echo 'export PS1="[\H] \w\$ "' >> /etc/bash.bashrc \
   # Create a symlink to python3 interpreter in vertica
   && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
-  && chmod u+s /usr/sbin/cron \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
   && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
