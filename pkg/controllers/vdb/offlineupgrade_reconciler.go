@@ -249,7 +249,7 @@ func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Resul
 	}
 
 	const EnforceUpgradePath = true
-	vr := MakeVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
+	vr := MakeImageVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
 	return vr.Reconcile(ctx, &ctrl.Request{})
 }
 

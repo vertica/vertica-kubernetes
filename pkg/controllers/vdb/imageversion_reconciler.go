@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -24,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
@@ -31,8 +33,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// VersionReconciler will set the version as annotations in the vdb.
-type VersionReconciler struct {
+// ImageVersionReconciler will verify type of image deployment and set the version as annotations in the vdb.
+type ImageVersionReconciler struct {
 	VRec               *VerticaDBReconciler
 	Log                logr.Logger
 	Vdb                *vapi.VerticaDB // Vdb is the CRD we are acting on.
@@ -42,13 +44,13 @@ type VersionReconciler struct {
 	FindPodFunc        func() (*PodFact, bool) // Function to call to find pod
 }
 
-// MakeVersionReconciler will build a VersionReconciler object
-func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+// MakeImageVersionReconciler will build a VersionReconciler object
+func MakeImageVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	enforceUpgradePath bool) controllers.ReconcileActor {
-	return &VersionReconciler{
+	return &ImageVersionReconciler{
 		VRec:               vdbrecon,
-		Log:                log.WithName("VersionReconciler"),
+		Log:                log.WithName("ImageVersionReconciler"),
 		Vdb:                vdb,
 		PRunner:            prunner,
 		PFacts:             pfacts,
@@ -58,7 +60,7 @@ func MakeVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will update the annotation in the Vdb with Vertica version info
-func (v *VersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if err := v.PFacts.Collect(ctx, v.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -67,6 +69,11 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	if !ok {
 		v.Log.Info("Could not find any running pod, requeuing reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
+	}
+
+	err := v.verifyImage(pod)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if res, err := v.reconcileVersion(ctx, pod); verrors.IsReconcileAborted(res, err) {
@@ -94,7 +101,7 @@ func (v *VersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 // logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a
 // 12.0.0 server and cgroups v2.  In such an environment you cannot start the
 // server in k8s.
-func (v *VersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context, vinf *version.Info, pod *PodFact) {
+func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx context.Context, vinf *version.Info, pod *PodFact) {
 	ver12, _ := version.MakeInfoFromStr(vapi.CGroupV2UnsupportedVersion)
 	if !vinf.IsEqual(ver12) {
 		return
@@ -111,7 +118,7 @@ func (v *VersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx conte
 }
 
 // reconcileVersion will parse the version output and update any annotations.
-func (v *VersionReconciler) reconcileVersion(ctx context.Context, pod *PodFact) (ctrl.Result, error) {
+func (v *ImageVersionReconciler) reconcileVersion(ctx context.Context, pod *PodFact) (ctrl.Result, error) {
 	vver, err := v.getVersion(ctx, pod)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -121,7 +128,7 @@ func (v *VersionReconciler) reconcileVersion(ctx context.Context, pod *PodFact) 
 }
 
 // getVersion will get the Vertica version from the running pod.
-func (v *VersionReconciler) getVersion(ctx context.Context, pod *PodFact) (string, error) {
+func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *PodFact) (string, error) {
 	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, "/opt/vertica/bin/vertica", "--version")
 	if err != nil {
 		return "", err
@@ -132,7 +139,7 @@ func (v *VersionReconciler) getVersion(ctx context.Context, pod *PodFact) (strin
 
 // updateVDBVersion will update the version that is stored in the vdb.  This may
 // fail if it detects an invalid upgrade path.
-func (v *VersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
+func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersion string) (ctrl.Result, error) {
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
 
 	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {
@@ -158,4 +165,22 @@ func (v *VersionReconciler) updateVDBVersion(ctx context.Context, newVersion str
 		}
 		return nil
 	})
+}
+
+// Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
+func (v *ImageVersionReconciler) verifyImage(pod *PodFact) error {
+	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
+		if pod.admintoolsExists {
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for vclusterops deployments")
+			return fmt.Errorf("image %s is meant for admintools style of deployments and cannot be used for vclusterops",
+				v.Vdb.Spec.Image)
+		}
+	} else {
+		if !pod.admintoolsExists {
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for admintools deployments")
+			return fmt.Errorf("image %s is meant for vclusterops style of deployments and cannot be used for admintools",
+				v.Vdb.Spec.Image)
+		}
+	}
+	return nil
 }
