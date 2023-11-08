@@ -43,9 +43,12 @@ var rfc7807TypeToEventReasonMap = map[string]string{
 	// rfc7807.GenericBootstrapCatalogFailure.Type left out
 	rfc7807.CommunalStorageNotEmpty.Type: events.CommunalPathIsNotEmpty,
 	// rfc7807.CommunalStoragePathInvalid.Type left out
-	rfc7807.CommunalRWAccessError.Type: events.CommunalEndpointIssue,
-	rfc7807.CommunalAccessError.Type:   events.CommunalEndpointIssue,
-	addnode.LicenseIssueErrorType:      events.AddNodeLicenseFail,
+	rfc7807.CommunalRWAccessError.Type:            events.CommunalEndpointIssue,
+	rfc7807.CommunalAccessError.Type:              events.CommunalEndpointIssue,
+	addnode.LicenseIssueErrorType:                 events.AddNodeLicenseFail,
+	rfc7807.UndefinedFile.Type:                    events.ReviveDBNotFound,
+	rfc7807.CreateDirectoryPermissionDenied.Type:  events.ReviveDBPermissionDenied,
+	rfc7807.CreateDirectoryNoWritePermission.Type: events.ReviveDBPermissionDenied,
 }
 
 var rfc7807TypeToEventMessageDetailFlagMap = map[string]bool{
