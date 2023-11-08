@@ -36,25 +36,25 @@ var _ = Describe("k8s/cmds", func() {
 
 	It("should add the password option to vsql command", func() {
 		cmd := []string{"-tAc", "select 1"}
-		fpr := &FakePodRunner{SUPassword: "vertica"}
+		fpr := &FakePodRunner{VerticaSUPassword: "vertica"}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
 		_, _, _ = fpr.ExecVSQL(ctx, podName, "server", cmd...)
-		lastCall := fpr.FindCommands("vsql", "--password", fpr.SUPassword, "-tAc", "select 1")
+		lastCall := fpr.FindCommands("vsql", "--password", fpr.VerticaSUPassword, "-tAc", "select 1")
 		Expect(len(lastCall)).Should(Equal(1))
 	})
 
 	It("should add password option for db_add_node", func() {
 		cmd := []string{"-t", "db_add_node"}
-		fpr := &FakePodRunner{SUPassword: "vertica"}
+		fpr := &FakePodRunner{VerticaSUPassword: "vertica"}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
 		_, _, _ = fpr.ExecAdmintools(ctx, podName, "server", cmd...)
-		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node", "--password", fpr.SUPassword)
+		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node", "--password", fpr.VerticaSUPassword)
 		Expect(len(lastCall)).Should(Equal(1))
 	})
 
 	It("should not add password to an admintools' tool which does not support it", func() {
 		cmd := []string{"-t", "list_allnodes"}
-		fpr := &FakePodRunner{SUPassword: "vertica"}
+		fpr := &FakePodRunner{VerticaSUPassword: "vertica"}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
 		_, _, _ = fpr.ExecAdmintools(ctx, podName, "server", cmd...)
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "list_allnodes")
@@ -63,7 +63,7 @@ var _ = Describe("k8s/cmds", func() {
 
 	It("should not add password to vsql command", func() {
 		cmd := []string{"-tAc", "select 1"}
-		fpr := &FakePodRunner{SUPassword: ""}
+		fpr := &FakePodRunner{VerticaSUPassword: ""}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
 		_, _, _ = fpr.ExecVSQL(ctx, podName, "server", cmd...)
 		lastCall := fpr.FindCommands("vsql", "-tAc", "select 1")
@@ -72,7 +72,7 @@ var _ = Describe("k8s/cmds", func() {
 
 	It("should not add password to admintools", func() {
 		cmd := []string{"-t", "db_add_node"}
-		fpr := &FakePodRunner{SUPassword: ""}
+		fpr := &FakePodRunner{VerticaSUPassword: ""}
 		podName := types.NamespacedName{Namespace: "default", Name: "vdb-pod"}
 		_, _, _ = fpr.ExecAdmintools(ctx, podName, "server", cmd...)
 		lastCall := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "db_add_node")

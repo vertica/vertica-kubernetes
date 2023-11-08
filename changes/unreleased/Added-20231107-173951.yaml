@@ -1,0 +1,5 @@
+kind: Added
+body: Redirect startup.log to stdout
+time: 2023-11-07T17:39:51.857496428+01:00
+custom:
+  Issue: "577"

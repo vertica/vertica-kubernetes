@@ -11,18 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-  annotations:
-    vertica.com/k-safety: "0"
-spec:
-  subclusters:
-    - name: pri
-      type: primary
-      size: 1
-    - name: transient
-      type: transient
-      resources: {}
-      size: 1
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kustomize build ../../manifests/communal-creds/overlay | kubectl apply -f - --namespace $NAMESPACE
+  - script: kustomize build ../../manifests/priv-container-creds/overlay | kubectl apply -f - --namespace $NAMESPACE

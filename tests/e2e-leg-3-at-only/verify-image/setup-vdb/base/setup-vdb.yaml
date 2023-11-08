@@ -11,18 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-base-upgrade
-  annotations:
-    vertica.com/k-safety: "0"
+  name: v-verify-image
 spec:
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+    catalogPath: /catalog
+  dbName: vertdb
+  encryptSpreadComm: vertica
   subclusters:
-    - name: pri
-      type: primary
+    - name: sc1
       size: 1
-    - name: transient
-      type: transient
-      resources: {}
-      size: 1
+  kSafety: "0"
+  securityContext:
+    capabilities:
+      add: ["SYS_PTRACE"]
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

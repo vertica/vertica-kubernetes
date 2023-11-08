@@ -94,6 +94,7 @@ COPY --from=builder /var/spool/cron/ /var/spool/cron/crontabs
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV DEBIAN_FRONTEND noninteractive
 ENV JAVA_HOME "/usr"
+ENV VERTICA_STARTUP_LOG_DUPLICATE "/proc/1/fd/1"
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
 
