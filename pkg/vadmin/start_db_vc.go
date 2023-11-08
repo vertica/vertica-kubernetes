@@ -84,7 +84,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = vapi.SuperUser
+	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
 

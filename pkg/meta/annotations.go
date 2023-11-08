@@ -119,6 +119,14 @@ const (
 	BuildRefAnnotation  = "vertica.com/buildRef"
 	// Annotation for the database's revive_instance_id
 	ReviveInstanceIDAnnotation = "vertica.com/revive-instance-id"
+
+	// Annotation for a customized superuser name. This annotation can be used
+	// when vclusterops annotation is set to true. It can explicitly specify the
+	// name of vertica superuser that is generated in database creation. If this
+	// annotation is not provided or vclusterops annotation is set to false, the
+	// default value "dbadmin" will be used.
+	SuperuserNameAnnotation   = "vertica.com/superuser-name"
+	SuperuserNameDefaultValue = "dbadmin"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -190,6 +198,15 @@ func GetSSHSecretName(annotations map[string]string) string {
 // communal path to make it unique.
 func IncludeUIDInPath(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, IncludeUIDInPathAnnotation, false /* default value */)
+}
+
+// GetSuperuserName returns the name of customized vertica superuser name
+// for vclusterops style of deployments.
+func GetSuperuserName(annotations map[string]string) string {
+	if UseVClusterOps(annotations) {
+		return lookupStringAnnotation(annotations, SuperuserNameAnnotation, SuperuserNameDefaultValue)
+	}
+	return SuperuserNameDefaultValue
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

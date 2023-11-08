@@ -449,9 +449,6 @@ const (
 	AutoUpgrade UpgradePolicyType = "Auto"
 )
 
-// SuperUser is an automatically-created user in database creation
-const SuperUser = "dbadmin"
-
 type HTTPServerModeType string
 
 const (

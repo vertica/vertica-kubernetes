@@ -523,7 +523,7 @@ func (s *SubclusterStatus) InstallCount() int32 {
 	return c
 }
 
-// GetVerticaUser returns the user name associated with the passwordSecret.
+// GetVerticaUser returns the name of Vertica superuser generated in database creation.
 func (v *VerticaDB) GetVerticaUser() string {
-	return "dbadmin"
+	return vmeta.GetSuperuserName(v.Annotations)
 }
