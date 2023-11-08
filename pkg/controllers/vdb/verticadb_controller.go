@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -131,11 +132,17 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	pfacts := MakePodFacts(r, prunner)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
-
+	const UninstallReconciler = "UninstallReconciler"
 	// Iterate over each actor
 	actors := r.constructActors(log, vdb, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
-		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
+		actName := fmt.Sprintf("%T", act)
+		// skip uninstall reconciler for vclusterops
+		if strings.Contains(actName, UninstallReconciler) && vmeta.UseVClusterOps(vdb.Annotations) {
+			log.Info("skipping actor", "name", actName)
+			continue
+		}
+		log.Info("starting actor", "name", actName)
 		res, err = act.Reconcile(ctx, &req)
 		// Error or a request to requeue will stop the reconciliation.
 		if verrors.IsReconcileAborted(res, err) {
@@ -151,7 +158,6 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return res, err
 		}
 	}
-
 	log.Info("ending reconcile of VerticaDB", "result", res, "err", err)
 	return res, err
 }
