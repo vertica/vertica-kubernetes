@@ -14,9 +14,9 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-revive-failures-too-few-nodes
+  name: v-revive-failures-too-many-nodes
 status:
-  installCount: 1
+  installCount: 3
   addedToDBCount: 0
   upNodeCount: 0
 ---
@@ -26,6 +26,6 @@ reason: ReviveDBNodeCountMismatch
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1beta1
+  apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-revive-failures-too-few-nodes
+  name: v-revive-failures-too-many-nodes
