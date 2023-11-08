@@ -17,11 +17,3 @@ metadata:
   name: v-auto-restart-vertica-defsc
 status:
   currentReplicas: 2
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-auto-restart-vertica
-status:
-  subclusters:
-    - installCount: 2
