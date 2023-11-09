@@ -86,10 +86,15 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	opts.CaCert = certs.CaCert
 	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.TrimHostList = true
 	*opts.HonorUserInput = true
 
 	// timeout option
+	opts.StatePollingTimeout = new(int)
 	*opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
+
+	// other options
+	opts.TrimHostList = new(bool)
+	*opts.TrimHostList = true
+
 	return opts, nil
 }
