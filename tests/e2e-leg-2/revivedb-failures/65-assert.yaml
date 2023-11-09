@@ -11,13 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-auto-restart-vertica
+  name: v-revive-failures-too-few-nodes
 status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "False"
-    - type: DBInitialized
-      status: "True"
+  installCount: 1
+  addedToDBCount: 0
+  upNodeCount: 0
+---
+apiVersion: v1
+kind: Event
+reason: ReviveDBNodeCountMismatch
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1
+  kind: VerticaDB
+  name: v-revive-failures-too-few-nodes

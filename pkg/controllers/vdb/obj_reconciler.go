@@ -478,6 +478,11 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 // do this will cause us to orphan entries leading admintools to fail for most
 // operations.
 func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	// Skip this check since there is no install state for vclusterops
+	if vmeta.UseVClusterOps(o.Vdb.Annotations) {
+		return ctrl.Result{}, nil
+	}
+
 	if newStsSize >= *sts.Spec.Replicas {
 		// Nothing to do as we aren't scaling down.
 		return ctrl.Result{}, nil

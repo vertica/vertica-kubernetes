@@ -11,13 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-auto-restart-vertica
+  namespace: verticadb-operator
+  labels:
+    control-plane: controller-manager
 status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "False"
-    - type: DBInitialized
-      status: "True"
+  phase: Running

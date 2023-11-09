@@ -10,14 +10,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-auto-restart-vertica
-status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "False"
-    - type: DBInitialized
-      status: "True"
