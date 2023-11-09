@@ -50,6 +50,9 @@ const (
 	// db call. On versions prior to this, it must be specified immediately
 	// after via SQL.
 	SetEncryptSpreadCommAsConfigVersion = "v23.3.0"
+	// Starting in v24.1.0, the default deployment method supported changes from admintools to vclusterops
+	// for official releases of vertica-k8s images
+	VcluseropsAsDefaultDeploymentMethodMinVersion = "v24.1.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

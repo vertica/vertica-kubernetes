@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 )
 
 type DBGenerator struct {
@@ -89,7 +90,10 @@ var Queries = map[QueryType]string{
 // Create will generate a VerticaDB based the specifics gathered from a live database
 func (d *DBGenerator) Create() (*KObjs, error) {
 	ctx := context.Background()
-	d.setParmsFromOptions()
+	err := d.setParmsFromOptions()
+	if err != nil {
+		return nil, err
+	}
 
 	collectors := []func(ctx context.Context) error{
 		d.readLicense,
@@ -143,12 +147,19 @@ func (d *DBGenerator) connect(ctx context.Context) error {
 
 // setParmsFromOptions will set values in the vdb that are obtained from the
 // command line options.
-func (d *DBGenerator) setParmsFromOptions() {
+func (d *DBGenerator) setParmsFromOptions() error {
 	d.Objs.Vdb.TypeMeta.APIVersion = vapi.GroupVersion.String()
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-	d.Objs.Vdb.Annotations = map[string]string{
-		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
+	d.Objs.Vdb.Annotations = make(map[string]string)
+	// force deployment method if user specified so
+	if d.Opts.DeploymentMethod != "" {
+		// only valid options are accepted, thus safe to assign
+		if d.Opts.DeploymentMethod == DeploymentMethodAT {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		} else {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		}
 	}
 	d.Objs.Vdb.Spec.Communal.AdditionalConfig = make(map[string]string)
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName
@@ -165,6 +176,8 @@ func (d *DBGenerator) setParmsFromOptions() {
 	if d.Opts.Image != "" {
 		d.Objs.Vdb.Spec.Image = d.Opts.Image
 	}
+
+	return nil
 }
 
 // setupCredSecret will link a credential secret into the VerticaDB. Use this if
@@ -668,6 +681,21 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 	// hotfix 0. Rarely do we publish one for subsequent hotfixes, so always use
 	// hotfix 0 regardless of what hotfix was currently in use.
 	d.Objs.Vdb.Spec.Image = fmt.Sprintf("vertica/vertica-k8s:%s-0", version)
+
+	// Set proper annotation to ensure correct deployment method.
+	if _, exists := d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]; !exists {
+		// command line option not provided, i.e. no forced deployment method, thus should
+		// determine deployment method based on running server version
+		verInfo, ok := vversion.MakeInfoFromStr(version)
+		if !ok {
+			return errors.New("could not construct Info struct from the version string")
+		}
+		if verInfo.IsEqualOrNewer(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		} else {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		}
+	}
 
 	return nil
 }

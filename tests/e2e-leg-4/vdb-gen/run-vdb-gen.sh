@@ -23,6 +23,7 @@ NAMESPACE=$1
 VERTICA_IMG=$2
 VDB_NAME=$3
 COMMUNAL_EP_CERT_SECRET=$4
+DEPLOYMENT_METHOD=$5
 
 # The ca.cert is optional.
 if [ -f "/certs/$COMMUNAL_EP_CERT_SECRET/ca.crt" ]
@@ -38,4 +39,5 @@ fi
     -ignore-cluster-lease \
     $CA_CERT_OPT \
     -depotvolume EmptyDir \
+    -deploymentmethod $DEPLOYMENT_METHOD \
     v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb

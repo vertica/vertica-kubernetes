@@ -34,4 +34,10 @@ type Options struct {
 	Krb5Conf           string
 	Krb5Keytab         string
 	DepotVolume        string
+	DeploymentMethod   string
 }
+
+const (
+	DeploymentMethodAT = "admintools"
+	DeploymentMethodVC = "vclusterops"
+)

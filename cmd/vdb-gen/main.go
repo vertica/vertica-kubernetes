@@ -73,7 +73,17 @@ func main() {
 		"If the communal backend is authenticated with Kerberos, use this parameter to pass in the contents of the krb5.keytab file")
 	flag.StringVar(&opts.DepotVolume, "depotvolume", "PersistentVolume",
 		"The type of volume to use for the depot. Allowable values will be: EmptyDir and PersistentVolume.")
+	flag.StringVar(&opts.DeploymentMethod, "deploymentmethod", "",
+		fmt.Sprintf("The cluster deployment method to use by the operator. Allowable values will be: %s and %s. If not specified "+
+			"a default deployment method will be deduced from the server version of the live database.", vdbgen.DeploymentMethodAT, vdbgen.DeploymentMethodVC))
 	flag.Parse()
+
+	if opts.DeploymentMethod != "" &&
+		opts.DeploymentMethod != vdbgen.DeploymentMethodAT && opts.DeploymentMethod != vdbgen.DeploymentMethodVC {
+		fmt.Println("Invalid deployment method.")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	if flag.NArg() < NumPositionalArgs {
 		fmt.Println("Not enough positional arguments.")
