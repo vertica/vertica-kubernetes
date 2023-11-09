@@ -59,6 +59,11 @@ func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will ensure Vertica is installed and running in the pods.
 func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// no-op for vclusterops deployment
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		return ctrl.Result{}, nil
+	}
+
 	// no-op for ScheduleOnly init policy
 	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return ctrl.Result{}, nil
@@ -69,23 +74,8 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
-	// We check the https conf file and skip the install phase when running
-	// the vclusterOps feature flag
-	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
-		return d.checkInstallForVClusterOps()
-	}
 
 	return d.installForAdmintools(ctx)
-}
-
-// checkInstallForVClusterOps will check the install for vclusterops
-// i.e httpstls.json exists in pods.
-func (d *InstallReconciler) checkInstallForVClusterOps() (ctrl.Result, error) {
-	err := d.checkIfHTTPTLSConfFileExists()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
 }
 
 // installForAdmintools will go through the install phase for admintools.
@@ -182,19 +172,6 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 	return nil
 }
 
-// checkIfHTTPTLSConfFileExists will check if httpstls.json exists in running pods.
-func (d *InstallReconciler) checkIfHTTPTLSConfFileExists() error {
-	for _, p := range d.PFacts.Detail {
-		if !p.isPodRunning {
-			continue
-		}
-		if !p.fileExists[paths.HTTPTLSConfFile] {
-			return fmt.Errorf("file %s is missing in pod %s", paths.HTTPTLSConfFileName, p.name)
-		}
-	}
-	return nil
-}
-
 // getInstallTargets finds the list of hosts/pods that we need to initialize the config for
 func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, error) {
 	podList := make([]*PodFact, 0, len(d.PFacts.Detail))
@@ -281,41 +258,34 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
 
-	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
-		if !p.dirExists[paths.HTTPTLSConfDir] {
-			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
-			numCmds++
-		}
-	} else {
-		if !p.dirExists[paths.ConfigLogrotatePath] {
-			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLogrotatePath] {
+		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
-			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
+		numCmds++
+	}
 
-		if !p.fileExists[paths.LogrotateBaseConfFile] {
-			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
-			numCmds++
-		}
+	if !p.fileExists[paths.LogrotateBaseConfFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigSharePath] {
-			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigSharePath] {
+		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigLicensingPath] {
-			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLicensingPath] {
+		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
-			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
+		numCmds++
 	}
 
 	if numCmds == 0 {

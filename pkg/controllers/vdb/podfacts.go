@@ -500,7 +500,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 	case vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
 		return p.checkIsInstalledScheduleOnly(vdb, pf, gs)
 	case vmeta.UseVClusterOps(vdb.Annotations):
-		return p.checkIsInstalledForVClusterOps(pf, gs)
+		return p.checkIsInstalledForVClusterOps(pf)
 	default:
 		return p.checkIsInstalledForAdmintools(pf, gs)
 	}
@@ -534,8 +534,10 @@ func (p *PodFacts) checkIsInstalledForAdmintools(pf *PodFact, gs *GatherState) e
 	return nil
 }
 
-func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact, gs *GatherState) error {
-	pf.isInstalled = gs.FileExists[paths.HTTPTLSConfFile]
+func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact) error {
+	// Setting this to true ro indicate that we do not need
+	// to do anything during install in vclusterops mode
+	pf.isInstalled = true
 	// The next two fields only apply to admintools style deployments. So,
 	// explicitly disable them.
 	pf.hasStaleAdmintoolsConf = false

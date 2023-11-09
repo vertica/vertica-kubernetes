@@ -134,19 +134,12 @@ func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
 	}
 }
 
-// buildAdmintoolsOnlyVolumeMounts returns the volume mounts that are needed
-// only by admintools since in vclusterops mode, no files are being written in those locations.
-func buildAdmintoolsOnlyVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
-		buildConfigVolumeMount(vdb),
-	}
-}
-
 // buildVolumeMounts returns the volume mounts to include in the sts pod spec
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
+		buildConfigVolumeMount(vdb),
+		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("log"), MountPath: paths.LogPath},
 		{Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("data"), MountPath: vdb.Spec.Local.DataPath},
 		{Name: vapi.PodInfoMountName, MountPath: paths.PodInfoPath},
 	}
@@ -169,10 +162,6 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, corev1.VolumeMount{
 			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("catalog"), MountPath: vdb.Spec.Local.GetCatalogPath(),
 		})
-	}
-
-	if !vmeta.UseVClusterOps(vdb.Annotations) {
-		volMnts = append(volMnts, buildAdmintoolsOnlyVolumeMounts(vdb)...)
 	}
 
 	if vdb.Spec.LicenseSecret != "" {

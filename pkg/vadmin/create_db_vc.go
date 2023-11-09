@@ -78,6 +78,9 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	// Additional configuration parameters for create db.
 	opts.ConfigurationParameters = s.ConfigurationParams
 
+	// Flag to generate HTTPS tls conf in vertica bootstrap catalog
+	*opts.GenerateHTTPCerts = true
+
 	if s.ShardCount > 0 {
 		opts.ShardCount = &s.ShardCount
 	}
