@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
-  name: v-revive-failures-wrong-db-name
+  name: v-revive-failures-communal-path-empty
 status:
   installCount: 2
   addedToDBCount: 0
@@ -26,6 +26,6 @@ reason: ReviveDBNotFound
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1beta1
+  apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-revive-failures-wrong-db-name
+  name: v-revive-failures-communal-path-empty

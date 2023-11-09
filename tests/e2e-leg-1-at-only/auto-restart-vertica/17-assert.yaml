@@ -17,7 +17,7 @@ metadata:
   name: hello-world
 status:
   references:
-  - apiVersion: vertica.com/v1beta1
+  - apiVersion: vertica.com/v1
     kind: VerticaDB
     name: v-auto-restart-vertica
     jobName: hello-world
