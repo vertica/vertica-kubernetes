@@ -529,6 +529,7 @@ func (p *PodFacts) checkIsInstalledForAdmintools(pf *PodFact, gs *GatherState) e
 }
 
 func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact) error {
+	pf.isInstalled = true
 	// The next two fields only apply to admintools style deployments. So,
 	// explicitly disable them.
 	pf.hasStaleAdmintoolsConf = false
