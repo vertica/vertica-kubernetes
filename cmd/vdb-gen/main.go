@@ -43,7 +43,7 @@ func main() {
 		"The user to connect to the database with.  This user must have sufficient priviledges to inspect the database structure.")
 	flag.StringVar(&opts.Password, "password", "",
 		"The password for the --user option")
-	flag.StringVar(&opts.TLSMode, "tlsmode", "none",
+	flag.StringVar(&opts.TLSMode, "tls-mode", "none",
 		"The TLS mode to use when connecting.  Available values are: none, server, and server-strict")
 	flag.StringVar(&opts.VdbName, "name", "vert",
 		"The name of the VerticaDB object it will create")
@@ -60,31 +60,31 @@ func main() {
 	flag.StringVar(&opts.CAFile, "cafile", "",
 		"A path to a CA bundle used to authenticate over https.  This is only needed if a CA file is used to connect "+
 			"to the communal endpoint.")
-	flag.StringVar(&opts.CACertName, "cacertname", "",
+	flag.StringVar(&opts.CACertName, "cacert-name", "",
 		"The name of the Secret that will contain the CA bundle.  You can use this if you have a specific name the cert must be.")
-	flag.StringVar(&opts.HadoopConfigDir, "hadoopConfig", "",
+	flag.StringVar(&opts.HadoopConfigDir, "hadoop-config", "",
 		"A path to a directory that contains the Hadoop config.  All of the files within the directory will be included in a configMap.")
-	flag.StringVar(&opts.AzureAccountName, "accountName", "",
+	flag.StringVar(&opts.AzureAccountName, "account-name", "",
 		"The Azure accountName to use for communal access credentials.  This is required if more than one credential is present.  "+
 			"If only one exists, it will default to using that.")
-	flag.StringVar(&opts.Krb5Conf, "krb5conf", "",
+	flag.StringVar(&opts.Krb5Conf, "krb5-conf", "",
 		"If the communal backend is authenticated with Kerberos, use this parameter to pass in the contents of the krb5.conf file")
-	flag.StringVar(&opts.Krb5Keytab, "krb5keytab", "",
+	flag.StringVar(&opts.Krb5Keytab, "krb5-keytab", "",
 		"If the communal backend is authenticated with Kerberos, use this parameter to pass in the contents of the krb5.keytab file")
-	flag.StringVar(&opts.DepotVolume, "depotvolume", "PersistentVolume",
+	flag.StringVar(&opts.DepotVolume, "depot-volume", "PersistentVolume",
 		"The type of volume to use for the depot. Allowable values will be: EmptyDir and PersistentVolume.")
-	flag.StringVar(&opts.DeploymentMethod, "deploymentmethod", "",
+	flag.Func("deployment-method",
 		fmt.Sprintf("The cluster deployment method to use by the operator. Allowable values will be: %s and %s. If not specified "+
 			"a default deployment method will be deduced from the server version of the live database.",
-			vdbgen.DeploymentMethodAT, vdbgen.DeploymentMethodVC))
+			vdbgen.DeploymentMethodAT, vdbgen.DeploymentMethodVC),
+		func(method string) error {
+			if method != vdbgen.DeploymentMethodAT && method != vdbgen.DeploymentMethodVC {
+				return fmt.Errorf("invalid deployment method")
+			}
+			opts.DeploymentMethod = method
+			return nil
+		})
 	flag.Parse()
-
-	if opts.DeploymentMethod != "" &&
-		opts.DeploymentMethod != vdbgen.DeploymentMethodAT && opts.DeploymentMethod != vdbgen.DeploymentMethodVC {
-		fmt.Println("Invalid deployment method.")
-		flag.Usage()
-		os.Exit(1)
-	}
 
 	if flag.NArg() < NumPositionalArgs {
 		fmt.Println("Not enough positional arguments.")

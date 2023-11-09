@@ -24,6 +24,7 @@ VERTICA_IMG=$2
 VDB_NAME=$3
 COMMUNAL_EP_CERT_SECRET=$4
 DEPLOYMENT_METHOD=$5
+VDB_USER=$6
 
 # The ca.cert is optional.
 if [ -f "/certs/$COMMUNAL_EP_CERT_SECRET/ca.crt" ]
@@ -34,10 +35,11 @@ fi
 /tmp/vdb-gen \
     -license /home/dbadmin/licensing/ce/vertica_community_edition.license.key \
     -image $VERTICA_IMG \
+    -user $VDB_USER \
     -name $VDB_NAME \
     -password superuser \
     -ignore-cluster-lease \
     $CA_CERT_OPT \
-    -depotvolume EmptyDir \
-    -deploymentmethod $DEPLOYMENT_METHOD \
+    -depot-volume EmptyDir \
+    -deployment-method $DEPLOYMENT_METHOD \
     v-vdb-gen-sc2-0.v-vdb-gen.$NAMESPACE vertdb

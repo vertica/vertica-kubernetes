@@ -663,7 +663,7 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 		return errors.New("could not get Vertica version from meta-function")
 	}
 	var fullVersion string
-	if err := rows.Scan(&fullVersion); err != nil {
+	if err = rows.Scan(&fullVersion); err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
 	// regex to match Vertica version
@@ -678,12 +678,22 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 	d.Objs.Vdb.Spec.Image = fmt.Sprintf("vertica/vertica-k8s:%s-0", version)
 
 	// Set proper annotation to ensure correct deployment method.
+	err = d.setDeploymentMethodAnnotationFromServerVersion("v" + version)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setDeploymentMethodAnnotationFromServerVersion will set proper annotation to ensure correct deployment method.
+func (d *DBGenerator) setDeploymentMethodAnnotationFromServerVersion(version string) error {
 	if _, exists := d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]; !exists {
 		// command line option not provided, i.e. no forced deployment method, thus should
 		// determine deployment method based on running server version
-		verInfo, ok := vversion.MakeInfoFromStr("v" + version)
+		verInfo, ok := vversion.MakeInfoFromStr(version)
 		if !ok {
-			return errors.New("could not construct Info struct from the version string")
+			return fmt.Errorf("could not construct Info struct from the version string %s", version)
 		}
 		if verInfo.IsEqualOrNewer(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
@@ -691,7 +701,6 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		}
 	}
-
 	return nil
 }
 

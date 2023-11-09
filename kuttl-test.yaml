@@ -25,7 +25,6 @@ testDirs:
   - tests/e2e-leg-3
   - tests/e2e-leg-3-at-only
   - tests/e2e-leg-4
-  - tests/e2e-leg-4-at-only
   - tests/e2e-leg-5
   - tests/e2e-leg-5-at-only
   - tests/e2e-leg-6

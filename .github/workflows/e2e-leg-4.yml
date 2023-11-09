@@ -71,7 +71,6 @@ jobs:
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS="tests/e2e-leg-4"
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
-        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-4-at-only"; fi
         # All helm deployments will use cert-manager to create the webhook cert
         export HELM_OVERRIDES="--set webhook.certSource=cert-manager"
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
