@@ -78,6 +78,11 @@ func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
 // everything in Vdb. We will know if we are scaling down by comparing the
 // expected subcluster size with the current.
 func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// no-op for vclusterops deployments
+	if vmeta.UseVClusterOps(s.Vdb.Annotations) {
+		return ctrl.Result{}, nil
+	}
+
 	// no-op for ScheduleOnly init policy
 	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return ctrl.Result{}, nil
