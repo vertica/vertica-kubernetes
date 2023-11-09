@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -325,6 +326,58 @@ var _ = Describe("vdb", func() {
 		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("vertica/vertica-k8s:12.0.2-0"))
 		Expect(dbGen.setImage(ctx)).Should(Succeed())
 		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("vertica/vertica-k8s:11.0.1-0"))
+	})
+
+	It("should set default deployment method based on server version if the user doesn't force a deployment method", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.setParmsFromOptions()
+
+		mock.ExpectQuery(Queries[VersionQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"version"}).
+				AddRow("Vertica Analytic Database 23.4.0-0"))
+
+		Expect(dbGen.setImage(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]).Should(Equal(vmeta.VClusterOpsAnnotationFalse))
+
+		dbGen = DBGenerator{Conn: db, Opts: &Options{}}
+		dbGen.setParmsFromOptions()
+
+		mock.ExpectQuery(Queries[VersionQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"version"}).
+				AddRow("Vertica Analytic Database 24.1.0-0"))
+
+		Expect(dbGen.setImage(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]).Should(Equal(vmeta.VClusterOpsAnnotationTrue))
+	})
+
+	It("should respect user-specified deployment method", func() {
+		createMock()
+		defer deleteMock()
+
+		dbGen := DBGenerator{Conn: db, Opts: &Options{DeploymentMethod: DeploymentMethodAT}}
+		dbGen.setParmsFromOptions()
+		Expect(dbGen.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]).Should(Equal(vmeta.VClusterOpsAnnotationFalse))
+
+		mock.ExpectQuery(Queries[VersionQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"version"}).
+				AddRow("Vertica Analytic Database 24.1.0-0"))
+
+		Expect(dbGen.setImage(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]).Should(Equal(vmeta.VClusterOpsAnnotationFalse))
+
+		dbGen = DBGenerator{Conn: db, Opts: &Options{DeploymentMethod: DeploymentMethodVC}}
+		dbGen.setParmsFromOptions()
+		Expect(dbGen.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]).Should(Equal(vmeta.VClusterOpsAnnotationTrue))
+
+		mock.ExpectQuery(Queries[VersionQueryKey]).
+			WillReturnRows(sqlmock.NewRows([]string{"version"}).
+				AddRow("Vertica Analytic Database 23.4.0-0"))
+
+		Expect(dbGen.setImage(ctx)).Should(Succeed())
+		Expect(dbGen.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]).Should(Equal(vmeta.VClusterOpsAnnotationTrue))
 	})
 
 	It("should set as image the one specified on the command line", func() {

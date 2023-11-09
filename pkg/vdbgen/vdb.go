@@ -90,10 +90,7 @@ var Queries = map[QueryType]string{
 // Create will generate a VerticaDB based the specifics gathered from a live database
 func (d *DBGenerator) Create() (*KObjs, error) {
 	ctx := context.Background()
-	err := d.setParmsFromOptions()
-	if err != nil {
-		return nil, err
-	}
+	d.setParmsFromOptions()
 
 	collectors := []func(ctx context.Context) error{
 		d.readLicense,
@@ -147,7 +144,7 @@ func (d *DBGenerator) connect(ctx context.Context) error {
 
 // setParmsFromOptions will set values in the vdb that are obtained from the
 // command line options.
-func (d *DBGenerator) setParmsFromOptions() error {
+func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.TypeMeta.APIVersion = vapi.GroupVersion.String()
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
@@ -176,8 +173,6 @@ func (d *DBGenerator) setParmsFromOptions() error {
 	if d.Opts.Image != "" {
 		d.Objs.Vdb.Spec.Image = d.Opts.Image
 	}
-
-	return nil
 }
 
 // setupCredSecret will link a credential secret into the VerticaDB. Use this if
@@ -686,7 +681,7 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 	if _, exists := d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]; !exists {
 		// command line option not provided, i.e. no forced deployment method, thus should
 		// determine deployment method based on running server version
-		verInfo, ok := vversion.MakeInfoFromStr(version)
+		verInfo, ok := vversion.MakeInfoFromStr("v" + version)
 		if !ok {
 			return errors.New("could not construct Info struct from the version string")
 		}

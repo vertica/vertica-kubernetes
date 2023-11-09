@@ -75,7 +75,8 @@ func main() {
 		"The type of volume to use for the depot. Allowable values will be: EmptyDir and PersistentVolume.")
 	flag.StringVar(&opts.DeploymentMethod, "deploymentmethod", "",
 		fmt.Sprintf("The cluster deployment method to use by the operator. Allowable values will be: %s and %s. If not specified "+
-			"a default deployment method will be deduced from the server version of the live database.", vdbgen.DeploymentMethodAT, vdbgen.DeploymentMethodVC))
+			"a default deployment method will be deduced from the server version of the live database.",
+			vdbgen.DeploymentMethodAT, vdbgen.DeploymentMethodVC))
 	flag.Parse()
 
 	if opts.DeploymentMethod != "" &&
