@@ -77,6 +77,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	opts.CaCert = certs.CaCert
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
+	opts.TrimHostList = true
 	*opts.HonorUserInput = true
 
 	// timeout option

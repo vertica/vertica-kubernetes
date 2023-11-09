@@ -87,6 +87,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	opts.CaCert = certs.CaCert
 	*opts.UserName = vapi.SuperUser
 	opts.Password = &v.Password
+	*opts.TrimReIPList = true
 	*opts.HonorUserInput = true
 
 	return opts
