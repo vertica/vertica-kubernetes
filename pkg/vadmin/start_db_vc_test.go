@@ -56,7 +56,7 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) er
 	}
 
 	// verify timeout
-	if options.StatePollingTimeout != TestTimeout {
+	if *options.StatePollingTimeout != TestTimeout {
 		return fmt.Errorf("failed to retrieve timeout")
 	}
 
