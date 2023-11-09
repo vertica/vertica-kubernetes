@@ -33,6 +33,9 @@ var _ = Describe("k8s/version_reconcile", func() {
 
 	It("should update annotations in vdb since they differ", func() {
 		vdb := vapi.MakeVDB()
+		vdb.ObjectMeta.Annotations = map[string]string{
+			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
+		}
 		vdb.Spec.Subclusters[0].Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -52,7 +55,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 				},
 			},
 		}
-		r := MakeVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false)
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		fetchVdb := &vapi.VerticaDB{}
@@ -88,12 +91,41 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 				},
 			},
 		}
-		r := MakeVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		// Ensure we didn't update the vdb
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal(OrigVersion))
+	})
+
+	It("should fail the reconclier if we use wrong image", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 1
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+		// both the vclusterops annotation and admintoolsExists are false
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err.Error()).Should(ContainSubstring("image vertica-k8s:latest is meant for vclusterops style"))
+
+		// Update both the vclusterops annotation and admintoolsExists to true
+		vdb.ObjectMeta.Annotations = map[string]string{
+			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
+		}
+		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		pfacts.Detail[podWithNoDB].admintoolsExists = true
+		res, err = r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err.Error()).Should(ContainSubstring("image vertica-k8s:latest is meant for admintools style"))
 	})
 })

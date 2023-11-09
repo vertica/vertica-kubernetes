@@ -14,6 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: "mkdir -p ssh-keys && rm -f ssh-keys/* && ssh-keygen -q -t rsa -N '' -f ssh-keys/id_rsa && cp ssh-keys/id_rsa.pub ssh-keys/authorized_keys"
-  - script: "kubectl delete secret -n $NAMESPACE ssh-keys || :"
-  - script: "kubectl create secret -n $NAMESPACE generic ssh-keys --from-file=ssh-keys"
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "
