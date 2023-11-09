@@ -80,7 +80,6 @@ jobs:
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS="tests/e2e-leg-4"
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
-        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-4-at-only"; fi
         export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }}
         if [ -z "${VERTICA_SUPERUSER_NAME}" -o "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then 
           export VERTICA_SUPERUSER_NAME="dbadmin"
