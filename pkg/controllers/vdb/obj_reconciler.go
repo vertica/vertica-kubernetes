@@ -491,10 +491,13 @@ func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.S
 		if !ok {
 			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
 		}
-		if pf.isInstalled || pf.dbExists {
-			o.Log.Info("Requeue since some pods still need db_remove_node and uninstall done.",
-				"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists)
-			return ctrl.Result{Requeue: true}, nil
+		// Skip this check since there is no install state for vclusterops
+		if !vmeta.UseVClusterOps(o.Vdb.Annotations) {
+			if pf.isInstalled || pf.dbExists {
+				o.Log.Info("Requeue since some pods still need db_remove_node and uninstall done.",
+					"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists)
+				return ctrl.Result{Requeue: true}, nil
+			}
 		}
 	}
 
