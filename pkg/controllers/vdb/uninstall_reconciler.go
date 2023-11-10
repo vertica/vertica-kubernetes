@@ -29,7 +29,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -128,13 +127,7 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 	startPodIndex, endPodIndex int32) (ctrl.Result, error) {
 	podsToUninstall, requeueNeeded := s.findPodsSuitableForScaleDown(sc, startPodIndex, endPodIndex)
 	if len(podsToUninstall) > 0 {
-		var err error
-
-		if vmeta.UseVClusterOps(s.Vdb.Annotations) {
-			err = s.uninstallPodsInSubclusterForVClusterOps(ctx, podsToUninstall)
-		} else {
-			err = s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
-		}
+		err := s.uninstallPodsInSubclusterForAdmintools(ctx, podsToUninstall)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -145,20 +138,6 @@ func (s *UninstallReconciler) uninstallPodsInSubcluster(ctx context.Context, sc 
 	}
 
 	return ctrl.Result{Requeue: requeueNeeded}, nil
-}
-
-// uninstallPodsInSubclusterForVClusterOps will call uninstall, for vclusterops, on a list
-// of pods that will be scaled down.
-func (s *UninstallReconciler) uninstallPodsInSubclusterForVClusterOps(ctx context.Context,
-	podsToUninstall []*PodFact) error {
-	cmd := s.genCmdRemoveHTTPTLSConfFile()
-	for _, pod := range podsToUninstall {
-		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
-			return fmt.Errorf("failed to call remove https config file: %w", err)
-		}
-	}
-
-	return nil
 }
 
 // uninstallPodsInSubclusterForAdmintools will call uninstall, for admintools, on a list
@@ -233,9 +212,4 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 // genCmdRemoveInstallIndicator will generate the command to get rid of the installer indicator file
 func (s *UninstallReconciler) genCmdRemoveInstallIndicator() []string {
 	return []string{"rm", s.Vdb.GenInstallerIndicatorFileName()}
-}
-
-// genCmdRemoveHTTPTLSConfFile will generate the command to get rid of the https config file
-func (s *UninstallReconciler) genCmdRemoveHTTPTLSConfFile() []string {
-	return []string{"rm", fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName)}
 }

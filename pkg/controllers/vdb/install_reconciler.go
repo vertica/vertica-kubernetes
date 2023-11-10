@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -60,6 +59,11 @@ func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will ensure Vertica is installed and running in the pods.
 func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// no-op for vclusterops deployment
+	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		return ctrl.Result{}, nil
+	}
+
 	// no-op for ScheduleOnly init policy
 	if d.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return ctrl.Result{}, nil
@@ -70,28 +74,8 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
-	// We generate https conf file and skip the install phase when running
-	// the vclusterOps feature flag
-	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
-		return d.installForVClusterOps(ctx)
-	}
 
 	return d.installForAdmintools(ctx)
-}
-
-// installForVClusterOps will go through the install phase for vclusterOps.
-// It only generates the http certs.
-func (d *InstallReconciler) installForVClusterOps(ctx context.Context) (ctrl.Result, error) {
-	fns := []func(context.Context) error{
-		d.createConfigDirsIfNecessary,
-		d.generateHTTPCerts,
-	}
-	for _, fn := range fns {
-		if err := fn(ctx); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	return ctrl.Result{}, nil
 }
 
 // installForAdmintools will go through the install phase for admintools.
@@ -188,33 +172,6 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 	return nil
 }
 
-// generateHTTPCerts will generate the necessary config file to be able to start and
-// communicate with the Vertica's https server.
-func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
-	for _, p := range d.PFacts.Detail {
-		if !p.isPodRunning {
-			continue
-		}
-		if !p.fileExists[paths.HTTPTLSConfFile] {
-			frwt := httpconf.FileWriter{}
-			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.NMATLSSecret)
-			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
-			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
-			}
-			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
-				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
-			_ = os.Remove(fname)
-			if err != nil {
-				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
-			}
-			// Invalidate the pod facts cache since its out of date due the https generation
-			d.PFacts.Invalidate()
-		}
-	}
-	return nil
-}
-
 // getInstallTargets finds the list of hosts/pods that we need to initialize the config for
 func (d *InstallReconciler) getInstallTargets(ctx context.Context) ([]*PodFact, error) {
 	podList := make([]*PodFact, 0, len(d.PFacts.Detail))
@@ -301,41 +258,34 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
 
-	if vmeta.UseVClusterOps(d.Vdb.Annotations) {
-		if !p.dirExists[paths.HTTPTLSConfDir] {
-			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
-			numCmds++
-		}
-	} else {
-		if !p.dirExists[paths.ConfigLogrotatePath] {
-			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLogrotatePath] {
+		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
-			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
+		numCmds++
+	}
 
-		if !p.fileExists[paths.LogrotateBaseConfFile] {
-			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
-			numCmds++
-		}
+	if !p.fileExists[paths.LogrotateBaseConfFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigSharePath] {
-			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigSharePath] {
+		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigLicensingPath] {
-			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLicensingPath] {
+		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
+		numCmds++
+	}
 
-		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
-			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
-			numCmds++
-		}
+	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
+		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
+		numCmds++
 	}
 
 	if numCmds == 0 {

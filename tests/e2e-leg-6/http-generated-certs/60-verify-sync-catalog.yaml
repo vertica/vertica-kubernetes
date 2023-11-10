@@ -31,7 +31,7 @@ data:
     # command below relies on pipefail being off for this to work.
     for endpoint in cluster/catalog/sync manage/sync-catalog v1/cluster/catalog/sync
     do
-      curl --insecure -X POST --fail --verbose --key /certs/tls.key --cert /certs/tls.crt https://v-http-generated-certs-sc-0.v-http-generated-certs:8443/$endpoint | tee /tmp/curl.out
+      curl --insecure -X POST --fail --verbose --user dbadmin:superuser https://v-http-generated-certs-sc-0.v-http-generated-certs:8443/$endpoint | tee /tmp/curl.out
       grep -cq 'new_truncation_version' /tmp/curl.out && break
     done
 ---

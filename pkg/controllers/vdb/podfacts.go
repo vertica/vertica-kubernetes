@@ -403,11 +403,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		test -d %s && echo true || echo false
 		echo -n '  %s: '
 		test -d %s && echo true || echo false
-		echo -n '  %s: '
-		test -d %s && echo true || echo false
 		echo    'fileExists:'
-		echo -n '  %s: '
-		test -f %s && echo true || echo false
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n '  %s: '
@@ -439,12 +435,10 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.ConfigLogrotatePath, paths.ConfigLogrotatePath,
 		paths.ConfigSharePath, paths.ConfigSharePath,
 		paths.ConfigLicensingPath, paths.ConfigLicensingPath,
-		paths.HTTPTLSConfDir, paths.HTTPTLSConfDir,
 		paths.AdminToolsConf, paths.AdminToolsConf,
 		paths.CELicenseFile, paths.CELicenseFile,
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
-		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName), getPathToVerifyCatalogExists(pf),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
@@ -500,7 +494,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 	case vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
 		return p.checkIsInstalledScheduleOnly(vdb, pf, gs)
 	case vmeta.UseVClusterOps(vdb.Annotations):
-		return p.checkIsInstalledForVClusterOps(pf, gs)
+		return p.checkIsInstalledForVClusterOps(pf)
 	default:
 		return p.checkIsInstalledForAdmintools(pf, gs)
 	}
@@ -534,8 +528,8 @@ func (p *PodFacts) checkIsInstalledForAdmintools(pf *PodFact, gs *GatherState) e
 	return nil
 }
 
-func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact, gs *GatherState) error {
-	pf.isInstalled = gs.FileExists[paths.HTTPTLSConfFile]
+func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact) error {
+	pf.isInstalled = true
 	// The next two fields only apply to admintools style deployments. So,
 	// explicitly disable them.
 	pf.hasStaleAdmintoolsConf = false
