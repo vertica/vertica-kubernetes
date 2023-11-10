@@ -91,5 +91,10 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	// timeout option
 	opts.StatePollingTimeout = new(int)
 	*opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
+
+	// other options
+	opts.TrimHostList = new(bool)
+	*opts.TrimHostList = true
+
 	return opts, nil
 }
