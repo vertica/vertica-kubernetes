@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 )
 
 type DBGenerator struct {
@@ -147,9 +148,17 @@ func (d *DBGenerator) setParmsFromOptions() {
 	d.Objs.Vdb.TypeMeta.APIVersion = vapi.GroupVersion.String()
 	d.Objs.Vdb.TypeMeta.Kind = vapi.VerticaDBKind
 	d.Objs.Vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
-	d.Objs.Vdb.Annotations = map[string]string{
-		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationFalse,
+	d.Objs.Vdb.Annotations = make(map[string]string)
+	// force deployment method if user specified so
+	if d.Opts.DeploymentMethod != "" {
+		// only valid options are accepted, thus safe to assign
+		if d.Opts.DeploymentMethod == DeploymentMethodAT {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		} else {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		}
 	}
+	d.Objs.Vdb.Annotations[vmeta.SuperuserNameAnnotation] = d.Opts.User
 	d.Objs.Vdb.Spec.Communal.AdditionalConfig = make(map[string]string)
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName
 	d.Objs.Vdb.Spec.AutoRestartVertica = true
@@ -655,7 +664,7 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 		return errors.New("could not get Vertica version from meta-function")
 	}
 	var fullVersion string
-	if err := rows.Scan(&fullVersion); err != nil {
+	if err = rows.Scan(&fullVersion); err != nil {
 		return fmt.Errorf("failed running '%s': %w", q, err)
 	}
 	// regex to match Vertica version
@@ -669,6 +678,30 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 	// hotfix 0 regardless of what hotfix was currently in use.
 	d.Objs.Vdb.Spec.Image = fmt.Sprintf("vertica/vertica-k8s:%s-0", version)
 
+	// Set proper annotation to ensure correct deployment method.
+	err = d.setDeploymentMethodAnnotationFromServerVersion("v" + version)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setDeploymentMethodAnnotationFromServerVersion will set proper annotation to ensure correct deployment method.
+func (d *DBGenerator) setDeploymentMethodAnnotationFromServerVersion(version string) error {
+	if _, exists := d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]; !exists {
+		// command line option not provided, i.e. no forced deployment method, thus should
+		// determine deployment method based on running server version
+		verInfo, ok := vversion.MakeInfoFromStr(version)
+		if !ok {
+			return fmt.Errorf("could not construct Info struct from the version string %s", version)
+		}
+		if verInfo.IsEqualOrNewer(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		} else {
+			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		}
+	}
 	return nil
 }
 

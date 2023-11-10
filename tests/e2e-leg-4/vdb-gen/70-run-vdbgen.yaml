@@ -15,7 +15,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   # We have already copied vdb-gen at step 45. Now we run it again, in the container.
-  - script: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- sh -c \"/tmp/run-vdb-gen.sh $NAMESPACE $(cd ../../.. && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2) v-vdb-gen-revive2 $(kubectl get cm e2e -n $NAMESPACE -o jsonpath='{.data.caFileSecretName}')\" > /tmp/$NAMESPACE-vdb-gen.yaml"
+  - script: sh -c "kubectl -n $NAMESPACE exec v-vdb-gen-sc1-0 -- sh -c \"/tmp/run-vdb-gen.sh $NAMESPACE $(cd ../../.. && make echo-images | grep ^VERTICA_IMG= | cut -d'=' -f2) v-vdb-gen-revive2 $(kubectl get cm e2e -n $NAMESPACE -o jsonpath='{.data.caFileSecretName}') ${VERTICA_DEPLOYMENT_METHOD:-admintools} ${VERTICA_SUPERUSER_NAME:-dbadmin}\" > /tmp/$NAMESPACE-vdb-gen.yaml"
   - command: cat /tmp/$NAMESPACE-vdb-gen.yaml
   # Apply the generated CR
   - command: kubectl -n $NAMESPACE apply -f /tmp/$NAMESPACE-vdb-gen.yaml
