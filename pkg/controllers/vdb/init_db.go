@@ -130,7 +130,7 @@ func (g *GenericDatabaseInitializer) checkPodList(podList []*PodFact) bool {
 		// Bail if:
 		// - find one of the pods isn't running
 		// - installer hasn't run yet for the pod (only if admintools
-		//	 as we install is skipped in vclusterops mode).
+		//	 as install is skipped in vclusterops mode).
 		// - doesn't have the annotations that we use in the k8s Vertica DC
 		//   table. This has to be present before we start vertica to populate
 		//   the DC table correctly.
