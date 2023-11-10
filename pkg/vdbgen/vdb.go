@@ -158,6 +158,7 @@ func (d *DBGenerator) setParmsFromOptions() {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		}
 	}
+	d.Objs.Vdb.Annotations[vmeta.SuperuserNameAnnotation] = d.Opts.User
 	d.Objs.Vdb.Spec.Communal.AdditionalConfig = make(map[string]string)
 	d.Objs.Vdb.Spec.DBName = d.Opts.DBName
 	d.Objs.Vdb.Spec.AutoRestartVertica = true
