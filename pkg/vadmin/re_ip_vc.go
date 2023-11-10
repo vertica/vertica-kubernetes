@@ -100,5 +100,8 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	opts.Password = &v.Password
 	*opts.HonorUserInput = true
 
+	// other options
+	opts.TrimReIPList = true
+
 	return opts
 }
