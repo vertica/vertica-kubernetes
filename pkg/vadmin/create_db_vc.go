@@ -21,7 +21,6 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
@@ -79,6 +78,9 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	// Additional configuration parameters for create db.
 	opts.ConfigurationParameters = s.ConfigurationParams
 
+	// Flag to generate HTTPS tls conf in vertica bootstrap catalog
+	*opts.GenerateHTTPCerts = true
+
 	if s.ShardCount > 0 {
 		opts.ShardCount = &s.ShardCount
 	}
@@ -87,7 +89,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = vapi.SuperUser
+	*opts.UserName = v.VDB.GetVerticaUser()
 	if v.Password != "" {
 		opts.Password = &v.Password
 	}

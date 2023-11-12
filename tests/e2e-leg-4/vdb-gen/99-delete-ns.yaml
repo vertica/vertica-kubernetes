@@ -11,21 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-revive-failures-too-few-nodes
-status:
-  installCount: 1
-  addedToDBCount: 0
-  upNodeCount: 0
----
-apiVersion: v1
-kind: Event
-reason: ReviveDBNodeCountMismatch
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-revive-failures-too-few-nodes
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete ns $NAMESPACE

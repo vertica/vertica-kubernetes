@@ -96,6 +96,10 @@ type PodFact struct {
 	// created and this pod has been added to the vertica cluster.
 	dbExists bool
 
+	// Does the admintools bin exist at this pod? This is true if the image
+	// was deployed by Admintools
+	admintoolsExists bool
+
 	// true means the pod has a running vertica process, but it isn't yet
 	// accepting connections because it is in the middle of startup.
 	startupInProgress bool
@@ -187,6 +191,7 @@ type GatherState struct {
 	VNodeName              string          `json:"vnodeName"`
 	LocalDataSize          int             `json:"localDataSize"`
 	LocalDataAvail         int             `json:"localDataAvail"`
+	AdmintoolsExists       bool            `json:"admintoolsExists"`
 }
 
 // dBCheckType identifies how to pick pods in findReIPPods
@@ -398,11 +403,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		test -d %s && echo true || echo false
 		echo -n '  %s: '
 		test -d %s && echo true || echo false
-		echo -n '  %s: '
-		test -d %s && echo true || echo false
 		echo    'fileExists:'
-		echo -n '  %s: '
-		test -f %s && echo true || echo false
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n '  %s: '
@@ -426,18 +427,18 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		df --block-size=1 --output=size %s | tail -1
 		echo -n 'localDataAvail: '
 		df --block-size=1 --output=avail %s | tail -1
+		echo -n 'admintoolsExists: '
+		which admintools &> /dev/null && echo true || echo false
  	`,
 		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
 		paths.ConfigLogrotatePath, paths.ConfigLogrotatePath,
 		paths.ConfigSharePath, paths.ConfigSharePath,
 		paths.ConfigLicensingPath, paths.ConfigLicensingPath,
-		paths.HTTPTLSConfDir, paths.HTTPTLSConfDir,
 		paths.AdminToolsConf, paths.AdminToolsConf,
 		paths.CELicenseFile, paths.CELicenseFile,
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
-		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName), getPathToVerifyCatalogExists(pf),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
@@ -493,7 +494,7 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 	case vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
 		return p.checkIsInstalledScheduleOnly(vdb, pf, gs)
 	case vmeta.UseVClusterOps(vdb.Annotations):
-		return p.checkIsInstalledForVClusterOps(pf, gs)
+		return p.checkIsInstalledForVClusterOps(pf)
 	default:
 		return p.checkIsInstalledForAdmintools(pf, gs)
 	}
@@ -527,8 +528,8 @@ func (p *PodFacts) checkIsInstalledForAdmintools(pf *PodFact, gs *GatherState) e
 	return nil
 }
 
-func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact, gs *GatherState) error {
-	pf.isInstalled = gs.FileExists[paths.HTTPTLSConfFile]
+func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact) error {
+	pf.isInstalled = true
 	// The next two fields only apply to admintools style deployments. So,
 	// explicitly disable them.
 	pf.hasStaleAdmintoolsConf = false
@@ -547,6 +548,7 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.V
 	pf.fileExists = gs.FileExists
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
+	pf.admintoolsExists = gs.AdmintoolsExists
 	// If the vertica process is running, then the database is UP. This is
 	// consistent with the liveness probe, which goes a bit further and checks
 	// if the client port is opened. If the vertica process dies, the liveness

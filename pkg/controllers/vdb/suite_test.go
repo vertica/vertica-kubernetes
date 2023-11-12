@@ -113,9 +113,6 @@ func defaultPodFactOverrider(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, 
 		paths.ConfigLogrotatePath: true,
 		paths.ConfigSharePath:     true,
 	}
-	pf.fileExists = map[string]bool{
-		paths.HTTPTLSConfFile: true,
-	}
 	pf.dbExists = true
 	pf.startupInProgress = false
 	pf.upNode = true

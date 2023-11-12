@@ -126,7 +126,8 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 }
 
 // buildConfigVolumeMount returns the volume mount for config.
-// If vclusterops flag is enabled we mount only /opt/vertica/config/https_certs
+// If vclusterops flag is enabled we mount only
+// /opt/vertica/config/node_management_agent.pid
 func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      vapi.LocalDataPVC,

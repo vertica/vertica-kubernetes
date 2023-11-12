@@ -454,11 +454,11 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	}
 
 	const EnforceUpgradePath = true
-	a := MakeVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
+	a := MakeImageVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
 
 	// We use a custom lookup function to only find pods for the subcluster we
 	// are working on.
-	vr := a.(*VersionReconciler)
+	vr := a.(*ImageVersionReconciler)
 	scName := sts.Labels[vmeta.SubclusterNameLabel]
 	vr.FindPodFunc = func() (*PodFact, bool) {
 		for _, v := range o.PFacts.Detail {

@@ -24,7 +24,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -118,41 +117,6 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		Expect(res.Requeue).Should(BeTrue())
 	})
 
-	It("should have a successful installer reconcile when running vclusterOps feature flag", func() {
-		secretName := "tls-1"
-		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = secretName
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
-		defer test.DeleteSecret(ctx, k8sClient, secretName)
-
-		fpr := &cmds.FakePodRunner{}
-		pfact := MakePodFacts(vdbRec, fpr)
-		cmds := reconcileAndFindHTTPTLSConfFileName(ctx, vdb, fpr, &pfact, false)
-		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
-	})
-
-	It("should not wait for all pods to be running to install when vclusterOps is set", func() {
-		secretName := "tls-2"
-		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = secretName
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
-		defer test.DeleteSecret(ctx, k8sClient, secretName)
-
-		sc := &vdb.Spec.Subclusters[0]
-		fpr := &cmds.FakePodRunner{}
-		pfact := MakePodFacts(vdbRec, fpr)
-		Expect(pfact.Collect(ctx, vdb)).Should(Succeed())
-		pfact.Detail[names.GenPodName(vdb, sc, 1)].isPodRunning = false
-		cmds := reconcileAndFindHTTPTLSConfFileName(ctx, vdb, fpr, &pfact, false)
-		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size) - 1))
-	})
-
 	It("install should accept eula", func() {
 		vdb := vapi.MakeVDB()
 		const ScIndex = 0
@@ -191,46 +155,4 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		Expect(len(podList)).Should(Equal(1))
 		Expect(podList[0].name).Should(Equal(names.GenPodName(vdb, sc, 0)))
 	})
-
-	It("should generate https config only with vclusterops", func() {
-		secretName := "tls-secret"
-		vdb := vapi.MakeVDB()
-		vdb.Spec.NMATLSSecret = secretName
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
-		defer test.DeleteSecret(ctx, k8sClient, secretName)
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
-
-		fpr := &cmds.FakePodRunner{}
-		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
-		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
-		drecon := actor.(*InstallReconciler)
-		for _, val := range pfact.Detail {
-			Expect(drecon.genCreateConfigDirsScript(val)).ShouldNot(ContainSubstring(paths.HTTPTLSConfDir))
-		}
-		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
-		Expect(len(cmds)).Should(Equal(0))
-
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		for _, val := range pfact.Detail {
-			Expect(drecon.genCreateConfigDirsScript(val)).Should(ContainSubstring(paths.HTTPTLSConfDir))
-		}
-		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		cmds = fpr.FindCommands(paths.HTTPTLSConfFileName)
-		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
-	})
 })
-
-func reconcileAndFindHTTPTLSConfFileName(ctx context.Context, vdb *vapi.VerticaDB,
-	fpr *cmds.FakePodRunner, pf *PodFacts, requeue bool) []cmds.CmdHistory {
-	actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pf)
-	drecon := actor.(*InstallReconciler)
-	res, err := drecon.Reconcile(ctx, &ctrl.Request{})
-	Expect(err).Should(Succeed())
-	if requeue {
-		Expect(res.Requeue).Should(BeTrue())
-	} else {
-		Expect(res.Requeue).Should(BeFalse())
-	}
-	return fpr.FindCommands(paths.HTTPTLSConfFileName)
-}

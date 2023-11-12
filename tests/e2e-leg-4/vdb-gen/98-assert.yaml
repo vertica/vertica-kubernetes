@@ -11,21 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-revive-failures-local-path-mismatch
-status:
-  installCount: 2
-  addedToDBCount: 0
-  upNodeCount: 0
----
 apiVersion: v1
-kind: Event
-reason: ReviveDBPermissionDenied
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaDB
-  name: v-revive-failures-local-path-mismatch
+kind: Pod
+metadata:
+  name: clean-communal
+status:
+  phase: Succeeded

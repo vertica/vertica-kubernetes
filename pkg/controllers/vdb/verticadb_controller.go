@@ -97,7 +97,12 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.2/pkg/reconcile
 func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("verticadb", req.NamespacedName)
+	// remove goroutineID after VER-89903 is closed
+	goroutineID, e := goid()
+	if e != nil {
+		return ctrl.Result{}, e
+	}
+	log := r.Log.WithValues("verticadb", req.NamespacedName, "goroutine", goroutineID)
 	log.Info("starting reconcile of VerticaDB")
 
 	vdb := &vapi.VerticaDB{}
@@ -124,7 +129,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, passwd)
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
@@ -221,7 +226,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// statefulsets and service objects.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Set version info in the annotations and check that it is the minimum
-		MakeVersionReconciler(r, log, vdb, prunner, pfacts, false),
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),

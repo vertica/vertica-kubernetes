@@ -11,21 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-revive-failures-wrong-db-name
+  name: v-verify-image-sc1
 status:
-  installCount: 2
-  addedToDBCount: 0
-  upNodeCount: 0
+  replicas: 1
 ---
 apiVersion: v1
 kind: Event
-reason: ReviveDBNotFound
+reason: WrongImage
 source:
   component: verticadb-operator
 involvedObject:
-  apiVersion: vertica.com/v1beta1
+  apiVersion: vertica.com/v1
   kind: VerticaDB
-  name: v-revive-failures-wrong-db-name
+  name: v-verify-image
