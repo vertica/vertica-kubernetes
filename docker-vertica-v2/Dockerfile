@@ -54,9 +54,6 @@ RUN set -x \
   --data-dir /home/dbadmin \
   && mkdir -p /home/dbadmin/licensing/ce \
   && cp -r /opt/vertica/config/licensing/* /home/dbadmin/licensing/ce/ \
-  && mkdir -p /home/dbadmin/logrotate \
-  && cp -r /opt/vertica/config/logrotate /home/dbadmin/logrotate/  \
-  && cp /opt/vertica/config/logrotate_base.conf /home/dbadmin/logrotate/ \
   && chown -R dbadmin:verticadba /opt/vertica \
   # reduce the size of the final image
   && rm -rf /opt/vertica/lib64  \
@@ -121,7 +118,6 @@ RUN set -x \
   libkeyutils1\
   libz-dev \
   locales \
-  logrotate \
   ntp \
   openssl \
   procps \

@@ -1,0 +1,7 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # upload the sql files
+  - command: kubectl -n $NAMESPACE cp ./sql-input/logrotate.sql v-verify-server-logrotate-main-0:/tmp
+  # upload the expected outputs of executing sql files
+  - command: kubectl -n $NAMESPACE cp ./expected-output/logrotateTimerServiceOut.txt v-verify-server-logrotate-main-0:/tmp
