@@ -183,8 +183,8 @@ func (g *ConfigParamsGenerator) setKerberosAuthParms() error {
 }
 
 func (g *ConfigParamsGenerator) setEncryptSpreadCommConfigIfNecessary() {
-	if g.Vdb.Spec.EncryptSpreadComm != "" && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
-		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.Spec.EncryptSpreadComm)
+	if g.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		g.ConfigurationParams.Set("EncryptSpreadComm", g.getEncryptSpreadComm())
 	}
 }
 
@@ -581,4 +581,13 @@ func genUnsupportedVerticaVersionEventMsg(feature, supportedVersion string) stri
 	// The '%s' is a placeholder for the version extracted from a vdb
 	prefix := "The engine (%s) doesn't have the required change to setup"
 	return fmt.Sprintf("%s %s. You must be on version %s or greater", prefix, feature, supportedVersion)
+}
+
+// getEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
+// an empty string, otherwise return the value of encryptSpreadComm
+func (g *ConfigParamsGenerator) getEncryptSpreadComm() string {
+	if g.Vdb.Spec.EncryptSpreadComm == "" {
+		return vapi.EncryptSpreadCommWithVertica
+	}
+	return g.Vdb.Spec.EncryptSpreadComm
 }

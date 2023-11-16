@@ -232,11 +232,12 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Controls if the spread communication between pods is encrypted.  Valid
-	// values are 'vertica' or an empty string if not enabled.  When set to
-	// 'vertica', Vertica generates the spread encryption key for the cluster
-	// when the database starts up.  This can only be set during initial
-	// creation of the CR.  If set for initPolicy other than Create, then it has
-	// no effect.
+	// values are 'vertica', 'disabled', or an empty string.  By default,
+	// the value is set to 'vertica' unless the user explicitly set it to
+	// 'disabled'.  When set to 'vertica' or an empty string, Vertica generates
+	// the spread encryption key for the cluster when the database starts up.
+	//  This can only be set during initial creation of the CR.  If set for
+	// initPolicy other than Create, then it has no effect.
 	EncryptSpreadComm string `json:"encryptSpreadComm,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -354,7 +355,10 @@ const (
 const URTime = 30
 
 // Valid values for EncryptSpreadComm
-const EncryptSpreadCommWithVertica = "vertica"
+const (
+	EncryptSpreadCommWithVertica = "vertica"
+	EncryptSpreadCommDisabled    = "disabled"
+)
 
 type UpgradePolicyType string
 

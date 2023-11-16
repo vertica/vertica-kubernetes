@@ -11,29 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-autoscale-by-pod
-  annotations:
-    vertica.com/requeue-time: "5"
-    vertica.com/ssh-secret: "ssh-keys"
-    vertica.com/include-uid-in-path: true
-spec:
-  initPolicy: CreateSkipPackageInstall
-  image: kustomize-vertica-image
-  communal: {}
-  local:
-    requestSize: 100Mi
-  dbName: vert
-  shardCount: 3
-  subclusters:
-    - name: sc1
-      size: 2
-    - name: sc2
-      size: 1
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
-  encryptSpreadComm: disabled
+  name: test-verify-spread-encryption
+status:
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0
