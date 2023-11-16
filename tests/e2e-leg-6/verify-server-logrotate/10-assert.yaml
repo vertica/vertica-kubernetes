@@ -20,4 +20,4 @@ status:
     - name: test
       state:
         terminated:
-          exitCode: 0  # If ksafe value is wrong, exit code will be 5
+          exitCode: 0 
