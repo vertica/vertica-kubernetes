@@ -1,11 +1,7 @@
 -- Cleanup the DC table
 select clear_data_collector('LogRotateOperations');
 
--- Cleanup configuration
-ALTER DATABASE default clear LogRotateMaxSize;
-ALTER DATABASE default clear LogRotateMaxAge;
-
--- Run with default configurations
+-- Logrotate service turn on by default, run with default configurations
 select hurry_service('SYSTEM', 'LogRotate', 60);
     
 -- Check the system view, should show 2 records
@@ -27,6 +23,12 @@ select hurry_service('SYSTEM', 'LogRotate', 60);
 
 -- Check the system view on node01
 SELECT node_name, success, max_size, max_age, log_file, need_rotation FROM log_rotate_events ORDER BY node_name;
+
+-- Cleanup the DC table and turn off the timer service, should not run
+select clear_data_collector('LogRotateOperations');
+ALTER DATABASE default set EnableLogRotate = 0;
+select hurry_service('SYSTEM', 'LogRotate', 60);
+SELECT * FROM log_rotate_events ORDER BY node_name;
 
 -- Cleanup configurations
 ALTER DATABASE default clear LogRotateMaxSize;
