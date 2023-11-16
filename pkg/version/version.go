@@ -109,6 +109,13 @@ func (i *Info) IsEqualExceptPatch(other *Info) bool {
 	return other.VdbMajor == i.VdbMajor && other.VdbMinor == i.VdbMinor
 }
 
+// IsLowerExceptPatch returns true if the receiver's major/minor version
+// is lower than the given version.
+func (i *Info) IsLowerExceptPatch(other *Info) bool {
+	return i.VdbMajor < other.VdbMajor ||
+		(i.VdbMajor == other.VdbMajor && i.VdbMinor < other.VdbMinor)
+}
+
 // IsValidUpgradePath will return true if the current version is allowed to
 // upgrade to targetVer.  This will return false if the path isn't compatible.
 func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason string) {
@@ -143,7 +150,7 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 		// version of vertica that came out after the version of this operator.
 		return true, ""
 	}
-	if t.IsEqualExceptPatch(&nextVer) {
+	if t.IsEqualExceptPatch(&nextVer) || t.IsLowerExceptPatch(&nextVer) {
 		return true, ""
 	}
 	return false,
