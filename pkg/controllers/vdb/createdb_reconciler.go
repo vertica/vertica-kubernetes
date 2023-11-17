@@ -175,7 +175,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	// config parm in the create db call.
 	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && ok && vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
 		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
-		`, c.Vdb.Spec.EncryptSpreadComm))
+		`, vapi.EncryptSpreadCommWithVertica))
 	}
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",

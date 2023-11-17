@@ -468,10 +468,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Controls if the spread communication between pods is encrypted.  Valid
-          values are 'vertica' or an empty string if not enabled.  When set to 'vertica',
-          Vertica generates the spread encryption key for the cluster when the database
-          starts up.  This can only be set during initial creation of the CR.  If
-          set for initPolicy other than Create, then it has no effect.
+          values are 'vertica', 'disabled', or an empty string.  By default, the value
+          is set to 'vertica' unless the user explicitly set it to 'disabled'.  When
+          set to 'vertica' or an empty string, Vertica generates the spread encryption
+          key for the cluster when the database starts up. This can only be set during
+          initial creation of the CR.  If set for initPolicy other than Create, then
+          it has no effect.
         displayName: Encrypt Spread Comm
         path: encryptSpreadComm
         x-descriptors:
@@ -599,7 +601,7 @@ spec:
           set, the secret must have the following keys defined: - tls.key: The private
           key to be used by the HTTP server - tls.crt: The signed certificate chain
           for the private key - ca.crt: The CA certificate'
-        displayName: Nma TLSSecret
+        displayName: NMATLSSecret
         path: nmaTLSSecret
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
@@ -812,12 +814,11 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'Indicates the type of subcluster it is. Valid values are: primary,
-          secondary or transient. You must have at least one primary subcluster in
-          the database. If omitted, the webhook will choose a suitable default; primary
-          if none exists, otherwise it will default to a secondary. Transient should
-          only be set internally by the operator during online upgrade. It is used
-          to indicate a subcluster that exists temporarily to serve traffic for subclusters
-          that are restarting with a new image.'
+          secondary or transient. Types are case-sensitive. You must have at least
+          one primary subcluster in the database. If type is omitted, it will default
+          to a primary. Transient should only be set internally by the operator during
+          online upgrade. It is used to indicate a subcluster that exists temporarily
+          to serve traffic for subclusters that are restarting with a new image.'
         displayName: Type
         path: subclusters[0].type
         x-descriptors:
@@ -971,12 +972,11 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: 'Indicates the type of subcluster it is. Valid values are: primary,
-          secondary or transient. You must have at least one primary subcluster in
-          the database. If omitted, the webhook will choose a suitable default; primary
-          if none exists, otherwise it will default to a secondary. Transient should
-          only be set internally by the operator during online upgrade. It is used
-          to indicate a subcluster that exists temporarily to serve traffic for subclusters
-          that are restarting with a new image.'
+          secondary or transient. Types are case-sensitive. You must have at least
+          one primary subcluster in the database. If type is omitted, it will default
+          to a primary. Transient should only be set internally by the operator during
+          online upgrade. It is used to indicate a subcluster that exists temporarily
+          to serve traffic for subclusters that are restarting with a new image.'
         displayName: Type
         path: temporarySubclusterRouting.template.type
         x-descriptors:
@@ -1238,11 +1238,10 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Controls if the spread communication between pods is encrypted.  Valid
-          values are 'vertica', 'disabled', or an empty string.  By default, the value is
-          set to 'vertica' unless the user explicitly set it to 'disabled'.  When set to
-          'vertica' or an empty string, Vertica generates the spread encryption key for
-          the cluster when the database starts up. This can only be set during initial creation
-          of the CR.  If set for initPolicy other than Create, then it has no effect.
+          values are 'vertica' or an empty string if not enabled.  When set to 'vertica',
+          Vertica generates the spread encryption key for the cluster when the database
+          starts up.  This can only be set during initial creation of the CR.  If
+          set for initPolicy other than Create, then it has no effect.
         displayName: Encrypt Spread Comm
         path: encryptSpreadComm
         x-descriptors:
