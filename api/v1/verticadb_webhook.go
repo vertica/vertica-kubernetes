@@ -132,6 +132,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 
 	allErrs = v.checkImmutableBasic(oldObj, allErrs)
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
+	allErrs = v.checkImmutableDeploymentMethod(oldObj, allErrs)
 	allErrs = v.checkImmutableTemporarySubclusterRouting(oldObj, allErrs)
 	allErrs = v.checkImmutableEncryptSpreadComm(oldObj, allErrs)
 	allErrs = v.checkImmutableLocalPathChange(oldObj, allErrs)
@@ -943,6 +944,20 @@ func (v *VerticaDB) checkImmutableUpgradePolicy(oldObj *VerticaDB, allErrs field
 		v.Spec.UpgradePolicy,
 		"upgradePolicy cannot change because upgrade is in progress")
 	allErrs = append(allErrs, err)
+	return allErrs
+}
+
+// checkImmutableDeploymentMethod will check if the deployment type is changing from
+// vclusterops to admintools, which isn't allowed.
+func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if vmeta.UseVClusterOps(oldObj.Annotations) && !vmeta.UseVClusterOps(v.Annotations) {
+		// change from vclusterops deployment to admintools deployment
+		prefix := field.NewPath("metadata").Child("annotations")
+		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+			v.Annotations[vmeta.VClusterOpsAnnotation],
+			"deployment type cannot change from vclusterops to admintools")
+		allErrs = append(allErrs, err)
+	}
 	return allErrs
 }
 
