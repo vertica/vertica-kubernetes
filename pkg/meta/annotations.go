@@ -88,7 +88,7 @@ const (
 	// otherwise, the calculation will be based on the number of all nodes
 	// in the cluster.
 	RelaxKSafetyCheckAnnotation   = "vertica.com/relax-k-safety-check"
-	RelaxKSafetyCheckDefaultValue = "false"
+	RelaxKSafetyCheckDefaultValue = "true"
 
 	// If a reconciliation iteration needs to be requeued this controls the
 	// amount of time in seconds to wait.  If this is set to 0, or not set, then
