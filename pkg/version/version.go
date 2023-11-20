@@ -51,8 +51,10 @@ var UpgradePaths = map[Components]Info{
 	{12, 0, 4}: {"v23.3.x", Components{23, 3, 0}},
 	// From here upwards the x.4.0 release (4th quarter release)
 	// is the LTS version so all releases will have the closest x.4.0
-	// as their next release they can be upgraded to. If the next x.4.0
-	// is not out yet then it will be the latest release.
+	// as their next release they can be upgraded to.
+	// example:
+	//	- {23, 4, 0}: {"v24.4.x", Components{24, 4, 0}}
+	//	- {24, 1, 0}: {"v24.4.x", Components{24, 4, 0}}
 	{23, 3, 0}: {"v23.4.x", Components{23, 4, 0}},
 }
 
