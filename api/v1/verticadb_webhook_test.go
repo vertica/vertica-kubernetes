@@ -573,6 +573,11 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Subclusters[1].ServiceAnnotations = vdb.Spec.Subclusters[0].ServiceAnnotations
 		validateSpecValuesHaveErr(vdb, false)
+		// make the k-safety check strict
+		vdb.Annotations[vmeta.RelaxKSafetyCheckAnnotation] = strconv.FormatBool(false)
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.Subclusters[0].Size = 5
+		validateSpecValuesHaveErr(vdb, false)
 	})
 
 	It("should allow different serviceTypes if the serviceName isn't filled in", func() {
@@ -840,7 +845,6 @@ func createVDBHelper() *VerticaDB {
 
 func validateSpecValuesHaveErr(vdb *VerticaDB, hasErr bool) {
 	allErrs := vdb.validateVerticaDBSpec()
-	fmt.Printf("AAAAAAAA %v\n", allErrs)
 	if hasErr {
 		ExpectWithOffset(1, allErrs).ShouldNot(BeNil())
 	} else {
