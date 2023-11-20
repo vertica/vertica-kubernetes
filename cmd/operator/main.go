@@ -144,10 +144,6 @@ func addWebhooksToManager(mgr manager.Manager) {
 	webhookServer := mgr.GetWebhookServer()
 	webhookServer.TLSMinVersion = "1.3"
 
-	if err := (&vapiB1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiB1.Version)
-		os.Exit(1)
-	}
 	if err := (&vapiV1.VerticaDB{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "VerticaDB", "version", vapiV1.Version)
 	}

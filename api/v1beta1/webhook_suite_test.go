@@ -95,9 +95,6 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&VerticaDB{}).SetupWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = (&VerticaAutoscaler{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
