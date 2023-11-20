@@ -83,6 +83,13 @@ const (
 	KSafetyAnnotation   = "vertica.com/k-safety"
 	KSafetyDefaultValue = "1"
 
+	// When set to true, the webhook will calculate the k-safety value
+	// based on the number of primary nodes in the cluster;
+	// otherwise, the calculation will be based on the number of all nodes
+	// in the cluster.
+	RelaxKSafetyCheckAnnotation   = "vertica.com/relax-k-safety-check"
+	RelaxKSafetyCheckDefaultValue = "false"
+
 	// If a reconciliation iteration needs to be requeued this controls the
 	// amount of time in seconds to wait.  If this is set to 0, or not set, then
 	// the requeue time will increase using an exponential backoff algorithm.

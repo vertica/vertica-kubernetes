@@ -217,6 +217,8 @@ type VerticaDBSpec struct {
 	// This value cannot change after the initial creation of the VerticaDB.
 	KSafety KSafetyType `json:"kSafety,omitempty"`
 
+	RelaxKSafetyCheck bool `json:"relaxKSafetyCheck,omitempty"`
+
 	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}

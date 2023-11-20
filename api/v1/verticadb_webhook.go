@@ -19,6 +19,7 @@ package v1
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -380,10 +381,23 @@ func (v *VerticaDB) validateKsafety(allErrs field.ErrorList) field.ErrorList {
 
 func (v *VerticaDB) getClusterSize() int {
 	sizeSum := 0
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		sizeSum += int(sc.Size)
+
+	if v.Annotations[vmeta.RelaxKSafetyCheckAnnotation] == strconv.FormatBool(true) {
+		for i := range v.Spec.Subclusters {
+			sc := &v.Spec.Subclusters[i]
+			sizeSum += int(sc.Size)
+		}
+	} else {
+		// in case the k-safety check is not relaxed,
+		// we calculate the cluster size on the primary nodes only
+		for i := range v.Spec.Subclusters {
+			sc := &v.Spec.Subclusters[i]
+			if sc.IsPrimary() {
+				sizeSum += int(sc.Size)
+			}
+		}
 	}
+
 	return sizeSum
 }
 
