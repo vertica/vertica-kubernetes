@@ -261,13 +261,13 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	// Logrotate setup is only required for versions before 24.1.0 of the database.
 	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
 	vinf, ok := d.Vdb.MakeVersionInfo()
-	if !ok || !vinf.IsEqualOrNewer(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
+	if !ok || !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
 		if !p.dirExists[paths.ConfigLogrotatePath] {
 			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
 			numCmds++
 		}
 
-		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.LogrotateATFile] {
+		if !p.fileExists[paths.LogrotateATFile] {
 			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/logrotate/%s %s\n", paths.LogrotateATFileName, paths.LogrotateATFile))
 			numCmds++
 		}
