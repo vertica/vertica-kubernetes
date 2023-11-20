@@ -86,9 +86,7 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.Communal.IncludeUIDInPath {
 		newAnnotations[vmeta.IncludeUIDInPathAnnotation] = strconv.FormatBool(src.Spec.Communal.IncludeUIDInPath)
 	}
-	if src.Spec.RelaxKSafetyCheck {
-		newAnnotations[vmeta.RelaxKSafetyCheckAnnotation] = strconv.FormatBool(true)
-	}
+	newAnnotations[vmeta.RelaxKSafetyCheckAnnotation] = strconv.FormatBool(true)
 	// If the vclusterOps annotation is not there, add it so that CRs converted
 	// from v1beta1 will still use admintools deployments. v1 APIs already have
 	// a default deployment of vclusterOps.
