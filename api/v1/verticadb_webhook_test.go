@@ -17,6 +17,7 @@ package v1
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -535,6 +536,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should error out if service specific fields are different in subclusters with matching serviceNames", func() {
 		vdb := createVDBHelper()
+		vdb.Annotations[vmeta.RelaxKSafetyCheckAnnotation] = strconv.FormatBool(true)
 		const ServiceName = "main"
 		vdb.Spec.Subclusters = []Subcluster{
 			{
@@ -838,6 +840,7 @@ func createVDBHelper() *VerticaDB {
 
 func validateSpecValuesHaveErr(vdb *VerticaDB, hasErr bool) {
 	allErrs := vdb.validateVerticaDBSpec()
+	fmt.Printf("AAAAAAAA %v\n", allErrs)
 	if hasErr {
 		ExpectWithOffset(1, allErrs).ShouldNot(BeNil())
 	} else {
