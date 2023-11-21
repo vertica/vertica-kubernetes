@@ -217,15 +217,6 @@ type VerticaDBSpec struct {
 	// This value cannot change after the initial creation of the VerticaDB.
 	KSafety KSafetyType `json:"kSafety,omitempty"`
 
-	// +kubebuilder:default:=false
-	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// When set to true, the webhook will calculate the k-safety value
-	// based on the number of primary nodes in the cluster;
-	// otherwise, the calculation will be based on the number of all nodes
-	// in the cluster.
-	RelaxKSafetyCheck bool `json:"relaxKSafetyCheck,omitempty"`
-
 	// +kubebuilder:default:=0
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
