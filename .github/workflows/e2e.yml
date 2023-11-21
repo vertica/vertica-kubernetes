@@ -106,7 +106,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+      vertica-image: "vertica/vertica-k8s:23.4.0-0-minimal"
       vertica-deployment-method: admintools
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -132,7 +132,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+      vertica-image: "vertica/vertica-k8s:12.0.4-0-minimal"
       vertica-deployment-method: admintools
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
