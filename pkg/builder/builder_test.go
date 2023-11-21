@@ -279,6 +279,13 @@ var _ = Describe("builder", func() {
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
 		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		// test default value (which should be true)
+		delete(vdb.Annotations, vmeta.MountNMACerts)
+		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 })
 
