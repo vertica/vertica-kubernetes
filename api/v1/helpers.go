@@ -527,3 +527,7 @@ func (s *SubclusterStatus) InstallCount() int32 {
 func (v *VerticaDB) GetVerticaUser() string {
 	return vmeta.GetSuperuserName(v.Annotations)
 }
+
+func (v *VerticaDB) IsKSafetyCheckRelaxed() bool {
+	return vmeta.IsKSafetyCheckRelaxed(v.Annotations)
+}

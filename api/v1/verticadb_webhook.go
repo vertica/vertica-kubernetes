@@ -381,7 +381,7 @@ func (v *VerticaDB) validateKsafety(allErrs field.ErrorList) field.ErrorList {
 func (v *VerticaDB) getClusterSize() int {
 	sizeSum := 0
 
-	if vmeta.IsKSafetyCheckRelaxed(v.Annotations) {
+	if v.IsKSafetyCheckRelaxed() {
 		for i := range v.Spec.Subclusters {
 			sc := &v.Spec.Subclusters[i]
 			sizeSum += int(sc.Size)
