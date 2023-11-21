@@ -263,8 +263,8 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vap
 		return "", nil
 	}
 
-	if vmeta.UseGCPSecretManager(vdb.Annotations) {
-		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.PasswordSecret)
+	if vdb.ReadCommunalCredsFromGSM() {
+		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.GetSUPwdSecretName())
 		if err != nil {
 			return "", fmt.Errorf("failed to read superuser password from GSM: %w", err)
 		}

@@ -222,11 +222,8 @@ var _ = Describe("builder", func() {
 
 	It("should not use canary query probe if using GSM", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.PasswordSecret = "project/team/dbadmin/secret/1"
+		vdb.Spec.PasswordSecret = "sm://project/team/dbadmin/secret/1"
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
-		vdb.Annotations = map[string]string{
-			vmeta.GcpGsmAnnotation: "true",
-		}
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 	})
