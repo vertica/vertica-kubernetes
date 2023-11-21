@@ -43,12 +43,36 @@ var _ = Describe("version", func() {
 		ok, _ = cur.IsValidUpgradePath("v11.2.2")
 		Expect(ok).Should(BeFalse()) // Fail because it skips v11.1.x
 
-		cur, ok = MakeInfoFromStr("v15.1.1")
+		cur, ok = MakeInfoFromStr("v12.0.3")
 		Expect(ok).Should(BeTrue())
-		ok, _ = cur.IsValidUpgradePath("v14.0.2")
+		ok, _ = cur.IsValidUpgradePath("v12.0.4")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v23.3.0")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v23.4.0")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v24.1.0")
 		Expect(ok).Should(BeFalse())
-		ok, _ = cur.IsValidUpgradePath("v16.1.3")
+		ok, _ = cur.IsValidUpgradePath("v24.4.0")
+		Expect(ok).Should(BeFalse()) // Fail because it skips v23.4.0
+
+		cur, ok = MakeInfoFromStr("v23.3.0")
 		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v23.4.0")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v24.2.0")
+		Expect(ok).Should(BeFalse())
+		ok, _ = cur.IsValidUpgradePath("v24.3.0")
+		Expect(ok).Should(BeFalse()) // Fail because it skips v23.4.0
+
+		cur, ok = MakeInfoFromStr("v23.4.0")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v24.1.0")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v24.4.0")
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v25.1.0")
+		Expect(ok).Should(BeFalse()) // Fail because it skips v24.4.0
 	})
 
 	It("should return values for IsOlder", func() {
