@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -69,6 +70,11 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create serviceaccont: %w", err)
 		}
+	}
+
+	// No need to create the role and rolebinding if NMA reads certs from mounted volume rather than secret store
+	if vmeta.UseVClusterOps(s.Vdb.Annotations) && vmeta.UseNMACertsMount(s.Vdb.Annotations) {
+		return ctrl.Result{}, s.saveServiceAccountNameInVDB(ctx, sa.Name)
 	}
 
 	var role *rbacv1.Role
