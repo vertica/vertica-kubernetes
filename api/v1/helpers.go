@@ -527,3 +527,12 @@ func (s *SubclusterStatus) InstallCount() int32 {
 func (v *VerticaDB) GetVerticaUser() string {
 	return vmeta.GetSuperuserName(v.Annotations)
 }
+
+// GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
+// an empty string, otherwise return the value of encryptSpreadComm
+func (v *VerticaDB) GetEncryptSpreadComm() string {
+	if v.Spec.EncryptSpreadComm == "" {
+		return EncryptSpreadCommWithVertica
+	}
+	return v.Spec.EncryptSpreadComm
+}

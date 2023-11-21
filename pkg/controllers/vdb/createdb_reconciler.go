@@ -137,7 +137,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	// encryptSpreadComm. Set a condition variable so this happens after the
 	// create.
 	vinf, ok := c.Vdb.MakeVersionInfo()
-	if c.Vdb.Spec.EncryptSpreadComm != "" && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
 		cond := vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue}
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
@@ -173,9 +173,9 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	}
 	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
 	// config parm in the create db call.
-	if c.Vdb.Spec.EncryptSpreadComm != "" && ok && vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && ok && vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
 		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
-		`, c.Vdb.Spec.EncryptSpreadComm))
+		`, vapi.EncryptSpreadCommWithVertica))
 	}
 	_, _, err := c.PRunner.ExecInPod(ctx, initiatorPod, names.ServerContainer,
 		"bash", "-c", "cat > "+PostDBCreateSQLFile+"<<< \""+sb.String()+"\"",
@@ -192,7 +192,7 @@ func (c *CreateDBReconciler) postCmdCleanup(_ context.Context) (ctrl.Result, err
 	// cluster.  If this is needed we do it in a separate reconciler but causing
 	// a requeue.
 	vinf, ok := c.Vdb.MakeVersionInfo()
-	if c.Vdb.Spec.EncryptSpreadComm != "" && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
 		c.Log.Info("Requeue reconcile cycle to initiate restart of the server due to encryptSpreadComm setting")
 		return ctrl.Result{Requeue: true}, nil
 	}

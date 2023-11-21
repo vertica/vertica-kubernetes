@@ -183,8 +183,8 @@ func (g *ConfigParamsGenerator) setKerberosAuthParms() error {
 }
 
 func (g *ConfigParamsGenerator) setEncryptSpreadCommConfigIfNecessary() {
-	if g.Vdb.Spec.EncryptSpreadComm != "" && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
-		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.Spec.EncryptSpreadComm)
+	if g.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.GetEncryptSpreadComm())
 	}
 }
 
