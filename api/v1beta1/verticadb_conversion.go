@@ -22,7 +22,11 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// log is for logging in this package.
+var verticadblog = logf.Log.WithName("verticadb-resource")
 
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
