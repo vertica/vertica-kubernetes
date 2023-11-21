@@ -173,7 +173,7 @@ var _ = Describe("init_db", func() {
 		// get a read error since we cannot access the secret in the unit test.
 		// But that error will indicate we are reading the credentials from
 		// the correct place.
-		vdb.Spec.Communal.CredentialSecret = "sm://" + secretName
+		vdb.Spec.Communal.CredentialSecret = "gsm://" + secretName
 
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
@@ -193,7 +193,7 @@ var _ = Describe("init_db", func() {
 		Expect(ok).Should(BeFalse())
 
 		// Operator will read communal credentials from a secret in k8s if
-		// the secret name does not have the prefix "sm://".
+		// the secret name does not have the prefix "gsm://".
 		g.Vdb.Spec.Communal.CredentialSecret = secretName
 		createK8sCredSecret(ctx, g.Vdb)
 		defer deleteCommunalCredSecret(ctx, g.Vdb)
