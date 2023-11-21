@@ -655,6 +655,8 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.EncryptSpreadComm = EncryptSpreadCommWithVertica
 		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.EncryptSpreadComm = EncryptSpreadCommDisabled
+		validateSpecValuesHaveErr(vdb, false)
 	})
 
 	It("should validate we cannot have invalid paths for depot, data and catalog", func() {

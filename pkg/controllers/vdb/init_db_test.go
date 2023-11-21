@@ -147,10 +147,13 @@ var _ = Describe("init_db", func() {
 		res, err := g.ConstructConfigParms(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
-		Expect(g.ConfigurationParams.Size()).Should(Equal(1))
+		Expect(g.ConfigurationParams.Size()).Should(Equal(2))
 		v, ok := g.ConfigurationParams.Get("InitialDefaultSubclusterName")
 		Expect(ok).Should(BeTrue())
 		Expect(v).Should(Equal(vdb.Spec.Subclusters[0].Name))
+		v, ok = g.ConfigurationParams.Get("EncryptSpreadComm")
+		Expect(ok).Should(BeTrue())
+		Expect(v).Should(Equal(vapi.EncryptSpreadCommWithVertica))
 	})
 
 	It("should set google parms in config parms map when using GCloud", func() {

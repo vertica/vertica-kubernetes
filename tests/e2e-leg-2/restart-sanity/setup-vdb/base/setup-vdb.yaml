@@ -36,6 +36,7 @@ spec:
   imagePullSecrets: []
   volumes: []
   volumeMounts: []
+  encryptSpreadComm: disabled
 ---
 apiVersion: v1
 kind: ConfigMap

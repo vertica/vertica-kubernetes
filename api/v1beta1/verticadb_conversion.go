@@ -22,7 +22,11 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// log is for logging in this package.
+var verticadblog = logf.Log.WithName("verticadb-resource")
 
 // ConvertTo is a function to convert a v1beta1 CR to the v1 version of the CR.
 func (v *VerticaDB) ConvertTo(dstRaw conversion.Hub) error {
@@ -147,7 +151,7 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		VolumeMounts:           src.VolumeMounts,
 		CertSecrets:            convertToLocalReferenceSlice(src.CertSecrets),
 		KerberosSecret:         src.KerberosSecret,
-		EncryptSpreadComm:      src.EncryptSpreadComm,
+		EncryptSpreadComm:      convertToEncryptSpreadComm(src.EncryptSpreadComm),
 		SecurityContext:        src.SecurityContext,
 		PodSecurityContext:     src.PodSecurityContext,
 		NMATLSSecret:           src.HTTPServerTLSSecret,
@@ -203,7 +207,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		CertSecrets:             convertFromLocalReferenceSlice(srcSpec.CertSecrets),
 		KerberosSecret:          srcSpec.KerberosSecret,
 		SSHSecret:               src.GetSSHSecretName(),
-		EncryptSpreadComm:       srcSpec.EncryptSpreadComm,
+		EncryptSpreadComm:       convertFromEncryptSpreadComm(srcSpec.EncryptSpreadComm),
 		SecurityContext:         srcSpec.SecurityContext,
 		PodSecurityContext:      srcSpec.PodSecurityContext,
 		HTTPServerTLSSecret:     srcSpec.NMATLSSecret,
@@ -490,4 +494,23 @@ func convertFromStatusConditionType(srcType v1.VerticaDBConditionType) VerticaDB
 		return ImageChangeInProgress
 	}
 	return VerticaDBConditionType(srcType)
+}
+
+// convertToEncryptSpreadComm will convert a v1beta1 EncryptSpreadComm to a v1 EncryptSpreadComm
+func convertToEncryptSpreadComm(srcType string) string {
+	// empty string in v1beta1 means disabling spread communication encryption
+	if srcType == "" {
+		return v1.EncryptSpreadCommDisabled
+	}
+	return srcType
+}
+
+// convertFromEncryptSpreadComm will convert a v1 EncryptSpreadComm to a v1beta1 EncryptSpreadComm
+func convertFromEncryptSpreadComm(srcType string) string {
+	if srcType == v1.EncryptSpreadCommDisabled {
+		return ""
+	}
+	// except for "disabled", other values(empty string and "vertica") in v1 mean
+	// enabling spread communication encryption with vertica key
+	return EncryptSpreadCommWithVertica
 }

@@ -747,10 +747,12 @@ func (v *VerticaDB) validateRequeueTimes(allErrs field.ErrorList) field.ErrorLis
 }
 
 func (v *VerticaDB) validateEncryptSpreadComm(allErrs field.ErrorList) field.ErrorList {
-	if v.Spec.EncryptSpreadComm != "" && v.Spec.EncryptSpreadComm != EncryptSpreadCommWithVertica {
+	if v.Spec.EncryptSpreadComm != "" && v.Spec.EncryptSpreadComm != EncryptSpreadCommDisabled &&
+		v.Spec.EncryptSpreadComm != EncryptSpreadCommWithVertica {
 		err := field.Invalid(field.NewPath("spec").Child("encrpytSpreadComm"),
 			v.Spec.EncryptSpreadComm,
-			fmt.Sprintf("encryptSpreadComm can either be an empty string or set to %s", EncryptSpreadCommWithVertica))
+			fmt.Sprintf("encryptSpreadComm can only be set to an empty string, %s, or %s",
+				EncryptSpreadCommWithVertica, EncryptSpreadCommDisabled))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

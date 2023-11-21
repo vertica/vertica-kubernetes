@@ -151,7 +151,7 @@ func UseVClusterOps(annotations map[string]string) bool {
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountNMACerts, false /* default value */)
+	return lookupBoolAnnotation(annotations, MountNMACerts, true /* default value */)
 }
 
 // UseGCPSecretManager returns true if access to the communal secret should go through
