@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -53,8 +54,11 @@ func (n *NMARunningModeReconciler) Reconcile(_ context.Context, _ *ctrl.Request)
 // Verify whether the NMA is configured to run in sidecar container and report error if so
 func (n *NMARunningModeReconciler) verifyNMARunningMode() error {
 	if vmeta.UseVClusterOps(n.Vdb.Annotations) && vmeta.RunNMAInSidecarMode(n.Vdb.Annotations) {
-		n.VRec.Eventf(n.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported, "Running NMA in a sidecar container is not supported yet")
-		return fmt.Errorf("running NMA in a sidecar container is not supported yet")
+		n.VRec.Eventf(n.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported,
+			"Running NMA in a sidecar container is not supported yet, "+
+				fmt.Sprintf("set the %s annotation to %q", vmeta.RunNMAInSidecarAnnotation, vmeta.RunNMAInSidecarAnnotationFalse))
+		return errors.New("running NMA in a sidecar container is not supported yet, " +
+			fmt.Sprintf("set the %s annotation to %q", vmeta.RunNMAInSidecarAnnotation, vmeta.RunNMAInSidecarAnnotationFalse))
 	}
 	return nil
 }

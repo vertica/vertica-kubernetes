@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -45,12 +46,14 @@ var _ = Describe("k8s/nmarunningmode_reconcile", func() {
 		// running NMA in sidecar container, currently not supported
 		res, err = n.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(err).Should(MatchError(fmt.Errorf("running NMA in a sidecar container is not supported yet")))
+		Expect(err).Should(MatchError(errors.New("running NMA in a sidecar container is not supported yet, " +
+			fmt.Sprintf("set the %s annotation to %q", vmeta.RunNMAInSidecarAnnotation, vmeta.RunNMAInSidecarAnnotationFalse))))
 
 		delete(vdb.Annotations, vmeta.RunNMAInSidecarAnnotation)
 		// test the default, which is running NMA in sidecar container, currently not supported
 		res, err = n.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(err).Should(MatchError(fmt.Errorf("running NMA in a sidecar container is not supported yet")))
+		Expect(err).Should(MatchError(errors.New("running NMA in a sidecar container is not supported yet, " +
+			fmt.Sprintf("set the %s annotation to %q", vmeta.RunNMAInSidecarAnnotation, vmeta.RunNMAInSidecarAnnotationFalse))))
 	})
 })
