@@ -165,6 +165,46 @@ var _ = Describe("init_db", func() {
 		contructAuthParmsHelper(ctx, vdb, "GCSAuth", "")
 	})
 
+	It("should read communal credentials from correct places", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Path = "gs://test/mydb"
+		secretName := "gcp-secret"
+		// Operator will try to read communal credentials from GSM. We will
+		// get a read error since we cannot access the secret in the unit test.
+		// But that error will indicate we are reading the credentials from
+		// the correct place.
+		vdb.Spec.Communal.CredentialSecret = "gsm://" + secretName
+
+		fpr := &cmds.FakePodRunner{}
+		g := GenericDatabaseInitializer{
+			PRunner: fpr,
+			ConfigParamsGenerator: ConfigParamsGenerator{
+				VRec:                vdbRec,
+				Log:                 logger,
+				Vdb:                 vdb,
+				ConfigurationParams: types.MakeCiMap(),
+			},
+		}
+
+		res, err := g.ConstructConfigParms(ctx)
+		ExpectWithOffset(1, err).Should(MatchError(ContainSubstring("failed to read GCS credentials from GSM")))
+		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+		_, ok := g.ConfigurationParams.Get("GCSAuth")
+		Expect(ok).Should(BeFalse())
+
+		// Operator will read communal credentials from a secret in k8s if
+		// the secret name does not have the prefix "gsm://".
+		g.Vdb.Spec.Communal.CredentialSecret = secretName
+		createK8sCredSecret(ctx, g.Vdb)
+		defer deleteCommunalCredSecret(ctx, g.Vdb)
+		res, err = g.ConstructConfigParms(ctx)
+		ExpectWithOffset(1, err).Should(Succeed())
+		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
+		v, ok := g.ConfigurationParams.Get("GCSAuth")
+		Expect(ok).Should(BeTrue())
+		Expect(v).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
+	})
+
 	It("should set azure parms in config parms map when using azb:// scheme and accountKey", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "azb://account/container/path1"
