@@ -155,9 +155,6 @@ patches:
     - op: replace
       path: /spec/communal/path
       value: ${COMMUNAL_PATH_PREFIX}${TESTCASE_NAME}
-    - op: add
-      path: /metadata/annotations/vertica.com~1run-nma-in-monolithic-container
-      value: "true"
 EOF
 
         if [ "$PATH_PROTOCOL" == "s3://" ] || [ "$PATH_PROTOCOL" == "gs://" ]
@@ -195,6 +192,9 @@ EOF
     - op: add
       path: /metadata/annotations/vertica.com~1vcluster-ops
       value: "true"
+    - op: add
+      path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
+      value: "false"
 EOF
         else
             cat <<EOF >> kustomization.yaml

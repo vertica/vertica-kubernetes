@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -32,12 +31,8 @@ var _ = Describe("k8s/nmarunningmode_reconcile", func() {
 
 	It("should fail the reconclier if we configure the NMA to run in a sidecar container", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 1
-		vdb.Annotations[vmeta.RunNMAInMonolithicContainerAnnotation] = vmeta.RunNMAInMonolithicContainerAnnotationTrue
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		// test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		// defer test.DeletePods(ctx, k8sClient, vdb)
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 
 		n := MakeNMARunningModeReconciler(vdbRec, logger, vdb)
 
@@ -46,13 +41,13 @@ var _ = Describe("k8s/nmarunningmode_reconcile", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err).Should(Succeed())
 
-		vdb.Annotations[vmeta.RunNMAInMonolithicContainerAnnotation] = vmeta.RunNMAInMonolithicContainerAnnotationFalse
+		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
 		// running NMA in sidecar container, currently not supported
 		res, err = n.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err).Should(MatchError(fmt.Errorf("running NMA in a sidecar container is not supported yet")))
 
-		delete(vdb.Annotations, vmeta.RunNMAInMonolithicContainerAnnotation)
+		delete(vdb.Annotations, vmeta.RunNMAInSidecarAnnotation)
 		// test the default, which is running NMA in sidecar container, currently not supported
 		res, err = n.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))

@@ -52,13 +52,14 @@ const (
 	MountNMACertsAnnotationTrue  = "true"
 	MountNMACertsAnnotationFalse = "false"
 
-	// This is a feature flag for running NMA process in a monolithic container together with
-	// vertica main process. When set to true the NMA process runs in a monolithic container
-	// together with vertica main process, when set to false it runs in a separate sidecar
-	// container.
-	RunNMAInMonolithicContainerAnnotation      = "vertica.com/run-nma-in-monolithic-container"
-	RunNMAInMonolithicContainerAnnotationTrue  = "true"
-	RunNMAInMonolithicContainerAnnotationFalse = "false"
+	// This is a feature flag for running NMA process in a sidecar container together with
+	// server container within the same pod. When set to true the NMA process runs in a sidecar
+	// container together with server container within the same pod, which is also the default
+	// behavior when this annotation is not present. When set to false the NMA process runs in
+	// a monolithic container together with the vertica main process.
+	RunNMAInSidecarAnnotation      = "vertica.com/run-nma-in-sidecar"
+	RunNMAInSidecarAnnotationTrue  = "true"
+	RunNMAInSidecarAnnotationFalse = "false"
 
 	// This is a feature flag for accessing the secrets configured in Google Secret Manager.
 	// The value of this annotation is treated as a boolean.
@@ -156,8 +157,8 @@ func UseNMACertsMount(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, true /* default value */)
 }
 
-func RunNMAInMonolithicContainerMode(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, RunNMAInMonolithicContainerAnnotation, false /* default value */)
+func RunNMAInSidecarMode(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, RunNMAInSidecarAnnotation, true /* default value */)
 }
 
 // UseGCPSecretManager returns true if access to the communal secret should go through

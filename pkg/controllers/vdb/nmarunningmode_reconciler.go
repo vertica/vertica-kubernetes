@@ -47,15 +47,12 @@ func MakeNMARunningModeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 // Reconcile will verify the running mode of NMA
 func (n *NMARunningModeReconciler) Reconcile(_ context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	err := n.verifyNMARunningMode()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
 
-// Verify whether the NMA is configured to run in a monolithic container and report error if not so
+// Verify whether the NMA is configured to run in sidecar container and report error if so
 func (n *NMARunningModeReconciler) verifyNMARunningMode() error {
-	if !vmeta.RunNMAInMonolithicContainerMode(n.Vdb.Annotations) {
+	if vmeta.UseVClusterOps(n.Vdb.Annotations) && vmeta.RunNMAInSidecarMode(n.Vdb.Annotations) {
 		n.VRec.Eventf(n.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported, "Running NMA in a sidecar container is not supported yet")
 		return fmt.Errorf("running NMA in a sidecar container is not supported yet")
 	}
