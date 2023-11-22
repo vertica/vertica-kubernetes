@@ -297,6 +297,15 @@ var _ = Describe("verticadb_webhook", func() {
 		vdbUpdate.Spec.Subclusters[0].Type = SecondarySubcluster
 		validateImmutableFields(vdbUpdate, true)
 	})
+	It("should not change deployment type from vclusterops to admintools after creation", func() {
+		vdbOrig := createVDBHelper()
+		vdbOrig.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdbUpdate := createVDBHelper()
+		// cannot change from vclusterops to admintools
+		checkErrorsForImmutableFields(vdbOrig, vdbUpdate, true)
+		// can change from admintools to vclusterops
+		checkErrorsForImmutableFields(vdbUpdate, vdbOrig, false)
+	})
 	It("should allow image change if autoRestartVertica is disabled", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.AutoRestartVertica = false
@@ -640,6 +649,8 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.EncryptSpreadComm = ""
 		validateSpecValuesHaveErr(vdb, false)
 		vdb.Spec.EncryptSpreadComm = EncryptSpreadCommWithVertica
+		validateSpecValuesHaveErr(vdb, false)
+		vdb.Spec.EncryptSpreadComm = EncryptSpreadCommDisabled
 		validateSpecValuesHaveErr(vdb, false)
 	})
 

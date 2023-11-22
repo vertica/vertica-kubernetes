@@ -53,6 +53,8 @@ const (
 	// Starting in v24.1.0, the default deployment method supported changes from admintools to vclusterops
 	// for official releases of vertica-k8s images
 	VcluseropsAsDefaultDeploymentMethodMinVersion = "v24.1.0"
+	// Starting in v24.1.0, we use server logrotate and not depend on cron job
+	InDatabaseLogRotateMinVersion = "v24.1.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

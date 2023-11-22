@@ -1158,14 +1158,6 @@ func (v *VerticaDBSpec) RequiresTransientSubcluster() bool {
 		v.TemporarySubclusterRouting.Template.Size > 0
 }
 
-// isConditionIndexSet will check a status condition when the index is already
-// known.  If the array isn't sized yet for the index then we assume the
-// condition is off.
-func (v *VerticaDB) isConditionIndexSet(inx int) bool {
-	// A missing condition implies false
-	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
-}
-
 // IsAdditionalConfigMapEmpty returns true if there is no extra
 // config parameters.
 func (v *VerticaDB) IsAdditionalConfigMapEmpty() bool {

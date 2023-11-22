@@ -37,6 +37,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 	It("should run create db if db doesn't exist", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters[0].Size = 3
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -125,6 +126,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 	It("should always run AT commands from the first pod of the first primary subcluster", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "sec", Type: vapi.SecondarySubcluster, Size: 1},
 			{Name: "pri", Type: vapi.PrimarySubcluster, Size: 2},
@@ -149,6 +151,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 	It("should use option with create_db if skipping install", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreateSkipPackageInstall
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v12.0.1-0"
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -171,6 +174,7 @@ var _ = Describe("createdb_reconciler", func() {
 
 	It("should call mkdir when creating db using posix path", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
 		vdb.Spec.Communal.Path = "/host/db"
 		vdb.Spec.Communal.Endpoint = ""
 		test.CreateVDB(ctx, k8sClient, vdb)

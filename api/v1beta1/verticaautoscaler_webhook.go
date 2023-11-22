@@ -37,8 +37,6 @@ func (v *VerticaAutoscaler) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-var _ webhook.Defaulter = &VerticaDB{}
-
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaAutoscaler) Default() {
 	verticaautoscalerlog.Info("default", "name", v.Name)

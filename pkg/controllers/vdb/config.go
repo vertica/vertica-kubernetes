@@ -183,8 +183,8 @@ func (g *ConfigParamsGenerator) setKerberosAuthParms() error {
 }
 
 func (g *ConfigParamsGenerator) setEncryptSpreadCommConfigIfNecessary() {
-	if g.Vdb.Spec.EncryptSpreadComm != "" && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
-		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.Spec.EncryptSpreadComm)
+	if g.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.GetEncryptSpreadComm())
 	}
 }
 
@@ -207,7 +207,8 @@ func (g *ConfigParamsGenerator) setAuthFromGCSSecret(ctx context.Context) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	gcpCred, err := cloud.ReadFromGSM(ctx, g.Vdb.Spec.Communal.CredentialSecret)
+	communalCredsSecret := g.Vdb.GetCommunalCredsSecretName()
+	gcpCred, err := cloud.ReadFromGSM(ctx, communalCredsSecret)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to read GCS credentials from GSM: %w", err)
 	}
@@ -217,14 +218,14 @@ func (g *ConfigParamsGenerator) setAuthFromGCSSecret(ctx context.Context) (ctrl.
 	accessKey, ok := gcpCred[cloud.CommunalAccessKeyName]
 	if !ok {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
+			"The communal credential secret '%s' does not have a key named '%s'", communalCredsSecret, cloud.CommunalAccessKeyName)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	secretKey, ok := gcpCred[cloud.CommunalSecretKeyName]
 	if !ok {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
+			"The communal credential secret '%s' does not have a key named '%s'", communalCredsSecret, cloud.CommunalSecretKeyName)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -236,7 +237,7 @@ func (g *ConfigParamsGenerator) setAuthFromGCSSecret(ctx context.Context) (ctrl.
 // setGCloudAuthParms adds the auth parms to the config parms map when we are
 // connecting to google cloud storage.
 func (g *ConfigParamsGenerator) setGCloudAuthParms(ctx context.Context) (ctrl.Result, error) {
-	if meta.UseGCPSecretManager(g.Vdb.Annotations) {
+	if g.Vdb.ReadCommunalCredsFromGSM() {
 		res, err := g.setAuthFromGCSSecret(ctx)
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err

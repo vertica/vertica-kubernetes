@@ -534,3 +534,40 @@ func (s *SubclusterStatus) InstallCount() int32 {
 func (v *VerticaDB) GetVerticaUser() string {
 	return vmeta.GetSuperuserName(v.Annotations)
 }
+
+// GetEncryptSpreadComm will return "vertica" if encryptSpreadComm is set to
+// an empty string, otherwise return the value of encryptSpreadComm
+func (v *VerticaDB) GetEncryptSpreadComm() string {
+	if v.Spec.EncryptSpreadComm == "" {
+		return EncryptSpreadCommWithVertica
+	}
+	return v.Spec.EncryptSpreadComm
+}
+
+const gsmPrefix = "gsm://"
+
+// ReadSUPwdFromGSM returns true if superuser password has the prefix "gsm://". The prefix "gsm://" will
+// tell the operator to fetch superuser password from Google's secret manager instead of k8s meta-data.
+func (v *VerticaDB) ReadSUPwdFromGSM() bool {
+	return strings.HasPrefix(v.Spec.PasswordSecret, gsmPrefix)
+}
+
+// GetSUPwdSecretName returns secret name of the one that stores superuser password. If the secret name
+// has prefix "gsm://", we will remove it. This function will be used for processing GSM secrets.
+func (v *VerticaDB) GetSUPwdSecretName() string {
+	return strings.TrimPrefix(v.Spec.PasswordSecret, gsmPrefix)
+}
+
+// ReadCommunalCredsFromGSM returns true if communal access credentials has the prefix "gsm://".
+// The prefix "gsm://" will tell the operator to fetch communal access credentials from Google's
+// secret manager instead of k8s meta-data.
+func (v *VerticaDB) ReadCommunalCredsFromGSM() bool {
+	return strings.HasPrefix(v.Spec.Communal.CredentialSecret, gsmPrefix)
+}
+
+// GetCommunalCredsSecretName returns secret name of the one that stores communal access credentials.
+// If the secret name has prefix "gsm://", we will remove it. This function will be used for processing
+// GSM secrets.
+func (v *VerticaDB) GetCommunalCredsSecretName() string {
+	return strings.TrimPrefix(v.Spec.Communal.CredentialSecret, gsmPrefix)
+}

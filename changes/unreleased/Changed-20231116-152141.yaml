@@ -1,0 +1,5 @@
+kind: Changed
+body: Made 'spread channel encryption' a default behavior for database creation
+time: 2023-11-16T15:21:41.7155442-06:00
+custom:
+  Issue: "590"

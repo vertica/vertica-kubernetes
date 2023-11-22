@@ -222,11 +222,8 @@ var _ = Describe("builder", func() {
 
 	It("should not use canary query probe if using GSM", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.PasswordSecret = "project/team/dbadmin/secret/1"
+		vdb.Spec.PasswordSecret = "gsm://project/team/dbadmin/secret/1"
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
-		vdb.Annotations = map[string]string{
-			vmeta.GcpGsmAnnotation: "true",
-		}
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 	})
@@ -274,6 +271,13 @@ var _ = Describe("builder", func() {
 		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
 		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsTrue
+		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		// test default value (which should be true)
+		delete(vdb.Annotations, vmeta.MountNMACerts)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
