@@ -267,20 +267,20 @@ var _ = Describe("builder", func() {
 	It("should mount or not mount NMA certs volume according to annotation", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsFalse
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
 		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
 		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
 		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
-		vdb.Annotations[vmeta.MountNMACerts] = vmeta.MountNMACertsTrue
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
 		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		// test default value (which should be true)
-		delete(vdb.Annotations, vmeta.MountNMACerts)
+		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
