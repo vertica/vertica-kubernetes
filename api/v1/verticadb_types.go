@@ -783,14 +783,14 @@ const (
 
 const (
 	// list of reasons for conditions' transitions
-	Unknown                    = "UnKnown"
-	EncryptSpreadCommEnabled   = "EncryptSpreadCommEnabled"
-	DBInitializationNeeded     = "DBInitializationNeeded"
-	AutoRestartVerticaDisabled = "AutoRestartVerticaDisabled"
-	AutoRestartVerticaEnabled  = "AutoRestartVerticaEnabled"
-	UpComingRestart            = "UpComingRestart"
-	UpgradeFinished            = "UpgradeFinished"
-	UpgradeStarted             = "UpgradeStarted"
+	Unknown                     = "UnKnown"
+	SpreadCommEncryptionEnabled = "SpreadCommEncryptionEnabled"
+	DBInitializationNeeded      = "DBInitializationNeeded"
+	AutoRestartVerticaDisabled  = "AutoRestartVerticaDisabled"
+	AutoRestartVerticaEnabled   = "AutoRestartVerticaEnabled"
+	UpComingRestart             = "UpComingRestart"
+	UpgradeFinished             = "UpgradeFinished"
+	UpgradeStarted              = "UpgradeStarted"
 )
 
 const (
