@@ -784,7 +784,7 @@ const (
 const (
 	// list of reasons for conditions' transitions
 	Unknown                    = "UnKnown"
-	EncrpytSpreadCommSet       = "EncrpytSpreadCommSet"
+	EncryptSpreadCommEnabled   = "EncryptSpreadCommEnabled"
 	DBInitializationNeeded     = "DBInitializationNeeded"
 	AutoRestartVerticaDisabled = "AutoRestartVerticaDisabled"
 	AutoRestartVerticaEnabled  = "AutoRestartVerticaEnabled"
