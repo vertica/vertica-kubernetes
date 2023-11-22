@@ -1,0 +1,5 @@
+kind: Removed
+body: Removed the annotation "vertica.com/use-gcp-secret-manager"
+time: 2023-11-21T08:11:01.3320553-06:00
+custom:
+  Issue: "597"

@@ -646,11 +646,11 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 // the readiness or startup probes. Only returns the default timeouts for the
 // probe. Caller is responsible for adusting those.
 func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	// If using GSM, then the superuses password is not a k8s secret. We cannot
+	// If using GSM, then the superuser password is not a k8s secret. We cannot
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
 	// is being listened on.
-	if vmeta.UseGCPSecretManager(vdb.Annotations) {
+	if vdb.ReadSUPwdFromGSM() {
 		return makeVerticaClientPortProbe()
 	}
 	return makeCanaryQueryProbe(vdb)
@@ -1008,8 +1008,8 @@ func BuildStorageClass(allowVolumeExpansion bool) *storagev1.StorageClass {
 	}
 }
 
-// BuildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
-func BuildS3CommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
+// BuildCommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
+func BuildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
 	nm := names.GenCommunalCredSecretName(vdb)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
