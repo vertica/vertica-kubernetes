@@ -23,7 +23,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -61,10 +61,7 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 
 	// redo the create/revive process if the database creation/revival fails
 	// or create/revive the process if it doesn't fail
-	isSet, err := g.Vdb.IsConditionSet(vapi.DBInitialized)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	isSet := g.Vdb.IsConditionSet(vapi.DBInitialized)
 	if !isSet {
 		res, err := g.runInit(ctx)
 		if verrors.IsReconcileAborted(res, err) {
@@ -110,7 +107,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
-	cond := vapi.VerticaDBCondition{Type: vapi.DBInitialized, Status: corev1.ConditionTrue}
+	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, vapi.DBInitializationNeeded)
 	if err := vdbstatus.UpdateCondition(ctx, g.VRec.Client, g.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
 	}

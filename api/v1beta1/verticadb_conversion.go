@@ -21,6 +21,9 @@ import (
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
@@ -232,14 +235,14 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		UpNodeCount:     src.UpNodeCount,
 		SubclusterCount: src.SubclusterCount,
 		Subclusters:     make([]v1.SubclusterStatus, len(src.Subclusters)),
-		Conditions:      make([]v1.VerticaDBCondition, len(src.Conditions)),
+		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubclusterStatus(src.Subclusters[i])
 	}
 	for i := range src.Conditions {
-		dst.Conditions[i] = convertToStatusCondition(src.Conditions[i])
+		meta.SetStatusCondition(&dst.Conditions, convertToStatusCondition(src.Conditions[i]))
 	}
 	return dst
 }
@@ -259,7 +262,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		dst.Subclusters[i] = convertFromSubclusterStatus(src.Subclusters[i])
 	}
 	for i := range src.Conditions {
-		dst.Conditions[i] = convertFromStatusCondition(src.Conditions[i])
+		dst.Conditions[i] = convertFromStatusCondition(&src.Conditions[i])
 	}
 	return dst
 }
@@ -444,20 +447,20 @@ func convertFromPodStatus(src []v1.VerticaDBPodStatus) []VerticaDBPodStatus {
 	return pods
 }
 
-// convertToStatusCondition will convert to a v1 VerticaDBCondition from a v1beta1 version
-func convertToStatusCondition(src VerticaDBCondition) v1.VerticaDBCondition {
-	return v1.VerticaDBCondition{
+// convertToStatusCondition will convert to a v1 metav1.Condition from a v1beta1 VerticaDBCondition
+func convertToStatusCondition(src VerticaDBCondition) metav1.Condition {
+	return metav1.Condition{
 		Type:               convertToStatusConditionType(src.Type),
-		Status:             src.Status,
+		Status:             metav1.ConditionStatus(src.Status),
 		LastTransitionTime: src.LastTransitionTime,
 	}
 }
 
-// convertFromStatusCondition will convert from a v1 VerticaDBCondition to a v1beta1 version
-func convertFromStatusCondition(src v1.VerticaDBCondition) VerticaDBCondition {
+// convertFromStatusCondition will convert from a v1 metav1.Condition to a v1beta1 VerticaDBCondition
+func convertFromStatusCondition(src *metav1.Condition) VerticaDBCondition {
 	return VerticaDBCondition{
 		Type:               convertFromStatusConditionType(src.Type),
-		Status:             src.Status,
+		Status:             corev1.ConditionStatus(src.Status),
 		LastTransitionTime: src.LastTransitionTime,
 	}
 }
@@ -474,16 +477,16 @@ func convertToSubclusterType(src *Subcluster) string {
 	return v1.SecondarySubcluster
 }
 
-// convertToStatusConditionType will convert to a v1 VerticaDBConditionType from a v1beta1 version
-func convertToStatusConditionType(srcType VerticaDBConditionType) v1.VerticaDBConditionType {
+// convertToStatusConditionType will convert to a v1 ConditionType str from a v1beta1 VerticaDBConditionType
+func convertToStatusConditionType(srcType VerticaDBConditionType) string {
 	if srcType == ImageChangeInProgress {
 		return v1.UpgradeInProgress
 	}
-	return v1.VerticaDBConditionType(srcType)
+	return string(srcType)
 }
 
-// convertFromStatusConditionType will convert from a v1 VerticaDBConditionType to a v1beta1 version
-func convertFromStatusConditionType(srcType v1.VerticaDBConditionType) VerticaDBConditionType {
+// convertFromStatusConditionType will convert from a v1 ConditionType str to a v1beta1 VerticaDBConditionType
+func convertFromStatusConditionType(srcType string) VerticaDBConditionType {
 	if srcType == v1.UpgradeInProgress {
 		return ImageChangeInProgress
 	}

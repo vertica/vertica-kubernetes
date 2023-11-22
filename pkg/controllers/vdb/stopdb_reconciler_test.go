@@ -24,7 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -68,7 +68,7 @@ var _ = Describe("stopdb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		Expect(vdbstatus.UpdateCondition(ctx, k8sClient, vdb,
-			vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue},
+			vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionTrue, ""),
 		)).Should(Succeed())
 		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
 

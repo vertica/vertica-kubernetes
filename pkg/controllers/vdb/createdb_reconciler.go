@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -138,7 +139,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	// create.
 	vinf, ok := c.Vdb.MakeVersionInfo()
 	if c.Vdb.Spec.EncryptSpreadComm != "" && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
-		cond := vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue}
+		cond := vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionTrue, vapi.EncrpytSpreadCommSet)
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
 		}

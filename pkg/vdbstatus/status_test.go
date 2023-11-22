@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/gomega"
 	gtypes "github.com/onsi/gomega/types"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -88,14 +87,14 @@ type representVerticaDBCondition struct {
 }
 
 func (matcher *representVerticaDBCondition) Match(actual interface{}) (success bool, err error) {
-	response, ok := actual.(vapi.VerticaDBCondition)
+	response, ok := actual.(metav1.Condition)
 	if !ok {
 		return false, fmt.Errorf("RepresentVerticaDBCondition matcher expects a vapi.VerticaDBCondition")
 	}
 
-	expectedObj, ok := matcher.expected.(vapi.VerticaDBCondition)
+	expectedObj, ok := matcher.expected.(metav1.Condition)
 	if !ok {
-		return false, fmt.Errorf("RepresentVerticaDBCondition should compare with a vapi.VerticaDBCondition")
+		return false, fmt.Errorf("RepresentVerticaDBCondition should compare with a metav1.Condition")
 	}
 
 	// Compare everything except lastTransitionTime
@@ -118,14 +117,14 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		cond := vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue}
+		cond := vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionTrue, "")
 		Expect(UpdateCondition(ctx, k8sClient, vdb, cond)).Should(Succeed())
 		fetchVdb := &vapi.VerticaDB{}
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 			Expect(len(v.Status.Conditions)).Should(Equal(1))
-			Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(cond))
+			Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(*cond))
 		}
 	})
 
@@ -134,19 +133,19 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		conds := []vapi.VerticaDBCondition{
-			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
-			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},
+		conds := []metav1.Condition{
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.Unknown},
 		}
 
-		for _, cond := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, vdb, cond)).Should(Succeed())
+		for i := range conds {
+			Expect(UpdateCondition(ctx, k8sClient, vdb, &conds[i])).Should(Succeed())
 			fetchVdb := &vapi.VerticaDB{}
 			nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 			for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 				Expect(len(v.Status.Conditions)).Should(Equal(1))
-				Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(cond))
+				Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(conds[i]))
 			}
 		}
 	})
@@ -156,14 +155,14 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		conds := []vapi.VerticaDBCondition{
-			{Type: vapi.DBInitialized, Status: corev1.ConditionTrue},
-			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
-			{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},
+		conds := []metav1.Condition{
+			{Type: vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.Unknown},
 		}
 
-		for _, cond := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, vdb, cond)).Should(Succeed())
+		for i := range conds {
+			Expect(UpdateCondition(ctx, k8sClient, vdb, &conds[i])).Should(Succeed())
 		}
 
 		fetchVdb := &vapi.VerticaDB{}
@@ -171,8 +170,8 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 			Expect(len(v.Status.Conditions)).Should(Equal(2))
-			Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(conds[2]))
-			Expect(v.Status.Conditions[1]).Should(EqualVerticaDBCondition(conds[0]))
+			Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(conds[0]))
+			Expect(v.Status.Conditions[1]).Should(EqualVerticaDBCondition(conds[2]))
 		}
 	})
 
@@ -183,10 +182,10 @@ var _ = Describe("status", func() {
 
 		origTime := metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse, LastTransitionTime: origTime},
+			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, LastTransitionTime: origTime, Reason: vapi.Unknown},
 		)).Should(Succeed())
 		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
+			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
 		)).Should(Succeed())
 		Expect(vdb.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
@@ -198,7 +197,7 @@ var _ = Describe("status", func() {
 
 		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeFalse())
 		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue},
+			&metav1.Condition{Type: vapi.VerticaRestartNeeded, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
 		)).Should(Succeed())
 		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
 	})

@@ -26,6 +26,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -134,6 +135,19 @@ func IsValidSubclusterName(scName string) bool {
 	return r.MatchString(scName)
 }
 
+// MakeCondition create and initialize a new metav1.Condition
+func MakeCondition(ctype string, status metav1.ConditionStatus, reason string) *metav1.Condition {
+	r := reason
+	if r == "" {
+		r = Unknown
+	}
+	return &metav1.Condition{
+		Type:   ctype,
+		Status: status,
+		Reason: r,
+	}
+}
+
 // HasReviveInstanceIDAnnotation is true when an annotation exists for the db's
 // revive_instance_id.
 func (v *VerticaDB) HasReviveInstanceIDAnnotation() bool {
@@ -239,26 +253,19 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
-	return v.isConditionIndexSet(OnlineUpgradeInProgressIndex)
+	return v.IsConditionSet(OnlineUpgradeInProgress)
 }
 
-// IsConditionSet will return true if the status condition is set to true.
-// If the condition is not in the array then this implies the condition is
-// false.
-func (v *VerticaDB) IsConditionSet(statusCondition VerticaDBConditionType) (bool, error) {
-	inx, ok := VerticaDBConditionIndexMap[statusCondition]
-	if !ok {
-		return false, fmt.Errorf("verticaDB condition '%s' missing from VerticaDBConditionType", statusCondition)
-	}
-	return v.isConditionIndexSet(inx), nil
+// IsConditionSet returns true when the conditionType is present and set to
+// `metav1.ConditionTrue`
+func (v *VerticaDB) IsConditionSet(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(v.Status.Conditions, statusCondition)
 }
 
-// isConditionIndexSet will check a status condition when the index is already
-// known.  If the array isn't sized yet for the index then we assume the
-// condition is off.
-func (v *VerticaDB) isConditionIndexSet(inx int) bool {
-	// A missing condition implies false
-	return inx < len(v.Status.Conditions) && v.Status.Conditions[inx].Status == corev1.ConditionTrue
+// IsConditionSetAndFalse returns true when the conditionType is present and set to
+// `metav1.ConditionFalse`
+func (v *VerticaDB) IsConditionSetAndFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(v.Status.Conditions, statusCondition)
 }
 
 // buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster

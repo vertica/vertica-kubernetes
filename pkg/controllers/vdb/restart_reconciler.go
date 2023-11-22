@@ -39,6 +39,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -91,13 +92,13 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.Spec.AutoRestartVertica {
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
-			vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionFalse},
+			vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionFalse, vapi.AutoRestartVerticaDisabled),
 		)
 		return ctrl.Result{}, err
 	}
 
 	err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
-		vapi.VerticaDBCondition{Type: vapi.AutoRestartVertica, Status: corev1.ConditionTrue},
+		vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionTrue, vapi.AutoRestartVerticaEnabled),
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -107,10 +108,10 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// restart reconciler is only skipped for VClusterOps.
 	// In Admintools, the IP is cached in admintool.conf and needs to be updated.
 	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
-		isSet, e := r.Vdb.IsConditionSet(vapi.DBInitialized)
-		if !isSet || e != nil {
+		isSet := r.Vdb.IsConditionSet(vapi.DBInitialized)
+		if !isSet {
 			r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
-			return ctrl.Result{}, e
+			return ctrl.Result{}, nil
 		}
 	}
 
