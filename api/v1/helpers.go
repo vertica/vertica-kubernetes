@@ -537,6 +537,6 @@ func (v *VerticaDB) GetEncryptSpreadComm() string {
 	return v.Spec.EncryptSpreadComm
 }
 
-func (v *VerticaDB) IsKSafetyCheckRelaxed() bool {
-	return vmeta.IsKSafetyCheckRelaxed(v.Annotations)
+func (v *VerticaDB) IsKSafetyCheckStrict() bool {
+	return vmeta.IsKSafetyCheckStrict(v.Annotations)
 }

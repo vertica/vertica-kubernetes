@@ -83,11 +83,14 @@ const (
 	KSafetyAnnotation   = "vertica.com/k-safety"
 	KSafetyDefaultValue = "1"
 
-	// When set to true, the calculation will be based on the number of all nodes
-	// in the cluster;
-	// otherwise, the webhook will calculate the k-safety value
-	// based on the number of primary nodes in the cluster;
-	RelaxKSafetyCheckAnnotation = "vertica.com/relax-k-safety-check"
+	// When enabled, the webhook will validate k-safety based on the number of
+	// primary nodes in the cluster. Otherwise, validation will be based on the
+	// total number of nodes in the cluster. The correct way is to use only the
+	// primary nodes. This annotation exists only because the k-safety
+	// validation in the v1beta1 API was implemented incorrectly. The v1 API
+	// does it correctly. We can remove this annotation once the v1beta1 API is
+	// no longer supported.
+	StrictKSafetyCheckAnnotation = "vertica.com/strict-k-safety-check"
 
 	// If a reconciliation iteration needs to be requeued this controls the
 	// amount of time in seconds to wait.  If this is set to 0, or not set, then
@@ -215,13 +218,13 @@ func GetSuperuserName(annotations map[string]string) string {
 	return SuperuserNameDefaultValue
 }
 
-// IsKSafetyCheckRelaxed returns whether the k-safety check is relaxed.
+// IsKSafetyCheckStrict returns whether the k-safety check is relaxed.
 // If false (default value), the webhook will calculate the k-safety value
 // based on the number of primary nodes in the cluster;
 // if true, the calculation will be based on the number of all nodes
 // in the cluster.
-func IsKSafetyCheckRelaxed(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, RelaxKSafetyCheckAnnotation, false /* default value */)
+func IsKSafetyCheckStrict(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, StrictKSafetyCheckAnnotation, true /* default value */)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

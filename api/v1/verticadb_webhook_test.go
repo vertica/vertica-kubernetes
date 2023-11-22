@@ -536,7 +536,7 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should error out if service specific fields are different in subclusters with matching serviceNames", func() {
 		vdb := createVDBHelper()
-		vdb.Annotations[vmeta.RelaxKSafetyCheckAnnotation] = strconv.FormatBool(true)
+		vdb.Annotations[vmeta.StrictKSafetyCheckAnnotation] = strconv.FormatBool(false)
 		const ServiceName = "main"
 		vdb.Spec.Subclusters = []Subcluster{
 			{
@@ -574,7 +574,7 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Subclusters[1].ServiceAnnotations = vdb.Spec.Subclusters[0].ServiceAnnotations
 		validateSpecValuesHaveErr(vdb, false)
 		// make the k-safety check strict
-		vdb.Annotations[vmeta.RelaxKSafetyCheckAnnotation] = strconv.FormatBool(false)
+		vdb.Annotations[vmeta.StrictKSafetyCheckAnnotation] = strconv.FormatBool(true)
 		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.Subclusters[0].Size = 5
 		validateSpecValuesHaveErr(vdb, false)
