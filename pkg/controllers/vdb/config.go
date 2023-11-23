@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -122,12 +121,9 @@ func (g *ConfigParamsGenerator) setup() error {
 	if g.ConfigurationParams == nil {
 		g.ConfigurationParams = vtypes.MakeCiMap()
 	}
-	var ok bool
-	g.VInf, ok = g.Vdb.MakeVersionInfo()
-	if !ok {
-		return errors.New("version not found in the VerticaDB")
-	}
-	return nil
+	var err error
+	g.VInf, err = g.Vdb.MakeVersionInfoCheck()
+	return err
 }
 
 // setAuth adds the auth parms, if they exist, to the config parms map.

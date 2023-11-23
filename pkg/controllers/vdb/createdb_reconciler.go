@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -84,14 +83,14 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	var ok bool
-	c.VInf, ok = c.Vdb.MakeVersionInfo()
-	if !ok {
+	var err error
+	c.VInf, err = c.Vdb.MakeVersionInfoCheck()
+	if err != nil {
 		// The version should be in the VerticaDB. Although it could be missing
 		// if we have a cached copy of the VerticaDB that is from prior to the
 		// annotation update. Requeue to force a new reconciliation to read
 		// latest copy.
-		return ctrl.Result{}, errors.New("version not found in the VerticaDB")
+		return ctrl.Result{}, err
 	}
 
 	// The remaining create_db logic is driven from GenericDatabaseInitializer.

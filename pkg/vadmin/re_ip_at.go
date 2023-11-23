@@ -118,11 +118,11 @@ func (a *Admintools) genReIPCommand() ([]string, error) {
 	// In 11.1, we added a --force option to re_ip to allow us to run it while
 	// some nodes are up.  This was done to support doing a reip while there are
 	// read-only secondary nodes.
-	vinf, ok := a.VDB.MakeVersionInfo()
-	if !ok {
-		return nil, fmt.Errorf("could not find version from vdb")
+	vinf, err := a.VDB.MakeVersionInfoCheck()
+	if err != nil {
+		return nil, err
 	}
-	if ok && vinf.IsEqualOrNewer(vapi.ReIPAllowedWithUpNodesVersion) {
+	if vinf.IsEqualOrNewer(vapi.ReIPAllowedWithUpNodesVersion) {
 		cmd = append(cmd, "--force")
 	}
 

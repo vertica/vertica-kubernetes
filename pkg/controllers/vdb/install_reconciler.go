@@ -260,9 +260,9 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 
 	// Logrotate setup is only required for versions before 24.1.0 of the database.
 	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
-	vinf, ok := d.Vdb.MakeVersionInfo()
-	if !ok {
-		return "", errors.New("version not found")
+	vinf, err := d.Vdb.MakeVersionInfoCheck()
+	if err != nil {
+		return "", err
 	}
 
 	if !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
