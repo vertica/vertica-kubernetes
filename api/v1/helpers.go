@@ -537,6 +537,10 @@ func (v *VerticaDB) GetEncryptSpreadComm() string {
 	return v.Spec.EncryptSpreadComm
 }
 
+func (v *VerticaDB) IsKSafetyCheckStrict() bool {
+	return vmeta.IsKSafetyCheckStrict(v.Annotations)
+}
+
 const gsmPrefix = "gsm://"
 
 // ReadSUPwdFromGSM returns true if superuser password has the prefix "gsm://". The prefix "gsm://" will
