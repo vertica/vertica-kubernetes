@@ -17,3 +17,4 @@ metadata:
   name: v-verify-image
   annotations:
     vertica.com/vcluster-ops: "true"
+    vertica.com/run-nma-in-sidecar: "false"
