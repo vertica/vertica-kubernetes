@@ -253,7 +253,7 @@ func (d *InstallReconciler) genCmdRemoveOldConfig() []string {
 // genCreateConfigDirsScript will create a script to be run in a pod to create
 // the necessary dirs for install. This will return an empty string if nothing
 // needs to happen.
-func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
+func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
@@ -261,7 +261,11 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	// Logrotate setup is only required for versions before 24.1.0 of the database.
 	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
 	vinf, ok := d.Vdb.MakeVersionInfo()
-	if !ok || !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
+	if !ok {
+		return "", errors.New("version not found")
+	}
+
+	if !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
 		if !p.dirExists[paths.ConfigLogrotatePath] {
 			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
 			numCmds++
@@ -294,9 +298,9 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) string {
 	}
 
 	if numCmds == 0 {
-		return ""
+		return "", nil
 	}
-	return sb.String()
+	return sb.String(), nil
 }
 
 // createConfigDirsForPodIfNecesssary will setup the config dirs for a single pod.
@@ -311,7 +315,10 @@ func (d *InstallReconciler) createConfigDirsForPodIfNecessary(ctx context.Contex
 	defer tmp.Close()
 	defer os.Remove(tmp.Name())
 
-	script := d.genCreateConfigDirsScript(p)
+	script, err := d.genCreateConfigDirsScript(p)
+	if err != nil {
+		return err
+	}
 	if script == "" {
 		return nil
 	}

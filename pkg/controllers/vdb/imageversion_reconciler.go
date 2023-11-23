@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -82,8 +83,7 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 
 	vinf, ok := v.Vdb.MakeVersionInfo()
 	if !ok {
-		// Version info is not in the vdb.  Fine to skip.
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, errors.New("version not found in the VerticaDB")
 	}
 
 	if vinf.IsUnsupported(vapi.MinimumVersion) {
@@ -162,6 +162,8 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 			if err != nil {
 				return err
 			}
+			v.Log.Info("Version annotation updated", "resourceVersion", v.Vdb.ResourceVersion,
+				"version", v.Vdb.Annotations[vmeta.VersionAnnotation])
 		}
 		return nil
 	})
