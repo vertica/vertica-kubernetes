@@ -57,8 +57,9 @@ func MakeStopDBReconciler(
 
 // Reconcile will stop vertica if the status condition indicates a restart is needed
 func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if e := s.PFacts.Collect(ctx, s.Vdb); e != nil {
-		return ctrl.Result{}, e
+	err := s.PFacts.Collect(ctx, s.Vdb)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// No-op if no database exists
@@ -66,9 +67,8 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	var err error
 	// Only proceed if the restart needed status condition is set.
-	isSet := s.Vdb.IsConditionSet(vapi.VerticaRestartNeeded)
+	isSet := s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 	if isSet {
 		// Stop vertica if any pods are running
 		if s.PFacts.getUpNodeCount() > 0 {
@@ -81,7 +81,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		// Clear the condition now that we stopped the cluster.  We rely on the
 		// restart reconciler that follows this to bring up vertica.
 		err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
-			vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionFalse, vapi.UpComingRestart),
+			vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionFalse, "StopCompleted"),
 		)
 	}
 	return ctrl.Result{}, err

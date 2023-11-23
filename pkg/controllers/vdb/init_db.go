@@ -61,7 +61,7 @@ func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.
 
 	// redo the create/revive process if the database creation/revival fails
 	// or create/revive the process if it doesn't fail
-	isSet := g.Vdb.IsConditionSet(vapi.DBInitialized)
+	isSet := g.Vdb.IsStatusConditionTrue(vapi.DBInitialized)
 	if !isSet {
 		res, err := g.runInit(ctx)
 		if verrors.IsReconcileAborted(res, err) {
@@ -107,7 +107,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 		return res, err
 	}
 
-	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, vapi.DBInitializationNeeded)
+	cond := vapi.MakeCondition(vapi.DBInitialized, metav1.ConditionTrue, "Initialized")
 	if err := vdbstatus.UpdateCondition(ctx, g.VRec.Client, g.Vdb, cond); err != nil {
 		return ctrl.Result{}, err
 	}

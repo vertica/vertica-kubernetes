@@ -121,7 +121,7 @@ var _ = Describe("createdb_reconciler", func() {
 		// The restart condition variable should be set to true also
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
-		Expect(fetchVdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
+		Expect(fetchVdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeTrue())
 	})
 
 	It("should always run AT commands from the first pod of the first primary subcluster", func() {

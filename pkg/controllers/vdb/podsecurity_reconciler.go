@@ -61,7 +61,7 @@ func MakePodSecurityReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, v
 // the vertica pods.
 func (p *PodSecurityReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// We only do this before we initialize the database.
-	isSet := p.Vdb.IsConditionSet(vapi.DBInitialized)
+	isSet := p.Vdb.IsStatusConditionTrue(vapi.DBInitialized)
 	if isSet {
 		return ctrl.Result{}, nil
 	}

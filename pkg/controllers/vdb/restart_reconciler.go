@@ -92,13 +92,13 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.Spec.AutoRestartVertica {
 		err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
-			vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionFalse, vapi.AutoRestartVerticaDisabled),
+			vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionFalse, "Detected"),
 		)
 		return ctrl.Result{}, err
 	}
 
 	err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
-		vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionTrue, vapi.AutoRestartVerticaEnabled),
+		vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionTrue, "Detected"),
 	)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -108,7 +108,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 	// restart reconciler is only skipped for VClusterOps.
 	// In Admintools, the IP is cached in admintool.conf and needs to be updated.
 	if vmeta.UseVClusterOps(r.Vdb.Annotations) {
-		isSet := r.Vdb.IsConditionSet(vapi.DBInitialized)
+		isSet := r.Vdb.IsStatusConditionTrue(vapi.DBInitialized)
 		if !isSet {
 			r.Log.Info("Skipping restart reconciler since create_db or revive_db failed")
 			return ctrl.Result{}, nil

@@ -61,9 +61,6 @@ func Update(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, update
 // This is a no-op if the status condition is already set.  The input vdb will
 // be updated with the status condition.
 func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, condition *metav1.Condition) error {
-	if condition.LastTransitionTime.IsZero() {
-		condition.LastTransitionTime = metav1.Now()
-	}
 	// refreshConditionInPlace will update the status condition in vdb.  The update
 	// will be applied in-place.
 	refreshConditionInPlace := func(vdb *vapi.VerticaDB) error {

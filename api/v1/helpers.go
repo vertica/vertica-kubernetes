@@ -139,7 +139,7 @@ func IsValidSubclusterName(scName string) bool {
 func MakeCondition(ctype string, status metav1.ConditionStatus, reason string) *metav1.Condition {
 	r := reason
 	if r == "" {
-		r = Unknown
+		r = UnknownReason
 	}
 	return &metav1.Condition{
 		Type:   ctype,
@@ -253,18 +253,18 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
-	return v.IsConditionSet(OnlineUpgradeInProgress)
+	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
 }
 
-// IsConditionSet returns true when the conditionType is present and set to
+// IsStatusConditionTrue returns true when the conditionType is present and set to
 // `metav1.ConditionTrue`
-func (v *VerticaDB) IsConditionSet(statusCondition string) bool {
+func (v *VerticaDB) IsStatusConditionTrue(statusCondition string) bool {
 	return meta.IsStatusConditionTrue(v.Status.Conditions, statusCondition)
 }
 
-// IsConditionSetAndFalse returns true when the conditionType is present and set to
+// IsStatusConditionFalse returns true when the conditionType is present and set to
 // `metav1.ConditionFalse`
-func (v *VerticaDB) IsConditionSetAndFalse(statusCondition string) bool {
+func (v *VerticaDB) IsStatusConditionFalse(statusCondition string) bool {
 	return meta.IsStatusConditionFalse(v.Status.Conditions, statusCondition)
 }
 

@@ -873,11 +873,11 @@ func (v *VerticaDB) hasValidProbeOverride(allErrs field.ErrorList, fieldPath *fi
 }
 
 func (v *VerticaDB) isUpgradeInProgress() bool {
-	return v.IsConditionSet(UpgradeInProgress)
+	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
 func (v *VerticaDB) isDBInitialized() bool {
-	return v.IsConditionSet(DBInitialized)
+	return v.IsStatusConditionTrue(DBInitialized)
 }
 
 func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {

@@ -72,8 +72,8 @@ var _ = Describe("createet_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		cond := []metav1.Condition{
-			{Type: v1vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: v1vapi.Unknown},
-			{Type: v1vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: v1vapi.Unknown},
+			{Type: v1vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: v1vapi.UnknownReason},
+			{Type: v1vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: v1vapi.UnknownReason},
 		}
 		Expect(setVerticaStatus(ctx, k8sClient, vdb, cond)).Should(Succeed())
 
@@ -121,8 +121,8 @@ var _ = Describe("createet_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		cond := []metav1.Condition{
-			{Type: v1vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: v1vapi.Unknown},
-			{Type: v1vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: v1vapi.Unknown},
+			{Type: v1vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: v1vapi.UnknownReason},
+			{Type: v1vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: v1vapi.UnknownReason},
 		}
 		Expect(setVerticaStatus(ctx, k8sClient, vdb, cond)).Should(Succeed())
 

@@ -179,14 +179,14 @@ var _ = Describe("upgrade", func() {
 
 		fetchedVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.IsConditionSet(vapi.UpgradeInProgress)).Should(BeTrue())
-		Expect(fetchedVdb.IsConditionSet(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
+		Expect(fetchedVdb.IsStatusConditionTrue(vapi.UpgradeInProgress)).Should(BeTrue())
+		Expect(fetchedVdb.IsStatusConditionTrue(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
 		Expect(fetchedVdb.Status.UpgradeStatus).ShouldNot(Equal(""))
 
 		Expect(mgr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
-		Expect(fetchedVdb.IsConditionSetAndFalse(vapi.UpgradeInProgress)).Should(BeTrue())
-		Expect(fetchedVdb.IsConditionSetAndFalse(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
+		Expect(fetchedVdb.IsStatusConditionFalse(vapi.UpgradeInProgress)).Should(BeTrue())
+		Expect(fetchedVdb.IsStatusConditionFalse(vapi.OfflineUpgradeInProgress)).Should(BeTrue())
 		Expect(fetchedVdb.Status.UpgradeStatus).Should(Equal(""))
 	})
 

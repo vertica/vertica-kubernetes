@@ -453,11 +453,10 @@ func convertFromPodStatus(src []v1.VerticaDBPodStatus) []VerticaDBPodStatus {
 
 // convertToStatusCondition will convert to a v1 metav1.Condition from a v1beta1 VerticaDBCondition
 func convertToStatusCondition(src VerticaDBCondition) metav1.Condition {
-	return metav1.Condition{
-		Type:               convertToStatusConditionType(src.Type),
-		Status:             metav1.ConditionStatus(src.Status),
-		LastTransitionTime: src.LastTransitionTime,
-	}
+	cond := v1.MakeCondition(convertToStatusConditionType(src.Type),
+		metav1.ConditionStatus(src.Status), "")
+	cond.LastTransitionTime = src.LastTransitionTime
+	return *cond
 }
 
 // convertFromStatusCondition will convert from a v1 metav1.Condition to a v1beta1 VerticaDBCondition

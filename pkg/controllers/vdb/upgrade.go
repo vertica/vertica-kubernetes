@@ -83,7 +83,7 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
 // is already occurring.
 func (i *UpgradeManager) isUpgradeInProgress() bool {
 	// We first check if the status condition indicates the upgrade is in progress
-	isSet := i.Vdb.IsConditionSet(i.StatusCondition)
+	isSet := i.Vdb.IsStatusConditionTrue(i.StatusCondition)
 	if isSet {
 		i.ContinuingUpgrade = true
 	}
@@ -145,9 +145,9 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 // UpgradeInProgress condition's.  We set the UpgradeInProgress plus the
 // one defined in i.StatusCondition.
 func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal metav1.ConditionStatus) error {
-	reason := vapi.UpgradeStarted
+	reason := "UpgradeStarted"
 	if newVal == metav1.ConditionFalse {
-		reason = vapi.UpgradeFinished
+		reason = "UpgradeFinished"
 	}
 	err := vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
 		vapi.MakeCondition(vapi.UpgradeInProgress, newVal, reason),

@@ -70,7 +70,7 @@ var _ = Describe("stopdb_reconcile", func() {
 		Expect(vdbstatus.UpdateCondition(ctx, k8sClient, vdb,
 			vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionTrue, ""),
 		)).Should(Succeed())
-		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
+		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeTrue())
 
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsDefault(fpr)
@@ -81,6 +81,6 @@ var _ = Describe("stopdb_reconcile", func() {
 		Expect(len(hist)).Should(Equal(1))
 
 		// Status condition should be cleared
-		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeFalse())
+		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeFalse())
 	})
 })

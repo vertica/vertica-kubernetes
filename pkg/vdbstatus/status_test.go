@@ -134,8 +134,8 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
 		conds := []metav1.Condition{
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.Unknown},
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.UnknownReason},
 		}
 
 		for i := range conds {
@@ -156,9 +156,9 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
 		conds := []metav1.Condition{
-			{Type: vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.Unknown},
+			{Type: vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
+			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.UnknownReason},
 		}
 
 		for i := range conds {
@@ -182,23 +182,24 @@ var _ = Describe("status", func() {
 
 		origTime := metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, LastTransitionTime: origTime, Reason: vapi.Unknown},
+			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, LastTransitionTime: origTime,
+				Reason: vapi.UnknownReason},
 		)).Should(Succeed())
 		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
+			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
 		)).Should(Succeed())
 		Expect(vdb.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
 
-	It("should return false in IsStatusConditionSet if condition isn't present", func() {
+	It("should return false in IsStatusConditionTrue if condition isn't present", func() {
 		vdb := vapi.MakeVDB()
 		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
 
-		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeFalse())
+		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeFalse())
 		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			&metav1.Condition{Type: vapi.VerticaRestartNeeded, Status: metav1.ConditionTrue, Reason: vapi.Unknown},
+			&metav1.Condition{Type: vapi.VerticaRestartNeeded, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
 		)).Should(Succeed())
-		Expect(vdb.IsConditionSet(vapi.VerticaRestartNeeded)).Should(BeTrue())
+		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeTrue())
 	})
 })

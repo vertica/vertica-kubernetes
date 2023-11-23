@@ -139,7 +139,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	// create.
 	vinf, ok := c.Vdb.MakeVersionInfo()
 	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
-		cond := vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionTrue, vapi.SpreadCommEncryptionEnabled)
+		cond := vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionTrue, "SpreadCommEncryptionEnabled")
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
 		}
