@@ -35,6 +35,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -56,6 +57,7 @@ type CreateDBReconciler struct {
 	PFacts              *PodFacts
 	Dispatcher          vadmin.Dispatcher
 	ConfigurationParams *vtypes.CiMap
+	VInf                *version.Info
 }
 
 // MakeCreateDBReconciler will build a CreateDBReconciler object
@@ -79,6 +81,16 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	if c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreate &&
 		c.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyCreateSkipPackageInstall {
 		return ctrl.Result{}, nil
+	}
+
+	var err error
+	c.VInf, err = c.Vdb.MakeVersionInfoCheck()
+	if err != nil {
+		// The version should be in the VerticaDB. Although it could be missing
+		// if we have a cached copy of the VerticaDB that is from prior to the
+		// annotation update. Requeue to force a new reconciliation to read
+		// latest copy.
+		return ctrl.Result{}, err
 	}
 
 	// The remaining create_db logic is driven from GenericDatabaseInitializer.
@@ -136,8 +148,8 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	// On older versions of vertica we need to drive a restart if setting
 	// encryptSpreadComm. Set a condition variable so this happens after the
 	// create.
-	vinf, ok := c.Vdb.MakeVersionInfo()
-	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
+		c.Log.Info("Setting restart needed status condition", "encryptSpreadComm", c.Vdb.Spec.EncryptSpreadComm)
 		cond := vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionTrue}
 		if err := vdbstatus.UpdateCondition(ctx, c.VRec.Client, c.Vdb, cond); err != nil {
 			return ctrl.Result{}, err
@@ -152,8 +164,7 @@ func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initiatorPod types.NamespacedName) (ctrl.Result, error) {
 	// On newer server versions we moved over the SQL to config parameters. So,
 	// if we are on a new enough version we can skip this function entirely.
-	vinf, ok := c.Vdb.MakeVersionInfo()
-	if ok && vinf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
+	if c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		return ctrl.Result{}, nil
 	}
 
@@ -173,7 +184,7 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 	}
 	// On newer vertica versions, the EncrpytSpreadComm setting can be set as a
 	// config parm in the create db call.
-	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && ok && vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
 		sb.WriteString(fmt.Sprintf(`alter database default set parameter EncryptSpreadComm = '%s';
 		`, vapi.EncryptSpreadCommWithVertica))
 	}
@@ -191,8 +202,7 @@ func (c *CreateDBReconciler) postCmdCleanup(_ context.Context) (ctrl.Result, err
 	// In old versions if encryptSpreadComm was set we need to initiate a restart of the
 	// cluster.  If this is needed we do it in a separate reconciler but causing
 	// a requeue.
-	vinf, ok := c.Vdb.MakeVersionInfo()
-	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && (!ok || vinf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion)) {
+	if c.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && c.VInf.IsOlder(vapi.SetEncryptSpreadCommAsConfigVersion) {
 		c.Log.Info("Requeue reconcile cycle to initiate restart of the server due to encryptSpreadComm setting")
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -270,8 +280,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 		createdb.WithDataPath(c.Vdb.Spec.Local.DataPath),
 	}
 
-	vinf, ok := c.Vdb.MakeVersionInfo()
-	if !ok || !vinf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
+	if !c.VInf.IsEqualOrNewer(vapi.DBSetupConfigParametersMinVersion) {
 		opts = append(opts, createdb.WithPostDBCreateSQLFile(PostDBCreateSQLFile))
 	}
 
@@ -291,8 +300,7 @@ func (c *CreateDBReconciler) genOptions(ctx context.Context, initiatorPod types.
 	}
 
 	if c.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {
-		vinf, ok := c.Vdb.MakeVersionInfo()
-		if ok && vinf.IsEqualOrNewer(vapi.CreateDBSkipPackageInstallVersion) {
+		if c.VInf.IsEqualOrNewer(vapi.CreateDBSkipPackageInstallVersion) {
 			opts = append(opts, createdb.WithSkipPackageInstall())
 		}
 	}

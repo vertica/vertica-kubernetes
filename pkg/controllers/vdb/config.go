@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -41,15 +42,15 @@ type ConfigParamsGenerator struct {
 	Log                 logr.Logger
 	Vdb                 *vapi.VerticaDB
 	ConfigurationParams *vtypes.CiMap
+	VInf                *version.Info
 }
 
 // ConstructConfigParms builds a map of all of the config parameters to use,
 // and assigns the map to ConfigurationParams of ConfigParamsGenerator
 func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.Result, error) {
-	if g.ConfigurationParams == nil {
-		g.ConfigurationParams = vtypes.MakeCiMap()
+	if err := g.setup(); err != nil {
+		return ctrl.Result{}, err
 	}
-
 	var authConfigBuilder func(ctx context.Context) (ctrl.Result, error)
 
 	if g.Vdb.Spec.Communal.Path == "" {
@@ -113,6 +114,16 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 // It is used after ConstructConfigParms(), and it can return a map of all config parameters
 func (g *ConfigParamsGenerator) GetConfigParms() *vtypes.CiMap {
 	return g.ConfigurationParams
+}
+
+// setup will initialize parms in the ConfigParamsGenerator struct
+func (g *ConfigParamsGenerator) setup() error {
+	if g.ConfigurationParams == nil {
+		g.ConfigurationParams = vtypes.MakeCiMap()
+	}
+	var err error
+	g.VInf, err = g.Vdb.MakeVersionInfoCheck()
+	return err
 }
 
 // setAuth adds the auth parms, if they exist, to the config parms map.
@@ -569,11 +580,7 @@ func (g *ConfigParamsGenerator) hasCompatibleVersionElseRequeue(supportedVersion
 
 // hasCompatibleVersion checks whether it has the required engine fix returning a bool.
 func (g *ConfigParamsGenerator) hasCompatibleVersion(supportedVersion string) bool {
-	vinf, ok := g.Vdb.MakeVersionInfo()
-	if !ok || ok && vinf.IsEqualOrNewer(supportedVersion) {
-		return true
-	}
-	return false
+	return g.VInf.IsEqualOrNewer(supportedVersion)
 }
 
 // genUnsupportedVerticaVersionEventMsg returns a string that will be used as
