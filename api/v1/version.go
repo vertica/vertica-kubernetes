@@ -16,6 +16,7 @@
 package v1
 
 import (
+	"fmt"
 	"regexp"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -74,6 +75,17 @@ func (v *VerticaDB) MakeVersionInfo() (*version.Info, bool) {
 		return nil, false
 	}
 	return version.MakeInfoFromStr(vdbVer)
+}
+
+// MakeVersionInfoCheck is like MakeVersionInfo but returns an error if the
+// version is missing. Use this in places where it is a failure if the version
+// is missing.
+func (v *VerticaDB) MakeVersionInfoCheck() (*version.Info, error) {
+	vinf, ok := v.MakeVersionInfo()
+	if !ok {
+		return nil, fmt.Errorf("could not find version from VerticaDB")
+	}
+	return vinf, nil
 }
 
 // ParseVersionOutput will parse the raw output from the --version call and

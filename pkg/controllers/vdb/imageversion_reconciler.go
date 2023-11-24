@@ -61,7 +61,8 @@ func MakeImageVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will update the annotation in the Vdb with Vertica version info
 func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if err := v.PFacts.Collect(ctx, v.Vdb); err != nil {
+	err := v.PFacts.Collect(ctx, v.Vdb)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -71,19 +72,21 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err := v.verifyImage(pod)
+	err = v.verifyImage(pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if res, err := v.reconcileVersion(ctx, pod); verrors.IsReconcileAborted(res, err) {
+	var res ctrl.Result
+	res, err = v.reconcileVersion(ctx, pod)
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
-	vinf, ok := v.Vdb.MakeVersionInfo()
-	if !ok {
-		// Version info is not in the vdb.  Fine to skip.
-		return ctrl.Result{}, nil
+	var vinf *version.Info
+	vinf, err = v.Vdb.MakeVersionInfoCheck()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if vinf.IsUnsupported(vapi.MinimumVersion) {
@@ -162,6 +165,8 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 			if err != nil {
 				return err
 			}
+			v.Log.Info("Version annotation updated", "resourceVersion", v.Vdb.ResourceVersion,
+				"version", v.Vdb.Annotations[vmeta.VersionAnnotation])
 		}
 		return nil
 	})

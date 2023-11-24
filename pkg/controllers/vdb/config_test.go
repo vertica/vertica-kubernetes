@@ -41,6 +41,7 @@ var _ = Describe("config", func() {
 
 		// set the version larger than the version that will encrypt spread channel without a db restart
 		vdb.Annotations[vmeta.VersionAnnotation] = "v23.3.1"
+		Expect(g.setup()).Should(Succeed())
 		// default value should be "vertica"
 		g.setEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(1))
@@ -72,6 +73,7 @@ var _ = Describe("config", func() {
 		// We will not set EncryptSpreadComm in config params when vertica version is old.
 		// EncryptSpreadComm will be set using DDL after db is created.
 		vdb.Annotations[vmeta.VersionAnnotation] = "v12.0.3"
+		Expect(g.setup()).Should(Succeed())
 		// default value
 		g.setEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(0))

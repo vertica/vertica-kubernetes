@@ -64,12 +64,15 @@ func (a *Admintools) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Result
 	}
 
 	cmd := a.genMapFileUploadCmd(mapFileContents)
-	if _, _, err := a.PRunner.ExecInPod(ctx, s.Initiator, names.ServerContainer, cmd...); err != nil {
+	if _, _, err = a.PRunner.ExecInPod(ctx, s.Initiator, names.ServerContainer, cmd...); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	cmd = a.genReIPCommand()
-	if _, err := a.execAdmintools(ctx, s.Initiator, cmd...); err != nil {
+	cmd, err = a.genReIPCommand()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if _, err = a.execAdmintools(ctx, s.Initiator, cmd...); err != nil {
 		// Log an event as failure to re_ip means we won't be able to bring up the database.
 		a.EVWriter.Event(a.VDB, corev1.EventTypeWarning, events.ReipFailed,
 			"Attempt to run 'admintools -t re_ip' failed")
@@ -105,7 +108,7 @@ func (a *Admintools) genMapFile(oldIPs verticaIPLookup, s *reip.Parms) (mapConte
 }
 
 // genReIPCommand will return the command to run for the re_ip command
-func (a *Admintools) genReIPCommand() []string {
+func (a *Admintools) genReIPCommand() ([]string, error) {
 	cmd := []string{
 		"-t", "re_ip",
 		"--file=" + AdminToolsMapFile,
@@ -115,12 +118,15 @@ func (a *Admintools) genReIPCommand() []string {
 	// In 11.1, we added a --force option to re_ip to allow us to run it while
 	// some nodes are up.  This was done to support doing a reip while there are
 	// read-only secondary nodes.
-	vinf, ok := a.VDB.MakeVersionInfo()
-	if ok && vinf.IsEqualOrNewer(vapi.ReIPAllowedWithUpNodesVersion) {
+	vinf, err := a.VDB.MakeVersionInfoCheck()
+	if err != nil {
+		return nil, err
+	}
+	if vinf.IsEqualOrNewer(vapi.ReIPAllowedWithUpNodesVersion) {
 		cmd = append(cmd, "--force")
 	}
 
-	return cmd
+	return cmd, nil
 }
 
 // genMapFileUploadCmd returns the command to run to upload the map file

@@ -103,6 +103,7 @@ var _ = Describe("createdb_reconciler", func() {
 	It("should have DDL to encrypt spread if that setting is used", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommWithVertica
+		vdb.Annotations[vmeta.VersionAnnotation] = "v12.0.4"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -115,8 +116,10 @@ var _ = Describe("createdb_reconciler", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+		// No config setting can be set since we are on a version that needs to
+		// restart the database for the setting to take effect.
 		hist := fpr.FindCommands(fmt.Sprintf("encryptspreadcomm = %s", vapi.EncryptSpreadCommWithVertica))
-		Expect(len(hist)).Should(Equal(1))
+		Expect(len(hist)).Should(Equal(0))
 
 		// The restart condition variable should be set to true also
 		fetchVdb := &vapi.VerticaDB{}
