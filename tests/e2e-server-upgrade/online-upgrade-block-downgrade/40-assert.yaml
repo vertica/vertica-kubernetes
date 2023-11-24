@@ -16,17 +16,6 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "False"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "False"
   subclusterCount: 1
   installCount: 1
   upNodeCount: 1

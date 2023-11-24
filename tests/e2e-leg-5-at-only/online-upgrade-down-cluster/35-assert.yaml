@@ -17,15 +17,4 @@ metadata:
   name: v-base-upgrade
 status:
   upgradeStatus: "Restarting vertica in primary subclusters"
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "True"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "True"
   subclusterCount: 1

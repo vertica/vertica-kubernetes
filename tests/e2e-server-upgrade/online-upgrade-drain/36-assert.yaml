@@ -17,17 +17,6 @@ metadata:
   name: v-base-upgrade
 status:
   upgradeStatus: "Draining primary subclusters"
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: UpgradeInProgress
-      status: "True"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "True"
   subclusterCount: 3
 ---
 apiVersion: v1

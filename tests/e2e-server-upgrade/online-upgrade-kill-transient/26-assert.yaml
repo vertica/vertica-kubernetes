@@ -16,6 +16,10 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
-  subclusterCount: 2
-  installCount: 2
-  upNodeCount: 2
+  upgradeStatus: "Creating transient secondary subcluster"
+  subclusterCount: 3
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-transient

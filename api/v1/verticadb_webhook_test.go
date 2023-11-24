@@ -880,9 +880,6 @@ func resetStatusConditionsForDBInitialized(v *VerticaDB) {
 
 func resetStatusConditionsForCondition(v *VerticaDB, conditionType string) {
 	v.Status.Conditions = make([]metav1.Condition, 0)
-	cond := metav1.Condition{
-		Type:   conditionType,
-		Status: metav1.ConditionTrue,
-	}
-	meta.SetStatusCondition(&v.Status.Conditions, cond)
+	cond := MakeCondition(conditionType, metav1.ConditionTrue, "")
+	meta.SetStatusCondition(&v.Status.Conditions, *cond)
 }

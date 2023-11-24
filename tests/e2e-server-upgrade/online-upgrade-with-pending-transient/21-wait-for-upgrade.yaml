@@ -11,21 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  upgradeStatus: "Restarting vertica in primary subclusters"
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: ImageChangeInProgress
-      status: "True"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "True"
-  subclusterCount: 2
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl wait --for=condition=AutoRestartVertica=True vdb/v-base-upgrade --timeout=600s
+    namespaced: true
+  - command: kubectl wait --for=condition=DBInitialized=True vdb/v-base-upgrade --timeout=600s
+    namespaced: true
+  - command: kubectl wait --for=condition=UpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
+    namespaced: true
+  - command: kubectl wait --for=condition=OnlineUpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
+    namespaced: true
