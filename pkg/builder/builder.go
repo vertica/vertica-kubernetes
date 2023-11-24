@@ -62,6 +62,8 @@ const (
 	NMAKeyEnv             = "NMA_KEY_PATH"
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
 	NMASecretNameEnv      = "NMA_SECRET_NAME"
+
+	HTTPServerVersionPath = "/v1/version"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -279,7 +281,7 @@ func buildCertSecretVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 // buildVolumes builds up a list of volumes to include in the sts
 func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	vols := []corev1.Volume{}
-	vols = append(vols, buildPodInfoVolume(vdb))
+	vols = append(vols, buildPodInfoVolume())
 	if vdb.Spec.LicenseSecret != "" {
 		vols = append(vols, buildLicenseVolume(vdb))
 	}
@@ -318,11 +320,9 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 }
 
 // buildPodInfoVolume constructs the volume that has the /etc/podinfo files.
-func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
+func buildPodInfoVolume() corev1.Volume {
 	projSources := []corev1.VolumeProjection{
 		{DownwardAPI: buildDownwardAPIProjection()},
-		// If these is a superuser password, include that in the projection
-		{Secret: buildSuperuserPasswordProjection(vdb)},
 	}
 
 	return corev1.Volume{
@@ -424,53 +424,6 @@ func buildDownwardAPIProjection() *corev1.DownwardAPIProjection {
 			},
 		},
 	}
-}
-
-// probeContainsSuperuserPassword will check if the probe uses the superuser
-// password.
-func probeContainsSuperuserPassword(probe *corev1.Probe) bool {
-	if probe.Exec == nil {
-		return false
-	}
-	for _, v := range probe.Exec.Command {
-		if strings.Contains(v, SuperuserPasswordPath) {
-			return true
-		}
-	}
-	return false
-}
-
-// requiresSuperuserPasswordSecretMount returns true if the superuser password
-// needs to be mounted in the pod.
-func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
-	if vdb.Spec.PasswordSecret == "" {
-		return false
-	}
-
-	// Construct each probe. If don't use the superuser password in them, then
-	// it is safe to not mount this in the downward API projection.
-	funcs := []func(*vapi.VerticaDB) *corev1.Probe{
-		makeReadinessProbe, makeStartupProbe, makeLivenessProbe,
-	}
-	for _, f := range funcs {
-		if probeContainsSuperuserPassword(f(vdb)) {
-			return true
-		}
-	}
-	return false
-}
-
-// buildSuperuserPasswordProjection creates a projection for inclusion in /etc/podinfo
-func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
-	if requiresSuperuserPasswordSecretMount(vdb) {
-		return &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
-			Items: []corev1.KeyToPath{
-				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
-			},
-		}
-	}
-	return nil
 }
 
 // buildCertSecretVolumes returns a list of volumes, one for each secret in certSecrets.
@@ -618,55 +571,30 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	}
 }
 
-// makeVerticaClientPortProbe will build a probe that if vertica is up by seeing
-// if the vertica client port is being listened on.
-func makeVerticaClientPortProbe() *corev1.Probe {
+// makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
+func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt(VerticaClientPort),
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   HTTPServerVersionPath,
+				Port:   intstr.FromInt(VerticaHTTPPort),
+				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
 	}
-}
-
-// makeCanaryQueryProbe will build a probe that does the canary SQL query to see
-// if vertica is up.
-func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"bash", "-c", buildCanaryQuerySQL(vdb)},
-			},
-		},
-	}
-}
-
-// makeDefaultReadinessOrStartupProbe will return the default probe to use for
-// the readiness or startup probes. Only returns the default timeouts for the
-// probe. Caller is responsible for adusting those.
-func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	// If using GSM, then the superuses password is not a k8s secret. We cannot
-	// use the canary query then because that depends on having the password
-	// mounted in the file system. Default to just checking if the client port
-	// is being listened on.
-	if vmeta.UseGCPSecretManager(vdb.Annotations) {
-		return makeVerticaClientPortProbe()
-	}
-	return makeCanaryQueryProbe(vdb)
 }
 
 // makeReadinessProbe will build the readiness probe. It has a default probe
 // that can be overridden with the spec.readinessProbeOverride parameter.
 func makeReadinessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	probe := makeDefaultReadinessOrStartupProbe(vdb)
+	probe := makeHTTPServerVersionEndpointProbe()
 	overrideProbe(probe, vdb.Spec.ReadinessProbeOverride)
 	return probe
 }
 
 // makeStartupProbe will return the Probe object to use for the startup probe.
 func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	probe := makeDefaultReadinessOrStartupProbe(vdb)
+	probe := makeHTTPServerVersionEndpointProbe()
 	// We want to wait about 20 minutes for the server to come up before the
 	// other probes come into affect. The total length of the probe is more or
 	// less: InitialDelaySeconds + PeriodSeconds * FailureThreshold.
@@ -681,11 +609,7 @@ func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 
 // makeLivenessProbe will return the Probe object to use for the liveness probe.
 func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	// We check if the TCP client port is open. We used this approach,
-	// rather than issuing 'select 1' like readinessProbe because we need
-	// to minimize variability. If the livenessProbe fails, the pod is
-	// rescheduled. So, it isn't as forgiving as the readinessProbe.
-	probe := makeVerticaClientPortProbe()
+	probe := makeHTTPServerVersionEndpointProbe()
 	// These values were picked so that we can estimate how long vertica
 	// needs to be unresponsive before it gets killed. We are targeting
 	// about 2.5 minutes after initial start and 1.5 minutes if the pod has
@@ -1107,17 +1031,6 @@ func makeUpdateStrategy(vdb *vapi.VerticaDB) appsv1.StatefulSetUpdateStrategy {
 		return appsv1.StatefulSetUpdateStrategy{Type: appsv1.OnDeleteStatefulSetStrategyType}
 	}
 	return appsv1.StatefulSetUpdateStrategy{Type: appsv1.RollingUpdateStatefulSetStrategyType}
-}
-
-// buildCanaryQuerySQL returns the SQL to use that will check if the vertica
-// process is up and accepting connections.
-func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
-	passwd := ""
-	if vdb.Spec.PasswordSecret != "" {
-		passwd = fmt.Sprintf("-w $(cat %s/%s)", paths.PodInfoPath, SuperuserPasswordPath)
-	}
-
-	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
 }
 
 // GetK8sLocalObjectReferenceArray returns a k8s LocalObjecReference array
