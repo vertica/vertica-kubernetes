@@ -932,8 +932,8 @@ func BuildStorageClass(allowVolumeExpansion bool) *storagev1.StorageClass {
 	}
 }
 
-// BuildS3CommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
-func BuildS3CommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
+// BuildCommunalCredSecret is a test helper to build up the Secret spec to store communal credentials
+func BuildCommunalCredSecret(vdb *vapi.VerticaDB, accessKey, secretKey string) *corev1.Secret {
 	nm := names.GenCommunalCredSecretName(vdb)
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

@@ -52,10 +52,6 @@ const (
 	MountNMACertsTrue  = "true"
 	MountNMACertsFalse = "false"
 
-	// This is a feature flag for accessing the secrets configured in Google Secret Manager.
-	// The value of this annotation is treated as a boolean.
-	GcpGsmAnnotation = "vertica.com/use-gcp-secret-manager"
-
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
 	OperatorVersionAnnotation          = "vertica.com/operator-version"
@@ -82,6 +78,15 @@ const (
 	// pods.  This value is only used during bootstrap of the VerticaDB.
 	KSafetyAnnotation   = "vertica.com/k-safety"
 	KSafetyDefaultValue = "1"
+
+	// When enabled, the webhook will validate k-safety based on the number of
+	// primary nodes in the cluster. Otherwise, validation will be based on the
+	// total number of nodes in the cluster. The correct way is to use only the
+	// primary nodes. This annotation exists only because the k-safety
+	// validation in the v1beta1 API was implemented incorrectly. The v1 API
+	// does it correctly. We can remove this annotation once the v1beta1 API is
+	// no longer supported.
+	StrictKSafetyCheckAnnotation = "vertica.com/strict-k-safety-check"
 
 	// If a reconciliation iteration needs to be requeued this controls the
 	// amount of time in seconds to wait.  If this is set to 0, or not set, then
@@ -148,12 +153,6 @@ func UseNMACertsMount(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, MountNMACerts, true /* default value */)
 }
 
-// UseGCPSecretManager returns true if access to the communal secret should go through
-// Google's secret manager rather the fetching the secret from k8s meta-data.
-func UseGCPSecretManager(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, GcpGsmAnnotation, false /* default value */)
-}
-
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
 func IgnoreClusterLease(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, IgnoreClusterLeaseAnnotation, false /* default value */)
@@ -207,6 +206,15 @@ func GetSuperuserName(annotations map[string]string) string {
 		return lookupStringAnnotation(annotations, SuperuserNameAnnotation, SuperuserNameDefaultValue)
 	}
 	return SuperuserNameDefaultValue
+}
+
+// IsKSafetyCheckStrict returns whether the k-safety check is relaxed.
+// If false (default value), the webhook will calculate the k-safety value
+// based on the number of primary nodes in the cluster;
+// if true, the calculation will be based on the number of all nodes
+// in the cluster.
+func IsKSafetyCheckStrict(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, StrictKSafetyCheckAnnotation, true /* default value */)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

@@ -192,7 +192,11 @@ const testSecretKey = "dummy"
 const testClientKey = "dummy"
 
 func createS3CredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
-	secret := builder.BuildS3CommunalCredSecret(vdb, testAccessKey, testSecretKey)
+	createK8sCredSecret(ctx, vdb)
+}
+
+func createK8sCredSecret(ctx context.Context, vdb *vapi.VerticaDB) {
+	secret := builder.BuildCommunalCredSecret(vdb, testAccessKey, testSecretKey)
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 

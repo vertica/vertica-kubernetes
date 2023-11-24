@@ -31,6 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -97,12 +98,10 @@ func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.2/pkg/reconcile
 func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// remove goroutineID after VER-89903 is closed
-	goroutineID, e := goid()
-	if e != nil {
-		return ctrl.Result{}, e
-	}
-	log := r.Log.WithValues("verticadb", req.NamespacedName, "goroutine", goroutineID)
+	// Generate a unique uuid for each reconcile iteration so we can easily
+	// trace actions within a reconcile.
+	reconcileUUID := uuid.New()
+	log := r.Log.WithValues("verticadb", req.NamespacedName, "reconcile-uuid", reconcileUUID)
 	log.Info("starting reconcile of VerticaDB")
 
 	vdb := &vapi.VerticaDB{}
@@ -263,8 +262,8 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vap
 		return "", nil
 	}
 
-	if vmeta.UseGCPSecretManager(vdb.Annotations) {
-		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.Spec.PasswordSecret)
+	if vdb.ReadCommunalCredsFromGSM() {
+		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.GetSUPwdSecretName())
 		if err != nil {
 			return "", fmt.Errorf("failed to read superuser password from GSM: %w", err)
 		}
