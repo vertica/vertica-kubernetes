@@ -129,21 +129,6 @@ var _ = Describe("builder", func() {
 		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("depot")))
 	})
 
-	It("shoul have all probes use the htpp version endpoint", func() {
-		vdb := vapi.MakeVDB()
-
-		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Expect(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Expect(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Expect(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Expect(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Expect(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Expect(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-	})
-
 	It("should allow parts of the readiness probe to be overridden", func() {
 		vdb := vapi.MakeVDB()
 		NewCommand := []string{"new", "command"}
@@ -188,6 +173,57 @@ var _ = Describe("builder", func() {
 		Expect(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
 	})
 
+	It("shoul have all probes use the htpp version endpoint", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Expect(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
+		Expect(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
+		Expect(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Expect(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
+		Expect(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
+		Expect(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Expect(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
+		Expect(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
+	})
+
+	It("should not mount superuser password", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.PasswordSecret = "some-secret"
+
+		// case 1:  if probe's overridden
+		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				TCPSocket: &v1.TCPSocketAction{
+					Port: intstr.FromInt(5433),
+				},
+			},
+		}
+		vdb.Spec.StartupProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				Exec: &v1.ExecAction{
+					Command: []string{"vsql", "-c", "select 1"},
+				},
+			},
+		}
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
+
+		vdb.Spec.StartupProbeOverride = nil
+
+		// case 2: if in vclusterops mode and version >= v23.4
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
+
+		// case 3: should mount
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeTrue())
+	})
+
 	It("should allow override of probe with grpc and httpget", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
@@ -209,6 +245,14 @@ var _ = Describe("builder", func() {
 		Expect(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
 		Expect(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
 		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+	})
+
+	It("should not use canary query probe if using GSM", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.PasswordSecret = "gsm://project/team/dbadmin/secret/1"
+		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 	})
 
 	It("should override some of the pod securityContext settings", func() {
@@ -296,6 +340,15 @@ func makeVolumeMountNames(c *v1.Container) []string {
 	return volNames
 }
 
+func getPodInfoVolume(vols []v1.Volume) *v1.Volume {
+	for i := range vols {
+		if vols[i].Name == vapi.PodInfoMountName {
+			return &vols[i]
+		}
+	}
+	return nil
+}
+
 func NMACertsVolumeExists(vdb *vapi.VerticaDB, vols []v1.Volume) bool {
 	for i := range vols {
 		if vols[i].Name == vapi.NMACertsMountName && vols[i].Secret.SecretName == vdb.Spec.NMATLSSecret {
@@ -331,6 +384,18 @@ func NMACertsEnvVarsExist(vdb *vapi.VerticaDB, c *v1.Container) bool {
 	} else {
 		if !rootCAOk && !certOk && !keyOk && secretNamespaceOk && secretNameOk {
 			return true
+		}
+	}
+	return false
+}
+
+func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {
+	v := getPodInfoVolume(podSpec.Volumes)
+	for i := range v.Projected.Sources {
+		if v.Projected.Sources[i].Secret != nil {
+			if v.Projected.Sources[i].Secret.LocalObjectReference.Name == vdb.Spec.PasswordSecret {
+				return true
+			}
 		}
 	}
 	return false
