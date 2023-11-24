@@ -18,7 +18,5 @@ commands:
     namespaced: true
   - command: kubectl wait --for=condition=DBInitialized=True vdb/v-base-upgrade --timeout=600s
     namespaced: true
-  - command: kubectl wait --for=condition=ImageChangeInProgress=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
   - command: kubectl wait --for=condition=OnlineUpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
     namespaced: true
