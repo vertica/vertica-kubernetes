@@ -173,18 +173,18 @@ var _ = Describe("builder", func() {
 		Expect(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
 	})
 
-	It("shoul have all probes use the htpp version endpoint", func() {
+	It("should have all probes use the http version endpoint", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Expect(c.ReadinessProbe.HTTPGet.Path).Should(Equal(httpServerVersionPath))
 		Expect(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Expect(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Expect(c.LivenessProbe.HTTPGet.Path).Should(Equal(httpServerVersionPath))
 		Expect(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Expect(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Expect(c.StartupProbe.HTTPGet.Path).Should(Equal(httpServerVersionPath))
 		Expect(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Expect(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 	})
@@ -213,7 +213,7 @@ var _ = Describe("builder", func() {
 
 		vdb.Spec.StartupProbeOverride = nil
 
-		// case 2: if in vclusterops mode and version >= v23.4
+		// case 2: if in vclusterops mode
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
@@ -245,6 +245,35 @@ var _ = Describe("builder", func() {
 		Expect(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
 		Expect(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
 		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+	})
+
+	It("should override readiness and liveness probes when vclusterops is enabled", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(c.Containers[0].ReadinessProbe.HTTPGet).ShouldNot(BeNil())
+		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+
+		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				Exec: &v1.ExecAction{
+					Command: []string{"vsql", "-c", "select 1"},
+				},
+			},
+		}
+		vdb.Spec.LivenessProbeOverride = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				TCPSocket: &v1.TCPSocketAction{
+					Port: intstr.FromInt(VerticaClientPort),
+				},
+			},
+		}
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(c.Containers[0].ReadinessProbe.HTTPGet).Should(BeNil())
+		Expect(c.Containers[0].LivenessProbe.HTTPGet).Should(BeNil())
+		Expect(c.Containers[0].ReadinessProbe.Exec).ShouldNot(BeNil())
+		Expect(c.Containers[0].LivenessProbe.TCPSocket).ShouldNot(BeNil())
 	})
 
 	It("should not use canary query probe if using GSM", func() {

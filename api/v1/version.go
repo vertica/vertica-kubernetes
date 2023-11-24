@@ -56,10 +56,6 @@ const (
 	VcluseropsAsDefaultDeploymentMethodMinVersion = "v24.1.0"
 	// Starting in v24.1.0, we use server logrotate and not depend on cron job
 	InDatabaseLogRotateMinVersion = "v24.1.0"
-	// From v23.4.0 we can now send a get request to /version endpoint
-	// without any cert. This is the min version that allow us to use that
-	// endpoint for health checking
-	HTTPEndpointProbeMinVersion = "v23.4.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

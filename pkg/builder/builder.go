@@ -63,7 +63,8 @@ const (
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
 	NMASecretNameEnv      = "NMA_SECRET_NAME"
 
-	HTTPServerVersionPath = "/v1/version"
+	// HTTP endpoint used for health check probe
+	httpServerVersionPath = "/v1/version"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -625,7 +626,7 @@ func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path:   HTTPServerVersionPath,
+				Path:   httpServerVersionPath,
 				Port:   intstr.FromInt(VerticaHTTPPort),
 				Scheme: corev1.URISchemeHTTPS,
 			},
@@ -658,15 +659,10 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 }
 
 // getHTTPServerVersionEndpointProbe returns an HTTPGet probe if vclusterops
-// is enabled and server version is newer or equal to v23.4
+// is enabled
 func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		// if the server version is older than v23.4 then
-		// we return nil
-		vdbVer, ok := vdb.MakeVersionInfo()
-		if ok && vdbVer.IsEqualOrNewer(vapi.HTTPEndpointProbeMinVersion) {
-			return makeHTTPServerVersionEndpointProbe()
-		}
+		return makeHTTPServerVersionEndpointProbe()
 	}
 	return nil
 }
