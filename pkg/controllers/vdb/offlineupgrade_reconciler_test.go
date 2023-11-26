@@ -35,6 +35,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 	It("should change image if image don't match between sts and vdb", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -57,6 +58,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 	It("should stop cluster during an upgrade", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -73,6 +75,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 	It("should requeue upgrade if pods aren't running", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -92,6 +95,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 	It("should delete pods during an upgrade", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsNotRunning)
@@ -110,6 +114,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 	It("should avoid stop_db if vertica isn't running", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		vdb.Spec.Subclusters[0].Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -127,6 +132,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 	It("should set continuingUpgrade if calling reconciler again after failure", func() {
 		vdb := vapi.MakeVDB()
+		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
