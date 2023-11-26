@@ -90,13 +90,21 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if src.Spec.Communal.IncludeUIDInPath {
 		newAnnotations[vmeta.IncludeUIDInPathAnnotation] = strconv.FormatBool(src.Spec.Communal.IncludeUIDInPath)
 	}
-	// If the vclusterOps annotation is not there, add it so that CRs converted
+	_, VClusterOpsAnnotationOK := src.Annotations[vmeta.VClusterOpsAnnotation]
+	// If the VClusterOpsAnnotation annotation is not there, add it so that CRs converted
 	// from v1beta1 will still use admintools deployments. v1 APIs already have
-	// a default deployment of vclusterOps.
-	if _, ok := src.Annotations[vmeta.VClusterOpsAnnotation]; !ok {
+	// a default deployment of vclusterops.
+	if !VClusterOpsAnnotationOK {
 		newAnnotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 	}
-	return newAnnotations
+	_, RunNMAInSidecarAnnotationOK := src.Annotations[vmeta.RunNMAInSidecarAnnotation]
+	// If the VClusterOpsAnnotation annotation is there and set to true, set the RunNMAInSidecarAnnotation
+	// to false if it's not present so that CRs converted from v1beta1 will still run NMA in a monolithic container, which is
+	// the default behavior of v1beta1
+	if VClusterOpsAnnotationOK && vmeta.UseVClusterOps(src.Annotations) && !RunNMAInSidecarAnnotationOK {
+		newAnnotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
+	}
+	return
 }
 
 // convertFromAnnotations will create the annotations for a v1beta1.VerticaDB CR taken
@@ -120,6 +128,14 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 			continue
 		}
 		newAnnotations[key] = val
+	}
+	_, VClusterOpsAnnotationOK := src.Annotations[vmeta.VClusterOpsAnnotation]
+	_, RunNMAInSidecarAnnotationOK := src.Annotations[vmeta.RunNMAInSidecarAnnotation]
+	// If the VClusterOpsAnnotation annotation is set to true or not present, set the RunNMAInSidecarAnnotation
+	// to true if it's not present so that CRs converted from v1 will still run NMA in a sidecar container, which is
+	// the default behavior of v1
+	if (!VClusterOpsAnnotationOK || vmeta.UseVClusterOps(src.Annotations)) && !RunNMAInSidecarAnnotationOK {
+		newAnnotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
 	}
 	return
 }
