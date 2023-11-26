@@ -106,7 +106,7 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if VClusterOpsAnnotationOK && vmeta.UseVClusterOps(src.Annotations) && !RunNMAInSidecarAnnotationOK {
 		newAnnotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 	}
-	return
+	return newAnnotations
 }
 
 // convertFromAnnotations will create the annotations for a v1beta1.VerticaDB CR taken
