@@ -27,7 +27,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -125,8 +124,7 @@ var _ = Describe("createdb_reconciler", func() {
 		// The restart condition variable should be set to true also
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
-		Expect(len(fetchVdb.Status.Conditions)).Should(BeNumerically(">=", vapi.VerticaRestartNeededIndex))
-		Expect(fetchVdb.Status.Conditions[vapi.VerticaRestartNeededIndex].Status).Should(Equal(corev1.ConditionTrue))
+		Expect(fetchVdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeTrue())
 	})
 
 	It("should always run AT commands from the first pod of the first primary subcluster", func() {

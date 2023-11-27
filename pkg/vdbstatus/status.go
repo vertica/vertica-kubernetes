@@ -17,11 +17,10 @@ package vdbstatus
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -61,30 +60,11 @@ func Update(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, update
 // UpdateCondition will update a condition status
 // This is a no-op if the status condition is already set.  The input vdb will
 // be updated with the status condition.
-func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, condition vapi.VerticaDBCondition) error {
-	if condition.LastTransitionTime.IsZero() {
-		condition.LastTransitionTime = metav1.Now()
-	}
+func UpdateCondition(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, condition *metav1.Condition) error {
 	// refreshConditionInPlace will update the status condition in vdb.  The update
 	// will be applied in-place.
 	refreshConditionInPlace := func(vdb *vapi.VerticaDB) error {
-		inx, ok := vapi.VerticaDBConditionIndexMap[condition.Type]
-		if !ok {
-			return fmt.Errorf("vertica DB condition '%s' missing from VerticaDBConditionType", condition.Type)
-		}
-		// Ensure the array is big enough
-		for i := len(vdb.Status.Conditions); i <= inx; i++ {
-			vdb.Status.Conditions = append(vdb.Status.Conditions, vapi.VerticaDBCondition{
-				Type:               vapi.VerticaDBConditionNameMap[i],
-				Status:             corev1.ConditionFalse,
-				LastTransitionTime: metav1.Unix(0, 0),
-			})
-		}
-		// Only update if status is different change.  Cannot compare the entire
-		// condition since LastTransitionTime will be different each time.
-		if vdb.Status.Conditions[inx].Status != condition.Status {
-			vdb.Status.Conditions[inx] = condition
-		}
+		meta.SetStatusCondition(&vdb.Status.Conditions, *condition)
 		return nil
 	}
 

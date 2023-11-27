@@ -25,7 +25,9 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -869,16 +871,15 @@ func checkErrorsForImmutableFields(vdbOrig, vdbUpdate *VerticaDB, expectError bo
 }
 
 func resetStatusConditionsForUpgradeInProgress(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, UpgradeInProgressIndex)
+	resetStatusConditionsForCondition(v, UpgradeInProgress)
 }
 
 func resetStatusConditionsForDBInitialized(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, DBInitializedIndex)
+	resetStatusConditionsForCondition(v, DBInitialized)
 }
 
-func resetStatusConditionsForCondition(v *VerticaDB, conditionIndex int) {
-	v.Status.Conditions = make([]VerticaDBCondition, conditionIndex+1)
-	v.Status.Conditions[conditionIndex] = VerticaDBCondition{
-		Status: v1.ConditionTrue,
-	}
+func resetStatusConditionsForCondition(v *VerticaDB, conditionType string) {
+	v.Status.Conditions = make([]metav1.Condition, 0)
+	cond := MakeCondition(conditionType, metav1.ConditionTrue, "")
+	meta.SetStatusCondition(&v.Status.Conditions, *cond)
 }

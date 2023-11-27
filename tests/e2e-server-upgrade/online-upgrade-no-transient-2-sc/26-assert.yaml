@@ -16,6 +16,5 @@ kind: VerticaDB
 metadata:
   name: v-base-upgrade
 status:
+  upgradeStatus: "Restarting vertica in primary subclusters"
   subclusterCount: 2
-  installCount: 2
-  upNodeCount: 2

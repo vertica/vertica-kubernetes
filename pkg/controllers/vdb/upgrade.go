@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -39,14 +40,14 @@ type UpgradeManager struct {
 	Log               logr.Logger
 	Finder            iter.SubclusterFinder
 	ContinuingUpgrade bool // true if UpdateInProgress was already set upon entry
-	StatusCondition   vapi.VerticaDBConditionType
+	StatusCondition   string
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
 	IsAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool
 }
 
 // MakeUpgradeManager will construct a UpgradeManager object
 func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	statusCondition vapi.VerticaDBConditionType,
+	statusCondition string,
 	isAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool) *UpgradeManager {
 	return &UpgradeManager{
 		VRec:                          vdbrecon,
@@ -67,8 +68,8 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	if ok, err := i.isUpgradeInProgress(); ok || err != nil {
-		return ok, err
+	if ok := i.isUpgradeInProgress(); ok {
+		return ok, nil
 	}
 
 	if ok := i.IsAllowedForUpgradePolicyFunc(i.Vdb); !ok {
@@ -80,13 +81,13 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
 
 // isUpgradeInProgress returns true if state indicates that an upgrade
 // is already occurring.
-func (i *UpgradeManager) isUpgradeInProgress() (bool, error) {
+func (i *UpgradeManager) isUpgradeInProgress() bool {
 	// We first check if the status condition indicates the upgrade is in progress
-	isSet, err := i.Vdb.IsConditionSet(i.StatusCondition)
+	isSet := i.Vdb.IsStatusConditionTrue(i.StatusCondition)
 	if isSet {
 		i.ContinuingUpgrade = true
 	}
-	return isSet, err
+	return isSet
 }
 
 // isVDBImageDifferent will check if an upgrade is needed based on the
@@ -110,7 +111,7 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) {
 	i.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", i.ContinuingUpgrade,
 		"New Image", i.Vdb.Spec.Image)
-	if err := i.toggleUpgradeInProgress(ctx, corev1.ConditionTrue); err != nil {
+	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -129,7 +130,7 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
-	if err := i.toggleUpgradeInProgress(ctx, corev1.ConditionFalse); err != nil {
+	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionFalse); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -143,15 +144,19 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 // toggleUpgradeInProgress is a helper for updating the
 // UpgradeInProgress condition's.  We set the UpgradeInProgress plus the
 // one defined in i.StatusCondition.
-func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal corev1.ConditionStatus) error {
+func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal metav1.ConditionStatus) error {
+	reason := "UpgradeStarted"
+	if newVal == metav1.ConditionFalse {
+		reason = "UpgradeFinished"
+	}
 	err := vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
-		vapi.VerticaDBCondition{Type: vapi.UpgradeInProgress, Status: newVal},
+		vapi.MakeCondition(vapi.UpgradeInProgress, newVal, reason),
 	)
 	if err != nil {
 		return err
 	}
 	return vdbstatus.UpdateCondition(ctx, i.VRec.Client, i.Vdb,
-		vapi.VerticaDBCondition{Type: i.StatusCondition, Status: newVal},
+		vapi.MakeCondition(i.StatusCondition, newVal, reason),
 	)
 }
 

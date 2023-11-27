@@ -756,7 +756,7 @@ type VerticaDBStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Conditions for VerticaDB
-	Conditions []VerticaDBCondition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
@@ -765,73 +765,26 @@ type VerticaDBStatus struct {
 	UpgradeStatus string `json:"upgradeStatus"`
 }
 
-// VerticaDBConditionType defines type for VerticaDBCondition
-type VerticaDBConditionType string
-
 const (
 	// AutoRestartVertica indicates whether the operator should restart the vertica process
-	AutoRestartVertica VerticaDBConditionType = "AutoRestartVertica"
+	AutoRestartVertica = "AutoRestartVertica"
 	// DBInitialized indicates the database has been created or revived
-	DBInitialized VerticaDBConditionType = "DBInitialized"
+	DBInitialized = "DBInitialized"
 	// UpgradeInProgress indicates if the vertica server is in the process
 	// of having its image change.  We have two additional conditions to
 	// distinguish between online and offline upgrade.
-	UpgradeInProgress        VerticaDBConditionType = "UpgradeInProgress"
-	OfflineUpgradeInProgress VerticaDBConditionType = "OfflineUpgradeInProgress"
-	OnlineUpgradeInProgress  VerticaDBConditionType = "OnlineUpgradeInProgress"
+	UpgradeInProgress        = "UpgradeInProgress"
+	OfflineUpgradeInProgress = "OfflineUpgradeInProgress"
+	OnlineUpgradeInProgress  = "OnlineUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
-	VerticaRestartNeeded VerticaDBConditionType = "VerticaRestartNeeded"
+	VerticaRestartNeeded = "VerticaRestartNeeded"
 )
 
-// Fixed index entries for each condition.
 const (
-	AutoRestartVerticaIndex = iota
-	DBInitializedIndex
-	UpgradeInProgressIndex
-	OfflineUpgradeInProgressIndex
-	OnlineUpgradeInProgressIndex
-	VerticaRestartNeededIndex
+	// list of reasons for conditions' transitions
+	UnknownReason = "UnKnown"
 )
-
-// VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
-// index in the condition array
-var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica:       AutoRestartVerticaIndex,
-	DBInitialized:            DBInitializedIndex,
-	UpgradeInProgress:        UpgradeInProgressIndex,
-	OfflineUpgradeInProgress: OfflineUpgradeInProgressIndex,
-	OnlineUpgradeInProgress:  OnlineUpgradeInProgressIndex,
-	VerticaRestartNeeded:     VerticaRestartNeededIndex,
-}
-
-// VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
-// maps an index to the condition name.
-var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
-	AutoRestartVerticaIndex:       AutoRestartVertica,
-	DBInitializedIndex:            DBInitialized,
-	UpgradeInProgressIndex:        UpgradeInProgress,
-	OfflineUpgradeInProgressIndex: OfflineUpgradeInProgress,
-	OnlineUpgradeInProgressIndex:  OnlineUpgradeInProgress,
-	VerticaRestartNeededIndex:     VerticaRestartNeeded,
-}
-
-// VerticaDBCondition defines condition for VerticaDB
-type VerticaDBCondition struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Type is the name of the condition
-	Type VerticaDBConditionType `json:"type"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Status is the status of the condition
-	// can be True, False or Unknown
-	Status corev1.ConditionStatus `json:"status"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Last time the condition transitioned from one status to another.
-	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-}
 
 const (
 	// The different type names for the subcluster type. A webhook exists to

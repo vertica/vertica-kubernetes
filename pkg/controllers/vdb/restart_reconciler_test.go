@@ -109,16 +109,14 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restartCmd := fpr.FindCommands("restart_node")
 		Expect(len(restartCmd)).Should(Equal(0))
-		Expect(vdb.Status.Conditions[0].Type).Should(Equal(vapi.AutoRestartVertica))
-		Expect(vdb.Status.Conditions[0].Status).Should(Equal(corev1.ConditionFalse))
+		Expect(vdb.IsStatusConditionFalse(vapi.AutoRestartVertica)).Should(BeTrue())
 
 		// Set back to true to check if  the status is updated accordingly
 		vdb.Spec.AutoRestartVertica = true
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, nm, vdb)).Should(Succeed())
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Status.Conditions[0].Type).Should(Equal(vapi.AutoRestartVertica))
-		Expect(vdb.Status.Conditions[0].Status).Should(Equal(corev1.ConditionTrue))
+		Expect(vdb.IsStatusConditionTrue(vapi.AutoRestartVertica)).Should(BeTrue())
 	})
 
 	It("failure to restart will cause a requeue", func() {

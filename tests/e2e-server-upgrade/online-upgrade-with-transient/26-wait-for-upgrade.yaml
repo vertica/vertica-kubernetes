@@ -11,11 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-base-upgrade
-status:
-  subclusterCount: 2
-  installCount: 2
-  upNodeCount: 2
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl wait --for=condition=OnlineUpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
+    namespaced: true

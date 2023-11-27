@@ -17,18 +17,7 @@ metadata:
   name: v-base-upgrade
 status:
   upgradeStatus: "Restarting vertica in primary subclusters"
-  conditions:
-    - type: AutoRestartVertica
-      status: "True"
-    - type: DBInitialized
-      status: "True"
-    - type: UpgradeInProgress
-      status: "True"
-    - type: OfflineUpgradeInProgress
-      status: "False"
-    - type: OnlineUpgradeInProgress
-      status: "True"
-  subclusterCount: 1
+  subclusterCount: 3
 ---
 apiVersion: v1
 kind: Service
@@ -37,5 +26,10 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-name: pri
     vertica.com/client-routing: "true"
+    vertica.com/subcluster-name: transient
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-base-upgrade-transient

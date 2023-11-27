@@ -25,12 +25,3 @@ status:
     - installCount: 2
       addedToDBCount: 0
       upNodeCount: 0
-  conditions:
-      - type: AutoRestartVertica
-        status: "True"
-      - type: DBInitialized
-        status: "False"
-      - type: ImageChangeInProgress
-        status: "False"
-      - type: OfflineUpgradeInProgress
-        status: "False"

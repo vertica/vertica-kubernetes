@@ -1029,15 +1029,6 @@ spec:
       - description: Conditions for VerticaDB
         displayName: Conditions
         path: conditions
-      - description: Last time the condition transitioned from one status to another.
-        displayName: Last Transition Time
-        path: conditions[0].lastTransitionTime
-      - description: Status is the status of the condition can be True, False or Unknown
-        displayName: Status
-        path: conditions[0].status
-      - description: Type is the name of the condition
-        displayName: Type
-        path: conditions[0].type
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount

@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -56,7 +57,8 @@ func MakeStopDBReconciler(
 
 // Reconcile will stop vertica if the status condition indicates a restart is needed
 func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
+	err := s.PFacts.Collect(ctx, s.Vdb)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -66,10 +68,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 	}
 
 	// Only proceed if the restart needed status condition is set.
-	isSet, err := s.Vdb.IsConditionSet(vapi.VerticaRestartNeeded)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	isSet := s.Vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)
 	if isSet {
 		// Stop vertica if any pods are running
 		if s.PFacts.getUpNodeCount() > 0 {
@@ -82,7 +81,7 @@ func (s *StopDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl
 		// Clear the condition now that we stopped the cluster.  We rely on the
 		// restart reconciler that follows this to bring up vertica.
 		err = vdbstatus.UpdateCondition(ctx, s.VRec.Client, s.Vdb,
-			vapi.VerticaDBCondition{Type: vapi.VerticaRestartNeeded, Status: corev1.ConditionFalse},
+			vapi.MakeCondition(vapi.VerticaRestartNeeded, metav1.ConditionFalse, "StopCompleted"),
 		)
 	}
 	return ctrl.Result{}, err
