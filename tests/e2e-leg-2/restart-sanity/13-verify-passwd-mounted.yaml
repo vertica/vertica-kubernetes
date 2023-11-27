@@ -14,7 +14,4 @@
 apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
-  - command: kubectl exec -n $NAMESPACE v-restart-defsc-0 -- bash -c "ls /etc/podinfo"
-  # dbadmin password should be mounted because we reference it in probes.
-  - command: kubectl exec -n $NAMESPACE v-restart-defsc-0 -- bash -c "test -f /etc/podinfo/superuser-passwd"
-
+  - script: if [ $VERTICA_DEPLOYMENT_METHOD != vclusterops ]; then kubectl exec -n $NAMESPACE v-restart-defsc-0 -- bash -c "test -f /etc/podinfo/superuser-passwd"; fi

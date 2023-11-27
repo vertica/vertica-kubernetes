@@ -62,6 +62,9 @@ const (
 	NMAKeyEnv             = "NMA_KEY_PATH"
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
 	NMASecretNameEnv      = "NMA_SECRET_NAME"
+
+	// HTTP endpoint used for health check probe
+	httpServerVersionPath = "/v1/version"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -618,6 +621,19 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	}
 }
 
+// makeHTTPServerVersionEndpointProbe will build an HTTPGet probe
+func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   httpServerVersionPath,
+				Port:   intstr.FromInt(VerticaHTTPPort),
+				Scheme: corev1.URISchemeHTTPS,
+			},
+		},
+	}
+}
+
 // makeVerticaClientPortProbe will build a probe that if vertica is up by seeing
 // if the vertica client port is being listened on.
 func makeVerticaClientPortProbe() *corev1.Probe {
@@ -642,10 +658,22 @@ func makeCanaryQueryProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	}
 }
 
+// getHTTPServerVersionEndpointProbe returns an HTTPGet probe if vclusterops
+// is enabled
+func getHTTPServerVersionEndpointProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return makeHTTPServerVersionEndpointProbe()
+	}
+	return nil
+}
+
 // makeDefaultReadinessOrStartupProbe will return the default probe to use for
 // the readiness or startup probes. Only returns the default timeouts for the
 // probe. Caller is responsible for adusting those.
 func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if probe := getHTTPServerVersionEndpointProbe(vdb); probe != nil {
+		return probe
+	}
 	// If using GSM, then the superuser password is not a k8s secret. We cannot
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
@@ -654,6 +682,19 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 		return makeVerticaClientPortProbe()
 	}
 	return makeCanaryQueryProbe(vdb)
+}
+
+// makeDefaultLivenessProbe will return the default probe to use for
+// liveness probe
+func makeDefaultLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
+	if probe := getHTTPServerVersionEndpointProbe(vdb); probe != nil {
+		return probe
+	}
+	// We check if the TCP client port is open. We used this approach,
+	// rather than issuing 'select 1' like readinessProbe because we need
+	// to minimize variability. If the livenessProbe fails, the pod is
+	// rescheduled. So, it isn't as forgiving as the readinessProbe.
+	return makeVerticaClientPortProbe()
 }
 
 // makeReadinessProbe will build the readiness probe. It has a default probe
@@ -681,11 +722,7 @@ func makeStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 
 // makeLivenessProbe will return the Probe object to use for the liveness probe.
 func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
-	// We check if the TCP client port is open. We used this approach,
-	// rather than issuing 'select 1' like readinessProbe because we need
-	// to minimize variability. If the livenessProbe fails, the pod is
-	// rescheduled. So, it isn't as forgiving as the readinessProbe.
-	probe := makeVerticaClientPortProbe()
+	probe := makeDefaultLivenessProbe(vdb)
 	// These values were picked so that we can estimate how long vertica
 	// needs to be unresponsive before it gets killed. We are targeting
 	// about 2.5 minutes after initial start and 1.5 minutes if the pod has
