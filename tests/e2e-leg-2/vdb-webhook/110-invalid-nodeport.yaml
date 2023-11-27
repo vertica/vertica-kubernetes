@@ -14,6 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl -n verticadb-operator get verticadb v-webhook -o json | jq '.spec.subclusters[0].clientNodePort=3000' | kubectl -n verticadb-operator replace -f -
+  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.subclusters[0].clientNodePort=3000' | kubectl -n $NAMESPACE replace -f -
     ignoreFailure: true
   - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator $NAMESPACE"

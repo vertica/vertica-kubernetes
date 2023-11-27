@@ -29,6 +29,7 @@ spec:
     requestSize: 100Mi
   dbName: vertdb
   shardCount: 12
+  encryptSpreadComm: disabled
   subclusters:
     - name: sc1
       size: 1
