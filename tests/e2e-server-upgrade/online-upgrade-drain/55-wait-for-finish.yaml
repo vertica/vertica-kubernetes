@@ -14,10 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl wait --for=condition=AutoRestartVertica=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
-  - command: kubectl wait --for=condition=DBInitialized=True vdb/v-base-upgrade --timeout=600s
-    namespaced: true
   - command: kubectl wait --for=condition=UpgradeInProgress=False vdb/v-base-upgrade --timeout=600s
     namespaced: true
   - command: kubectl wait --for=condition=OnlineUpgradeInProgress=False vdb/v-base-upgrade --timeout=600s
