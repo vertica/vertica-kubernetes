@@ -95,6 +95,17 @@ VERTICA_REPO="vertica"
 TARGET_IMAGE=${@:$OPTIND:1}
 PUBLIC_IMAGE=vertica-k8s
 PRIVATE_IMAGE=${PUBLIC_IMAGE}-private
+
+# This is temporary because v2 images are still not public
+# and we still do not build them in the CI. Once it is the case,
+# we are going to remove this and update the existing logic
+# to handle v2 images too 
+if [[ $VERTICA_DEPLOYMENT_METHOD == vclusterops ]]
+then
+    echo "${VERTICA_REPO}/${PRIVATE_IMAGE}:36ee8c3de77d43c6ad7bbef252302977952ac9d6-minimal"
+    exit 0
+fi
+
 LAST_RELEASED_IMAGE=$(printVerticaK8sImg $PUBLIC_IMAGE 23 3 0)
 # Next two variables define the version that is built nightly from the server
 # master branch. Update this as the server repo changes the version.

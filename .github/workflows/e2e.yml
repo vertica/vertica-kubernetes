@@ -48,6 +48,7 @@ on:
         - vcluster leg 4
         - vcluster leg 5
         - vcluster leg 6
+        - vcluster server upgrade
         - vcluster udx
       run_security_scan:
         description: 'What images to scan?'
@@ -269,7 +270,7 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  e2e-server-upgrade:
+  e2e-server-upgrade-admintools:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools server upgrade' || inputs.e2e_test_suites == '' }}
     needs: [build]
     uses: ./.github/workflows/e2e-server-upgrade.yml
@@ -277,6 +278,20 @@ jobs:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+      vertica-deployment-method: admintools
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-server-upgrade-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster server upgrade' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    uses: ./.github/workflows/e2e-server-upgrade.yml
+    with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
+      operator-image: ${{ needs.build.outputs.operator-image }}
+      vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+      vertica-deployment-method: vclusterops
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
