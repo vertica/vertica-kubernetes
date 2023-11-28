@@ -63,103 +63,137 @@ done
 logInfo "All output saved to $HOST_OP_DIR"
 mkdir -p $HOST_OP_DIR
 
-logInfo "Save off different k8s objects"
-for obj in verticadbs pods statefulsets deployments
-do
-    kubectl get $obj -A -o yaml > $HOST_OP_DIR/$obj.yaml
-done
-
-logInfo "Save off the OLM operator log if deployed"
-if kubectl get ns olm 2> /dev/null
-then
-    kubectl logs -n olm -l app=olm-operator --tail=-1 > $HOST_OP_DIR/olm-operator.log
-fi
-
-logInfo "Collect scrutinize for VerticaDB clusters"
-for ns in $NS
-do
-    logInfo "Collecting scrutinize in namespace $ns"
-    vdb=$(kubectl get vdb -n $ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
-    for v in $vdb
+function captureK8sObjects {
+    logInfo "Save off different k8s objects"
+    for obj in verticadbs pods statefulsets deployments
     do
-        logInfo "Collecting scrutinize for VerticaDB named $v"
-        pods=($(kubectl get pods -n $ns --selector app.kubernetes.io/instance=$v -o jsonpath='{range .items[*]}{.metadata.name},{.status.phase}{"\n"}{end}' | grep ',Running' | cut -d',' -f1))
-        if [[ -z $pods ]]
-        then
-            logWarning "No pods running. Skip collection"
-            continue
-        fi
-
-        # Depending on the deployment we have two scrutinize methods. The
-        # scrutinize standalone only works widh admintools based deployments.
-        # For vclusterops, we have to use 'vcluster scrutinize'.
-        admintoolsDeployment=$(kubectl exec -n $ns ${pods[0]} -- which admintools > /dev/null 2>&1)
-        admintoolsCheck=$?
-        if [[ $admintoolsCheck -eq 0 ]]
-        then
-            logInfo "Admintools deployment detected"
-            POD_OP_DIR="/tmp"
-            OP_FILE="$ns.$v.scrutinize.tar"
-            logInfo "Running scrutinize"
-            set -o xtrace
-            # We only need 1 pod because scrutinize will collect for the entire VerticaDB
-            kubectl exec -t -n $ns ${pods[0]} -- /opt/vertica/bin/scrutinize --output_dir $POD_OP_DIR --output_file $OP_FILE --vsql-off 
-            scrut_res=$?
-            set +o xtrace
-            if [[ -n $EXIT_ON_ERROR && $scrut_res -ne 0 ]]
-            then
-                logError "*** Scrutinize failed"
-                exit 1
-            fi
-            logAndRunCommand kubectl cp -n $ns ${pods[0]}:$POD_OP_DIR/$OP_FILE $HOST_OP_DIR/$OP_FILE
-        else
-            logInfo "VClusterOps deployment detected"
-            set -o xtrace
-            mapfile -t host_list < <(kubectl get pods -n $ns --selector app.kubernetes.io/instance=$v -o jsonpath='{range .items[*]}{.metadata.name}.{.spec.subdomain}.{.metadata.namespace}.svc{"\n"}{end}')
-            hosts=$(IFS=, ; echo "${host_list[*]}")
-            superuser_op=$(kubectl get vdb -n $ns $v -o jsonpath='{.metadata.annotations.vertica\.com/superuser-name}')
-            superuser=${superuser_op:-dbadmin}
-            password_secret=$(kubectl get vdb -n $ns $v -o jsonpath='{.spec.passwordSecret}')
-            if [[ -n "$password_secret" ]]
-            then
-                password=$(kubectl get secret -n $ns $password_secret -o jsonpath='{.data.password}' | base64 -d)
-            else
-                password=""
-            fi
-            set +o xtrace
-            logInfo "Running scrutinize"
-            # The output file is displayed in the output. We don't have an
-            # option to control the name of the file so we must extract it from
-            # the output and rename it.
-            set -o xtrace
-            scrut_out=$(kubectl exec -t -n $ns ${pods[0]} -- /opt/vertica/bin/vcluster \
-                scrutinize \
-                --hosts=$hosts \
-                --db-user=$superuser \
-                --password=$password \
-                --honor-user-input)
-            set +o xtrace
-            scrut_res=$?
-            if [[ -n $EXIT_ON_ERROR && $scrut_res -ne 0 ]]
-            then
-                logError "*** Scrutinize failed"
-                exit 1
-            fi
-            scrutinizeTmp=/tmp/scrutinize
-            regex="Scrutinize final result at $scrutinizeTmp/(.+\.tgz)"
-            if [[ $scrut_out =~ $regex ]]
-            then
-                tgzFile=${BASH_REMATCH[1]}
-                logAndRunCommand kubectl cp -n $ns ${pods[0]}:$scrutinizeTmp/$tgzFile $HOST_OP_DIR/$tgzFile
-                mv $HOST_OP_DIR/$tgzFile $HOST_OP_DIR/$ns.$v.scrutinize.tgz
-            else
-                logError "Could not find location of scrutinize file"
-                if [[ -n $EXIT_ON_ERROR ]]
-                then
-                    exit 1
-                fi
-            fi
-        fi
-        set +o xtrace
+        kubectl get $obj -A -o yaml > $HOST_OP_DIR/$obj.yaml
     done
-done
+}
+
+function captureOLMLogs {
+    logInfo "Save off the OLM operator log if deployed"
+    if kubectl get ns olm 2> /dev/null
+    then
+        kubectl logs -n olm -l app=olm-operator --tail=-1 > $HOST_OP_DIR/olm-operator.log
+    fi
+}
+
+function captureScrutinize {
+    logInfo "Collect scrutinize for VerticaDB clusters"
+    for ns in $NS
+    do
+        logInfo "Collecting scrutinize in namespace $ns"
+        vdb=$(kubectl get vdb -n $ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+        for v in $vdb
+        do
+            pods=($(kubectl get pods -n $ns --selector app.kubernetes.io/instance=$v -o jsonpath='{range .items[*]}{.metadata.name},{.status.phase}{"\n"}{end}' | grep ',Running' | cut -d',' -f1))
+            if [[ -z $pods ]]
+            then
+                logWarning "No pods running. Skip collection"
+                continue
+            fi
+            captureScrutinizeForVDB $ns $v ${pods[0]}
+        done
+    done
+}
+
+function captureScrutinizeForVDB {
+    ns=$1
+    v=$2
+    pod=$3
+
+    logInfo "Collecting scrutinize for VerticaDB named $v"
+
+    # Depending on the deployment we have two scrutinize methods. The
+    # scrutinize standalone only works with admintools based deployments.
+    # For vclusterops, we have to use 'vcluster scrutinize'.
+    admintoolsDeployment=$(kubectl exec -n $ns $pod -- which admintools > /dev/null 2>&1)
+    admintoolsCheck=$?
+    if [[ $admintoolsCheck -eq 0 ]]
+    then
+        scrutinizeForAdmintools $ns $v $pod
+    else
+        scrutinizeForVClusterOps $ns $v $pod
+    fi
+}
+
+function scrutinizeForAdmintools() {
+    ns=$1
+    v=$2
+    pod=$3
+
+    logInfo "Admintools deployment detected"
+    POD_OP_DIR="/tmp"
+    OP_FILE="$ns.$v.scrutinize.tar"
+    logInfo "Running scrutinize"
+    set -o xtrace
+    # We only need 1 pod because scrutinize will collect for the entire VerticaDB
+    kubectl exec -t -n $ns $pod -- /opt/vertica/bin/scrutinize --output_dir $POD_OP_DIR --output_file $OP_FILE --vsql-off 
+    scrut_res=$?
+    set +o xtrace
+    if [[ -n $EXIT_ON_ERROR && $scrut_res -ne 0 ]]
+    then
+        logError "*** Scrutinize failed"
+        exit 1
+    fi
+    logAndRunCommand kubectl cp -n $ns $pod:$POD_OP_DIR/$OP_FILE $HOST_OP_DIR/$OP_FILE
+    set +o xtrace
+}
+
+function scrutinizeForVClusterOps() {
+    ns=$1
+    v=$2
+    pod=$3
+
+    logInfo "VClusterOps deployment detected"
+    set -o xtrace
+    mapfile -t host_list < <(kubectl get pods -n $ns --selector app.kubernetes.io/instance=$v -o jsonpath='{range .items[*]}{.metadata.name}.{.spec.subdomain}.{.metadata.namespace}.svc{"\n"}{end}')
+    hosts=$(IFS=, ; echo "${host_list[*]}")
+    superuser_op=$(kubectl get vdb -n $ns $v -o jsonpath='{.metadata.annotations.vertica\.com/superuser-name}')
+    superuser=${superuser_op:-dbadmin}
+    password_secret=$(kubectl get vdb -n $ns $v -o jsonpath='{.spec.passwordSecret}')
+    if [[ -n "$password_secret" ]]
+    then
+        password=$(kubectl get secret -n $ns $password_secret -o jsonpath='{.data.password}' | base64 -d)
+    else
+        password=""
+    fi
+    set +o xtrace
+    logInfo "Running scrutinize"
+    # The output file is displayed in the output. We don't have an
+    # option to control the name of the file so we must extract it from
+    # the output and rename it.
+    set -o xtrace
+    scrut_out=$(kubectl exec -t -n $ns $pod -- /opt/vertica/bin/vcluster \
+        scrutinize \
+        --hosts=$hosts \
+        --db-user=$superuser \
+        --password=$password \
+        --honor-user-input)
+    set +o xtrace
+    scrut_res=$?
+    if [[ -n $EXIT_ON_ERROR && $scrut_res -ne 0 ]]
+    then
+        logError "*** Scrutinize failed"
+        exit 1
+    fi
+    scrutinizeTmp=/tmp/scrutinize
+    regex="Scrutinize final result at $scrutinizeTmp/(.+\.tgz)"
+    if [[ $scrut_out =~ $regex ]]
+    then
+        tgzFile=${BASH_REMATCH[1]}
+        logAndRunCommand kubectl cp -n $ns $pod:$scrutinizeTmp/$tgzFile $HOST_OP_DIR/$tgzFile
+        mv $HOST_OP_DIR/$tgzFile $HOST_OP_DIR/$ns.$v.scrutinize.tgz
+    else
+        logError "Could not find location of scrutinize file"
+        if [[ -n $EXIT_ON_ERROR ]]
+        then
+            exit 1
+        fi
+    fi
+}
+
+captureK8sObjects
+captureOLMLogs
+captureScrutinize

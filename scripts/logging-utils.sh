@@ -22,17 +22,17 @@ GREEN='\033[1;32m'
 NC='\033[0m'  # No color
 
 function logGeneric {
-    printf $1
+    printf -- $1
     shift
-    printf $(date "+%D")
-    printf " "
-    printf $(date "+%T")
-    printf " [$1]  "
+    printf -- $(date "+%D")
+    printf -- " "
+    printf -- $(date "+%T")
+    printf -- " [$1]  "
     shift
     for i in $*; do
-        printf "$i "
+        printf -- "$i "
     done
-    printf "$NC\n"
+    printf -- "$NC\n"
 
 }
 
