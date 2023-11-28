@@ -156,6 +156,8 @@ func (d *DBGenerator) setParmsFromOptions() {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		} else {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+			// run NMA in monolithic container for now, as running it in sidecar container is not supported yet
+			d.Objs.Vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 		}
 	}
 	d.Objs.Vdb.Annotations[vmeta.SuperuserNameAnnotation] = d.Opts.User

@@ -49,7 +49,7 @@ var _ = Describe("annotations", func() {
 	})
 
 	It("should treat mountNMACerts annotation as a bool", func() {
-		ann := map[string]string{MountNMACerts: MountNMACertsTrue}
+		ann := map[string]string{MountNMACertsAnnotation: MountNMACertsAnnotationTrue}
 		Ω(UseNMACertsMount(ann)).Should(BeTrue())
 	})
 })

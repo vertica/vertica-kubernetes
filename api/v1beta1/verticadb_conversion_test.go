@@ -301,4 +301,28 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.Status.Conditions).Should(HaveLen(1))
 		Ω(v1beta1VDB.Status.Conditions[0].Type).Should(Equal(ImageChangeInProgress))
 	})
+
+	It("should convert nma running mode", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		// v1beta1 -> v1
+		// test VClusterOpsAnnotation is true
+		v1beta1VDB.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Annotations[vmeta.RunNMAInSidecarAnnotation]).Should(Equal(vmeta.RunNMAInSidecarAnnotationFalse))
+
+		// v1 -> v1beta1
+		// test VClusterOpsAnnotation is true
+		// remove RunNMAInSidecarAnnotation in src
+		delete(v1VDB.Annotations, vmeta.RunNMAInSidecarAnnotation)
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Annotations[vmeta.RunNMAInSidecarAnnotation]).Should(Equal(vmeta.RunNMAInSidecarAnnotationTrue))
+		// test VClusterOpsAnnotation is not present
+		delete(v1VDB.Annotations, vmeta.VClusterOpsAnnotation)
+		// reset dest annotation by removing RunNMAInSidecarAnnotation
+		delete(v1beta1VDB.Annotations, vmeta.RunNMAInSidecarAnnotation)
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1beta1VDB.Annotations[vmeta.RunNMAInSidecarAnnotation]).Should(Equal(vmeta.RunNMAInSidecarAnnotationTrue))
+	})
 })

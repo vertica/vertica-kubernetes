@@ -48,9 +48,18 @@ const (
 	// This is a feature flag for mounting NMA certs as a secret volume in server containers
 	// if deployment method is vclusterops. When set to true the NMA reads certs from this mounted
 	// volume, when set to false it reads certs directly from k8s secret store.
-	MountNMACerts      = "vertica.com/mount-nma-certs"
-	MountNMACertsTrue  = "true"
-	MountNMACertsFalse = "false"
+	MountNMACertsAnnotation      = "vertica.com/mount-nma-certs"
+	MountNMACertsAnnotationTrue  = "true"
+	MountNMACertsAnnotationFalse = "false"
+
+	// This is a feature flag for running NMA process in a sidecar container together with
+	// server container within the same pod. When set to true the NMA process runs in a sidecar
+	// container together with server container within the same pod, which is also the default
+	// behavior when this annotation is not present. When set to false the NMA process runs in
+	// a monolithic container together with the vertica main process.
+	RunNMAInSidecarAnnotation      = "vertica.com/run-nma-in-sidecar"
+	RunNMAInSidecarAnnotationTrue  = "true"
+	RunNMAInSidecarAnnotationFalse = "false"
 
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
@@ -150,7 +159,11 @@ func UseVClusterOps(annotations map[string]string) bool {
 // UseNMACertsMount returns true if the NMA reads certs from the mounted secret
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, MountNMACerts, true /* default value */)
+	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, true /* default value */)
+}
+
+func RunNMAInSidecarMode(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, RunNMAInSidecarAnnotation, true /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
