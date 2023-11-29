@@ -30,7 +30,7 @@ testDirs:
   - tests/e2e-leg-6
   - tests/e2e-udx
   - tests/e2e-server-upgrade
-  - tests/tests/e2e-server-upgrade-at-only
+  - tests/e2e-server-upgrade-at-only
   - tests/e2e-operator-upgrade-overlays
 parallel: 2
 timeout: 600
