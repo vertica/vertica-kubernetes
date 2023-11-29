@@ -179,12 +179,12 @@ function scrutinizeForVClusterOps() {
         exit 1
     fi
     scrutinizeTmp=/tmp/scrutinize
-    regex="Scrutinize final result at $scrutinizeTmp/(.+\.tgz)"
+    regex="Scrutinize final result at $scrutinizeTmp/(.+\.tar)"
     if [[ $scrut_out =~ $regex ]]
     then
-        tgzFile=${BASH_REMATCH[1]}
-        logAndRunCommand kubectl cp -n $ns $pod:$scrutinizeTmp/$tgzFile $HOST_OP_DIR/$tgzFile
-        mv $HOST_OP_DIR/$tgzFile $HOST_OP_DIR/$ns.$v.scrutinize.tgz
+        tarFile=${BASH_REMATCH[1]}
+        logAndRunCommand kubectl cp -n $ns $pod:$scrutinizeTmp/$tarFile $HOST_OP_DIR/$tarFile
+        mv $HOST_OP_DIR/$tarFile $HOST_OP_DIR/$ns.$v.scrutinize.tar
     else
         logError "Could not find location of scrutinize file"
         if [[ -n $EXIT_ON_ERROR ]]
