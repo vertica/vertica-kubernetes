@@ -83,6 +83,7 @@ const (
 	MgmtFailedDiskFull              = "MgmtFailedDiskfull"
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 	WrongImage                      = "WrongImage"
+	NMAInSidecarNotSupported        = "NMAInSidecarNotSupported"
 )
 
 // Constants for VerticaAutoscaler reconciler

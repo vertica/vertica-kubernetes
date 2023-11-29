@@ -29,7 +29,7 @@ import (
 )
 
 // mock version of VStartDatabase() that is invoked inside VClusterOps.StartDB()
-func (m *MockVClusterOps) VRestartNodes(options *vops.VRestartNodesOptions) error {
+func (m *MockVClusterOps) VStartNodes(options *vops.VStartNodesOptions) error {
 	// verify basic options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {

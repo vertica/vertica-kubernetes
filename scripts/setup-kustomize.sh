@@ -192,6 +192,9 @@ EOF
     - op: add
       path: /metadata/annotations/vertica.com~1vcluster-ops
       value: "true"
+    - op: add
+      path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
+      value: "false"
 EOF
         else
             cat <<EOF >> kustomization.yaml

@@ -11,21 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-revive-2-main
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-revive-2
-spec:
-  local:
-    dataPath: /huh/where/data
-    depotPath: /huh/where/depot
-    catalogPath: /huh/where/catalog
-  shardCount: 99
-status:
-  subclusters:
-    - installCount: 3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: cd ../../..  && scripts/capture-scrutinize.sh -o /tmp/scrutinize-op -x -n $NAMESPACE
