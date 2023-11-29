@@ -12,6 +12,9 @@ on:
       vertica-image:
         type: string
         required: false
+      vertica-deployment-method:
+        type: string
+        required: false
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -33,6 +36,14 @@ on:
         description: 'Name of the vertica server image'
         type: string
         required: false
+      vertica-deployment-method:
+        description: 'Vertica deployment method'
+        type: choice
+        required: false
+        default: admintools
+        options:
+        - admintools
+        - vclusterops
 
 jobs:
 
@@ -61,13 +72,15 @@ jobs:
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
+        export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG)
+        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-server-upgrade-at-only"; fi
         echo "Upgrading server from image: $BASE_VERTICA_IMG"
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-server-upgrade-ci.txt
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: logs-e2e-server-upgrade
+        name: logs-e2e-server-upgrade-${{ inputs.vertica-deployment-method }}
         path: ${{ github.workspace }}/int-tests-output/*
 
