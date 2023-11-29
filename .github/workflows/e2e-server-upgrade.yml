@@ -74,6 +74,7 @@ jobs:
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG)
+        if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-server-upgrade-at-only"; fi
         echo "Upgrading server from image: $BASE_VERTICA_IMG"
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-server-upgrade-ci.txt
 
