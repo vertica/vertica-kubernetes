@@ -30,9 +30,9 @@ import (
 // lost cluster quorum. The IP given for each vnode may not match the current IP
 // in the vertica catalogs.
 func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Option) (ctrl.Result, error) {
-	v.setupForAPICall("RestartNode")
+	v.setupForAPICall("StartNode")
 	defer v.tearDownForAPICall()
-	v.Log.Info("Starting vcluster RestartNode")
+	v.Log.Info("Starting vcluster StartNode")
 
 	certs, err := v.retrieveHTTPSCerts(ctx)
 	if err != nil {
@@ -42,8 +42,8 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 	s := restartnode.Parms{}
 	s.Make(opts...)
 
-	vcOpts := v.genRestartNodeOptions(&s, certs)
-	err = v.VRestartNodes(vcOpts)
+	vcOpts := v.genStartNodeOptions(&s, certs)
+	err = v.VStartNodes(vcOpts)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to restart nodes: %w", err)
 	}
@@ -51,10 +51,10 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 	return ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genRestartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VRestartNodesOptions {
+func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VStartNodesOptions {
 	su := v.VDB.GetVerticaUser()
 	honorUserInput := true
-	opts := vops.VRestartNodesOptions{
+	opts := vops.VStartNodesOptions{
 		DatabaseOptions: vops.DatabaseOptions{
 			DBName:         &v.VDB.Spec.DBName,
 			RawHosts:       []string{s.InitiatorIP},

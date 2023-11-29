@@ -15,7 +15,7 @@ require (
 	github.com/onsi/gomega v1.24.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
-	github.com/vertica/vcluster v0.0.0-20231116112651-bda295c5e7af
+	github.com/vertica/vcluster v0.0.0-20231128202311-4d7b04d01dee
 	github.com/vertica/vertica-sql-go v1.1.1
 	go.uber.org/zap v1.25.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -33,6 +33,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/deckarep/golang-set/v2 v2.3.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
