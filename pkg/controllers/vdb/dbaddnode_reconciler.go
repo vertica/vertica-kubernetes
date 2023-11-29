@@ -75,9 +75,15 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 
 	for i := range d.Vdb.Spec.Subclusters {
+		// Recollect pod facts to ensure correct options are used in AddNode()
+		if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
+			return ctrl.Result{}, err
+		}
 		if res, err := d.reconcileSubcluster(ctx, &d.Vdb.Spec.Subclusters[i]); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
+		// Invalidate the pod facts cache since we are adding db nodes to a subcluster
+		d.PFacts.Invalidate()
 	}
 
 	return ctrl.Result{}, nil
@@ -135,7 +141,6 @@ func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, podsToAdd []*PodFa
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
-
 	expectedNodeNames := d.PFacts.findExpectedNodeNames()
 	if err := d.runAddNodeForPod(ctx, expectedNodeNames, podsToAdd, initiatorPod); err != nil {
 		// If we reached the node limit according to the license, end this
