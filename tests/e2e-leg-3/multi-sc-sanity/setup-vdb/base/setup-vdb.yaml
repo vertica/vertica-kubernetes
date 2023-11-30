@@ -42,6 +42,7 @@ spec:
   livenessProbeOverride:
     periodSeconds: 10
     initialDelaySeconds: 5
+  encryptSpreadComm: vertica
   certSecrets: []
   imagePullSecrets: []
   volumes: []
