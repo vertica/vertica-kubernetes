@@ -82,6 +82,10 @@ elif kubectl get subscription --all-namespaces=true | grep -cqe "verticadb-opera
 then
     $SCRIPT_DIR/undeploy-olm.sh
     remove_cluster_objects
+elif kubectl get deployment -n verticadb-operator -l control-plane=controller-manager | grep -cqe "verticadb-operator-controller-manager" 2> /dev/null
+then
+    kubectl delete -f $REPO_DIR/config/release-manifests/operator.yaml || true
+    remove_cluster_objects
 else
     remove_cluster_objects
     echo "** No operator deployment detected"
