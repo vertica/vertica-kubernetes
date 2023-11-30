@@ -24,9 +24,8 @@ import (
 	v1beta1api "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -123,17 +122,19 @@ func (r *VerticaDBRefReconciler) isJobCreated(ref v1beta1api.ETReference) bool {
 // matches with the reference object and return false when it doesn't match.
 func (r *VerticaDBRefReconciler) matchStatus(vdb *v1api.VerticaDB, ref v1beta1api.ETReference, match v1beta1api.ETMatch) bool {
 	// Grab the condition based on what was given.
-	cond := meta.FindStatusCondition(vdb.Status.Conditions, match.Condition.Type)
+	cond := vdb.FindStatusCondition(match.Condition.Type)
 	if cond == nil {
+		r.Log.Info("condition not in vdb", "condition", match.Condition.Type)
 		return false
 	}
 
-	status := corev1.ConditionStatus(cond.Status)
-	if status != match.Condition.Status {
+	matchStatus := metav1.ConditionStatus(match.Condition.Status)
+	if cond.Status != matchStatus {
 		r.Log.Info(
 			"status was not met",
-			"expected", match.Condition.Status,
-			"found", status,
+			"condition", cond.Type,
+			"expected", matchStatus,
+			"found", cond.Status,
 			"refObjectName", ref.Object.Name,
 		)
 		return false
