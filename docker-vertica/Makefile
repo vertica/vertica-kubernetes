@@ -1,4 +1,4 @@
-VERTICA_RPM?=$(wildcard vertica*.rpm)
+VERTICA_RPM?=$(basename $(notdir $(wildcard packages/vertica*.rpm)))
 BUILDER_OS_VERSION?=8
 BASE_OS_VERSION?=lunar
 VERTICA_IMG?=vertica-k8s
