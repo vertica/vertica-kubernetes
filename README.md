@@ -4,7 +4,7 @@ To deploy the operator and a Kubernetes cluster in a local test environment that
 
 # Supported Platforms 
 
-See [Containerized Environments](https://www.vertica.com/docs/latest/HTML/Content/Authoring/SupportedPlatforms/Containers.htm) for supported plaform information, including version, communal storage, and managed services support.
+See [Containerized Environments](https://docs.vertica.com/latest/en/supported-platforms/containerized-environments/) for supported plaform information, including version, communal storage, and managed services support.
 
 # Prerequisites
 
@@ -23,7 +23,7 @@ The [VerticaDB operator](https://docs.vertica.com/latest/en/containerized/db-ope
 
 ## Helm Charts
 
-The Vertica [Helm chart](https://docs.vertica.com/latest/en/containerized/db-operator/installing-db-operator/) includes the operator and the admission controller. Additionally, the Helm chart [installs the CRD](#installing-the-crd) if it is not currently installed.  
+The Vertica [Helm chart](https://docs.vertica.com/latest/en/containerized/db-operator/installing-db-operator/) includes the operator and the admission controller. Additionally, the Helm chart [installs the CRD](#deploying-vertica) if it is not currently installed.  
 
 The Helm chart provides the following customization options:
 - Choose how you want to manage TLS for the admission controller webhook. You can have the operator create a self-signed certificate internally (the default), use [cert-manager](https://cert-manager.io/docs/) to create a self-signed certificates, or define custom certificates.
@@ -82,7 +82,7 @@ Vertica on Kubernetes manages subclusters by workload, which allows you to fine-
 For details about manually sizing subclusters for new workloads, see [Subclusters on Kubernetes](https://docs.vertica.com/latest/en/containerized/subclusters-on-k8s/).
 
 
-After you create a subcluster, you can use the VerticaAutoscaler to automatically scale subclusters or pods when resource metrics reach specified triggers. For instructions on automatically scaling existing subclusters with VerticaAutoscaler, see [VerticaAutoscaler Custom Resource](https://docs.vertica.com/latest/en/containerized/custom-resource-definitions/verticaautoscaler-custom-resource/).
+After you create a subcluster, you can use the VerticaAutoscaler to automatically scale subclusters or pods when resource metrics reach specified triggers. For instructions on automatically scaling existing subclusters with VerticaAutoscaler, see [VerticaAutoscaler CRD](https://docs.vertica.com/latest/en/containerized/custom-resource-definitions/verticaautoscaler-custom-resource/).
 
 
 # Client Connections
@@ -106,7 +106,7 @@ See [Generating a Custom Resource from an Existing Eon Mode Database](https://do
 
 By default, the CR uses the [Community Edition (CE)](https://docs.vertica.com/latest/en/getting-started/community-edition-ce/) license. The CE license limits the number pods in a cluster to 3, and the dataset size to 1TB.
 
-Add your own license to extend your cluster past the CE limits. See [VerticaDB CR](https://docs.vertica.com/latest/en/containerized/custom-resource-definitions/verticadb/) for details about adding your own license as a Secret in the same namespace as the operator.
+Add your own license to extend your cluster past the CE limits. See [VerticaDB CRD](https://docs.vertica.com/latest/en/containerized/custom-resource-definitions/verticadb/) for details about adding your own license as a Secret in the same namespace as the operator.
 
 # Upgrading your License
 
@@ -133,7 +133,7 @@ For more information, see [Prometheus Integration](https://docs.vertica.com/late
 For additional details on the internals of Vertica, see the [Vertica Documentation](https://docs.vertica.com/latest/en/).
 
 # Developers
-For details about setting up an environment to develop and run tests, see the [developer instructions](DEVELOPER.md).
+For details about setting up an environment to develop and run tests, see [DEVELOPER.md](DEVELOPER.md).
 
 # Licensing
 
