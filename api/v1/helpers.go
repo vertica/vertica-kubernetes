@@ -189,17 +189,17 @@ func (v *VerticaDB) GetPVSubPath(subPath string) string {
 
 // GetDBDataPath get the data path for the current database
 func (v *VerticaDB) GetDBDataPath() string {
-	return fmt.Sprintf("%s/%s", v.Spec.Local.DataPath, v.Spec.DBName)
+	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Local.DataPath, "/"), v.Spec.DBName)
 }
 
 // GetCatalogPath gets the catalog path for the current database
 func (v *VerticaDB) GetDBCatalogPath() string {
-	return fmt.Sprintf("%s/%s", v.Spec.Local.GetCatalogPath(), v.Spec.DBName)
+	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Local.GetCatalogPath(), "/"), v.Spec.DBName)
 }
 
 // GetDBDepotPath gets the depot path for the current database
 func (v *VerticaDB) GetDBDepotPath() string {
-	return fmt.Sprintf("%s/%s", v.Spec.Local.DepotPath, v.Spec.DBName)
+	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Local.DepotPath, "/"), v.Spec.DBName)
 }
 
 // GetCommunalPath returns the path to use for communal storage
@@ -211,7 +211,7 @@ func (v *VerticaDB) GetCommunalPath() string {
 	if !v.IncludeUIDInPath() {
 		return v.Spec.Communal.Path
 	}
-	return fmt.Sprintf("%s/%s", v.Spec.Communal.Path, v.UID)
+	return fmt.Sprintf("%s/%s", strings.TrimSuffix(v.Spec.Communal.Path, "/"), v.UID)
 }
 
 // GenCompatibleFQDN returns a name of the subcluster that is
