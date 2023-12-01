@@ -1,4 +1,4 @@
-VERTICA_RPM?=vertica-x86_64.RHEL6.latest.rpm
+VERTICA_RPM?=$(wildcard vertica*.rpm)
 BUILDER_OS_VERSION?=8
 BASE_OS_VERSION?=lunar
 VERTICA_IMG?=vertica-k8s
