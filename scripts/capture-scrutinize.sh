@@ -148,7 +148,7 @@ function scrutinizeForVClusterOps() {
 
     logInfo "VClusterOps deployment detected"
     set -o xtrace
-    mapfile -t host_list < <(kubectl get pods -n $ns --selector app.kubernetes.io/instance=$v -o jsonpath='{range .items[*]}{.metadata.name}.{.spec.subdomain}.{.metadata.namespace}.svc{"\n"}{end}')
+    mapfile -t host_list < <(kubectl get pods -n $ns --selector app.kubernetes.io/instance=$v -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}')
     hosts=$(IFS=, ; echo "${host_list[*]}")
     superuser_op=$(kubectl get vdb -n $ns $v -o jsonpath='{.metadata.annotations.vertica\.com/superuser-name}')
     superuser=${superuser_op:-dbadmin}

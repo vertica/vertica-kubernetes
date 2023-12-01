@@ -11,16 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-revive-2
-spec:
-  local:
-    dataPath: /huh/where/data
-    depotPath: /huh/where/depot
-    catalogPath: /huh/where/catalog
-  shardCount: 99
+  namespace: verticadb-operator
+  labels:
+    control-plane: controller-manager
 status:
-  subclusters:
-    - installCount: 3
+  phase: Running
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: verticadb-operator
+  name: verticadb-operator-manager-config
+data:
+  DEPLOY_WITH: yaml

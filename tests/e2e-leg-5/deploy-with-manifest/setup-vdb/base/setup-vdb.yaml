@@ -11,16 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-revive-2
+  name: v-deploy-with-manifest
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
 spec:
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  communal: {}
   local:
-    dataPath: /huh/where/data
-    depotPath: /huh/where/depot
-    catalogPath: /huh/where/catalog
-  shardCount: 99
-status:
+    requestSize: 100Mi
+  dbName: blog
   subclusters:
-    - installCount: 3
+    - name: sc1
+      size: 1
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

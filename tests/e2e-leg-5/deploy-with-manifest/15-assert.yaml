@@ -11,16 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+apiVersion: apps/v1
+kind: StatefulSet
 metadata:
-  name: v-revive-2
-spec:
-  local:
-    dataPath: /huh/where/data
-    depotPath: /huh/where/depot
-    catalogPath: /huh/where/catalog
-  shardCount: 99
+  name: v-deploy-with-manifest-sc1
 status:
-  subclusters:
-    - installCount: 3
+  replicas: 1

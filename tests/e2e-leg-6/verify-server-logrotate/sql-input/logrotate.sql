@@ -31,5 +31,6 @@ select hurry_service('SYSTEM', 'LogRotate', 60);
 SELECT * FROM log_rotate_events ORDER BY node_name;
 
 -- Cleanup configurations
+ALTER DATABASE default clear EnableLogRotate;
 ALTER DATABASE default clear LogRotateMaxSize;
 ALTER DATABASE default clear LogRotateMaxAge;
