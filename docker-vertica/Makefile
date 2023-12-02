@@ -6,9 +6,6 @@ MINIMAL_VERTICA_IMG?=
 VERTICA_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_RPM))
 VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=
 
-echo-rpm:
-	@echo ${VERTICA_RPM}
-
 all: docker-build-vertica
 
 .PHONY: docker-build-vertica
