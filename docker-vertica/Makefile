@@ -1,10 +1,13 @@
-VERTICA_RPM?=$(basename $(notdir $(wildcard packages/vertica*.rpm)))
+VERTICA_RPM?=$(notdir $(wildcard packages/vertica*.rpm))
 BUILDER_OS_VERSION?=8
 BASE_OS_VERSION?=lunar
 VERTICA_IMG?=vertica-k8s
 MINIMAL_VERTICA_IMG?=
 VERTICA_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_RPM))
 VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=
+
+echo-rpm:
+	@echo ${VERTICA_RPM}
 
 all: docker-build-vertica
 
