@@ -138,6 +138,12 @@ priorityClassName: ""
 # See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 tolerations: []
 
+# Set this if you want to override the default name of the serviceaccount
+# serviceAccountNameOverride: ""
+
+# Annotations to be added to the serviceaccount that we create. This is a key/value map.
+serviceAccountAnnotations: {}
+
 prometheus:
   # Controls exposing of the prometheus metrics endpoint.  Valid options are:
   #

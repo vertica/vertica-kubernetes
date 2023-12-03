@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -57,9 +58,15 @@ func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	if !vmeta.UseVClusterOps(h.Vdb.Annotations) {
 		return ctrl.Result{}, nil
 	}
-	// If the secret name is set, check that it exists. As a convenience we will
-	// regenerate the secret using the same name.
+	// If the secret name is set, check that it exists.
 	if h.Vdb.Spec.NMATLSSecret != "" {
+		// As a convenience we will regenerate the secret using the same name. But
+		// only do this if it is a k8s secret. We skip if there is a path reference
+		// for a different secret store.
+		if !cloud.IsK8sSecret(h.Vdb.Spec.NMATLSSecret) {
+			h.Log.Info("nmaTLSSecret is set but uses a path reference that isn't for k8s.")
+			return ctrl.Result{}, nil
+		}
 		nm := names.GenNamespacedName(h.Vdb, h.Vdb.Spec.NMATLSSecret)
 		secret := corev1.Secret{}
 		err := h.VRec.Client.Get(ctx, nm, &secret)

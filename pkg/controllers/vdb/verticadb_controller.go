@@ -124,7 +124,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	passwd, err := r.GetSuperuserPassword(ctx, vdb)
+	passwd, err := r.GetSuperuserPassword(ctx, log, vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -260,34 +260,23 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 }
 
 // GetSuperuserPassword returns the superuser password if it has been provided
-func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, vdb *vapi.VerticaDB) (string, error) {
+func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (string, error) {
 	if vdb.Spec.PasswordSecret == "" {
 		return "", nil
 	}
 
-	if vdb.ReadCommunalCredsFromGSM() {
-		secretCnts, err := cloud.ReadFromGSM(ctx, vdb.GetSUPwdSecretName())
-		if err != nil {
-			return "", fmt.Errorf("failed to read superuser password from GSM: %w", err)
-		}
-		pwd, ok := secretCnts[builder.SuperuserPasswordKey]
-		if !ok {
-			return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
-		}
-		return pwd, nil
+	fetcher := cloud.MultiSourceSecretFetcher{
+		Client:   r.Client,
+		Log:      log,
+		VDB:      vdb,
+		EVWriter: r,
 	}
-
-	secret := &corev1.Secret{}
-	secretName := names.GenSUPasswdSecretName(vdb)
-	err := r.Get(ctx, secretName, secret)
+	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
 	if err != nil {
-		if errors.IsNotFound(err) {
-			r.EVRec.Eventf(vdb, corev1.EventTypeWarning, events.SuperuserPasswordSecretNotFound,
-				"Secret for superuser password '%s' was not found", secretName.Name)
-		}
 		return "", err
 	}
-	pwd, ok := secret.Data[builder.SuperuserPasswordKey]
+
+	pwd, ok := secret[builder.SuperuserPasswordKey]
 	if !ok {
 		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
 	}

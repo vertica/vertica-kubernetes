@@ -191,10 +191,11 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
-		if vdb.Spec.NMATLSSecret != "" {
-			volMnts = append(volMnts, buildNMACertsVolumeMount()...)
-		}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
@@ -295,10 +296,11 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.GetSSHSecretName() != "" {
 		vols = append(vols, buildSSHVolume(vdb))
 	}
-	if vmeta.UseVClusterOps(vdb.Annotations) && vmeta.UseNMACertsMount(vdb.Annotations) {
-		if vdb.Spec.NMATLSSecret != "" {
-			vols = append(vols, buildNMACertsSecretVolume(vdb))
-		}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
@@ -586,7 +588,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	}...)
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vmeta.UseNMACertsMount(vdb.Annotations) {
+		if vmeta.UseNMACertsMount(vdb.Annotations) && cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 			envVars = append(envVars, []corev1.EnvVar{
 				// Provide the path to each of the certs that are mounted in the container.
 				{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
@@ -595,8 +597,8 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 			}...)
 		} else {
 			envVars = append(envVars, []corev1.EnvVar{
-				// The NMA will read the secrets directly from k8s. We provide the
-				// secret namespace and name for this reason.
+				// The NMA will read the secrets directly from the secret store.
+				// We provide the secret namespace and name for this reason.
 				{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
 				{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
 			}...)
@@ -678,7 +680,7 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
 	// is being listened on.
-	if vdb.ReadSUPwdFromGSM() {
+	if cloud.IsGSMSecret(vdb.Spec.PasswordSecret) {
 		return makeVerticaClientPortProbe()
 	}
 	return makeCanaryQueryProbe(vdb)

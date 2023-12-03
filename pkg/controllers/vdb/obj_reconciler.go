@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -59,11 +60,12 @@ const (
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is
 // used for a single reconcile iteration.
 type ObjReconciler struct {
-	VRec   *VerticaDBReconciler
-	Log    logr.Logger
-	Vdb    *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PFacts *PodFacts
-	Mode   ObjReconcileModeType
+	VRec          *VerticaDBReconciler
+	Log           logr.Logger
+	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PFacts        *PodFacts
+	Mode          ObjReconcileModeType
+	SecretFetcher cloud.MultiSourceSecretFetcher
 }
 
 // MakeObjReconciler will build an ObjReconciler object
@@ -75,6 +77,12 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 		Vdb:    vdb,
 		PFacts: pfacts,
 		Mode:   mode,
+		SecretFetcher: cloud.MultiSourceSecretFetcher{
+			Client:   vdbrecon.Client,
+			Log:      log.WithName("ObjReconciler"),
+			VDB:      vdb,
+			EVWriter: vdbrecon,
+		},
 	}
 }
 
@@ -116,7 +124,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	// First check for secrets/configMaps that just need to exist.  We mount the
 	// entire object in a directory and don't care what keys it has.
 	if o.Vdb.Spec.LicenseSecret != "" {
-		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
+		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
 			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.LicenseSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
@@ -141,7 +149,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 				"The nmaTLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
-		_, res, err := getSecret(ctx, o.VRec, o.Vdb,
+		_, res, err := o.SecretFetcher.FetchAllowRequeue(ctx,
 			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.NMATLSSecret))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
@@ -165,7 +173,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 	if o.Vdb.Spec.NMATLSSecret != "" {
 		keyNames := []string{corev1.TLSPrivateKeyKey, corev1.TLSCertKey, paths.HTTPServerCACrtName}
-		if res, err := o.checkSecretHasKeys(ctx, "HTTPServer", o.Vdb.Spec.NMATLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
+		if res, err := o.checkSecretHasKeys(ctx, "NMA TLS", o.Vdb.Spec.NMATLSSecret, keyNames); verrors.IsReconcileAborted(res, err) {
 			return res, err
 		}
 	}
@@ -175,13 +183,13 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 
 // checkSecretHasKeys is a helper to check that a secret has a set of keys in it
 func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secretName string, keyNames []string) (ctrl.Result, error) {
-	secret, res, err := getSecret(ctx, o.VRec, o.Vdb, names.GenNamespacedName(o.Vdb, secretName))
+	secretData, res, err := o.SecretFetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(o.Vdb, secretName))
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	for _, key := range keyNames {
-		if _, ok := secret.Data[key]; !ok {
+		if _, ok := secretData[key]; !ok {
 			o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
 				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
 			return ctrl.Result{Requeue: true}, nil
@@ -264,20 +272,20 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 }
 
 // reconcileExtSvc verifies the external service objects exists and creates it if necessary.
-func (o ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Service, sc *vapi.Subcluster) error {
+func (o *ObjReconciler) reconcileExtSvc(ctx context.Context, expSvc *corev1.Service, sc *vapi.Subcluster) error {
 	svcName := types.NamespacedName{Name: expSvc.Name, Namespace: expSvc.Namespace}
 	return o.reconcileSvc(ctx, expSvc, svcName, sc, o.reconcileExtSvcFields)
 }
 
 // reconcileHlSvc verifies the headless service object exists and creates it if necessary.
-func (o ObjReconciler) reconcileHlSvc(ctx context.Context) error {
+func (o *ObjReconciler) reconcileHlSvc(ctx context.Context) error {
 	svcName := names.GenHlSvcName(o.Vdb)
 	expSvc := builder.BuildHlSvc(svcName, o.Vdb)
 	return o.reconcileSvc(ctx, expSvc, svcName, nil, o.reconcileHlSvcFields)
 }
 
 // reconcileSvc verifies the service object exists and creates it if necessary.
-func (o ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service, svcName types.NamespacedName,
+func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service, svcName types.NamespacedName,
 	sc *vapi.Subcluster, reconcileFieldsFunc func(*corev1.Service, *corev1.Service, *vapi.Subcluster) *corev1.Service) error {
 	if o.Mode&ObjReconcileModeAll == 0 {
 		// Bypass this check since we are doing changes to statefulsets only
@@ -302,7 +310,7 @@ func (o ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service,
 // reconcileExtSvcFields merges relevant expSvc fields into curSvc, and
 // returns an updated curSvc if one or more fields changed. Returns nil
 // if nothing changed.
-func (o ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
+func (o *ObjReconciler) reconcileExtSvcFields(curSvc, expSvc *corev1.Service, sc *vapi.Subcluster) *corev1.Service {
 	updated := false
 
 	if stringMapDiffer(expSvc.ObjectMeta.Annotations, curSvc.ObjectMeta.Annotations) {
@@ -382,7 +390,7 @@ func stringMapDiffer(exp, cur map[string]string) bool {
 
 // reconcileHlSvcFields merges relevant service fields into curSvc. This assumes
 // we are reconciling the headless service object.
-func (o ObjReconciler) reconcileHlSvcFields(curSvc, expSvc *corev1.Service, _ *vapi.Subcluster) *corev1.Service {
+func (o *ObjReconciler) reconcileHlSvcFields(curSvc, expSvc *corev1.Service, _ *vapi.Subcluster) *corev1.Service {
 	if !reflect.DeepEqual(expSvc.Labels, curSvc.Labels) {
 		curSvc.Labels = expSvc.Labels
 		return curSvc
