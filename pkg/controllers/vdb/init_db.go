@@ -42,7 +42,7 @@ type DatabaseInitializer interface {
 	getPodList() ([]*PodFact, bool)
 	findPodToRunInit() (*PodFact, bool)
 	execCmd(ctx context.Context, initiatorPod types.NamespacedName, hostList []string, podNames []types.NamespacedName) (ctrl.Result, error)
-	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string, podList []*PodFact) (ctrl.Result, error)
+	preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName, initiatorIP string) (ctrl.Result, error)
 	postCmdCleanup(ctx context.Context) (ctrl.Result, error)
 }
 
@@ -98,7 +98,7 @@ func (g *GenericDatabaseInitializer) runInit(ctx context.Context) (ctrl.Result, 
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, initiatorIP, podList); verrors.IsReconcileAborted(res, err) {
+	if res, err := g.initializer.preCmdSetup(ctx, initiatorPod, initiatorIP); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 

@@ -132,7 +132,7 @@ func (c *CreateDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 // preCmdSetup will generate the file we include with the create_db.
 // This file runs any custom SQL for the create_db.
 func (c *CreateDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName,
-	_ string, _ []*PodFact) (ctrl.Result, error) {
+	_ string) (ctrl.Result, error) {
 	// If the communal path is a POSIX file path, we need to create the communal
 	// path directory as the server won't create it. It handles that for other
 	// communal types though.
