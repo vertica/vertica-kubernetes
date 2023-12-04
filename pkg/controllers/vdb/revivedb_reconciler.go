@@ -121,7 +121,7 @@ func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types
 	// that depends on having the pod get to the ready state. That's not
 	// possible because we haven't initialized the DB yet. So, we need to
 	// reschedule before the revive.
-	if res, err := r.deleteRevisionPendingStss(ctx); verrors.IsReconcileAborted(res, err) {
+	if res, err := r.deleteRevisionPendingSts(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -249,9 +249,9 @@ func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName, 
 	}
 }
 
-// deleteRevisionPendingStss will delete any statefulset that has pods with pending revision update.
-func (r *ReviveDBReconciler) deleteRevisionPendingStss(ctx context.Context) (ctrl.Result, error) {
-	numStssDeleted := 0
+// deleteRevisionPendingSts will delete any statefulset that has pods with pending revision update.
+func (r *ReviveDBReconciler) deleteRevisionPendingSts(ctx context.Context) (ctrl.Result, error) {
+	numStsDeleted := 0
 	finder := iter.MakeSubclusterFinder(r.VRec.Client, r.Vdb)
 	stss, err := finder.FindStatefulSets(ctx, iter.FindInVdb)
 	if err != nil {
@@ -266,10 +266,10 @@ func (r *ReviveDBReconciler) deleteRevisionPendingStss(ctx context.Context) (ctr
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to delete statefulset %s: %w", stss.Items[i].Name, err)
 			}
-			numStssDeleted++
+			numStsDeleted++
 		}
 	}
-	if numStssDeleted > 0 {
+	if numStsDeleted > 0 {
 		r.Log.Info("Requeue to wait for deleted statefulsets to be regenerated")
 		return ctrl.Result{Requeue: true}, nil
 	}
