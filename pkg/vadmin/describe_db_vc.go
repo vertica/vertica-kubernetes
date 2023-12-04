@@ -30,7 +30,7 @@ func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option)
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster DescribeDB")
 
-	certs, err := v.retrieveHTTPSCerts(ctx)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
 		return "", ctrl.Result{}, err
 	}

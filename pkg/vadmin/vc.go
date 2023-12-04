@@ -25,8 +25,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// retrieveHTTPSCerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
+// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
 	fetcher := cloud.MultiSourceSecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,

@@ -34,7 +34,7 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster StartNode")
 
-	certs, err := v.retrieveHTTPSCerts(ctx)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -33,7 +33,7 @@ func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ct
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting VCluster ReviveDB")
 
-	certs, err := v.retrieveHTTPSCerts(ctx)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

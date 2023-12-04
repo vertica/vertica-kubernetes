@@ -35,7 +35,7 @@ func (v *VClusterOps) ReIP(ctx context.Context, opts ...reip.Option) (ctrl.Resul
 	v.Log.Info("Starting vcluster ReIP")
 
 	// get the certs
-	certs, err := v.retrieveHTTPSCerts(ctx)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
