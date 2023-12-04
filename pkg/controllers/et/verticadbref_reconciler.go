@@ -20,27 +20,29 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	v1api "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1api "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/etstatus"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type VerticaDBRefReconciler struct {
 	VRec *EventTriggerReconciler
-	Et   *vapi.EventTrigger
+	Et   *v1beta1api.EventTrigger
 	Log  logr.Logger
 }
 
-func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *vapi.EventTrigger, log logr.Logger) controllers.ReconcileActor {
+func MakeVerticaDBRefReconciler(r *EventTriggerReconciler, et *v1beta1api.EventTrigger, log logr.Logger) controllers.ReconcileActor {
 	return &VerticaDBRefReconciler{VRec: r, Et: et, Log: log}
 }
 
 func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	for _, ref := range r.Et.Spec.References {
-		if ref.Object.Kind != vapi.VerticaDBKind {
+		if ref.Object.Kind != v1api.VerticaDBKind {
 			continue
 		}
 
@@ -48,7 +50,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		// end regardless of what happens.
 		refStatus := etstatus.Fetch(r.Et, ref.Object)
 
-		vdb := &vapi.VerticaDB{}
+		vdb := &v1api.VerticaDB{}
 		nm := types.NamespacedName{Namespace: r.Et.Namespace, Name: ref.Object.Name}
 
 		if err := r.VRec.Client.Get(ctx, nm, vdb); err != nil {
@@ -102,7 +104,7 @@ func (r *VerticaDBRefReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 
 // isJobCreated will traverse all the status references and return true only
 // when the job is already created.
-func (r *VerticaDBRefReconciler) isJobCreated(ref vapi.ETReference) bool {
+func (r *VerticaDBRefReconciler) isJobCreated(ref v1beta1api.ETReference) bool {
 	for refStatusIdx := range r.Et.Status.References {
 		refStatus := r.Et.Status.References[refStatusIdx]
 		if refStatus.Name == ref.Object.Name &&
@@ -118,24 +120,21 @@ func (r *VerticaDBRefReconciler) isJobCreated(ref vapi.ETReference) bool {
 
 // matchStatus will check if the matching condition given from the manifest
 // matches with the reference object and return false when it doesn't match.
-func (r *VerticaDBRefReconciler) matchStatus(vdb *vapi.VerticaDB, ref vapi.ETReference, match vapi.ETMatch) bool {
+func (r *VerticaDBRefReconciler) matchStatus(vdb *v1api.VerticaDB, ref v1beta1api.ETReference, match v1beta1api.ETMatch) bool {
 	// Grab the condition based on what was given.
-	conditionType := vapi.VerticaDBConditionType(match.Condition.Type)
-	conditionTypeIndex, ok := vapi.VerticaDBConditionIndexMap[conditionType]
-	if !ok {
-		r.Log.Info("vertica DB condition missing from VerticaDBConditionType", "condition", match.Condition.Type)
+	cond := vdb.FindStatusCondition(match.Condition.Type)
+	if cond == nil {
+		r.Log.Info("condition not in vdb", "condition", match.Condition.Type)
 		return false
 	}
 
-	if len(vdb.Status.Conditions) <= conditionTypeIndex {
-		return false
-	}
-
-	if vdb.Status.Conditions[conditionTypeIndex].Status != match.Condition.Status {
+	matchStatus := metav1.ConditionStatus(match.Condition.Status)
+	if cond.Status != matchStatus {
 		r.Log.Info(
 			"status was not met",
-			"expected", match.Condition.Status,
-			"found", vdb.Status.Conditions[conditionTypeIndex].Status,
+			"condition", cond.Type,
+			"expected", matchStatus,
+			"found", cond.Status,
 			"refObjectName", ref.Object.Name,
 		)
 		return false

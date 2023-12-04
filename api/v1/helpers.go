@@ -269,6 +269,11 @@ func (v *VerticaDB) IsStatusConditionFalse(statusCondition string) bool {
 	return meta.IsStatusConditionFalse(v.Status.Conditions, statusCondition)
 }
 
+// FindStatusCondition finds the conditionType in conditions.
+func (v *VerticaDB) FindStatusCondition(conditionType string) *metav1.Condition {
+	return meta.FindStatusCondition(v.Status.Conditions, conditionType)
+}
+
 // buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
 func (v *VerticaDB) BuildTransientSubcluster(imageOverride string) *Subcluster {
 	return &Subcluster{
