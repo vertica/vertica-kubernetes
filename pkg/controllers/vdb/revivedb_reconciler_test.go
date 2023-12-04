@@ -28,7 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/util"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
-	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -241,7 +241,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		Expect(fetchVdb.Spec.Local.DepotPath).Should(Equal("/new-depot"))
 	})
 
-	It("should delete the pod if pending revision update", func() {
+	It("should delete the sts if pending revision update", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
 		vdb.Spec.DBName = "v"
@@ -252,16 +252,20 @@ var _ = Describe("revivedb_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
+		sts := &appsv1.StatefulSet{}
+		sn := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+		Expect(k8sClient.Get(ctx, sn, sts)).Should(Succeed())
+		// Set two different revisions to force revive to delete the sts
+		sts.Status.CurrentRevision = "abcdef1"
+		sts.Status.UpdateRevision = "abcdef2"
+		Expect(k8sClient.Status().Update(ctx, sts)).Should(Succeed())
+
 		fpr := &cmds.FakePodRunner{}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, int(vdb.Spec.Subclusters[0].Size))
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		pfacts.Detail[pn].stsRevisionPending = true
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 
-		pod := corev1.Pod{}
-		Expect(k8sClient.Get(ctx, pn, &pod)).Should(Succeed())
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
-		Expect(k8sClient.Get(ctx, pn, &pod)).ShouldNot(Succeed())
+		Expect(k8sClient.Get(ctx, sn, sts)).ShouldNot(Succeed())
 	})
 })
