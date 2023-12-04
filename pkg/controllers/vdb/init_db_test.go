@@ -187,7 +187,7 @@ var _ = Describe("init_db", func() {
 		}
 
 		res, err := g.ConstructConfigParms(ctx)
-		ExpectWithOffset(1, err).Should(MatchError(ContainSubstring("failed to read GCS credentials from GSM")))
+		ExpectWithOffset(1, err).Should(MatchError(ContainSubstring("failed to create secretmanager client")))
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
 		_, ok := g.ConfigurationParams.Get("GCSAuth")
 		Expect(ok).Should(BeFalse())
