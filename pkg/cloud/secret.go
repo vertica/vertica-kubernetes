@@ -43,6 +43,7 @@ type MultiSourceSecretFetcher struct {
 	VDB      *vapi.VerticaDB
 }
 
+// Fetch reads the secret from a secret store. The contents of the secret is successful.
 func (m *MultiSourceSecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
 	secretData, res, err := m.FetchAllowRequeue(ctx, secretName)
 	if res.Requeue && err == nil {
@@ -51,16 +52,22 @@ func (m *MultiSourceSecretFetcher) Fetch(ctx context.Context, secretName types.N
 	return secretData, err
 }
 
+// FetchAllowRequeue reads the secret from a secret store. This API has the
+// ability to requeue the reconcile iteration based on the error it finds.
 func (m *MultiSourceSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, ctrl.Result, error) {
 	switch {
 	case IsGSMSecret(secretName.Name):
 		return m.readFromGSM(ctx, secretName.Name)
+	case IsAWSSecretsManagerSecret(secretName.Name):
+		return nil, ctrl.Result{},
+			fmt.Errorf("fetching secret %s from Amazon Secrets Manager is not implemented", secretName.Name)
 	default:
 		return m.readFromK8s(ctx, secretName)
 	}
 }
 
+// readFromK8s reads the secret using the K8s Secret API.
 func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, ctrl.Result, error) {
 	tlsCerts := &corev1.Secret{}
