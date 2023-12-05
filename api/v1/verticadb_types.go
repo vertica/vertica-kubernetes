@@ -92,7 +92,10 @@ type VerticaDBSpec struct {
 	// An optional name for a secret that contains the password for the
 	// database's superuser. If this is not set, then we assume no such password
 	// is set for the database. If this is set, it is up the user to create this
-	// secret before deployment. The secret must have a key named password.
+	// secret before deployment. The secret must have a key named password. To
+	// store this secret outside of Kubernetes, you can use a secret path
+	// reference prefix, such as gsm://. Everything after the prefix is the name
+	// of the secret in the service you are storing.
 	PasswordSecret string `json:"passwordSecret,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -258,12 +261,12 @@ type VerticaDBSpec struct {
 	// +kubebuilder:default:=""
 	// +kubebuilder:validation:Optional
 	// A secret that contains the TLS credentials to use for Vertica's node
-	// management agent (NMA).  If this is empty, the operator will create a
+	// management agent (NMA). If this is empty, the operator will create a
 	// secret to use and add the name of the generate secret in this field.
-	// When set, the secret must have the following keys defined:
-	// - tls.key: The private key to be used by the HTTP server
-	// - tls.crt: The signed certificate chain for the private key
-	// - ca.crt: The CA certificate
+	// When set, the secret must have the following keys defined: tls.key,
+	// tls.crt and ca.crt.  To store this secret outside of Kubernetes, you can
+	// use a secret path reference prefix, such as gsm://. Everything after the
+	// prefix is the name of the secret in the service you are storing.
 	NMATLSSecret string `json:"nmaTLSSecret,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:hidden"
@@ -440,27 +443,17 @@ type CommunalStorage struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
-	// The name of a secret that contains the credentials to connect to the
-	// communal endpoint (only applies to s3://, gs:// or azb://). Certain keys
-	// need to be set, depending on the endpoint type:
-	// - s3:// or gs:// - If storing credentials in a secret, the secret must
-	//     have the following keys set: accesskey and secretkey.  When using
-	//     Google Cloud Storage, the IDs set in the secret are taken
-	//     from the hash-based message authentication code (HMAC) keys.
-	// - azb:// - It must have the following keys set:
-	//     accountName - Name of the Azure account
-	//     blobEndpoint - (Optional) Set this to the location of the endpoint.
-	//       If using an emulator like Azurite, it can be set to something like
-	//       'http://<IP-addr>:<port>'
-	//     accountKey - If accessing with an account key set it here
-	//     sharedAccessSignature - If accessing with a shared access signature,
-	//     	  set it here
-	//
-	// This field is optional. For AWS, authentication to communal storage can
-	// be provided through an attached IAM profile: attached to the EC2 instance
-	// or to a ServiceAccount with IRSA (see
-	// https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
-	// IRSA requires a Vertica server running at least with version >= 12.0.3.
+	// The name of an optional secret that contains the credentials to connect to the
+	// communal endpoint. This can be omitted if the communal storage uses some
+	// other form of authentication such as an attached IAM profile in AWS.
+	// Certain keys need to be set, depending on the endpoint type. If the
+	// communal storage starts with s3:// or gs://, the secret must have the
+	// following keys set: accesskey and secretkey. If the communal storage
+	// starts with azb://, the secret can have the following keys: accountName,
+	// blobEndpoint, accountKey, or sharedAccessSignature. To store this secret
+	// outside of Kubernetes, you can use a secret path reference prefix, such
+	// as gsm://. Everything after the prefix is the name of the secret in the
+	// service you are storing.
 	CredentialSecret string `json:"credentialSecret"`
 
 	// +kubebuilder:validation:Optional

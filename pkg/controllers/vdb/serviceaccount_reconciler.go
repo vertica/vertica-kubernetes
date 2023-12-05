@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -72,32 +73,16 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		}
 	}
 
-	// No need to create the role and rolebinding if NMA reads certs from mounted volume rather than secret store
-	if vmeta.UseVClusterOps(s.Vdb.Annotations) && vmeta.UseNMACertsMount(s.Vdb.Annotations) {
+	// No need to create the role and rolebinding if NMA reads certs from
+	// mounted volume or non-k8s secret store.
+	if vmeta.UseVClusterOps(s.Vdb.Annotations) &&
+		(vmeta.UseNMACertsMount(s.Vdb.Annotations) || !cloud.IsK8sSecret(s.Vdb.Spec.NMATLSSecret)) {
 		return ctrl.Result{}, s.saveServiceAccountNameInVDB(ctx, sa.Name)
 	}
 
-	var role *rbacv1.Role
-	exists, role, err = rbacFinder.FindRole(ctx)
+	err = s.createRoleAndRoleBindingIfNeeded(ctx, &rbacFinder, sa)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to lookup role: %w", err)
-	}
-	if !exists {
-		role, err = s.createRole(ctx)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create role: %w", err)
-		}
-	}
-
-	exists, _, err = rbacFinder.FindRoleBinding(ctx)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to lookup rolebinding: %w", err)
-	}
-	if !exists {
-		err = s.createRoleBinding(ctx, sa, role)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create rolebinding: %w", err)
-		}
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, s.saveServiceAccountNameInVDB(ctx, sa.Name)
@@ -137,6 +122,34 @@ func (s *ServiceAccountReconciler) createServiceAccount(ctx context.Context) (*c
 	}
 	s.Log.Info("serviceaccount created", "name", sa.ObjectMeta.Name)
 	return &sa, err
+}
+
+// createRoleAndRoleBindingIfNeeded will create the Role and RoleBinding if they
+// are missing.
+func (s *ServiceAccountReconciler) createRoleAndRoleBindingIfNeeded(ctx context.Context,
+	rbacFinder *iter.RBACFinder, sa *corev1.ServiceAccount) error {
+	exists, role, err := rbacFinder.FindRole(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to lookup role: %w", err)
+	}
+	if !exists {
+		role, err = s.createRole(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to create role: %w", err)
+		}
+	}
+
+	exists, _, err = rbacFinder.FindRoleBinding(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to lookup rolebinding: %w", err)
+	}
+	if !exists {
+		err = s.createRoleBinding(ctx, sa, role)
+		if err != nil {
+			return fmt.Errorf("failed to create rolebinding: %w", err)
+		}
+	}
+	return nil
 }
 
 // createRole will create a Role suitable for running vertica pods. The created role is returned.

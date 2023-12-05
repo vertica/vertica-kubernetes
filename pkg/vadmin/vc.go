@@ -19,42 +19,42 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// retrieveHTTPSCerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
-func (v *VClusterOps) retrieveHTTPSCerts(ctx context.Context) (*HTTPSCerts, error) {
-	certs := HTTPSCerts{}
-
-	nm := types.NamespacedName{
-		Namespace: v.VDB.Namespace,
-		Name:      v.VDB.Spec.NMATLSSecret,
+// retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
+func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
+	fetcher := cloud.MultiSourceSecretFetcher{
+		Client:   v.Client,
+		Log:      v.Log,
+		VDB:      v.VDB,
+		EVWriter: v.EVWriter,
 	}
-	tlsCerts := &corev1.Secret{}
-	err := v.Client.Get(ctx, nm, tlsCerts)
+	tlsCerts, err := fetcher.Fetch(ctx, names.GenNamespacedName(v.VDB, v.VDB.Spec.NMATLSSecret))
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve nmaTLSSecret named %s: %w", nm.Name, err)
+		return nil, fmt.Errorf("fetching NMA certs: %w", err)
 	}
 
-	tlsKey, ok := tlsCerts.Data[corev1.TLSPrivateKeyKey]
+	tlsKey, ok := tlsCerts[corev1.TLSPrivateKeyKey]
 	if !ok {
-		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, tlsCerts.Name)
+		return nil, fmt.Errorf("key %s is missing in the secret %s", corev1.TLSPrivateKeyKey, v.VDB.Spec.NMATLSSecret)
 	}
-	tlsCrt, ok := tlsCerts.Data[corev1.TLSCertKey]
+	tlsCrt, ok := tlsCerts[corev1.TLSCertKey]
 	if !ok {
-		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, tlsCerts.Name)
+		return nil, fmt.Errorf("cert %s is missing in the secret %s", corev1.TLSCertKey, v.VDB.Spec.NMATLSSecret)
 	}
-	tlsCaCrt, ok := tlsCerts.Data[corev1.ServiceAccountRootCAKey]
+	tlsCaCrt, ok := tlsCerts[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, tlsCerts.Name)
+		return nil, fmt.Errorf("ca cert %s is missing in the secret %s", corev1.ServiceAccountRootCAKey, v.VDB.Spec.NMATLSSecret)
 	}
-	certs.Key = string(tlsKey)
-	certs.Cert = string(tlsCrt)
-	certs.CaCert = string(tlsCaCrt)
-
-	return &certs, nil
+	return &HTTPSCerts{
+		Key:    string(tlsKey),
+		Cert:   string(tlsCrt),
+		CaCert: string(tlsCaCrt),
+	}, nil
 }
 
 // logFailure will log and record an event for a vclusterOps API failure

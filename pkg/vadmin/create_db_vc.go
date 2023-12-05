@@ -34,7 +34,7 @@ func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ct
 	v.Log.Info("Starting vcluster CreateDB")
 
 	// get the certs
-	certs, err := v.retrieveHTTPSCerts(ctx)
+	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -212,52 +212,12 @@ func (g *ConfigParamsGenerator) setPreferredKSafetyConfig() {
 	}
 }
 
-// setAuthFromGCSSecret sets the config parms map when we are the secrets are configured in GSM
-func (g *ConfigParamsGenerator) setAuthFromGCSSecret(ctx context.Context) (ctrl.Result, error) {
-	if g.Vdb.Spec.Communal.CredentialSecret == "" {
-		return ctrl.Result{}, nil
-	}
-
-	communalCredsSecret := g.Vdb.GetCommunalCredsSecretName()
-	gcpCred, err := cloud.ReadFromGSM(ctx, communalCredsSecret)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to read GCS credentials from GSM: %w", err)
-	}
-	// Pull the keys from the secret. Note, this code is largely duplicated from
-	// getCommunalAuth but had to be duplicated because we couldn't make the
-	// secret here the same datatype.
-	accessKey, ok := gcpCred[cloud.CommunalAccessKeyName]
-	if !ok {
-		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", communalCredsSecret, cloud.CommunalAccessKeyName)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	secretKey, ok := gcpCred[cloud.CommunalSecretKeyName]
-	if !ok {
-		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
-			"The communal credential secret '%s' does not have a key named '%s'", communalCredsSecret, cloud.CommunalSecretKeyName)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	auth := fmt.Sprintf("%s:%s", strings.TrimSuffix(accessKey, "\n"), strings.TrimSuffix(secretKey, "\n"))
-	g.ConfigurationParams.Set("GCSAuth", auth)
-	return ctrl.Result{}, nil
-}
-
 // setGCloudAuthParms adds the auth parms to the config parms map when we are
 // connecting to google cloud storage.
 func (g *ConfigParamsGenerator) setGCloudAuthParms(ctx context.Context) (ctrl.Result, error) {
-	if g.Vdb.ReadCommunalCredsFromGSM() {
-		res, err := g.setAuthFromGCSSecret(ctx)
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
-	} else {
-		res, err := g.setAuth(ctx, "GCSAuth")
-		if verrors.IsReconcileAborted(res, err) {
-			return res, err
-		}
+	res, err := g.setAuth(ctx, "GCSAuth")
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
 	}
 
 	g.ConfigurationParams.Set("GCSEndpoint", g.getCommunalEndpoint())
@@ -342,14 +302,14 @@ func (g *ConfigParamsGenerator) getCommunalAuth(ctx context.Context) (string, ct
 		return "", res, err
 	}
 
-	accessKey, ok := secret.Data[cloud.CommunalAccessKeyName]
+	accessKey, ok := secret[cloud.CommunalAccessKeyName]
 	if !ok {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalAccessKeyName)
 		return "", ctrl.Result{Requeue: true}, nil
 	}
 
-	secretKey, ok := secret.Data[cloud.CommunalSecretKeyName]
+	secretKey, ok := secret[cloud.CommunalSecretKeyName]
 	if !ok {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
 			"The communal credential secret '%s' does not have a key named '%s'", g.Vdb.Spec.Communal.CredentialSecret, cloud.CommunalSecretKeyName)
@@ -364,13 +324,13 @@ func (g *ConfigParamsGenerator) getCommunalAuth(ctx context.Context) (string, ct
 // getAzureAuth gets the azure credentials from the communal auth secret
 func (g *ConfigParamsGenerator) getAzureAuth(ctx context.Context) (
 	cloud.AzureCredential, cloud.AzureEndpointConfig, ctrl.Result, error) {
-	secret, res, err := g.getCommunalCredsSecret(ctx)
+	secretData, res, err := g.getCommunalCredsSecret(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, res, err
 	}
 
-	accountName, hasAccountName := secret.Data[cloud.AzureAccountName]
-	blobEndpointRaw, hasBlobEndpoint := secret.Data[cloud.AzureBlobEndpoint]
+	accountName, hasAccountName := secretData[cloud.AzureAccountName]
+	blobEndpointRaw, hasBlobEndpoint := secretData[cloud.AzureBlobEndpoint]
 
 	if !hasAccountName && !hasBlobEndpoint {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
@@ -386,8 +346,8 @@ func (g *ConfigParamsGenerator) getAzureAuth(ctx context.Context) (
 		blobEndpoint = getEndpointHostPort(string(blobEndpointRaw))
 	}
 
-	accountKey, hasAccountKey := secret.Data[cloud.AzureAccountKey]
-	sas, hasSAS := secret.Data[cloud.AzureSharedAccessSignature]
+	accountKey, hasAccountKey := secretData[cloud.AzureAccountKey]
+	sas, hasSAS := secretData[cloud.AzureSharedAccessSignature]
 
 	if hasAccountKey && hasSAS {
 		g.VRec.Eventf(g.Vdb, corev1.EventTypeWarning, events.CommunalCredsWrongKey,
@@ -412,8 +372,14 @@ func (g *ConfigParamsGenerator) getAzureAuth(ctx context.Context) (
 
 // getCommunalCredsSecret returns the contents of the communal credentials
 // secret. It handles if the secret is not found and will log an event.
-func (g *ConfigParamsGenerator) getCommunalCredsSecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
-	return getSecret(ctx, g.VRec, g.Vdb, names.GenCommunalCredSecretName(g.Vdb))
+func (g *ConfigParamsGenerator) getCommunalCredsSecret(ctx context.Context) (map[string][]byte, ctrl.Result, error) {
+	fetcher := cloud.MultiSourceSecretFetcher{
+		Client:   g.VRec.Client,
+		Log:      g.Log,
+		VDB:      g.Vdb,
+		EVWriter: g.VRec,
+	}
+	return fetcher.FetchAllowRequeue(ctx, names.GenNamespacedName(g.Vdb, g.Vdb.Spec.Communal.CredentialSecret))
 }
 
 // getS3SseCustomerKeySecret returns the content of the customer key secret
