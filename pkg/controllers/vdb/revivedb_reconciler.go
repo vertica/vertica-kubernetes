@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -113,14 +114,14 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 // preCmdSetup is going to run revive with --display-only then validate and
 // fix-up any mismatch it finds.
 func (r *ReviveDBReconciler) preCmdSetup(ctx context.Context, initiatorPod types.NamespacedName,
-	initiatorIP string, podList []*PodFact) (ctrl.Result, error) {
-	// We need to delete any pods that have a pending revision. This can happen
-	// if in an earlier iteration we changed the paths in pod. Normally, these
-	// types of changes are rolled out via rolling upgrade. But that depends on
-	// having the pod get to the ready state. That's not possible because we
-	// haven't initialized the DB yet. So, we need to reschedule before the
-	// revive.
-	if res, err := r.deleteRevisionPendingPods(ctx, podList); verrors.IsReconcileAborted(res, err) {
+	initiatorIP string) (ctrl.Result, error) {
+	// We need to delete any statefulsets that have pods with pending revisions.
+	// This can happen if in an earlier iteration we changed the paths in pod.
+	// Normally, these types of changes are rolled out via rolling upgrade. But
+	// that depends on having the pod get to the ready state. That's not
+	// possible because we haven't initialized the DB yet. So, we need to
+	// reschedule before the revive.
+	if res, err := r.deleteRevisionPendingSts(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
@@ -248,25 +249,28 @@ func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName, 
 	}
 }
 
-// deleteRevisionPendingPods will delete any pods that have a pending revision update from the sts.
-func (r *ReviveDBReconciler) deleteRevisionPendingPods(ctx context.Context, podList []*PodFact) (ctrl.Result, error) {
-	numPodsDeleted := 0
-	for i := range podList {
-		if !podList[i].stsRevisionPending {
-			continue
-		}
-		r.Log.Info("Deleting pod that has a pending STS revision update", "name", podList[i].name.Name)
-		pod := corev1.Pod{}
-		if err := r.VRec.Get(ctx, podList[i].name, &pod); err != nil {
-			return ctrl.Result{}, fmt.Errorf("could not fetch pod for revive preCmdSetup %s %w", podList[i].name.Name, err)
-		}
-		if err := r.VRec.Client.Delete(ctx, &pod); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete pod for revive preCmdSetup %s %w", podList[i].name.Name, err)
-		}
-		numPodsDeleted++
+// deleteRevisionPendingSts will delete any statefulset that has pods with pending revision update.
+func (r *ReviveDBReconciler) deleteRevisionPendingSts(ctx context.Context) (ctrl.Result, error) {
+	numStsDeleted := 0
+	finder := iter.MakeSubclusterFinder(r.VRec.Client, r.Vdb)
+	stss, err := finder.FindStatefulSets(ctx, iter.FindInVdb)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
-	if numPodsDeleted > 0 {
-		r.Log.Info("Requeue to wait for deleted pods to be rescheduled")
+	for i := range stss.Items {
+		if stss.Items[i].Status.CurrentRevision != stss.Items[i].Status.UpdateRevision {
+			r.Log.Info("Deleting STS because it has not updated all of the pods", "name", stss.Items[i].Name,
+				"currentRevision", stss.Items[i].Status.CurrentReplicas,
+				"updateRevision", stss.Items[i].Status.UpdateRevision)
+			err = r.VRec.Client.Delete(ctx, &stss.Items[i])
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to delete statefulset %s: %w", stss.Items[i].Name, err)
+			}
+			numStsDeleted++
+		}
+	}
+	if numStsDeleted > 0 {
+		r.Log.Info("Requeue to wait for deleted statefulsets to be regenerated")
 		return ctrl.Result{Requeue: true}, nil
 	}
 	return ctrl.Result{}, nil

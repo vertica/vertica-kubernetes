@@ -154,11 +154,6 @@ type PodFact struct {
 
 	// The in-container path to the catalog. e.g. /catalog/vertdb/v_node0001_catalog
 	catalogPath string
-
-	// true if the pod isn't the latest version when compared to the
-	// StatefulSet. This is an indication that the pod is in the middle of a
-	// rolling update.
-	stsRevisionPending bool
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -318,7 +313,6 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
-		pf.stsRevisionPending = p.isSTSRevisionPending(sts, pod)
 	}
 
 	fns := []CheckerFunc{
@@ -632,15 +626,6 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 // getCatalogPathFromPod will get the current catalog path from the pod
 func (p *PodFacts) getCatalogPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
 	return p.getEnvValueFromPodWithDefault(pod, builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath())
-}
-
-func (p *PodFacts) isSTSRevisionPending(sts *appsv1.StatefulSet, pod *corev1.Pod) bool {
-	podRevision, ok := pod.Labels["controller-revision-hash"]
-	if !ok {
-		// Could not find the required label. Assume no revision update pending
-		return false
-	}
-	return sts.Status.UpdateRevision != podRevision
 }
 
 // getEnvValueFromPodWithDefault will get an environment value from the pod. A default
