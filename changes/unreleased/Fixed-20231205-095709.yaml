@@ -1,0 +1,6 @@
+kind: Fixed
+body: Add webhook validation to prevent subcluster service names that violate rfc
+  1035
+time: 2023-12-05T09:57:09.014575243-04:00
+custom:
+  Issue: "620"
