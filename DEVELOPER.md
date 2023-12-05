@@ -121,7 +121,7 @@ kind-registry
 # Build the images
 
 > **IMPORTANT**
-> This repo requires a Vertica RPM named `vertica-x86_64.RHEL6.latest.rpm` with the following version requirements:
+> This repo requires a Vertica RPM with the following version requirements:
 >
 > - `docker-vertica`: 11.0.1 or higher.
 > - `docker-vertica-v2`: 24.1.0 or higher.
