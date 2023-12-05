@@ -78,7 +78,7 @@ func (f *FakePodRunner) ExecInPod(_ context.Context, podName types.NamespacedNam
 // ExecAdmintools calls ExecInPod
 func (f *FakePodRunner) ExecAdmintools(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateAdmintoolsCmd(f.VerticaSUPassword, command...)
+	command = UpdateAdmintoolsCmd(f.VerticaSUName, f.VerticaSUPassword, command...)
 	return f.ExecInPod(ctx, podName, contName, command...)
 }
 
