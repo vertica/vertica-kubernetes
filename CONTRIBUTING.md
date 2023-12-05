@@ -10,7 +10,7 @@ This document guides you through the contribution process. There are a number of
 
 If you find a bug, [submit an issue](https://github.com/vertica/vertica-kubernetes/issues) with a complete and reproducible bug report. If the issue can't be reproduced, it will be closed. If you opened an issue and then later resolved it on your own, comment on the issue and then close the issue.
 
-For issues that are **not suitable** to be reported publicly on the GitHub issue system (e.g. security related issues), report your issues to [Vertica open source team](mailto:vertica-opensrc@microfocus.com) directly or file a case with Vertica support, if you have a support account.
+For issues that are **not suitable** to be reported publicly on the GitHub issue system (e.g. security related issues), report your issues to [Vertica open source team](mailto:vertica-opensrc@opentext.com) directly or file a case with Vertica support, if you have a support account.
 
 # Feature Requests
 
