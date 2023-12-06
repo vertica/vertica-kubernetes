@@ -19,7 +19,6 @@ package v1
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -149,7 +148,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
 	allErrs = v.hasValidDBName(allErrs)
-	allErrs = v.hasValidSvcName(allErrs)
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
 	allErrs = v.validateCommunalPath(allErrs)
@@ -157,7 +155,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.validateAdditionalConfigParms(allErrs)
 	allErrs = v.validateCustomLabels(allErrs)
 	allErrs = v.validateEndpoint(allErrs)
-	allErrs = v.hasValidDomainName(allErrs)
+	allErrs = v.hasValidSvcAndScName(allErrs)
 	allErrs = v.hasValidNodePort(allErrs)
 	allErrs = v.isNodePortProperlySpecified(allErrs)
 	allErrs = v.isServiceTypeValid(allErrs)
@@ -322,43 +320,6 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 	return allErrs
 }
 
-func (v *VerticaDB) hasValidSvcName(allErrs field.ErrorList) field.ErrorList {
-	vdbName := v.ObjectMeta.Name
-	// vdb name will be used as is for headless svc name,
-	// thus match regex for service name (DNS-1035 label)
-	r := regexp.MustCompile(`^[a-z]([\-a-z0-9]{0,61}[a-z0-9])?$`)
-	if !r.MatchString(vdbName) {
-		err := field.Invalid(field.NewPath("metadata").Child("name"),
-			v.ObjectMeta.Name,
-			fmt.Sprintf("vdb name is used as the headless service name, and hence must match regex %q",
-				`^[a-z]([\-a-z0-9]{0,61}[a-z0-9])?$`))
-		allErrs = append(allErrs, err)
-		// invalid vdb name does not necessarily imply invalid external service name
-		// but usually invalid vdb name results in invalid external service name for
-		// all subclusters, so prompt users to fix vdb name first and do not check
-		// external service names for now
-		return allErrs
-	}
-	// check external svc names
-	for i := range v.Spec.Subclusters {
-		sc := &v.Spec.Subclusters[i]
-		extSvcName := v.ObjectMeta.Name + "-" + sc.GetServiceName()
-		// vdb name will be used together with subcluster serviceName for external svc name,
-		// thus match regex for service name (DNS-1035 label)
-		r := regexp.MustCompile(`^[a-z]([\-a-z0-9]{0,61}[a-z0-9])?$`)
-		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
-		if !r.MatchString(extSvcName) {
-			err := field.Invalid(fieldPrefix.Child("serviceName"),
-				sc.GetServiceName(),
-				fmt.Sprintf("subcluster serviceName is prefixed by vdb name %q and \"-\" to generate external service name %q,"+
-					" which must match regex %q, modify the serviceName and/or vdb name so that external service name matches the regex",
-					v.ObjectMeta.Name, extSvcName, `^[a-z]([\-a-z0-9]{0,61}[a-z0-9])?$`))
-			allErrs = append(allErrs, err)
-		}
-	}
-	return allErrs
-}
-
 func (v *VerticaDB) hasValidDBName(allErrs field.ErrorList) field.ErrorList {
 	dbName := v.Spec.DBName
 	if len(dbName) > dbNameLengthLimit {
@@ -439,13 +400,46 @@ func (v *VerticaDB) getClusterSize() int {
 	return sizeSum
 }
 
-func (v *VerticaDB) hasValidDomainName(allErrs field.ErrorList) field.ErrorList {
+func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorList {
+	// check headless svc names
+	vdbName := v.ObjectMeta.Name
+	// vdb name will be used as is for headless svc name,
+	// thus match regex for service name (DNS-1035 label)
+	isValidHlSvcName := IsValidServiceName(vdbName)
+	if !isValidHlSvcName {
+		err := field.Invalid(field.NewPath("metadata").Child("name"),
+			v.ObjectMeta.Name,
+			fmt.Sprintf("vdb name is used as the headless service name, and hence must match regex %q",
+				RFC1035DNSLabelNameRegex))
+		allErrs = append(allErrs, err)
+	}
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
+		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
+		// check subcluster name
 		if !IsValidSubclusterName(sc.GenCompatibleFQDN()) {
-			err := field.Invalid(field.NewPath("spec").Child("subcluster").Index(i).Child("name"),
-				v.Spec.Subclusters[i],
-				"is not a valid domain name")
+			err := field.Invalid(fieldPrefix.Child("name"),
+				sc.GenCompatibleFQDN(),
+				fmt.Sprintf("subcluster name is not valid, change it so that it matches regex %q", RFC1123DNSSubdomainNameRegex))
+			allErrs = append(allErrs, err)
+		}
+		if !isValidHlSvcName {
+			// invalid vdb name does not necessarily imply invalid external service name
+			// but usually invalid vdb name results in invalid external service name for
+			// all subclusters, so prompt users to fix vdb name first and do not check
+			// external service names for now
+			continue
+		}
+		// check external svc names
+		extSvcName := v.ObjectMeta.Name + "-" + sc.GetServiceName()
+		// vdb name will be used together with subcluster serviceName for external svc name,
+		// thus match regex for service name (DNS-1035 label)
+		if !IsValidServiceName(extSvcName) {
+			err := field.Invalid(fieldPrefix.Child("serviceName"),
+				sc.GetServiceName(),
+				fmt.Sprintf("subcluster serviceName is prefixed by vdb name %q and \"-\" to generate external service name %q,"+
+					" which must match regex %q, modify the serviceName and/or vdb name so that external service name matches the regex",
+					v.ObjectMeta.Name, extSvcName, RFC1035DNSLabelNameRegex))
 			allErrs = append(allErrs, err)
 		}
 	}

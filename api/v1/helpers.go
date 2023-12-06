@@ -39,6 +39,9 @@ const (
 
 	// Additional server config parameters
 	S3SseKmsKeyID = "S3SseKmsKeyId"
+
+	RFC1123DNSSubdomainNameRegex = `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	RFC1035DNSLabelNameRegex     = `^[a-z]([a-z0-9\-]{0,61}[a-z0-9])?$`
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -128,12 +131,28 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	return scMap
 }
 
+func isValidRFC1123DNSSubdomainName(name string) bool {
+	if len(name) < 1 || len(name) > 253 {
+		return false
+	}
+	r := regexp.MustCompile(RFC1123DNSSubdomainNameRegex)
+	return r.MatchString(name)
+}
+
+func isValidRFC1035DNSLabelName(name string) bool {
+	r := regexp.MustCompile(RFC1035DNSLabelNameRegex)
+	return r.MatchString(name)
+}
+
 // IsValidSubclusterName validates the subcluster name is valid.  We have rules
 // about its name because it is included in the name of the statefulset, so we
 // must adhere to the Kubernetes rules for object names.
 func IsValidSubclusterName(scName string) bool {
-	r := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?$`)
-	return r.MatchString(scName)
+	return isValidRFC1123DNSSubdomainName(scName)
+}
+
+func IsValidServiceName(svcName string) bool {
+	return isValidRFC1035DNSLabelName(svcName)
 }
 
 // MakeCondition create and initialize a new metav1.Condition
