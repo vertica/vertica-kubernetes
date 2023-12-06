@@ -424,10 +424,8 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 			allErrs = append(allErrs, err)
 		}
 		if !isValidHlSvcName {
-			// invalid vdb name does not necessarily imply invalid external service name
-			// but usually invalid vdb name results in invalid external service name for
-			// all subclusters, so prompt users to fix vdb name first and do not check
-			// external service names for now
+			// The actual name of the service object is always prefixed with the name of the owning vdb,
+			// so we skip service names check if vdb name is not valid. 
 			continue
 		}
 		// check external svc names
