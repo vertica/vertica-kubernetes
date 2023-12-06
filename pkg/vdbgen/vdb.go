@@ -609,7 +609,7 @@ func (d *DBGenerator) setSubclusterDetail(ctx context.Context) error {
 		}
 		if !vapi.IsValidSubclusterName(sc.GenCompatibleFQDN()) {
 			return fmt.Errorf("subcluster names are included in the name of statefulsets, but the name "+
-				"%q cannot be used as it will violate Kubernetes naming.  Please rename the subcluster so that it matches regex %q and "+
+				"%q cannot be used as it will violate Kubernetes naming.  Please rename the subcluster so that it matches regex '%s' and "+
 				"retry this command again", name, vapi.RFC1123DNSSubdomainNameRegex)
 		}
 

@@ -409,7 +409,7 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 	if !isValidHlSvcName {
 		err := field.Invalid(field.NewPath("metadata").Child("name"),
 			v.ObjectMeta.Name,
-			fmt.Sprintf("vdb name is used as the headless service name, and hence must match regex %q",
+			fmt.Sprintf("vdb name is used as the headless service name, and hence must match regex '%s'",
 				RFC1035DNSLabelNameRegex))
 		allErrs = append(allErrs, err)
 	}
@@ -420,7 +420,7 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 		if !IsValidSubclusterName(sc.GenCompatibleFQDN()) {
 			err := field.Invalid(fieldPrefix.Child("name"),
 				sc.GenCompatibleFQDN(),
-				fmt.Sprintf("subcluster name is not valid, change it so that it matches regex %q", RFC1123DNSSubdomainNameRegex))
+				fmt.Sprintf("subcluster name is not valid, change it so that it matches regex '%s'", RFC1123DNSSubdomainNameRegex))
 			allErrs = append(allErrs, err)
 		}
 		if !isValidHlSvcName {
@@ -438,7 +438,7 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 			err := field.Invalid(fieldPrefix.Child("serviceName"),
 				sc.GetServiceName(),
 				fmt.Sprintf("subcluster serviceName is prefixed by vdb name %q and \"-\" to generate external service name %q,"+
-					" which must match regex %q, modify the serviceName and/or vdb name so that external service name matches the regex",
+					" which must match regex '%s', modify the serviceName and/or vdb name so that external service name matches the regex",
 					v.ObjectMeta.Name, extSvcName, RFC1035DNSLabelNameRegex))
 			allErrs = append(allErrs, err)
 		}
