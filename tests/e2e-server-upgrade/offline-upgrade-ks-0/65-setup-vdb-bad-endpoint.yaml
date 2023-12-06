@@ -19,5 +19,5 @@ kind: TestStep
 commands:
   - command: | 
       bash -c "kustomize build setup-vdb-bad-endpoint/customized-overlay | \
-      if [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ]; then sed 's/vcluster-ops: "true"/vcluster-ops: "false"/'; else cat; fi | \
+      if [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ]; then sed 's/vcluster-ops: \"true\"/vcluster-ops: \"false\"/'; else cat; fi | \
       kubectl -n $NAMESPACE apply -f - "
