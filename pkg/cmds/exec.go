@@ -148,7 +148,7 @@ func (c *ClusterPodRunner) ExecVSQL(ctx context.Context, podName types.Namespace
 // ExecAdmintools appends options to the admintools command and calls ExecInPod
 func (c *ClusterPodRunner) ExecAdmintools(ctx context.Context, podName types.NamespacedName,
 	contName string, command ...string) (stdout, stderr string, err error) {
-	command = UpdateAdmintoolsCmd(c.VerticaSUPassword, command...)
+	command = UpdateAdmintoolsCmd(c.VerticaSUName, c.VerticaSUPassword, command...)
 	return c.ExecInPod(ctx, podName, contName, command...)
 }
 
@@ -178,8 +178,8 @@ func UpdateVsqlCmd(suName, passwd string, cmd ...string) []string {
 }
 
 // UpdateAdmintoolsCmd generates an admintools command appending the options we need
-func UpdateAdmintoolsCmd(passwd string, cmd ...string) []string {
-	// We are running as dbadmin, but we need to do this 'sudo su dbadmin --'
+func UpdateAdmintoolsCmd(suname, passwd string, cmd ...string) []string {
+	// We are running as the superuser, but we need to do this 'sudo su `suname` --'
 	// stuff so that we have the proper ulimits set.  When you exec into a pod,
 	// the ulimits you use are for the container runtime.  This can differ from
 	// the actual limits for the pod/container.  So we need this extra bit to
@@ -188,7 +188,7 @@ func UpdateAdmintoolsCmd(passwd string, cmd ...string) []string {
 	//
 	// The --preserve-env option is required so that environment variables flow
 	// through to the vertica process.
-	prefix := []string{"sudo", "--preserve-env", "su", "dbadmin", "--", "/opt/vertica/bin/admintools"}
+	prefix := []string{"sudo", "--preserve-env", "su", suname, "--", "/opt/vertica/bin/admintools"}
 	cmd = append(prefix, cmd...)
 	if passwd == "" {
 		return cmd
