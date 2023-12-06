@@ -409,7 +409,7 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 	if !isValidHlSvcName {
 		err := field.Invalid(field.NewPath("metadata").Child("name"),
 			v.ObjectMeta.Name,
-			fmt.Sprintf("vdb name is used as the headless service name, and hence must match regex '%s'",
+			fmt.Sprintf("vdb name must match regex '%s'",
 				RFC1035DNSLabelNameRegex))
 		allErrs = append(allErrs, err)
 	}
