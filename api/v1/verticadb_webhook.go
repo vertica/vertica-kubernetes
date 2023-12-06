@@ -70,6 +70,8 @@ func (v *VerticaDB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 var _ webhook.Defaulter = &VerticaDB{}
 
+var isDefaultServiceName = make([]bool, 0)
+
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *VerticaDB) Default() {
 	verticadblog.Info("default", "name", v.Name, "GroupVersion", GroupVersion)
@@ -402,7 +404,7 @@ func (v *VerticaDB) getClusterSize() int {
 
 func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorList {
 	// check headless svc names
-	vdbName := v.ObjectMeta.Name
+	vdbName := v.Name
 	// vdb name will be used as is for headless svc name,
 	// thus match regex for service name (DNS-1035 label)
 	isValidHlSvcName := IsValidServiceName(vdbName)
@@ -420,24 +422,32 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 		if !IsValidSubclusterName(sc.GenCompatibleFQDN()) {
 			err := field.Invalid(fieldPrefix.Child("name"),
 				sc.GenCompatibleFQDN(),
-				fmt.Sprintf("subcluster name is not valid, change it so that it matches regex '%s'", RFC1123DNSSubdomainNameRegex))
+				fmt.Sprintf("subcluster name is not valid, change it so that 1. its length is greater than 0 and smaller than 254,"+
+					" 2. it matches regex '%s'", RFC1123DNSSubdomainNameRegex))
 			allErrs = append(allErrs, err)
 		}
 		if !isValidHlSvcName {
-			// The actual name of the service object is always prefixed with the name of the owning vdb,
-			// so we skip service names check if vdb name is not valid. 
+			// The actual name of the headless service object is always prefixed with the name of the owning vdb,
+			// so we skip headless service names check if vdb name is not valid to minimize confusion and avoid overwhelming error messages.
 			continue
 		}
 		// check external svc names
-		extSvcName := v.ObjectMeta.Name + "-" + sc.GetServiceName()
+		extSvcName := vdbName + "-" + sc.GetServiceName()
 		// vdb name will be used together with subcluster serviceName for external svc name,
 		// thus match regex for service name (DNS-1035 label)
 		if !IsValidServiceName(extSvcName) {
+			errMsg := fmt.Sprintf(" is prefixed by vdb name %q and \"-\" to generate external service name %q,"+
+				" which must match regex '%s'; to fix, consider 1. change the subcluster name if serviceName is not explicitly provided,"+
+				" 2. change the subcluster serviceName if it is explicitly provided, 3. change the vdb name",
+				v.ObjectMeta.Name, extSvcName, RFC1035DNSLabelNameRegex)
+			if !isDefaultServiceName[i] {
+				errMsg = "subcluster serviceName" + errMsg
+			} else {
+				errMsg = fmt.Sprintf("when not explicitly specified, subcluster serviceName is auto-generated from subcluster name %q and", sc.Name) + errMsg
+			}
 			err := field.Invalid(fieldPrefix.Child("serviceName"),
 				sc.GetServiceName(),
-				fmt.Sprintf("subcluster serviceName is prefixed by vdb name %q and \"-\" to generate external service name %q,"+
-					" which must match regex '%s', modify the serviceName and/or vdb name so that external service name matches the regex",
-					v.ObjectMeta.Name, extSvcName, RFC1035DNSLabelNameRegex))
+				errMsg)
 			allErrs = append(allErrs, err)
 		}
 	}
@@ -1188,10 +1198,14 @@ func checkInt64PtrChange(prefix *field.Path, fieldName string,
 // setDefaultServiceName will explicitly set the serviceName in any subcluster
 // that omitted it
 func (v *VerticaDB) setDefaultServiceName() {
+	// clear the slice
+	isDefaultServiceName = isDefaultServiceName[:0]
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		if sc.ServiceName == "" {
 			sc.ServiceName = sc.GetServiceName()
+			isDefaultServiceName = append(isDefaultServiceName, true)
 		}
+		isDefaultServiceName = append(isDefaultServiceName, false)
 	}
 }
