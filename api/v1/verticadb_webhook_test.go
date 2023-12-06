@@ -33,6 +33,11 @@ import (
 
 var _ = Describe("verticadb_webhook", func() {
 	// validate VerticaDB spec values
+	It("dummy test to initialize isDefaultServiceName", func() {
+		vdb := createVDBHelper()
+		vdb.setDefaultServiceName()
+		validateSpecValuesHaveErr(vdb, false)
+	})
 	It("should succeed with all valid fields", func() {
 		vdb := createVDBHelper()
 		validateSpecValuesHaveErr(vdb, false)
