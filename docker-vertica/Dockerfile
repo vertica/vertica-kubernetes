@@ -108,6 +108,7 @@ RUN set -x \
   glibc-locale-source \
   iproute-tc \
   krb5-workstation \
+  libxcrypt-compat \
   logrotate \
   openssh-clients \
   openssh-server \

@@ -13,14 +13,14 @@ do
         then
            echo "Nothing for ubuntu images"
         else # yum package manager
-           sudo yum install -y libxcrypt-compat diffutils perl && break || sleep 60
+           sudo yum install -y diffutils perl && break || sleep 60
         fi
     else  # v2 image
         if which apt-get # ubuntu / apt-get
         then
            echo "Nothing for ubuntu images"
         else # yum package manager
-            echo root | su root sh -c 'yum install -y libxcrypt-compat diffutils perl' && break || sleep 60
+            echo root | su root sh -c 'yum install -y diffutils perl' && break || sleep 60
         fi
     fi
 done

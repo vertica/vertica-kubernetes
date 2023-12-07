@@ -80,6 +80,7 @@ RUN set -x \
   glibc-locale-source \
   iproute-tc \
   krb5-workstation \
+  libxcrypt-compat \
   openssl \
   procps \
   sysstat \
