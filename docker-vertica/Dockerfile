@@ -3,7 +3,8 @@
 # Copyright (c) 2021 Vertica
 #
 
-ARG BASE_OS_VERSION="lunar"
+ARG BASE_OS_NAME
+ARG BASE_OS_VERSION
 ARG BUILDER_OS_VERSION="8"
 ARG MINIMAL=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
@@ -87,16 +88,54 @@ RUN set -x \
   && chmod go-w /etc/ssh/sshd_config.d/* /etc/ssh/ssh_config.d/* 
 
 ##############################################################################################
-FROM ubuntu:${BASE_OS_VERSION} as initial
+FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} as initial
 
+# Controls the version of jre to be installed. The list of all available jre
+# packages can be queried through dnf. For instance, "dnf search openjdk"
+ARG JRE_PKG=java-1.8.0-openjdk-headless
+ARG MINIMAL
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  # Update is needed to be confident that we're picking up
-  # fixed libraries.
-  && apt-get -y update \
-  && apt-get -y upgrade \
-  && apt-get clean \
-  && apt-get autoremove \
-  && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old
+  # update needed because we just did a clean
+  && yum -y check-update \
+  && yum install -y \
+  ca-certificates \
+  cronie \
+  dialog \
+  dnf-plugins-core \
+  gdb \
+  glibc-locale-source \
+  iproute-tc \
+  krb5-workstation \
+  logrotate \
+  openssh-clients \
+  openssh-server \
+  openssl \
+  procps \
+  sysstat \
+  sudo \
+  which \
+  # Install jre if not minimal
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
+    yum install -y $JRE_PKG; \
+  fi \ 
+  && yum clean all \
+  && /bin/rm -rf /var/cache/yum \
+  # Fixes unsupported locale character encoding: use a utf8 locale, not a
+  # ANSI_X3.4-1968 locale
+  && localedef -i en_US -f UTF-8 en_US.UTF-8 \
+  # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
+    echo "JAVA_HOME=/usr" >> /etc/environment; \
+  fi \
+  # delete old host keys
+  && rm -rf /etc/ssh/ssh_host* \
+  # Permit ssh connections
+  && rm -rf /run/nologin \
+  # Create a symlink to the rsync for use with vbr. This works around a problem
+  # seen in some deployments where vbr cannot find rsync.
+  && ln -s /opt/vertica/bin/rsync /usr/bin/rsync
 
 # this squashes the image
 FROM scratch
@@ -104,11 +143,6 @@ COPY --from=initial / /
 
 ARG DBADMIN_GID=5000
 ARG DBADMIN_UID=5000
-# Controls the version of jre to be installed by apt-get. The list of all
-# available jre packages can be queried through apt-cache. For instance,
-# "apt-cache search jre | grep jre"
-ARG JRE_PKG=openjdk-8-jre-headless
-ARG MINIMAL
 ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
@@ -119,7 +153,6 @@ COPY --from=builder /etc/ssh/sshd_config.d/* /etc/ssh/sshd_config.d/
 COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
 
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
-ENV DEBIAN_FRONTEND noninteractive
 
 COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
 
@@ -135,58 +168,14 @@ COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  # update needed because we just did a clean
-  && apt-get -y update \
-  && apt-get install -y --no-install-recommends \
-  vim-tiny \
-  ca-certificates \
-  cron \
-  dialog \
-  gdb \
-  iproute2 \
-  krb5-user \
-  less \
-  libkeyutils1\
-  libz-dev \
-  locales \
-  logrotate \
-  ntp \
-  openssh-client \
-  openssh-server \
-  openssl \
-  procps \
-  sysstat \
-  sudo \
-  # Install jre if not minimal
-  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
-    apt-get install -y --no-install-recommends $JRE_PKG; \
-  fi \
-  && apt-get clean \
-  && apt-get autoremove \
-  && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
-  # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
-  && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-  && mkdir -p /run/sshd \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   # Allow passwordless sudo access from dbadmin
   && echo "dbadmin ALL=(ALL) NOPASSWD: ALL" | tee -a /etc/sudoers \
   && echo "dbadmin -       nofile  65536" >> /etc/security/limits.conf \
-  # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
-  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
-    echo "JAVA_HOME=/usr" >> /etc/environment; \
-  fi \
-  # Create a symlink to python3 interpreter in vertica
-  && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
-  && chmod u+s /usr/sbin/cron \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
-  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
-  # delete old host keys
-  && rm -rf /etc/ssh/ssh_host* \
-  # Create a symlink to the rsync for use with vbr. This works around a problem
-  # seen in some deployments where vbr cannot find rsync.
-  && ln -s /opt/vertica/bin/rsync /usr/bin/rsync
+  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
 
 ENTRYPOINT [ "/init" ]
 
@@ -195,8 +184,8 @@ EXPOSE 5433
 # vertica-http port
 EXPOSE 8443
 USER dbadmin
-LABEL os-family="ubuntu"
-LABEL image-name="vertica_k8s"
+LABEL os-family="rockylinux"
+LABEL image-name="vertica-k8s"
 LABEL maintainer="K8s Team"
 LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vertica \
       org.opencontainers.image.title='Vertica Server' \
