@@ -11,9 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Creating a vdb with non-existent s3 credentials.  Purpose is to do an upgrade
-# before a database exists.
-
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
