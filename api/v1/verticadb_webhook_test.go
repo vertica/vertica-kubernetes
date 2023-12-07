@@ -878,7 +878,6 @@ func createVDBHelper() *VerticaDB {
 }
 
 func validateSpecValuesHaveErr(vdb *VerticaDB, hasErr bool) {
-	vdb.setDefaultServiceName()
 	allErrs := vdb.validateVerticaDBSpec()
 	if hasErr {
 		ExpectWithOffset(1, allErrs).ShouldNot(BeNil())
