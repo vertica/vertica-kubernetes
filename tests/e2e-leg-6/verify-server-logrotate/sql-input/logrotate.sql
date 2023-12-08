@@ -12,7 +12,6 @@ ALTER DATABASE default set LogRotateMaxSize = '1k';
 
 -- Run with new LogRotateMaxSize configuration
 select hurry_service('SYSTEM', 'LogRotate', 60);
-\! sleep 1
     
 -- Check the system view on node01, and 2 records is added after run with new LogRotateMaxSize configuration 
 SELECT node_name, success, max_size, max_age, log_file, need_rotation FROM log_rotate_events ORDER BY node_name;
