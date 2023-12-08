@@ -52,6 +52,36 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.DBName = "vertica+db"
 		validateSpecValuesHaveErr(vdb, true)
 	})
+	It("should not have invalid vdb name", func() {
+		vdb := createVDBHelper()
+		// service object names cannot start with a numeric character
+		vdb.ObjectMeta.Name = "1" + vdb.ObjectMeta.Name
+		validateSpecValuesHaveErr(vdb, true)
+	})
+	It("should not have invalid subcluster service name", func() {
+		vdb := createVDBHelper()
+		// service object names cannot include '_' character
+		vdb.Spec.Subclusters[0].ServiceName = "sc_svc"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+	It("should not have invalid external service name (concatenated by a valid vdb name"+
+		" and valid subcluster service name if used alone as a service name)", func() {
+		vdb := createVDBHelper()
+		// this serviceName alone is valid when used as service object name
+		// because it consists of lower case alphanumeric characters or '-',
+		// starts with an alphabetic character, ends with an alphanumeric character,
+		// and is not longer than 63 characters (see DNS-1035 label requirement)
+		vdb.Spec.Subclusters[0].ServiceName = "a012345678901234567890123456789" +
+			"012345678901234567890123456789"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+	It("should allow auto-generated service name from subcluster name", func() {
+		vdb := createVDBHelper()
+		// all '_' in subcluster names are replaced by '-'
+		// thus the auto-generated service name should be valid
+		vdb.Spec.Subclusters[0].Name = "default_subcluster"
+		validateSpecValuesHaveErr(vdb, false)
+	})
 	It("should have at least one primary subcluster", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
@@ -148,7 +178,7 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
-	It("should have invalid subcluster name", func() {
+	It("should have valid subcluster name", func() {
 		vdb := createVDBHelper()
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Name = "default-subcluster"
