@@ -3,7 +3,8 @@
 # Copyright (c) 2021 Vertica
 #
 
-ARG BASE_OS_VERSION="lunar"
+ARG BASE_OS_NAME
+ARG BASE_OS_VERSION
 ARG BUILDER_OS_VERSION="8"
 ARG MINIMAL=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
@@ -61,33 +62,60 @@ RUN set -x \
   && sh /tmp/cleanup.sh
 
 ##############################################################################################
-FROM ubuntu:${BASE_OS_VERSION} as initial
+FROM ${BASE_OS_NAME}:${BASE_OS_VERSION} as initial
 
+# Controls the version of jre to be installed. The list of all available jre
+# packages can be queried through dnf. For instance, "dnf search openjdk"
+ARG JRE_PKG=java-1.8.0-openjdk-headless
+ARG MINIMAL
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  # Update is needed to be confident that we're picking up
-  # fixed libraries.
-  && apt-get -y update \
-  && apt-get -y upgrade \
-  && apt-get clean \
-  && apt-get autoremove \
-  && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old
+  # update needed because we just did a clean
+  && yum -y check-update \
+  && yum install -y \
+  ca-certificates \
+  dnf-plugins-core \
+  gdb \
+  glibc-locale-source \
+  iproute-tc \
+  krb5-workstation \
+  libxcrypt-compat \
+  openssl \
+  procps \
+  sysstat \
+  which \
+  # Install jre if not minimal
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
+    yum install -y $JRE_PKG; \
+  fi \ 
+  && yum clean all \
+  && /bin/rm -rf /var/cache/yum \
+  # Fixes unsupported locale character encoding: use a utf8 locale, not a
+  # ANSI_X3.4-1968 locale
+  && localedef -i en_US -f UTF-8 en_US.UTF-8 \
+  # Set JAVA_HOME environment variable if not minimal, this will be loaded to all shells
+  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
+    echo "JAVA_HOME=/usr" >> /etc/environment; \
+  fi \
+  # Cannot set sudo because the ID we run the container may not exist in the
+  # passwd file. Set a simple root password so you can do some commands as root
+  # if you need be. This isn't a security violation per se since you can control
+  # at the pod level or above if the container is allowed to have elevated privileges.
+  && echo "root:root" | chpasswd \
+  && echo "* -       nofile  65536" >> /etc/security/limits.conf \
+  && echo 'export PS1="[\H] \w\$ "' >> /etc/bash.bashrc
 
 # this squashes the image
 FROM scratch
 COPY --from=initial / /
 
-# Controls the version of jre to be installed by apt-get. The list of all
-# available jre packages can be queried through apt-cache. For instance,
-# "apt-cache search jre | grep jre"
-ARG JRE_PKG=openjdk-8-jre-headless
-ARG MINIMAL
 ARG S6_OVERLAY_VERSION
 
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
 
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
-ENV DEBIAN_FRONTEND noninteractive
 ENV JAVA_HOME "/usr"
 ENV VERTICA_STARTUP_LOG_DUPLICATE "/proc/1/fd/1"
 
@@ -105,42 +133,6 @@ COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
-  # update needed because we just did a clean
-  && apt-get -y update \
-  && apt-get install -y --no-install-recommends \
-  ca-certificates \
-  curl \
-  dialog \
-  gdb \
-  iproute2 \
-  krb5-user \
-  less \
-  libkeyutils1\
-  libz-dev \
-  locales \
-  ntp \
-  openssl \
-  procps \
-  sysstat \
-  vim-tiny \
-  # Install jre if not minimal
-  && if [[ ${MINIMAL^^} != "YES" ]] ; then \
-    apt-get install -y --no-install-recommends $JRE_PKG; \
-  fi \
-  && apt-get clean \
-  && apt-get autoremove \
-  && rm -rf /var/lib/apt/lists/* /var/cache/debconf/*-old \
-  # Make the "en_US.UTF-8" locale so vertica will be utf-8 enabled by default
-  && localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 \
-  # Cannot set sudo because the ID we run the container may not exist in the
-  # passwd file. Set a simple root password so you can do some commands as root
-  # if you need be. This isn't a security violation per se since you can control
-  # at the pod level or above if the container is allowed to have elevated privileges.
-  && echo "root:root" | chpasswd \
-  && echo "* -       nofile  65536" >> /etc/security/limits.conf \
-  && echo 'export PS1="[\H] \w\$ "' >> /etc/bash.bashrc \
-  # Create a symlink to python3 interpreter in vertica
-  && update-alternatives --install /usr/bin/python python /opt/vertica/oss/python3/bin/python3 1 \
   # Untar the init program that was downloaded earlier
   && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
   && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
@@ -154,8 +146,8 @@ EXPOSE 8443
 # Choosing a system user that isn't root to avoid a twistlock violation. The
 # actual user is selected at runtime by setting the UID/GID in the pod spec.
 USER daemon
-LABEL os-family="ubuntu"
-LABEL image-name="vertica_k8s"
+LABEL os-family="rockylinux"
+LABEL image-name="vertica-k8s"
 LABEL maintainer="K8s Team"
 LABEL org.opencontainers.image.source=https://github.com/vertica/vertica-kubernetes/tree/main/docker-vertica-v2 \
       org.opencontainers.image.title='Vertica Server' \
