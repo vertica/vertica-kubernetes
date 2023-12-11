@@ -486,11 +486,6 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 // do this will cause us to orphan entries leading admintools to fail for most
 // operations.
 func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	// Skip this check since there is no install state for vclusterops
-	if vmeta.UseVClusterOps(o.Vdb.Annotations) {
-		return ctrl.Result{}, nil
-	}
-
 	if newStsSize >= *sts.Spec.Replicas {
 		// Nothing to do as we aren't scaling down.
 		return ctrl.Result{}, nil
@@ -504,9 +499,11 @@ func (o *ObjReconciler) checkIfReadyForStsUpdate(newStsSize int32, sts *appsv1.S
 		if !ok {
 			return ctrl.Result{}, fmt.Errorf("could not find pod facts for pod '%s'", pn)
 		}
-		if pf.isInstalled || pf.dbExists {
-			o.Log.Info("Requeue since some pods still need db_remove_node and uninstall done.",
-				"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists)
+		// For vclusterOps, there is no uninstall step so we skip the isInstalled state.
+		if (!vmeta.UseVClusterOps(o.Vdb.Annotations) && pf.isInstalled) || pf.dbExists {
+			o.Log.Info("Requeue since some pods still need db_remove_node and/or uninstall done.",
+				"name", pn, "isInstalled", pf.isInstalled, "dbExists", pf.dbExists,
+				"vclusterOps", vmeta.UseVClusterOps(o.Vdb.Annotations))
 			return ctrl.Result{Requeue: true}, nil
 		}
 	}
