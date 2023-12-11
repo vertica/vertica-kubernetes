@@ -15,12 +15,3 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-revive-2
-spec:
-  local:
-    dataPath: /huh/where/data
-    depotPath: /huh/where/depot
-    catalogPath: /huh/where/catalog
-  shardCount: 99
-status:
-  subclusters:
-    - installCount: 3
