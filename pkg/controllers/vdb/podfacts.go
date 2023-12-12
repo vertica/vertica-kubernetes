@@ -999,12 +999,12 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
-// countNonRunningPodsNeededByRestart returns number of pods that aren't yet
+// countNotRestartablePods returns number of pods that aren't yet
 // running but the restart reconciler needs to handle them.
-func (p *PodFacts) countNonRunningPodsNeededByRestart(vclusterOps bool) int {
+func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {
 	return p.countPods(func(v *PodFact) int {
 		// Non-restartable pods are pods that aren't yet running, or don't have
-		// the necesseary DC table annotations, but need to be handled by the
+		// the necessary DC table annotations, but need to be handled by the
 		// restart reconciler. A couple of notes about certain edge cases:
 		// - We don't count pods that aren't yet managed by the parent sts. The
 		// sts needs to be created or sized first.
