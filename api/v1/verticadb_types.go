@@ -682,7 +682,7 @@ type Subcluster struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number","urn:alm:descriptor:com.tectonic.ui:advanced"}
-	// Like the nodePort parameter, except this controls the node port to use
+	// Like the clientNodePort parameter, except this controls the node port to use
 	// for the http endpoint in the Vertica server.  The same rules apply: it
 	// must be defined within the range allocated by the control plane, if
 	// omitted Kubernetes will choose the port automatically.
