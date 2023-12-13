@@ -34,9 +34,13 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	ctx := context.Background()
 
 	It("should detect no install is needed", func() {
+		secretName := "tls-1"
 		vdb := vapi.MakeVDB()
+		vdb.Spec.NMATLSSecret = secretName
 		test.CreatePods(ctx, k8sClient, vdb, true)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
@@ -50,9 +54,13 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 	})
 
 	It("should try install if a pod has not run the installer yet", func() {
+		secretName := "tls-2"
 		vdb := vapi.MakeVDB()
+		vdb.Spec.NMATLSSecret = secretName
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
 		sc := &vdb.Spec.Subclusters[0]
 		fpr := &cmds.FakePodRunner{}
