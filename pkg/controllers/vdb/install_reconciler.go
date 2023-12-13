@@ -296,20 +296,21 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
-
-	// Logrotate setup is only required for versions before 24.1.0 of the database.
-	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
 	vinf, err := d.Vdb.MakeVersionInfoCheck()
 	if err != nil {
 		return "", err
 	}
-
-	if !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
+	// Set up HTTPTLSConfDir if this directory doesn't exist.
+	// This setup is only required for versions before 24.1.0 of the database.
+	if vinf.IsOlder(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 		if !p.dirExists[paths.HTTPTLSConfDir] {
 			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
 			numCmds++
 		}
-
+	}
+	// Logrotate setup is only required for versions before 24.1.0 of the database.
+	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
+	if !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
 		if !p.dirExists[paths.ConfigLogrotatePath] {
 			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
 			numCmds++
