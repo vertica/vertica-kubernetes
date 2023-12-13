@@ -69,9 +69,12 @@ type PodFact struct {
 	// true means the pod exists in k8s.  false means it hasn't been created yet.
 	exists bool
 
-	// true means the pod has been bound to a node, not in the process of being
-	// process, and all of the containers have been created. At least one
-	// container is still running, or is in the process of starting or restarting.
+	// True indicates that the pod has been:
+	// - Bound to a node
+	// - Not in the process of being terminated
+	// - All of its containers have been created
+	// - At least one container is still running, or is in the process of
+	//   starting or restarting
 	isPodRunning bool
 
 	// true means the statefulset exists and its size includes this pod.  The
