@@ -69,9 +69,9 @@ type PodFact struct {
 	// true means the pod exists in k8s.  false means it hasn't been created yet.
 	exists bool
 
-	// true means the pod has been bound to a node, and all of the containers
-	// have been created. At least one container is still running, or is in the
-	// process of starting or restarting.
+	// true means the pod has been bound to a node, not in the process of being
+	// process, and all of the containers have been created. At least one
+	// container is still running, or is in the process of starting or restarting.
 	isPodRunning bool
 
 	// true means the statefulset exists and its size includes this pod.  The
@@ -84,7 +84,11 @@ type PodFact struct {
 	// exists and is managed by a statefulset.  The pod is pending delete in
 	// that once the statefulset is sized according to the subcluster the pod
 	// will get deleted.
-	pendingDelete bool
+	isPendingDelete bool
+
+	// true means a delete request has been made to delete the pod, but it is
+	// still running.
+	isTerminating bool
 
 	// Have we run install for this pod?
 	isInstalled bool
@@ -305,11 +309,16 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// The remaining fields we set in this block only make sense when the
 		// pod exists.
 		pf.exists = true // Success from the Get() implies pod exists in API server
-		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
+		pf.isTerminating = pod.DeletionTimestamp != nil
+		// We don't consider a pod running if it is in the middle of being
+		// terminated. Technically, the pod is running, but it is seconds away
+		// from being deleted. So, it doesn't make sense to exec into the pod to
+		// perform actions.
+		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning && !pf.isTerminating
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
-		pf.pendingDelete = podIndex >= sc.Size
+		pf.isPendingDelete = podIndex >= sc.Size
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
@@ -339,6 +348,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		}
 	}
 
+	p.VRec.Log.Info("pod fact", "name", pf.name, "details", fmt.Sprintf("%+v", pf))
 	p.Detail[pf.name] = &pf
 	return nil
 }
@@ -845,7 +855,7 @@ func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
 	// - up and read-only
 	// - has vertica installation
 	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
-		return v.upNode && !v.readOnly && !v.pendingDelete
+		return v.upNode && !v.readOnly && !v.isPendingDelete
 	}); ok {
 		return pod, ok
 	}
