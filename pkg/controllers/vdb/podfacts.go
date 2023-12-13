@@ -397,11 +397,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		test -d %s && echo true || echo false
 		echo -n '  %s: '
 		test -d %s && echo true || echo false
-		echo -n '  %s: '
-		test -d %s && echo true || echo false
 		echo    'fileExists:'
-		echo -n '  %s: '
-		test -f %s && echo true || echo false
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n '  %s: '
@@ -433,7 +429,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.ConfigLogrotatePath, paths.ConfigLogrotatePath,
 		paths.ConfigSharePath, paths.ConfigSharePath,
 		paths.ConfigLicensingPath, paths.ConfigLicensingPath,
-		paths.HTTPTLSConfDir, paths.HTTPTLSConfDir,
 		paths.AdminToolsConf, paths.AdminToolsConf,
 		paths.CELicenseFile, paths.CELicenseFile,
 		paths.LogrotateATFile, paths.LogrotateATFile,
@@ -441,7 +436,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName), getPathToVerifyCatalogExists(pf),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
-		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
