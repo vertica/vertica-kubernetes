@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -162,12 +163,17 @@ func (s *UninstallReconciler) uninstallPodsInSubclusterForAdmintools(ctx context
 		return err
 	}
 
-	// Remove the installer indicator file so that we do an install if we then
+	// Remove the installer indicator and HTTPTLS conf file so that we do an install if we then
 	// opt to scale out again.
-	cmd := s.genCmdRemoveInstallIndicator()
+	cmdRemoveInstallIndicator := s.genCmdRemoveInstallIndicator()
+	cmdRemoveHTTPTLSConf := s.genCmdRemoveHTTPTLSConfFile()
+
 	for _, pod := range podsToUninstall {
-		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
+		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmdRemoveInstallIndicator...); err != nil {
 			return fmt.Errorf("failed to call remove installer indicator file: %w", err)
+		}
+		if _, _, err := s.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmdRemoveHTTPTLSConf...); err != nil {
+			return fmt.Errorf("failed to call remove https config file: %w", err)
 		}
 	}
 
@@ -212,4 +218,9 @@ func (s *UninstallReconciler) findPodsSuitableForScaleDown(sc *vapi.Subcluster, 
 // genCmdRemoveInstallIndicator will generate the command to get rid of the installer indicator file
 func (s *UninstallReconciler) genCmdRemoveInstallIndicator() []string {
 	return []string{"rm", s.Vdb.GenInstallerIndicatorFileName()}
+}
+
+// genCmdRemoveHTTPTLSConfFile will generate the command to get rid of the https config file
+func (s *UninstallReconciler) genCmdRemoveHTTPTLSConfFile() []string {
+	return []string{"rm", fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName)}
 }
