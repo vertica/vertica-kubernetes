@@ -470,6 +470,12 @@ func getPathToVerifyCatalogExists(pf *PodFact) string {
 func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.isInstalled = false
 
+	// VClusterOps don't have an installed state, so we can handle that without
+	// checking if the pod is running.
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return p.checkIsInstalledForVClusterOps(pf)
+	}
+
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the install indicator first based on the install count in the status
@@ -487,8 +493,6 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 	switch {
 	case vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
 		return p.checkIsInstalledScheduleOnly(vdb, pf, gs)
-	case vmeta.UseVClusterOps(vdb.Annotations):
-		return p.checkIsInstalledForVClusterOps(pf)
 	default:
 		return p.checkIsInstalledForAdmintools(pf, gs)
 	}
@@ -995,14 +999,22 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
-// countInstalledAndNotRestartable returns number of installed pods that aren't yet restartable
-func (p *PodFacts) countInstalledAndNotRestartable() int {
+// countNotRestartablePods returns number of pods that aren't yet
+// running but the restart reconciler needs to handle them.
+func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {
 	return p.countPods(func(v *PodFact) int {
-		// We don't count non-running pods that aren't yet managed by the parent
-		// sts.  The sts needs to be created or sized first.
-		// We need the pod to have the DC table annotations since the DC
+		// Non-restartable pods are pods that aren't yet running, or don't have
+		// the necessary DC table annotations, but need to be handled by the
+		// restart reconciler. A couple of notes about certain edge cases:
+		// - We don't count pods that aren't yet managed by the parent sts. The
+		// sts needs to be created or sized first.
+		// - We need the pod to have the DC table annotations since the DC
 		// collection is done at start, so these need to set prior to starting.
-		if v.isInstalled && v.managedByParent && (!v.isPodRunning || !v.hasDCTableAnnotations) {
+		// - We check install state only for admintools deployments because
+		// installed pods are in admintools.conf and need the restart reconciler
+		// to update its IP.
+		if ((!vclusterOps && v.isInstalled) || v.dbExists) && v.managedByParent &&
+			(!v.isPodRunning || !v.hasDCTableAnnotations) {
 			return 1
 		}
 		return 0
