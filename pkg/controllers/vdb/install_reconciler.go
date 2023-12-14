@@ -101,17 +101,7 @@ func (d *InstallReconciler) installForAdmintools(ctx context.Context) (ctrl.Resu
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
-	}
-	// generateHTTPCerts setup is only required for versions before 24.1.0 of the database.
-	vinf, err := d.Vdb.MakeVersionInfoCheck()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if vinf.IsOlder(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
-		fnsOlderVer := []func(context.Context) error{
-			d.generateHTTPCerts,
-		}
-		fns = append(fns, fnsOlderVer...)
+		d.generateHTTPCerts,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -300,14 +290,6 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 	if err != nil {
 		return "", err
 	}
-	// Set up HTTPTLSConfDir if this directory doesn't exist.
-	// This setup is only required for versions before 24.1.0 of the database.
-	if vinf.IsOlder(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
-		if !p.dirExists[paths.HTTPTLSConfDir] {
-			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
-			numCmds++
-		}
-	}
 	// Logrotate setup is only required for versions before 24.1.0 of the database.
 	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
 	if !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
@@ -325,6 +307,11 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
 			numCmds++
 		}
+	}
+
+	if !p.dirExists[paths.HTTPTLSConfDir] {
+		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
+		numCmds++
 	}
 
 	if !p.dirExists[paths.ConfigSharePath] {
