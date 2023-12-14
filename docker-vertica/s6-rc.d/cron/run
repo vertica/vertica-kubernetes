@@ -1,2 +1,2 @@
 #!/command/execlineb -P
-/usr/sbin/crond -n
+sudo /usr/sbin/crond -n
