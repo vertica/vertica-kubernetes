@@ -1,5 +1,5 @@
 kind: Changed
-body: Switched server container from ubuntu to rockylinux 9
+body: Switched server container from ubuntu to rockylinux 8
 time: 2023-12-07T10:45:01.174348775-04:00
 custom:
   Issue: "624"

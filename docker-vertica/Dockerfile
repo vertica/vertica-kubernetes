@@ -5,10 +5,11 @@
 
 ARG BASE_OS_NAME
 ARG BASE_OS_VERSION
-ARG BUILDER_OS_VERSION="8"
+ARG BUILDER_OS_NAME
+ARG BUILDER_OS_VERSION
 ARG MINIMAL=""
 ARG S6_OVERLAY_VERSION=3.1.2.1
-FROM almalinux:${BUILDER_OS_VERSION} as builder
+FROM ${BUILDER_OS_NAME}:${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM
 ARG MINIMAL
@@ -40,8 +41,6 @@ RUN set -x \
   openssh-server \
   openssh-clients \
   openssl \
-  which \
-  zlib-devel \
   && /usr/sbin/groupadd -r verticadba --gid ${DBADMIN_GID} \
   && /usr/sbin/useradd -r -m -s /bin/bash -g verticadba --uid ${DBADMIN_UID} dbadmin \
   && yum localinstall -q -y /tmp/${VERTICA_RPM} \
@@ -103,12 +102,10 @@ RUN set -x \
   ca-certificates \
   cronie \
   dialog \
-  dnf-plugins-core \
   gdb \
   glibc-locale-source \
   iproute-tc \
   krb5-workstation \
-  libxcrypt-compat \
   logrotate \
   openssh-clients \
   openssh-server \
@@ -117,10 +114,15 @@ RUN set -x \
   sysstat \
   sudo \
   which \
+  && if [[ $(rpm -E '%{rhel}') == "9" ]] ; then \
+    yum install -y libxcrypt-compat; \
+  fi \
   # Install jre if not minimal
   && if [[ ${MINIMAL^^} != "YES" ]] ; then \
     yum install -y $JRE_PKG; \
   fi \ 
+  # RHEL 8 - enable powertools to fix locales issue
+  && bash -c "if [ $(rpm -E '%{rhel}') == '8' ]; then yum install -q -y dnf-plugins-core glibc-locale-source; yum -q config-manager --set-enabled powertools; fi" \
   && yum clean all \
   && /bin/rm -rf /var/cache/yum \
   # Fixes unsupported locale character encoding: use a utf8 locale, not a

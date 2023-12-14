@@ -71,13 +71,10 @@ jobs:
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-udx
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
-        export JAVA_HOME=${JAVA_HOME_8_X64}  # We need a java version that matches the one in the Vertica image
-        java --version
-        # Install system packages that some of the tests depend on.  Any
-        # changes here need to be duplicated in udx-cpp/30-upload-files.yaml
-        # We retry the command to avoid any interimittent network issues.
-        for i in $(seq 1 5); do sudo apt-get update && sudo apt-get install -y libboost-all-dev libcurl4-openssl-dev libbz2-dev && break || sleep 60; done
-        scripts/setup-e2e-udx.sh -v
+        # Setup the udx environment by compiling examples in the vertica image.
+        # This downloads packages, so to improve its reliability we retry in
+        # case any intermittent network issues arise.
+        for i in $(seq 1 5); do scripts/setup-e2e-udx.sh -v && break || sleep 60; done
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
 
     - uses: actions/upload-artifact@v3
