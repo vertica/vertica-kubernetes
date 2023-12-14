@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
@@ -162,5 +163,47 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		Expect(err).Should(Succeed())
 		Expect(len(podList)).Should(Equal(1))
 		Expect(podList[0].name).Should(Equal(names.GenPodName(vdb, sc, 0)))
+	})
+
+	It("should generate https config with admintools", func() {
+		secretName := "tls-secret"
+		vdb := vapi.MakeVDB()
+		vdb.Spec.NMATLSSecret = secretName
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+
+		// can generate https config with admintools
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
+		drecon := actor.(*InstallReconciler)
+		for _, val := range pfact.Detail {
+			Expect(drecon.genCreateConfigDirsScript(val)).Should(ContainSubstring(paths.HTTPTLSConfDir))
+		}
+		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
+		Expect(len(cmds)).Should(Equal(int(vdb.Spec.Subclusters[0].Size)))
+
+	})
+
+	It("should not generate https config with vclusterOps", func() {
+		secretName := "tls-secret-1"
+		vdb := vapi.MakeVDB()
+		vdb.Spec.NMATLSSecret = secretName
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
+
+		fpr := &cmds.FakePodRunner{}
+		pfact := createPodFactsWithInstallNeeded(ctx, vdb, fpr)
+		actor := MakeInstallReconciler(vdbRec, logger, vdb, fpr, pfact)
+		drecon := actor.(*InstallReconciler)
+		for _, val := range pfact.Detail {
+			Expect(drecon.genCreateConfigDirsScript(val)).Should(ContainSubstring(paths.HTTPTLSConfDir))
+		}
+		Expect(drecon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		cmds := fpr.FindCommands(paths.HTTPTLSConfFileName)
+		Expect(len(cmds)).ShouldNot(Equal(int(vdb.Spec.Subclusters[0].Size)))
 	})
 })
