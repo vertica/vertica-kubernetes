@@ -553,7 +553,7 @@ func buildDepotVolume() corev1.Volume {
 
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
-	termGracePeriod := int64(0)
+	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
 		Affinity:                      GetK8sAffinity(sc.Affinity),

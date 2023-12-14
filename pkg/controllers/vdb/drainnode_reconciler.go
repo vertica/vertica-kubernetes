@@ -57,7 +57,7 @@ func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// Note: this reconciler depends on the clien routing reconciler to have run
 	// and directed traffic away from pending delete pods.
 	for _, pf := range s.PFacts.Detail {
-		if pf.pendingDelete && pf.upNode {
+		if pf.isPendingDelete && pf.upNode {
 			if res, err := s.reconcilePod(ctx, pf); verrors.IsReconcileAborted(res, err) {
 				return res, err
 			}
