@@ -140,6 +140,9 @@ const (
 	// annotation is not provided the default value "dbadmin" will be used.
 	SuperuserNameAnnotation   = "vertica.com/superuser-name"
 	SuperuserNameDefaultValue = "dbadmin"
+
+	// Annotation to control the termination grace period for vertica pods.
+	TerminationGracePeriodSecondsAnnotaton = "vertica.com/termination-grace-period-seconds"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -224,6 +227,13 @@ func GetSuperuserName(annotations map[string]string) string {
 // in the cluster.
 func IsKSafetyCheckStrict(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, StrictKSafetyCheckAnnotation, true /* default value */)
+}
+
+// GetTerminationGracePeriodSeconds returns the value we will use for
+// termination grace period in vertica pods. This is the amount of time k8s will
+// wait before forcibly removing the pod.
+func GetTerminationGracePeriodSeconds(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotaton)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

@@ -69,9 +69,12 @@ type PodFact struct {
 	// true means the pod exists in k8s.  false means it hasn't been created yet.
 	exists bool
 
-	// true means the pod has been bound to a node, and all of the containers
-	// have been created. At least one container is still running, or is in the
-	// process of starting or restarting.
+	// True indicates that the pod has been:
+	// - Bound to a node
+	// - Not in the process of being terminated
+	// - All of its containers have been created
+	// - At least one container is still running, or is in the process of
+	//   starting or restarting
 	isPodRunning bool
 
 	// true means the statefulset exists and its size includes this pod.  The
@@ -84,7 +87,11 @@ type PodFact struct {
 	// exists and is managed by a statefulset.  The pod is pending delete in
 	// that once the statefulset is sized according to the subcluster the pod
 	// will get deleted.
-	pendingDelete bool
+	isPendingDelete bool
+
+	// true means a delete request has been made to delete the pod, but it is
+	// still running.
+	isTerminating bool
 
 	// Have we run install for this pod?
 	isInstalled bool
@@ -305,11 +312,16 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// The remaining fields we set in this block only make sense when the
 		// pod exists.
 		pf.exists = true // Success from the Get() implies pod exists in API server
-		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
+		pf.isTerminating = pod.DeletionTimestamp != nil
+		// We don't consider a pod running if it is in the middle of being
+		// terminated. Technically, the pod is running, but it is seconds away
+		// from being deleted. So, it doesn't make sense to exec into the pod to
+		// perform actions.
+		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning && !pf.isTerminating
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
-		pf.pendingDelete = podIndex >= sc.Size
+		pf.isPendingDelete = podIndex >= sc.Size
 		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
@@ -339,6 +351,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		}
 	}
 
+	p.VRec.Log.Info("pod fact", "name", pf.name, "details", fmt.Sprintf("%+v", pf))
 	p.Detail[pf.name] = &pf
 	return nil
 }
@@ -470,6 +483,12 @@ func getPathToVerifyCatalogExists(pf *PodFact) string {
 func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.isInstalled = false
 
+	// VClusterOps don't have an installed state, so we can handle that without
+	// checking if the pod is running.
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		return p.checkIsInstalledForVClusterOps(pf)
+	}
+
 	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the install indicator first based on the install count in the status
@@ -487,8 +506,6 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *
 	switch {
 	case vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
 		return p.checkIsInstalledScheduleOnly(vdb, pf, gs)
-	case vmeta.UseVClusterOps(vdb.Annotations):
-		return p.checkIsInstalledForVClusterOps(pf)
 	default:
 		return p.checkIsInstalledForAdmintools(pf, gs)
 	}
@@ -841,7 +858,7 @@ func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
 	// - up and read-only
 	// - has vertica installation
 	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
-		return v.upNode && !v.readOnly && !v.pendingDelete
+		return v.upNode && !v.readOnly && !v.isPendingDelete
 	}); ok {
 		return pod, ok
 	}
@@ -995,14 +1012,22 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
-// countInstalledAndNotRestartable returns number of installed pods that aren't yet restartable
-func (p *PodFacts) countInstalledAndNotRestartable() int {
+// countNotRestartablePods returns number of pods that aren't yet
+// running but the restart reconciler needs to handle them.
+func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {
 	return p.countPods(func(v *PodFact) int {
-		// We don't count non-running pods that aren't yet managed by the parent
-		// sts.  The sts needs to be created or sized first.
-		// We need the pod to have the DC table annotations since the DC
+		// Non-restartable pods are pods that aren't yet running, or don't have
+		// the necessary DC table annotations, but need to be handled by the
+		// restart reconciler. A couple of notes about certain edge cases:
+		// - We don't count pods that aren't yet managed by the parent sts. The
+		// sts needs to be created or sized first.
+		// - We need the pod to have the DC table annotations since the DC
 		// collection is done at start, so these need to set prior to starting.
-		if v.isInstalled && v.managedByParent && (!v.isPodRunning || !v.hasDCTableAnnotations) {
+		// - We check install state only for admintools deployments because
+		// installed pods are in admintools.conf and need the restart reconciler
+		// to update its IP.
+		if ((!vclusterOps && v.isInstalled) || v.dbExists) && v.managedByParent &&
+			(!v.isPodRunning || !v.hasDCTableAnnotations) {
 			return 1
 		}
 		return 0
