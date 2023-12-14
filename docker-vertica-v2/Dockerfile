@@ -72,7 +72,7 @@ ARG MINIMAL
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -x \
   # update needed because we just did a clean
-  && yum -y check-update \
+  && yum -y update \
   && yum install -y \
   ca-certificates \
   dnf-plugins-core \
