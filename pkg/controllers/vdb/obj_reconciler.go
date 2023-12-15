@@ -65,7 +65,7 @@ type ObjReconciler struct {
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts        *PodFacts
 	Mode          ObjReconcileModeType
-	SecretFetcher cloud.MultiSourceSecretFetcher
+	SecretFetcher cloud.ControllerSecretFetcher
 }
 
 // MakeObjReconciler will build an ObjReconciler object
@@ -77,7 +77,7 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 		Vdb:    vdb,
 		PFacts: pfacts,
 		Mode:   mode,
-		SecretFetcher: cloud.MultiSourceSecretFetcher{
+		SecretFetcher: cloud.ControllerSecretFetcher{
 			Client:   vdbrecon.Client,
 			Log:      log.WithName("ObjReconciler"),
 			VDB:      vdb,

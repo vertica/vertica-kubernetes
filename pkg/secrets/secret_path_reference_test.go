@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package cloud
+package secrets
 
 import (
 	"testing"
@@ -25,7 +25,7 @@ import (
 func TestCloud(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "cloud Suite")
+	RunSpecs(t, "secrets Suite")
 }
 
 var _ = Describe("cloud/path_reference", func() {

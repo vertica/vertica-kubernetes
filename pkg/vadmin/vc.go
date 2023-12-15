@@ -27,7 +27,7 @@ import (
 
 // retrieveNMACerts will retrieve the certs from NMATLSSecret for calling NMA endpoints
 func (v *VClusterOps) retrieveNMACerts(ctx context.Context) (*HTTPSCerts, error) {
-	fetcher := cloud.MultiSourceSecretFetcher{
+	fetcher := cloud.ControllerSecretFetcher{
 		Client:   v.Client,
 		Log:      v.Log,
 		VDB:      v.VDB,
