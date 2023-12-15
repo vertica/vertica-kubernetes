@@ -1,5 +1,0 @@
-kind: Fixed
-body: Online upgrade to account for terminating pods
-time: 2023-12-13T10:12:02.33874853-04:00
-custom:
-  Issue: "633"

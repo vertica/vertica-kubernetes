@@ -1,5 +1,0 @@
-kind: Fixed
-body: Speed up revive when local paths in VerticaDB differ with communal storage
-time: 2023-12-04T15:38:43.240344363-04:00
-custom:
-  Issue: "619"

@@ -1,5 +1,0 @@
-kind: Fixed
-body: Webhook to calculate k-safety using primary nodes only
-time: 2023-11-22T15:14:57.804656837-04:00
-custom:
-  Issue: "594"
