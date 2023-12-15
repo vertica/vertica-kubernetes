@@ -17,8 +17,15 @@ metadata:
   name: verticadb-sample
   annotations:
     vertica.com/include-uid-in-path: "true"
+    vertica.com/run-nma-in-sidecar: "false"
+    # This controls the deployment method. Any server version that is older
+    # than 24.1.0 (e.g. 23.x.0, 12.0.x, etc.) will want this to set false so
+    # the operator treats it as an admintools deployment. Server versions that
+    # are 24.1.0 or newer will want this set to true to deploy with vclusterops.
+    vertica.com/vcluster-ops: "false"
 spec:
-  image: "vertica/vertica-k8s:latest"
+  image: "vertica/vertica-k8s:23.3.0-0-minimal" # ensure vertica.com/vcluster-ops is false
+  #image: "vertica/vertica-k8s:24.1.0-0-minimal" # ensure vertica.com/vcluster-ops is true
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
