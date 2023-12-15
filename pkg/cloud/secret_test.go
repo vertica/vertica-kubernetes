@@ -55,7 +55,7 @@ var _ = Describe("cloud/secret", func() {
 		cf := ControllerSecretFetcher{
 			EVWriter: &testEVWriter{},
 		}
-		secretData, res, err := cf.handleFetchError(types.NamespacedName{Name: "secret"}, errors.New("panic!"))
+		secretData, res, err := cf.handleFetchError(types.NamespacedName{Name: "secret"}, errors.New("panic"))
 		Ω(secretData).Should(BeNil())
 		Ω(res).Should(Equal(ctrl.Result{}))
 		Ω(err).ShouldNot(BeNil())

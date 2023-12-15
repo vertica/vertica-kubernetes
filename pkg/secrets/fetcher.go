@@ -18,12 +18,14 @@ package secrets
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash/crc32"
 
 	gsm "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -45,7 +47,9 @@ type Logger interface {
 	Info(msg string, keysAndValues ...any)
 }
 
-// NotFoundError is an error returned when the secret isn't found
+// NotFoundError is an error returned when the secret isn't found. Each secret
+// store can have their own not found error, this is meant as a way to abstract
+// out the different secret stores.
 type NotFoundError struct {
 	msg string
 }
@@ -73,6 +77,12 @@ func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName t
 	tlsCerts := &corev1.Secret{}
 	err := m.Client.Get(ctx, secretName, tlsCerts)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			errs := errors.Join(err, &NotFoundError{
+				msg: fmt.Sprintf("Could not find the secret '%s'", secretName.Name),
+			})
+			return nil, errs
+		}
 		return nil, fmt.Errorf("could not fetch k8s secret named %s: %w", secretName, err)
 	}
 	return tlsCerts.Data, nil
