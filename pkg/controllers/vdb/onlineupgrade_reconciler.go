@@ -468,7 +468,26 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 		}
 		return &PodFact{}, false
 	}
-	return vr.Reconcile(ctx, &ctrl.Request{})
+	res, err := vr.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	// We need to check if we are changing deployment types. This isn't allowed
+	// for online upgrade because the vclusterops library won't know how to talk
+	// to the pods that are still running the old admintools deployment since it
+	// won't have the NMA running. If we detect this change then we take down
+	// the secondaries and we'll behave like an offline upgrade.
+	for _, v := range o.PFacts.Detail {
+		if v.isPodRunning && !v.isPrimary && v.admintoolsExists {
+			o.Log.Info("online upgrade isn't supported when changing deployment types from admintools to vclusterops",
+				"podName", v.name)
+			if err := o.Manager.deleteStsRunningOldImage(ctx); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // addPodAnnotations will add the necessary pod annotations that need to be
