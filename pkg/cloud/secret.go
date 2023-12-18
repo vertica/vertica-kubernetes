@@ -41,8 +41,8 @@ type VerticaDBSecretFetcher struct {
 }
 
 // Fetch reads the secret from a secret store. The contents of the secret is successful.
-func (c *VerticaDBSecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
-	secretData, res, err := c.FetchAllowRequeue(ctx, secretName)
+func (v *VerticaDBSecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
+	secretData, res, err := v.FetchAllowRequeue(ctx, secretName)
 	if res.Requeue && err == nil {
 		return secretData, fmt.Errorf("secret fetch ended with requeue but is not allowed in code path")
 	}
@@ -51,25 +51,25 @@ func (c *VerticaDBSecretFetcher) Fetch(ctx context.Context, secretName types.Nam
 
 // FetchAllowRequeue reads the secret from a secret store. This API has the
 // ability to requeue the reconcile iteration based on the error it finds.
-func (c *VerticaDBSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
+func (v *VerticaDBSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, ctrl.Result, error) {
 	sf := secrets.MultiSourceSecretFetcher{
-		Client: c.Client,
-		Log:    c.Log,
+		Client: v.Client,
+		Log:    v.Log,
 	}
 	secretData, err := sf.Fetch(ctx, secretName)
 	if err != nil {
-		return c.handleFetchError(secretName, err)
+		return v.handleFetchError(secretName, err)
 	}
 	return secretData, ctrl.Result{}, err
 }
 
 // handleFetchError is called when there is an error fetching the secret. It
 // will handle things like event logging and setting up the ctrl.Result.
-func (c *VerticaDBSecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
+func (v *VerticaDBSecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
 	nfe := &secrets.NotFoundError{}
 	if ok := errors.As(err, &nfe); ok {
-		c.EVWriter.Eventf(c.VDB, corev1.EventTypeWarning, events.ObjectNotFound,
+		v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ObjectNotFound,
 			"Could not find the secret '%s'", secretName.Name)
 		return nil, ctrl.Result{Requeue: true}, nil
 	}
