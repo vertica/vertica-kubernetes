@@ -211,6 +211,18 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 	case CommunalInitPolicyCreate:
 	case CommunalInitPolicyCreateSkipPackageInstall:
 	case CommunalInitPolicyRevive:
+		if v.IsRestoreConfig() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+				v.Spec.RestorePoint,
+				fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint.archive is non-empty, "+
+					"the database will initialize by reviving from a restore point in the specified archive, and thus "+
+					"the restore point from which to restore from must be properly specified by either restorePoint.index or "+
+					"restorePoint.id, where the former one is a (1-based) index of the restore point in the archive and "+
+					"the latter one is an identifier of the restore point in the restore archive. Notice that these 2 fields cannot "+
+					"be specified at the same time.",
+					CommunalInitPolicyRevive))
+			allErrs = append(allErrs, err)
+		}
 	case CommunalInitPolicyScheduleOnly:
 	default:
 		err := field.Invalid(field.NewPath("spec").Child("initPolicy"),

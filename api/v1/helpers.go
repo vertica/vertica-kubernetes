@@ -572,3 +572,11 @@ func (v *VerticaDB) GetEncryptSpreadComm() string {
 func (v *VerticaDB) IsKSafetyCheckStrict() bool {
 	return vmeta.IsKSafetyCheckStrict(v.Annotations)
 }
+
+func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
+	return r.Archive != "" && ((r.Index > 0) != (r.ID != ""))
+}
+
+func (v *VerticaDB) IsRestoreConfig() bool {
+	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint.Archive != ""
+}

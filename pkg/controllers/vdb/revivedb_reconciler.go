@@ -36,7 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,6 +80,11 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	// Check if restoring from a restore point is supported
+	if err := r.isRestoreSupported(); r.Vdb.IsRestoreConfig() && err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// The remaining revive_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with create_db.
 	g := GenericDatabaseInitializer{
@@ -94,6 +99,18 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		},
 	}
 	return g.checkAndRunInit(ctx)
+}
+
+func (r *ReviveDBReconciler) isRestoreSupported() error {
+	if vinf, ok := r.Vdb.MakeVersionInfo(); !vmeta.UseVClusterOps(r.Vdb.Annotations) ||
+		!ok || !vinf.IsNewer(vapi.RestoreUnsupportedMaxVersion) {
+		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBRestoreUnsupported,
+			fmt.Sprintf("Restoring from a restore point is unsupported in ReviveDB given the current server version and deployment method, "+
+				"make sure that a server version above %s is used and deployment method is set to vcluster-ops", vapi.RestoreUnsupportedMaxVersion))
+		return fmt.Errorf("restoring from a restore point is unsupported in ReviveDB given the current server version and deployment method, "+
+			"make sure that a server version above %s is used and deployment method is set to vcluster-ops", vapi.RestoreUnsupportedMaxVersion)
+	}
+	return nil
 }
 
 // execCmd will do the actual execution of revive DB.
@@ -301,7 +318,7 @@ func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (c
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		vdb := &vapi.VerticaDB{}
 		if retryErr := r.VRec.Client.Get(ctx, nm, vdb); retryErr != nil {
-			if errors.IsNotFound(retryErr) {
+			if apierrors.IsNotFound(retryErr) {
 				r.Log.Info("VerticaDB resource not found. Ignoring since object must be deleted")
 				return nil
 			}

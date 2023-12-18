@@ -413,6 +413,25 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, true)
 	})
 
+	It("should validate restorePoint when initPolicy is \"Revive\" and a restore is intended", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.InitPolicy = "Revive"
+		vdb.Spec.RestorePoint.Archive = "archive"
+		// neither id nor index is provided
+		validateSpecValuesHaveErr(vdb, true)
+		// both id and index are provided
+		vdb.Spec.RestorePoint.ID = "id"
+		vdb.Spec.RestorePoint.Index = 1
+		validateSpecValuesHaveErr(vdb, true)
+		// only id is provided
+		vdb.Spec.RestorePoint.Index = 0
+		validateSpecValuesHaveErr(vdb, false)
+		// only index is provided
+		vdb.Spec.RestorePoint.ID = ""
+		vdb.Spec.RestorePoint.Index = 1
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 	It("should only allow nodePort if serviceType allows for it", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Subclusters[0].ServiceType = v1.ServiceTypeNodePort

@@ -68,7 +68,7 @@ func (c *Components) buildVersionStr() string {
 	return fmt.Sprintf("v%d.%d.%d", c.VdbMajor, c.VdbMinor, c.VdbPatch)
 }
 
-// IsEqualOrNewer returns true if the version in the Vdb is is equal or newer
+// IsEqualOrNewer returns true if the version in the Vdb is equal or newer
 // than the given version
 func (i *Info) IsEqualOrNewer(inVer string) bool {
 	inVerMajor, inVerMinor, inVerPatch, ok := parseVersion(inVer)
@@ -87,6 +87,33 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 	case i.VdbPatch > inVerPatch:
 		return true
 	case i.VdbPatch < inVerPatch:
+		return false
+	}
+	return true
+}
+
+// IsNewer returns true if the version in the Vdb is newer
+// than the given version
+func (i *Info) IsNewer(inVer string) bool {
+	inVerMajor, inVerMinor, inVerPatch, ok := parseVersion(inVer)
+	if !ok {
+		panic(fmt.Sprintf("could not parse input version: %s", inVer))
+	}
+	switch {
+	case i.VdbMajor > inVerMajor:
+		return true
+	case i.VdbMajor < inVerMajor:
+		return false
+	case i.VdbMinor > inVerMinor:
+		return true
+	case i.VdbMinor < inVerMinor:
+		return false
+	case i.VdbPatch > inVerPatch:
+		return true
+	case i.VdbPatch < inVerPatch:
+		return false
+	}
+	if i.VdbMajor == inVerMajor && i.VdbMinor == inVerMinor && i.VdbPatch == inVerPatch {
 		return false
 	}
 	return true

@@ -56,6 +56,8 @@ const (
 	VcluseropsAsDefaultDeploymentMethodMinVersion = "v24.1.0"
 	// Starting in v24.1.0, we use server logrotate and not depend on cron job
 	InDatabaseLogRotateMinVersion = "v24.1.0"
+	// Starting in v24.2.0 (not including), restoring from a restore point in archive is supported.
+	RestoreUnsupportedMaxVersion = "v24.2.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
