@@ -16,19 +16,11 @@
 package secrets
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-func TestCloud(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecs(t, "secrets Suite")
-}
-
-var _ = Describe("cloud/path_reference", func() {
+var _ = Describe("secrets/secret_path_reference", func() {
 	It("should parse secret name for GSM", func() {
 		Ω(IsGSMSecret("gsm://projects/blah/mysecret/versions/1")).Should(BeTrue())
 		Ω(RemovePathReference("gsm://projects/blah/mysecret/versions/1")).Should(Equal("projects/blah/mysecret/versions/1"))

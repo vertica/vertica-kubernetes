@@ -27,15 +27,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MultiSourceSecretFetcher is secret reader that handles retrival from
 // different sources such as Kubernetes secret store and Google Secrets Manager
 // (GSM).
 type MultiSourceSecretFetcher struct {
-	client.Client
-	Log Logger
+	Log       Logger
+	K8sClient Client // K8s client to use. If omitted, we will use StandardK8sClient struct
+}
+
+// Client is the interface we must implement for any k8s calls. This allows the
+// caller to use their own client, which may provide some benefits beyond the
+// standard k8s client (e.g. caching in use by the operator-sdk)
+type Client interface {
+	GetSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error)
 }
 
 // Logger is a very simple logging interface for this package. Callers can use
@@ -74,8 +80,12 @@ func (m *MultiSourceSecretFetcher) Fetch(ctx context.Context, secretName types.N
 // readFromK8s reads the secret using the K8s Secret API.
 func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, error) {
-	tlsCerts := &corev1.Secret{}
-	err := m.Client.Get(ctx, secretName, tlsCerts)
+	m.Log.Info("Reading secret with K8s client", "secretName", secretName)
+	// If no k8s client was given, use the standard one.
+	if m.K8sClient == nil {
+		m.K8sClient = &StandardK8sClient{}
+	}
+	tlsCerts, err := m.K8sClient.GetSecret(ctx, secretName)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			errs := errors.Join(err, &NotFoundError{

@@ -54,14 +54,23 @@ func (v *VerticaDBSecretFetcher) Fetch(ctx context.Context, secretName types.Nam
 func (v *VerticaDBSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, ctrl.Result, error) {
 	sf := secrets.MultiSourceSecretFetcher{
-		Client: v.Client,
-		Log:    v.Log,
+		K8sClient: v,
+		Log:       v.Log,
 	}
 	secretData, err := sf.Fetch(ctx, secretName)
 	if err != nil {
 		return v.handleFetchError(secretName, err)
 	}
 	return secretData, ctrl.Result{}, err
+}
+
+// GetSecret will allow us to fulfill the client interface in
+// MultiSourceSecretFetcher. It is a wrapper to get a resource using the
+// controller's k8s client.
+func (v *VerticaDBSecretFetcher) GetSecret(ctx context.Context, name types.NamespacedName) (*corev1.Secret, error) {
+	secret := corev1.Secret{}
+	err := v.Client.Get(ctx, name, &secret)
+	return &secret, err
 }
 
 // handleFetchError is called when there is an error fetching the secret. It
