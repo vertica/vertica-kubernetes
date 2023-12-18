@@ -40,7 +40,7 @@ func (t *testEVWriter) Eventf(_ runtime.Object, _, _, _ string, _ ...interface{}
 
 var _ = Describe("cloud/secret", func() {
 	It("should requeue if returned a not found error", func() {
-		cf := ControllerSecretFetcher{
+		cf := VerticaDBSecretFetcher{
 			EVWriter: &testEVWriter{},
 		}
 		nfe := secrets.NotFoundError{}
@@ -52,7 +52,7 @@ var _ = Describe("cloud/secret", func() {
 	})
 
 	It("should not requeue if some other error is returned", func() {
-		cf := ControllerSecretFetcher{
+		cf := VerticaDBSecretFetcher{
 			EVWriter: &testEVWriter{},
 		}
 		secretData, res, err := cf.handleFetchError(types.NamespacedName{Name: "secret"}, errors.New("panic"))

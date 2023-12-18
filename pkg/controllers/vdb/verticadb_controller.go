@@ -267,7 +267,7 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr
 		return "", nil
 	}
 
-	fetcher := cloud.ControllerSecretFetcher{
+	fetcher := cloud.VerticaDBSecretFetcher{
 		Client:   r.Client,
 		Log:      log,
 		VDB:      vdb,

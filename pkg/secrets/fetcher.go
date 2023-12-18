@@ -58,7 +58,7 @@ func (e *NotFoundError) Error() string {
 	return e.msg
 }
 
-// Fetch reads the secret from a secret store. The contents of the secret is successful.
+// Fetch reads the secret from a secret store. The contents of the secret is returned on success.
 func (m *MultiSourceSecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, error) {
 	switch {

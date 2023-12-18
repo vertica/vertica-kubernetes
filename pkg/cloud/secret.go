@@ -30,10 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ControllerSecretFetcher is secret reader designed for the verticadb
+// VerticaDBSecretFetcher is secret reader designed for the verticadb
 // controller. It can handle retrival from different sources, such as Kubernetes
 // secret store, Google Secrets Manager (GSM), etc.
-type ControllerSecretFetcher struct {
+type VerticaDBSecretFetcher struct {
 	client.Client
 	Log      logr.Logger
 	EVWriter events.EVWriter
@@ -41,8 +41,8 @@ type ControllerSecretFetcher struct {
 }
 
 // Fetch reads the secret from a secret store. The contents of the secret is successful.
-func (m *ControllerSecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
-	secretData, res, err := m.FetchAllowRequeue(ctx, secretName)
+func (c *VerticaDBSecretFetcher) Fetch(ctx context.Context, secretName types.NamespacedName) (map[string][]byte, error) {
+	secretData, res, err := c.FetchAllowRequeue(ctx, secretName)
 	if res.Requeue && err == nil {
 		return secretData, fmt.Errorf("secret fetch ended with requeue but is not allowed in code path")
 	}
@@ -51,25 +51,25 @@ func (m *ControllerSecretFetcher) Fetch(ctx context.Context, secretName types.Na
 
 // FetchAllowRequeue reads the secret from a secret store. This API has the
 // ability to requeue the reconcile iteration based on the error it finds.
-func (m *ControllerSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
+func (c *VerticaDBSecretFetcher) FetchAllowRequeue(ctx context.Context, secretName types.NamespacedName) (
 	map[string][]byte, ctrl.Result, error) {
 	sf := secrets.MultiSourceSecretFetcher{
-		Client: m.Client,
-		Log:    m.Log,
+		Client: c.Client,
+		Log:    c.Log,
 	}
 	secretData, err := sf.Fetch(ctx, secretName)
 	if err != nil {
-		return m.handleFetchError(secretName, err)
+		return c.handleFetchError(secretName, err)
 	}
 	return secretData, ctrl.Result{}, err
 }
 
 // handleFetchError is called when there is an error fetching the secret. It
 // will handle things like event logging and setting up the ctrl.Result.
-func (m *ControllerSecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
+func (c *VerticaDBSecretFetcher) handleFetchError(secretName types.NamespacedName, err error) (map[string][]byte, ctrl.Result, error) {
 	nfe := &secrets.NotFoundError{}
 	if ok := errors.As(err, &nfe); ok {
-		m.EVWriter.Eventf(m.VDB, corev1.EventTypeWarning, events.ObjectNotFound,
+		c.EVWriter.Eventf(c.VDB, corev1.EventTypeWarning, events.ObjectNotFound,
 			"Could not find the secret '%s'", secretName.Name)
 		return nil, ctrl.Result{Requeue: true}, nil
 	}
