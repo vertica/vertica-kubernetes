@@ -1,6 +1,0 @@
-kind: Added
-body: Allow annotations to be added to the serviceAccount created through the helm
-  chart.
-time: 2023-12-04T10:29:17.162221413-04:00
-custom:
-  Issue: "618"
