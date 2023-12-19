@@ -57,6 +57,6 @@ resources:
   controller: true
   domain: vertica.com
   kind: VerticaRestorePointsQuery
-  path: github.com/vertica/vertica-kubernetes/api/v1
-  version: v1
+  path: github.com/vertica/vertica-kubernetes/api/v1beta1
+  version: v1beta1
 version: "3"

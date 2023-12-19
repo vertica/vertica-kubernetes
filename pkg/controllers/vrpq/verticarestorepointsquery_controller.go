@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vrqb
+package vrpq
 
 import (
 	"context"
@@ -55,11 +55,11 @@ type VerticaRestorePointsQueryReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("vrqb", req.NamespacedName)
+	log := r.Log.WithValues("vrpq", req.NamespacedName)
 	log.Info("starting reconcile of vertica restore point query")
 
-	vrqb := &vapi.VerticaRestorePointsQuery{}
-	err := r.Get(ctx, req.NamespacedName, vrqb)
+	vrpq := &vapi.VerticaRestorePointsQuery{}
+	err := r.Get(ctx, req.NamespacedName, vrpq)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, cound have been deleted after reconcile request.
@@ -70,21 +70,21 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, err
 	}
 
-	if meta.IsPauseAnnotationSet(vrqb.Annotations) {
+	if meta.IsPauseAnnotationSet(vrpq.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
 		return ctrl.Result{}, nil
 	}
 
 	// Iterate over each actor
-	actors := r.constructActors(vrqb, log)
+	actors := r.constructActors(vrpq, log)
 	var res ctrl.Result
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
 		// Error or a request to requeue will stop the reconciliation.
 		if verrors.IsReconcileAborted(res, err) {
-			log.Info("aborting reconcile of EventTrigger", "result", res, "err", err)
+			log.Info("aborting reconcile of VerticaRestorePointsQuery", "result", res, "err", err)
 			return res, err
 		}
 	}
@@ -104,7 +104,7 @@ func (r *VerticaRestorePointsQueryReconciler) SetupWithManager(mgr ctrl.Manager)
 // earlier ones.
 func (r *VerticaRestorePointsQueryReconciler) constructActors(_ *vapi.VerticaRestorePointsQuery,
 	_ logr.Logger) []controllers.ReconcileActor {
-	// The actors that will be applied, in sequence, to reconcile an et.
+	// The actors that will be applied, in sequence, to reconcile a vrpq.
 	// Temporarily, we set nil value for constructActors
 	return nil
 }

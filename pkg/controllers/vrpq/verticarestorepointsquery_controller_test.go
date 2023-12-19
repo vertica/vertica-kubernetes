@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vrqb
+package vrpq
 
 import (
 	"context"
@@ -29,16 +29,16 @@ import (
 var _ = Describe("verticarestorepointsquery_controller", func() {
 	ctx := context.Background()
 
-	It("should reconcile an Vertica Restore Points Query with no errors if vrqb doesn't exist", func() {
-		vrqb := vapi.MakeVrqb()
-		Expect(vrqbRec.Reconcile(ctx, ctrl.Request{NamespacedName: vrqb.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+	It("should reconcile an Vertica Restore Points Query with no errors if vrpq doesn't exist", func() {
+		vrpq := vapi.MakeVrpq()
+		Expect(vrpqRec.Reconcile(ctx, ctrl.Request{NamespacedName: vrpq.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should suspend the reconcile if pause annotation is set", func() {
-		vrqb := vapi.MakeVrqb()
-		vrqb.Annotations = map[string]string{meta.PauseOperatorAnnotation: "1"}
-		Expect(k8sClient.Create(ctx, vrqb)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vrqb)).Should(Succeed()) }()
-		Expect(vrqbRec.Reconcile(ctx, ctrl.Request{NamespacedName: vrqb.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
+		vrpq := vapi.MakeVrpq()
+		vrpq.Annotations = map[string]string{meta.PauseOperatorAnnotation: "1"}
+		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+		Expect(vrpqRec.Reconcile(ctx, ctrl.Request{NamespacedName: vrpq.ExtractNamespacedName()})).Should(Equal(ctrl.Result{}))
 	})
 })

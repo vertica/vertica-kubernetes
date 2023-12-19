@@ -48,7 +48,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
-	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrqb"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrpq"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
@@ -131,7 +131,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 		setupLog.Error(err, "unable to create controller", "controller", "EventTrigger")
 		os.Exit(1)
 	}
-	if err := (&vrqb.VerticaRestorePointsQueryReconciler{
+	if err := (&vrpq.VerticaRestorePointsQueryReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

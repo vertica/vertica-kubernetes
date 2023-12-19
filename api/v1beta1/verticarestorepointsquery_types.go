@@ -34,13 +34,14 @@ type VerticaRestorePointsQuerySpec struct {
 	VerticaDBName string `json:"verticaDBName"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Optional parameter that will limit the query to only restore points
 	// from this archvie
 	ArchiveName string `json:"archiveName"`
 }
 
 const (
-	ArchiveNm = "backup"
+	archiveNm = "backup" // constants for test purposes
 )
 
 // VerticaRestorePointsQueryStatus defines the observed state of VerticaRestorePointsQuery
@@ -74,21 +75,21 @@ func init() {
 	SchemeBuilder.Register(&VerticaRestorePointsQuery{}, &VerticaRestorePointsQueryList{})
 }
 
-func (vrqb *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedName {
+func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
-		Name:      vrqb.ObjectMeta.Name,
-		Namespace: vrqb.ObjectMeta.Namespace,
+		Name:      vrpq.ObjectMeta.Name,
+		Namespace: vrpq.ObjectMeta.Namespace,
 	}
 }
 
-func MakeSampleVrqbName() types.NamespacedName {
-	return types.NamespacedName{Name: "vrqb-sample", Namespace: "default"}
+func MakeSampleVrpqName() types.NamespacedName {
+	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
 }
 
-// MakeVrqb will make an VerticaRestorePointsQuery for test purposes
-func MakeVrqb() *VerticaRestorePointsQuery {
+// MakeVrpq will make an VerticaRestorePointsQuery for test purposes
+func MakeVrpq() *VerticaRestorePointsQuery {
 	VDBNm := MakeVDBName()
-	nm := MakeSampleVrqbName()
+	nm := MakeSampleVrpqName()
 	return &VerticaRestorePointsQuery{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
@@ -101,7 +102,7 @@ func MakeVrqb() *VerticaRestorePointsQuery {
 		},
 		Spec: VerticaRestorePointsQuerySpec{
 			VerticaDBName: VDBNm.Name,
-			ArchiveName:   ArchiveNm,
+			ArchiveName:   archiveNm,
 		},
 	}
 }

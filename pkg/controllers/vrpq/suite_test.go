@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vrqb
+package vrpq
 
 import (
 	"path/filepath"
@@ -43,7 +43,7 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
-var vrqbRec *VerticaRestorePointsQueryReconciler
+var vrpqRec *VerticaRestorePointsQueryReconciler
 var logger logr.Logger
 
 func TestAPIs(t *testing.T) {
@@ -82,7 +82,7 @@ var _ = BeforeSuite(func() {
 		MetricsBindAddress: "0", // Disable metrics for the test
 	})
 
-	vrqbRec = &VerticaRestorePointsQueryReconciler{
+	vrpqRec = &VerticaRestorePointsQueryReconciler{
 		Client: k8sClient,
 		Scheme: scheme.Scheme,
 		Log:    logger,
