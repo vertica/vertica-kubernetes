@@ -573,14 +573,14 @@ func (v *VerticaDB) IsKSafetyCheckStrict() bool {
 	return vmeta.IsKSafetyCheckStrict(v.Annotations)
 }
 
-// IsValidRestorePointPolicy will true if the RestorePointPolicy is properly specified,
-// i.e. having a non-empty archive, and either a valid index or a valid id (but not both)
+// IsValidRestorePointPolicy returns true if the RestorePointPolicy is properly specified,
+// i.e., it has a non-empty archive, and either a valid index or a valid id (but not both).
 func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
 	return r != nil && r.Archive != "" && ((r.Index > 0) != (r.ID != ""))
 }
 
-// IsRestoreConfig will return whether the vdb is configured to initialize by reviving from
+// IsRestoreEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
-func (v *VerticaDB) IsRestoreConfig() bool {
-	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil && v.Spec.RestorePoint.Archive != ""
+func (v *VerticaDB) IsRestoreEnabled() bool {
+	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
 }

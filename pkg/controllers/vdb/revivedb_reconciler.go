@@ -84,7 +84,7 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	}
 
 	// Check if restoring from a restore point is supported
-	if r.Vdb.IsRestoreConfig() {
+	if r.Vdb.IsRestoreEnabled() {
 		if err := r.hasCompatibleVersionForRestore(); err != nil {
 			return ctrl.Result{}, err
 		}

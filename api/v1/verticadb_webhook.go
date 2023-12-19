@@ -225,15 +225,28 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 }
 
 func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
-	if v.IsRestoreConfig() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
-		err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
-			v.Spec.RestorePoint,
-			fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint.archive is non-empty, "+
-				"the database will initialize by reviving from a restore point in the specified archive, and thus "+
-				"either restorePoint.index or restorePoint.id must be specified. Notice that these 2 fields cannot "+
-				"be specified at the same time",
-				CommunalInitPolicyRevive))
-		allErrs = append(allErrs, err)
+	if v.IsRestoreEnabled() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+		if v.Spec.RestorePoint.Archive == "" {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+				v.Spec.RestorePoint,
+				fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint is specified, "+
+					"archive must be specified.", CommunalInitPolicyRevive))
+			allErrs = append(allErrs, err)
+		}
+		commonErrorMessage := fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint is specified, "+
+			"the database will initialize by reviving from a restore point in the specified archive, and thus "+
+			"either restorePoint.index or restorePoint.id must be specified. ", CommunalInitPolicyRevive)
+		if v.Spec.RestorePoint.Index == 0 && v.Spec.RestorePoint.ID == "" {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+				v.Spec.RestorePoint,
+				commonErrorMessage+"Both fields are currently empty.")
+			allErrs = append(allErrs, err)
+		} else if v.Spec.RestorePoint.Index != 0 && v.Spec.RestorePoint.ID != "" {
+			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+				v.Spec.RestorePoint,
+				commonErrorMessage+"Both fields are currently specified, which is not allowed.")
+			allErrs = append(allErrs, err)
+		}
 	}
 	return allErrs
 }

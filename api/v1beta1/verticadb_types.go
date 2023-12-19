@@ -128,7 +128,7 @@ type VerticaDBSpec struct {
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive","urn:alm:descriptor:com.tectonic.ui:advanced"}
 	// Specifies the restore point details to use with this instance of the VerticaDB.
 	RestorePoint *RestorePointPolicy `json:"restorePoint,omitempty"`
 

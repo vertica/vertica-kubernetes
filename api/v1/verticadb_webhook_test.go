@@ -417,6 +417,8 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.InitPolicy = "Revive"
 		vdb.Spec.RestorePoint = &RestorePointPolicy{}
+		// archive is not provided
+		validateSpecValuesHaveErr(vdb, true)
 		vdb.Spec.RestorePoint.Archive = "archive"
 		// neither id nor index is provided
 		validateSpecValuesHaveErr(vdb, true)
