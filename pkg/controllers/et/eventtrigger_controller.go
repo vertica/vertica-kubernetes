@@ -89,7 +89,7 @@ func (r *EventTriggerReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	actors := r.constructActors(et, log)
 	var res ctrl.Result
 	for _, act := range actors {
-		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
+		log.Info("Thao starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
 		// Error or a request to requeue will stop the reconciliation.
 		if verrors.IsReconcileAborted(res, err) {

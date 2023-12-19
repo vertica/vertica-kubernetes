@@ -13,7 +13,6 @@ repo: github.com/vertica/vertica-kubernetes
 resources:
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: vertica.com
   kind: VerticaDB
@@ -25,7 +24,6 @@ resources:
     webhookVersion: v1
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: vertica.com
   kind: VerticaAutoscaler
@@ -37,7 +35,6 @@ resources:
     webhookVersion: v1
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: vertica.com
   kind: EventTrigger
@@ -54,4 +51,12 @@ resources:
   kind: VerticaDB
   path: github.com/vertica/vertica-kubernetes/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: vertica.com
+  kind: VerticaRestorePointsQuery
+  path: github.com/vertica/vertica-kubernetes/api/v1beta1
+  version: v1beta1
 version: "3"
