@@ -478,16 +478,31 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	// to the pods that are still running the old admintools deployment since it
 	// won't have the NMA running. If we detect this change then we take down
 	// the secondaries and we'll behave like an offline upgrade.
-	for _, v := range o.PFacts.Detail {
-		if v.isPodRunning && !v.isPrimary && v.admintoolsExists {
-			o.Log.Info("online upgrade isn't supported when changing deployment types from admintools to vclusterops",
-				"podName", v.name)
-			if err := o.Manager.deleteStsRunningOldImage(ctx); err != nil {
-				return ctrl.Result{}, err
-			}
+	primaryRunningVClusterOps := o.getPodsWithDeploymentType(true /* isPrimary */, false /* admintoolsDeployment */)
+	secondaryRunningAdmintools := o.getPodsWithDeploymentType(false /* isPrimary */, true /* admintoolsDeployment */)
+	if primaryRunningVClusterOps > 0 && secondaryRunningAdmintools > 0 {
+		o.Log.Info("online upgrade isn't supported when changing deployment types from admintools to vclusterops",
+			"primaryRunningVClusterOps", primaryRunningVClusterOps, "secondaryRunningAdmintools", secondaryRunningAdmintools)
+		if err := o.Manager.deleteStsRunningOldImage(ctx); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+// getPodsWithDeploymentType is a helper that counts the number of running pods
+// with a specific deployment type. The count is returned.
+func (o *OnlineUpgradeReconciler) getPodsWithDeploymentType(isPrimary, admintoolsDeployment bool) int {
+	count := 0
+	for _, v := range o.PFacts.Detail {
+		if !v.isPodRunning {
+			continue
+		}
+		if v.isPrimary == isPrimary && v.admintoolsExists == admintoolsDeployment {
+			count++
+		}
+	}
+	return count
 }
 
 // addPodAnnotations will add the necessary pod annotations that need to be
