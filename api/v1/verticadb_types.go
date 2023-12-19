@@ -370,7 +370,7 @@ type RestorePointPolicy struct {
 	// This name refers to an object in the database.
 	// This must be specified if initPolicy is Revive and a restore is intended.
 	Archive string `json:"archive,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
 	// +kubebuilder:validation:Optional
 	// The (1-based) index of the restore point in the restore archive to restore from.
 	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.
