@@ -269,7 +269,7 @@ func main() {
 				vapiB1.GkVDB.String():  oc.VerticaDBConcurrency,
 				vapiB1.GkVAS.String():  oc.VerticaAutoscalerConcurrency,
 				vapiB1.GkET.String():   oc.EventTriggerConcurrency,
-				vapiB1.GkVRPQ.String(): oc.VerticaRestorePointQueryConcurrency,
+				vapiB1.GkVRPQ.String(): oc.VerticaRestorePointsQueryConcurrency,
 			},
 		},
 	})

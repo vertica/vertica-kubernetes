@@ -52,7 +52,7 @@ type VerticaRestorePointsQueryStatus struct {
 }
 
 // +kubebuilder:object:root=true
-//+kubebuilder:resource:categories=vertica,shortName=vrpq
+// +kubebuilder:resource:categories=vertica,shortName=vrpq
 // +kubebuilder:subresource:status
 // +operator-sdk:csv:customresourcedefinitions:resources={{Job,batch/v1,""}}
 

@@ -29,18 +29,18 @@ import (
 )
 
 const (
-	DefaultZapcoreLevel                        = zapcore.InfoLevel
-	First                                      = 100
-	ThereAfter                                 = 100
-	DefaultMaxFileSize                         = 500
-	DefaultMaxFileAge                          = 7
-	DefaultMaxFileRotation                     = 3
-	DefaultLevel                               = "info"
-	DefaultDevMode                             = true
-	DefaultVerticaDBConcurrency                = 5
-	DefaultVerticaAutoscalerDBConcurrency      = 1
-	DefaultEventTriggerDBConcurrency           = 1
-	DefaultVerticaRestorePointQueryConcurrency = 1
+	DefaultZapcoreLevel                         = zapcore.InfoLevel
+	First                                       = 100
+	ThereAfter                                  = 100
+	DefaultMaxFileSize                          = 500
+	DefaultMaxFileAge                           = 7
+	DefaultMaxFileRotation                      = 3
+	DefaultLevel                                = "info"
+	DefaultDevMode                              = true
+	DefaultVerticaDBConcurrency                 = 5
+	DefaultVerticaAutoscalerDBConcurrency       = 1
+	DefaultEventTriggerDBConcurrency            = 1
+	DefaultVerticaRestorePointsQueryConcurrency = 1
 )
 
 type OperatorConfig struct {
@@ -58,10 +58,10 @@ type OperatorConfig struct {
 	// The *Currency parms control the concurrency of go routines handling each
 	// CR.  For instance, VerticaDBConcurrency is the number of go routines to
 	// handle reconciliation of VerticaDB CRs.
-	VerticaDBConcurrency                int
-	VerticaAutoscalerConcurrency        int
-	EventTriggerConcurrency             int
-	VerticaRestorePointQueryConcurrency int
+	VerticaDBConcurrency                 int
+	VerticaAutoscalerConcurrency         int
+	EventTriggerConcurrency              int
+	VerticaRestorePointsQueryConcurrency int
 	Logging
 }
 
@@ -111,8 +111,8 @@ func (o *OperatorConfig) SetFlagArgs() {
 		"The amount of concurrency to reconcile VerticaAutoscaler CRs")
 	flag.IntVar(&o.EventTriggerConcurrency, "eventtrigger-concurrency", DefaultEventTriggerDBConcurrency,
 		"The amount of concurrency to reconcile EventTrigger CRs")
-	flag.IntVar(&o.VerticaRestorePointQueryConcurrency, "verticarestorepoint-concurrency", DefaultVerticaRestorePointQueryConcurrency,
-		"The amount of concurrency to reconcile VerticaRestorePointQuery CRs")
+	flag.IntVar(&o.VerticaRestorePointsQueryConcurrency, "verticarestorepointsquery-concurrency", DefaultVerticaRestorePointsQueryConcurrency,
+		"The amount of concurrency to reconcile VerticaRestorePointsQuery CRs")
 }
 
 // getEncoderConfig returns a concrete encoders configuration

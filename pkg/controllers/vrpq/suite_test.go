@@ -49,7 +49,7 @@ var logger logr.Logger
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "VerticaRestorePointQuery Suite")
+	RunSpecs(t, "VerticaRestorePointsQuery Suite")
 }
 
 var _ = BeforeSuite(func() {
