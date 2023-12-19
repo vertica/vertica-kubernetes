@@ -5,6 +5,7 @@ go 1.20
 require (
 	cloud.google.com/go/secretmanager v1.11.1
 	github.com/DATA-DOG/go-sqlmock v1.5.0
+	github.com/aws/aws-sdk-go v1.49.5
 	github.com/bigkevmcd/go-configparser v0.0.0-20210106142102-909504547ead
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.4
@@ -50,6 +51,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.11.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect

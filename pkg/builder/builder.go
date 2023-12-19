@@ -27,6 +27,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -194,7 +195,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
 		vdb.Spec.NMATLSSecret != "" &&
-		cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
 	}
 
@@ -299,7 +300,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
 		vdb.Spec.NMATLSSecret != "" &&
-		cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
@@ -588,7 +589,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	}...)
 
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vmeta.UseNMACertsMount(vdb.Annotations) && cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		if vmeta.UseNMACertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 			envVars = append(envVars, []corev1.EnvVar{
 				// Provide the path to each of the certs that are mounted in the container.
 				{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
@@ -680,7 +681,7 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
 	// is being listened on.
-	if cloud.IsGSMSecret(vdb.Spec.PasswordSecret) {
+	if secrets.IsGSMSecret(vdb.Spec.PasswordSecret) {
 		return makeVerticaClientPortProbe()
 	}
 	return makeCanaryQueryProbe(vdb)
