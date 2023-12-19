@@ -46,12 +46,15 @@ const (
 
 // VerticaRestorePointsQueryStatus defines the observed state of VerticaRestorePointsQuery
 type VerticaRestorePointsQueryStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// RestorePoints used to list out the available restore points.
+	RestorePoints string `json:"restorePoints"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+//+kubebuilder:resource:categories=vertica,shortName=vrpq
+// +kubebuilder:subresource:status
+// +operator-sdk:csv:customresourcedefinitions:resources={{Job,batch/v1,""}}
 
 // VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries API
 type VerticaRestorePointsQuery struct {
