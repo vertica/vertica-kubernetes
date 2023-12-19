@@ -8,7 +8,7 @@ tests:
         verticadb: 8
         verticaautoscaler: 2
         eventtrigger: 3
-        verticarestorepointsquery: 1
+        verticarestorepointsquery: 2
     asserts:
       - contains:
           path: spec.template.spec.containers[0].args
@@ -25,5 +25,5 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].args
           content:
-            --verticarestorepointsquery-concurrency=1
+            --verticarestorepointsquery-concurrency=2
 
