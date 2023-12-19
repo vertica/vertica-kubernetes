@@ -30,6 +30,14 @@ type Info struct {
 	Components        // The same version as VdbVer but broken down into individual components
 }
 
+type ComparisonResult int
+
+const (
+	CompareEqual   ComparisonResult = iota // CompareEqual represents the state where versions are equal
+	CompareLarger                          // CompareLarger represents the state where the first version is larger
+	CompareSmaller                         // CompareSmaller represents the state where the first version is smaller
+)
+
 const (
 	LTSMinor = 4
 	LTSPatch = 0
@@ -68,6 +76,24 @@ func (c *Components) buildVersionStr() string {
 	return fmt.Sprintf("v%d.%d.%d", c.VdbMajor, c.VdbMinor, c.VdbPatch)
 }
 
+func (i *Info) compareVersion(major, minor, patch int) ComparisonResult {
+	switch {
+	case i.VdbMajor > major:
+		return CompareLarger
+	case i.VdbMajor < major:
+		return CompareSmaller
+	case i.VdbMinor > minor:
+		return CompareLarger
+	case i.VdbMinor < minor:
+		return CompareSmaller
+	case i.VdbPatch > patch:
+		return CompareLarger
+	case i.VdbPatch < patch:
+		return CompareSmaller
+	}
+	return CompareEqual
+}
+
 // IsEqualOrNewer returns true if the version in the Vdb is equal or newer
 // than the given version
 func (i *Info) IsEqualOrNewer(inVer string) bool {
@@ -75,21 +101,8 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 	if !ok {
 		panic(fmt.Sprintf("could not parse input version: %s", inVer))
 	}
-	switch {
-	case i.VdbMajor > inVerMajor:
-		return true
-	case i.VdbMajor < inVerMajor:
-		return false
-	case i.VdbMinor > inVerMinor:
-		return true
-	case i.VdbMinor < inVerMinor:
-		return false
-	case i.VdbPatch > inVerPatch:
-		return true
-	case i.VdbPatch < inVerPatch:
-		return false
-	}
-	return true
+	res := i.compareVersion(inVerMajor, inVerMinor, inVerPatch)
+	return res != CompareSmaller
 }
 
 // IsNewer returns true if the version in the Vdb is newer
@@ -99,24 +112,8 @@ func (i *Info) IsNewer(inVer string) bool {
 	if !ok {
 		panic(fmt.Sprintf("could not parse input version: %s", inVer))
 	}
-	switch {
-	case i.VdbMajor > inVerMajor:
-		return true
-	case i.VdbMajor < inVerMajor:
-		return false
-	case i.VdbMinor > inVerMinor:
-		return true
-	case i.VdbMinor < inVerMinor:
-		return false
-	case i.VdbPatch > inVerPatch:
-		return true
-	case i.VdbPatch < inVerPatch:
-		return false
-	}
-	if i.VdbMajor == inVerMajor && i.VdbMinor == inVerMinor && i.VdbPatch == inVerPatch {
-		return false
-	}
-	return true
+	res := i.compareVersion(inVerMajor, inVerMinor, inVerPatch)
+	return res == CompareEqual
 }
 
 // IsOlder returns true if the version in info is older than the given version

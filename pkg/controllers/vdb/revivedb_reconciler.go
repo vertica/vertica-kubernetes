@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -35,6 +36,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -81,8 +84,10 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	}
 
 	// Check if restoring from a restore point is supported
-	if err := r.isRestoreSupported(); r.Vdb.IsRestoreConfig() && err != nil {
-		return ctrl.Result{}, err
+	if r.Vdb.IsRestoreConfig() {
+		if err := r.hasCompatibleVersionForRestore(); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// The remaining revive_db logic is driven from GenericDatabaseInitializer.
@@ -101,14 +106,21 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 	return g.checkAndRunInit(ctx)
 }
 
-func (r *ReviveDBReconciler) isRestoreSupported() error {
-	if vinf, ok := r.Vdb.MakeVersionInfo(); !vmeta.UseVClusterOps(r.Vdb.Annotations) ||
-		!ok || !vinf.IsNewer(vapi.RestoreUnsupportedMaxVersion) {
-		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.ReviveDBRestoreUnsupported,
-			fmt.Sprintf("Restoring from a restore point is unsupported in ReviveDB given the current server version and deployment method, "+
-				"make sure that a server version above %s is used and deployment method is set to vcluster-ops", vapi.RestoreUnsupportedMaxVersion))
-		return fmt.Errorf("restoring from a restore point is unsupported in ReviveDB given the current server version and deployment method, "+
-			"make sure that a server version above %s is used and deployment method is set to vcluster-ops", vapi.RestoreUnsupportedMaxVersion)
+func (r *ReviveDBReconciler) hasCompatibleVersionForRestore() error {
+	vinf, err := r.Vdb.MakeVersionInfoCheck()
+	if err != nil {
+		return err
+	}
+	if !vmeta.UseVClusterOps(r.Vdb.Annotations) || !vinf.IsNewer(vapi.RestoreUnsupportedMaxVersion) {
+		errMsg := fmt.Sprintf("restoring from a restore point is unsupported in ReviveDB "+
+			"given the current server version and deployment method, "+
+			"make sure that a server version above %s is used and deployment method is set to vcluster-ops",
+			vapi.RestoreUnsupportedMaxVersion)
+		// Format the event message by capitalizing the first letter
+		caser := cases.Title(language.English)
+		eventMsg := caser.String(errMsg)
+		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBRestoreUnsupported, eventMsg)
+		return errors.New(errMsg)
 	}
 	return nil
 }

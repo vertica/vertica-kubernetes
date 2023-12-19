@@ -17,11 +17,14 @@ package vdb
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner"
 	"github.com/vertica/vertica-kubernetes/pkg/reviveplanner/atparser"
@@ -46,6 +49,38 @@ var _ = Describe("revivedb_reconcile", func() {
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		Expect(len(fpr.Histories)).Should(Equal(0))
+	})
+
+	It("should fail if restore is intended but image version or deployment method is invalid", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Spec.RestorePoint = &vapi.RestorePointPolicy{}
+		vdb.Spec.RestorePoint.Archive = "archive"
+		vdb.Spec.RestorePoint.Index = 1
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
+
+		errMsg := fmt.Sprintf("restoring from a restore point is unsupported in ReviveDB "+
+			"given the current server version and deployment method, "+
+			"make sure that a server version above %s is used and deployment method is set to vcluster-ops",
+			vapi.RestoreUnsupportedMaxVersion)
+
+		// Wrong image version
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.1.0"
+		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(MatchError(errors.New(errMsg)))
+
+		// Wrong deployment method
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.2.1"
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		res, err = r.Reconcile(ctx, &ctrl.Request{})
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(MatchError(errors.New(errMsg)))
 	})
 
 	It("should call revive_db since no db exists", func() {

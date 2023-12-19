@@ -159,7 +159,6 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		LicenseSecret:          src.LicenseSecret,
 		InitPolicy:             v1.CommunalInitPolicy(src.InitPolicy),
 		UpgradePolicy:          v1.UpgradePolicyType(src.UpgradePolicy),
-		RestorePoint:           v1.RestorePointPolicy(src.RestorePoint),
 		ReviveOrder:            make([]v1.SubclusterPodCount, len(src.ReviveOrder)),
 		Communal:               convertToCommunal(&src.Communal),
 		HadoopConfig:           src.Communal.HadoopConfig,
@@ -178,6 +177,13 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
+	}
+	if src.RestorePoint != nil {
+		dst.RestorePoint = &v1.RestorePointPolicy{
+			Archive: src.RestorePoint.Archive,
+			Index:   src.RestorePoint.Index,
+			ID:      src.RestorePoint.ID,
+		}
 	}
 	for i := range src.ReviveOrder {
 		dst.ReviveOrder[i] = v1.SubclusterPodCount(src.ReviveOrder[i])
@@ -210,7 +216,6 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		LicenseSecret:           srcSpec.LicenseSecret,
 		IgnoreClusterLease:      src.GetIgnoreClusterLease(),
 		InitPolicy:              CommunalInitPolicy(srcSpec.InitPolicy),
-		RestorePoint:            RestorePointPolicy(srcSpec.RestorePoint),
 		UpgradePolicy:           UpgradePolicyType(srcSpec.UpgradePolicy),
 		IgnoreUpgradePath:       src.GetIgnoreUpgradePath(),
 		ReviveOrder:             make([]SubclusterPodCount, len(srcSpec.ReviveOrder)),
@@ -235,6 +240,13 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
+	}
+	if srcSpec.RestorePoint != nil {
+		dst.RestorePoint = &RestorePointPolicy{
+			Archive: srcSpec.RestorePoint.Archive,
+			Index:   srcSpec.RestorePoint.Index,
+			ID:      srcSpec.RestorePoint.ID,
+		}
 	}
 	for i := range srcSpec.ReviveOrder {
 		dst.ReviveOrder[i] = SubclusterPodCount(srcSpec.ReviveOrder[i])

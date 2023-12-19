@@ -320,7 +320,11 @@ func (in *VerticaDBSpec) DeepCopyInto(out *VerticaDBSpec) {
 			(*out)[key] = val
 		}
 	}
-	out.RestorePoint = in.RestorePoint
+	if in.RestorePoint != nil {
+		in, out := &in.RestorePoint, &out.RestorePoint
+		*out = new(RestorePointPolicy)
+		**out = **in
+	}
 	if in.ReviveOrder != nil {
 		in, out := &in.ReviveOrder, &out.ReviveOrder
 		*out = make([]SubclusterPodCount, len(*in))

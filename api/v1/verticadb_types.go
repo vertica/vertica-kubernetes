@@ -119,8 +119,8 @@ type VerticaDBSpec struct {
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
-	// The restore point policy specifies which restore point among the archive to restore from
-	RestorePoint RestorePointPolicy `json:"restorePoint,omitempty"`
+	// Specifies the restore point details to use with this instance of the VerticaDB.
+	RestorePoint *RestorePointPolicy `json:"restorePoint,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
@@ -364,7 +364,7 @@ const (
 // RestorePointPolicy is used to locate the exact archive and restore point within archive
 // when a database restore is intended
 type RestorePointPolicy struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// Name of the restore archive to use for bootstapping.
 	// This name refers to an object in the database.
@@ -375,7 +375,7 @@ type RestorePointPolicy struct {
 	// The (1-based) index of the restore point in the restore archive to restore from.
 	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.
 	Index int `json:"index,omitempty"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
 	// The identifier of the restore point in the restore archive to restore from.
 	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.

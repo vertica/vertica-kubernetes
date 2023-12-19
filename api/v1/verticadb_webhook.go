@@ -147,6 +147,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs := v.hasAtLeastOneSC(field.ErrorList{})
 	allErrs = v.hasValidSubclusterTypes(allErrs)
 	allErrs = v.hasValidInitPolicy(allErrs)
+	allErrs = v.hasValidRestorePolicy(allErrs)
 	allErrs = v.hasValidDBName(allErrs)
 	allErrs = v.hasPrimarySubcluster(allErrs)
 	allErrs = v.validateKsafety(allErrs)
@@ -211,18 +212,6 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 	case CommunalInitPolicyCreate:
 	case CommunalInitPolicyCreateSkipPackageInstall:
 	case CommunalInitPolicyRevive:
-		if v.IsRestoreConfig() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
-			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
-				v.Spec.RestorePoint,
-				fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint.archive is non-empty, "+
-					"the database will initialize by reviving from a restore point in the specified archive, and thus "+
-					"the restore point from which to restore from must be properly specified by either restorePoint.index or "+
-					"restorePoint.id, where the former one is a (1-based) index of the restore point in the archive and "+
-					"the latter one is an identifier of the restore point in the restore archive. Notice that these 2 fields cannot "+
-					"be specified at the same time.",
-					CommunalInitPolicyRevive))
-			allErrs = append(allErrs, err)
-		}
 	case CommunalInitPolicyScheduleOnly:
 	default:
 		err := field.Invalid(field.NewPath("spec").Child("initPolicy"),
@@ -230,6 +219,20 @@ func (v *VerticaDB) hasValidInitPolicy(allErrs field.ErrorList) field.ErrorList 
 			fmt.Sprintf("initPolicy should either be %s, %s, %s or %s",
 				CommunalInitPolicyCreate, CommunalInitPolicyCreateSkipPackageInstall,
 				CommunalInitPolicyRevive, CommunalInitPolicyScheduleOnly))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorList {
+	if v.IsRestoreConfig() && !v.Spec.RestorePoint.IsValidRestorePointPolicy() {
+		err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
+			v.Spec.RestorePoint,
+			fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint.archive is non-empty, "+
+				"the database will initialize by reviving from a restore point in the specified archive, and thus "+
+				"either restorePoint.index or restorePoint.id must be specified. Notice that these 2 fields cannot "+
+				"be specified at the same time",
+				CommunalInitPolicyRevive))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
