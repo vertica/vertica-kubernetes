@@ -24,6 +24,11 @@ import (
 
 	gsm "cloud.google.com/go/secretmanager/apiv1"
 	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,7 +76,7 @@ func (m *MultiSourceSecretFetcher) Fetch(ctx context.Context, secretName types.N
 	case IsGSMSecret(secretName.Name):
 		return m.readFromGSM(ctx, secretName.Name)
 	case IsAWSSecretsManagerSecret(secretName.Name):
-		return nil, fmt.Errorf("fetching secret %s from Amazon Secrets Manager is not implemented", secretName.Name)
+		return m.readFromAWS(secretName.Name)
 	default:
 		return m.readFromK8s(ctx, secretName)
 	}
@@ -98,7 +103,7 @@ func (m *MultiSourceSecretFetcher) readFromK8s(ctx context.Context, secretName t
 	return tlsCerts.Data, nil
 }
 
-// ReadFromGSM will fetch a secret from Google Secret Manager (GSM)
+// readFromGSM will fetch a secret from Google Secret Manager (GSM)
 func (m *MultiSourceSecretFetcher) readFromGSM(ctx context.Context, secName string) (map[string][]byte, error) {
 	clnt, err := gsm.NewClient(ctx)
 	if err != nil {
@@ -125,6 +130,58 @@ func (m *MultiSourceSecretFetcher) readFromGSM(ctx context.Context, secName stri
 	err = json.Unmarshal(result.Payload.Data, &contents)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal the contents of the GSM secret '%s': %w", secName, err)
+	}
+	return contents, nil
+}
+
+// readFromAWS will fetch a secret from AWS Secrets Manager. The secretName
+// should be of the format awssm://<secret-arn>.
+func (m *MultiSourceSecretFetcher) readFromAWS(secretName string) (map[string][]byte, error) {
+	secretARN := RemovePathReference(secretName)
+	if !arn.IsARN(secretARN) {
+		return nil, fmt.Errorf("the secret name '%s' to fetch from AWS is not an ARN", secretARN)
+	}
+
+	var arnComp arn.ARN
+	var err error
+	arnComp, err = arn.Parse(secretARN)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ARN for AWS secret fetch: %w", err)
+	}
+	m.Log.Info("Reading secret from AWS", "secretARN", secretARN, "region", arnComp.Region)
+
+	awsSession, err := session.NewSession(&aws.Config{
+		Region: aws.String(arnComp.Region),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create an AWS session for secret retrieval: %w", err)
+	}
+	svc := secretsmanager.New(awsSession)
+	input := &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(secretARN),
+	}
+
+	result, err := svc.GetSecretValue(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == secretsmanager.ErrCodeResourceNotFoundException {
+				errs := errors.Join(err, &NotFoundError{
+					msg: fmt.Sprintf("Could not find the secret '%s' in AWS Secret Manager", secretName),
+				})
+				return nil, errs
+			}
+		}
+		return nil, fmt.Errorf("failed to fetch secret value from AWS: %w", err)
+	}
+
+	if result.SecretString == nil {
+		return nil, fmt.Errorf("AWS secret %s does not have SecretString", secretName)
+	}
+
+	contents := make(map[string][]byte)
+	err = json.Unmarshal([]byte(*result.SecretString), &contents)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal the contents of the AWS secret '%s': %w", secretName, err)
 	}
 	return contents, nil
 }

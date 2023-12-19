@@ -1,0 +1,5 @@
+kind: Added
+body: Allow use of Amazon Secrets Manager for secret store
+time: 2023-12-19T16:56:58.372245904-04:00
+custom:
+  Issue: "636"
