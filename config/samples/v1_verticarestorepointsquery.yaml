@@ -1,0 +1,12 @@
+apiVersion: vertica.com/v1
+kind: VerticaRestorePointsQuery
+metadata:
+  labels:
+    app.kubernetes.io/name: verticarestorepointsquery
+    app.kubernetes.io/instance: verticarestorepointsquery-sample
+    app.kubernetes.io/part-of: verticadb-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: verticadb-operator
+  name: verticarestorepointsquery-sample
+spec:
+  # TODO(user): Add fields here

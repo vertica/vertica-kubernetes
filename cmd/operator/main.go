@@ -47,6 +47,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrqb"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
@@ -76,6 +77,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(vapiB1.AddToScheme(scheme))
+	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -127,6 +129,13 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 		Log:    ctrl.Log.WithName("controllers").WithName("EventTrigger"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EventTrigger")
+		os.Exit(1)
+	}
+	if err := (&vrqb.VerticaRestorePointsQueryReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VerticaRestorePointsQuery")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

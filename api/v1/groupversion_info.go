@@ -28,8 +28,9 @@ const (
 	Group   = "vertica.com"
 	Version = "v1"
 
-	VerticaDBKind       = "VerticaDB"
-	VerticaDBKindPlural = "verticadbs"
+	VerticaDBKind          = "VerticaDB"
+	VerticaDBKindPlural    = "verticadbs"
+	RestorePointsQueryKind = "VerticaRestorePointsQuery"
 )
 
 var (
@@ -41,4 +42,5 @@ var (
 
 	// AddToScheme adds the types in this group-version to the given scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
+	GkVRPQ      = schema.GroupKind{Group: Group, Kind: RestorePointsQueryKind}
 )
