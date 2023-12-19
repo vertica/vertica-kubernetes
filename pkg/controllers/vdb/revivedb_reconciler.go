@@ -111,11 +111,11 @@ func (r *ReviveDBReconciler) hasCompatibleVersionForRestore() error {
 	if err != nil {
 		return err
 	}
-	if !vmeta.UseVClusterOps(r.Vdb.Annotations) || !vinf.IsNewer(vapi.RestoreUnsupportedMaxVersion) {
+	if !vmeta.UseVClusterOps(r.Vdb.Annotations) || !vinf.IsEqualOrNewer(vapi.RestoreSupportedMinVersion) {
 		errMsg := fmt.Sprintf("restoring from a restore point is unsupported in ReviveDB "+
 			"given the current server version and deployment method, "+
-			"make sure that a server version above %s is used and deployment method is set to vcluster-ops",
-			vapi.RestoreUnsupportedMaxVersion)
+			"make sure that a server version equal to or above %s is used and deployment method is set to vcluster-ops",
+			vapi.RestoreSupportedMinVersion)
 		// Format the event message by capitalizing the first letter
 		caser := cases.Title(language.English)
 		eventMsg := caser.String(errMsg)

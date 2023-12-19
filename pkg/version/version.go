@@ -105,17 +105,6 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 	return res != CompareSmaller
 }
 
-// IsNewer returns true if the version in the Vdb is newer
-// than the given version
-func (i *Info) IsNewer(inVer string) bool {
-	inVerMajor, inVerMinor, inVerPatch, ok := parseVersion(inVer)
-	if !ok {
-		panic(fmt.Sprintf("could not parse input version: %s", inVer))
-	}
-	res := i.compareVersion(inVerMajor, inVerMinor, inVerPatch)
-	return res == CompareEqual
-}
-
 // IsOlder returns true if the version in info is older than the given version
 func (i *Info) IsOlder(inVer string) bool {
 	return !i.IsEqualOrNewer(inVer)

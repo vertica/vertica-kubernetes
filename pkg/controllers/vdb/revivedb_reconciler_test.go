@@ -66,8 +66,8 @@ var _ = Describe("revivedb_reconcile", func() {
 
 		errMsg := fmt.Sprintf("restoring from a restore point is unsupported in ReviveDB "+
 			"given the current server version and deployment method, "+
-			"make sure that a server version above %s is used and deployment method is set to vcluster-ops",
-			vapi.RestoreUnsupportedMaxVersion)
+			"make sure that a server version equal to or above %s is used and deployment method is set to vcluster-ops",
+			vapi.RestoreSupportedMinVersion)
 
 		// Wrong image version
 		vdb.Annotations[vmeta.VersionAnnotation] = "v24.1.0"
@@ -76,7 +76,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		Expect(err).Should(MatchError(errors.New(errMsg)))
 
 		// Wrong deployment method
-		vdb.Annotations[vmeta.VersionAnnotation] = "v24.2.1"
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.2.0"
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
 		Expect(res).Should(Equal(ctrl.Result{}))
