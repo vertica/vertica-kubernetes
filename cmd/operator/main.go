@@ -44,6 +44,7 @@ import (
 
 	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
@@ -77,7 +78,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(vapiB1.AddToScheme(scheme))
-	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	utilruntime.Must(vapiV1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -266,9 +266,10 @@ func main() {
 		CertDir:                CertDir,
 		Controller: v1alpha1.ControllerConfigurationSpec{
 			GroupKindConcurrency: map[string]int{
-				vapiB1.GkVDB.String(): oc.VerticaDBConcurrency,
-				vapiB1.GkVAS.String(): oc.VerticaAutoscalerConcurrency,
-				vapiB1.GkET.String():  oc.EventTriggerConcurrency,
+				vapiB1.GkVDB.String():  oc.VerticaDBConcurrency,
+				vapiB1.GkVAS.String():  oc.VerticaAutoscalerConcurrency,
+				vapiB1.GkET.String():   oc.EventTriggerConcurrency,
+				vapiB1.GkVRPQ.String(): oc.VerticaRestorePointQueryConcurrency,
 			},
 		},
 	})

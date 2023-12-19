@@ -1,4 +1,4 @@
-apiVersion: vertica.com/v1
+apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
 metadata:
   labels:
