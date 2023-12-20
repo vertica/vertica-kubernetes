@@ -74,7 +74,9 @@ const (
 	// vertica version that we follow the upgrade path.  The Vertica upgrade
 	// path means you cannot downgrade a Vertica release, nor can you skip any
 	// released Vertica versions when upgrading.
-	IgnoreUpgradePathAnnotation = "vertica.com/ignore-upgrade-path"
+	IgnoreUpgradePathAnnotation     = "vertica.com/ignore-upgrade-path"
+	IgnoreUpgradePathAnntationTrue  = "true"
+	IgnoreUpgradePathAnntationFalse = "false"
 
 	// The timeout, in seconds, to use when the operator restarts a node or the
 	// entire cluster.  If omitted, we use the default timeout of 20 minutes.
