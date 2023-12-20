@@ -33,9 +33,9 @@ type Info struct {
 type ComparisonResult int
 
 const (
-	CompareEqual   ComparisonResult = iota // CompareEqual represents the state where versions are equal
-	CompareLarger                          // CompareLarger represents the state where the first version is larger
-	CompareSmaller                         // CompareSmaller represents the state where the first version is smaller
+	compareEqual   ComparisonResult = iota // CompareEqual represents the state where versions are equal
+	compareLarger                          // CompareLarger represents the state where the first version is larger
+	compareSmaller                         // CompareSmaller represents the state where the first version is smaller
 )
 
 const (
@@ -79,19 +79,19 @@ func (c *Components) buildVersionStr() string {
 func (i *Info) compareVersion(major, minor, patch int) ComparisonResult {
 	switch {
 	case i.VdbMajor > major:
-		return CompareLarger
+		return compareLarger
 	case i.VdbMajor < major:
-		return CompareSmaller
+		return compareSmaller
 	case i.VdbMinor > minor:
-		return CompareLarger
+		return compareLarger
 	case i.VdbMinor < minor:
-		return CompareSmaller
+		return compareSmaller
 	case i.VdbPatch > patch:
-		return CompareLarger
+		return compareLarger
 	case i.VdbPatch < patch:
-		return CompareSmaller
+		return compareSmaller
 	}
-	return CompareEqual
+	return compareEqual
 }
 
 // IsEqualOrNewer returns true if the version in the Vdb is equal or newer
@@ -102,7 +102,7 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 		panic(fmt.Sprintf("could not parse input version: %s", inVer))
 	}
 	res := i.compareVersion(inVerMajor, inVerMinor, inVerPatch)
-	return res != CompareSmaller
+	return res != compareSmaller
 }
 
 // IsOlder returns true if the version in info is older than the given version
