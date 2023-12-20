@@ -1,0 +1,27 @@
+# permissions for end users to view verticarestorepointsqueries.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: verticarestorepointsquery-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: verticadb-operator
+    app.kubernetes.io/part-of: verticadb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: verticarestorepointsquery-viewer-role
+rules:
+- apiGroups:
+  - vertica.com
+  resources:
+  - verticarestorepointsqueries
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - vertica.com
+  resources:
+  - verticarestorepointsqueries/status
+  verbs:
+  - get
