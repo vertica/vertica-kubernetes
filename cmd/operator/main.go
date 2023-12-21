@@ -44,9 +44,11 @@ import (
 
 	vapiV1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapiB1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrpq"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
@@ -127,6 +129,13 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 		Log:    ctrl.Log.WithName("controllers").WithName("EventTrigger"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EventTrigger")
+		os.Exit(1)
+	}
+	if err := (&vrpq.VerticaRestorePointsQueryReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "VerticaRestorePointsQuery")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
@@ -257,9 +266,10 @@ func main() {
 		CertDir:                CertDir,
 		Controller: v1alpha1.ControllerConfigurationSpec{
 			GroupKindConcurrency: map[string]int{
-				vapiB1.GkVDB.String(): oc.VerticaDBConcurrency,
-				vapiB1.GkVAS.String(): oc.VerticaAutoscalerConcurrency,
-				vapiB1.GkET.String():  oc.EventTriggerConcurrency,
+				vapiB1.GkVDB.String():  oc.VerticaDBConcurrency,
+				vapiB1.GkVAS.String():  oc.VerticaAutoscalerConcurrency,
+				vapiB1.GkET.String():   oc.EventTriggerConcurrency,
+				vapiB1.GkVRPQ.String(): oc.VerticaRestorePointsQueryConcurrency,
 			},
 		},
 	})

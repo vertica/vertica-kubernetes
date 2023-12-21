@@ -1,5 +1,0 @@
-kind: Removed
-body: webhook.caBundle helm chart parameter
-time: 2023-09-27T09:37:05.203216406-03:00
-custom:
-  Issue: "519"

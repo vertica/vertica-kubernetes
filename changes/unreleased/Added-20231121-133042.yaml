@@ -1,6 +1,0 @@
-kind: Added
-body: Added a feature to allow the source of secrets to be specified with a secret
-  path reference
-time: 2023-11-21T13:30:42.7821693-06:00
-custom:
-  Issue: "597"

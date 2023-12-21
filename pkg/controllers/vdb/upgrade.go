@@ -257,6 +257,26 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 	return numPodsDeleted, nil
 }
 
+// deleteStsRunningOldImage will delete statefulsets that have the old image.
+func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting)
+	if err != nil {
+		return err
+	}
+	for inx := range stss.Items {
+		sts := &stss.Items[inx]
+
+		if sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image != i.Vdb.Spec.Image {
+			i.Log.Info("Deleting sts that had old image", "name", sts.ObjectMeta.Name)
+			err = i.VRec.Client.Delete(ctx, sts)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // postNextStatusMsg will set the next status message.  This will only
 // transition to a message, defined by msgIndex, if the current status equals
 // the previous one.

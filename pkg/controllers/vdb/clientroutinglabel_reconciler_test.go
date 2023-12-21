@@ -152,7 +152,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		Expect(ok).Should(BeTrue())
 		Expect(v).Should(Equal(vmeta.ClientRoutingVal))
 
-		pfacts.Detail[pn].pendingDelete = true
+		pfacts.Detail[pn].isPendingDelete = true
 		r.ApplyMethod = DelNodeApplyMethod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

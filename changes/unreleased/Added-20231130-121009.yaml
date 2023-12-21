@@ -1,5 +1,0 @@
-kind: Added
-body: Deploy the operator with kubectl command
-time: 2023-11-30T12:10:09.870483929-04:00
-custom:
-  Issue: "611"

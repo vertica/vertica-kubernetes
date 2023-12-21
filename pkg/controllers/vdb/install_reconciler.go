@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/atconf"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -100,6 +101,7 @@ func (d *InstallReconciler) installForAdmintools(ctx context.Context) (ctrl.Resu
 		// reconcile function.  So if the pod is rescheduled after adding
 		// hosts to the config, we have to know that a re_ip will succeed.
 		d.addHostsToATConf,
+		d.generateHTTPCerts,
 	}
 	for _, fn := range fns {
 		if err := fn(ctx); err != nil {
@@ -167,6 +169,33 @@ func (d *InstallReconciler) createConfigDirsIfNecessary(ctx context.Context) err
 	for _, p := range d.PFacts.Detail {
 		if err := d.createConfigDirsForPodIfNecessary(ctx, p); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// generateHTTPCerts will generate the necessary config file to be able to start and
+// communicate with the Vertica's https server.
+func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
+	for _, p := range d.PFacts.Detail {
+		if !p.isPodRunning {
+			continue
+		}
+		if !p.fileExists[paths.HTTPTLSConfFile] {
+			frwt := httpconf.FileWriter{}
+			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.NMATLSSecret)
+			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
+			}
+			_, _, err = d.PRunner.CopyToPod(ctx, p.name, names.ServerContainer, fname,
+				fmt.Sprintf("%s/%s", paths.HTTPTLSConfDir, paths.HTTPTLSConfFileName))
+			_ = os.Remove(fname)
+			if err != nil {
+				return errors.Wrap(err, fmt.Sprintf("failed to copy %s to the pod %s", fname, p.name))
+			}
+			// Invalidate the pod facts cache since its out of date due the https generation
+			d.PFacts.Invalidate()
 		}
 	}
 	return nil
@@ -257,14 +286,12 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 	var sb strings.Builder
 	sb.WriteString("set -o errexit\n")
 	numCmds := 0
-
-	// Logrotate setup is only required for versions before 24.1.0 of the database.
-	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
 	vinf, err := d.Vdb.MakeVersionInfoCheck()
 	if err != nil {
 		return "", err
 	}
-
+	// Logrotate setup is only required for versions before 24.1.0 of the database.
+	// Starting from version 24.1.0, we use server-logrotate, which does not require logrotate setup.
 	if !vinf.IsEqualOrNewer(vapi.InDatabaseLogRotateMinVersion) {
 		if !p.dirExists[paths.ConfigLogrotatePath] {
 			sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.ConfigLogrotatePath))
@@ -280,6 +307,11 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/logrotate/%s %s\n", paths.LogrotateBaseConfFileName, paths.LogrotateBaseConfFile))
 			numCmds++
 		}
+	}
+
+	if !p.dirExists[paths.HTTPTLSConfDir] {
+		sb.WriteString(fmt.Sprintf("mkdir -p %s\n", paths.HTTPTLSConfDir))
+		numCmds++
 	}
 
 	if !p.dirExists[paths.ConfigSharePath] {

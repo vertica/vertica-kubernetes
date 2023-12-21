@@ -99,6 +99,7 @@ reconcileConcurrency:
   verticadb: 5
   verticaautoscaler: 1
   eventtrigger: 1
+  verticarestorepointsquery: 1
 
 # The resource requirements for the operator pod.  See this for more info:
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

@@ -33,7 +33,7 @@ import (
 var _ = Describe("httpservercertgen_reconcile", func() {
 	ctx := context.Background()
 
-	It("should be a no-op if not using vclusterops", func() {
+	It("should be a op if not using vclusterops", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		vdb.Spec.NMATLSSecret = ""
@@ -42,7 +42,7 @@ var _ = Describe("httpservercertgen_reconcile", func() {
 
 		r := MakeHTTPServerCertGenReconciler(vdbRec, logger, vdb)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		Expect(vdb.Spec.NMATLSSecret).Should(Equal(""))
+		Expect(vdb.Spec.NMATLSSecret).ShouldNot(Equal(""))
 	})
 
 	It("should be a no-op if not using vclusterops and secret name is set", func() {
