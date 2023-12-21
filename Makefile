@@ -168,6 +168,8 @@ DEPLOY_WAIT?=--wait
 # Name of the test OLM catalog that we will create and deploy with in e2e tests
 OLM_TEST_CATALOG_SOURCE=e2e-test-catalog
 
+# The Go version that we will build the operator with
+GO_VERSION?=1.20
 GOPATH?=${HOME}/go
 TMPDIR?=$(PWD)
 HELM_UNITTEST_VERSION?=3.9.3-0.2.11
@@ -311,7 +313,12 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build-operator
 docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
-	docker buildx build --tag ${OPERATOR_IMG} --load -f docker-operator/Dockerfile .
+	docker pull golang:${GO_VERSION} # Ensure we have the latest Go lang version
+	docker buildx build \
+		--tag ${OPERATOR_IMG} \
+		--load \
+		--build-arg GO_VERSION=${GO_VERSION} \
+		-f docker-operator/Dockerfile .
 
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
