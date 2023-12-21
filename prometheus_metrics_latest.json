@@ -3,32 +3,32 @@
     "info": "Recreate by extracting output in kuttl test 'kubectl test --test metrics-no-auth'",
     "metrics": [
         {
-            "description": "Number of currently used workers per controller",
+            "description": "Number of currently used workers per controller.",
             "name": "controller_runtime_active_workers",
             "type": "gauge"
         },
         {
-            "description": "Maximum number of concurrent reconciles per controller",
+            "description": "Maximum number of concurrent reconciles per controller.",
             "name": "controller_runtime_max_concurrent_reconciles",
             "type": "gauge"
         },
         {
-            "description": "Total number of reconciliation errors per controller",
+            "description": "Total number of reconciliation errors per controller.",
             "name": "controller_runtime_reconcile_errors_total",
             "type": "counter"
         },
         {
-            "description": "Length of time per reconciliation per controller",
+            "description": "Length of time per reconciliation per controller.",
             "name": "controller_runtime_reconcile_time_seconds",
             "type": "histogram"
         },
         {
-            "description": "Total number of reconciliations per controller",
+            "description": "Total number of reconciliations per controller.",
             "name": "controller_runtime_reconcile_total",
             "type": "counter"
         },
         {
-            "description": "Histogram of the latency of processing admission requests",
+            "description": "Histogram of the latency of processing admission requests.",
             "name": "controller_runtime_webhook_latency_seconds",
             "type": "histogram"
         },
@@ -213,67 +213,67 @@
             "type": "gauge"
         },
         {
-            "description": "The number of times we attempted a full cluster restart",
+            "description": "The number of times we attempted a full cluster restart.",
             "name": "vertica_cluster_restart_attempted_total",
             "type": "counter"
         },
         {
-            "description": "The number of times we failed when attempting a full cluster restart",
+            "description": "The number of times we failed when attempting a full cluster restart.",
             "name": "vertica_cluster_restart_failed_total",
             "type": "counter"
         },
         {
-            "description": "The number of seconds it took to do a full cluster restart",
+            "description": "The number of seconds it took to do a full cluster restart.",
             "name": "vertica_cluster_restart_seconds",
             "type": "histogram"
         },
         {
-            "description": "The number of times we attempted to restart down nodes",
+            "description": "The number of times we attempted to restart down nodes.",
             "name": "vertica_nodes_restart_attempted_total",
             "type": "counter"
         },
         {
-            "description": "The number of times we failed when trying to restart down nodes",
+            "description": "The number of times we failed when trying to restart down nodes.",
             "name": "vertica_nodes_restart_failed_total",
             "type": "counter"
         },
         {
-            "description": "The number of seconds it took to restart down nodes",
+            "description": "The number of seconds it took to restart down nodes.",
             "name": "vertica_nodes_restart_seconds",
             "type": "histogram"
         },
         {
-            "description": "The number of nodes that have a running pod associated with it",
+            "description": "The number of nodes that have a running pod associated with it.",
             "name": "vertica_running_nodes_count",
             "type": "gauge"
         },
         {
-            "description": "The number of subclusters that exist",
+            "description": "The number of subclusters that exist.",
             "name": "vertica_subclusters_count",
             "type": "gauge"
         },
         {
-            "description": "The number of nodes that currently exist",
+            "description": "The number of nodes that currently exist.",
             "name": "vertica_total_nodes_count",
             "type": "gauge"
         },
         {
-            "description": "The number of nodes that have vertica running and can accept connections",
+            "description": "The number of nodes that have vertica running and can accept connections.",
             "name": "vertica_up_nodes_count",
             "type": "gauge"
         },
         {
-            "description": "The number of times the operator performed an upgrade caused by an image change",
+            "description": "The number of times the operator performed an upgrade caused by an image change.",
             "name": "vertica_upgrade_total",
             "type": "counter"
         },
         {
-            "description": "Total number of adds handled by workqueue",
+            "description": "Total number of adds handled by workqueue.",
             "name": "workqueue_adds_total",
             "type": "counter"
         },
         {
-            "description": "Current depth of workqueue",
+            "description": "Current depth of workqueue.",
             "name": "workqueue_depth",
             "type": "gauge"
         },
@@ -283,12 +283,12 @@
             "type": "gauge"
         },
         {
-            "description": "How long in seconds an item stays in workqueue before being requested",
+            "description": "How long in seconds an item stays in workqueue before being requested.",
             "name": "workqueue_queue_duration_seconds",
             "type": "histogram"
         },
         {
-            "description": "Total number of retries handled by workqueue",
+            "description": "Total number of retries handled by workqueue.",
             "name": "workqueue_retries_total",
             "type": "counter"
         },

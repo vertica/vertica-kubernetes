@@ -35,6 +35,14 @@ def include_metric(metric_name):
     return True
 
 
+def fix_sentence(s):
+    if s == "":
+        return s
+    if s[-1] in ["?", ".", "!"]:
+        return s
+    return s + "."
+
+
 def parse_metrics(ip_file):
     metric_help_re = re.compile(r"^# HELP ([\w]+) (.+)")
     metric_type_re = re.compile(r"^# TYPE ([\w]+) (\w+)")
@@ -45,7 +53,8 @@ def parse_metrics(ip_file):
             help_match = metric_help_re.match(ln)
             if help_match and include_metric(help_match.group(1)):
                 setup_for_metric(metrics, help_match.group(1))
-                metrics[help_match.group(1)]["description"] = help_match.group(2)
+                metrics[help_match.group(1)]["description"] = \
+                    fix_sentence(help_match.group(2))
             type_match = metric_type_re.match(ln)
             if type_match and include_metric(type_match.group(1)):
                 setup_for_metric(metrics, type_match.group(1))
