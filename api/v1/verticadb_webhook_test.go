@@ -422,6 +422,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.RestorePoint.Archive = "archive"
 		// neither id nor index is provided
 		validateSpecValuesHaveErr(vdb, true)
+		// only invalid index is provided
+		vdb.Spec.RestorePoint.Index = -1
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Spec.RestorePoint.Index = 0
+		validateSpecValuesHaveErr(vdb, true)
 		// both id and index are provided
 		vdb.Spec.RestorePoint.ID = "id"
 		vdb.Spec.RestorePoint.Index = 1

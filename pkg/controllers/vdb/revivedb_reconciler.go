@@ -118,7 +118,7 @@ func (r *ReviveDBReconciler) hasCompatibleVersionForRestore() error {
 			vapi.RestoreSupportedMinVersion)
 		// Format the event message by capitalizing the first letter
 		caser := cases.Title(language.English)
-		eventMsg := caser.String(errMsg)
+		eventMsg := caser.String(errMsg[:1]) + errMsg[1:]
 		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBRestoreUnsupported, eventMsg)
 		return errors.New(errMsg)
 	}
