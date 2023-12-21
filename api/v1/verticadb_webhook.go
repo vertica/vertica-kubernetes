@@ -235,7 +235,6 @@ func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorLi
 		}
 		commonErrorMessage := fmt.Sprintf("restorePoint is invalid. When initPolicy is set to %s and restorePoint is specified, "+
 			"the database will initialize by reviving from a restore point in the specified archive, and thus "+
-<<<<<<< HEAD
 			"either restorePoint.index or restorePoint.id must be properly specified. ", CommunalInitPolicyRevive)
 		if v.Spec.RestorePoint.Index <= 0 && v.Spec.RestorePoint.ID == "" {
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
@@ -243,15 +242,6 @@ func (v *VerticaDB) hasValidRestorePolicy(allErrs field.ErrorList) field.ErrorLi
 				commonErrorMessage+"Both fields are currently empty or invalid.")
 			allErrs = append(allErrs, err)
 		} else if v.Spec.RestorePoint.Index > 0 && v.Spec.RestorePoint.ID != "" {
-=======
-			"either restorePoint.index or restorePoint.id must be specified. ", CommunalInitPolicyRevive)
-		if v.Spec.RestorePoint.Index == 0 && v.Spec.RestorePoint.ID == "" {
-			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
-				v.Spec.RestorePoint,
-				commonErrorMessage+"Both fields are currently empty.")
-			allErrs = append(allErrs, err)
-		} else if v.Spec.RestorePoint.Index != 0 && v.Spec.RestorePoint.ID != "" {
->>>>>>> vnext
 			err := field.Invalid(field.NewPath("spec").Child("restorePoint"),
 				v.Spec.RestorePoint,
 				commonErrorMessage+"Both fields are currently specified, which is not allowed.")
