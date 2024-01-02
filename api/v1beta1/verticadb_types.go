@@ -430,7 +430,7 @@ const (
 type RestorePointPolicy struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
-	// Name of the restore archive to use for bootstapping.
+	// Name of the restore archive to use for bootstrapping.
 	// This name refers to an object in the database.
 	// This must be specified if initPolicy is Revive and a restore is intended.
 	Archive string `json:"archive,omitempty"`
