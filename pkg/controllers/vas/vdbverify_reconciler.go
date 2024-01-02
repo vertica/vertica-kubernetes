@@ -39,5 +39,6 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// This reconciler is intended to be the first thing we run.  We want early
 	// feedback if the VerticaDB that is referenced in the vas doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.
+	// code
 	return fetchVDB(ctx, s.VRec, s.Vas, s.Vdb)
 }
