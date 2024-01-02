@@ -30,7 +30,12 @@ var _ = Describe("secrets/fetcher", func() {
 	ctx := context.Background()
 
 	It("should read secret from k8s", func() {
-		const SecretNamespace = "default"
+		const SecretNamespace = "my-secret"
+		k8sClient := makeStandardK8sClient()
+		_, err := k8sClient.createNamespace(ctx, SecretNamespace)
+		Ω(err).Should(Succeed())
+		defer func() { Ω(k8sClient.deleteNamespace(ctx, SecretNamespace)) }()
+
 		const SecretName = "secret-1"
 		const SecretContent = "supersecret"
 		secret := corev1.Secret{
@@ -46,8 +51,7 @@ var _ = Describe("secrets/fetcher", func() {
 			Name:      SecretName,
 			Namespace: SecretNamespace,
 		}
-		k8sClient := makeStandardK8sClient()
-		_, err := k8sClient.CreateSecret(ctx, nm, &secret)
+		_, err = k8sClient.CreateSecret(ctx, nm, &secret)
 		Ω(err).Should(Succeed())
 		defer func() { Ω(k8sClient.DeleteSecret(ctx, nm)).Should(Succeed()) }()
 		fetcher := MultiSourceSecretFetcher{
