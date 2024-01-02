@@ -68,6 +68,8 @@ func (d *DepObjCheckReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 	return ctrl.Result{}, nil
 }
 
+// reconcileCRScopedObjs will check for dependent objects that share the same
+// scope as the VerticaDB.
 func (d *DepObjCheckReconciler) reconcileCRScopedObjs(ctx context.Context) (ctrl.Result, error) {
 	checkers := []func(context.Context) (ctrl.Result, error){
 		d.checkHlSvc,
@@ -81,6 +83,8 @@ func (d *DepObjCheckReconciler) reconcileCRScopedObjs(ctx context.Context) (ctrl
 	return ctrl.Result{}, nil
 }
 
+// reconcileSubclusterScopedObjs will check for dependent objects that share the
+// same scope as a subcluster
 func (d *DepObjCheckReconciler) reconcileSubclusterScopedObjs(ctx context.Context, sc *vapi.Subcluster) (ctrl.Result, error) {
 	checkers := []func(context.Context, *vapi.Subcluster) (ctrl.Result, error){
 		d.checkExtSvc,
@@ -95,6 +99,7 @@ func (d *DepObjCheckReconciler) reconcileSubclusterScopedObjs(ctx context.Contex
 	return ctrl.Result{}, nil
 }
 
+// checkObj helper function that will check a specific to object if it exists.
 func (d *DepObjCheckReconciler) checkObj(ctx context.Context, objType string, nm types.NamespacedName, obj client.Object) (
 	ctrl.Result, error) {
 	err := d.VRec.Client.Get(ctx, nm, obj)
@@ -107,6 +112,8 @@ func (d *DepObjCheckReconciler) checkObj(ctx context.Context, objType string, nm
 	}
 	return ctrl.Result{}, nil
 }
+
+// All of the check* functions below are checking for specific objects to exist.
 
 func (d *DepObjCheckReconciler) checkHlSvc(ctx context.Context) (ctrl.Result, error) {
 	return d.checkObj(ctx, "Headless service", names.GenHlSvcName(d.Vdb), &corev1.Service{})
