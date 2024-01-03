@@ -145,6 +145,16 @@ const (
 
 	// Annotation to control the termination grace period for vertica pods.
 	TerminationGracePeriodSecondsAnnotaton = "vertica.com/termination-grace-period-seconds"
+
+	// During the create database process, if we discover that Vertica is
+	// already running, we can either treat this as an error or continue.
+	// Continuing may be the best option if we have already progressed far
+	// enough in the create database process to have created the catalog. We can
+	// then continue to start any nodes that may be down in order to bring the
+	// cluster online.
+	FailCreateDBIfVerticaIsRunningAnnotation      = "vertica.com/fail-create-db-if-vertica-is-running"
+	FailCreateDBIfVerticaIsRunningAnnotationTrue  = "true"
+	FailCreateDBIfVerticaIsRunningAnnotationFalse = "false"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -236,6 +246,12 @@ func IsKSafetyCheckStrict(annotations map[string]string) bool {
 // wait before forcibly removing the pod.
 func GetTerminationGracePeriodSeconds(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotaton)
+}
+
+// FailCreateDBIfVerticaIsRunning returns how to handle failures during create
+// db if vertica is found to be running.
+func FailCreateDBIfVerticaIsRunning(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, FailCreateDBIfVerticaIsRunningAnnotation, false /* default value */)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
