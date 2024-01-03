@@ -258,6 +258,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
+		// This must be the last reconciler. It makes sure that all dependent
+		// objects that the operator creates exist. This is needed encase they
+		// are removed in the middle of a reconcile iteration.
+		MakeDepObjCheckReconciler(r, log, vdb),
 	}
 }
 
