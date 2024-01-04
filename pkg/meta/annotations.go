@@ -72,8 +72,7 @@ const (
 
 	// When set to False, this parameter will ensure that when changing the
 	// vertica version that we follow the upgrade path.  The Vertica upgrade
-	// path means you cannot downgrade a Vertica release, nor can you skip any
-	// released Vertica versions when upgrading.
+	// path means you cannot downgrade a Vertica release.
 	IgnoreUpgradePathAnnotation     = "vertica.com/ignore-upgrade-path"
 	IgnoreUpgradePathAnntationTrue  = "true"
 	IgnoreUpgradePathAnntationFalse = "false"
