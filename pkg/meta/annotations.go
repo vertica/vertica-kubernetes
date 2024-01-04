@@ -248,8 +248,9 @@ func GetTerminationGracePeriodSeconds(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotaton)
 }
 
-// FailCreateDBIfVerticaIsRunning returns how to handle failures during create
-// db if vertica is found to be running.
+// FailCreateDBIfVerticaIsRunning is used to see how to handle failures during create
+// db if vertica is found to be running. It returns true if an error indicating
+// vertica is running should be ignored.
 func FailCreateDBIfVerticaIsRunning(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, FailCreateDBIfVerticaIsRunningAnnotation, false /* default value */)
 }
