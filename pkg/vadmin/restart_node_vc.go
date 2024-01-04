@@ -54,21 +54,17 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VStartNodesOptions {
 	su := v.VDB.GetVerticaUser()
 	honorUserInput := true
-	opts := vops.VStartNodesOptions{
-		DatabaseOptions: vops.DatabaseOptions{
-			DBName:         &v.VDB.Spec.DBName,
-			RawHosts:       []string{s.InitiatorIP},
-			Ipv6:           vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP)),
-			Key:            certs.Key,
-			Cert:           certs.Cert,
-			CaCert:         certs.CaCert,
-			UserName:       &su,
-			Password:       &v.Password,
-			HonorUserInput: &honorUserInput,
-		},
-		Nodes: s.RestartHosts,
-	}
-	// timeout option
+	opts := vops.VStartNodesOptionsFactory()
+	opts.DBName = &v.VDB.Spec.DBName
+	opts.RawHosts = []string{s.InitiatorIP}
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+	opts.UserName = &su
+	opts.Password = &v.Password
+	opts.HonorUserInput = &honorUserInput
+	opts.Nodes = s.RestartHosts
 	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
 	return &opts
 }
