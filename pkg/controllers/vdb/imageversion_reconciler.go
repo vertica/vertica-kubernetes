@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
@@ -98,7 +99,7 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 
 	v.logWarningIfVersionDoesNotSupportsCGroupV2(ctx, vinf, pod)
 
-	return ctrl.Result{}, nil
+	return v.checkNMACertCompatability(vinf)
 }
 
 // logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a
@@ -118,6 +119,31 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version is unsupported with cgroups v2. Try using a version other than %s.", vinf.VdbVer)
 	}
+}
+
+// checkNMACertCompatibility will check the NMA version if it is to read the cert from an external secret store.
+func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) (ctrl.Result, error) {
+	// NMA is only useful for vclusterops and when the cert is set.
+	if !vmeta.UseVClusterOps(v.Vdb.Annotations) || v.Vdb.Spec.NMATLSSecret == "" {
+		return ctrl.Result{}, nil
+	}
+
+	if secrets.IsK8sSecret(v.Vdb.Spec.NMATLSSecret) {
+		return ctrl.Result{}, nil
+	} else if secrets.IsGSMSecret(v.Vdb.Spec.NMATLSSecret) {
+		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInGSMMinVersion) {
+			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+				"The NMA version does not support reading its cert from Google Secret Manager")
+			return ctrl.Result{Requeue: true}, nil
+		}
+	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.Spec.NMATLSSecret) {
+		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInAWSSecretsManagerMinVersion) {
+			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+				"The NMA version does not support reading its cert from AWS Secrets Manager")
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // reconcileVersion will parse the version output and update any annotations.

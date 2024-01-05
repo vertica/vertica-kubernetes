@@ -1,0 +1,6 @@
+kind: Fixed
+body: Requeue reconcile iteration if dependent object is removed in the middle of
+  a reconcile
+time: 2024-01-02T14:55:53.15718072-04:00
+custom:
+  Issue: "650"

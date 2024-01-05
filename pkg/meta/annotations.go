@@ -72,9 +72,10 @@ const (
 
 	// When set to False, this parameter will ensure that when changing the
 	// vertica version that we follow the upgrade path.  The Vertica upgrade
-	// path means you cannot downgrade a Vertica release, nor can you skip any
-	// released Vertica versions when upgrading.
-	IgnoreUpgradePathAnnotation = "vertica.com/ignore-upgrade-path"
+	// path means you cannot downgrade a Vertica release.
+	IgnoreUpgradePathAnnotation     = "vertica.com/ignore-upgrade-path"
+	IgnoreUpgradePathAnntationTrue  = "true"
+	IgnoreUpgradePathAnntationFalse = "false"
 
 	// The timeout, in seconds, to use when the operator restarts a node or the
 	// entire cluster.  If omitted, we use the default timeout of 20 minutes.
@@ -143,6 +144,16 @@ const (
 
 	// Annotation to control the termination grace period for vertica pods.
 	TerminationGracePeriodSecondsAnnotaton = "vertica.com/termination-grace-period-seconds"
+
+	// During the create database process, if we discover that Vertica is
+	// already running, we can either treat this as an error or continue.
+	// Continuing may be the best option if we have already progressed far
+	// enough in the create database process to have created the catalog. We can
+	// then continue to start any nodes that may be down in order to bring the
+	// cluster online.
+	FailCreateDBIfVerticaIsRunningAnnotation      = "vertica.com/fail-create-db-if-vertica-is-running"
+	FailCreateDBIfVerticaIsRunningAnnotationTrue  = "true"
+	FailCreateDBIfVerticaIsRunningAnnotationFalse = "false"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -234,6 +245,13 @@ func IsKSafetyCheckStrict(annotations map[string]string) bool {
 // wait before forcibly removing the pod.
 func GetTerminationGracePeriodSeconds(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotaton)
+}
+
+// FailCreateDBIfVerticaIsRunning is used to see how to handle failures during create
+// db if vertica is found to be running. It returns true if an error indicating
+// vertica is running should be ignored.
+func FailCreateDBIfVerticaIsRunning(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, FailCreateDBIfVerticaIsRunningAnnotation, false /* default value */)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
