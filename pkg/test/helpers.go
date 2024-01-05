@@ -198,8 +198,9 @@ func BuildTLSSecret(vdb *vapi.VerticaDB, name, key, cert, rootca string) *corev1
 }
 
 func DeleteSecret(ctx context.Context, c client.Client, name string) {
+	nm := vapi.MakeVDBName() // The secret is expected to be created in the same namespace as the test standard vdb
 	secret := &corev1.Secret{}
-	err := c.Get(ctx, types.NamespacedName{Name: name}, secret)
+	err := c.Get(ctx, types.NamespacedName{Namespace: nm.Namespace, Name: name}, secret)
 	if !kerrors.IsNotFound(err) {
 		Expect(c.Delete(ctx, secret))
 	}

@@ -77,3 +77,24 @@ func (s *StandardK8sClient) loadClientSet() error {
 	s.Clientset, err = kubernetes.NewForConfig(s.Config)
 	return err
 }
+
+func (s *StandardK8sClient) createNamespace(ctx context.Context, name string) (*corev1.Namespace, error) {
+	if err := s.loadClientSet(); err != nil {
+		return nil, err
+	}
+	nmClient := s.Clientset.CoreV1().Namespaces()
+	namespace := corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	return nmClient.Create(ctx, &namespace, metav1.CreateOptions{})
+}
+
+func (s *StandardK8sClient) deleteNamespace(ctx context.Context, name string) error {
+	if err := s.loadClientSet(); err != nil {
+		return err
+	}
+	nmClient := s.Clientset.CoreV1().Namespaces()
+	return nmClient.Delete(ctx, name, metav1.DeleteOptions{})
+}
