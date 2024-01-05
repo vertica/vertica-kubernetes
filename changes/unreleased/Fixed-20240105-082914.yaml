@@ -1,0 +1,5 @@
+kind: Fixed
+body: Better handling when remove node is interrupted
+time: 2024-01-05T08:29:14.357532789-04:00
+custom:
+  Issue: "655"
