@@ -1,0 +1,65 @@
+# (c) Copyright [2021-2023] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This will validate that prometheus_metrics_latest.json in the repo has the
+# latest metric information. Doc writers uses this file to help generate the
+# external docs. Anytime a new metric is added, we need to ensure
+# prometheus_metrics_latest.json. This test helps verify that part.
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-dump-metrics
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+
+    set -o xtrace
+    set -o errexit
+    set -o pipefail
+
+    RAW_METRICS=/tmp/raw-metrics.txt
+    curl http://verticadb-operator-metrics-service:8443/metrics | tee $RAW_METRICS
+    FMT_METRICS=/tmp/fmt-metrics.json
+    python3 /repo/parse_prometheus_metrics.py $RAW_METRICS | tee $FMT_METRICS
+    diff -U2 /repo/prometheus_metrics_latest.json $FMT_METRICS
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-dump-metrics
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: quay.io/helmpack/chart-testing:v3.3.1
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - name: repo-contents
+          mountPath: /repo
+          readOnly: true
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-dump-metrics
+    - name: repo-contents
+      configMap:
+        name: repo-contents

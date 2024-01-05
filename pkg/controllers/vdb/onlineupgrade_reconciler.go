@@ -147,6 +147,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		"Draining primary subclusters",
 		"Recreating pods for primary subclusters",
 		"Checking if new version is compatible",
+		"Checking if deployment type is changing",
 		"Adding annotations to pods",
 		"Running installer",
 		"Waiting for secondary nodes to become read-only",
@@ -351,6 +352,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		o.drainSubcluster,
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
+		o.handleDeploymentChange,
 		o.addPodAnnotations,
 		o.runInstaller,
 		o.waitForReadOnly,
@@ -468,11 +470,10 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 		}
 		return &PodFact{}, false
 	}
-	res, err := vr.Reconcile(ctx, &ctrl.Request{})
-	if verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
+	return vr.Reconcile(ctx, &ctrl.Request{})
+}
 
+func (o *OnlineUpgradeReconciler) handleDeploymentChange(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {
 	// We need to check if we are changing deployment types. This isn't allowed
 	// for online upgrade because the vclusterops library won't know how to talk
 	// to the pods that are still running the old admintools deployment since it

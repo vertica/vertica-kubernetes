@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package cloud
+package secrets
 
 import (
 	"strings"

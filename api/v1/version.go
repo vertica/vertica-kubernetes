@@ -58,6 +58,10 @@ const (
 	InDatabaseLogRotateMinVersion = "v24.1.0"
 	// Starting in v24.2.0, restoring from a restore point in archive is supported.
 	RestoreSupportedMinVersion = "v24.2.0"
+	// The NMA TLS secret can be stored in an external secret store. These are
+	// the minimum versions of the NMA that we support them.
+	NMATLSSecretInGSMMinVersion               = "v24.1.0"
+	NMATLSSecretInAWSSecretsManagerMinVersion = "v24.2.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

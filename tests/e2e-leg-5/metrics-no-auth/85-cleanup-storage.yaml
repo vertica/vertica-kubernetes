@@ -10,23 +10,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-crash-before-createdb-defsc-0
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-crash-before-createdb-defsc-1
-status:
-  phase: Running
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-crash-before-createdb-defsc-2
-status:
-  phase: Running
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "
