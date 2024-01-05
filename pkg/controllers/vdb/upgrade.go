@@ -99,7 +99,8 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 	}
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
-		if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+		cnts := sts.Spec.Template.Spec.Containers
+		if !i.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
 			return true, nil
 		}
 	}
@@ -203,9 +204,13 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, er
 func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
 	stsUpdated := false
 	// Skip the statefulset if it already has the proper image.
-	if sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+	cnts := sts.Spec.Template.Spec.Containers
+	if !i.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
 		i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
 		sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = i.Vdb.Spec.Image
+		if i.Vdb.IsSideCarDeploymentEnabled() {
+			sts.Spec.Template.Spec.Containers[names.NMAContainerIndex].Image = i.Vdb.Spec.Image
+		}
 		// We change the update strategy to OnDelete.  We don't want the k8s
 		// sts controller to interphere and do a rolling update after the
 		// update has completed.  We don't explicitly change this back.  The
@@ -245,7 +250,8 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 		}
 
 		// Skip the pod if it already has the proper image.
-		if pod.Spec.Containers[names.ServerContainerIndex].Image != i.Vdb.Spec.Image {
+		cnts := pod.Spec.Containers
+		if !i.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
 			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, pod)
 			if err != nil {

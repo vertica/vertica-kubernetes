@@ -431,7 +431,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n 'vnodeName: '
 		cd %s/%s/v_%s_node????_catalog 2> /dev/null && basename $(pwd) | rev | cut -c9- | rev || echo ""
 		echo -n 'verticaPIDRunning: '
-		[[ $(pgrep ^vertica) ]] && echo true || echo false
+		[[ $(pgrep -f "^.*vertica\s-D") ]] && echo true || echo false
 		echo -n 'startupComplete: '
 		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s 2> /dev/null && echo true || echo false
 		echo -n 'localDataSize: '

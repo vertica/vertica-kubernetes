@@ -174,9 +174,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
-		// Check NMA running mode and report error when configured to run in a sidecar
-		// as this is not supported yet
-		MakeNMARunningModeReconciler(r, log, vdb),
 		// Report any pods that have low disk space
 		MakeLocalDataCheckReconciler(r, vdb, pfacts),
 		// Handle upgrade actions for any k8s objects created in prior versions
@@ -231,6 +228,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Set version info in the annotations and check that it is the minimum
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false),
+		// Check NMA running mode and report error when not supported by
+		// the server version
+		MakeNMARunningModeReconciler(r, log, vdb),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),

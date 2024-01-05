@@ -48,6 +48,7 @@ const (
 	Krb5SecretMountName   = "krb5"
 	SSHMountName          = "ssh"
 	NMACertsMountName     = "nma-certs"
+	StartupConfMountName  = "startup-conf"
 	DepotMountName        = "depot"
 	S3Prefix              = "s3://"
 	GCloudPrefix          = "gs://"
@@ -133,6 +134,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableBasic(oldObj, allErrs)
 	allErrs = v.checkImmutableUpgradePolicy(oldObj, allErrs)
 	allErrs = v.checkImmutableDeploymentMethod(oldObj, allErrs)
+	allErrs = append(allErrs, v.checkImmutableNMADeploymentMethod(oldObj, allErrs)...)
 	allErrs = v.checkImmutableTemporarySubclusterRouting(oldObj, allErrs)
 	allErrs = v.checkImmutableEncryptSpreadComm(oldObj, allErrs)
 	allErrs = v.checkImmutableLocalPathChange(oldObj, allErrs)
@@ -1006,6 +1008,20 @@ func (v *VerticaDB) checkImmutableDeploymentMethod(oldObj *VerticaDB, allErrs fi
 		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
 			v.Annotations[vmeta.VClusterOpsAnnotation],
 			"deployment type cannot change from vclusterops to admintools")
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+// checkImmutableNMADeploymentMethod will check if the nma deployment type is changing from
+// sidecar to monolithic
+func (v *VerticaDB) checkImmutableNMADeploymentMethod(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	if vmeta.RunNMAInSidecarMode(oldObj.Annotations) && !vmeta.RunNMAInSidecarMode(v.Annotations) {
+		// change from sidecar deployment to monolithic deployment
+		prefix := field.NewPath("metadata").Child("annotations")
+		err := field.Invalid(prefix.Key(vmeta.RunNMAInSidecarAnnotation),
+			v.Annotations[vmeta.RunNMAInSidecarAnnotation],
+			"nma deployment type cannot change from sidecar to monolithic")
 		allErrs = append(allErrs, err)
 	}
 	return allErrs

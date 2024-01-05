@@ -22,6 +22,7 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -67,6 +68,10 @@ func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCert
 			HonorUserInput: &honorUserInput,
 		},
 		Nodes: s.RestartHosts,
+	}
+	if v.VDB.IsSideCarDeploymentEnabled() {
+		opts.StartUpConf = new(string)
+		*opts.StartUpConf = paths.StartupConfFile
 	}
 	// timeout option
 	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()

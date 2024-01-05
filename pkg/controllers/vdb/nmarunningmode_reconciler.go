@@ -53,12 +53,19 @@ func (n *NMARunningModeReconciler) Reconcile(_ context.Context, _ *ctrl.Request)
 
 // Verify whether the NMA is configured to run in sidecar container and report error if so
 func (n *NMARunningModeReconciler) verifyNMARunningMode() error {
-	if vmeta.UseVClusterOps(n.Vdb.Annotations) && vmeta.RunNMAInSidecarMode(n.Vdb.Annotations) {
+	if n.Vdb.IsSideCarDeploymentEnabled() {
+		vinf, err := n.Vdb.MakeVersionInfoCheck()
+		if err != nil {
+			return err
+		}
+		if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
+			return nil
+		}
+		errMsg := fmt.Sprintf("running NMA in a sidecar container is not supported for version %s",
+			n.Vdb.Annotations[vmeta.VersionAnnotation])
 		n.VRec.Eventf(n.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported,
-			"Running NMA in a sidecar container is not supported yet, "+
-				fmt.Sprintf("set the %s annotation to %q", vmeta.RunNMAInSidecarAnnotation, vmeta.RunNMAInSidecarAnnotationFalse))
-		return errors.New("running NMA in a sidecar container is not supported yet, " +
-			fmt.Sprintf("set the %s annotation to %q", vmeta.RunNMAInSidecarAnnotation, vmeta.RunNMAInSidecarAnnotationFalse))
+			errMsg)
+		return errors.New(errMsg)
 	}
 	return nil
 }

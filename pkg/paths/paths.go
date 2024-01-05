@@ -54,6 +54,8 @@ const (
 	DBAdminSSHPath            = "/home/dbadmin/.ssh"
 	RootSSHPath               = "/root/.ssh"
 	HTTPServerCACrtName       = "ca.crt"
+	StartupConfDir            = "/tmp/startup"
+	StartupConfFile           = "/tmp/startup/startup.json"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.

@@ -24,8 +24,13 @@ import (
 )
 
 const (
-	ServerContainer      = "server"
-	ServerContainerIndex = 0
+	ServerContainer = "server"
+	NMAContainer    = "nma"
+)
+
+const (
+	ServerContainerIndex = iota
+	NMAContainerIndex
 )
 
 // GenNamespacedName will take any name and make it a namespace name that uses

@@ -224,6 +224,22 @@ var _ = Describe("builder", func() {
 		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeTrue())
 	})
 
+	It("should mount startup vol only when nma sidecar mode", func() {
+		vdb := vapi.MakeVDB()
+
+		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
+		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(getStartupConfVolume(c.Volumes)).Should(BeNil())
+
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(getStartupConfVolume(c.Volumes)).Should(BeNil())
+
+		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
+		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		Expect(getStartupConfVolume(c.Volumes)).ShouldNot(BeNil())
+	})
+
 	It("should allow override of probe with grpc and httpget", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
@@ -317,9 +333,11 @@ var _ = Describe("builder", func() {
 		}
 	})
 
-	It("should mount or not mount NMA certs volume according to annotation", func() {
+	It("should mount or not mount NMA certs volume according to annotation(monolithic)", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		// monolithic container
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
 		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
@@ -336,6 +354,40 @@ var _ = Describe("builder", func() {
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+	})
+
+	It("should mount or not mount NMA certs volume according to annotation(sidecar)", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+
+		// server container
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
+		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
+		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
+
+		// nma container
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
+		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
+		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
+		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
+		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
 		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
 		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
 		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
@@ -370,8 +422,16 @@ func makeVolumeMountNames(c *v1.Container) []string {
 }
 
 func getPodInfoVolume(vols []v1.Volume) *v1.Volume {
+	return getVolume(vols, vapi.PodInfoMountName)
+}
+
+func getStartupConfVolume(vols []v1.Volume) *v1.Volume {
+	return getVolume(vols, vapi.StartupConfMountName)
+}
+
+func getVolume(vols []v1.Volume, mountName string) *v1.Volume {
 	for i := range vols {
-		if vols[i].Name == vapi.PodInfoMountName {
+		if vols[i].Name == mountName {
 			return &vols[i]
 		}
 	}

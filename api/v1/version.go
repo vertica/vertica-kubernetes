@@ -60,6 +60,7 @@ const (
 	// the minimum versions of the NMA that we support them.
 	NMATLSSecretInGSMMinVersion               = "v24.1.0"
 	NMATLSSecretInAWSSecretsManagerMinVersion = "v24.2.0"
+	NMAInSideCarDeploymentMinVersion          = "v24.2.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

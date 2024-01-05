@@ -440,7 +440,20 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// image is changed outside of this reconciler. It is done through a
 	// separate update to the sts.
 	i := names.ServerContainerIndex
-	expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
+	curCnts := curSts.Spec.Template.Spec.Containers
+	expSts.Spec.Template.Spec.Containers[i].Image = curCnts[i].Image
+	// we also preserve the nma container image
+	if o.Vdb.IsSideCarDeploymentEnabled() {
+		// we first set it to the same as vertica's. They share the same image.
+		// but if the current sts already contains the nma container, we are going
+		// to use that image for the nma container in the expected sts. we expect
+		// it to be the same as vertica's but it does not hurt to make that distinction
+		expSts.Spec.Template.Spec.Containers[names.NMAContainerIndex].Image = curCnts[i].Image
+		if len(curCnts) > names.NMAContainerIndex {
+			i = names.NMAContainerIndex
+			expSts.Spec.Template.Spec.Containers[i].Image = curCnts[i].Image
+		}
+	}
 
 	// Preserve scaling if told to do so. This is used when doing early
 	// reconciliation so that we have any necessary pods started.

@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addnode"
 )
 
@@ -67,6 +68,9 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	*opts.HonorUserInput = true
 	*opts.ForceRemoval = true
 	*opts.SkipRebalanceShards = true
+	if v.VDB.IsSideCarDeploymentEnabled() {
+		*opts.StartUpConf = paths.StartupConfFile
+	}
 	opts.ExpectedNodeNames = s.ExpectedNodeNames
 	v.Log.Info("Nodes in request", "ExpectedNodeNames", opts.ExpectedNodeNames, "NewHosts", opts.NewHosts)
 
