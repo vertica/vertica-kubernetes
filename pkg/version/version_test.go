@@ -29,7 +29,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = Describe("version", func() {
-	It("should block some version transitions", func() {
+	It("should block downgrades", func() {
 		cur, ok := MakeInfoFromStr("v11.0.1")
 		Expect(ok).Should(BeTrue())
 		ok, _ = cur.IsValidUpgradePath("v11.0.0")
@@ -38,10 +38,8 @@ var _ = Describe("version", func() {
 		Expect(ok).Should(BeFalse())
 		ok, _ = cur.IsValidUpgradePath("v11.1.0")
 		Expect(ok).Should(BeTrue())
-		ok, _ = cur.IsValidUpgradePath("v11.0.2")
-		Expect(ok).Should(BeTrue())
 		ok, _ = cur.IsValidUpgradePath("v11.2.2")
-		Expect(ok).Should(BeFalse()) // Fail because it skips v11.1.x
+		Expect(ok).Should(BeTrue())
 
 		cur, ok = MakeInfoFromStr("v12.0.3")
 		Expect(ok).Should(BeTrue())
@@ -49,21 +47,10 @@ var _ = Describe("version", func() {
 		Expect(ok).Should(BeTrue())
 		ok, _ = cur.IsValidUpgradePath("v23.3.0")
 		Expect(ok).Should(BeTrue())
-		ok, _ = cur.IsValidUpgradePath("v23.4.0")
-		Expect(ok).Should(BeTrue())
-		ok, _ = cur.IsValidUpgradePath("v24.1.0")
-		Expect(ok).Should(BeFalse())
 		ok, _ = cur.IsValidUpgradePath("v24.4.0")
-		Expect(ok).Should(BeFalse()) // Fail because it skips v23.4.0
-
-		cur, ok = MakeInfoFromStr("v23.3.0")
 		Expect(ok).Should(BeTrue())
-		ok, _ = cur.IsValidUpgradePath("v23.4.0")
-		Expect(ok).Should(BeTrue())
-		ok, _ = cur.IsValidUpgradePath("v24.2.0")
+		ok, _ = cur.IsValidUpgradePath("v12.0.2")
 		Expect(ok).Should(BeFalse())
-		ok, _ = cur.IsValidUpgradePath("v24.3.0")
-		Expect(ok).Should(BeFalse()) // Fail because it skips v23.4.0
 
 		cur, ok = MakeInfoFromStr("v23.4.0")
 		Expect(ok).Should(BeTrue())
@@ -72,7 +59,9 @@ var _ = Describe("version", func() {
 		ok, _ = cur.IsValidUpgradePath("v24.4.0")
 		Expect(ok).Should(BeTrue())
 		ok, _ = cur.IsValidUpgradePath("v25.1.0")
-		Expect(ok).Should(BeFalse()) // Fail because it skips v24.4.0
+		Expect(ok).Should(BeTrue())
+		ok, _ = cur.IsValidUpgradePath("v23.3.11")
+		Expect(ok).Should(BeFalse())
 	})
 
 	It("should return values for IsOlder", func() {

@@ -30,42 +30,10 @@ type Info struct {
 	Components        // The same version as VdbVer but broken down into individual components
 }
 
-const (
-	LTSMinor = 4
-	LTSPatch = 0
-)
-
-// UpgradePaths has all of the vertica releases supported by the operator.  For
-// each release, the next release that must be upgrade too.  Use this map to
-// know if a new version is the next supported version by Vertica.
-//
-// As a general rule of thumb, this map needs to be updated each time a new
-// Vertica version introduces a new major or minor version (e.g. 11.1.x ->
-// 12.0.x).  You don't need to update it for patch releases because we only
-// enforce the upgrade path for major/minor versions.
-var UpgradePaths = map[Components]Info{
-	{11, 0, 0}: {"v11.1.x", Components{11, 1, 0}},
-	{11, 0, 1}: {"v11.1.x", Components{11, 1, 0}},
-	{11, 0, 2}: {"v11.1.x", Components{11, 1, 0}},
-	{11, 1, 0}: {"v12.0.x", Components{12, 0, 0}},
-	{11, 1, 1}: {"v12.0.x", Components{12, 0, 0}},
-	{12, 0, 0}: {"v23.3.x", Components{23, 4, 0}},
-	{12, 0, 1}: {"v23.3.x", Components{23, 4, 0}},
-	{12, 0, 2}: {"v23.3.x", Components{23, 4, 0}},
-	{12, 0, 3}: {"v23.3.x", Components{23, 4, 0}},
-	{12, 0, 4}: {"v23.3.x", Components{23, 4, 0}},
-}
-
 // MakeInfoFromStr will construct an Info struct by parsing the version string
 func MakeInfoFromStr(curVer string) (*Info, bool) {
 	ma, mi, pa, ok := parseVersion(curVer)
 	return &Info{curVer, Components{ma, mi, pa}}, ok
-}
-
-// buildVersionStr will build the version string from
-// a Components object
-func (c *Components) buildVersionStr() string {
-	return fmt.Sprintf("v%d.%d.%d", c.VdbMajor, c.VdbMinor, c.VdbPatch)
 }
 
 // IsEqualOrNewer returns true if the version in the Vdb is is equal or newer
@@ -132,28 +100,6 @@ func (i *Info) IsOlderOrEqualExceptPatch(other *Info) bool {
 	return i.IsEqualExceptPatch(other) || i.IsOlderExceptPatch(other)
 }
 
-// isLTSRelease returns true if the release is LTS
-// meaning its version has the format x.4.x
-func (i *Info) isLTSRelease() bool {
-	return i.VdbMinor == LTSMinor
-}
-
-// getNextLTSVersion given a release returns the next
-// LTS realease version
-func (i *Info) getNextLTSVersion() Info {
-	nextLTSVersion := Info{
-		VdbVer: i.VdbVer,
-	}
-	nextLTSVersion.VdbMajor = i.VdbMajor
-	nextLTSVersion.VdbMinor = LTSMinor
-	nextLTSVersion.VdbPatch = LTSPatch
-	if i.isLTSRelease() {
-		nextLTSVersion.VdbMajor++
-		nextLTSVersion.VdbVer = nextLTSVersion.buildVersionStr()
-	}
-	return nextLTSVersion
-}
-
 // IsValidUpgradePath will return true if the current version is allowed to
 // upgrade to targetVer.  This will return false if the path isn't compatible.
 func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason string) {
@@ -165,7 +111,7 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 	if i.IsEqual(t) {
 		return true, ""
 	}
-	// Check for a downgrade.  Those are always blocked.
+	// Check for a downgrade.
 	if t.VdbMajor < i.VdbMajor ||
 		(t.VdbMajor == i.VdbMajor && t.VdbMinor < i.VdbMinor) ||
 		(t.VdbMajor == i.VdbMajor && t.VdbMinor == i.VdbMinor && t.VdbPatch < i.VdbPatch) {
@@ -173,28 +119,7 @@ func (i *Info) IsValidUpgradePath(targetVer string) (ok bool, failureReason stri
 			fmt.Sprintf("Version '%s' to '%s' is a downgrade and is not supported",
 				i.VdbVer, t.VdbVer)
 	}
-	// Check if the major/minor versions are identical.  It is okay to skip
-	// patch versions.
-	if i.IsEqualExceptPatch(t) {
-		return true, ""
-	}
-
-	// Check if the upgrade path is followed.  You can only go from one released
-	// version to the next released version, but patches are allowed to be skipped.
-	nextVer, ok := UpgradePaths[i.Components]
-	if !ok {
-		// The version isn't found in the upgrade path. It must be a version
-		// newer that v12.0.4. Since from that point our release versions are
-		// more predictable, we can get the max version the current version
-		// can be upgraded to from the next LTS release version,
-		nextVer = i.getNextLTSVersion()
-	}
-	if t.IsOlderOrEqualExceptPatch(&nextVer) {
-		return true, ""
-	}
-	return false,
-		fmt.Sprintf("Version '%s' to '%s' is invalid because it skips '%s'",
-			i.VdbVer, t.VdbVer, nextVer.VdbVer)
+	return true, ""
 }
 
 // parseVersion will extract out the portions of a verson into 3 components:
