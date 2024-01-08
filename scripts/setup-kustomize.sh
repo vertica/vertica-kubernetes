@@ -244,6 +244,12 @@ EOF
       path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
       value: "false"
 EOF
+        else
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
+      value: "true"
+EOF
         fi
         
         if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" -a "$VERTICA_SUPERUSER_NAME" != "dbadmin" ]

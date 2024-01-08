@@ -25,4 +25,4 @@ while ! kubectl get pod -n $NAMESPACE $POD 2> /dev/null; do sleep 0.1; done
 echo "Waiting for pod to be in ready state..."
 kubectl wait -n $NAMESPACE --for=condition=Ready=True pod $POD --timeout 600s
 echo "Waiting for vsql connection..."
-kubectl exec -i -n $NAMESPACE $POD -c server -- bash -c "while [ ! -f /tmp/connected ]; do sleep 3; done"
+kubectl exec -i -n $NAMESPACE $POD -- bash -c "while [ ! -f /tmp/connected ]; do sleep 3; done"
