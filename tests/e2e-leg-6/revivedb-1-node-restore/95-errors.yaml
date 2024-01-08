@@ -20,14 +20,8 @@ metadata:
     labels:
         app.kubernetes.io/managed-by: verticadb-operator
 ---
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
----
-apiVersion: batch/v1
-kind: Job
----
-apiVersion: vertica.com/v1beta1
-kind: EventTrigger
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
