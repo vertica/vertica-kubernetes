@@ -67,12 +67,6 @@ func (v *ListRestorePointsQueryReconciler) setListRestorePointsQueryConditions(c
 	// Include an error message in the status condition if the API fails.
 	if errAPI != nil {
 		v.VRec.Log.Info("Fail to call Vcluster list restore points API")
-		// set the Querying to false if the API fails
-		err = vrpqstatus.UpdateCondition(ctx, v.VRec.Client, v.VRec.Log, v.Vrpq,
-			vapi.VerticaRestorePointsQueryCondition{Type: vapi.Querying, Status: corev1.ConditionFalse})
-		if err != nil {
-			return err
-		}
 		return errAPI
 	}
 
