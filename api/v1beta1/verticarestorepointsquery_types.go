@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -49,7 +50,7 @@ const (
 type VerticaRestorePointsQueryStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Conditions for VerticaRestorePointsQuery
-	Conditions []VerticaRestorePointsQueryCondition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // VerticaRestorePointsQueryCondition defines condition for VerticaRestorePointsQuery
@@ -73,30 +74,10 @@ type VerticaRestorePointsQueryConditionType string
 
 const (
 	// Querying indicates whether the operator should query for list restore points
-	Querying VerticaRestorePointsQueryConditionType = "Querying"
+	Querying = "Querying"
 	// QueryComplete indicates the query has been completed
-	QueryComplete VerticaRestorePointsQueryConditionType = "QueryComplete"
+	QueryComplete = "QueryComplete"
 )
-
-// Fixed index entries for each condition.
-const (
-	QueryingIndex = iota
-	QueryCompleteIndex
-)
-
-// VerticaRestorePointsQueryConditionIndexMap is a map of the VerticaRestorePointsQueryConditionNameMap to its
-// index in the condition array
-var VerticaRestorePointsQueryConditionIndexMap = map[VerticaRestorePointsQueryConditionType]int{
-	Querying:      QueryingIndex,
-	QueryComplete: QueryCompleteIndex,
-}
-
-// VerticaRestorePointsQueryConditionNameMap is the reverse of VerticaRestorePointsQueryConditionIndexMap.  It
-// maps an index to the condition name
-var VerticaRestorePointsQueryConditionNameMap = map[int]VerticaRestorePointsQueryConditionType{
-	QueryingIndex:      Querying,
-	QueryCompleteIndex: QueryComplete,
-}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=vertica,shortName=vrpq
@@ -130,6 +111,10 @@ func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedN
 		Name:      vrpq.ObjectMeta.Name,
 		Namespace: vrpq.ObjectMeta.Namespace,
 	}
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrpq.Status.Conditions, statusCondition)
 }
 
 func MakeSampleVrpqName() types.NamespacedName {

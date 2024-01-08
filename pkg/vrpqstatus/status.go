@@ -17,12 +17,11 @@ package vrpqstatus
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -57,31 +56,15 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi
 	})
 }
 
+// UpdateCondition will update a condition status
+// This is a no-op if the status condition is already set.  The input vdb will
+// be updated with the status condition.
 func UpdateCondition(ctx context.Context, clnt client.Client, log logr.Logger,
-	vrpq *vapi.VerticaRestorePointsQuery, condition vapi.VerticaRestorePointsQueryCondition) error {
-	if condition.LastTransitionTime.IsZero() {
-		condition.LastTransitionTime = metav1.Now()
-	}
-	// refreshConditionInPlace will update the status condition in vrpq.  The update
+	vrpq *vapi.VerticaRestorePointsQuery, condition *metav1.Condition) error {
+	// refreshConditionInPlace will update the status condition in vdb.  The update
 	// will be applied in-place.
 	refreshConditionInPlace := func(vrpq *vapi.VerticaRestorePointsQuery) error {
-		inx, ok := vapi.VerticaRestorePointsQueryConditionIndexMap[condition.Type]
-		if !ok {
-			return fmt.Errorf("vertica condition '%s' missing from VerticaRestorePointsQueryType", condition.Type)
-		}
-		// Ensure the array is big enough
-		for i := len(vrpq.Status.Conditions); i <= inx; i++ {
-			vrpq.Status.Conditions = append(vrpq.Status.Conditions, vapi.VerticaRestorePointsQueryCondition{
-				Type:               vapi.VerticaRestorePointsQueryConditionNameMap[i],
-				Status:             corev1.ConditionFalse,
-				LastTransitionTime: metav1.Unix(0, 0),
-			})
-		}
-		// Only update if status is different change.  Cannot compare the entire
-		// condition since LastTransitionTime will be different each time.
-		if vrpq.Status.Conditions[inx].Status != condition.Status {
-			vrpq.Status.Conditions[inx] = condition
-		}
+		meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
 		return nil
 	}
 	return Update(ctx, clnt, log, vrpq, refreshConditionInPlace)

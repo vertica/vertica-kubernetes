@@ -17,9 +17,9 @@ package vadmin
 
 import (
 	"context"
+	"errors"
 )
 
 func (a *Admintools) ListRestorePoints(_ context.Context) error {
-	a.Log.Info("start restore points query")
-	return nil
+	return errors.New("ListRestorePoints is not supported in the admintools side")
 }

@@ -26,8 +26,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gtypes "github.com/onsi/gomega/types"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -69,8 +70,10 @@ var _ = AfterSuite(func() {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 })
 
-type representVerticaRestorePointsQueryCondition struct {
-	expected interface{}
+func TestAPIs(t *testing.T) {
+	RegisterFailHandler(Fail)
+
+	RunSpecs(t, "vrpqstatus Suite")
 }
 
 func EqualVerticaRestorePointsQueryCondition(expected interface{}) gtypes.GomegaMatcher {
@@ -79,14 +82,18 @@ func EqualVerticaRestorePointsQueryCondition(expected interface{}) gtypes.Gomega
 	}
 }
 
+type representVerticaRestorePointsQueryCondition struct {
+	expected interface{}
+}
+
 func (matcher *representVerticaRestorePointsQueryCondition) Match(actual interface{}) (success bool, err error) {
-	response, ok := actual.(vapi.VerticaRestorePointsQueryCondition)
+	response, ok := actual.(metav1.Condition)
 	if !ok {
 		return false, fmt.Errorf("representVerticaRestorePointsQueryCondition matcher expects a vapi.VerticaRestorePointsQueryCondition")
 	}
-	expectedObj, ok := matcher.expected.(vapi.VerticaRestorePointsQueryCondition)
+	expectedObj, ok := matcher.expected.(metav1.Condition)
 	if !ok {
-		return false, fmt.Errorf("representVerticaRestorePointsQueryCondition should compare with a vapi.VerticaRestorePointsQueryCondition")
+		return false, fmt.Errorf("representVerticaRestorePointsQueryCondition should compare with a metav1.Condition")
 	}
 	// Compare everything except lastTransitionTime
 	return response.Type == expectedObj.Type && response.Status == expectedObj.Status, nil
@@ -100,12 +107,6 @@ func (matcher *representVerticaRestorePointsQueryCondition) NegatedFailureMessag
 	return fmt.Sprintf("Expected\n\t%#v\nto not equal\n\t%#v", actual, matcher.expected)
 }
 
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecs(t, "vrpqstatus Suite")
-}
-
 var _ = Describe("status", func() {
 	ctx := context.Background()
 
@@ -113,14 +114,15 @@ var _ = Describe("status", func() {
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		cond := vapi.VerticaRestorePointsQueryCondition{Type: vapi.Querying, Status: corev1.ConditionTrue}
+
+		cond := v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "")
 		Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, cond)).Should(Succeed())
 		fetchVdb := &vapi.VerticaRestorePointsQuery{}
 		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaRestorePointsQuery{vrpq, fetchVdb} {
 			Expect(len(v.Status.Conditions)).Should(Equal(1))
-			Expect(v.Status.Conditions[0]).Should(EqualVerticaRestorePointsQueryCondition(cond))
+			Expect(v.Status.Conditions[0]).Should(EqualVerticaRestorePointsQueryCondition(*cond))
 		}
 	})
 
@@ -128,18 +130,19 @@ var _ = Describe("status", func() {
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		conds := []vapi.VerticaRestorePointsQueryCondition{
-			{Type: vapi.Querying, Status: corev1.ConditionTrue},
-			{Type: vapi.Querying, Status: corev1.ConditionFalse},
+
+		conds := []metav1.Condition{
+			{Type: vapi.Querying, Status: metav1.ConditionTrue, Reason: v1.UnknownReason},
+			{Type: vapi.Querying, Status: metav1.ConditionFalse, Reason: v1.UnknownReason},
 		}
-		for _, cond := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, cond)).Should(Succeed())
+		for i := range conds {
+			Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, &conds[i])).Should(Succeed())
 			fetchVdb := &vapi.VerticaRestorePointsQuery{}
 			nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
 			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 			for _, v := range []*vapi.VerticaRestorePointsQuery{vrpq, fetchVdb} {
 				Expect(len(v.Status.Conditions)).Should(Equal(1))
-				Expect(v.Status.Conditions[0]).Should(EqualVerticaRestorePointsQueryCondition(cond))
+				Expect(v.Status.Conditions[0]).Should(EqualVerticaRestorePointsQueryCondition(conds[i]))
 			}
 		}
 	})
@@ -148,14 +151,17 @@ var _ = Describe("status", func() {
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		conds := []vapi.VerticaRestorePointsQueryCondition{
-			{Type: vapi.Querying, Status: corev1.ConditionTrue},
-			{Type: vapi.Querying, Status: corev1.ConditionFalse},
-			{Type: vapi.QueryComplete, Status: corev1.ConditionTrue},
+
+		conds := []metav1.Condition{
+			{Type: vapi.Querying, Status: metav1.ConditionTrue, Reason: v1.UnknownReason},
+			{Type: vapi.Querying, Status: metav1.ConditionFalse, Reason: v1.UnknownReason},
+			{Type: vapi.QueryComplete, Status: metav1.ConditionTrue, Reason: v1.UnknownReason},
 		}
-		for _, cond := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, cond)).Should(Succeed())
+
+		for i := range conds {
+			Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, &conds[i])).Should(Succeed())
 		}
+
 		fetchVdb := &vapi.VerticaRestorePointsQuery{}
 		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
@@ -172,10 +178,12 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 		origTime := metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
 		Expect(UpdateCondition(ctx, k8sClient, logger, vrpq,
-			vapi.VerticaRestorePointsQueryCondition{Type: vapi.Querying, Status: corev1.ConditionFalse, LastTransitionTime: origTime},
+			&metav1.Condition{Type: vapi.Querying, Status: metav1.ConditionFalse, LastTransitionTime: origTime,
+				Reason: v1.UnknownReason},
 		)).Should(Succeed())
 		Expect(UpdateCondition(ctx, k8sClient, logger, vrpq,
-			vapi.VerticaRestorePointsQueryCondition{Type: vapi.Querying, Status: corev1.ConditionTrue},
+			&metav1.Condition{Type: vapi.Querying, Status: metav1.ConditionTrue, LastTransitionTime: origTime,
+				Reason: v1.UnknownReason},
 		)).Should(Succeed())
 		Expect(vrpq.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
