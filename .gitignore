@@ -76,3 +76,13 @@ bundle/
 
 # Generated file from 'go generate'
 cmd/operator/*.go-generate.txt
+
+tests/e2e-leg-2/restart-sanity/40-assert.yaml
+tests/e2e-leg-3/readiness-probe-override/25-assert.yaml
+tests/e2e-leg-3/readiness-probe-override/30-assert.yaml
+tests/e2e-leg-4/restart-with-liveness-probe/15-assert.yaml
+tests/e2e-leg-4/restart-with-liveness-probe/35-assert.yaml
+tests/e2e-leg-4/restart-with-liveness-probe/40-assert.yaml
+tests/e2e-leg-4/restart-with-liveness-probe/45-assert.yaml
+tests/e2e-leg-4/restart-with-liveness-probe/55-assert.yaml
+tests/e2e-leg-4/restart-with-liveness-probe/60-assert.yaml

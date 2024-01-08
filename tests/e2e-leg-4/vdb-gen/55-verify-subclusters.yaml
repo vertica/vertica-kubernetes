@@ -43,8 +43,8 @@ data:
       ALL_PODS=$(kubectl get pods --selector=$SELECTOR -o=jsonpath='{.items[*].metadata.name}')
       for pod_name in $ALL_PODS
       do
-        kubectl cp /tmp/verify.sh $pod_name:/home/dbadmin/verify.sh
-        kubectl exec $pod_name -i -- sh /home/dbadmin/verify.sh $subcluster
+        kubectl cp /tmp/verify.sh $pod_name:/home/dbadmin/verify.sh -c server
+        kubectl exec $pod_name -i -c server -- sh /home/dbadmin/verify.sh $subcluster
       done
     done
 ---

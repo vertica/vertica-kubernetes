@@ -112,10 +112,11 @@ var _ = Describe("upgrade", func() {
 		Expect(stsChange).Should(Equal(2))
 
 		sts := &appsv1.StatefulSet{}
+		inx := names.GetServerContainerIndex(vdb)
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage))
+		Expect(sts.Spec.Template.Spec.Containers[inx].Image).Should(Equal(NewImage))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImage))
+		Expect(sts.Spec.Template.Spec.Containers[inx].Image).Should(Equal(NewImage))
 	})
 
 	It("should delete pods of all subclusters", func() {

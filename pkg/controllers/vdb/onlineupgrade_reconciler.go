@@ -411,7 +411,7 @@ func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulS
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
 // This is a no-op if the image has already been updated for the subcluster.
 func (o *OnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+	img := sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(o.Vdb)].Image
 
 	if img != o.Vdb.Spec.Image {
 		scName := sts.Labels[vmeta.SubclusterNameLabel]
@@ -532,7 +532,7 @@ func (o *OnlineUpgradeReconciler) waitForReadOnly(_ context.Context, sts *appsv1
 	if o.PFacts.countUpPrimaryNodes() != 0 {
 		return ctrl.Result{}, nil
 	}
-	newImage := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+	newImage := sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(o.Vdb)].Image
 	// If all the pods that are running the old image are read-only we are done
 	// our wait.
 	if o.PFacts.countNotReadOnlyWithOldImage(newImage) == 0 {
@@ -651,7 +651,7 @@ func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error 
 	for i := range stss.Items {
 		sts := &stss.Items[i]
 		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster {
-			img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+			img := sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(o.Vdb)].Image
 			imageFound := false
 			for j := range o.PrimaryImages {
 				imageFound = o.PrimaryImages[j] == img

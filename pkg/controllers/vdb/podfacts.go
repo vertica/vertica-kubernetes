@@ -188,6 +188,7 @@ type GatherState struct {
 	FileExists             map[string]bool `json:"fileExists"`
 	DBExists               bool            `json:"dbExists"`
 	VerticaPIDRunning      bool            `json:"verticaPIDRunning"`
+	UpNode                 bool            `json:"upNode"`
 	StartupComplete        bool            `json:"startupComplete"`
 	Compat21NodeName       string          `json:"compat21NodeName"`
 	VNodeName              string          `json:"vnodeName"`
@@ -322,7 +323,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.podIP = pod.Status.PodIP
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
 		pf.isPendingDelete = podIndex >= sc.Size
-		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
+		pf.image = pod.Spec.Containers[names.GetServerContainerIndex(vdb)].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
 	}
@@ -431,7 +432,9 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n 'vnodeName: '
 		cd %s/%s/v_%s_node????_catalog 2> /dev/null && basename $(pwd) | rev | cut -c9- | rev || echo ""
 		echo -n 'verticaPIDRunning: '
-		[[ $(pgrep -f "^.*vertica\s-D") ]] && echo true || echo false
+		[[ $(pgrep ^vertica) ]] && echo true || echo false
+		echo -n 'upNode: '
+		%s 2> /dev/null | grep --quiet 200 2> /dev/null && echo true || echo false
 		echo -n 'startupComplete: '
 		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s 2> /dev/null && echo true || echo false
 		echo -n 'localDataSize: '
@@ -456,6 +459,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
+		checkIfNodeUpCmd(pf.podIP),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
@@ -555,7 +559,7 @@ func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact) error {
 }
 
 // checkForSimpleGatherStateMapping will do any simple conversion of the gather state to pod facts.
-func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// Gather state is only valid if the pod was running
 	if !pf.isPodRunning {
 		return nil
@@ -566,8 +570,14 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.V
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.admintoolsExists = gs.AdmintoolsExists
-	// If the vertica process is running, then the database is UP. This is
-	// consistent with the liveness probe, which goes a bit further and checks
+	if vmeta.UseVClusterOps(vdb.Annotations) {
+		// In vclusterops mode, we call an HTTPS endpoint.
+		// If that returns HTTP code 200, then vertica is up
+		pf.upNode = gs.UpNode
+		return nil
+	}
+	// For admintools, if the vertica process is running, then the database is UP.
+	// This is consistent with the liveness probe, which goes a bit further and checks
 	// if the client port is opened. If the vertica process dies, the liveness
 	// probe will kill the pod and we will be able to do proper restart logic.
 	// At one point, we ran a query against the nodes table. But it became
@@ -662,7 +672,7 @@ func (p *PodFacts) getEnvValueFromPodWithDefault(pod *corev1.Pod, envName, defau
 }
 
 func (p *PodFacts) getEnvValueFromPod(pod *corev1.Pod, envName string) (string, bool) {
-	c := pod.Spec.Containers[ServerContainerIndex]
+	c := pod.Spec.Containers[names.Index0]
 	for i := range c.Env {
 		if c.Env[i].Name == envName {
 			return c.Env[i].Value, true
@@ -1140,4 +1150,13 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	}
 
 	return expectedNodeNames
+}
+
+// checkIfNodeUpCmd builds and returns the command to check
+// if a node is up using an HTTPS endpoint
+func checkIfNodeUpCmd(podIP string) string {
+	url := fmt.Sprintf("https://%s:%d%s",
+		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
+	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
+	return fmt.Sprintf("%s %s", curlCmd, url)
 }

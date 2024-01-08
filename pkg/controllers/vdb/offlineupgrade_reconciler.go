@@ -229,7 +229,7 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 		cnts := pod.Spec.Containers
-		if o.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
+		if cnts[names.GetServerContainerIndex(o.Vdb)].Image == o.Vdb.Spec.Image {
 			foundPodWithNewImage = true
 			break
 		}
@@ -311,7 +311,7 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 			continue
 		}
 		cnts := pod.Spec.Containers
-		if !o.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
+		if cnts[names.GetServerContainerIndex(o.Vdb)].Image != o.Vdb.Spec.Image {
 			return true, nil
 		}
 	}

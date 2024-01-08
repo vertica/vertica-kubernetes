@@ -14,23 +14,44 @@
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-restart
+  name: v-restart-with-liveness-probe
 status:
   subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
+    - addedToDBCount: 2
+      upNodeCount: 2
+    - addedToDBCount: 1
+      upNodeCount: 1
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-restart-defsc-0
-spec:
-  containers:
-  - name: nma
+  name: v-restart-with-liveness-probe-pri1-0
+status:
+  containerStatuses:
   - name: server
-    readinessProbe:
-      exec:
-        command: ["vsql", "-c", "select 1"]
-    startupProbe:
-      exec:
-        command: ["vsql", "-c", "select 1"]
+    restartCount: 0
+    started: true
+    ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-restart-with-liveness-probe-pri1-1
+status:
+  containerStatuses:
+  - name: server
+    # Restarted twice. Once in step 40 and another in this step.
+    restartCount: 2
+    started: true
+    ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-restart-with-liveness-probe-pri2-0
+status:
+  containerStatuses:
+  - name: server
+    started: true
+    ready: true
+    restartCount: 1

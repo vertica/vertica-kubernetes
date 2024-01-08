@@ -67,7 +67,7 @@ func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCert
 	opts.HonorUserInput = &honorUserInput
 	opts.Nodes = s.RestartHosts
 	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
-	if v.VDB.IsSideCarDeploymentEnabled() {
+	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		*opts.StartUpConf = paths.StartupConfFile
 	}
 	return &opts

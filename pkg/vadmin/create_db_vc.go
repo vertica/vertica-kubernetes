@@ -86,7 +86,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	*opts.ForceRemovalAtCreation = true
 	opts.SkipPackageInstall = &s.SkipPackageInstall
 	opts.DataPrefix = &s.DataPath
-	if v.VDB.IsSideCarDeploymentEnabled() {
+	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		*opts.StartUpConf = paths.StartupConfFile
 	}
 

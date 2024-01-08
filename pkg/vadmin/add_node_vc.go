@@ -68,7 +68,7 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	*opts.HonorUserInput = true
 	*opts.ForceRemoval = true
 	*opts.SkipRebalanceShards = true
-	if v.VDB.IsSideCarDeploymentEnabled() {
+	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		*opts.StartUpConf = paths.StartupConfFile
 	}
 	opts.ExpectedNodeNames = s.ExpectedNodeNames

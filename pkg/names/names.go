@@ -26,11 +26,12 @@ import (
 const (
 	ServerContainer = "server"
 	NMAContainer    = "nma"
+	Index0          = 0
 )
 
 const (
-	ServerContainerIndex = iota
-	NMAContainerIndex
+	NMAContainerIndex = iota
+	ServerContainerIndex
 )
 
 // GenNamespacedName will take any name and make it a namespace name that uses
@@ -103,4 +104,14 @@ func GenPVName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.N
 	return types.NamespacedName{
 		Name: fmt.Sprintf("pv-%s-%s-%s-%d", vapi.LocalDataPVC, vdb.Name, sc.GenCompatibleFQDN(), podIndex),
 	}
+}
+
+// GetServerContainerIndex returns the correct server container
+// index according to the NMA running mode. If there is no nma
+// container, the server will be the first, otherwise the second
+func GetServerContainerIndex(vdb *vapi.VerticaDB) int {
+	if vdb.IsNMASideCarDeploymentEnabled() {
+		return ServerContainerIndex
+	}
+	return Index0
 }

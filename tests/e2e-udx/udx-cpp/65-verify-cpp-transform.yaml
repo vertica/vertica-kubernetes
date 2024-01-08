@@ -22,9 +22,9 @@ data:
     set -o errexit
 
     POD_NAME=v-udx-cpp-sc1-0
-    UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f TransformFunctions.sql 2>&1 > /tmp/TransformFunctionsOut.txt; cat /tmp/TransformFunctionsOut.txt")
+    UDX_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f TransformFunctions.sql 2>&1 > /tmp/TransformFunctionsOut.txt; cat /tmp/TransformFunctionsOut.txt")
     echo "$UDX_OP"
-    kubectl exec $POD_NAME -i -- bash -c "diff /tmp/TransformFunctionsOut.txt /opt/vertica/sdk/examples/expected-outputs/TransformFunctionsOut.txt"
+    kubectl exec $POD_NAME -i -c server -- bash -c "diff /tmp/TransformFunctionsOut.txt /opt/vertica/sdk/examples/expected-outputs/TransformFunctionsOut.txt"
 ---
 apiVersion: v1
 kind: Pod

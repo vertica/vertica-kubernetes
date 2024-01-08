@@ -72,5 +72,11 @@ spec:
   image: $IMAGE
 EOF
 
+# this is for vcluster-server-upgrade tests where we go from v24.1.0 to v24.2.0
+# we previously set the feature flag to false to allow vertica v24.1.0 to be deployed
+# and now we turn it on to upgrade to v24.2.0 which does not support monolithic container.
+# we can remove this once the base image is of version v24.2.0+
+kubectl annotate --overwrite vdb $VDB_NAME $NS_OPT vertica.com/run-nma-in-sidecar="true"
+
 echo "Patch $VDB_NAME with image $IMAGE"
 kubectl patch vdb $VDB_NAME $NS_OPT --type=merge --patch-file $tmpfile

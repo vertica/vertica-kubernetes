@@ -74,7 +74,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 	opts.ConfigurationParameters = s.ConfigurationParams
-	if v.VDB.IsSideCarDeploymentEnabled() {
+	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		*opts.StartUpConf = paths.StartupConfFile
 	}
 

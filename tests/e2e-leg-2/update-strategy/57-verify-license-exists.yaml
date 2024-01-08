@@ -16,4 +16,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl exec -t -n $NAMESPACE v-ks-0-update-strategy-sc1-0 -- test -f /home/dbadmin/licensing/mnt/lic
+  - script: kubectl exec -t -n $NAMESPACE v-ks-0-update-strategy-sc1-0 -c server -- test -f /home/dbadmin/licensing/mnt/lic

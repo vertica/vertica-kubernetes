@@ -32,7 +32,7 @@ data:
     verify_secret() {
         SECRET_AND_KEY=$1
         EXPECTED_OP=$2
-        kubectl exec $POD_NAME -i -- cat /certs/$SECRET_AND_KEY | grep --quiet "$EXPECTED_OP"
+        kubectl exec $POD_NAME -i -c server -- cat /certs/$SECRET_AND_KEY | grep --quiet "$EXPECTED_OP"
     }
 
     verify_secret my-cert-1/file1 secret

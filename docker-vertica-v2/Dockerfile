@@ -116,10 +116,6 @@ ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV JAVA_HOME "/usr"
 ENV VERTICA_STARTUP_LOG_DUPLICATE "/proc/1/fd/1"
 
-COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
-
-ENTRYPOINT [ "/opt/vertica/bin/node_management_agent" ]
-
 # vertica port
 EXPOSE 5433
 # vertica-http port

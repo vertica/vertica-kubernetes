@@ -70,7 +70,10 @@ const (
 	NMALogPath = "NMA_LOG_PATH"
 
 	// HTTP endpoint used for health check probe
-	httpServerVersionPath = "/v1/version"
+	HTTPServerVersionPath = "/v1/version"
+
+	// Name of the volume shared by nma and vertica containers
+	startupConfMountName = "startup-conf"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -149,13 +152,10 @@ func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
 // in the server container
 func buildServerVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildVolumeMounts(vdb)
-	if vdb.IsMonolithicDeploymentEnabled() &&
-		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+	if vdb.IsMonolithicDeploymentEnabled() {
+		volMnts = append(volMnts, buildAdditionalVolumeMounts(vdb)...)
 	}
-	if vdb.IsSideCarDeploymentEnabled() {
+	if vdb.IsNMASideCarDeploymentEnabled() {
 		volMnts = append(volMnts, buildStartupConfVolumeMount())
 	}
 	return volMnts
@@ -166,11 +166,7 @@ func buildServerVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 func buildNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildVolumeMounts(vdb)
 	volMnts = append(volMnts, buildStartupConfVolumeMount())
-	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
-	}
+	volMnts = append(volMnts, buildAdditionalVolumeMounts(vdb)...)
 	return volMnts
 }
 
@@ -226,17 +222,6 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		// Include a temp directory to be used by vcluster scrutinize. We want
-		// the temp directory to be large enough to store compressed logs and
-		// such. These can be quite big, so we cannot risk storing those in
-		// local disk on the node, which may fill up and cause the pod to be
-		// rescheduled.
-		volMnts = append(volMnts, corev1.VolumeMount{
-			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("scrutinize"), MountPath: paths.ScrutinizeTmp,
-		})
-	}
-
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
@@ -245,7 +230,7 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 
 func buildStartupConfVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
-		Name:      vapi.StartupConfMountName,
+		Name:      startupConfMountName,
 		MountPath: paths.StartupConfDir,
 	}
 }
@@ -294,6 +279,29 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	return mnts
 }
 
+// buildAdditionalVolumeMounts builds some extra volume mounts that are
+// used with NMA
+func buildAdditionalVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	volMnts := []corev1.VolumeMount{
+		{
+			// Include a temp directory to be used by vcluster scrutinize. We want
+			// the temp directory to be large enough to store compressed logs and
+			// such. These can be quite big, so we cannot risk storing those in
+			// local disk on the node, which may fill up and cause the pod to be
+			// rescheduled
+			Name:      vapi.LocalDataPVC,
+			SubPath:   vdb.GetPVSubPath("scrutinize"),
+			MountPath: paths.ScrutinizeTmp,
+		},
+	}
+	if vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+	}
+	return volMnts
+}
+
 func buildNMACertsVolumeMount() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
@@ -340,7 +348,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
 	}
-	if vdb.IsSideCarDeploymentEnabled() {
+	if vdb.IsNMASideCarDeploymentEnabled() {
 		vols = append(vols, buildStartupConfVolume())
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
@@ -590,7 +598,7 @@ func buildDepotVolume() corev1.Volume {
 }
 
 func buildStartupConfVolume() corev1.Volume {
-	return buildEmptyDirVolume(vapi.StartupConfMountName)
+	return buildEmptyDirVolume(startupConfMountName)
 }
 
 // buildPodSpec creates a PodSpec for the statefulset
@@ -609,6 +617,17 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		SecurityContext:               vdb.Spec.PodSecurityContext,
 		ShareProcessNamespace:         &shareProcessNamespace,
 	}
+}
+
+// makeVerticaContainers creates a list that contains the server container and
+// the nma container(if nma sidecar deployment is enabled)
+func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
+	cnts := []corev1.Container{}
+	if vdb.IsNMASideCarDeploymentEnabled() {
+		cnts = append(cnts, makeNMAContainer(vdb, sc))
+	}
+	cnts = append(cnts, makeServerContainer(vdb, sc))
+	return cnts
 }
 
 // makeServerContainer builds the spec for the server container
@@ -652,7 +671,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		Env:             envVars,
 		VolumeMounts:    buildServerVolumeMounts(vdb),
 	}
-	if vdb.IsSideCarDeploymentEnabled() {
+	if vdb.IsNMASideCarDeploymentEnabled() {
 		cnt.Command = append(cnt.Command, buildVerticaStartCommand()...)
 	}
 	return cnt
@@ -681,7 +700,7 @@ func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path:   httpServerVersionPath,
+				Path:   HTTPServerVersionPath,
 				Port:   intstr.FromInt(VerticaHTTPPort),
 				Scheme: corev1.URISchemeHTTPS,
 			},
@@ -889,10 +908,7 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 
 // makeContainers creates the list of containers to include in the pod spec.
 func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
-	cnts := []corev1.Container{makeServerContainer(vdb, sc)}
-	if vdb.IsSideCarDeploymentEnabled() {
-		cnts = append(cnts, makeNMAContainer(vdb, sc))
-	}
+	cnts := makeVerticaContainers(vdb, sc)
 	for i := range vdb.Spec.Sidecars {
 		c := vdb.Spec.Sidecars[i]
 		// Append the standard volume mounts to the container.  This is done
@@ -1252,7 +1268,7 @@ func buildNMAEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 }
 
 func getShareProcessNamespace(vdb *vapi.VerticaDB) bool {
-	return vdb.IsSideCarDeploymentEnabled()
+	return vdb.IsNMASideCarDeploymentEnabled()
 }
 
 // GetK8sLocalObjectReferenceArray returns a k8s LocalObjecReference array

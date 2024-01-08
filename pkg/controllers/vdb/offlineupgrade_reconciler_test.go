@@ -45,7 +45,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image).ShouldNot(Equal(NewImage))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(vdb)].Image).ShouldNot(Equal(NewImage))
 
 		updateVdbToCauseUpgrade(ctx, vdb, NewImage)
 
@@ -53,7 +53,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image).Should(Equal(NewImage))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(vdb)].Image).Should(Equal(NewImage))
 	})
 
 	It("should stop cluster during an upgrade", func() {

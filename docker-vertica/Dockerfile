@@ -155,8 +155,6 @@ COPY --from=builder /etc/ssh/ssh_config.d/* /etc/ssh/ssh_config.d/
 
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 
-COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
-
 # For the init program (process 1), we use s6-overlay. This ensures none of the
 # processes we start ever become zombie's. It will also restart long running
 # processes like sshd and cron in case they fail.

@@ -100,7 +100,7 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
 		cnts := sts.Spec.Template.Spec.Containers
-		if !i.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
+		if cnts[names.GetServerContainerIndex(i.Vdb)].Image != i.Vdb.Spec.Image {
 			return true, nil
 		}
 	}
@@ -205,10 +205,11 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 	stsUpdated := false
 	// Skip the statefulset if it already has the proper image.
 	cnts := sts.Spec.Template.Spec.Containers
-	if !i.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
+	inx := names.GetServerContainerIndex(i.Vdb)
+	if cnts[inx].Image != i.Vdb.Spec.Image {
 		i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
-		sts.Spec.Template.Spec.Containers[names.ServerContainerIndex].Image = i.Vdb.Spec.Image
-		if i.Vdb.IsSideCarDeploymentEnabled() {
+		sts.Spec.Template.Spec.Containers[inx].Image = i.Vdb.Spec.Image
+		if i.Vdb.IsNMASideCarDeploymentEnabled() {
 			sts.Spec.Template.Spec.Containers[names.NMAContainerIndex].Image = i.Vdb.Spec.Image
 		}
 		// We change the update strategy to OnDelete.  We don't want the k8s
@@ -251,7 +252,7 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 
 		// Skip the pod if it already has the proper image.
 		cnts := pod.Spec.Containers
-		if !i.Vdb.CheckIfContainersHaveVDBImage(cnts, names.ServerContainerIndex) {
+		if cnts[names.GetServerContainerIndex(i.Vdb)].Image != i.Vdb.Spec.Image {
 			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, pod)
 			if err != nil {
@@ -272,7 +273,7 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		if sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image != i.Vdb.Spec.Image {
+		if sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(i.Vdb)].Image != i.Vdb.Spec.Image {
 			i.Log.Info("Deleting sts that had old image", "name", sts.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, sts)
 			if err != nil {

@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -178,13 +179,13 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.ReadinessProbe.HTTPGet.Path).Should(Equal(httpServerVersionPath))
+		Expect(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
 		Expect(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Expect(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.LivenessProbe.HTTPGet.Path).Should(Equal(httpServerVersionPath))
+		Expect(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
 		Expect(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Expect(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.StartupProbe.HTTPGet.Path).Should(Equal(httpServerVersionPath))
+		Expect(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
 		Expect(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
 		Expect(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 	})
@@ -268,8 +269,9 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.Containers[0].ReadinessProbe.HTTPGet).ShouldNot(BeNil())
-		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+		inx := names.GetServerContainerIndex(vdb)
+		Expect(c.Containers[inx].ReadinessProbe.HTTPGet).ShouldNot(BeNil())
+		Expect(c.Containers[inx].LivenessProbe.HTTPGet).ShouldNot(BeNil())
 
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
@@ -286,10 +288,10 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.Containers[0].ReadinessProbe.HTTPGet).Should(BeNil())
-		Expect(c.Containers[0].LivenessProbe.HTTPGet).Should(BeNil())
-		Expect(c.Containers[0].ReadinessProbe.Exec).ShouldNot(BeNil())
-		Expect(c.Containers[0].LivenessProbe.TCPSocket).ShouldNot(BeNil())
+		Expect(c.Containers[inx].ReadinessProbe.HTTPGet).Should(BeNil())
+		Expect(c.Containers[inx].LivenessProbe.HTTPGet).Should(BeNil())
+		Expect(c.Containers[inx].ReadinessProbe.Exec).ShouldNot(BeNil())
+		Expect(c.Containers[inx].LivenessProbe.TCPSocket).ShouldNot(BeNil())
 	})
 
 	It("should not use canary query probe if using GSM", func() {
@@ -426,7 +428,7 @@ func getPodInfoVolume(vols []v1.Volume) *v1.Volume {
 }
 
 func getStartupConfVolume(vols []v1.Volume) *v1.Volume {
-	return getVolume(vols, vapi.StartupConfMountName)
+	return getVolume(vols, startupConfMountName)
 }
 
 func getVolume(vols []v1.Volume, mountName string) *v1.Volume {

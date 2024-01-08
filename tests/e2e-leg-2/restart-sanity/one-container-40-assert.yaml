@@ -11,12 +11,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  # Delete one pod entirely and delete the vertica pid in the other. This will
-  # cause us to lose quorum and restart all 3. The restart count for everything
-  # but pri1-0 should be non-zero.
-  - command: kubectl delete pod v-restart-with-liveness-probe-pri1-0
-    namespaced: true
-  - command: kubectl exec -n $NAMESPACE -i v-restart-with-liveness-probe-pri2-0 -c server -- bash -c 'kill -n SIGKILL $(pgrep ^vertica)'
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-restart
+status:
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-restart-defsc-0
+spec:
+  containers:
+  - name: server
+    readinessProbe:
+      exec:
+        command: ["vsql", "-c", "select 1"]
+    startupProbe:
+      exec:
+        command: ["vsql", "-c", "select 1"]

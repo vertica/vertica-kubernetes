@@ -175,23 +175,6 @@ func (v *VerticaDB) HasReviveInstanceIDAnnotation() bool {
 	return ok
 }
 
-// CheckIfContainersHaveVDBImage returns true if server container (and nma container
-// in case of sidecar architecture) is running with the same vertica image
-// as the one specified in the CR
-func (v *VerticaDB) CheckIfContainersHaveVDBImage(cnts []corev1.Container, servIndex int) bool {
-	if cnts[servIndex].Image != v.Spec.Image {
-		return false
-	}
-	nmaIndex := servIndex + 1
-	if !v.IsSideCarDeploymentEnabled() ||
-		len(cnts) <= nmaIndex {
-		// we return true because there is only the server container
-		return true
-	}
-	// check nma container image
-	return cnts[nmaIndex].Image == v.Spec.Image
-}
-
 // MergeAnnotations will merge new annotations with vdb.  It will return true if
 // any annotation changed.  Caller is responsible for updating the Vdb in the
 // API server.
@@ -413,9 +396,9 @@ func (v *VerticaDB) GetRestartTimeout() int {
 	return vmeta.GetRestartTimeout(v.Annotations)
 }
 
-// IsSideCarDeploymentEnabled returns true if the conditions to run NMA
+// IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
-func (v *VerticaDB) IsSideCarDeploymentEnabled() bool {
+func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
 	return vmeta.UseVClusterOps(v.Annotations) && vmeta.RunNMAInSidecarMode(v.Annotations)
 }
 

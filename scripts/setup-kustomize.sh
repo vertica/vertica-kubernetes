@@ -22,6 +22,9 @@ set -o allexport
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 KUSTOMIZE=$REPO_DIR/bin/kustomize
+RESTART_SANITY=$REPO_DIR/tests/e2e-leg-2/restart-sanity
+READINESS_PROBE_OVERRIDE=$REPO_DIR/tests/e2e-leg-3/readiness-probe-override
+RESTART_WITH_LIVENESS=$REPO_DIR/tests/e2e-leg-4/restart-with-liveness-probe
 
 function usage {
     echo "usage: $0 [-hv] [<configFile>]"
@@ -91,6 +94,14 @@ if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
 
+if [ -z "${NMA_RUNNING_MODE}" ]
+then
+    NMA_RUNNING_MODE=monolithic
+    if [ "$VERTICA_DEPLOYMENT_METHOD" == "vclusterops" ]
+    then
+        NMA_RUNNING_MODE=sidecar
+    fi
+fi
 # Name of the secret that contains the cert to use for communal access
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
@@ -130,7 +141,31 @@ if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
 echo -n "Add server mounts: "
 if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
+echo "NMA running mode: $NMA_RUNNING_MODE"
 echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
+
+if [ "$NMA_RUNNING_MODE" == "sidecar" ]
+then
+    cp $RESTART_SANITY/sidecar-40-assert.yaml $RESTART_SANITY/40-assert.yaml
+    cp $READINESS_PROBE_OVERRIDE/sidecar-25-assert.yaml $READINESS_PROBE_OVERRIDE/25-assert.yaml
+    cp $READINESS_PROBE_OVERRIDE/sidecar-30-assert.yaml $READINESS_PROBE_OVERRIDE/30-assert.yaml
+    cp $RESTART_WITH_LIVENESS/sidecar-15-assert.yaml $RESTART_WITH_LIVENESS/15-assert.yaml
+    cp $RESTART_WITH_LIVENESS/sidecar-35-assert.yaml $RESTART_WITH_LIVENESS/35-assert.yaml
+    cp $RESTART_WITH_LIVENESS/sidecar-40-assert.yaml $RESTART_WITH_LIVENESS/40-assert.yaml
+    cp $RESTART_WITH_LIVENESS/sidecar-45-assert.yaml $RESTART_WITH_LIVENESS/45-assert.yaml
+    cp $RESTART_WITH_LIVENESS/sidecar-55-assert.yaml $RESTART_WITH_LIVENESS/55-assert.yaml
+    cp $RESTART_WITH_LIVENESS/sidecar-60-assert.yaml $RESTART_WITH_LIVENESS/60-assert.yaml
+else
+    cp $RESTART_SANITY/one-container-40-assert.yaml $RESTART_SANITY/40-assert.yaml
+    cp $READINESS_PROBE_OVERRIDE/one-container-25-assert.yaml $READINESS_PROBE_OVERRIDE/25-assert.yaml
+    cp $READINESS_PROBE_OVERRIDE/one-container-30-assert.yaml $READINESS_PROBE_OVERRIDE/30-assert.yaml
+    cp $RESTART_WITH_LIVENESS/one-container-15-assert.yaml $RESTART_WITH_LIVENESS/15-assert.yaml
+    cp $RESTART_WITH_LIVENESS/one-container-35-assert.yaml $RESTART_WITH_LIVENESS/35-assert.yaml
+    cp $RESTART_WITH_LIVENESS/one-container-40-assert.yaml $RESTART_WITH_LIVENESS/40-assert.yaml
+    cp $RESTART_WITH_LIVENESS/one-container-45-assert.yaml $RESTART_WITH_LIVENESS/45-assert.yaml
+    cp $RESTART_WITH_LIVENESS/one-container-55-assert.yaml $RESTART_WITH_LIVENESS/55-assert.yaml
+    cp $RESTART_WITH_LIVENESS/one-container-60-assert.yaml $RESTART_WITH_LIVENESS/60-assert.yaml
+fi
 
 function create_vdb_kustomization {
     BASE_DIR=$1
@@ -197,6 +232,16 @@ EOF
             cat <<EOF >> kustomization.yaml
     - op: add
       path: /metadata/annotations/vertica.com~1vcluster-ops
+      value: "false"
+EOF
+        fi
+
+        # Useful in case of vcluster-server-upgrade from v24.1.0
+        if [ "$NMA_RUNNING_MODE" != "sidecar" ]
+        then
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
       value: "false"
 EOF
         fi

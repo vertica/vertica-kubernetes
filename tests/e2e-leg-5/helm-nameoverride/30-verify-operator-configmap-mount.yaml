@@ -26,8 +26,8 @@ data:
     set -o xtrace
 
     SVC_NAME=v-helm-nameoverride-pri-sc
-    kubectl exec -it svc/$SVC_NAME -- ls /etc/podinfo
-    kubectl exec -it svc/$SVC_NAME -- test -f /etc/podinfo/operator-deployment-method
+    kubectl exec -it svc/$SVC_NAME -c server -- ls /etc/podinfo
+    kubectl exec -it svc/$SVC_NAME -c server -- test -f /etc/podinfo/operator-deployment-method
 ---
 apiVersion: v1
 kind: Pod
