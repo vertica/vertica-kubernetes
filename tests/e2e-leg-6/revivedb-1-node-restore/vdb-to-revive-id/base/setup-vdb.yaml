@@ -11,16 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-revive-1-node-id
+  annotations:
+    vertica.com/include-uid-in-path: false
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
+    vertica.com/ignore-cluster-lease: true
 spec:
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
-  ignoreClusterLease: true
-  communal:
-    includeUIDInPath: false
+  passwordSecret: su-passwd
+  communal: {}
   local:
     depotVolume: EmptyDir
     requestSize: 100Mi
@@ -29,8 +32,6 @@ spec:
   subclusters:
     - name: sc1
       size: 1
-  kSafety: "0"
-  requeueTime: 5
   certSecrets: []
   imagePullSecrets: []
   volumes: []
