@@ -16,7 +16,5 @@ kind: TestStep
 delete:
   - apiVersion: vertica.com/v1beta1
     kind: VerticaDB
-  - apiVersion: vertica.com/v1beta1
-    kind: EventTrigger
 commands:
   - command: bash -c "kustomize build clean-communal/overlay | kubectl -n $NAMESPACE apply -f - "
