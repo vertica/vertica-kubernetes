@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -47,8 +48,54 @@ const (
 // VerticaRestorePointsQueryStatus defines the observed state of VerticaRestorePointsQuery
 type VerticaRestorePointsQueryStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// RestorePoints used to list out the available restore points.
-	RestorePoints string `json:"restorePoints"`
+	// Conditions for VerticaRestorePointsQuery
+	Conditions []VerticaRestorePointsQueryCondition `json:"conditions,omitempty"`
+}
+
+// VerticaRestorePointsQueryCondition defines condition for VerticaRestorePointsQuery
+type VerticaRestorePointsQueryCondition struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Type is the type of the condition
+	Type VerticaRestorePointsQueryConditionType `json:"type"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Status is the status of the condition
+	// can be True, False or Unknown
+	Status corev1.ConditionStatus `json:"status"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+}
+
+type VerticaRestorePointsQueryConditionType string
+
+const (
+	// Querying indicates whether the operator should query for list restore points
+	Querying VerticaRestorePointsQueryConditionType = "Querying"
+	// QueryComplete indicates the query has been completed
+	QueryComplete VerticaRestorePointsQueryConditionType = "QueryComplete"
+)
+
+// Fixed index entries for each condition.
+const (
+	QueryingIndex = iota
+	QueryCompleteIndex
+)
+
+// VerticaRestorePointsQueryConditionIndexMap is a map of the VerticaRestorePointsQueryConditionNameMap to its
+// index in the condition array
+var VerticaRestorePointsQueryConditionIndexMap = map[VerticaRestorePointsQueryConditionType]int{
+	Querying:      QueryingIndex,
+	QueryComplete: QueryCompleteIndex,
+}
+
+// VerticaRestorePointsQueryConditionNameMap is the reverse of VerticaRestorePointsQueryConditionIndexMap.  It
+// maps an index to the condition name
+var VerticaRestorePointsQueryConditionNameMap = map[int]VerticaRestorePointsQueryConditionType{
+	QueryingIndex:      Querying,
+	QueryCompleteIndex: QueryComplete,
 }
 
 // +kubebuilder:object:root=true

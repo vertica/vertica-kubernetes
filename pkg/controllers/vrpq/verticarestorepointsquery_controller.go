@@ -77,7 +77,7 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 	}
 
 	// Iterate over each actor
-	actors := r.constructActors(vrpq, log)
+	actors := constructActors(r, vrpq, log)
 	var res ctrl.Result
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
@@ -102,9 +102,11 @@ func (r *VerticaRestorePointsQueryReconciler) SetupWithManager(mgr ctrl.Manager)
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
-func (r *VerticaRestorePointsQueryReconciler) constructActors(_ *vapi.VerticaRestorePointsQuery,
-	_ logr.Logger) []controllers.ReconcileActor {
+func constructActors(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
+	log logr.Logger) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vrpq.
-	// Temporarily, we set nil value for constructActors
-	return nil
+	actors := []controllers.ReconcileActor{
+		MakeRestorePointsQueryReconciler(r, vrpq, log),
+	}
+	return actors
 }
