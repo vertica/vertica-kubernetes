@@ -22,15 +22,25 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/metrics"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 )
 
 // VerticaRestorePointsQueryReconciler reconciles a VerticaRestorePointsQuery object
@@ -39,6 +49,8 @@ type VerticaRestorePointsQueryReconciler struct {
 	Scheme *runtime.Scheme
 	Log    logr.Logger
 	EVRec  record.EventRecorder
+	Cfg    *rest.Config
+	OpCfg  opcfg.OperatorConfig
 }
 
 //+kubebuilder:rbac:groups=vertica.com,resources=verticarestorepointsqueries,verbs=get;list;watch;create;update;patch;delete
@@ -76,8 +88,27 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, nil
 	}
 
+	vdb := &v1.VerticaDB{}
+	err = r.Get(ctx, req.NamespacedName, vdb)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			metrics.HandleVDBDelete(req.NamespacedName.Namespace, req.NamespacedName.Name, log)
+			// Request object not found, cound have been deleted after reconcile request.
+			log.Info("VerticaDB resource not found.  Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		log.Error(err, "failed to get VerticaDB")
+		return ctrl.Result{}, err
+	}
+	passwd, err := r.GetSuperuserPassword(ctx, log, vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
+	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
+
 	// Iterate over each actor
-	actors := r.constructActors(vrpq, log)
+	actors := r.constructActors(vrpq, log, dispatcher)
 	var res ctrl.Result
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
@@ -103,10 +134,62 @@ func (r *VerticaRestorePointsQueryReconciler) SetupWithManager(mgr ctrl.Manager)
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
 func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.VerticaRestorePointsQuery,
-	log logr.Logger) []controllers.ReconcileActor {
+	log logr.Logger, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vrpq.
 	actors := []controllers.ReconcileActor{
-		MakeRestorePointsQueryReconciler(r, vrpq, log),
+		MakeRestorePointsQueryReconciler(r, vrpq, log, dispatcher),
 	}
 	return actors
+}
+
+// makeDispatcher will create a Dispatcher object based on the feature flags set.
+func (r *VerticaRestorePointsQueryReconciler) makeDispatcher(log logr.Logger, vdb *v1.VerticaDB, prunner cmds.PodRunner,
+	passwd string) vadmin.Dispatcher {
+	if meta.UseVClusterOps(vdb.Annotations) {
+		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
+	}
+	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec, r.OpCfg.DevMode)
+}
+
+// GetSuperuserPassword returns the superuser password if it has been provided
+func (r *VerticaRestorePointsQueryReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger,
+	vdb *v1.VerticaDB) (string, error) {
+	if vdb.Spec.PasswordSecret == "" {
+		return "", nil
+	}
+
+	fetcher := cloud.MultiSourceSecretFetcher{
+		Client:   r.Client,
+		Log:      log,
+		VDB:      vdb,
+		EVWriter: r,
+	}
+	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
+	if err != nil {
+		return "", err
+	}
+
+	pwd, ok := secret[builder.SuperuserPasswordKey]
+	if !ok {
+		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
+	}
+	return string(pwd), nil
+}
+
+// Event a wrapper for Event() that also writes a log entry
+func (r *VerticaRestorePointsQueryReconciler) Event(vdb runtime.Object, eventtype, reason, message string) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Event(vdb, eventtype, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (r *VerticaRestorePointsQueryReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
 }

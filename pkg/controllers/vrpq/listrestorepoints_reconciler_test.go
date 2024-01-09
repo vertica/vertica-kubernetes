@@ -20,19 +20,55 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+const TestPassword = "test-pw"
 
 var _ = Describe("stopdb_reconcile", func() {
 	ctx := context.Background()
 
-	It("should be a no-op if database doesn't exist", func() {
+	It("should update query conditions with vclusterOps", func() {
+		vdb := v1.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+		fpr := &cmds.FakePodRunner{}
+		dispatcher := vrpqRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger, dispatcher)
 
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		// make sure that Quering condition is updated to Unknown and
+		// QueryComplete condition is updated to True
+		Expect(vrpq.IsStatusConditionTrue(vapi.Querying)).ShouldNot(BeTrue())
+		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
+
+	})
+
+	It("should not update conditions with admintools", func() {
+		vdb := v1.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		vrpq := vapi.MakeVrpq()
+		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+		fpr := &cmds.FakePodRunner{}
+		dispatcher := vrpqRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger, dispatcher)
+		result, err := recon.Reconcile(ctx, &ctrl.Request{})
+		Expect(result).Should(Equal(ctrl.Result{}))
+		Expect(err.Error()).To(ContainSubstring("ListRestorePoints is not supported in the admintools side"))
+		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).ShouldNot(BeTrue())
+
 	})
 })

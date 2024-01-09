@@ -33,6 +33,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
@@ -70,7 +71,8 @@ var _ = BeforeSuite(func() {
 
 	err = v1vapi.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-
+	err = v1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
