@@ -21,5 +21,5 @@ import (
 )
 
 func (a *Admintools) ListRestorePoints(_ context.Context) error {
-	return errors.New("ListRestorePoints is not supported in the admintools side")
+	return errors.New("ListRestorePoints is not supported for admintools deployments")
 }

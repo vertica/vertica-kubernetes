@@ -22,26 +22,23 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type QueryReconciler struct {
-	VRec       *VerticaRestorePointsQueryReconciler
-	Vrpq       *vapi.VerticaRestorePointsQuery
-	Log        logr.Logger
-	Dispatcher vadmin.Dispatcher
+	VRec *VerticaRestorePointsQueryReconciler
+	Vrpq *vapi.VerticaRestorePointsQuery
+	Log  logr.Logger
 }
 
 func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
-	log logr.Logger, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+	log logr.Logger) controllers.ReconcileActor {
 	return &QueryReconciler{
-		VRec:       r,
-		Vrpq:       vrpq,
-		Log:        log,
-		Dispatcher: dispatcher,
+		VRec: r,
+		Vrpq: vrpq,
+		Log:  log.WithName("QueryReconciler"),
 	}
 }
 
@@ -51,12 +48,14 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 	if isSet {
 		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, q.setListRestorePointsQueryConditions(ctx, req)
+	return ctrl.Result{}, q.runListRestorePoints(ctx, req)
 }
 
 // setListRestorePointsQueryConditions will update the status condition before and after calling
 // list restore points api
-func (q *QueryReconciler) setListRestorePointsQueryConditions(ctx context.Context, _ *ctrl.Request) error {
+// Temporarily, runListRestorePoints will not call the ListRestorePoints API
+// since the dispatcher is not set up yet
+func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Request) error {
 	// set Querying status condition prior to calling vclusterops API
 	err := vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, ""))
@@ -64,14 +63,7 @@ func (q *QueryReconciler) setListRestorePointsQueryConditions(ctx context.Contex
 		return err
 	}
 
-	errAPI := q.Dispatcher.ListRestorePoints(ctx)
-	// Include an error message in the status condition if the API fails.
-	if errAPI != nil {
-		q.VRec.Log.Info("Fail to call Vcluster list restore points API")
-		return errAPI
-	}
-
-	// clear Querying status condition after calling API
+	// clear Querying status condition
 	err = vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.Querying, metav1.ConditionUnknown, ""))
 	if err != nil {

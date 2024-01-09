@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,9 +34,12 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
 		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
-		if err := clnt.Get(ctx, nm, vrpq); err != nil {
-			log.Info("VerticaRestorePointsQuery resource not found.  Ignoring since object must be deleted")
-
+		err := clnt.Get(ctx, nm, vrpq)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("VerticaRestorePointsQuery resource not found.  Ignoring since object must be deleted")
+				return nil
+			}
 			return err
 		}
 		// We will calculate the status for the vrpq object. This update is done in

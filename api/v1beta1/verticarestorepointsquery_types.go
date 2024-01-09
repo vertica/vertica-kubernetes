@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,25 +51,6 @@ type VerticaRestorePointsQueryStatus struct {
 	// Conditions for VerticaRestorePointsQuery
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
-
-// VerticaRestorePointsQueryCondition defines condition for VerticaRestorePointsQuery
-type VerticaRestorePointsQueryCondition struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Type is the type of the condition
-	Type VerticaRestorePointsQueryConditionType `json:"type"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Status is the status of the condition
-	// can be True, False or Unknown
-	Status corev1.ConditionStatus `json:"status"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Last time the condition transitioned from one status to another.
-	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-}
-
-type VerticaRestorePointsQueryConditionType string
 
 const (
 	// Querying indicates whether the operator should query for list restore points
