@@ -48,11 +48,6 @@ $SCRIPT_DIR/template-helm-chart.sh $TEMPLATE_DIR
 
 # Create a single manifest that will install all components of the operator.
 # This can be used to deploy the operator via kubectl.
-#
-# First, we format the repo for the operator image. If a repo is not specified,
-# we need to supply null. And it can't have a trailing slash.
-REPO=${IMG_REPO:-null}
-REPO=${REPO%/}
 DEPLOY_MANIFEST=$REPO_DIR/config/release-manifests/operator.yaml
 cat <<EOF > $DEPLOY_MANIFEST
 apiVersion: v1
@@ -60,5 +55,8 @@ kind: Namespace
 metadata:
   name: verticadb-operator
 EOF
-helm template -n verticadb-operator rel $REPO_DIR/helm-charts/verticadb-operator --set image.repo=$REPO --set image.name=${OPERATOR_IMG} >> $DEPLOY_MANIFEST
+set -o xtrace
+# Setting image.repo to null under the assumption that the OPERATOR_IMG will
+# have repositories in it if needed.
+helm template -n verticadb-operator rel $REPO_DIR/helm-charts/verticadb-operator --set image.repo=null --set image.name=${OPERATOR_IMG} >> $DEPLOY_MANIFEST
 sed -i 's/DEPLOY_WITH: helm/DEPLOY_WITH: yaml/g' $DEPLOY_MANIFEST
