@@ -11,26 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-restart-with-liveness-probe
-status:
-  subclusters:
-    - addedToDBCount: 2
-      upNodeCount: 2
-    - addedToDBCount: 1
-      upNodeCount: 1
----
 apiVersion: v1
 kind: Pod
 metadata:
   name: v-restart-with-liveness-probe-pri1-0
 status:
   containerStatuses:
-  - name: nma
   - name: server
-    started: true
+    started: false
+    ready: false
 ---
 apiVersion: v1
 kind: Pod
@@ -38,9 +27,9 @@ metadata:
   name: v-restart-with-liveness-probe-pri1-1
 status:
   containerStatuses:
-  - name: nma
   - name: server
     started: true
+    ready: true
 ---
 apiVersion: v1
 kind: Pod
@@ -48,6 +37,6 @@ metadata:
   name: v-restart-with-liveness-probe-pri2-0
 status:
   containerStatuses:
-  - name: nma
   - name: server
     started: true
+    ready: false

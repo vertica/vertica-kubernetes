@@ -333,9 +333,9 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(vdb)].Image).Should(Equal(NewImageName))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(vdb)].Image).Should(Equal(NewImageName))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
 	})
 
 	It("should have an upgradeStatus set when it fails part way through", func() {

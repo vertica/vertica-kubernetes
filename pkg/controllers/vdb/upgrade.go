@@ -100,7 +100,7 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
 		cnts := sts.Spec.Template.Spec.Containers
-		if cnts[names.GetServerContainerIndex(i.Vdb)].Image != i.Vdb.Spec.Image {
+		if cnts[names.GetFirstContainerIndex()].Image != i.Vdb.Spec.Image {
 			return true, nil
 		}
 	}
@@ -252,7 +252,7 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 
 		// Skip the pod if it already has the proper image.
 		cnts := pod.Spec.Containers
-		if cnts[names.GetServerContainerIndex(i.Vdb)].Image != i.Vdb.Spec.Image {
+		if cnts[names.GetFirstContainerIndex()].Image != i.Vdb.Spec.Image {
 			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, pod)
 			if err != nil {
@@ -273,7 +273,7 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		if sts.Spec.Template.Spec.Containers[names.GetServerContainerIndex(i.Vdb)].Image != i.Vdb.Spec.Image {
+		if sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image != i.Vdb.Spec.Image {
 			i.Log.Info("Deleting sts that had old image", "name", sts.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, sts)
 			if err != nil {

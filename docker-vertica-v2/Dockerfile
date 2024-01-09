@@ -7,6 +7,7 @@ ARG BASE_OS_NAME
 ARG BASE_OS_VERSION
 ARG BUILDER_OS_VERSION="8"
 ARG MINIMAL=""
+ARG S6_OVERLAY_VERSION=3.1.2.1
 FROM almalinux:${BUILDER_OS_VERSION} as builder
 
 ARG VERTICA_RPM
@@ -109,12 +110,34 @@ RUN set -x \
 FROM scratch
 COPY --from=initial / /
 
+ARG S6_OVERLAY_VERSION
+
 COPY --from=builder /opt/vertica /opt/vertica
 COPY --from=builder /home/dbadmin /home/dbadmin
 
 ENV PATH "$PATH:/opt/vertica/bin:/opt/vertica/sbin"
 ENV JAVA_HOME "/usr"
 ENV VERTICA_STARTUP_LOG_DUPLICATE "/proc/1/fd/1"
+
+COPY ./packages/init.d.functions /etc/rc.d/init.d/functions
+
+# For the init program (process 1), we use s6-overlay. This ensures none of the
+# processes we start ever become zombie's. It will also restart long running
+# processes like cron in case they fail.
+#
+# See https://github.com/just-containers/s6-overlay for instructions on how to
+# setup and configure.
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp
+COPY s6-rc.d/ /etc/s6-overlay/s6-rc.d/
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN set -x \
+  # Untar the init program that was downloaded earlier
+  && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
+  && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz
+
+ENTRYPOINT [ "/init" ]
 
 # vertica port
 EXPOSE 5433

@@ -323,7 +323,8 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.podIP = pod.Status.PodIP
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
 		pf.isPendingDelete = podIndex >= sc.Size
-		pf.image = pod.Spec.Containers[names.GetServerContainerIndex(vdb)].Image
+		// Let's just pick the first container image
+		pf.image = pod.Spec.Containers[names.GetFirstContainerIndex()].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
 	}
@@ -398,6 +399,9 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 	// The output of the script is yaml. We use a yaml package to unmarshal the
 	// output directly into a GatherState struct. And changes to this script
 	// must have a corresponding change in GatherState.
+	// Note: we replaced ^vertica with ^.*vertica\s-D as pattern to get vertica process
+	// because we need it when vertica and NMA are in separate containers. We plan to
+	// remove it and use vertica process only for admintools after VER-91286
 	return dedent.Dedent(fmt.Sprintf(`
 		set -o errexit
 		echo -n 'installIndicatorExists: '
@@ -664,15 +668,18 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 
 // getCatalogPathFromPod will get the current catalog path from the pod
 func (p *PodFacts) getCatalogPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
-	return p.getEnvValueFromPodWithDefault(pod, names.GetServerContainerIndex(vdb),
+	// both server and nma(if sidecar deployment enabled) have
+	// the catalog path env set so we can pick either to get it
+	index := names.GetFirstContainerIndex()
+	return p.getEnvValueFromPodWithDefault(pod, index,
 		builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath())
 }
 
 // getEnvValueFromPodWithDefault will get an environment value from the pod. A default
 // value is used if the env var isn't found.
-func (p *PodFacts) getEnvValueFromPodWithDefault(pod *corev1.Pod, serverIndex int,
+func (p *PodFacts) getEnvValueFromPodWithDefault(pod *corev1.Pod, cntIndex int,
 	envName, defaultValue string) string {
-	pathPrefix, ok := p.getEnvValueFromPod(pod, serverIndex, envName)
+	pathPrefix, ok := p.getEnvValueFromPod(pod, cntIndex, envName)
 	if !ok {
 		return defaultValue
 	}

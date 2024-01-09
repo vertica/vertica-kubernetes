@@ -11,44 +11,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-restart-with-liveness-probe
+---
 apiVersion: v1
 kind: Pod
 metadata:
   name: v-restart-with-liveness-probe-pri2-0
 spec:
   containers:
-  - name: nma
   - name: server
     livenessProbe:
-      initialDelaySeconds: 55
-      periodSeconds: 25
       failureThreshold: 3
+      initialDelaySeconds: 60
+      periodSeconds: 30
       successThreshold: 1
       timeoutSeconds: 1
     startupProbe:
-      timeoutSeconds: 3
-      failureThreshold: 60
+      failureThreshold: 117
       initialDelaySeconds: 30
       periodSeconds: 10
       successThreshold: 1
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-restart-with-liveness-probe-pri1-1
-spec:
-  containers:
-  - name: nma
-  - name: server
-    livenessProbe:
-      initialDelaySeconds: 55
-      periodSeconds: 25
-      failureThreshold: 3
-      successThreshold: 1
-      timeoutSeconds: 1
-    startupProbe:
-      timeoutSeconds: 3
-      failureThreshold: 60
-      initialDelaySeconds: 30
-      periodSeconds: 10
-      successThreshold: 1
+      timeoutSeconds: 5

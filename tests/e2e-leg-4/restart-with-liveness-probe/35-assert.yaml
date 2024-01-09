@@ -17,7 +17,6 @@ metadata:
   name: v-restart-with-liveness-probe-pri1-1
 status:
   containerStatuses:
-  - name: nma
   - name: server
     ready: false
     started: false
@@ -29,7 +28,6 @@ metadata:
   name: v-restart-with-liveness-probe-pri1-0
 status:
   containerStatuses:
-  - name: nma
   - name: server
     ready: true
     started: true

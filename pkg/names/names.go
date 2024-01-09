@@ -20,17 +20,17 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	ServerContainer = "server"
 	NMAContainer    = "nma"
-	firstContainer  = 0
 )
 
 const (
-	nmaContainerIndex = iota
+	firstContainerIndex = iota
 	serverContainerIndex
 )
 
@@ -113,11 +113,26 @@ func GetServerContainerIndex(vdb *vapi.VerticaDB) int {
 	if vdb.IsNMASideCarDeploymentEnabled() {
 		return serverContainerIndex
 	}
-	return firstContainer
+	return firstContainerIndex
+}
+
+// GetServerContainerIndexInContainers returns the server index in a given
+// containers slice coming from a Vertica pod
+func GetServerContainerIndexInSlice(cnts []corev1.Container) int {
+	// the server can either be the first or the 2nd container(if nma sidecar is enabled)
+	if cnts[firstContainerIndex].Name == ServerContainer {
+		return firstContainerIndex
+	}
+	return serverContainerIndex
 }
 
 // GetNMAContainerIndex returns the index of
 // the NMA container
 func GetNMAContainerIndex() int {
-	return nmaContainerIndex
+	// nma when in a sidecar is always the first container
+	return firstContainerIndex
+}
+
+func GetFirstContainerIndex() int {
+	return firstContainerIndex
 }

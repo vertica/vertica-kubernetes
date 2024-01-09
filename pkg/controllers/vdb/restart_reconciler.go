@@ -558,7 +558,8 @@ func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) 
 		}
 		return ctrl.Result{}, err
 	}
-	probe := pod.Spec.Containers[names.GetServerContainerIndex(r.Vdb)].LivenessProbe
+	cnts := pod.Spec.Containers
+	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
 	if probe == nil {
 		// For backwards compatibility, if the probe isn't set, then we just
 		// return a simple requeue with exponential backoff.
@@ -581,7 +582,9 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 	}
 	// If the pod doesn't have a livenessProbe then we always return true. This
 	// can happen if we are in the middle of upgrading the operator.
-	if pod.Spec.Containers[names.GetServerContainerIndex(r.Vdb)].LivenessProbe == nil {
+	cnts := pod.Spec.Containers
+	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
+	if probe == nil {
 		r.Log.Info("Pod doesn't have a livenessProbe. Okay to restart", "pod", nm)
 		return true, nil
 	}

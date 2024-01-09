@@ -153,7 +153,7 @@ func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
 func buildServerVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildVolumeMounts(vdb)
 	if vdb.IsMonolithicDeploymentEnabled() {
-		volMnts = append(volMnts, buildAdditionalVolumeMounts(vdb)...)
+		volMnts = append(volMnts, buildCommonNMAVolumeMounts(vdb)...)
 	}
 	if vdb.IsNMASideCarDeploymentEnabled() {
 		volMnts = append(volMnts, buildStartupConfVolumeMount())
@@ -166,7 +166,7 @@ func buildServerVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 func buildNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := buildVolumeMounts(vdb)
 	volMnts = append(volMnts, buildStartupConfVolumeMount())
-	volMnts = append(volMnts, buildAdditionalVolumeMounts(vdb)...)
+	volMnts = append(volMnts, buildCommonNMAVolumeMounts(vdb)...)
 	return volMnts
 }
 
@@ -279,9 +279,9 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	return mnts
 }
 
-// buildAdditionalVolumeMounts builds some extra volume mounts that are
+// buildCommonNMAVolumeMounts builds some extra volume mounts that are
 // used with NMA
-func buildAdditionalVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{
 			// Include a temp directory to be used by vcluster scrutinize. We want

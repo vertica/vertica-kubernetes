@@ -125,17 +125,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(err.Error()).Should(ContainSubstring("image vertica-k8s:latest is meant for admintools style"))
 	})
 
-	It("should fail the reconclier if NMA monolithic deployment is not supported by version", func() {
-		annotations := map[string]string{
-			vmeta.VClusterOpsAnnotation:       vmeta.VClusterOpsAnnotationTrue,
-			vmeta.RunNMAInSidecarAnnotation:   vmeta.RunNMAInSidecarAnnotationFalse,
-			vmeta.IgnoreUpgradePathAnnotation: vmeta.IgnoreUpgradePathAnntationTrue,
-		}
-		testNMARunningMode(ctx, vapi.NMAInSideCarDeploymentMinVersion,
-			vapi.VcluseropsAsDefaultDeploymentMethodMinVersion, annotations)
-	})
-
-	It("should fail the reconclier if NMA monolithic deployment is not supported by version", func() {
+	It("should fail the reconclier if NMA sidecar deployment is not supported by version", func() {
 		annotations := map[string]string{
 			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
 		}
@@ -220,11 +210,7 @@ func testNMARunningMode(ctx context.Context, badVersion,
 	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(res).Should(Equal(ctrl.Result{}))
-	if vdb.IsNMASideCarDeploymentEnabled() {
-		Expect(err.Error()).Should(ContainSubstring("running NMA in a sidecar container is not supported"))
-	} else {
-		Expect(err.Error()).Should(ContainSubstring("NMA and Vertica in a monolithic container is not supported"))
-	}
+	Expect(err.Error()).Should(ContainSubstring("running NMA in a sidecar container is not supported"))
 	fpr.Results = cmds.CmdResults{
 		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(goodVersion)}},
 	}
