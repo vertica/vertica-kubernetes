@@ -14,6 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  # # VER-91323: Known issue for one-node database where restore points are not listed after restore
   # - script: |-
   #     result=$(kubectl exec -n $NAMESPACE v-revive-1-node-index-sc1-0 -- vsql -w superuser -tAc "SELECT COUNT(*) FROM archive_restore_points;")
   #     echo "$result" | grep -Pzo "^2\n$" > /dev/null
