@@ -210,7 +210,7 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 		i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
 		sts.Spec.Template.Spec.Containers[inx].Image = i.Vdb.Spec.Image
 		if i.Vdb.IsNMASideCarDeploymentEnabled() {
-			sts.Spec.Template.Spec.Containers[names.NMAContainerIndex].Image = i.Vdb.Spec.Image
+			sts.Spec.Template.Spec.Containers[names.GetNMAContainerIndex()].Image = i.Vdb.Spec.Image
 		}
 		// We change the update strategy to OnDelete.  We don't want the k8s
 		// sts controller to interphere and do a rolling update after the

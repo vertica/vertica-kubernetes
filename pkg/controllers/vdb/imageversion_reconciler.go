@@ -109,15 +109,17 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 
 // Verify whether the NMA is configured to run in sidecar container
 func (v *ImageVersionReconciler) verifyNMARunningMode(vinf *version.Info) error {
+	ver := v.Vdb.Annotations[vmeta.VersionAnnotation]
 	// versions below 24.2.0 cannot be used to run NMA in a sidecar container
 	if v.Vdb.IsNMASideCarDeploymentEnabled() {
 		if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
 			return nil
 		}
 		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported,
-			"The NMA version cannot be used for nma sidecar deployment")
+			"The NMA version %s cannot be used for nma sidecar deployment."+
+				" The minimum supported version is %s", ver, vapi.NMAInSideCarDeploymentMinVersion)
 		return fmt.Errorf("running NMA in a sidecar container is not supported for version %s",
-			v.Vdb.Annotations[vmeta.VersionAnnotation])
+			ver)
 	}
 	// versions 24.2.0+ must only be used for NMA sidecar deployment
 	if v.Vdb.IsMonolithicDeploymentEnabled() {
@@ -125,9 +127,10 @@ func (v *ImageVersionReconciler) verifyNMARunningMode(vinf *version.Info) error 
 			return nil
 		}
 		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.MonolithicContainerNotSupported,
-			"The NMA version cannot be used for monolithic deployment")
+			"The NMA version %s cannot be used for monolithic deployment."+
+				" The only supported version is %s.", ver, vapi.VcluseropsAsDefaultDeploymentMethodMinVersion)
 		return fmt.Errorf("running NMA and Vertica in a monolithic container is not supported for version %s",
-			v.Vdb.Annotations[vmeta.VersionAnnotation])
+			ver)
 	}
 	return nil
 }

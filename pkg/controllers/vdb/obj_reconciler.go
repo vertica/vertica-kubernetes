@@ -437,10 +437,10 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	i := names.GetServerContainerIndex(o.Vdb)
 	// It does not matter which is the first container,
 	// they have the same image
-	curImage := curSts.Spec.Template.Spec.Containers[names.Index0].Image
+	curImage := curSts.Spec.Template.Spec.Containers[0].Image
 	expSts.Spec.Template.Spec.Containers[i].Image = curImage
 	if o.Vdb.IsNMASideCarDeploymentEnabled() {
-		expSts.Spec.Template.Spec.Containers[names.NMAContainerIndex].Image = curImage
+		expSts.Spec.Template.Spec.Containers[names.GetNMAContainerIndex()].Image = curImage
 	}
 
 	// Preserve scaling if told to do so. This is used when doing early

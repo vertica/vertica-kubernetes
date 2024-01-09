@@ -11,47 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-restart-with-liveness-probe
+  name: v-ks-1-update-strategy-sc1-2
 status:
-  subclusters:
-    - addedToDBCount: 2
-      upNodeCount: 2
-    - addedToDBCount: 1
-      upNodeCount: 1
+  containerStatuses:
+    - name: nma
+    - ready: false
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-restart-with-liveness-probe-pri1-0
+  name: v-ks-1-update-strategy-sc1-1
 status:
   containerStatuses:
-  - name: server
-    restartCount: 0
-    started: true
-    ready: true
+    - name: nma
+    - ready: true
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-restart-with-liveness-probe-pri1-1
+  name: v-ks-1-update-strategy-sc1-0
 status:
   containerStatuses:
-  - name: server
-    # Restarted twice. Once in step 40 and another in this step.
-    restartCount: 2
-    started: true
-    ready: true
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-restart-with-liveness-probe-pri2-0
-status:
-  containerStatuses:
-  - name: server
-    started: true
-    ready: true
-    restartCount: 1
+    - name: nma
+    - ready: true

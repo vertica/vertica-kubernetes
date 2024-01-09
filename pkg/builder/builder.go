@@ -1237,6 +1237,8 @@ func buildVerticaStartCommand() []string {
 	return []string{
 		"bash",
 		"-c",
+		// we sleep to prevent the container to exit.
+		// this will be removed after VER-91286
 		fmt.Sprintf("%s && sleep infinity", startCmd),
 	}
 }

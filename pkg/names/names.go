@@ -26,7 +26,7 @@ import (
 const (
 	ServerContainer = "server"
 	NMAContainer    = "nma"
-	Index0          = 0
+	firstContainer  = 0
 )
 
 const (
@@ -113,5 +113,11 @@ func GetServerContainerIndex(vdb *vapi.VerticaDB) int {
 	if vdb.IsNMASideCarDeploymentEnabled() {
 		return ServerContainerIndex
 	}
-	return Index0
+	return firstContainer
+}
+
+// GetNMAContainerIndex returns the index of
+// the NMA container
+func GetNMAContainerIndex() int {
+	return firstContainer
 }
