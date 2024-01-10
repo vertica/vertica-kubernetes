@@ -21,7 +21,7 @@ data:
     set -o xtrace
     set -o errexit
 
-    CAT_CHK=$(kubectl exec svc/v-client-access-sc1 -- vsql -c "select storage_path from disk_storage where storage_usage = 'CATALOG' and node_name = 'v_vertdb_node0001'")
+    CAT_CHK=$(kubectl exec svc/v-client-access-sc1 -c server -- vsql -c "select storage_path from disk_storage where storage_usage = 'CATALOG' and node_name = 'v_vertdb_node0001'")
     echo $CAT_CHK
     echo $CAT_CHK | grep -cq '/catalog/vertdb/v_vertdb_node0001_catalog/Catalog'
 ---

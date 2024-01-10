@@ -26,9 +26,9 @@ data:
 
     SQL_SCRIPT=/tmp/logrotate.sql
     POD_NAME=v-verify-server-logrotate-main-0
-    LOGROTATE_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
+    LOGROTATE_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /tmp; vsql -U dbadmin -f $SQL_SCRIPT")
     echo "$LOGROTATE_OP"
-    kubectl exec $POD_NAME -i -- bash -c "echo '$LOGROTATE_OP' | diff - /tmp/logrotateTimerServiceOut.txt"
+    kubectl exec $POD_NAME -i -c server -- bash -c "echo '$LOGROTATE_OP' | diff - /tmp/logrotateTimerServiceOut.txt"
 ---
 apiVersion: v1
 kind: Pod

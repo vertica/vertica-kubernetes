@@ -333,9 +333,9 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
 	})
 
 	It("should have an upgradeStatus set when it fails part way through", func() {
@@ -496,6 +496,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		}
 		vdb.Spec.Image = OldImage
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
+		vdb.ObjectMeta.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		vdb.ObjectMeta.Annotations[vmeta.IgnoreUpgradePathAnnotation] = vmeta.IgnoreUpgradePathAnntationTrue
 

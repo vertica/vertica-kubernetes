@@ -17,7 +17,8 @@ metadata:
   name: v-ks-1-update-strategy-sc1-2
 status:
   containerStatuses:
-    - ready: false
+    - name: nma
+    - ready: true
 ---
 apiVersion: v1
 kind: Pod
@@ -25,7 +26,8 @@ metadata:
   name: v-ks-1-update-strategy-sc1-1
 status:
   containerStatuses:
-    - ready: true
+    - name: nma
+    - ready: false
 ---
 apiVersion: v1
 kind: Pod
@@ -33,4 +35,5 @@ metadata:
   name: v-ks-1-update-strategy-sc1-0
 status:
   containerStatuses:
+    - name: nma
     - ready: true

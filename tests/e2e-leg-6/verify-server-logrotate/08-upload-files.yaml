@@ -2,9 +2,9 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   # upload the sql files
-  - command: kubectl -n $NAMESPACE cp ./sql-input/logrotate.sql v-verify-server-logrotate-main-0:/tmp
+  - command: kubectl -n $NAMESPACE cp ./sql-input/logrotate.sql v-verify-server-logrotate-main-0:/tmp -c server
   # upload the expected outputs of executing sql files
-  - command: kubectl -n $NAMESPACE cp ./expected-output/logrotateTimerServiceOut.txt v-verify-server-logrotate-main-0:/tmp
+  - command: kubectl -n $NAMESPACE cp ./expected-output/logrotateTimerServiceOut.txt v-verify-server-logrotate-main-0:/tmp -c server
   # Install packages in the pod that are needed to run and verify the test
-  - command: kubectl -n $NAMESPACE cp setup-env-runtime.sh v-verify-server-logrotate-main-0:/tmp/setup-env-runtime.sh
-  - command: kubectl -n $NAMESPACE exec -it v-verify-server-logrotate-main-0 -- bash /tmp/setup-env-runtime.sh
+  - command: kubectl -n $NAMESPACE cp setup-env-runtime.sh v-verify-server-logrotate-main-0:/tmp/setup-env-runtime.sh -c server
+  - command: kubectl -n $NAMESPACE exec -it v-verify-server-logrotate-main-0 -c server -- bash /tmp/setup-env-runtime.sh

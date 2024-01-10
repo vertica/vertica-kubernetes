@@ -19,4 +19,4 @@ commands:
   # but pri1-0 should be non-zero.
   - command: kubectl delete pod v-restart-with-liveness-probe-pri1-0
     namespaced: true
-  - command: kubectl exec -n $NAMESPACE -i v-restart-with-liveness-probe-pri2-0 -- bash -c 'kill -n SIGKILL $(pgrep ^vertica)'
+  - command: kubectl exec -n $NAMESPACE -i v-restart-with-liveness-probe-pri2-0 -c server -- bash -c 'kill -n SIGKILL $(pgrep ^vertica)'
