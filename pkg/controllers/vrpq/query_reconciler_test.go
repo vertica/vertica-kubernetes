@@ -34,9 +34,9 @@ var _ = Describe("query_reconcile", func() {
 		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
 
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		// make sure that Quering condition is updated to Unknown and
+		// make sure that Quering condition is updated to false and
 		// QueryComplete condition is updated to True
-		Expect(vrpq.IsStatusConditionTrue(vapi.Querying)).ShouldNot(BeTrue())
+		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).Should(BeTrue())
 		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
 
 	})

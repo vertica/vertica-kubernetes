@@ -63,9 +63,11 @@ func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Requ
 		return err
 	}
 
+	// API should be called to proceed here
+
 	// clear Querying status condition
 	err = vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.Querying, metav1.ConditionUnknown, ""))
+		v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, ""))
 	if err != nil {
 		return err
 	}
