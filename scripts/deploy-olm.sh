@@ -105,7 +105,6 @@ metadata:
   name: e2e-verticadb-subscription
   namespace: $NAMESPACE
 spec:
-  channel: stable
   name: verticadb-operator
   source: $CATALOG_SOURCE_NAME
   sourceNamespace: $OLM_NS

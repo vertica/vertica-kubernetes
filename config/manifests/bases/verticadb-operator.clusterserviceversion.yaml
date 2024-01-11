@@ -1971,7 +1971,7 @@ spec:
   - email: mspilchen@opentext.com
     name: Matt Spilchen
   maturity: stable
-  minKubeVersion: 1.21.1
+  minKubeVersion: 1.21.0
   provider:
     name: Vertica
     url: http://www.vertica.com
