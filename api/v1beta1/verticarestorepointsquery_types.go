@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -47,9 +48,16 @@ const (
 // VerticaRestorePointsQueryStatus defines the observed state of VerticaRestorePointsQuery
 type VerticaRestorePointsQueryStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// RestorePoints used to list out the available restore points.
-	RestorePoints string `json:"restorePoints"`
+	// Conditions for VerticaRestorePointsQuery
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+const (
+	// Querying indicates whether the operator should query for list restore points
+	Querying = "Querying"
+	// QueryComplete indicates the query has been completed
+	QueryComplete = "QueryComplete"
+)
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=vertica,shortName=vrpq
@@ -83,6 +91,14 @@ func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedN
 		Name:      vrpq.ObjectMeta.Name,
 		Namespace: vrpq.ObjectMeta.Namespace,
 	}
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrpq.Status.Conditions, statusCondition)
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vrpq.Status.Conditions, statusCondition)
 }
 
 func MakeSampleVrpqName() types.NamespacedName {
