@@ -460,7 +460,7 @@ kuttl-step-gen: ## Builds the kuttl-step-gen tool
 
 .PHONY: vdb-gen
 vdb-gen: generate manifests ## Builds the vdb-gen tool
-	go build -o bin/$@ ./cmd/$@
+	CGO_ENABLED=0 go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment
 
