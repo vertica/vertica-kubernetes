@@ -1,5 +1,0 @@
-kind: Changed
-body: Upgrade path detection now only blocks downgrades.
-time: 2024-01-04T14:26:19.176420747-04:00
-custom:
-  Issue: "653"

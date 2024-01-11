@@ -1,5 +1,0 @@
-kind: Changed
-body: Drop CRD write permissions for OLM style deployments
-time: 2024-01-11T10:42:41.589206787-04:00
-custom:
-  Issue: "662"

@@ -1,5 +1,0 @@
-kind: Added
-body: Support for running the NMA as a sidecar in 24.2.0 or newer.
-time: 2024-01-10T09:37:35.718191664-04:00
-custom:
-  Issue: "654"
