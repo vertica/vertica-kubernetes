@@ -29,8 +29,12 @@ SOAK_CFG?=local-soak.cfg
 # cause an infinite number of iterations to run.
 NUM_SOAK_ITERATIONS?=1
 
-# CHANNELS define the bundle channels used in the bundle. 
-CHANNELS=stable
+# CHANNELS define the bundle channels used in the bundle:
+# - stable: This was the channel named for the first version of the operator
+#   when it was namespace scoped.
+# - v2-stable: This is the new channel name to use for cluster scoped operator.
+#   This corresponds with the 2.0.0 release of the operator.
+CHANNELS=v2-stable
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
@@ -42,7 +46,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL=stable
+DEFAULT_CHANNEL?=v2-stable
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
