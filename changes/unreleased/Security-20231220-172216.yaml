@@ -1,5 +1,0 @@
-kind: Security
-body: Fix for CVE-2023-48795
-time: 2023-12-20T17:22:16.849604885-04:00
-custom:
-  Issue: "646"
