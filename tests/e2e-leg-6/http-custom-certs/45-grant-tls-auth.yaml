@@ -22,7 +22,7 @@ data:
     set -o xtrace
 
     # In order to use the certs as authentication, the server needs to be setup to use tls.
-    kubectl exec -it svc/v-http-custom-certs-main -- vsql -c "CREATE AUTHENTICATION tls_auth METHOD 'tls' HOST TLS '0.0.0.0/0'; GRANT AUTHENTICATION tls_auth TO PUBLIC;"
+    kubectl exec -it svc/v-http-custom-certs-main -c server -- vsql -c "CREATE AUTHENTICATION tls_auth METHOD 'tls' HOST TLS '0.0.0.0/0'; GRANT AUTHENTICATION tls_auth TO PUBLIC;"
 ---
 apiVersion: vertica.com/v1beta1
 kind: EventTrigger

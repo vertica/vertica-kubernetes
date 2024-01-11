@@ -16,4 +16,4 @@ kind: TestStep
 commands:
   # We need to change ksafety to 0 to allow us to remove the subcluster sc2 as
   # we will temporarily go down to 2 nodes in the cluster.
-  - command: kubectl exec --namespace $NAMESPACE v-mc-restart-sc1-0 -- vsql -c "select mark_design_ksafe(0)"
+  - command: kubectl exec --namespace $NAMESPACE v-mc-restart-sc1-0 -c server -- vsql -c "select mark_design_ksafe(0)"

@@ -31,6 +31,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -475,15 +476,19 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*P
 		if !pod.readOnly {
 			continue
 		}
-		const KillMarker = "Killing process"
+		const killMarker = "Killing process"
+		// When NMA in sidecar is enabled we must remove the startup conf file
+		// after killing the process to allow vertica to restart gracefully
+		rmCmd := fmt.Sprintf("rm -rf %s", paths.StartupConfFile)
+		killCmd := fmt.Sprintf("for pid in $(pgrep ^vertica$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", killMarker)
 		cmd := []string{
 			"bash", "-c",
-			fmt.Sprintf("for pid in $(pgrep ^vertica$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", KillMarker),
+			fmt.Sprintf("%s && %s", killCmd, rmCmd),
 		}
 		// Avoid all errors since the process may not even be running
 		if stdout, _, err := r.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 			return ctrl.Result{}, err
-		} else if strings.Contains(stdout, KillMarker) {
+		} else if strings.Contains(stdout, killMarker) {
 			killedAtLeastOnePid = true
 		}
 	}
@@ -553,7 +558,8 @@ func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) 
 		}
 		return ctrl.Result{}, err
 	}
-	probe := pod.Spec.Containers[names.ServerContainerIndex].LivenessProbe
+	cnts := pod.Spec.Containers
+	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
 	if probe == nil {
 		// For backwards compatibility, if the probe isn't set, then we just
 		// return a simple requeue with exponential backoff.
@@ -576,7 +582,9 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 	}
 	// If the pod doesn't have a livenessProbe then we always return true. This
 	// can happen if we are in the middle of upgrading the operator.
-	if pod.Spec.Containers[names.ServerContainerIndex].LivenessProbe == nil {
+	cnts := pod.Spec.Containers
+	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
+	if probe == nil {
 		r.Log.Info("Pod doesn't have a livenessProbe. Okay to restart", "pod", nm)
 		return true, nil
 	}

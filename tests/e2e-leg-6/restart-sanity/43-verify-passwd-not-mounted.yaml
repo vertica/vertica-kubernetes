@@ -11,9 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verify that the license exists in the container
-
-apiVersion: kuttl.dev/v1beta1
+apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
-  - script: kubectl exec -t -n $NAMESPACE v-ks-0-update-strategy-sc1-0 -- test -f /home/dbadmin/licensing/mnt/lic
+  - command: kubectl exec -n $NAMESPACE v-restart-defsc-0 -c server -- bash -c "ls /etc/podinfo"
+  # dbadmin password should be mounted because we reference it in probes.
+  - command: kubectl exec -n $NAMESPACE v-restart-defsc-0 -c server -- bash -c "! test -f /etc/podinfo/superuser-passwd"
+

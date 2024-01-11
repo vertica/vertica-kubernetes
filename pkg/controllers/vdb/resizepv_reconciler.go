@@ -27,6 +27,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -194,7 +195,7 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 		fmt.Sprintf("select alter_location_size('depot', '%s', '%s')",
 			pf.vnodeName, pf.depotDiskPercentSize),
 	}
-	_, _, err = r.PRunner.ExecVSQL(ctx, pf.name, ServerContainer, sql...)
+	_, _, err = r.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, sql...)
 	if err == nil {
 		r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.DepotResized,
 			"Depot was resized in pod '%s' to be %s of expanded PVC", pf.name.Name, pf.depotDiskPercentSize)

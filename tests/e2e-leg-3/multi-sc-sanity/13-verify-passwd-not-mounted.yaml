@@ -14,6 +14,6 @@
 apiVersion: kuttl.dev/v1beta2
 kind: TestStep
 commands:
-  - command: kubectl exec -n $NAMESPACE v-multi-sc-sc-1-0 -- bash -c "ls /etc/podinfo"
+  - command: kubectl exec -n $NAMESPACE v-multi-sc-sc-1-0 -c server -- bash -c "ls /etc/podinfo"
   # dbadmin password should not be mounted because we don't reference it in probes.
-  - command: kubectl exec -n $NAMESPACE v-multi-sc-sc-1-0 -- bash -c "! test -f /etc/podinfo/superuser-passwd"
+  - command: kubectl exec -n $NAMESPACE v-multi-sc-sc-1-0 -c server -- bash -c "! test -f /etc/podinfo/superuser-passwd"

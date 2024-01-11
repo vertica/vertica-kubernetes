@@ -11,9 +11,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Creates a secret from the CE license that is in the container.
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl exec -t -n $NAMESPACE v-ks-0-update-strategy-sc1-0 -- cat /home/dbadmin/licensing/ce/vertica_community_edition.license.key | kubectl create secret generic ce-license -n $NAMESPACE --from-file=lic=/dev/stdin
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-restart
+status:
+  subclusters:
+    - addedToDBCount: 3
+      upNodeCount: 3
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-restart-defsc
+status:
+  readyReplicas: 3
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: grant-dbadmin-local-access
+status:
+  succeeded: 1

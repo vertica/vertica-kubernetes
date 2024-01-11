@@ -11,28 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-readiness-probe-override-queries
-spec:
-  template:
-    spec:
-      containers:
-        - name: server
-          readinessProbe:
-            timeoutSeconds: 5
-            periodSeconds: 20
+  name: v-ks-1-update-strategy-sc1-2
+status:
+  containerStatuses:
+    - name: nma
+    - ready: true
 ---
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-readiness-probe-override-admin
-spec:
-  template:
-    spec:
-      containers:
-        - name: server
-          readinessProbe:
-            timeoutSeconds: 5
-            periodSeconds: 20
+  name: v-ks-1-update-strategy-sc1-1
+status:
+  containerStatuses:
+    - name: nma
+    - ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-1-update-strategy-sc1-0
+status:
+  containerStatuses:
+    - name: nma
+    - ready: false

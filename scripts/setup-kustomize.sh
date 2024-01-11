@@ -91,6 +91,10 @@ if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
 
+if [ -z "${NMA_RUNNING_MODE}" ] || [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ]
+then
+    NMA_RUNNING_MODE=monolithic
+fi
 # Name of the secret that contains the cert to use for communal access
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
@@ -130,6 +134,7 @@ if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
 echo -n "Add server mounts: "
 if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
+echo "NMA running mode: $NMA_RUNNING_MODE"
 echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 
 function create_vdb_kustomization {
@@ -192,6 +197,18 @@ EOF
     - op: add
       path: /metadata/annotations/vertica.com~1vcluster-ops
       value: "true"
+EOF
+        else
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1vcluster-ops
+      value: "false"
+EOF
+        fi
+
+        if [ "$NMA_RUNNING_MODE" != "sidecar" ]
+        then
+            cat <<EOF >> kustomization.yaml
     - op: add
       path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
       value: "false"
@@ -199,8 +216,8 @@ EOF
         else
             cat <<EOF >> kustomization.yaml
     - op: add
-      path: /metadata/annotations/vertica.com~1vcluster-ops
-      value: "false"
+      path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
+      value: "true"
 EOF
         fi
         

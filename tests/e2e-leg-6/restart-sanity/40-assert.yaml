@@ -11,18 +11,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-ks-0-update-strategy
+  name: v-restart
 status:
   subclusters:
-    - upNodeCount: 0
+    - addedToDBCount: 3
+      upNodeCount: 3
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-ks-0-update-strategy-sc1-0
-status:
-  containerStatuses:
-    - ready: false
+  name: v-restart-defsc-0
+spec:
+  containers:
+  - name: nma
+  - name: server
+    readinessProbe:
+      exec:
+        command: ["vsql", "-c", "select 1"]
+    startupProbe:
+      exec:
+        command: ["vsql", "-c", "select 1"]
