@@ -21,7 +21,7 @@ data:
     set -o xtrace
     set -o errexit
 
-    VSTACK_OP=$(kubectl exec svc/v-client-access-sc1 -- sudo /opt/vertica/bin/vstack || true)
+    VSTACK_OP=$(kubectl exec svc/v-client-access-sc1 -c server -- sudo /opt/vertica/bin/vstack || true)
     echo $VSTACK_OP
     # The image may have sudo for admintools style of deployments, or it may
     # only have su with a known root password.
@@ -30,7 +30,7 @@ data:
       echo "Found expected output"
       exit 0
     fi
-    VSTACK_OP=$(kubectl exec svc/v-client-access-sc1 -- sh -c "echo root | su root /opt/vertica/bin/vstack")
+    VSTACK_OP=$(kubectl exec svc/v-client-access-sc1 -c server -- sh -c "echo root | su root /opt/vertica/bin/vstack")
     echo $VSTACK_OP
     echo $VSTACK_OP | grep -cq 'Thread'
     echo "Found expected output"

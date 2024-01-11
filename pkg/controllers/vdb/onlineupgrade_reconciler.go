@@ -147,6 +147,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		"Draining primary subclusters",
 		"Recreating pods for primary subclusters",
 		"Checking if new version is compatible",
+		"Checking if deployment type is changing",
 		"Adding annotations to pods",
 		"Running installer",
 		"Waiting for secondary nodes to become read-only",
@@ -351,6 +352,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		o.drainSubcluster,
 		o.recreateSubclusterWithNewImage,
 		o.checkVersion,
+		o.handleDeploymentChange,
 		o.addPodAnnotations,
 		o.runInstaller,
 		o.waitForReadOnly,
@@ -409,7 +411,7 @@ func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulS
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
 // This is a no-op if the image has already been updated for the subcluster.
 func (o *OnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+	img := sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image
 
 	if img != o.Vdb.Spec.Image {
 		scName := sts.Labels[vmeta.SubclusterNameLabel]
@@ -471,6 +473,39 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 	return vr.Reconcile(ctx, &ctrl.Request{})
 }
 
+func (o *OnlineUpgradeReconciler) handleDeploymentChange(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {
+	// We need to check if we are changing deployment types. This isn't allowed
+	// for online upgrade because the vclusterops library won't know how to talk
+	// to the pods that are still running the old admintools deployment since it
+	// won't have the NMA running. If we detect this change then we take down
+	// the secondaries and we'll behave like an offline upgrade.
+	primaryRunningVClusterOps := o.getPodsWithDeploymentType(true /* isPrimary */, false /* admintoolsDeployment */)
+	secondaryRunningAdmintools := o.getPodsWithDeploymentType(false /* isPrimary */, true /* admintoolsDeployment */)
+	if primaryRunningVClusterOps > 0 && secondaryRunningAdmintools > 0 {
+		o.Log.Info("online upgrade isn't supported when changing deployment types from admintools to vclusterops",
+			"primaryRunningVClusterOps", primaryRunningVClusterOps, "secondaryRunningAdmintools", secondaryRunningAdmintools)
+		if err := o.Manager.deleteStsRunningOldImage(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+// getPodsWithDeploymentType is a helper that counts the number of running pods
+// with a specific deployment type. The count is returned.
+func (o *OnlineUpgradeReconciler) getPodsWithDeploymentType(isPrimary, admintoolsDeployment bool) int {
+	count := 0
+	for _, v := range o.PFacts.Detail {
+		if !v.isPodRunning {
+			continue
+		}
+		if v.isPrimary == isPrimary && v.admintoolsExists == admintoolsDeployment {
+			count++
+		}
+	}
+	return count
+}
+
 // addPodAnnotations will add the necessary pod annotations that need to be
 // in-place prior to restart
 func (o *OnlineUpgradeReconciler) addPodAnnotations(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {
@@ -497,7 +532,7 @@ func (o *OnlineUpgradeReconciler) waitForReadOnly(_ context.Context, sts *appsv1
 	if o.PFacts.countUpPrimaryNodes() != 0 {
 		return ctrl.Result{}, nil
 	}
-	newImage := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+	newImage := sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image
 	// If all the pods that are running the old image are read-only we are done
 	// our wait.
 	if o.PFacts.countNotReadOnlyWithOldImage(newImage) == 0 {
@@ -616,7 +651,7 @@ func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error 
 	for i := range stss.Items {
 		sts := &stss.Items[i]
 		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster {
-			img := sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image
+			img := sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image
 			imageFound := false
 			for j := range o.PrimaryImages {
 				imageFound = o.PrimaryImages[j] == img

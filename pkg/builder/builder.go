@@ -27,6 +27,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -45,16 +46,18 @@ const (
 	VerticaClusterCommPort  = 5434
 	SpreadClientPort        = 4803
 	NMAPort                 = 5554
+	StdOut                  = "/proc/1/fd/1"
 
 	// Standard environment variables that are set in each pod
-	PodIPEnv        = "POD_IP"
-	HostIPEnv       = "HOST_IP"
-	HostNameEnv     = "HOST_NODENAME"
-	DataPathEnv     = "DATA_PATH"
-	CatalogPathEnv  = "CATALOG_PATH"
-	DepotPathEnv    = "DEPOT_PATH"
-	DatabaseNameEnv = "DATABASE_NAME"
-	VSqlUserEnv     = "VSQL_USER"
+	PodIPEnv                   = "POD_IP"
+	HostIPEnv                  = "HOST_IP"
+	HostNameEnv                = "HOST_NODENAME"
+	DataPathEnv                = "DATA_PATH"
+	CatalogPathEnv             = "CATALOG_PATH"
+	DepotPathEnv               = "DEPOT_PATH"
+	DatabaseNameEnv            = "DATABASE_NAME"
+	VSqlUserEnv                = "VSQL_USER"
+	VerticaStartupLogDuplicate = "VERTICA_STARTUP_LOG_DUPLICATE"
 
 	// Environment variables that are (optionally) set when deployed with vclusterops
 	NMARootCAEnv          = "NMA_ROOTCA_PATH"
@@ -63,8 +66,14 @@ const (
 	NMASecretNamespaceEnv = "NMA_SECRET_NAMESPACE"
 	NMASecretNameEnv      = "NMA_SECRET_NAME"
 
+	// Environment variables that are set only in the nma container
+	NMALogPath = "NMA_LOG_PATH"
+
 	// HTTP endpoint used for health check probe
-	httpServerVersionPath = "/v1/version"
+	HTTPServerVersionPath = "/v1/version"
+
+	// Name of the volume shared by nma and vertica containers
+	startupConfMountName = "startup-conf"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -139,7 +148,29 @@ func buildConfigVolumeMount(vdb *vapi.VerticaDB) corev1.VolumeMount {
 	}
 }
 
-// buildVolumeMounts returns the volume mounts to include in the sts pod spec
+// buildServerVolumeMounts returns the volume mounts to include
+// in the server container
+func buildServerVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	volMnts := buildVolumeMounts(vdb)
+	if vdb.IsMonolithicDeploymentEnabled() {
+		volMnts = append(volMnts, buildCommonNMAVolumeMounts(vdb)...)
+	}
+	if vdb.IsNMASideCarDeploymentEnabled() {
+		volMnts = append(volMnts, buildStartupConfVolumeMount())
+	}
+	return volMnts
+}
+
+// buildNMAVolumeMounts returns the volume mounts to include
+// in the nma container
+func buildNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	volMnts := buildVolumeMounts(vdb)
+	volMnts = append(volMnts, buildStartupConfVolumeMount())
+	volMnts = append(volMnts, buildCommonNMAVolumeMounts(vdb)...)
+	return volMnts
+}
+
+// buildVolumeMounts returns standard volume mounts common to all containers
 func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		{Name: vapi.LocalDataPVC, MountPath: paths.LocalDataPath},
@@ -191,28 +222,17 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 		volMnts = append(volMnts, buildSSHVolumeMounts()...)
 	}
 
-	if vmeta.UseVClusterOps(vdb.Annotations) &&
-		vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
-	}
-
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		// Include a temp directory to be used by vcluster scrutinize. We want
-		// the temp directory to be large enough to store compressed logs and
-		// such. These can be quite big, so we cannot risk storing those in
-		// local disk on the node, which may fill up and cause the pod to be
-		// rescheduled.
-		volMnts = append(volMnts, corev1.VolumeMount{
-			Name: vapi.LocalDataPVC, SubPath: vdb.GetPVSubPath("scrutinize"), MountPath: paths.ScrutinizeTmp,
-		})
-	}
-
 	volMnts = append(volMnts, buildCertSecretVolumeMounts(vdb)...)
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
 	return volMnts
+}
+
+func buildStartupConfVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      startupConfMountName,
+		MountPath: paths.StartupConfDir,
+	}
 }
 
 func buildKerberosVolumeMounts() []corev1.VolumeMount {
@@ -259,6 +279,29 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 	return mnts
 }
 
+// buildCommonNMAVolumeMounts builds some extra volume mounts that are
+// used with NMA
+func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	volMnts := []corev1.VolumeMount{
+		{
+			// Include a temp directory to be used by vcluster scrutinize. We want
+			// the temp directory to be large enough to store compressed logs and
+			// such. These can be quite big, so we cannot risk storing those in
+			// local disk on the node, which may fill up and cause the pod to be
+			// rescheduled
+			Name:      vapi.LocalDataPVC,
+			SubPath:   vdb.GetPVSubPath("scrutinize"),
+			MountPath: paths.ScrutinizeTmp,
+		},
+	}
+	if vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+	}
+	return volMnts
+}
+
 func buildNMACertsVolumeMount() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{
@@ -299,11 +342,14 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	if vmeta.UseVClusterOps(vdb.Annotations) &&
 		vmeta.UseNMACertsMount(vdb.Annotations) &&
 		vdb.Spec.NMATLSSecret != "" &&
-		cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
 	if vdb.IsDepotVolumeEmptyDir() {
 		vols = append(vols, buildDepotVolume())
+	}
+	if vdb.IsNMASideCarDeploymentEnabled() {
+		vols = append(vols, buildStartupConfVolume())
 	}
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
@@ -551,9 +597,13 @@ func buildDepotVolume() corev1.Volume {
 	return buildEmptyDirVolume(vapi.DepotMountName)
 }
 
+func buildStartupConfVolume() corev1.Volume {
+	return buildEmptyDirVolume(startupConfMountName)
+}
+
 // buildPodSpec creates a PodSpec for the statefulset
 func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
-	termGracePeriod := int64(0)
+	termGracePeriod := int64(vmeta.GetTerminationGracePeriodSeconds(vdb.Annotations))
 	return corev1.PodSpec{
 		NodeSelector:                  sc.NodeSelector,
 		Affinity:                      GetK8sAffinity(sc.Affinity),
@@ -565,6 +615,17 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 		ServiceAccountName:            vdb.Spec.ServiceAccountName,
 		SecurityContext:               vdb.Spec.PodSecurityContext,
 	}
+}
+
+// makeVerticaContainers creates a list that contains the server container and
+// the nma container(if nma sidecar deployment is enabled)
+func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
+	cnts := []corev1.Container{}
+	if vdb.IsNMASideCarDeploymentEnabled() {
+		cnts = append(cnts, makeNMAContainer(vdb, sc))
+	}
+	cnts = append(cnts, makeServerContainer(vdb, sc))
+	return cnts
 }
 
 // makeServerContainer builds the spec for the server container
@@ -585,26 +646,13 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
 		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
 		{Name: VSqlUserEnv, Value: vdb.GetVerticaUser()},
+		{Name: VerticaStartupLogDuplicate, Value: StdOut},
 	}...)
 
-	if vmeta.UseVClusterOps(vdb.Annotations) {
-		if vmeta.UseNMACertsMount(vdb.Annotations) && cloud.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-			envVars = append(envVars, []corev1.EnvVar{
-				// Provide the path to each of the certs that are mounted in the container.
-				{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
-				{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
-				{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
-			}...)
-		} else {
-			envVars = append(envVars, []corev1.EnvVar{
-				// The NMA will read the secrets directly from the secret store.
-				// We provide the secret namespace and name for this reason.
-				{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
-				{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
-			}...)
-		}
+	if vdb.IsMonolithicDeploymentEnabled() {
+		envVars = append(envVars, buildNMAEnvVars(vdb)...)
 	}
-	return corev1.Container{
+	cnt := corev1.Container{
 		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.ServerContainer,
@@ -619,7 +667,30 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 		StartupProbe:    makeStartupProbe(vdb),
 		SecurityContext: makeServerSecurityContext(vdb),
 		Env:             envVars,
-		VolumeMounts:    buildVolumeMounts(vdb),
+		VolumeMounts:    buildServerVolumeMounts(vdb),
+	}
+	if vdb.IsNMASideCarDeploymentEnabled() {
+		cnt.Command = append(cnt.Command, buildVerticaStartCommand()...)
+	}
+	return cnt
+}
+
+// makeNMAContainer builds the spec for the nma container
+func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
+	envVars := buildNMAEnvVars(vdb)
+	envVars = append(envVars, []corev1.EnvVar{
+		{Name: NMALogPath, Value: StdOut},
+		// Used by scrutinize to get the catalog path and db name
+		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
+		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
+	}...)
+	return corev1.Container{
+		Image:           pickImage(vdb, sc),
+		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
+		Name:            names.NMAContainer,
+		Env:             envVars,
+		Command:         buildNMACommand(),
+		VolumeMounts:    buildNMAVolumeMounts(vdb),
 	}
 }
 
@@ -628,7 +699,7 @@ func makeHTTPServerVersionEndpointProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path:   httpServerVersionPath,
+				Path:   HTTPServerVersionPath,
 				Port:   intstr.FromInt(VerticaHTTPPort),
 				Scheme: corev1.URISchemeHTTPS,
 			},
@@ -680,7 +751,7 @@ func makeDefaultReadinessOrStartupProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 	// use the canary query then because that depends on having the password
 	// mounted in the file system. Default to just checking if the client port
 	// is being listened on.
-	if cloud.IsGSMSecret(vdb.Spec.PasswordSecret) {
+	if secrets.IsGSMSecret(vdb.Spec.PasswordSecret) {
 		return makeVerticaClientPortProbe()
 	}
 	return makeCanaryQueryProbe(vdb)
@@ -836,7 +907,7 @@ func makeServerSecurityContext(vdb *vapi.VerticaDB) *corev1.SecurityContext {
 
 // makeContainers creates the list of containers to include in the pod spec.
 func makeContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
-	cnts := []corev1.Container{makeServerContainer(vdb, sc)}
+	cnts := makeVerticaContainers(vdb, sc)
 	for i := range vdb.Spec.Sidecars {
 		c := vdb.Spec.Sidecars[i]
 		// Append the standard volume mounts to the container.  This is done
@@ -1157,6 +1228,44 @@ func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 	}
 
 	return fmt.Sprintf("vsql %s -c 'select 1'", passwd)
+}
+
+// buildVerticaStartCommand returns the vertica start command that
+// will serve as entrypoint to the server container
+func buildVerticaStartCommand() []string {
+	startCmd := fmt.Sprintf("/opt/vertica/bin/vertica --startup-conf %s", paths.StartupConfFile)
+	return []string{
+		"bash",
+		"-c",
+		// we sleep to prevent the container to exit.
+		// this will be removed after VER-91286
+		fmt.Sprintf("%s && sleep infinity", startCmd),
+	}
+}
+
+// buildNMACommand returns the command to start NMA
+func buildNMACommand() []string {
+	return []string{
+		"/opt/vertica/bin/node_management_agent",
+	}
+}
+
+// buildNMAEnvVars returns environment variables that are needed by NMA
+func buildNMAEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+	if vmeta.UseNMACertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		return []corev1.EnvVar{
+			// Provide the path to each of the certs that are mounted in the container.
+			{Name: NMARootCAEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, paths.HTTPServerCACrtName)},
+			{Name: NMACertEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSCertKey)},
+			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
+		}
+	}
+	return []corev1.EnvVar{
+		// The NMA will read the secrets directly from the secret store.
+		// We provide the secret namespace and name for this reason.
+		{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
+		{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+	}
 }
 
 // GetK8sLocalObjectReferenceArray returns a k8s LocalObjecReference array

@@ -17,4 +17,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl exec -i -n $NAMESPACE v-scale-down-drain-pri1-0 -- vsql -c "create user joeuser; grant usage on schema public to joeuser;"
+  - command: kubectl exec -i -n $NAMESPACE v-scale-down-drain-pri1-0 -c server -- vsql -c "create user joeuser; grant usage on schema public to joeuser;"

@@ -21,7 +21,7 @@ data:
     set -o xtrace
     set -o errexit
 
-    SEC_CHK=$(kubectl exec svc/v-client-access-sc1 -- vsql -c "SELECT SECURITY_CONFIG_CHECK('NETWORK');")
+    SEC_CHK=$(kubectl exec svc/v-client-access-sc1 -c server -- vsql -c "SELECT SECURITY_CONFIG_CHECK('NETWORK');")
     echo $SEC_CHK
     echo $SEC_CHK | grep -cq 'Spread encryption is enabled'
 ---

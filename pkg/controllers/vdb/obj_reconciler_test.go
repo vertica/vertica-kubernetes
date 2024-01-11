@@ -659,7 +659,7 @@ var _ = Describe("obj_reconcile", func() {
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 
 			// Having a secret name, but not created should force a requeue too
-			vdb.Spec.NMATLSSecret = "dummy"
+			vdb.Spec.NMATLSSecret = "dummy1"
 			runReconciler(vdb, ctrl.Result{Requeue: true}, ObjReconcileModeAll)
 		})
 

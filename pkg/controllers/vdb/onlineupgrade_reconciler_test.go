@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -332,9 +333,9 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[ServerContainerIndex].Image).Should(Equal(NewImageName))
+		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
 	})
 
 	It("should have an upgradeStatus set when it fails part way through", func() {
@@ -486,6 +487,52 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		routingSc = r.getSubclusterForTemporaryRouting(ctx, &vdb.Spec.Subclusters[1], scMap)
 		Expect(routingSc.Name).Should(Equal(PriScName))
 	})
+
+	It("should delete old STS of secondary if online upgrade and changing deployments", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 1},
+			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 1},
+		}
+		vdb.Spec.Image = OldImage
+		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
+		vdb.ObjectMeta.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
+		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		vdb.ObjectMeta.Annotations[vmeta.IgnoreUpgradePathAnnotation] = vmeta.IgnoreUpgradePathAnntationTrue
+
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		// Verify we created the sts for the secondary
+		sts := &appsv1.StatefulSet{}
+		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
+
+		// Trigger an upgrade and change the deployment type to vclusterops
+		vdb.Spec.Image = NewImageName
+		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		r := createOnlineUpgradeReconciler(ctx, vdb)
+
+		// Setup the podfacts so that primary is down with new image and
+		// secondary is up with old image.
+		ppn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		r.PFacts.Detail[ppn].admintoolsExists = false
+		r.PFacts.Detail[ppn].upNode = false
+		spn := names.GenPodName(vdb, &vdb.Spec.Subclusters[1], 0)
+		r.PFacts.Detail[spn].admintoolsExists = true
+		r.PFacts.Detail[spn].upNode = true
+
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		// Verify reconciler deleted the old sts
+		err := k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)
+		Expect(err).ShouldNot(Succeed())
+		Expect(errors.IsNotFound(err)).Should(BeTrue())
+	})
+
 })
 
 // createOnlineUpgradeReconciler is a helper to run the OnlineUpgradeReconciler.

@@ -174,9 +174,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
-		// Check NMA running mode and report error when configured to run in a sidecar
-		// as this is not supported yet
-		MakeNMARunningModeReconciler(r, log, vdb),
 		// Report any pods that have low disk space
 		MakeLocalDataCheckReconciler(r, vdb, pfacts),
 		// Handle upgrade actions for any k8s objects created in prior versions
@@ -258,6 +255,10 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
+		// This must be the last reconciler. It makes sure that all dependent
+		// objects that the operator creates exist. This is needed encase they
+		// are removed in the middle of a reconcile iteration.
+		MakeDepObjCheckReconciler(r, log, vdb),
 	}
 }
 
@@ -267,7 +268,7 @@ func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr
 		return "", nil
 	}
 
-	fetcher := cloud.MultiSourceSecretFetcher{
+	fetcher := cloud.VerticaDBSecretFetcher{
 		Client:   r.Client,
 		Log:      log,
 		VDB:      vdb,

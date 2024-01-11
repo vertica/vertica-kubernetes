@@ -1,5 +1,0 @@
-kind: Deprecated
-body: v1beta1 version of VerticaDB. Use v1 version now.
-time: 2023-09-27T09:37:28.372329158-03:00
-custom:
-  Issue: "519"

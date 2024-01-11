@@ -55,6 +55,7 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 	opts.RawHosts = []string{s.InitiatorIP}
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
+	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 	*opts.HonorUserInput = true
 
 	if v.VDB.Spec.Communal.Path != "" {

@@ -89,6 +89,8 @@ func mockAdmintoolsDispatcher() (*Admintools, *vapi.VerticaDB, *cmds.FakePodRunn
 
 // MockVClusterOps is used to invoke mock vcluster-ops functions
 type MockVClusterOps struct {
+	// Set this to true if you want VCreateDatabase to return the DBIsRunningError
+	ReturnDBIsRunning bool
 }
 
 // const variables used for vcluster-ops unit test
@@ -101,6 +103,7 @@ const (
 	TestInitiatorIP  = "10.10.10.10"
 	TestIsEon        = true
 	TestCommunalPath = "/communal"
+	TestNMATLSSecret = "test-secret"
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
@@ -189,17 +192,25 @@ func (m *MockVClusterOps) VerifyCerts(options *vops.DatabaseOptions) error {
 	return nil
 }
 
-// mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test purposes
+// mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
+// purposes. This uses a standard function to setup the API.
 func mockVClusterOpsDispatcher() *VClusterOps {
 	vdb := vapi.MakeVDB()
 	vdb.Spec.NMATLSSecret = "test-secret"
-	evWriter := aterrors.TestEVWriter{}
 	// We use a function to construct the VClusterProvider. This is called
 	// ahead of each API rather than once so that we can setup a custom
 	// logger for each API call.
 	setupAPIFunc := func(log logr.Logger, apiName string) (VClusterProvider, logr.Logger) {
 		return &MockVClusterOps{}, logr.Logger{}
 	}
+	return mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
+}
+
+// mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
+// except you provide your own setup API function.
+func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
+	setupAPIFunc func(logr.Logger, string) (VClusterProvider, logr.Logger)) *VClusterOps {
+	evWriter := aterrors.TestEVWriter{}
 	dispatcher := MakeVClusterOps(logger, vdb, k8sClient, TestPassword, &evWriter, setupAPIFunc)
 	return dispatcher.(*VClusterOps)
 }

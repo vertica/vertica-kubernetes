@@ -22,11 +22,10 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/security"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -54,16 +53,12 @@ func MakeHTTPServerCertGenReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 // Reconcile will create a TLS secret for the http server if one is missing
 func (h *HTTPServerCertGenReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	const PKKeySize = 2048
-	// Early out if the NMA isn't going to be used.
-	if !vmeta.UseVClusterOps(h.Vdb.Annotations) {
-		return ctrl.Result{}, nil
-	}
 	// If the secret name is set, check that it exists.
 	if h.Vdb.Spec.NMATLSSecret != "" {
 		// As a convenience we will regenerate the secret using the same name. But
 		// only do this if it is a k8s secret. We skip if there is a path reference
 		// for a different secret store.
-		if !cloud.IsK8sSecret(h.Vdb.Spec.NMATLSSecret) {
+		if !secrets.IsK8sSecret(h.Vdb.Spec.NMATLSSecret) {
 			h.Log.Info("nmaTLSSecret is set but uses a path reference that isn't for k8s.")
 			return ctrl.Result{}, nil
 		}

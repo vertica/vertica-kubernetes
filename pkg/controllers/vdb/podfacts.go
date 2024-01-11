@@ -69,9 +69,12 @@ type PodFact struct {
 	// true means the pod exists in k8s.  false means it hasn't been created yet.
 	exists bool
 
-	// true means the pod has been bound to a node, and all of the containers
-	// have been created. At least one container is still running, or is in the
-	// process of starting or restarting.
+	// True indicates that the pod has been:
+	// - Bound to a node
+	// - Not in the process of being terminated
+	// - All of its containers have been created
+	// - At least one container is still running, or is in the process of
+	//   starting or restarting
 	isPodRunning bool
 
 	// true means the statefulset exists and its size includes this pod.  The
@@ -84,7 +87,11 @@ type PodFact struct {
 	// exists and is managed by a statefulset.  The pod is pending delete in
 	// that once the statefulset is sized according to the subcluster the pod
 	// will get deleted.
-	pendingDelete bool
+	isPendingDelete bool
+
+	// true means a delete request has been made to delete the pod, but it is
+	// still running.
+	isTerminating bool
 
 	// Have we run install for this pod?
 	isInstalled bool
@@ -181,6 +188,7 @@ type GatherState struct {
 	FileExists             map[string]bool `json:"fileExists"`
 	DBExists               bool            `json:"dbExists"`
 	VerticaPIDRunning      bool            `json:"verticaPIDRunning"`
+	UpNode                 bool            `json:"upNode"`
 	StartupComplete        bool            `json:"startupComplete"`
 	Compat21NodeName       string          `json:"compat21NodeName"`
 	VNodeName              string          `json:"vnodeName"`
@@ -305,12 +313,18 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// The remaining fields we set in this block only make sense when the
 		// pod exists.
 		pf.exists = true // Success from the Get() implies pod exists in API server
-		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning
+		pf.isTerminating = pod.DeletionTimestamp != nil
+		// We don't consider a pod running if it is in the middle of being
+		// terminated. Technically, the pod is running, but it is seconds away
+		// from being deleted. So, it doesn't make sense to exec into the pod to
+		// perform actions.
+		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning && !pf.isTerminating
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
-		pf.pendingDelete = podIndex >= sc.Size
-		pf.image = pod.Spec.Containers[ServerContainerIndex].Image
+		pf.isPendingDelete = podIndex >= sc.Size
+		// Let's just pick the first container image
+		pf.image = pod.Spec.Containers[names.GetFirstContainerIndex()].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
 	}
@@ -339,6 +353,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		}
 	}
 
+	p.VRec.Log.Info("pod fact", "name", pf.name, "details", fmt.Sprintf("%+v", pf))
 	p.Detail[pf.name] = &pf
 	return nil
 }
@@ -384,6 +399,9 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 	// The output of the script is yaml. We use a yaml package to unmarshal the
 	// output directly into a GatherState struct. And changes to this script
 	// must have a corresponding change in GatherState.
+	// Note: we replaced ^vertica with ^.*vertica\s-D as pattern to get vertica process
+	// because we need it when vertica and NMA are in separate containers. We plan to
+	// remove it and use vertica process only for admintools after VER-91286
 	return dedent.Dedent(fmt.Sprintf(`
 		set -o errexit
 		echo -n 'installIndicatorExists: '
@@ -397,7 +415,11 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		test -d %s && echo true || echo false
 		echo -n '  %s: '
 		test -d %s && echo true || echo false
+		echo -n '  %s: '
+		test -d %s && echo true || echo false
 		echo    'fileExists:'
+		echo -n '  %s: '
+		test -f %s && echo true || echo false
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n '  %s: '
@@ -414,7 +436,9 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n 'vnodeName: '
 		cd %s/%s/v_%s_node????_catalog 2> /dev/null && basename $(pwd) | rev | cut -c9- | rev || echo ""
 		echo -n 'verticaPIDRunning: '
-		[[ $(pgrep ^vertica) ]] && echo true || echo false
+		[[ $(pgrep -f "^.*vertica\s-D") ]] && echo true || echo false
+		echo -n 'upNode: '
+		%s 2> /dev/null | grep --quiet 200 2> /dev/null && echo true || echo false
 		echo -n 'startupComplete: '
 		grep --quiet -e 'Startup Complete' -e 'Database Halted' %s 2> /dev/null && echo true || echo false
 		echo -n 'localDataSize: '
@@ -429,14 +453,17 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		paths.ConfigLogrotatePath, paths.ConfigLogrotatePath,
 		paths.ConfigSharePath, paths.ConfigSharePath,
 		paths.ConfigLicensingPath, paths.ConfigLicensingPath,
+		paths.HTTPTLSConfDir, paths.HTTPTLSConfDir,
 		paths.AdminToolsConf, paths.AdminToolsConf,
 		paths.CELicenseFile, paths.CELicenseFile,
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
+		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName), getPathToVerifyCatalogExists(pf),
 		vdb.GenInstallerIndicatorFileName(),
 		vdb.GenInstallerIndicatorFileName(),
 		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
+		checkIfNodeUpCmd(pf.podIP),
 		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
@@ -536,7 +563,7 @@ func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact) error {
 }
 
 // checkForSimpleGatherStateMapping will do any simple conversion of the gather state to pod facts.
-func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// Gather state is only valid if the pod was running
 	if !pf.isPodRunning {
 		return nil
@@ -547,23 +574,16 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, _ *vapi.V
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.admintoolsExists = gs.AdmintoolsExists
-	// If the vertica process is running, then the database is UP. This is
-	// consistent with the liveness probe, which goes a bit further and checks
-	// if the client port is opened. If the vertica process dies, the liveness
-	// probe will kill the pod and we will be able to do proper restart logic.
-	// At one point, we ran a query against the nodes table. But it became
-	// tricker to decipher what query failure meant -- is vertica down or is it
-	// a problem with the query?
-	pf.upNode = pf.dbExists && gs.VerticaPIDRunning
+	pf.setNodeState(gs, vmeta.UseVClusterOps(vdb.Annotations))
 	return nil
 }
 
 // checkShardSubscriptions will count the number of shards that are subscribed
 // to the current node
-func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	// This check depends on the vnode, which is only present if the pod is
 	// running and the database exists at the node.
-	if !pf.isPodRunning || !pf.dbExists || !gs.VerticaPIDRunning {
+	if !pf.isPodRunning || !pf.upNode {
 		return nil
 	}
 	cmd := []string{
@@ -580,9 +600,9 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaD
 }
 
 // queryDepotDetails will query the database to get info about the depot for the node
-func (p *PodFacts) queryDepotDetails(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) queryDepotDetails(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	// This check depends on the database being up
-	if !pf.isPodRunning || !pf.upNode || !gs.VerticaPIDRunning {
+	if !pf.isPodRunning || !pf.upNode {
 		return nil
 	}
 	cmd := []string{
@@ -619,6 +639,25 @@ func (p *PodFact) setDepotDetails(op string) error {
 	return nil
 }
 
+// setNodeState set the node state in the PodFact based on
+// vertica deployment method
+func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
+	if useVclusterOps {
+		// In vclusterops mode, we call an HTTPS endpoint.
+		// If that returns HTTP code 200, then vertica is up
+		p.upNode = gs.UpNode
+		return
+	}
+	// For admintools, if the vertica process is running, then the database is UP.
+	// This is consistent with the liveness probe, which goes a bit further and checks
+	// if the client port is opened. If the vertica process dies, the liveness
+	// probe will kill the pod and we will be able to do proper restart logic.
+	// At one point, we ran a query against the nodes table. But it became
+	// tricker to decipher what query failure meant -- is vertica down or is it
+	// a problem with the query?
+	p.upNode = p.dbExists && gs.VerticaPIDRunning
+}
+
 // checkDCTableAnnotations will check if the pod has the necessary annotations
 // to populate the DC tables that we log at vertica start.
 func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
@@ -629,21 +668,26 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 
 // getCatalogPathFromPod will get the current catalog path from the pod
 func (p *PodFacts) getCatalogPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
-	return p.getEnvValueFromPodWithDefault(pod, builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath())
+	// both server and nma(if sidecar deployment enabled) have
+	// the catalog path env set so we can pick either to get it
+	index := names.GetFirstContainerIndex()
+	return p.getEnvValueFromPodWithDefault(pod, index,
+		builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath())
 }
 
 // getEnvValueFromPodWithDefault will get an environment value from the pod. A default
 // value is used if the env var isn't found.
-func (p *PodFacts) getEnvValueFromPodWithDefault(pod *corev1.Pod, envName, defaultValue string) string {
-	pathPrefix, ok := p.getEnvValueFromPod(pod, envName)
+func (p *PodFacts) getEnvValueFromPodWithDefault(pod *corev1.Pod, cntIndex int,
+	envName, defaultValue string) string {
+	pathPrefix, ok := p.getEnvValueFromPod(pod, cntIndex, envName)
 	if !ok {
 		return defaultValue
 	}
 	return pathPrefix
 }
 
-func (p *PodFacts) getEnvValueFromPod(pod *corev1.Pod, envName string) (string, bool) {
-	c := pod.Spec.Containers[ServerContainerIndex]
+func (p *PodFacts) getEnvValueFromPod(pod *corev1.Pod, index int, envName string) (string, bool) {
+	c := pod.Spec.Containers[index]
 	for i := range c.Env {
 		if c.Env[i].Name == envName {
 			return c.Env[i].Value, true
@@ -845,7 +889,7 @@ func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
 	// - up and read-only
 	// - has vertica installation
 	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
-		return v.upNode && !v.readOnly && !v.pendingDelete
+		return v.upNode && !v.readOnly && !v.isPendingDelete
 	}); ok {
 		return pod, ok
 	}
@@ -1121,4 +1165,13 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	}
 
 	return expectedNodeNames
+}
+
+// checkIfNodeUpCmd builds and returns the command to check
+// if a node is up using an HTTPS endpoint
+func checkIfNodeUpCmd(podIP string) string {
+	url := fmt.Sprintf("https://%s:%d%s",
+		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
+	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
+	return fmt.Sprintf("%s %s", curlCmd, url)
 }

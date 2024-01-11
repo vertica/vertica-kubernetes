@@ -56,6 +56,12 @@ const (
 	VcluseropsAsDefaultDeploymentMethodMinVersion = "v24.1.0"
 	// Starting in v24.1.0, we use server logrotate and not depend on cron job
 	InDatabaseLogRotateMinVersion = "v24.1.0"
+	// The NMA TLS secret can be stored in an external secret store. These are
+	// the minimum versions of the NMA that we support them.
+	NMATLSSecretInGSMMinVersion               = "v24.1.0"
+	NMATLSSecretInAWSSecretsManagerMinVersion = "v24.2.0"
+	// Starting in v24.2.0, NMA is deployed in a sidecar container
+	NMAInSideCarDeploymentMinVersion = "v24.2.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

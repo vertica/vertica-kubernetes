@@ -34,6 +34,9 @@ const (
 	ConfigLicensingPath       = "/opt/vertica/config/licensing"
 	CELicenseFile             = "/opt/vertica/config/licensing/vertica_community_edition.license.key"
 	CELicenseFileName         = "vertica_community_edition.license.key"
+	HTTPTLSConfDir            = "/opt/vertica/config/https_certs"
+	HTTPTLSConfFileName       = "httpstls.json"
+	HTTPTLSConfFile           = "/opt/vertica/config/https_certs/httpstls.json"
 	LogPath                   = "/opt/vertica/log"
 	ScrutinizeTmp             = "/tmp/scrutinize"
 	PodInfoPath               = "/etc/podinfo"
@@ -51,6 +54,8 @@ const (
 	DBAdminSSHPath            = "/home/dbadmin/.ssh"
 	RootSSHPath               = "/root/.ssh"
 	HTTPServerCACrtName       = "ca.crt"
+	StartupConfDir            = "/tmp/startup"
+	StartupConfFile           = "/tmp/startup/startup.json"
 )
 
 // MountPaths lists all of the paths for internally generated mounts.

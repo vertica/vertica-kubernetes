@@ -156,7 +156,8 @@ func (d *DBGenerator) setParmsFromOptions() {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		} else {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-			// run NMA in monolithic container for now, as running it in sidecar container is not supported yet
+			// run NMA in a monolithic container. This can be overturned when setting the image based
+			// on the server version
 			d.Objs.Vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 		}
 	}
@@ -686,6 +687,23 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 		return err
 	}
 
+	return d.setNMARunningModeAnnotationFromServerVersion("v" + version)
+}
+
+// setNMARunningModeAnnotationFromServerVersion will set proper annotation to ensure
+// correct NMA running mode
+func (d *DBGenerator) setNMARunningModeAnnotationFromServerVersion(version string) error {
+	if vmeta.UseVClusterOps(d.Objs.Vdb.Annotations) {
+		verInfo, err := vversion.MakeInfoFromStrCheck(version)
+		if err != nil {
+			return err
+		}
+		if verInfo.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
+			d.Objs.Vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
+		} else {
+			d.Objs.Vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
+		}
+	}
 	return nil
 }
 
@@ -694,9 +712,9 @@ func (d *DBGenerator) setDeploymentMethodAnnotationFromServerVersion(version str
 	if _, exists := d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation]; !exists {
 		// command line option not provided, i.e. no forced deployment method, thus should
 		// determine deployment method based on running server version
-		verInfo, ok := vversion.MakeInfoFromStr(version)
-		if !ok {
-			return fmt.Errorf("could not construct Info struct from the version string %s", version)
+		verInfo, err := vversion.MakeInfoFromStrCheck(version)
+		if err != nil {
+			return err
 		}
 		if verInfo.IsEqualOrNewer(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue

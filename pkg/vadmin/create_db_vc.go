@@ -17,12 +17,15 @@ package vadmin
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -47,6 +50,21 @@ func (v *VClusterOps) CreateDB(ctx context.Context, opts ...createdb.Option) (ct
 	vopts := v.genCreateDBOptions(&s, certs)
 	vdb, err := v.VCreateDatabase(&vopts)
 	if err != nil {
+		// If it is determined that vertica is already running, we may allow the
+		// failure to continue. This could be a result of a previous failed
+		// create db that was able to partially complete but ultimately failed
+		// before updating the status condition to indicate that the create db
+		// was finished. By ignoring the error this time, we will be able to
+		// update the status condition and start any nodes that may be down in
+		// order to bring the cluster online.
+		dbIsRunningError := &vops.DBIsRunningError{}
+		if ok := errors.As(err, &dbIsRunningError); ok {
+			failCreateDB := vmeta.FailCreateDBIfVerticaIsRunning(v.VDB.Annotations)
+			v.Log.Info("DB create failed because vertica is running", "failCreateDB", failCreateDB)
+			if !failCreateDB {
+				return ctrl.Result{}, nil
+			}
+		}
 		return v.logFailure("VCreateDatabase", events.CreateDBFailed, err)
 	}
 
@@ -68,6 +86,9 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	*opts.ForceRemovalAtCreation = true
 	opts.SkipPackageInstall = &s.SkipPackageInstall
 	opts.DataPrefix = &s.DataPath
+	if v.VDB.IsNMASideCarDeploymentEnabled() {
+		*opts.StartUpConf = paths.StartupConfFile
+	}
 
 	// If a communal path is set, include all of the EON parameters.
 	if s.CommunalPath != "" {

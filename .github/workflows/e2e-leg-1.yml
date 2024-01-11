@@ -81,6 +81,7 @@ jobs:
         export DEPLOY_WITH=olm
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-1-at-only"; fi
+        export NMA_RUNNING_MODE=sidecar
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt
 
     - uses: actions/upload-artifact@v3

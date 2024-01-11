@@ -316,13 +316,13 @@ var _ = Describe("podfacts", func() {
 		By("finding up, not read-only and not pending delete")
 		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{})
 		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-			dnsName: "p1", dbExists: true, upNode: true, readOnly: false, pendingDelete: true,
+			dnsName: "p1", dbExists: true, upNode: true, readOnly: false, isPendingDelete: true,
 		}
 		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
-			dnsName: "p2", dbExists: true, upNode: true, readOnly: true, pendingDelete: false,
+			dnsName: "p2", dbExists: true, upNode: true, readOnly: true, isPendingDelete: false,
 		}
 		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
-			dnsName: "p3", dbExists: true, upNode: true, readOnly: false, pendingDelete: false,
+			dnsName: "p3", dbExists: true, upNode: true, readOnly: false, isPendingDelete: false,
 		}
 		p, ok := pf.findPodToRunAdminCmdAny()
 		Expect(ok).Should(BeTrue())

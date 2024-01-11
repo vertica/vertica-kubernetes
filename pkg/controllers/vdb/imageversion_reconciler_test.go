@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,7 +35,8 @@ var _ = Describe("k8s/version_reconcile", func() {
 	It("should update annotations in vdb since they differ", func() {
 		vdb := vapi.MakeVDB()
 		vdb.ObjectMeta.Annotations = map[string]string{
-			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
+			vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationTrue,
+			vmeta.RunNMAInSidecarAnnotation: vmeta.RunNMAInSidecarAnnotationFalse,
 		}
 		vdb.Spec.Subclusters[0].Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -83,13 +85,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
-			podName: []cmds.CmdResult{
-				{
-					Stdout: `Vertica Analytic Database v11.0.0-0
-vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_10_20210413 on 'Wed Jun  2 2021' $BuildId$
-`,
-				},
-			},
+			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput("v11.0.0-0")}},
 		}
 		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -100,7 +96,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal(OrigVersion))
 	})
 
-	It("should fail the reconclier if we use wrong image", func() {
+	It("should fail the reconciler if we use wrong image", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters[0].Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -128,4 +124,97 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(err.Error()).Should(ContainSubstring("image vertica-k8s:latest is meant for admintools style"))
 	})
+
+	It("should fail the reconclier if NMA sidecar deployment is not supported by version", func() {
+		annotations := map[string]string{
+			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
+		}
+		testNMARunningMode(ctx, vapi.VcluseropsAsDefaultDeploymentMethodMinVersion,
+			vapi.NMAInSideCarDeploymentMinVersion, annotations)
+	})
+
+	It("should fail the reconciler if we try to use an old NMA and fetch NMA certs from GSM", func() {
+		const gsmCertNotSupported = "v23.4.0"
+		testNMATLSSecretWithVersion(ctx, "gsm://projects/123456789/secrets/test/versions/6",
+			gsmCertNotSupported,
+			vapi.NMATLSSecretInGSMMinVersion)
+	})
+
+	It("should fail the reconciler if we try to use an old NMA and fetch NMA certs from AWS", func() {
+		testNMATLSSecretWithVersion(ctx, "awssm://my-secret-arn",
+			vapi.VcluseropsAsDefaultDeploymentMethodMinVersion,
+			vapi.NMATLSSecretInAWSSecretsManagerMinVersion)
+	})
 })
+
+// mockVerticaVersionOutput will generate fake output from vertica --version for
+// a given version. The version must be in the form of v23.4.0.
+func mockVerticaVersionOutput(mockVersion string) string {
+	return fmt.Sprintf(`Vertica Analytic Database %s
+built by test from tag@abcdef on 'Dec 21 2023'`, mockVersion)
+}
+
+// testReconcileWithNMATLSecret will run the reconciler twice with the given
+// name of the NMA TLS Secret. The first time it will use the old version and
+// expect the reconciler to requeue. Then it will run it again but with the new
+// version and expect it to succeed.
+func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, newVersion string) {
+	vdb := vapi.MakeVDB()
+	vdb.Spec.Subclusters[0].Size = 1
+	vdb.ObjectMeta.Annotations = map[string]string{
+		vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationTrue,
+		vmeta.RunNMAInSidecarAnnotation: vmeta.RunNMAInSidecarAnnotationFalse,
+	}
+	vdb.Spec.NMATLSSecret = secretName
+	test.CreateVDB(ctx, k8sClient, vdb)
+	defer test.DeleteVDB(ctx, k8sClient, vdb)
+	test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+	defer test.DeletePods(ctx, k8sClient, vdb)
+
+	fpr := &cmds.FakePodRunner{}
+	pfacts := MakePodFacts(vdbRec, fpr)
+	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+	fpr.Results = cmds.CmdResults{
+		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(oldVersion)}},
+	}
+
+	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+	Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
+
+	fpr.Results = cmds.CmdResults{
+		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(newVersion)}},
+	}
+	res, _ := r.Reconcile(ctx, &ctrl.Request{})
+	Expect(res).Should(Equal(ctrl.Result{}))
+}
+
+func testNMARunningMode(ctx context.Context, badVersion,
+	goodVersion string, annotations map[string]string) {
+	vdb := vapi.MakeVDB()
+	vdb.ObjectMeta.Annotations = annotations
+	vdb.Spec.Subclusters[0].Size = 1
+	test.CreateVDB(ctx, k8sClient, vdb)
+	defer test.DeleteVDB(ctx, k8sClient, vdb)
+	test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+	defer test.DeletePods(ctx, k8sClient, vdb)
+
+	fpr := &cmds.FakePodRunner{}
+	pfacts := MakePodFacts(vdbRec, fpr)
+	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+
+	fpr.Results = cmds.CmdResults{
+		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(badVersion)}},
+	}
+	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
+	res, err := r.Reconcile(ctx, &ctrl.Request{})
+	Expect(res).Should(Equal(ctrl.Result{}))
+	Expect(err.Error()).Should(ContainSubstring("running NMA in a sidecar container is not supported"))
+	fpr.Results = cmds.CmdResults{
+		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(goodVersion)}},
+	}
+	res, err = r.Reconcile(ctx, &ctrl.Request{})
+	Expect(res).Should(Equal(ctrl.Result{}))
+	Expect(err).Should(Succeed())
+}
