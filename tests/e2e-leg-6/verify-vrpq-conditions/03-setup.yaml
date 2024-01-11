@@ -11,7 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1betat1
+apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: bash -c "kustomize build setup-vrpq/overlay | kubectl -n $NAMESPACE apply -f - "
+  - script: |
+      echo 'apiVersion: vertica.com/v1beta1
+      kind: VerticaRestorePointsQuery
+      metadata:
+        name: archive-query
+      spec:
+        verticaDBName: vert
+        archiveName: backup' | kubectl apply -n $NAMESPACE -f -
+    
