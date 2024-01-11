@@ -11,6 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# NOTE: This file is used to verify the public artifacts through the GitHub CI.
+# When making changes to this file, ensure you run the verify-public-artifact
+# workflow. See: .github/workflows/verify-public-artifacts.yml
+
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
@@ -22,10 +26,10 @@ metadata:
     # than 24.1.0 (e.g. 23.x.0, 12.0.x, etc.) will want this to set false so
     # the operator treats it as an admintools deployment. Server versions that
     # are 24.1.0 or newer will want this set to true to deploy with vclusterops.
-    vertica.com/vcluster-ops: "false"
+    vertica.com/vcluster-ops: "true"
 spec:
-  image: "vertica/vertica-k8s:23.3.0-0-minimal" # ensure vertica.com/vcluster-ops is false
-  #image: "vertica/vertica-k8s:24.1.0-0-minimal" # ensure vertica.com/vcluster-ops is true
+  image: "vertica/vertica-k8s:latest" # ensure vertica.com/vcluster-ops is true
+  #image: "vertica/vertica-k8s:23.3.0-0-minimal" # ensure vertica.com/vcluster-ops is false
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"

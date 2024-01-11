@@ -55,11 +55,12 @@ jobs:
     - name: Deploy the verticadb operator with olm
       if: github.event.inputs.deploy_with == 'olm'
       run: |
-        curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.21.2/install.sh | bash -s v0.21.2
+        curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.26.0/install.sh | bash -s v0.26.0
         kubectl create -f https://operatorhub.io/install/verticadb-operator.yaml
         echo "Waiting for verticadb-operator CSV to be created..."
-        timeout 5m bash -c -- "while ! kubectl get csv -n my-verticadb-operator --selector operators.coreos.com/verticadb-operator.my-verticadb-operator="" | grep -cq Succeeded; do sleep 5; done"
+        timeout 5m bash -c -- "while ! kubectl get csv | grep 'VerticaDB Operator' | grep -cq Succeeded; do sleep 5; done"
         echo "DONE!"
+        kubectl create namespace my-verticadb-operator
 
     - name: Deploy the verticadb operator with helm
       if: github.event.inputs.deploy_with == 'helm'
@@ -84,7 +85,7 @@ jobs:
 
     - name: Create a VerticaDB CR
       run: |
-        kubectl apply --namespace my-verticadb-operator -f config/samples/v1beta1_verticadb.yaml
+        kubectl apply --namespace my-verticadb-operator -f config/samples/verticadb_sample.yaml
         kubectl wait --for=condition=DBInitialized=True --namespace my-verticadb-operator vdb/verticadb-sample --timeout=10m
         kubectl get pods --namespace my-verticadb-operator --selector app.kubernetes.io/instance=verticadb-sample
 
