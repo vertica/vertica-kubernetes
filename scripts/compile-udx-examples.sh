@@ -56,13 +56,14 @@ export SDK_HOME=$REPO_DIR/sdk
 export SDK_JAR=$REPO_DIR
 rm -rf $SDK_HOME
 cp -r /opt/vertica/sdk $SDK_HOME
+mkdir -p $REPO_DIR/bin
 cp /opt/vertica/bin/VerticaSDK.jar $REPO_DIR/bin/VerticaSDK.jar
 cd $SDK_HOME/examples
 export CXX=c++  # Ensure we go through linux alternatives to find the compiler
 export JAVA_BUILDINFO=$REPO_DIR/sdk/BuildInfo.java
 # Hack to get around non-standard location of the sdk.  The makefile doesn't
-# # allow us to override the location of the BuildInfo.java.  This perl command
-# # will let us control that from the command line.
+# allow us to override the location of the BuildInfo.java.  This perl command
+# will let us control that from the command line.
 perl -i -0777 -pe 's/JAVA_BUILDINFO :=/JAVA_BUILDINFO ?=/g' makefile
 logInfo Build the examples
 make

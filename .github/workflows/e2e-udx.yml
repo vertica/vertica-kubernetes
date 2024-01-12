@@ -74,7 +74,12 @@ jobs:
         # Setup the udx environment by compiling examples in the vertica image.
         # This downloads packages, so to improve its reliability we retry in
         # case any intermittent network issues arise.
-        for i in $(seq 1 5); do scripts/setup-e2e-udx.sh -v && break || sleep 60; done
+        for i in $(seq 1 5); do scripts/setup-e2e-udx.sh -v && s=0 && break || s=$? && sleep 60; done
+        if [[ $s != "0" ]]
+        then
+          echo "*** Give up trying to setup the udx env"
+          exit 1
+        fi
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt
 
     - uses: actions/upload-artifact@v3
