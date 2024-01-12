@@ -48,8 +48,8 @@ logInfo Setup dev environment
 function set_file_permissions() {
     chown --recursive $TARGET_UID $REPO_DIR/sdk || true
     chgrp --recursive $TARGET_GID $REPO_DIR/sdk || true
-    chown $TARGET_UID $REPO_DIR/bin/VerticaSDK.jar || true
-    chgrp $TARGET_GID $REPO_DIR/bin/VerticaSDK.jar || true
+    chown --recursive $TARGET_UID $REPO_DIR/bin || true
+    chgrp --recursive $TARGET_GID $REPO_DIR/bin || true
 }
 trap set_file_permissions EXIT
 export SDK_HOME=$REPO_DIR/sdk
