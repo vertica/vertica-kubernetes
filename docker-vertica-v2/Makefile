@@ -1,7 +1,8 @@
 VERTICA_RPM?=$(notdir $(wildcard packages/vertica*.rpm))
+BUILDER_OS_NAME?=almalinux
 BUILDER_OS_VERSION?=8
 BASE_OS_NAME?=rockylinux
-BASE_OS_VERSION?=9
+BASE_OS_VERSION?=8
 VERTICA_IMG?=vertica-k8s
 MINIMAL_VERTICA_IMG?=
 VERTICA_VERSION?=$(shell rpm --nosignature -qp --queryformat '%{VERSION}-%{RELEASE}' packages/$(VERTICA_RPM))
@@ -22,6 +23,7 @@ docker-build-vertica: Dockerfile packages/package-checksum-patcher.py
 		--build-arg VERTICA_RPM=${VERTICA_RPM} \
 		--build-arg BASE_OS_NAME=${BASE_OS_NAME} \
 		--build-arg BASE_OS_VERSION=${BASE_OS_VERSION} \
+		--build-arg BUILDER_OS_NAME=${BUILDER_OS_NAME} \
 		--build-arg BUILDER_OS_VERSION=${BUILDER_OS_VERSION} \
 		${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS} \
 		-t ${VERTICA_IMG} .

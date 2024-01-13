@@ -17,5 +17,6 @@ metadata:
   name: vdb-label-ant-cluster1-0
 status:
   containerStatuses:
+  - name: nma
   - name: server
     ready: false
