@@ -1233,13 +1233,8 @@ func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 // buildVerticaStartCommand returns the vertica start command that
 // will serve as entrypoint to the server container
 func buildVerticaStartCommand() []string {
-	startCmd := fmt.Sprintf("/opt/vertica/bin/vertica --startup-conf %s", paths.StartupConfFile)
 	return []string{
-		"bash",
-		"-c",
-		// we sleep to prevent the container to exit.
-		// this will be removed after VER-91286
-		fmt.Sprintf("%s && sleep infinity", startCmd),
+		"/opt/vertica/bin/vertica", "--startup-conf", paths.StartupConfFile,
 	}
 }
 

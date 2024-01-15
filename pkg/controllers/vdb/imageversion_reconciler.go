@@ -73,7 +73,7 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err = v.verifyImage(pod)
+	err = v.verifyDeploymentType(pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -221,7 +221,11 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 }
 
 // Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
-func (v *ImageVersionReconciler) verifyImage(pod *PodFact) error {
+func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
+	if vmeta.GetSkipDeploymentCheck(v.Vdb.Annotations) {
+		return nil
+	}
+
 	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		if pod.admintoolsExists {
 			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for vclusterops deployments")
