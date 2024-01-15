@@ -631,23 +631,10 @@ func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Co
 // makeServerContainer builds the spec for the server container
 func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := translateAnnotationsToEnvVars(vdb)
-	envVars = append(envVars, []corev1.EnvVar{
-		{Name: PodIPEnv, ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
-		},
-		{Name: HostIPEnv, ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}},
-		},
-		{Name: HostNameEnv, ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}},
-		},
-		{Name: DataPathEnv, Value: vdb.Spec.Local.DataPath},
-		{Name: DepotPathEnv, Value: vdb.Spec.Local.DepotPath},
-		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
-		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
-		{Name: VSqlUserEnv, Value: vdb.GetVerticaUser()},
-		{Name: VerticaStartupLogDuplicate, Value: StdOut},
-	}...)
+	envVars = append(envVars, buildCommonEnvVars(vdb)...)
+	envVars = append(envVars,
+		corev1.EnvVar{Name: VerticaStartupLogDuplicate, Value: StdOut},
+	)
 
 	if vdb.IsMonolithicDeploymentEnabled() {
 		envVars = append(envVars, buildNMAEnvVars(vdb)...)
@@ -678,12 +665,10 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 // makeNMAContainer builds the spec for the nma container
 func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
 	envVars := buildNMAEnvVars(vdb)
-	envVars = append(envVars, []corev1.EnvVar{
-		{Name: NMALogPath, Value: StdOut},
-		// Used by scrutinize to get the catalog path and db name
-		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
-		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
-	}...)
+	envVars = append(envVars, buildCommonEnvVars(vdb)...)
+	envVars = append(envVars,
+		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
+	)
 	return corev1.Container{
 		Image:           pickImage(vdb, sc),
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
@@ -1265,6 +1250,26 @@ func buildNMAEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 		// We provide the secret namespace and name for this reason.
 		{Name: NMASecretNamespaceEnv, Value: vdb.ObjectMeta.Namespace},
 		{Name: NMASecretNameEnv, Value: vdb.Spec.NMATLSSecret},
+	}
+}
+
+// buildCommonEnvVars returns env vars that are common for the nma and server container.
+func buildCommonEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: PodIPEnv, ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}},
+		},
+		{Name: HostIPEnv, ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.hostIP"}},
+		},
+		{Name: HostNameEnv, ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}},
+		},
+		{Name: DataPathEnv, Value: vdb.Spec.Local.DataPath},
+		{Name: DepotPathEnv, Value: vdb.Spec.Local.DepotPath},
+		{Name: CatalogPathEnv, Value: vdb.Spec.Local.GetCatalogPath()},
+		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
+		{Name: VSqlUserEnv, Value: vdb.GetVerticaUser()},
 	}
 }
 
