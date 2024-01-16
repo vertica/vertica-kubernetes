@@ -932,16 +932,27 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 
 // findRestartablePods returns a list of pod facts that can be restarted.
 // An empty list implies there are no pods that need to be restarted.
+//
 // We allow read-only nodes to be treated as being restartable because they are
 // in the read-only state due to losing of cluster quorum.  This is an option
 // for online upgrade, which want to keep the read-only up to keep the cluster
 // accessible.
-func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) []*PodFact {
+//
+// Depending on the caller, we may want to filter out pending delete pods. If we
+// are restarting individual nodes, those pods may not be part of database
+// anymore. Plus, we are going to be removing them, so it makes little sense to
+// restart them. For start_db those pending delete pods may be needed for
+// quorum.
+func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient, restartPendingDelete bool) []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
 		if !restartTransient && v.isTransient {
 			return false
 		}
-		return (!v.upNode || (restartReadOnly && v.readOnly)) && v.dbExists && v.isPodRunning && v.hasDCTableAnnotations
+		return (!v.upNode || (restartReadOnly && v.readOnly)) &&
+			v.dbExists &&
+			v.isPodRunning &&
+			v.hasDCTableAnnotations &&
+			(restartPendingDelete || !v.isPendingDelete)
 	})
 }
 

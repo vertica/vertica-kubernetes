@@ -168,7 +168,9 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// transient nodes' IPs easily. However, using admintools, we can get the correct nodes'
 	// IPs easily from admintools.conf. As a result, we exclude transient pods from the pods
 	// to restart for vclusterops.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, !vmeta.UseVClusterOps(r.Vdb.Annotations))
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly,
+		!vmeta.UseVClusterOps(r.Vdb.Annotations), /* restartTransient */
+		true /* restartPendingDelete */)
 
 	// Kill any read-only vertica process that may still be running. This does
 	// not include any rogue process that is no longer communicating with
@@ -235,8 +237,11 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// If there is a pod that is not yet running, we leave them off for now.
 	// When it does start running there will be another reconciliation cycle.
 	// Always skip the transient pods since they only run the old image so they
-	// can't be restarted.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, false)
+	// can't be restarted. Also, skip pending delete as they may be partially
+	// removed already, preventing restart from succeding. They will be removed
+	// shortly anyway so makes little sense to restart them.
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly,
+		false /* restartTransient */, false /* restartPendingDelete */)
 	// This is too make sure all pods have signed they EULA before running
 	// admintools on any of them.
 	if err := r.acceptEulaIfMissing(ctx); err != nil {
