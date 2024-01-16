@@ -938,9 +938,12 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 // for online upgrade, which want to keep the read-only up to keep the cluster
 // accessible.
 //
-// We filter out pending delete pods because those pods may not be part of the
-// database anymore. That would prevent the restart from succeeding.
-func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) []*PodFact {
+// Depending on the caller, we may want to filter out pending delete pods. If we
+// are restarting individual nodes, those pods may not be part of database
+// anymore. Plus, we are going to be removing them, so it makes little sense to
+// restart them. For start_db those pending delete pods may be needed for
+// quorum.
+func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient, restartPendingDelete bool) []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
 		if !restartTransient && v.isTransient {
 			return false
@@ -949,7 +952,7 @@ func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient bool) [
 			v.dbExists &&
 			v.isPodRunning &&
 			v.hasDCTableAnnotations &&
-			!v.isPendingDelete
+			(restartPendingDelete || !v.isPendingDelete)
 	})
 }
 
