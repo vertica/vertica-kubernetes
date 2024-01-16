@@ -58,6 +58,8 @@ done
 
 USER_CONFIG_FILE=${@:$OPTIND:1}
 
+source $SCRIPT_DIR/image-utils.sh
+
 # Read in the defaults
 source $REPO_DIR/tests/kustomize-defaults.cfg
 
@@ -91,7 +93,12 @@ if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
 
-if [ -z "${NMA_RUNNING_MODE}" ] || [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ]
+# Pick a NMA running mode that is compatible with the deployment and image
+# version. All admintools deployments will run as a monolithic container. And
+# 24.1.0 with vclusterops, only supported monolithic.
+if [ -z "${NMA_RUNNING_MODE}" ] \
+    || [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ] \
+    || [ "$(determine_image_version $VERTICA_IMG)" == "24.1.0" ]
 then
     NMA_RUNNING_MODE=monolithic
 fi
@@ -135,6 +142,7 @@ echo -n "Add server mounts: "
 if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
 echo "NMA running mode: $NMA_RUNNING_MODE"
+echo "Image version: $(determine_image_version $VERTICA_IMG)"
 echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 
 function create_vdb_kustomization {
