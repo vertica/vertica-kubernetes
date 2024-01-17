@@ -2,9 +2,9 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   # upload the expected outputs of executing sql files. In v2 image, we need to allow write access to the sdk/examples directory
-  - command: kubectl -n $NAMESPACE exec -it v-udx-python-sc1-0 -- bash -c "echo root | su root sh -c 'chmod -R a+w /opt/vertica/sdk/examples || true'"
+  - command: kubectl -n $NAMESPACE exec -i v-udx-python-sc1-0 -c server -- bash -c "echo root | su root sh -c 'chmod -R a+w /opt/vertica/sdk/examples || true'"
     ignoreFailure: true
-  - command: kubectl -n $NAMESPACE cp ./expected-outputs v-udx-python-sc1-0:/opt/vertica/sdk/examples
+  - command: kubectl -n $NAMESPACE cp -c server ./expected-outputs v-udx-python-sc1-0:/opt/vertica/sdk/examples
   # Install packages in the pod that are needed to run the examples.
-  - command: kubectl -n $NAMESPACE cp setup-env-runtime.sh v-udx-python-sc1-0:/tmp/setup-env-runtime.sh
-  - command: kubectl -n $NAMESPACE exec -it v-udx-python-sc1-0 -- bash /tmp/setup-env-runtime.sh
+  - command: kubectl -n $NAMESPACE cp -c server setup-env-runtime.sh v-udx-python-sc1-0:/tmp/setup-env-runtime.sh
+  - command: kubectl -n $NAMESPACE exec -i v-udx-python-sc1-0 -c server -- bash /tmp/setup-env-runtime.sh
