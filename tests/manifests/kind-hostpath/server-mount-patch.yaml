@@ -69,5 +69,5 @@
       path: /spec/volumeMounts/-
       value:
         name: server
-        mountPath: /opt/vertica/oss/python3/lib/python3.9/site-packages/vertica
+        mountPath: /opt/vertica/oss/python3/lib/python3.11/site-packages/vertica
         subPath: platform/src/vertica
