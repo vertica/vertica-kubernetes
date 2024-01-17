@@ -361,15 +361,26 @@ endif
 # http REST interfaces. Eventually, we will go back to one version using the
 # next generation one as *THE* vertica-k8s image.
 
+# Using --no-cache is important so that we pick up the latest security fixes.
+# Otherwise, we risk skipping the step in the docker build when we pull the
+# latest base image.
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?="--no-cache"
+
 .PHONY: docker-build-vertica
 docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker image
 	cd docker-vertica \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
+	&& make \
+		VERTICA_IMG=${VERTICA_IMG} \
+		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
+		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
 
 .PHONY: docker-build-vertica-v2
 docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation vertica server docker image
 	cd docker-vertica-v2 \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
+	&& make \
+		VERTICA_IMG=${VERTICA_IMG} \
+		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
+		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
 
 .PHONY: docker-push-vertica
 docker-push-vertica:  ## Push vertica server image -- either v1 or v2.
