@@ -21,8 +21,17 @@ set -o pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
 
+source $SCRIPT_DIR/logging-utils.sh
+
 function usage {
-    echo "usage: $0 [-v]"
+    echo "usage: $0 [-v] <samples-image> <build-image>"
+    echo
+    echo "There are two images that are required to be passed in:"
+    echo "<samples-image> Is the name of the image to pull the samples from."
+    echo "                This typically is \$VERTICA_IMG."
+    echo "<build-image> The name of the image to use to build the samples."
+    echo "              This differs as the samples cannot be built with"
+    echo "              the latest GCC compiler, so tends to be an older image."
     echo
     echo "Options:"
     echo "  -v  Show verbose output"
@@ -46,21 +55,40 @@ while getopts "hkv" opt; do
     esac
 done
 
-# Pull the image locally if not already present
-if [[ "$(docker images -q $VERTICA_IMG 2> /dev/null)" == "" ]]
+if [ $(( $# - $OPTIND )) -lt 1 ]
 then
-    docker pull $VERTICA_IMG
+    echo "*** Must provide the name of two images to use to build the samples"
+    usage
+fi
+SAMPLES_IMG=${@:$OPTIND:1}
+BUILDER_IMG=${@:$OPTIND:1}
+
+# Pull both image locally if not already present
+if [[ "$(docker images -q $SAMPLES_IMG 2> /dev/null)" == "" ]]
+then
+    docker pull $SAMPLES_IMG
+fi
+if [[ "$(docker images -q $BUILDER_IMG 2> /dev/null)" == "" ]]
+then
+    docker pull $BUILDER_IMG
 fi
 
-# Make sure the vertica image isn't a minimal container.  We can only extract
+# Make sure the samples image isn't a minimal container.  We can only extract
 # the sdk from a full image because we remove it for the minimal one.
-MINIMAL_IMG=$(docker inspect $VERTICA_IMG -f {{.Config.Labels.minimal}})
+MINIMAL_IMG=$(docker inspect $SAMPLES_IMG -f {{.Config.Labels.minimal}})
 if [ "$MINIMAL_IMG" == "YES" ]
 then
-    echo "We cannot setup e2e udx with the image '$VERTICA_IMG' because it was created as minimal and doesn't have the Vertica SDK"
+    echo "We cannot setup e2e udx with the image $SAMPLES_IMG because it was created as minimal and doesn't have the Vertica SDK"
     exit 1
 fi
 
+logInfo Pull the samples from the samples image: $SAMPLES_IMG
+rm -rf $REPO_DIR/sdk || true
+SAMPLES_CONTAINER=$(docker create $SAMPLES_IMG)
+docker cp $SAMPLES_CONTAINER:/opt/vertica/sdk $REPO_DIR
+docker rm $SAMPLES_CONTAINER
+
+logInfo Compile the samples with image: $BUILDER_IMG
 docker \
     run \
     -i \
@@ -70,4 +98,4 @@ docker \
     --env TARGET_UID=$(id -u) \
     --env TARGET_GID=$(id -g) \
     --entrypoint /repo/scripts/compile-udx-examples.sh \
-    $VERTICA_IMG
+    $BUILDER_IMG

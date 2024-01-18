@@ -15,7 +15,7 @@
 
 # Run this in the container to compile the sdk examples. It depends on the
 # vertica-kubernetes repo to mounted in the volume as /repo
-# docker run -i --mount type=bind,src=<repo>,dst=/repo <vertica-k8s-image> /repo/scripts/setup-e2e-udx.sh
+# docker run -i --mount type=bind,src=<repo>,dst=/repo <vertica-k8s-image> /repo/scripts/compile-udx-examples.sh
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
@@ -54,8 +54,6 @@ function set_file_permissions() {
 trap set_file_permissions EXIT
 export SDK_HOME=$REPO_DIR/sdk
 export SDK_JAR=$REPO_DIR
-rm -rf $SDK_HOME
-cp -r /opt/vertica/sdk $SDK_HOME
 mkdir -p $REPO_DIR/bin
 cp /opt/vertica/bin/VerticaSDK.jar $REPO_DIR/bin/VerticaSDK.jar
 cd $SDK_HOME/examples
