@@ -54,8 +54,6 @@ function set_file_permissions() {
 trap set_file_permissions EXIT
 export SDK_HOME=$REPO_DIR/sdk
 export SDK_JAR=$REPO_DIR
-mkdir -p $REPO_DIR/bin
-cp /opt/vertica/bin/VerticaSDK.jar $REPO_DIR/bin/VerticaSDK.jar
 cd $SDK_HOME/examples
 export CXX=c++  # Ensure we go through linux alternatives to find the compiler
 export JAVA_BUILDINFO=$REPO_DIR/sdk/BuildInfo.java

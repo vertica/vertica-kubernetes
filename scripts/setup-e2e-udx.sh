@@ -61,7 +61,9 @@ then
     usage
 fi
 SAMPLES_IMG=${@:$OPTIND:1}
-BUILDER_IMG=${@:$OPTIND:1}
+BUILDER_IMG=${@:$OPTIND+1:2}
+logInfo "Samples image is $SAMPLES_IMG"
+logInfo "Builder image is $BUILDER_IMG"
 
 # Pull both image locally if not already present
 if [[ "$(docker images -q $SAMPLES_IMG 2> /dev/null)" == "" ]]
@@ -86,6 +88,9 @@ logInfo Pull the samples from the samples image: $SAMPLES_IMG
 rm -rf $REPO_DIR/sdk || true
 SAMPLES_CONTAINER=$(docker create $SAMPLES_IMG)
 docker cp $SAMPLES_CONTAINER:/opt/vertica/sdk $REPO_DIR
+mkdir -p $REPO_DIR/bin
+rm -f $REPO_DIR/bin/VerticaSDK.jar || true
+docker cp $SAMPLES_CONTAINER:/opt/vertica/bin/VerticaSDK.jar $REPO_DIR/bin
 docker rm $SAMPLES_CONTAINER
 
 logInfo Compile the samples with image: $BUILDER_IMG
