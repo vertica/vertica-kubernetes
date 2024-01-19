@@ -40,6 +40,15 @@ function get_rpm_version
     grep 'VERTICA_CE_URL:' $REPO_DIR/.github/actions/download-rpm/action.yaml | cut -d':' -f3 | cut -d'/' -f5 | cut -d'-' -f2
 }
 
+function get_vertica_image_version 
+{
+    imageName=$1
+    local SCRIPT_DIR REPO_DIR
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+    REPO_DIR=$(dirname $SCRIPT_DIR)
+    docker inspect $imageName -f '{{ $ver := index .Config.Labels "vertica-version"}}{{ $ver }}' | cut -d'-' -f1
+}
+
 function determine_image_version() {
     local TARGET_IMAGE=$1
 
@@ -70,6 +79,16 @@ function determine_image_version() {
     if [[ $TARGET_IMAGE == docker.io/* ]]
     then
         echo "$NIGHTLY_MAJOR.$NIGHTLY_MINOR.0"
+        return
+    fi
+
+    # If the image is something that actually exists already, we can simply
+    # read from the labels what vertica version was used.
+    if docker inspect $TARGET_IMAGE > /dev/null 2>&1 || \
+        docker pull $TARGET_IMAGE > /dev/null 2>&1
+    then
+        IFS='.' read major minor patch <<< "$(get_vertica_image_version $TARGET_IMAGE)"
+        echo "$major.$minor.$patch"
         return
     fi
 

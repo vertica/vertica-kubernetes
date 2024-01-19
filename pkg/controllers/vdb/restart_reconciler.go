@@ -482,13 +482,21 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*P
 			continue
 		}
 		const killMarker = "Killing process"
-		// When NMA in sidecar is enabled we must remove the startup conf file
-		// after killing the process to allow vertica to restart gracefully
+		// If NMA in sidecar is enabled, we must remove the startup
+		// configuration file before killing Vertica. This is necessary in the
+		// event that we have lost cluster quorum. To reestablish quorum, we
+		// need to initiate a restart through the vcluster API. Starting one
+		// node ad hoc by reusing the startup configuration file will not
+		// reestablish quorum.
 		rmCmd := fmt.Sprintf("rm -rf %s", paths.StartupConfFile)
-		killCmd := fmt.Sprintf("for pid in $(pgrep ^vertica$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", killMarker)
+		// We cannot always kill the vertica process though. When running with
+		// the NMA sidecar, it is started as PID 1, which doesn't have a signal
+		// handler. So, it doesn't respond to kills. To force vertica down we
+		// are going to kill the spread process.
+		killCmd := fmt.Sprintf("for pid in $(pgrep ^spread$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", killMarker)
 		cmd := []string{
-			"bash", "-c",
-			fmt.Sprintf("%s && %s", killCmd, rmCmd),
+			// Remove the startup file first, since deleting spread will cause the container to stop
+			"bash", "-c", fmt.Sprintf("%s; %s", rmCmd, killCmd),
 		}
 		// Avoid all errors since the process may not even be running
 		if stdout, _, err := r.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
