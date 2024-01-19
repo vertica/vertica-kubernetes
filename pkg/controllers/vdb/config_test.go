@@ -22,6 +22,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 )
 
 var _ = Describe("config", func() {
@@ -31,7 +32,7 @@ var _ = Describe("config", func() {
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Log:                 logger,
 				Vdb:                 vdb,
@@ -41,9 +42,9 @@ var _ = Describe("config", func() {
 
 		// set the version larger than the version that will encrypt spread channel without a db restart
 		vdb.Annotations[vmeta.VersionAnnotation] = "v23.3.1"
-		Expect(g.setup()).Should(Succeed())
+		Expect(g.Setup()).Should(Succeed())
 		// default value should be "vertica"
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(1))
 		v, ok := g.ConfigurationParams.Get("EncryptSpreadComm")
 		Expect(ok).Should(BeTrue())
@@ -51,7 +52,7 @@ var _ = Describe("config", func() {
 		g.ConfigurationParams = types.MakeCiMap()
 		// empty string should be the same as "vertica"
 		g.Vdb.Spec.EncryptSpreadComm = ""
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(1))
 		v, ok = g.ConfigurationParams.Get("EncryptSpreadComm")
 		Expect(ok).Should(BeTrue())
@@ -59,7 +60,7 @@ var _ = Describe("config", func() {
 		g.ConfigurationParams = types.MakeCiMap()
 		// change the value to "vertica"
 		g.Vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommWithVertica
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(1))
 		v, ok = g.ConfigurationParams.Get("EncryptSpreadComm")
 		Expect(ok).Should(BeTrue())
@@ -67,27 +68,27 @@ var _ = Describe("config", func() {
 		g.ConfigurationParams = types.MakeCiMap()
 		// we will not encrypt spread channel when the value is "disabled"
 		g.Vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 
 		// We will not set EncryptSpreadComm in config params when vertica version is old.
 		// EncryptSpreadComm will be set using DDL after db is created.
 		vdb.Annotations[vmeta.VersionAnnotation] = "v12.0.3"
-		Expect(g.setup()).Should(Succeed())
+		Expect(g.Setup()).Should(Succeed())
 		// default value
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 		// empty string
 		g.Vdb.Spec.EncryptSpreadComm = ""
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 		// "vertica"
 		g.Vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommWithVertica
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 		// "diabled"
 		g.Vdb.Spec.EncryptSpreadComm = vapi.EncryptSpreadCommDisabled
-		g.setEncryptSpreadCommConfigIfNecessary()
+		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 	})
 })

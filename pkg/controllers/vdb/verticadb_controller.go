@@ -333,3 +333,7 @@ func (r *VerticaDBReconciler) Eventf(vdb runtime.Object, eventtype, reason, mess
 	}
 	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
 }
+
+func (r *VerticaDBReconciler) GetClient() client.Client {
+	return r.Client
+}

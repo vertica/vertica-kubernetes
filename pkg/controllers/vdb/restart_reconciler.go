@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -64,7 +65,7 @@ type RestartReconciler struct {
 	InitiatorPodIP  string               // The IP of the initiating pod
 	RestartReadOnly bool                 // Whether to restart nodes that are in read-only mode
 	Dispatcher      vadmin.Dispatcher
-	ConfigParamsGenerator
+	config.ConfigParamsGenerator
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
@@ -79,7 +80,7 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		PFacts:          pfacts,
 		RestartReadOnly: restartReadOnly,
 		Dispatcher:      dispatcher,
-		ConfigParamsGenerator: ConfigParamsGenerator{
+		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec: vdbrecon,
 			Log:  log.WithName("RestartReconciler"),
 			Vdb:  vdb,

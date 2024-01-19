@@ -36,6 +36,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
@@ -96,7 +97,7 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		initializer: r,
 		PRunner:     r.PRunner,
 		PFacts:      r.PFacts,
-		ConfigParamsGenerator: ConfigParamsGenerator{
+		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec:                r.VRec,
 			Log:                 r.Log,
 			Vdb:                 r.Vdb,
