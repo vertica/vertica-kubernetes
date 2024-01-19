@@ -72,6 +72,9 @@ const (
 	// HTTP endpoint used for health check probe
 	HTTPServerVersionPath = "/v1/version"
 
+	// Endpoint in the NMA to check its health and readiness
+	NMAHealthPath = "/v1/health"
+
 	// Name of the volume shared by nma and vertica containers
 	startupConfMountName = "startup-conf"
 )
@@ -676,6 +679,9 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		Env:             envVars,
 		Command:         buildNMACommand(),
 		VolumeMounts:    buildNMAVolumeMounts(vdb),
+		ReadinessProbe:  makeNMAHealthProbe(),
+		LivenessProbe:   makeNMAHealthProbe(),
+		StartupProbe:    makeNMAHealthProbe(),
 	}
 }
 
@@ -794,6 +800,19 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 
 	overrideProbe(probe, vdb.Spec.LivenessProbeOverride)
 	return probe
+}
+
+// makeNMAHealthProbe will return the Probe object to use for the NMA
+func makeNMAHealthProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   NMAHealthPath,
+				Port:   intstr.FromInt(NMAPort),
+				Scheme: corev1.URISchemeHTTPS,
+			},
+		},
+	}
 }
 
 // overrideProbe will modify the probe with any user defined override values.
@@ -1218,13 +1237,8 @@ func buildCanaryQuerySQL(vdb *vapi.VerticaDB) string {
 // buildVerticaStartCommand returns the vertica start command that
 // will serve as entrypoint to the server container
 func buildVerticaStartCommand() []string {
-	startCmd := fmt.Sprintf("/opt/vertica/bin/vertica --startup-conf %s", paths.StartupConfFile)
 	return []string{
-		"bash",
-		"-c",
-		// we sleep to prevent the container to exit.
-		// this will be removed after VER-91286
-		fmt.Sprintf("%s && sleep infinity", startCmd),
+		"/opt/vertica/bin/vertica", "--startup-conf", paths.StartupConfFile,
 	}
 }
 
