@@ -77,7 +77,6 @@ jobs:
         export E2E_PARALLELISM=1
         export DEPLOY_WITH=helm
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
-        export NMA_RUNNING_MODE=sidecar
         export E2E_TEST_DIRS=tests/e2e-leg-5
         # Some tests in this suite do an upgrade, so set the base image to upgrade from
         export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG)

@@ -62,7 +62,6 @@ jobs:
         # Leg 6 is only tested in vclusterops mode. It has tests that depend on
         # features only available with that deployment method.
         export VERTICA_DEPLOYMENT_METHOD=vclusterops
-        export NMA_RUNNING_MODE=sidecar
         export E2E_TEST_DIRS="tests/e2e-leg-6"
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s

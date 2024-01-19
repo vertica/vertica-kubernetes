@@ -78,7 +78,6 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS="tests/e2e-leg-3"
-        export NMA_RUNNING_MODE=sidecar
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-3-at-only"; fi
         mkdir -p $GITHUB_WORKSPACE/../host-path
