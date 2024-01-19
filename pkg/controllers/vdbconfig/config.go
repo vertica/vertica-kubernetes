@@ -53,17 +53,14 @@ type ConfigParamsGenerator struct {
 // ConstructConfigParms builds a map of all of the config parameters to use,
 // and assigns the map to ConfigurationParams of ConfigParamsGenerator
 func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.Result, error) {
-	fmt.Println("Chinh debug 5")
 	if err := g.setup(); err != nil {
 		return ctrl.Result{}, err
 	}
 	var authConfigBuilder func(ctx context.Context) (ctrl.Result, error)
-	fmt.Println("Chinh debug 6")
 	if g.Vdb.Spec.Communal.Path == "" {
 		g.Log.Info("Communal path is empty. Not setting up communal auth parms")
 		return ctrl.Result{}, nil
 	}
-	fmt.Println("Chinh debug 7")
 	if g.Vdb.IsS3() {
 		authConfigBuilder = g.setS3AuthParms
 	} else if g.Vdb.IsHDFS() {
@@ -75,7 +72,6 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 	} else {
 		g.Log.Info("No special auth setup for communal path", "path", g.Vdb.Spec.Communal.Path)
 	}
-	fmt.Println("Chinh debug 8")
 	var res ctrl.Result
 	var err error
 	if authConfigBuilder != nil {
@@ -84,7 +80,6 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 			return res, err
 		}
 	}
-	fmt.Println("Chinh debug 9")
 	if g.Vdb.HasKerberosConfig() {
 		if res = g.hasCompatibleVersionForKerberos(); verrors.IsReconcileAborted(res, nil) {
 			return res, nil
@@ -94,7 +89,6 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 			return ctrl.Result{}, err
 		}
 	}
-	fmt.Println("Chinh debug 10")
 	g.setEncryptSpreadCommConfigIfNecessary()
 
 	// In newer release, we moved what some config settings that use to be set
@@ -124,15 +118,11 @@ func (g *ConfigParamsGenerator) GetConfigParms() *vtypes.CiMap {
 
 // setup will initialize parms in the ConfigParamsGenerator struct
 func (g *ConfigParamsGenerator) setup() error {
-	fmt.Println("Chinh debug 6")
 	if g.ConfigurationParams == nil {
-		fmt.Println("Chinh debug 7")
 		g.ConfigurationParams = vtypes.MakeCiMap()
 	}
 	var err error
-	fmt.Println("Chinh debug 8")
 	g.VInf, err = g.Vdb.MakeVersionInfoCheck()
-	fmt.Println("Chinh debug 11")
 	return err
 }
 
