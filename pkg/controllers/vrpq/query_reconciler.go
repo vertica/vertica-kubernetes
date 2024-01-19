@@ -24,17 +24,21 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vdbconfig "github.com/vertica/vertica-kubernetes/pkg/controllers/vdbconfig"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepointsquery"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type QueryReconciler struct {
-	VRec *VerticaRestorePointsQueryReconciler
-	Vrpq *vapi.VerticaRestorePointsQuery
-	Log  logr.Logger
+	VRec           *VerticaRestorePointsQueryReconciler
+	Vrpq           *vapi.VerticaRestorePointsQuery
+	Log            logr.Logger
+	InitiatorPod   types.NamespacedName // The pod that we run admin commands from
+	InitiatorPodIP string               // The IP of the initiating pod
 	vdbconfig.ConfigParamsGenerator
 }
 
@@ -65,6 +69,10 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, 
 	vdb := &vapi.VerticaDB{}
 	res := ctrl.Result{}
 
+	opts := []restorepointsquery.Option{
+		restorepointsquery.WithInitiator(q.InitiatorPod, q.InitiatorPodIP),
+	}
+
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		var e error
 		if res, e = fetchVDB(ctx, q.VRec, q.Vrpq, vdb); verrors.IsReconcileAborted(res, e) {
@@ -79,7 +87,13 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, 
 					return e
 				}
 			}
+			// extract out the communal and config information to pass down to the vclusterops API.
+			opts = append(opts,
+				restorepointsquery.WithCommunalPath(vdb.GetCommunalPath()),
+				restorepointsquery.WithConfigurationParams(q.ConfigurationParams.GetMap()),
+			)
 		}
+
 		return nil
 	})
 
