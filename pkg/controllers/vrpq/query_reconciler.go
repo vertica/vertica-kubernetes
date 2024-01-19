@@ -22,8 +22,12 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vdbconfig "github.com/vertica/vertica-kubernetes/pkg/controllers/vdbconfig"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -31,6 +35,7 @@ type QueryReconciler struct {
 	VRec *VerticaRestorePointsQueryReconciler
 	Vrpq *vapi.VerticaRestorePointsQuery
 	Log  logr.Logger
+	vdbconfig.ConfigParamsGenerator
 }
 
 func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
@@ -48,7 +53,37 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 	if isSet {
 		return ctrl.Result{}, nil
 	}
+	// collect information from a VerticaDB.
+	if res, err := q.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	return ctrl.Result{}, q.runListRestorePoints(ctx, req)
+}
+
+func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
+	vdb := &vapi.VerticaDB{}
+	res := ctrl.Result{}
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var e error
+		if res, e = fetchVDB(ctx, q.VRec, q.Vrpq, vdb); verrors.IsReconcileAborted(res, e) {
+			return e
+		}
+		// If a communal path is set, include all of the EON parameters.
+		if vdb.Spec.Communal.Path != "" {
+			// build communal storage params if there is not one
+			if q.ConfigurationParams == nil {
+				res, e = q.ConstructConfigParms(ctx)
+				if verrors.IsReconcileAborted(res, e) {
+					return e
+				}
+			}
+		}
+		return nil
+	})
+
+	return res, err
 }
 
 // setListRestorePointsQueryConditions will update the status condition before and after calling

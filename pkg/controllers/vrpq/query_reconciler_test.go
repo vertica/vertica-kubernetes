@@ -21,13 +21,27 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	test "github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var _ = Describe("query_reconcile", func() {
 	ctx := context.Background()
 
+	It("should requeue if VerticaDB doesn't exist", func() {
+		vrpq := vapi.MakeVrpq()
+		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+
+		req := ctrl.Request{NamespacedName: vapi.MakeSampleVrpqName()}
+		Expect(vrpqRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{Requeue: true}))
+	})
+
 	It("should update query conditions if the vclusterops API succeeded", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
