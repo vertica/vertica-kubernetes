@@ -18,6 +18,7 @@ package vrpq
 import (
 	"context"
 
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +30,7 @@ import (
 // fetchVDB will fetch the VerticaDB that is referenced in a VerticaRestorePointsQuery.
 // This will log an event if the VerticaDB is not found.
 func fetchVDB(ctx context.Context, vrec *VerticaRestorePointsQueryReconciler,
-	vrpq *vapi.VerticaRestorePointsQuery, vdb *vapi.VerticaDB) (ctrl.Result, error) {
+	vrpq *vapi.VerticaRestorePointsQuery, vdb *v1.VerticaDB) (ctrl.Result, error) {
 	nm := types.NamespacedName{
 		Namespace: vrpq.Namespace,
 		Name:      vrpq.Spec.VerticaDBName,

@@ -20,8 +20,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	test "github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -38,7 +39,9 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should update query conditions if the vclusterops API succeeded", func() {
-		vdb := vapi.MakeVDB()
+		vdb := v1.MakeVDB()
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 

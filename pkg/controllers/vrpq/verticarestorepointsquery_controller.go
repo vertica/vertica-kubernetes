@@ -30,6 +30,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
@@ -109,4 +110,26 @@ func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.Vertica
 		MakeRestorePointsQueryReconciler(r, vrpq, log),
 	}
 	return actors
+}
+
+// Event a wrapper for Event() that also writes a log entry
+func (r *VerticaRestorePointsQueryReconciler) Event(vdb runtime.Object, eventtype, reason, message string) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Event(vdb, eventtype, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (r *VerticaRestorePointsQueryReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
+}
+
+func (r *VerticaRestorePointsQueryReconciler) GetClient() client.Client {
+	return r.Client
 }
