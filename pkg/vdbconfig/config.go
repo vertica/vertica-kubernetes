@@ -58,20 +58,19 @@ type ReconcilerInterface interface {
 	GetClient() client.Client
 }
 
-// Your vdb.VerticaDBReconciler should implement ReconcilerInterface
 type VerticaReconciler struct {
 	client.Client
 	Log   logr.Logger
 	EVRec record.EventRecorder
 }
 
+// GetClient gives access to the Kubernetes client
 func (v *VerticaReconciler) GetClient() client.Client {
-	// Implement the method to return the Kubernetes client
 	return v.Client
 }
 
+// Event a wrapper for Event() that also writes a log entry
 func (v *VerticaReconciler) Event(vdb runtime.Object, eventType, reason, message string) {
-	// Implement the method to write events
 	evWriter := events.Writer{
 		Log:   v.Log,
 		EVRec: v.EVRec,

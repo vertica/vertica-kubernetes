@@ -334,6 +334,7 @@ func (r *VerticaDBReconciler) Eventf(vdb runtime.Object, eventtype, reason, mess
 	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
 }
 
+// GetClient gives access to the Kubernetes client
 func (r *VerticaDBReconciler) GetClient() client.Client {
 	return r.Client
 }

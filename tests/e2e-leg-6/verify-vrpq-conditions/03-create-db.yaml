@@ -13,8 +13,5 @@
 
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
-delete:
-  - apiVersion: vertica.com/v1
-    kind: VerticaDB
-  - apiVersion: vertica.com/v1beta1
-    kind: VerticaRestorePointsQuery
+commands:
+  - command: bash -c "kustomize build setup-vdb/overlay | kubectl -n $NAMESPACE apply -f - "

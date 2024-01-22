@@ -69,6 +69,7 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 	return ctrl.Result{}, q.runListRestorePoints(ctx, req)
 }
 
+// fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR,
 func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
 	vdb := &v1.VerticaDB{}
 	res := ctrl.Result{}
@@ -82,23 +83,19 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, 
 		if res, e = fetchVDB(ctx, q.VRec, q.Vrpq, vdb); verrors.IsReconcileAborted(res, e) {
 			return e
 		}
-		q.ConfigParamsGenerator.Vdb = vdb
-		// If a communal path is set, include all of the EON parameters.
-		if vdb.Spec.Communal.Path != "" {
-			// build communal storage params if there is not one
-			if q.ConfigurationParams == nil {
-				res, e = q.ConstructConfigParms(ctx)
-				if verrors.IsReconcileAborted(res, e) {
-					return e
-				}
+		q.Vdb = vdb
+		// build communal storage params if there is not one
+		if q.ConfigurationParams == nil {
+			res, e = q.ConstructConfigParms(ctx)
+			if verrors.IsReconcileAborted(res, e) {
+				return e
 			}
-
-			// extract out the communal and config information to pass down to the vclusterops API.
-			opts = append(opts,
-				restorepointsquery.WithCommunalPath(vdb.GetCommunalPath()),
-				restorepointsquery.WithConfigurationParams(q.ConfigurationParams.GetMap()),
-			)
 		}
+		// extract out the communal and config information to pass down to the vclusterops API.
+		opts = append(opts,
+			restorepointsquery.WithCommunalPath(vdb.GetCommunalPath()),
+			restorepointsquery.WithConfigurationParams(q.ConfigurationParams.GetMap()),
+		)
 
 		return nil
 	})

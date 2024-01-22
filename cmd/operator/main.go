@@ -134,6 +134,8 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcf
 	if err := (&vrpq.VerticaRestorePointsQueryReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:    ctrl.Log.WithName("controllers").WithName("VerticaRestorePointsQuery"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaRestorePointsQuery")
 		os.Exit(1)

@@ -11,11 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaRestorePointsQuery
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: archive-query-sc1
+status:
+  replicas: 1
+  readyReplicas: 1
+---
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
   name: archive-query
-spec:
-  verticaDBName: vert
-  archiveName: backup
-    
+status:
+  subclusters:
+    - addedToDBCount: 1
+      upNodeCount: 1

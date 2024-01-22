@@ -115,6 +115,16 @@ func createK8sCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
 }
 
+func createAzureAccountKeyCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+	secret := builder.BuildAzureAccountKeyCommunalCredSecret(vdb, "verticaAccountName", "secretKey")
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
+func createAzureSASCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+	secret := builder.BuildAzureSASCommunalCredSecret(vdb, "blob.microsoft.net", "sharedAccessKey")
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
 func deleteCommunalCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
 	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
 }

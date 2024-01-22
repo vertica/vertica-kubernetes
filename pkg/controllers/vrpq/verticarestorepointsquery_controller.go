@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
+	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -90,6 +91,7 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
+	log.Info("ending reconcile of VerticaRestorePointsQuery", "result", res, "err", err)
 	return ctrl.Result{}, nil
 }
 
@@ -97,6 +99,10 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 func (r *VerticaRestorePointsQueryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&vapi.VerticaRestorePointsQuery{}).
+		// Not a strict ownership, but this is used so that the operator will
+		// reconcile the VerticaRestorePointsQuery for any change in the VerticaDB.
+		// This ensures the status fields are kept up to date.
+		Owns(&v1vapi.VerticaDB{}).
 		Complete(r)
 }
 
@@ -130,6 +136,7 @@ func (r *VerticaRestorePointsQueryReconciler) Eventf(vdb runtime.Object, eventty
 	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
 }
 
+// GetClient gives access to the Kubernetes client
 func (r *VerticaRestorePointsQueryReconciler) GetClient() client.Client {
 	return r.Client
 }
