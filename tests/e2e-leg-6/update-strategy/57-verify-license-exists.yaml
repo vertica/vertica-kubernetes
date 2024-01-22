@@ -11,42 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-restart
-status:
-  subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-restart-defsc-0
-status:
-  containerStatuses:
-    - ready: true
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-restart-defsc-1
-status:
-  containerStatuses:
-    - ready: true
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v-restart-defsc-2
-status:
-  containerStatuses:
-    - ready: true
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: grant-dbadmin-local-access
-status:
-  succeeded: 1
+# Verify that the license exists in the container
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl exec -t -n $NAMESPACE v-ks-0-update-strategy-sc1-0 -c server -- test -f /home/dbadmin/licensing/mnt/lic

@@ -18,7 +18,7 @@ do
            #   library in the test-verify-cpp-filter test
            # - test-verify-cpp-apportion-load depends on python being in the
            #   container. python3 is there, so just creating a symlink.
-           sudo yum install -y boost-devel libcurl-devel bzip2-devel bzip2 perl diffutils && sudo ln -s /usr/bin/python3 /usr/bin/python && sudo ln -s /usr/lib64/libbz2.so /usr/lib64/libbz2.so.1.0 && break || sleep 60
+           sudo yum install -y boost-devel libcurl-devel bzip2-devel bzip2 perl diffutils && sudo ln -s /opt/vertica/oss/python3/bin/python3 /usr/bin/python && sudo ln -s /usr/lib64/libbz2.so /usr/lib64/libbz2.so.1.0 && break || sleep 60
         fi
     else  # v2 image
         if which apt-get # ubuntu / apt-get
@@ -27,7 +27,7 @@ do
         else # yum package manager
             # The GitHub hosted runners are ubuntu, so we need to account for
             # some OS differences. See comment above to understand rationale.
-            echo root | su root sh -c 'yum install -y boost-devel libcurl-devel bzip2-devel bzip2 perl diffutils && ln -s /usr/bin/python3 /usr/bin/python && ln -s /usr/lib64/libbz2.so /usr/lib64/libbz2.so.1.0' && break || sleep 60
+            echo root | su root sh -c 'yum install -y boost-devel libcurl-devel bzip2-devel bzip2 perl diffutils && ln -s /opt/vertica/oss/python3/bin/python3 /usr/bin/python && ln -s /usr/lib64/libbz2.so /usr/lib64/libbz2.so.1.0' && break || sleep 60
         fi
     fi
 done

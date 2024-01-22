@@ -41,11 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	ServerContainer      = "server"
-	ServerContainerIndex = 0
-)
-
 type ObjReconcileModeType uint8
 
 const (
@@ -439,8 +434,14 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// We always preserve the image. This is done because during upgrade, the
 	// image is changed outside of this reconciler. It is done through a
 	// separate update to the sts.
-	i := names.ServerContainerIndex
-	expSts.Spec.Template.Spec.Containers[i].Image = curSts.Spec.Template.Spec.Containers[i].Image
+	i := names.GetServerContainerIndex(o.Vdb)
+	// It does not matter which is the first container,
+	// they have the same image
+	curImage := curSts.Spec.Template.Spec.Containers[0].Image
+	expSts.Spec.Template.Spec.Containers[i].Image = curImage
+	if o.Vdb.IsNMASideCarDeploymentEnabled() {
+		expSts.Spec.Template.Spec.Containers[names.GetNMAContainerIndex()].Image = curImage
+	}
 
 	// Preserve scaling if told to do so. This is used when doing early
 	// reconciliation so that we have any necessary pods started.

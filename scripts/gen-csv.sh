@@ -60,11 +60,12 @@ then
     usage
 fi
 
-VERSION=${@:$OPTIND:1}
-BUNDLE_METADATA_OPTS=${@:$OPTIND+1:1}
-BUNDLE_GEN_FLAGS="-q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS $USE_IMAGE_DIGESTS_FLAG"
-
 set -o xtrace
+shift $(expr $OPTIND - 1)
+VERSION=$1
+shift
+BUNDLE_METADATA_OPTS=$@
+BUNDLE_GEN_FLAGS="-q --overwrite --version $VERSION $BUNDLE_METADATA_OPTS $USE_IMAGE_DIGESTS_FLAG"
 
 cd $REPO_DIR
 rm -rf bundle/ 2>/dev/null || true

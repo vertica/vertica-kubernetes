@@ -58,6 +58,8 @@ done
 
 USER_CONFIG_FILE=${@:$OPTIND:1}
 
+source $SCRIPT_DIR/image-utils.sh
+
 # Read in the defaults
 source $REPO_DIR/tests/kustomize-defaults.cfg
 
@@ -91,6 +93,15 @@ if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
 
+# Pick a NMA running mode that is compatible with the deployment and image
+# version. All admintools deployments will run as a monolithic container. And
+# 24.1.0 with vclusterops, only supported monolithic.
+if [ -z "${NMA_RUNNING_MODE}" ] \
+    || [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ] \
+    || [ "$(determine_image_version $VERTICA_IMG)" == "24.1.0" ]
+then
+    NMA_RUNNING_MODE=monolithic
+fi
 # Name of the secret that contains the cert to use for communal access
 # authentication.  This is the name of the namespace copy, so it is hard coded
 # in this script.
@@ -130,6 +141,8 @@ if [ -n "$PRIVATE_REG_SERVER" ]; then echo "YES"; else echo "NO"; fi
 echo -n "Add server mounts: "
 if [ -n "$USE_SERVER_MOUNT_PATCH" ]; then echo "YES"; else echo "NO"; fi
 echo "Deployment method: $VERTICA_DEPLOYMENT_METHOD"
+echo "NMA running mode: $NMA_RUNNING_MODE"
+echo "Image version: $(determine_image_version $VERTICA_IMG)"
 echo "Vertica superuser name: $VERTICA_SUPERUSER_NAME"
 
 function create_vdb_kustomization {
@@ -192,6 +205,18 @@ EOF
     - op: add
       path: /metadata/annotations/vertica.com~1vcluster-ops
       value: "true"
+EOF
+        else
+            cat <<EOF >> kustomization.yaml
+    - op: add
+      path: /metadata/annotations/vertica.com~1vcluster-ops
+      value: "false"
+EOF
+        fi
+
+        if [ "$NMA_RUNNING_MODE" != "sidecar" ]
+        then
+            cat <<EOF >> kustomization.yaml
     - op: add
       path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
       value: "false"
@@ -199,8 +224,8 @@ EOF
         else
             cat <<EOF >> kustomization.yaml
     - op: add
-      path: /metadata/annotations/vertica.com~1vcluster-ops
-      value: "false"
+      path: /metadata/annotations/vertica.com~1run-nma-in-sidecar
+      value: "true"
 EOF
         fi
         

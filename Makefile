@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 2.0.0
+VERSION ?= 2.0.1
 export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
@@ -29,8 +29,12 @@ SOAK_CFG?=local-soak.cfg
 # cause an infinite number of iterations to run.
 NUM_SOAK_ITERATIONS?=1
 
-# CHANNELS define the bundle channels used in the bundle. 
-CHANNELS=stable
+# CHANNELS define the bundle channels used in the bundle:
+# - stable: This was the channel named for the first version of the operator
+#   when it was namespace scoped.
+# - v2-stable: This is the new channel name to use for cluster scoped operator.
+#   This corresponds with the 2.0.0 release of the operator.
+CHANNELS=v2-stable
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
@@ -42,7 +46,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL=stable
+DEFAULT_CHANNEL?=v2-stable
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -357,15 +361,26 @@ endif
 # http REST interfaces. Eventually, we will go back to one version using the
 # next generation one as *THE* vertica-k8s image.
 
+# Using --no-cache is important so that we pick up the latest security fixes.
+# Otherwise, we risk skipping the step in the docker build when we pull the
+# latest base image.
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?="--no-cache"
+
 .PHONY: docker-build-vertica
 docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker image
 	cd docker-vertica \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
+	&& make \
+		VERTICA_IMG=${VERTICA_IMG} \
+		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
+		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
 
 .PHONY: docker-build-vertica-v2
 docker-build-vertica-v2: docker-vertica-v2/Dockerfile ## Build next generation vertica server docker image
 	cd docker-vertica-v2 \
-	&& make VERTICA_IMG=${VERTICA_IMG} MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} 
+	&& make \
+		VERTICA_IMG=${VERTICA_IMG} \
+		MINIMAL_VERTICA_IMG=${MINIMAL_VERTICA_IMG} \
+		VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS=${VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS}
 
 .PHONY: docker-push-vertica
 docker-push-vertica:  ## Push vertica server image -- either v1 or v2.
@@ -460,7 +475,7 @@ kuttl-step-gen: ## Builds the kuttl-step-gen tool
 
 .PHONY: vdb-gen
 vdb-gen: generate manifests ## Builds the vdb-gen tool
-	go build -o bin/$@ ./cmd/$@
+	CGO_ENABLED=0 go build -o bin/$@ ./cmd/$@
 
 ##@ Deployment
 

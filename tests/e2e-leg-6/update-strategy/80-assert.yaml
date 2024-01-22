@@ -11,10 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta2
-kind: TestStep
-commands:
-  - command: kubectl exec -n $NAMESPACE v-restart-defsc-0 -- bash -c "ls /etc/podinfo"
-  # dbadmin password should be mounted because we reference it in probes.
-  - command: kubectl exec -n $NAMESPACE v-restart-defsc-0 -- bash -c "! test -f /etc/podinfo/superuser-passwd"
-
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-1-update-strategy-sc1-2
+status:
+  containerStatuses:
+    - name: nma
+    - ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-1-update-strategy-sc1-1
+status:
+  containerStatuses:
+    - name: nma
+    - ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-1-update-strategy-sc1-0
+status:
+  containerStatuses:
+    - name: nma
+    - ready: true

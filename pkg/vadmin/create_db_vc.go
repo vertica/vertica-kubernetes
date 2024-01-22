@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -85,6 +86,9 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	*opts.ForceRemovalAtCreation = true
 	opts.SkipPackageInstall = &s.SkipPackageInstall
 	opts.DataPrefix = &s.DataPath
+	if v.VDB.IsNMASideCarDeploymentEnabled() {
+		*opts.StartUpConf = paths.StartupConfFile
+	}
 
 	// If a communal path is set, include all of the EON parameters.
 	if s.CommunalPath != "" {

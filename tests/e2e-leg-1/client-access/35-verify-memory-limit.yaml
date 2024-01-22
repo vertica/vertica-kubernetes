@@ -35,8 +35,8 @@ data:
     select case when round((rs.max_memory_size_kb * 1024)/hr.total_memory_bytes, 2) < 0.95 then 'passed' else 'failed' end from resource_pool_status as rs, host_resources as hr where rs.pool_name = 'general' limit 1;
     EOF
 
-    kubectl cp /tmp/vsql_mem_limit_cmds.in $POD_NAME:/tmp/vsql_mem_limit_cmds.in
-    kubectl exec $POD_NAME -i -- sh -c "cd /tmp && vsql -U dbadmin --echo-queries --file vsql_mem_limit_cmds.in 2>&1 | tee vsql_mem_limit_cmds.out"
+    kubectl cp /tmp/vsql_mem_limit_cmds.in $POD_NAME:/tmp/vsql_mem_limit_cmds.in -c server
+    kubectl exec $POD_NAME -i -c server -- sh -c "cd /tmp && vsql -U dbadmin --echo-queries --file vsql_mem_limit_cmds.in 2>&1 | tee vsql_mem_limit_cmds.out"
 
     cat << EOF > /tmp/vsql_mem_limit_cmds_verify.sh
     set -e
@@ -46,8 +46,8 @@ data:
     grep "passed" vsql_mem_limit_cmds.out
     EOF
 
-    kubectl cp /tmp/vsql_mem_limit_cmds_verify.sh $POD_NAME:/tmp/vsql_mem_limit_cmds_verify.sh
-    kubectl exec $POD_NAME -i -- sh /tmp/vsql_mem_limit_cmds_verify.sh
+    kubectl cp /tmp/vsql_mem_limit_cmds_verify.sh $POD_NAME:/tmp/vsql_mem_limit_cmds_verify.sh -c server
+    kubectl exec $POD_NAME -i -c server -- sh /tmp/vsql_mem_limit_cmds_verify.sh
 ---
 apiVersion: v1
 kind: Pod

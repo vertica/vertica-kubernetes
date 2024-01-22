@@ -11,11 +11,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verify the license exists in each of the pods
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl exec -t -n $NAMESPACE v-ks-1-update-strategy-sc1-0 -- test -f /home/dbadmin/licensing/mnt/lic
-  - script: kubectl exec -t -n $NAMESPACE v-ks-1-update-strategy-sc1-1 -- test -f /home/dbadmin/licensing/mnt/lic
-  - script: kubectl exec -t -n $NAMESPACE v-ks-1-update-strategy-sc1-2 -- test -f /home/dbadmin/licensing/mnt/lic
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-readiness-probe-override-queries
+spec:
+  template:
+    spec:
+      containers:
+        - name: nma
+        - name: server
+          readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 20
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-readiness-probe-override-admin
+spec:
+  template:
+    spec:
+      containers:
+        - name: nma
+        - name: server
+          readinessProbe:
+            timeoutSeconds: 5
+            periodSeconds: 20

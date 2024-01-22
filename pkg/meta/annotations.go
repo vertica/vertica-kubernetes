@@ -154,6 +154,11 @@ const (
 	FailCreateDBIfVerticaIsRunningAnnotation      = "vertica.com/fail-create-db-if-vertica-is-running"
 	FailCreateDBIfVerticaIsRunningAnnotationTrue  = "true"
 	FailCreateDBIfVerticaIsRunningAnnotationFalse = "false"
+
+	// We have a deployment check that ensures that if running vcluster ops the
+	// image is built for that (and vice-versa). This annotation allows you to
+	// skip that check.
+	SkipDeploymentCheckAnnotation = "vertica.com/skip-deployment-check"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -252,6 +257,13 @@ func GetTerminationGracePeriodSeconds(annotations map[string]string) int {
 // vertica is running should be ignored.
 func FailCreateDBIfVerticaIsRunning(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, FailCreateDBIfVerticaIsRunningAnnotation, false /* default value */)
+}
+
+// GetSkipDeploymentCheck will return true if we are to skip the check that
+// ensures the deployment method picked (vcluster or admintools) matches what
+// the image was built for.
+func GetSkipDeploymentCheck(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, SkipDeploymentCheckAnnotation, false /* default value */)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

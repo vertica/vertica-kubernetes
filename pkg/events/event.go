@@ -85,6 +85,7 @@ const (
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 	WrongImage                      = "WrongImage"
 	NMAInSidecarNotSupported        = "NMAInSidecarNotSupported"
+	MonolithicContainerNotSupported = "MonolithicContainerNotSupported"
 )
 
 // Constants for VerticaAutoscaler reconciler
