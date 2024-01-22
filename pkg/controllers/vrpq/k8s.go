@@ -21,6 +21,7 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,15 +30,15 @@ import (
 
 // fetchVDB will fetch the VerticaDB that is referenced in a VerticaRestorePointsQuery.
 // This will log an event if the VerticaDB is not found.
-func fetchVDB(ctx context.Context, vrec *VerticaRestorePointsQueryReconciler,
+func fetchVDB(ctx context.Context, vrec config.ReconcilerInterface,
 	vrpq *vapi.VerticaRestorePointsQuery, vdb *v1.VerticaDB) (ctrl.Result, error) {
 	nm := types.NamespacedName{
 		Namespace: vrpq.Namespace,
 		Name:      vrpq.Spec.VerticaDBName,
 	}
-	err := vrec.Client.Get(ctx, nm, vdb)
+	err := vrec.GetClient().Get(ctx, nm, vdb)
 	if err != nil && errors.IsNotFound(err) {
-		vrec.EVRec.Eventf(vrpq, corev1.EventTypeWarning, events.VerticaDBNotFound,
+		vrec.Eventf(vrpq, corev1.EventTypeWarning, events.VerticaDBNotFound,
 			"The VerticaDB named '%s' was not found", vrpq.Spec.VerticaDBName)
 		return ctrl.Result{Requeue: true}, nil
 	}

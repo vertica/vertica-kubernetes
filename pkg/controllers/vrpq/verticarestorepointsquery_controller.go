@@ -91,7 +91,7 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
-	log.Info("ending reconcile of VerticaRestorePointsQuery", "result", res, "err", err)
+	log.Info("ending reconcile of VerticaRestorePointsQuery")
 	return ctrl.Result{}, nil
 }
 

@@ -13,31 +13,24 @@
  limitations under the License.
 */
 
-package vdb
+package vdbconfig
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
-	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 )
 
 var _ = Describe("config", func() {
 	It("should have correct value of EncryptSpreadComm", func() {
 		vdb := vapi.MakeVDB()
-
-		fpr := &cmds.FakePodRunner{}
-		g := GenericDatabaseInitializer{
-			PRunner: fpr,
-			ConfigParamsGenerator: config.ConfigParamsGenerator{
-				VRec:                vdbRec,
-				Log:                 logger,
-				Vdb:                 vdb,
-				ConfigurationParams: types.MakeCiMap(),
-			},
+		g := ConfigParamsGenerator{
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			ConfigurationParams: types.MakeCiMap(),
 		}
 
 		// set the version larger than the version that will encrypt spread channel without a db restart

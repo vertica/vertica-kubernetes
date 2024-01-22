@@ -19,7 +19,6 @@ metadata:
     vertica.com/include-uid-in-path: "true"
     vertica.com/k-safety: "0"
     vertica.com/requeue-time: "5"
-    vertica.com/run-nma-in-sidecar: "false"
 spec:
   image: kustomize-vertica-image
   communal:
