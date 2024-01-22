@@ -396,6 +396,18 @@ func (v *VerticaDB) GetRestartTimeout() int {
 	return vmeta.GetRestartTimeout(v.Annotations)
 }
 
+// IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
+// in a sidecar are met
+func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
+	return vmeta.UseVClusterOps(v.Annotations) && vmeta.RunNMAInSidecarMode(v.Annotations)
+}
+
+// IsMonolithicDeploymentEnabled returns true if NMA must run in the
+// same container as vertica
+func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
+	return vmeta.UseVClusterOps(v.Annotations) && !vmeta.RunNMAInSidecarMode(v.Annotations)
+}
+
 // IsKSafety0 returns true if k-safety of 0 is set.
 func (v *VerticaDB) IsKSafety0() bool {
 	return vmeta.IsKSafety0(v.Annotations)

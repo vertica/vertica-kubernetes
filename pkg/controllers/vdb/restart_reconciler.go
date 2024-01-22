@@ -31,6 +31,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -168,7 +169,9 @@ func (r *RestartReconciler) reconcileCluster(ctx context.Context) (ctrl.Result, 
 	// transient nodes' IPs easily. However, using admintools, we can get the correct nodes'
 	// IPs easily from admintools.conf. As a result, we exclude transient pods from the pods
 	// to restart for vclusterops.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, !vmeta.UseVClusterOps(r.Vdb.Annotations))
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly,
+		!vmeta.UseVClusterOps(r.Vdb.Annotations), /* restartTransient */
+		true /* restartPendingDelete */)
 
 	// Kill any read-only vertica process that may still be running. This does
 	// not include any rogue process that is no longer communicating with
@@ -235,8 +238,11 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 	// If there is a pod that is not yet running, we leave them off for now.
 	// When it does start running there will be another reconciliation cycle.
 	// Always skip the transient pods since they only run the old image so they
-	// can't be restarted.
-	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly, false)
+	// can't be restarted. Also, skip pending delete as they may be partially
+	// removed already, preventing restart from succeding. They will be removed
+	// shortly anyway so makes little sense to restart them.
+	downPods := r.PFacts.findRestartablePods(r.RestartReadOnly,
+		false /* restartTransient */, false /* restartPendingDelete */)
 	// This is too make sure all pods have signed they EULA before running
 	// admintools on any of them.
 	if err := r.acceptEulaIfMissing(ctx); err != nil {
@@ -476,15 +482,27 @@ func (r *RestartReconciler) killReadOnlyProcesses(ctx context.Context, pods []*P
 		if !pod.readOnly {
 			continue
 		}
-		const KillMarker = "Killing process"
+		const killMarker = "Killing process"
+		// If NMA in sidecar is enabled, we must remove the startup
+		// configuration file before killing Vertica. This is necessary in the
+		// event that we have lost cluster quorum. To reestablish quorum, we
+		// need to initiate a restart through the vcluster API. Starting one
+		// node ad hoc by reusing the startup configuration file will not
+		// reestablish quorum.
+		rmCmd := fmt.Sprintf("rm -rf %s", paths.StartupConfFile)
+		// We cannot always kill the vertica process though. When running with
+		// the NMA sidecar, it is started as PID 1, which doesn't have a signal
+		// handler. So, it doesn't respond to kills. To force vertica down we
+		// are going to kill the spread process.
+		killCmd := fmt.Sprintf("for pid in $(pgrep ^spread$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", killMarker)
 		cmd := []string{
-			"bash", "-c",
-			fmt.Sprintf("for pid in $(pgrep ^vertica$); do echo \"%s $pid\"; kill -n SIGKILL $pid; done", KillMarker),
+			// Remove the startup file first, since deleting spread will cause the container to stop
+			"bash", "-c", fmt.Sprintf("%s; %s", rmCmd, killCmd),
 		}
 		// Avoid all errors since the process may not even be running
 		if stdout, _, err := r.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err != nil {
 			return ctrl.Result{}, err
-		} else if strings.Contains(stdout, KillMarker) {
+		} else if strings.Contains(stdout, killMarker) {
 			killedAtLeastOnePid = true
 		}
 	}
@@ -554,7 +572,8 @@ func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) 
 		}
 		return ctrl.Result{}, err
 	}
-	probe := pod.Spec.Containers[names.ServerContainerIndex].LivenessProbe
+	cnts := pod.Spec.Containers
+	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
 	if probe == nil {
 		// For backwards compatibility, if the probe isn't set, then we just
 		// return a simple requeue with exponential backoff.
@@ -577,7 +596,9 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 	}
 	// If the pod doesn't have a livenessProbe then we always return true. This
 	// can happen if we are in the middle of upgrading the operator.
-	if pod.Spec.Containers[names.ServerContainerIndex].LivenessProbe == nil {
+	cnts := pod.Spec.Containers
+	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
+	if probe == nil {
 		r.Log.Info("Pod doesn't have a livenessProbe. Okay to restart", "pod", nm)
 		return true, nil
 	}

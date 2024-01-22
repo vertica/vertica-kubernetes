@@ -73,7 +73,7 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err = v.verifyImage(pod)
+	err = v.verifyDeploymentType(pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -99,7 +99,29 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 
 	v.logWarningIfVersionDoesNotSupportsCGroupV2(ctx, vinf, pod)
 
-	return v.checkNMACertCompatability(vinf)
+	res = v.checkNMACertCompatability(vinf)
+	if verrors.IsReconcileAborted(res, nil) {
+		return res, nil
+	}
+
+	return ctrl.Result{}, v.verifyNMARunningMode(vinf)
+}
+
+// Verify whether the NMA is configured to run in sidecar container
+func (v *ImageVersionReconciler) verifyNMARunningMode(vinf *version.Info) error {
+	ver := v.Vdb.Annotations[vmeta.VersionAnnotation]
+	// versions below 24.2.0 cannot be used to run NMA in a sidecar container
+	if v.Vdb.IsNMASideCarDeploymentEnabled() {
+		if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
+			return nil
+		}
+		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported,
+			"The NMA version %s cannot be used for nma sidecar deployment."+
+				" The minimum supported version is %s", ver, vapi.NMAInSideCarDeploymentMinVersion)
+		return fmt.Errorf("running NMA in a sidecar container is not supported for version %s",
+			ver)
+	}
+	return nil
 }
 
 // logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a
@@ -113,7 +135,7 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 
 	// Check if the pod is running with cgroups v2
 	cmd := []string{"test", "-f", "/sys/fs/cgroup/cgroup.controllers"}
-	if _, _, err := v.PRunner.ExecInPod(ctx, pod.name, ServerContainer, cmd...); err == nil {
+	if _, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err == nil {
 		// Log a warning but we will continue on.  We may have a hotfix that
 		// addresses the bug so don't want to block any attempts to start vertica.
 		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
@@ -122,28 +144,28 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 }
 
 // checkNMACertCompatibility will check the NMA version if it is to read the cert from an external secret store.
-func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) (ctrl.Result, error) {
+func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) ctrl.Result {
 	// NMA is only useful for vclusterops and when the cert is set.
 	if !vmeta.UseVClusterOps(v.Vdb.Annotations) || v.Vdb.Spec.NMATLSSecret == "" {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}
 	}
 
 	if secrets.IsK8sSecret(v.Vdb.Spec.NMATLSSecret) {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}
 	} else if secrets.IsGSMSecret(v.Vdb.Spec.NMATLSSecret) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInGSMMinVersion) {
 			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from Google Secret Manager")
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{Requeue: true}
 		}
 	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.Spec.NMATLSSecret) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInAWSSecretsManagerMinVersion) {
 			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from AWS Secrets Manager")
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{Requeue: true}
 		}
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}
 }
 
 // reconcileVersion will parse the version output and update any annotations.
@@ -199,7 +221,11 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 }
 
 // Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
-func (v *ImageVersionReconciler) verifyImage(pod *PodFact) error {
+func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
+	if vmeta.GetSkipDeploymentCheck(v.Vdb.Annotations) {
+		return nil
+	}
+
 	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		if pod.admintoolsExists {
 			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for vclusterops deployments")

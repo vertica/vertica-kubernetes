@@ -80,6 +80,7 @@ jobs:
         export E2E_TEST_DIRS=tests/e2e-leg-2
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-2-at-only"; fi
+        export NMA_RUNNING_MODE=sidecar
         export E2E_TEST_DIRS=tests/e2e-leg-2
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s

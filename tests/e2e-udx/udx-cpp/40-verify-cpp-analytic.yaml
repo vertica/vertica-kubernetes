@@ -22,11 +22,11 @@ data:
     set -o errexit
 
     POD_NAME=v-udx-cpp-sc1-0
-    UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f AnalyticFunctions.sql 2>&1")
+    UDX_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f AnalyticFunctions.sql 2>&1")
     echo "$UDX_OP"
     # the row orders in the output might be unstable, so sort the entire output and then compare
-    kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - /opt/vertica/sdk/examples/expected-outputs/AnalyticFunctionsOut.txt" \
-    || kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples/expected-outputs; sort ./AnalyticFunctionsOut.txt > ./AnalyticFunctionsOutSorted.txt; \
+    kubectl exec $POD_NAME -i -c server -- bash -c "echo \"$UDX_OP\" | diff - /opt/vertica/sdk/examples/expected-outputs/AnalyticFunctionsOut.txt" \
+    || kubectl exec $POD_NAME -i -c server -- bash -c "cd /opt/vertica/sdk/examples/expected-outputs; sort ./AnalyticFunctionsOut.txt > ./AnalyticFunctionsOutSorted.txt; \
     echo \"$UDX_OP\" | sort | diff - /opt/vertica/sdk/examples/expected-outputs/AnalyticFunctionsOutSorted.txt"
 ---
 apiVersion: v1

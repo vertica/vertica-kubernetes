@@ -65,12 +65,13 @@ PUB_CE_IMAGE=vertica-ce
 logInfo "Pulling from private repo"
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal
-logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-nokeys
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_CE_IMAGE:$VERSION
+logInfo "Show vertica versions in the container"
+logAndRunCommand docker run --entrypoint /opt/vertica/bin/vertica $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION --version
+logAndRunCommand docker run --entrypoint /opt/vertica/bin/vertica $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal --version
 logInfo "Retag for public repo"
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION $PUB_REPO/$PUB_K8S_IMAGE:$VERSION
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-minimal
-logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-nokeys $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-nokeys
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal $PUB_REPO/$PUB_K8S_IMAGE:latest
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_CE_IMAGE:$VERSION $PUB_REPO/$PUB_CE_IMAGE:$VERSION
 logAndRunCommand docker tag $PRIV_REPO/$PRIV_CE_IMAGE:$VERSION $PUB_REPO/$PUB_CE_IMAGE:latest
@@ -79,7 +80,6 @@ then
     logInfo "Push to public repo"
     logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:$VERSION
     logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-minimal
-    logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:$VERSION-nokeys
     logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:latest
     logAndRunCommand docker push $PUB_REPO/$PUB_CE_IMAGE:$VERSION
     logAndRunCommand docker push $PUB_REPO/$PUB_CE_IMAGE:latest

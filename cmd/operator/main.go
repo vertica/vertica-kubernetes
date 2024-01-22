@@ -176,19 +176,14 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 			return fmt.Errorf("failed to setup the webhook: %w", err)
 		}
 		if oc.WebhookCertSecret == "" {
-			setupLog.Info("geneating webhook cert")
+			setupLog.Info("generating webhook cert")
 			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, ns); err != nil {
 				return err
 			}
 		} else if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok && val == vmeta.OLMDeploymentType {
 			// OLM will generate the cert themselves and they have their own
-			// mechanism to update the webhook configs. We only need to include
-			// the CA bundle in the CRD for the conversion webhook.
-			setupLog.Info("OLM deployment detected. Only updating the conversion webhook", "deploymentType", val)
-			if err := security.PatchConversionWebhookFromSecret(ctx, &setupLog, restCfg,
-				oc.WebhookCertSecret, oc.PrefixName, ns); err != nil {
-				return err
-			}
+			// mechanism to update the webhook configs and conversion webhook in the CRD.
+			setupLog.Info("OLM deployment detected. Skipping webhook cert update")
 		} else if !oc.UseCertManager {
 			setupLog.Info("using provided webhook cert", "secret", oc.WebhookCertSecret)
 			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,

@@ -82,7 +82,7 @@ if ! $SCRIPT_DIR/is-openshift.sh
 then
     if ! kubectl get -n $OLM_NS deployment olm-operator
     then
-        $OPERATOR_SDK olm install --version 0.22.0
+        $OPERATOR_SDK olm install --version 0.26.0
 
         # Delete the default catalog that OLM ships with to avoid a lot of duplicates entries.
         kubectl delete catalogsource operatorhubio-catalog -n $OLM_NS || true
@@ -101,6 +101,8 @@ metadata:
   namespace: $OLM_NS
 spec:
   sourceType: grpc
+  grpcPodConfig:
+    securityContextConfig: restricted
   image: $(make echo-images | grep OLM_CATALOG_IMG | cut -d"=" -f2)
 EOF
 

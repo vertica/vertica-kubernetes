@@ -9,8 +9,8 @@ See [Containerized Environments](https://docs.vertica.com/latest/en/supported-pl
 # Prerequisites
 
 - Resources to deploy Kubernetes objects
-- Kubernetes (version 1.21.1+)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.21.1+)  
+- Kubernetes (version 1.21.0+)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) (version 1.21.0+)
 - [helm](https://helm.sh/docs/intro/install/) (version 3.5.0+)
 
 # Installing the VerticaDB Operator

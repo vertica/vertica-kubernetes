@@ -22,12 +22,12 @@ data:
     set -o errexit
 
     POD_NAME=v-udx-cpp-sc1-0
-    UDX_OP=$(kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f AggregateFunctions.sql 2>&1")
+    UDX_OP=$(kubectl exec $POD_NAME -i -c server -- bash -c "cd /opt/vertica/sdk/examples; vsql -U dbadmin -f AggregateFunctions.sql 2>&1")
     echo "$UDX_OP"
     # Get the vertica version so we pick the correct expected output that lines up with the version
-    MAJOR=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$1\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
-    MINOR=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$2\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
-    PATCH=$(kubectl exec $POD_NAME -i -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$3\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
+    MAJOR=$(kubectl exec $POD_NAME -i -c server -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$1\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
+    MINOR=$(kubectl exec $POD_NAME -i -c server -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$2\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
+    PATCH=$(kubectl exec $POD_NAME -i -c server -- bash -c "vertica --version | head -1 | perl -ne 'print \"\$3\n\" if /v([0-9]+).([0-9]+).([0-9]+)/'")
     # In 23.3, we changed the aggregate examples.
     if [ "$MAJOR" -gt 12 ] \
         || ([ "$MAJOR" -eq 12 ] && [ "$MINOR" -gt 0 ]) \
@@ -39,8 +39,8 @@ data:
     fi
 
     # the row orders in the output might be unstable, so sort the entire output and then compare
-    kubectl exec $POD_NAME -i -- bash -c "echo \"$UDX_OP\" | diff - $EXP" \
-    || kubectl exec $POD_NAME -i -- bash -c "cd /opt/vertica/sdk/examples/expected-outputs; sort $EXP > ./AggregateFunctionsOutSorted.txt; \
+    kubectl exec $POD_NAME -i -c server -- bash -c "echo \"$UDX_OP\" | diff - $EXP" \
+    || kubectl exec $POD_NAME -i -c server -- bash -c "cd /opt/vertica/sdk/examples/expected-outputs; sort $EXP > ./AggregateFunctionsOutSorted.txt; \
     echo \"$UDX_OP\" | sort | diff - /opt/vertica/sdk/examples/expected-outputs/AggregateFunctionsOutSorted.txt"
 ---
 apiVersion: v1

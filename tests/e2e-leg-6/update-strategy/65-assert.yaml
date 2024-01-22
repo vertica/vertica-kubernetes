@@ -11,9 +11,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Verify that the license exists in the container
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl exec -t -n $NAMESPACE v-ks-0-update-strategy-sc1-0 -- test -f /home/dbadmin/licensing/mnt/lic
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-1-update-strategy-sc1-2
+status:
+  containerStatuses:
+    - name: nma
+    - ready: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-1-update-strategy-sc1-1
+status:
+  containerStatuses:
+    - name: nma
+    - ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-ks-1-update-strategy-sc1-0
+status:
+  containerStatuses:
+    - name: nma
+    - ready: true

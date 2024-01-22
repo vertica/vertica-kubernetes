@@ -62,7 +62,16 @@ func (i *Info) compareVersion(major, minor, patch int) ComparisonResult {
 	return compareEqual
 }
 
-// IsEqualOrNewer returns true if the version in the Vdb is equal or newer
+// MakeInfoFromStrCheck is like MakeInfoFromStr but returns an error
+// if the version Info cannot be constructed from the version string
+func MakeInfoFromStrCheck(curVer string) (*Info, error) {
+	verInfo, ok := MakeInfoFromStr(curVer)
+	if !ok {
+		return nil, fmt.Errorf("could not construct Info struct from the version string %s", curVer)
+	}
+	return verInfo, nil
+}
+
 // IsEqualOrNewer returns true if the version in the Vdb is is equal or newer
 // than the given version
 func (i *Info) IsEqualOrNewer(inVer string) bool {

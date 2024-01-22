@@ -19,6 +19,7 @@ spec:
   template:
     spec:
       containers:
+        - name: nma
         - name: server
           readinessProbe:
             periodSeconds: 20
@@ -36,6 +37,7 @@ spec:
   template:
     spec:
       containers:
+        - name: nma
         - name: server
           readinessProbe:
             periodSeconds: 20
