@@ -11,11 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaRestorePointsQuery
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
   name: archive-query
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
 spec:
-  verticaDBName: vert
-  archiveName: backup
-    
+  image: kustomize-vertica-image
+  communal:
+    path: "s3://nimbusdb/db"
+    endpoint: "http://minio"
+    credentialSecret: s3-auth
+  local:
+    requestSize: 100Mi
+  initPolicy: CreateSkipPackageInstall
+  dbName: vertdb
+  subclusters:
+    - name: sc1
+      size: 1
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

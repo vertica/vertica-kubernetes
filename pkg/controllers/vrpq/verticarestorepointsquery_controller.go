@@ -27,9 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
+	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
@@ -89,6 +91,7 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
+	log.Info("ending reconcile of VerticaRestorePointsQuery")
 	return ctrl.Result{}, nil
 }
 
@@ -96,6 +99,10 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 func (r *VerticaRestorePointsQueryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&vapi.VerticaRestorePointsQuery{}).
+		// Not a strict ownership, but this is used so that the operator will
+		// reconcile the VerticaRestorePointsQuery for any change in the VerticaDB.
+		// This ensures the status fields are kept up to date.
+		Owns(&v1vapi.VerticaDB{}).
 		Complete(r)
 }
 
@@ -109,4 +116,27 @@ func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.Vertica
 		MakeRestorePointsQueryReconciler(r, vrpq, log),
 	}
 	return actors
+}
+
+// Event a wrapper for Event() that also writes a log entry
+func (r *VerticaRestorePointsQueryReconciler) Event(vdb runtime.Object, eventtype, reason, message string) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Event(vdb, eventtype, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (r *VerticaRestorePointsQueryReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
+}
+
+// GetClient gives access to the Kubernetes client
+func (r *VerticaRestorePointsQueryReconciler) GetClient() client.Client {
+	return r.Client
 }

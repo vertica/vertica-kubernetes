@@ -22,15 +22,24 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepointsquery"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type QueryReconciler struct {
-	VRec *VerticaRestorePointsQueryReconciler
-	Vrpq *vapi.VerticaRestorePointsQuery
-	Log  logr.Logger
+	VRec           *VerticaRestorePointsQueryReconciler
+	Vrpq           *vapi.VerticaRestorePointsQuery
+	Log            logr.Logger
+	InitiatorPod   types.NamespacedName // The pod that we run admin commands from
+	InitiatorPodIP string               // The IP of the initiating pod
+	config.ConfigParamsGenerator
 }
 
 func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
@@ -39,6 +48,10 @@ func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vr
 		VRec: r,
 		Vrpq: vrpq,
 		Log:  log.WithName("QueryReconciler"),
+		ConfigParamsGenerator: config.ConfigParamsGenerator{
+			VRec: r,
+			Log:  log.WithName("QueryReconciler"),
+		},
 	}
 }
 
@@ -48,7 +61,46 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 	if isSet {
 		return ctrl.Result{}, nil
 	}
+	// collect information from a VerticaDB.
+	if res, err := q.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	return ctrl.Result{}, q.runListRestorePoints(ctx, req)
+}
+
+// fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR,
+func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
+	vdb := &v1.VerticaDB{}
+	res := ctrl.Result{}
+
+	opts := []restorepointsquery.Option{
+		restorepointsquery.WithInitiator(q.InitiatorPod, q.InitiatorPodIP),
+	}
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var e error
+		if res, e = fetchVDB(ctx, q.VRec, q.Vrpq, vdb); verrors.IsReconcileAborted(res, e) {
+			return e
+		}
+		q.Vdb = vdb
+		// build communal storage params if there is not one
+		if q.ConfigurationParams == nil {
+			res, e = q.ConstructConfigParms(ctx)
+			if verrors.IsReconcileAborted(res, e) {
+				return e
+			}
+		}
+		// extract out the communal and config information to pass down to the vclusterops API.
+		opts = append(opts,
+			restorepointsquery.WithCommunalPath(vdb.GetCommunalPath()),
+			restorepointsquery.WithConfigurationParams(q.ConfigurationParams.GetMap()),
+		)
+
+		return nil
+	})
+
+	return res, err
 }
 
 // setListRestorePointsQueryConditions will update the status condition before and after calling

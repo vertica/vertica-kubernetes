@@ -17,6 +17,7 @@ limitations under the License.
 package vrpq
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -24,7 +25,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,7 +37,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	v1vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -68,9 +73,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = v1vapi.AddToScheme(scheme.Scheme)
+	err = vapi.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-
+	err = v1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
@@ -96,3 +102,36 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+const testAccessKey = "dummy"
+const testSecretKey = "dummy"
+
+func createS3CredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+	createK8sCredSecret(ctx, vdb)
+}
+
+func createK8sCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+	secret := builder.BuildCommunalCredSecret(vdb, testAccessKey, testSecretKey)
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
+func createAzureAccountKeyCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+	secret := builder.BuildAzureAccountKeyCommunalCredSecret(vdb, "verticaAccountName", "secretKey")
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
+func createAzureSASCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+	secret := builder.BuildAzureSASCommunalCredSecret(vdb, "blob.microsoft.net", "sharedAccessKey")
+	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+}
+
+func deleteCommunalCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
+}
+
+func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
+	nm := names.GenNamespacedName(vdb, secretName)
+	secret := &corev1.Secret{}
+	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
+	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
+}
