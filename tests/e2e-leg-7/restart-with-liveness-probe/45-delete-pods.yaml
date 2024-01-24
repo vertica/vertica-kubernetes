@@ -11,27 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    control-plane: controller-manager
-  namespace: verticadb-operator
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: matt-metrics-service
-  namespace: verticadb-operator
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: matt-webhook-service
-  namespace: verticadb-operator
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: matt-controller-manager
-  namespace: verticadb-operator
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # Delete two pods. This will cause us to lose quorum and restart all 3.
+  - command: kubectl delete pod v-restart-with-liveness-probe-pri1-0
+    namespaced: true
+  - command: kubectl delete pod v-restart-with-liveness-probe-pri2-0
+    namespaced: true

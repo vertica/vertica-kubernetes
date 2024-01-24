@@ -38,6 +38,7 @@ status:
   phase: Running
   containerStatuses:
   - ready: true
+  - ready: true
 ---
 apiVersion: v1
 kind: Pod
@@ -47,6 +48,7 @@ status:
   phase: Running
   containerStatuses:
   - ready: true
+  - ready: true
 ---
 apiVersion: v1
 kind: Pod
@@ -55,4 +57,5 @@ metadata:
 status:
   phase: Running
   containerStatuses:
+  - ready: true
   - ready: true

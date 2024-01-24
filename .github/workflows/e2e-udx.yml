@@ -71,7 +71,6 @@ jobs:
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-udx
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
-        export NMA_RUNNING_MODE=sidecar
         # Setup the udx environment by compiling examples in the vertica image.
         # This downloads packages, so to improve its reliability we retry in
         # case any intermittent network issues arise.

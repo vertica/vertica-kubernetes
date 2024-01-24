@@ -10,33 +10,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-multi-sc-sc-1
-spec:
-  template:
-    spec:
-      containers:
-      - name: server
-        livenessProbe:
-          periodSeconds: 10
-          initialDelaySeconds: 5
-        readinessProbe:
-          tcpSocket:
-            port: 5433
-        startupProbe:
-          tcpSocket:
-            port: 5433
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-multi-sc
-status:
-  subclusterCount: 2
-  installCount: 2
-  subclusters:
-    - installCount: 1
-    - installCount: 1
