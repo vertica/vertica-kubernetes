@@ -16,7 +16,12 @@
 package meta
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -159,6 +164,20 @@ const (
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
 	SkipDeploymentCheckAnnotation = "vertica.com/skip-deployment-check"
+
+	// Set of annotations that you can use to control the resources of the NMA
+	// sidecar. The actual annoation name is:
+	// vertica.com/nma-sidecar-resource-<memory|cpu>-<request|limit>
+	// You can use GenNMASidecareResourceAnnotationName to generate the name.
+	NMASidecarResourcePrefix = "vertica.com/nma-sidecar-resource"
+
+	// Normally the nma sidecar resources are only applied if the corresponding
+	// resource is set for the server container. This is done so that we can
+	// avoid setting resources if they are left off of the server. This allows
+	// us to run in low-resource environment. For those that don't want this
+	// behavior, but instead want the NMA sidecar resource set, you can set
+	// this annotation to true.
+	NMASidecarResourcesForced = "vertica.com/nma-sidecar-resources-forced"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -264,6 +283,42 @@ func FailCreateDBIfVerticaIsRunning(annotations map[string]string) bool {
 // the image was built for.
 func GetSkipDeploymentCheck(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, SkipDeploymentCheckAnnotation, false /* default value */)
+}
+
+// GetNMASidecarResource is used to retrieve a specific resource for the NMA
+// sidecar. If any parsing error occurs, the default value is returned.
+func GetNMASidecarResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
+	annotationName := GenNMASidecarResourceAnnotationName(resourceName)
+	defVal := DefaultSidecarResource[resourceName]
+	quantityStr := lookupStringAnnotation(annotations, annotationName, defVal.String())
+	if quantityStr == "" {
+		return resource.Quantity{}
+	}
+	quantity, err := resource.ParseQuantity(quantityStr)
+	if err != nil {
+		return defVal
+	}
+	return quantity
+}
+
+// GetNMASidecarResourcesForced returns true if the resources for the NMA
+// sidecar should be set regardless if resources are set for the server. False
+// means they should only be applyied if the corresponding resource is set in
+// the server.
+func GetNMASidecarResourcesForced(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, NMASidecarResourcesForced, false /* default value */)
+}
+
+// GenNMASidecarResourceAnnotationName is a helper to generate the name of the
+// annotation to control the resource. The resourceName given is taken from the
+// k8s corev1 package. It should be the two part name. Use const like
+// corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
+func GenNMASidecarResourceAnnotationName(resourceName corev1.ResourceName) string {
+	// The resourceName pass in, taken from the corev1 k8s package, has the
+	// resource name like "limits.cpu" or "requests.memory". We don't want the
+	// period in the annotation name since it doesn't fit the style, so we
+	// replace that with a dash.
+	return fmt.Sprintf("%s-%s", NMASidecarResourcePrefix, strings.Replace(string(resourceName), ".", "-", 1))
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

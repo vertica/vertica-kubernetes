@@ -231,6 +231,44 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	return volMnts
 }
 
+func buildNMAResources(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.ResourceRequirements {
+	memoryRequest := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceRequestsMemory)
+	memoryLimit := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceLimitsMemory)
+	cpuRequest := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceRequestsCPU)
+	cpuLimit := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceLimitsCPU)
+
+	// We have an option to only set the resources if the corresponding resource
+	// is set in the server pod. If the server container doesn't any resources
+	// set, then we won't set any defaults. This will allow us to run in
+	// low-resource environment.
+	forced := vmeta.GetNMASidecarResourcesForced(vdb.Annotations)
+
+	req := corev1.ResourceRequirements{
+		Requests: make(corev1.ResourceList),
+		Limits:   make(corev1.ResourceList),
+	}
+	if forced {
+		req.Requests[corev1.ResourceMemory] = memoryRequest
+		req.Limits[corev1.ResourceMemory] = memoryLimit
+		req.Requests[corev1.ResourceCPU] = cpuRequest
+		req.Limits[corev1.ResourceCPU] = cpuLimit
+		return req
+	}
+	if _, ok := sc.Resources.Requests[corev1.ResourceMemory]; ok {
+		req.Requests[corev1.ResourceMemory] = memoryRequest
+	}
+	if _, ok := sc.Resources.Limits[corev1.ResourceMemory]; ok {
+		req.Limits[corev1.ResourceMemory] = memoryLimit
+	}
+	if _, ok := sc.Resources.Requests[corev1.ResourceCPU]; ok {
+		req.Requests[corev1.ResourceCPU] = cpuRequest
+	}
+	if _, ok := sc.Resources.Limits[corev1.ResourceCPU]; ok {
+		req.Limits[corev1.ResourceCPU] = cpuLimit
+	}
+	return req
+}
+
 func buildStartupConfVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      startupConfMountName,
@@ -677,6 +715,7 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.NMAContainer,
 		Env:             envVars,
+		Resources:       buildNMAResources(vdb, sc),
 		Command:         buildNMACommand(),
 		VolumeMounts:    buildNMAVolumeMounts(vdb),
 		ReadinessProbe:  makeNMAHealthProbe(),
