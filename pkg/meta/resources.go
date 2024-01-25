@@ -26,7 +26,7 @@ var (
 	DefaultSidecarResource = map[corev1.ResourceName]resource.Quantity{
 		corev1.ResourceLimitsCPU:      resource.MustParse("1"),
 		corev1.ResourceRequestsCPU:    resource.MustParse("1"),
-		corev1.ResourceLimitsMemory:   resource.MustParse("250m"),
-		corev1.ResourceRequestsMemory: resource.MustParse("250m"),
+		corev1.ResourceLimitsMemory:   resource.MustParse("250Mi"),
+		corev1.ResourceRequestsMemory: resource.MustParse("250Mi"),
 	}
 )
