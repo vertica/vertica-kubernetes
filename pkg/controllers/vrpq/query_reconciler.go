@@ -108,8 +108,16 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, 
 // Temporarily, runListRestorePoints will not call the ListRestorePoints API
 // since the dispatcher is not set up yet
 func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Request) error {
+
+	// update query message prior to calling vclusterops API
+	err := vrpqstatus.UpdateMessageStatus(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+		"Query is still in progress")
+	if err != nil {
+		return err
+	}
+
 	// set Querying status condition prior to calling vclusterops API
-	err := vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+	err = vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, ""))
 	if err != nil {
 		return err
@@ -120,6 +128,13 @@ func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Requ
 	// clear Querying status condition
 	err = vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, ""))
+	if err != nil {
+		return err
+	}
+
+	// update query message after calling vclusterops API successfully
+	err = vrpqstatus.UpdateMessageStatus(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+		"Query has completed successfully")
 	if err != nil {
 		return err
 	}

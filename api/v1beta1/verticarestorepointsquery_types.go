@@ -50,6 +50,10 @@ type VerticaRestorePointsQueryStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Conditions for VerticaRestorePointsQuery
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Status message for running query
+	Message string `json:"message"`
 }
 
 const (
@@ -63,6 +67,8 @@ const (
 // +kubebuilder:resource:categories=vertica,shortName=vrpq
 // +kubebuilder:subresource:status
 // +operator-sdk:csv:customresourcedefinitions:resources={{Job,batch/v1,""}}
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message"
 
 // VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries API
 type VerticaRestorePointsQuery struct {

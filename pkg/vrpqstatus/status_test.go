@@ -188,4 +188,22 @@ var _ = Describe("status", func() {
 		Expect(vrpq.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
 
+	It("should update the message status", func() {
+		vrpq := vapi.MakeVrpq()
+		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+		msg := "Query is still in progress"
+		msg1 := "Query has completed successfully"
+
+		Expect(UpdateMessageStatus(ctx, k8sClient, logger, vrpq, msg)).Should(Succeed())
+
+		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
+		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
+		Expect(vrpq.Status.Message).Should(Equal(msg))
+
+		Expect(UpdateMessageStatus(ctx, k8sClient, logger, vrpq, msg1)).Should(Succeed())
+
+		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
+		Expect(vrpq.Status.Message).Should(Equal(msg1))
+	})
 })
