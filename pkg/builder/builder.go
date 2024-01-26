@@ -254,16 +254,16 @@ func buildNMAResources(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Resource
 		req.Limits[corev1.ResourceCPU] = cpuLimit
 		return req
 	}
-	if _, ok := sc.Resources.Requests[corev1.ResourceMemory]; ok {
+	if _, ok := sc.Resources.Requests[corev1.ResourceMemory]; ok && !memoryRequest.IsZero() {
 		req.Requests[corev1.ResourceMemory] = memoryRequest
 	}
-	if _, ok := sc.Resources.Limits[corev1.ResourceMemory]; ok {
+	if _, ok := sc.Resources.Limits[corev1.ResourceMemory]; ok && !memoryLimit.IsZero() {
 		req.Limits[corev1.ResourceMemory] = memoryLimit
 	}
-	if _, ok := sc.Resources.Requests[corev1.ResourceCPU]; ok {
+	if _, ok := sc.Resources.Requests[corev1.ResourceCPU]; ok && !cpuRequest.IsZero() {
 		req.Requests[corev1.ResourceCPU] = cpuRequest
 	}
-	if _, ok := sc.Resources.Limits[corev1.ResourceCPU]; ok {
+	if _, ok := sc.Resources.Limits[corev1.ResourceCPU]; ok && !cpuLimit.IsZero() {
 		req.Limits[corev1.ResourceCPU] = cpuLimit
 	}
 	return req

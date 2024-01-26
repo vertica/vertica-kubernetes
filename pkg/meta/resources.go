@@ -23,10 +23,13 @@ import (
 var (
 	// The default values to use for the NMA sidecar resource.  These can be
 	// overridden with annotations (see NMASidecarResourcePrefix).
+	//
+	// We intentionally omit limits. The workload in the NMA container is
+	// burstable. The NMA itself is fairly stable but when it calls out to
+	// processes like the catalog editor, it can bump the memory usage if the
+	// catalog is large.
 	DefaultSidecarResource = map[corev1.ResourceName]resource.Quantity{
-		corev1.ResourceLimitsCPU:      resource.MustParse("1"),
 		corev1.ResourceRequestsCPU:    resource.MustParse("1"),
-		corev1.ResourceLimitsMemory:   resource.MustParse("250Mi"),
 		corev1.ResourceRequestsMemory: resource.MustParse("250Mi"),
 	}
 )

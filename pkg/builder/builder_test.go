@@ -462,6 +462,40 @@ var _ = Describe("builder", func() {
 		defVal, _ = defQuantity.AsInt64()
 		Ω(actual).Should(Equal(defVal))
 	})
+
+	It("should omit NMA resources if annotation is set without a value", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsCPU)] = ""
+		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsMemory)] = ""
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Resources = v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("16"),
+				v1.ResourceMemory: resource.MustParse("32Gi"),
+			},
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("32"),
+				v1.ResourceMemory: resource.MustParse("64Gi"),
+			},
+		}
+		nma := makeNMAContainer(vdb, sc)
+		_, ok := nma.Resources.Limits[v1.ResourceCPU]
+		Ω(ok).Should(BeFalse())
+		_, ok = nma.Resources.Limits[v1.ResourceMemory]
+		Ω(ok).Should(BeFalse())
+		_, ok = nma.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		_, ok = nma.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		actual, _ := nma.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultSidecarResource[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = nma.Resources.Requests.Memory().AsInt64()
+		defQuantity = vmeta.DefaultSidecarResource[v1.ResourceRequestsMemory]
+		defVal, _ = defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+	})
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {

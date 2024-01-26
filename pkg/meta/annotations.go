@@ -300,8 +300,12 @@ func GetSkipDeploymentCheck(annotations map[string]string) bool {
 // sidecar. If any parsing error occurs, the default value is returned.
 func GetNMASidecarResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
 	annotationName := GenNMASidecarResourceAnnotationName(resourceName)
-	defVal := DefaultSidecarResource[resourceName]
-	quantityStr := lookupStringAnnotation(annotations, annotationName, defVal.String())
+	defVal, hasDefault := DefaultSidecarResource[resourceName]
+	defValStr := defVal.String()
+	if !hasDefault {
+		defValStr = ""
+	}
+	quantityStr := lookupStringAnnotation(annotations, annotationName, defValStr)
 	// If the annotation is set, but has no value, then we will omit the
 	// resource rather than use the default. This allows us to turn off the
 	// resource if need be.
