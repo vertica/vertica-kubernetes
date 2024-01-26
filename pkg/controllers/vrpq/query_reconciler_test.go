@@ -59,7 +59,7 @@ var _ = Describe("query_reconcile", func() {
 		// message is updated to "Query successful"
 		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).Should(BeTrue())
 		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
-		Expect(vrpq.Status.State).Should(Equal(successQuery))
+		Expect(vrpq.Status.State).Should(Equal(stateSuccessQuery))
 
 	})
 
