@@ -60,7 +60,7 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi
 	})
 }
 
-// UpdateCondition will update a condition and state status
+// UpdateConditionAndState will update a condition and state status
 // This is a no-op if the status condition is already set.  The input vrpq will
 // be updated with the status condition.
 func UpdateConditionAndState(ctx context.Context, clnt client.Client, log logr.Logger,

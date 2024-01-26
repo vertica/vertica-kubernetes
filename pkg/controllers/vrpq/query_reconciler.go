@@ -115,7 +115,7 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, 
 func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Request) error {
 	// set Querying status condition and state prior to calling vclusterops API
 	err := vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, ""), querying)
+		v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "Started"), querying)
 	if err != nil {
 		return err
 	}
@@ -125,12 +125,12 @@ func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Requ
 
 	// clear Querying status condition
 	err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, ""), querying)
+		v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "CompletedOrFailed"), querying)
 	if err != nil {
 		return err
 	}
 
 	// set the QueryComplete if the vclusterops API succeeded
 	return vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, ""), successQuery)
+		v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "Completed"), successQuery)
 }
