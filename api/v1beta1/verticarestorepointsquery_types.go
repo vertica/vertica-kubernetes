@@ -66,7 +66,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=vertica,shortName=vrpq
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="DBName",type="string",JSONPath=".spec.verticaDBName"
+// +kubebuilder:printcolumn:name="VerticaDB",type="string",JSONPath=".spec.verticaDBName"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
