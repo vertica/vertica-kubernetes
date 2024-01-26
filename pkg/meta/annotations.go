@@ -170,17 +170,17 @@ const (
 	//   vertica.com/nma-sidecar-resource-<limits|requests>-<memory|cpu>
 	//
 	// For example, the following are valid:
-	//   vertica.com/nma-sidecar-resource-limits-memory
-	//   vertica.com/nma-sidecar-resource-limits-cpu
-	//   vertica.com/nma-sidecar-resource-requests-memory
-	//   vertica.com/nma-sidecar-resource-requests-cpu
+	//   vertica.com/nma-sidecar-resources-limits-memory
+	//   vertica.com/nma-sidecar-resources-limits-cpu
+	//   vertica.com/nma-sidecar-resources-requests-memory
+	//   vertica.com/nma-sidecar-resources-requests-cpu
 	//
 	// You can use GenNMASidecareResourceAnnotationName to generate the name.
 	//
 	// If the annotation is set, but has no value, than that resource is not
 	// used. If a value is specified, but isn't able to be parsed, we use the
 	// default.
-	NMASidecarResourcePrefix = "vertica.com/nma-sidecar-resource"
+	NMASidecarResourcePrefix = "vertica.com/nma-sidecar-resources"
 
 	// Normally the nma sidecar resources are only applied if the corresponding
 	// resource is set for the server container. This is done so that we can
@@ -300,7 +300,7 @@ func GetSkipDeploymentCheck(annotations map[string]string) bool {
 // sidecar. If any parsing error occurs, the default value is returned.
 func GetNMASidecarResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
 	annotationName := GenNMASidecarResourceAnnotationName(resourceName)
-	defVal, hasDefault := DefaultSidecarResource[resourceName]
+	defVal, hasDefault := DefaultNMAResources[resourceName]
 	defValStr := defVal.String()
 	if !hasDefault {
 		defValStr = ""

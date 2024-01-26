@@ -28,8 +28,13 @@ var (
 	// burstable. The NMA itself is fairly stable but when it calls out to
 	// processes like the catalog editor, it can bump the memory usage if the
 	// catalog is large.
-	DefaultSidecarResource = map[corev1.ResourceName]resource.Quantity{
+	DefaultNMAResources = map[corev1.ResourceName]resource.Quantity{
 		corev1.ResourceRequestsCPU:    resource.MustParse("1"),
 		corev1.ResourceRequestsMemory: resource.MustParse("250Mi"),
 	}
+
+	// The minimum memory limit for the NMA. This is picked because some of the
+	// programs that the NMA calls out (bootstrap-catalog, catalog editor, etc.)
+	// do not run if there is less than 1Gi of total memory.
+	MinNMAMemoryLimit = resource.MustParse("1Gi")
 )

@@ -57,10 +57,10 @@ var _ = Describe("annotations", func() {
 
 	It("should return default NMA sidecar resources", func() {
 		ann := map[string]string{}
-		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(DefaultSidecarResource[corev1.ResourceLimitsMemory]))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultSidecarResource[corev1.ResourceRequestsMemory]))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(DefaultSidecarResource[corev1.ResourceLimitsCPU]))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(DefaultSidecarResource[corev1.ResourceRequestsCPU]))
+		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsMemory]))
+		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
+		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsCPU]))
+		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsCPU]))
 	})
 
 	It("should allow NMA sidecar resource to be overridden", func() {
@@ -71,7 +71,7 @@ var _ = Describe("annotations", func() {
 			GenNMASidecarResourceAnnotationName(corev1.ResourceRequestsCPU):    "4",
 		}
 		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(resource.MustParse("800Mi")))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultSidecarResource[corev1.ResourceRequestsMemory]))
+		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
 		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(resource.Quantity{}))
 		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(resource.MustParse("4")))
 	})

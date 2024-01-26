@@ -25,3 +25,5 @@ spec:
         requests:
           cpu: "128"
           memory: 128Gi
+        limits:
+          cpu: "128"

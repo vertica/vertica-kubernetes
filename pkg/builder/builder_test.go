@@ -424,7 +424,7 @@ var _ = Describe("builder", func() {
 		actual, _ := nma.Resources.Limits.Cpu().AsInt64()
 		Ω(actual).Should(Equal(int64(4)))
 		actual, _ = nma.Resources.Requests.Cpu().AsInt64()
-		defQuantity := vmeta.DefaultSidecarResource[v1.ResourceRequestsCPU]
+		defQuantity := vmeta.DefaultNMAResources[v1.ResourceRequestsCPU]
 		defVal, _ := defQuantity.AsInt64()
 		Ω(actual).Should(Equal(defVal))
 		actual, _ = nma.Resources.Limits.Memory().AsInt64()
@@ -452,13 +452,13 @@ var _ = Describe("builder", func() {
 		actual, _ := nma.Resources.Limits.Cpu().AsInt64()
 		Ω(actual).Should(Equal(int64(8)))
 		actual, _ = nma.Resources.Requests.Cpu().AsInt64()
-		defQuantity := vmeta.DefaultSidecarResource[v1.ResourceRequestsCPU]
+		defQuantity := vmeta.DefaultNMAResources[v1.ResourceRequestsCPU]
 		defVal, _ := defQuantity.AsInt64()
 		Ω(actual).Should(Equal(defVal))
 		actual, _ = nma.Resources.Limits.Memory().AsInt64()
 		Ω(actual).Should(Equal(int64(1 * 1024 * 1024 * 1024)))
 		actual, _ = nma.Resources.Requests.Memory().AsInt64()
-		defQuantity = vmeta.DefaultSidecarResource[v1.ResourceRequestsMemory]
+		defQuantity = vmeta.DefaultNMAResources[v1.ResourceRequestsMemory]
 		defVal, _ = defQuantity.AsInt64()
 		Ω(actual).Should(Equal(defVal))
 	})
@@ -488,11 +488,11 @@ var _ = Describe("builder", func() {
 		_, ok = nma.Resources.Requests[v1.ResourceCPU]
 		Ω(ok).Should(BeTrue())
 		actual, _ := nma.Resources.Requests.Cpu().AsInt64()
-		defQuantity := vmeta.DefaultSidecarResource[v1.ResourceRequestsCPU]
+		defQuantity := vmeta.DefaultNMAResources[v1.ResourceRequestsCPU]
 		defVal, _ := defQuantity.AsInt64()
 		Ω(actual).Should(Equal(defVal))
 		actual, _ = nma.Resources.Requests.Memory().AsInt64()
-		defQuantity = vmeta.DefaultSidecarResource[v1.ResourceRequestsMemory]
+		defQuantity = vmeta.DefaultNMAResources[v1.ResourceRequestsMemory]
 		defVal, _ = defQuantity.AsInt64()
 		Ω(actual).Should(Equal(defVal))
 	})
