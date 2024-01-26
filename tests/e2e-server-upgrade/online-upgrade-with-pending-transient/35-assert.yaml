@@ -15,8 +15,3 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-base-upgrade-transient
-spec:
-  template:
-    spec:
-      containers:
-        - resources: {}

@@ -11,7 +11,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: kubectl exec -n $NAMESPACE -i v-restart-with-liveness-probe-pri1-1 -c server -- bash -c 'kill -n SIGKILL $(pgrep ^vertica)'

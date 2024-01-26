@@ -11,19 +11,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-base-upgrade
+  name: v-restart-with-liveness-probe-pri1-1
 status:
-  upgradeStatus: "Restarting vertica in primary subclusters"
+  containerStatuses:
+  - name: nma
+  - name: server
+    ready: false
+    started: false
+    restartCount: 1
 ---
 apiVersion: v1
-kind: Service
+kind: Pod
 metadata:
-  name: v-base-upgrade-pri
-spec:
-  selector:
-    app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-name: transient
-    vertica.com/client-routing: "true"
+  name: v-restart-with-liveness-probe-pri1-0
+status:
+  containerStatuses:
+  - name: nma
+  - name: server
+    ready: true
+    started: true

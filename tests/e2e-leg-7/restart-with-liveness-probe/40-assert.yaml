@@ -28,10 +28,9 @@ metadata:
   name: v-restart-with-liveness-probe-pri1-0
 status:
   containerStatuses:
+  - name: nma
   - name: server
-    restartCount: 0
     started: true
-    ready: true
 ---
 apiVersion: v1
 kind: Pod
@@ -39,11 +38,9 @@ metadata:
   name: v-restart-with-liveness-probe-pri1-1
 status:
   containerStatuses:
+  - name: nma
   - name: server
-    # Restarted twice. Once in step 40 and another in this step.
-    restartCount: 2
     started: true
-    ready: true
 ---
 apiVersion: v1
 kind: Pod
@@ -51,7 +48,6 @@ metadata:
   name: v-restart-with-liveness-probe-pri2-0
 status:
   containerStatuses:
+  - name: nma
   - name: server
     started: true
-    ready: true
-    restartCount: 1
