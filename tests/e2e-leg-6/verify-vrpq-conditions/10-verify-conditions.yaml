@@ -18,4 +18,3 @@ kind: TestStep
 commands:
     # verifying type:"QueryComplete", and status:"True"
     - script: kubectl wait --for=condition=QueryComplete=True -n $NAMESPACE vrpq/archive-query --timeout=600s
-    - script: kubectl describe vrpq -n $NAMESPACE archive-query | awk '/Message:.*Queried successful/{print; exit}'

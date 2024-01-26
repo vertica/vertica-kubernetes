@@ -58,24 +58,7 @@ var _ = Describe("query_reconcile", func() {
 		// QueryComplete condition is updated to True
 		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).Should(BeTrue())
 		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
-
-	})
-
-	It("should update query message if the vclusterops API succeeded", func() {
-		vdb := v1.MakeVDB()
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-		vrpq := vapi.MakeVrpq()
-		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
-
-		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		// make sure that message is updated to Queried successful
-		Expect(vrpq.Status.State).Should(Equal("Queried successful"))
+		Expect(vrpq.Status.State).Should(Equal(successQuery))
 
 	})
 
