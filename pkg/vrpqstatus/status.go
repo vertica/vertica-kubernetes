@@ -79,7 +79,7 @@ func UpdateCondition(ctx context.Context, clnt client.Client, log logr.Logger,
 func UpdateMessageStatus(ctx context.Context, clnt client.Client, log logr.Logger,
 	vrpq *vapi.VerticaRestorePointsQuery, msg string) error {
 	return Update(ctx, clnt, log, vrpq, func(vrpq *vapi.VerticaRestorePointsQuery) error {
-		vrpq.Status.Message = msg
+		vrpq.Status.State = msg
 		return nil
 	})
 }

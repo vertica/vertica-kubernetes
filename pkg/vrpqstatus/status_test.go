@@ -199,11 +199,11 @@ var _ = Describe("status", func() {
 
 		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
 		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
-		Expect(vrpq.Status.Message).Should(Equal(msg))
+		Expect(vrpq.Status.State).Should(Equal(msg))
 
 		Expect(UpdateMessageStatus(ctx, k8sClient, logger, vrpq, msg1)).Should(Succeed())
 
 		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
-		Expect(vrpq.Status.Message).Should(Equal(msg1))
+		Expect(vrpq.Status.State).Should(Equal(msg1))
 	})
 })
