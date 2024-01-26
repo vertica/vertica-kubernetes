@@ -136,7 +136,8 @@ func (v *vcErrors) logReviveDBNodeCountMismatchError(err *vclusterops.ReviveDBNo
 }
 
 func (v *vcErrors) logReviveDBRestorePointNotFoundError(err *vclusterops.ReviveDBRestorePointNotFoundError) (ctrl.Result, error) {
-	v.Log.Info("vclusterOps command failed because revive_db is configured to restore but could not find the restore point", "msg", err.Error())
+	v.Log.Info("vclusterOps command failed because revive_db is configured to restore but could not find the restore point",
+		"msg", err.Error())
 	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ReviveDBRestorePointNotFound,
 		"revive_db failed during restore because %s",
 		err.Error())
