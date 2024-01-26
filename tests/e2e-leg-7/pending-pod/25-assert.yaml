@@ -21,7 +21,7 @@ spec:
       resources:
         requests:
           cpu: "1"
-          memory: "250m"
+          memory: "250Mi"
     - name: server
       resources:
         requests:
@@ -41,7 +41,7 @@ spec:
       resources:
         requests:
           cpu: "1"
-          memory: "250m"
+          memory: "250Mi"
     - name: server
       resources:
         requests:

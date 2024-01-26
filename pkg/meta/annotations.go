@@ -166,9 +166,20 @@ const (
 	SkipDeploymentCheckAnnotation = "vertica.com/skip-deployment-check"
 
 	// Set of annotations that you can use to control the resources of the NMA
-	// sidecar. The actual annoation name is:
-	// vertica.com/nma-sidecar-resource-<memory|cpu>-<request|limit>
+	// sidecar. The actual annotation name is:
+	//   vertica.com/nma-sidecar-resource-<limits|requests>-<memory|cpu>
+	//
+	// For example, the following are valid:
+	//   vertica.com/nma-sidecar-resource-limits-memory
+	//   vertica.com/nma-sidecar-resource-limits-cpu
+	//   vertica.com/nma-sidecar-resource-requests-memory
+	//   vertica.com/nma-sidecar-resource-requests-cpu
+	//
 	// You can use GenNMASidecareResourceAnnotationName to generate the name.
+	//
+	// If the annotation is set, but has no value, than that resource is not
+	// used. If a value is specified, but isn't able to be parsed, we use the
+	// default.
 	NMASidecarResourcePrefix = "vertica.com/nma-sidecar-resource"
 
 	// Normally the nma sidecar resources are only applied if the corresponding
@@ -291,6 +302,9 @@ func GetNMASidecarResource(annotations map[string]string, resourceName corev1.Re
 	annotationName := GenNMASidecarResourceAnnotationName(resourceName)
 	defVal := DefaultSidecarResource[resourceName]
 	quantityStr := lookupStringAnnotation(annotations, annotationName, defVal.String())
+	// If the annotation is set, but has no value, then we will omit the
+	// resource rather than use the default. This allows us to turn off the
+	// resource if need be.
 	if quantityStr == "" {
 		return resource.Quantity{}
 	}
