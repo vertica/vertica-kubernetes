@@ -14,7 +14,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: v-create-1-node-sc1
+  name: v-revive-1-node-index-wrong-sc1
 ---
 apiVersion: vertica.com/v1
 kind: VerticaDB

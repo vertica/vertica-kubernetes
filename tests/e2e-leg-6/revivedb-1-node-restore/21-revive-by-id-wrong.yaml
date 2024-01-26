@@ -11,10 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-create-1-node-sc1
----
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "kustomize build vdb-to-revive-id-wrong/overlay | kubectl -n $NAMESPACE apply -f - "
