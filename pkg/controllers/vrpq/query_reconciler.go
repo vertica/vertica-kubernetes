@@ -33,14 +33,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-<<<<<<< HEAD
 const (
 	stateQuerying     = "Querying"
 	stateSuccessQuery = "Query successful"
 )
 
-=======
->>>>>>> vnext
 type QueryReconciler struct {
 	VRec           *VerticaRestorePointsQueryReconciler
 	Vrpq           *vapi.VerticaRestorePointsQuery
@@ -111,51 +108,29 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, 
 	return res, err
 }
 
-<<<<<<< HEAD
 // runListRestorePoints will update the status condition before and after calling
-=======
-// setListRestorePointsQueryConditions will update the status condition before and after calling
->>>>>>> vnext
 // list restore points api
 // Temporarily, runListRestorePoints will not call the ListRestorePoints API
 // since the dispatcher is not set up yet
 func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Request) error {
-<<<<<<< HEAD
 	// set Querying status condition and state prior to calling vclusterops API
 	err := vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "Started"), stateQuerying)
-=======
-	// set Querying status condition prior to calling vclusterops API
-	err := vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, ""))
->>>>>>> vnext
 	if err != nil {
 		return err
 	}
 
 	// API should be called to proceed here
-<<<<<<< HEAD
 	// If we receive a failure result from the API, a state message and condition need to be updated
 
 	// clear Querying status condition
 	err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Completed"), stateQuerying)
-=======
-
-	// clear Querying status condition
-	err = vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, ""))
->>>>>>> vnext
 	if err != nil {
 		return err
 	}
 
 	// set the QueryComplete if the vclusterops API succeeded
-<<<<<<< HEAD
 	return vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "Completed"), stateSuccessQuery)
-=======
-	return vrpqstatus.UpdateCondition(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, ""))
->>>>>>> vnext
 }

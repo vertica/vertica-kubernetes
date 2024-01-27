@@ -56,16 +56,10 @@ var _ = Describe("query_reconcile", func() {
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// make sure that Quering condition is updated to false and
 		// QueryComplete condition is updated to True
-<<<<<<< HEAD
 		// message is updated to "Query successful"
 		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).Should(BeTrue())
 		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
 		Expect(vrpq.Status.State).Should(Equal(stateSuccessQuery))
-=======
-		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).Should(BeTrue())
-		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
->>>>>>> vnext
-
 	})
 
 	It("should set azure parms in config parms map when using azb:// scheme and accountKey", func() {
