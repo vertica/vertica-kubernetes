@@ -93,14 +93,18 @@ if [ -z "${VLOGGER_IMG}" ]; then
     VLOGGER_IMG=$(cd $REPO_DIR && make echo-images | grep VLOGGER_IMG | cut -d'=' -f2)
 fi
 
-# Pick a NMA running mode that is compatible with the deployment and image
-# version. All admintools deployments will run as a monolithic container. And
-# 24.1.0 with vclusterops, only supported monolithic.
-if [ -z "${NMA_RUNNING_MODE}" ] \
-    || [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ] \
-    || [ "$(determine_image_version $VERTICA_IMG)" == "24.1.0" ]
+# If not selected, pick a NMA running mode that is compatible with the
+# deployment and image version. All admintools deployments will run as a
+# monolithic container. And 24.1.0 with vclusterops, only supported monolithic.
+if [ -z "${NMA_RUNNING_MODE}" ]
 then
-    NMA_RUNNING_MODE=monolithic
+    if [ "$VERTICA_DEPLOYMENT_METHOD" != "vclusterops" ] \
+        || [ "$(determine_image_version $VERTICA_IMG)" == "24.1.0" ]
+    then
+        NMA_RUNNING_MODE=monolithic
+    else
+        NMA_RUNNING_MODE=sidecar
+    fi
 fi
 # Name of the secret that contains the cert to use for communal access
 # authentication.  This is the name of the namespace copy, so it is hard coded
