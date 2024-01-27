@@ -34,6 +34,7 @@ import (
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
@@ -100,7 +101,7 @@ func (c *CreateDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		initializer: c,
 		PRunner:     c.PRunner,
 		PFacts:      c.PFacts,
-		ConfigParamsGenerator: ConfigParamsGenerator{
+		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec:                c.VRec,
 			Log:                 c.Log,
 			Vdb:                 c.Vdb,

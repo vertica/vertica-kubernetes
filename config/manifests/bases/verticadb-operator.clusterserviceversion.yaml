@@ -1925,6 +1925,34 @@ spec:
         displayName: Upgrade Status
         path: upgradeStatus
       version: v1beta1
+    - description: VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries
+        API
+      displayName: Vertica Restore Points Query
+      kind: VerticaRestorePointsQuery
+      name: verticarestorepointsqueries.vertica.com
+      resources:
+      - kind: Job
+        name: ""
+        version: batch/v1
+      specDescriptors:
+      - description: Optional parameter that will limit the query to only restore
+          points from this archvie
+        displayName: Archive Name
+        path: archiveName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: The name of the VerticaDB CR that this VerticaRestorePointsQuery
+          is defined for.  The VerticaDB object must exist in the same namespace as
+          this object.
+        displayName: Vertica DBName
+        path: verticaDBName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      statusDescriptors:
+      - description: RestorePoints used to list out the available restore points.
+        displayName: Restore Points
+        path: restorePoints
+      version: v1beta1
   description: |-
     ### What is Vertica?
     Vertica is a unified analytics platform, based on a massively scalable architecture with the broadest set of analytical functions spanning event and time series, pattern matching, geospatial and end-to-end in-database machine learning. Vertica enables you to easily apply these powerful functions to the largest and most demanding analytical workloads, arming you and your customers with predictive business insights faster than any analytics data warehouse in the market. Vertica provides a unified analytics platform across major public clouds and on-premises data centers and integrates data in cloud object storage and HDFS without forcing you to move any of your data.

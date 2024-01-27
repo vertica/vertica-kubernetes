@@ -84,6 +84,9 @@ type Dispatcher interface {
 	// cluster quorum. The IP given for each vnode *must* match the current IP
 	// in the vertica catalog. If they aren't a call to ReIP is necessary.
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
+
+	// ListRestorePoints will list existing restore points in a database
+	ListRestorePoints(ctx context.Context) error
 }
 
 const (

@@ -4,4 +4,5 @@ resources:
 - v1beta1_verticaautoscaler.yaml
 - v1beta1_eventtrigger.yaml
 - v1_verticadb.yaml
+- v1beta1_verticarestorepointsquery.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
