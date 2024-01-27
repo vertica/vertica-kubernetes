@@ -23,6 +23,7 @@ This helm chart will install the operator and an admission controller webhook.  
 | reconcileConcurrency.eventtrigger | Set this to control the concurrency of reconciliations of EventTrigger CRs | 1 |
 | reconcileConcurrency.verticaautoscaler | Set this to control the concurrency of reconciliations of VerticaAutoscaler CRs | 1 |
 | reconcileConcurrency.verticadb | Set this to control the concurrency of reconciliations of VerticaDB CRs | 5 |
+| reconcileConcurrency.verticarestorepointsquery | Set this to control the concurrency of reconciliations of VerticaRestorePointsQuery CRs | 1 |
 | rbac_proxy_image.name | Image name of Kubernetes RBAC proxy. | kubebuilder/kube-rbac-proxy:v0.13.1 |
 | rbac_proxy_image.repo | Repo server hosting rbac_proxy_image.name | gcr.io |
 | resources.\* | The resource requirements for the operator pod. | <pre>limits:<br>  cpu: 100m<br>  memory: 750Mi<br>requests:<br>  cpu: 100m<br>  memory: 20Mi</pre> |

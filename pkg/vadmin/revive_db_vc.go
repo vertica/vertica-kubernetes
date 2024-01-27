@@ -67,5 +67,12 @@ func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 
+	// restore options
+	if s.RestorePoint != nil {
+		opts.RestorePoint.Archive = &s.RestorePoint.Archive
+		opts.RestorePoint.Index = &s.RestorePoint.Index
+		opts.RestorePoint.ID = &s.RestorePoint.ID
+	}
+
 	return &opts
 }

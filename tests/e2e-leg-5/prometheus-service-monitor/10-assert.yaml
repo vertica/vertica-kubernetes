@@ -35,6 +35,7 @@ spec:
     - --verticadb-concurrency=5
     - --verticaautoscaler-concurrency=1
     - --eventtrigger-concurrency=1
+    - --verticarestorepointsquery-concurrency=1
   - name: kube-rbac-proxy
 status:
   phase: Running
