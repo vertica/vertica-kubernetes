@@ -60,14 +60,17 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi
 	})
 }
 
-// UpdateCondition will update a condition status
-// This is a no-op if the status condition is already set.  The input vdb will
+// UpdateConditionAndState will update a condition and state status
+// This is a no-op if the status condition is already set.  The input vrpq will
 // be updated with the status condition.
-func UpdateCondition(ctx context.Context, clnt client.Client, log logr.Logger,
-	vrpq *vapi.VerticaRestorePointsQuery, condition *metav1.Condition) error {
-	// refreshConditionInPlace will update the status condition in vdb.  The update
+func UpdateConditionAndState(ctx context.Context, clnt client.Client, log logr.Logger,
+	vrpq *vapi.VerticaRestorePointsQuery, condition *metav1.Condition, state string) error {
+	// refreshConditionInPlace will update the status condition in vrpq.  The update
 	// will be applied in-place.
 	refreshConditionInPlace := func(vrpq *vapi.VerticaRestorePointsQuery) error {
+		if vrpq.Status.State != state {
+			vrpq.Status.State = state
+		}
 		meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
 		return nil
 	}

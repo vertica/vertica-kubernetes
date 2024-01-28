@@ -116,7 +116,7 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
 		cond := v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "")
-		Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, cond)).Should(Succeed())
+		Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq, cond, "")).Should(Succeed())
 		fetchVdb := &vapi.VerticaRestorePointsQuery{}
 		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
@@ -136,7 +136,7 @@ var _ = Describe("status", func() {
 			{Type: vapi.Querying, Status: metav1.ConditionFalse, Reason: v1.UnknownReason},
 		}
 		for i := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, &conds[i])).Should(Succeed())
+			Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq, &conds[i], "")).Should(Succeed())
 			fetchVdb := &vapi.VerticaRestorePointsQuery{}
 			nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
 			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
@@ -159,7 +159,7 @@ var _ = Describe("status", func() {
 		}
 
 		for i := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, logger, vrpq, &conds[i])).Should(Succeed())
+			Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq, &conds[i], "")).Should(Succeed())
 		}
 
 		fetchVdb := &vapi.VerticaRestorePointsQuery{}
@@ -177,15 +177,35 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 		origTime := metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
-		Expect(UpdateCondition(ctx, k8sClient, logger, vrpq,
+		Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq,
 			&metav1.Condition{Type: vapi.Querying, Status: metav1.ConditionFalse, LastTransitionTime: origTime,
-				Reason: v1.UnknownReason},
+				Reason: v1.UnknownReason}, "",
 		)).Should(Succeed())
-		Expect(UpdateCondition(ctx, k8sClient, logger, vrpq,
+		Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq,
 			&metav1.Condition{Type: vapi.Querying, Status: metav1.ConditionTrue, LastTransitionTime: origTime,
-				Reason: v1.UnknownReason},
+				Reason: v1.UnknownReason}, "",
 		)).Should(Succeed())
 		Expect(vrpq.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
 
+	It("should update the message status", func() {
+		vrpq := vapi.MakeVrpq()
+		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+		msg := "Querying"
+		msg1 := "Query successful"
+		cond := v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "")
+
+		Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq,
+			cond, msg)).Should(Succeed())
+
+		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
+		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
+		Expect(vrpq.Status.State).Should(Equal(msg))
+
+		Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq,
+			cond, msg1)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
+		Expect(vrpq.Status.State).Should(Equal(msg1))
+	})
 })
