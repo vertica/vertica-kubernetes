@@ -11,10 +11,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-create-1-node-id-sc1
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
+metadata:
+  name: v-revive-1-node-index-wrong
+  annotations:
+    vertica.com/include-uid-in-path: false
+    vertica.com/k-safety: "0"
+    vertica.com/requeue-time: "5"
+    vertica.com/ignore-cluster-lease: true
+spec:
+  image: kustomize-vertica-image
+  passwordSecret: su-passwd
+  communal: {}
+  local:
+    depotVolume: EmptyDir
+    requestSize: 100Mi
+  initPolicy: Revive
+  dbName: vertdb
+  subclusters:
+    - name: sc1
+      size: 1
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
+  restorePoint:
+    archive: "db"
+    index: 100

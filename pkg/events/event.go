@@ -32,6 +32,7 @@ const (
 	ReviveDBPermissionDenied        = "ReviveDBPermissionDenied"
 	ReviveDBNodeCountMismatch       = "ReviveDBNodeCountMismatch"
 	ReviveDBRestoreUnsupported      = "ReviveDBRestoreUnsupported"
+	ReviveDBRestorePointNotFound    = "ReviveDBRestorePointNotFound"
 	ReviveOrderBad                  = "ReviveOrderBad"
 	ObjectNotFound                  = "ObjectNotFound"
 	CommunalCredsWrongKey           = "CommunalCredsWrongKey" //nolint:gosec
