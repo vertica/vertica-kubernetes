@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl exec -n $NAMESPACE -i v-restart-with-sidecars-main-0 -c server -- bash -c 'pgrep ^vertica && kill -SIGKILL $(pgrep ^vertica)'
+  - command: kubectl exec -n $NAMESPACE -i v-restart-with-liveness-probe-pri1-1 -c server -- bash -c 'pkill spread'

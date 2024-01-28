@@ -12,7 +12,8 @@
 -------------------+---------+-----------+---------+-----------------------------------------------------------------------+---------------+---------
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/vertica.log                    | f             | 
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | f             | 
-(2 rows)
+ v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | f             | 
+(3 rows)
 
 ALTER DATABASE
         hurry_service         
@@ -24,9 +25,11 @@ ALTER DATABASE
 -------------------+---------+-----------+---------+-----------------------------------------------------------------------+---------------
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/vertica.log                    | f
  v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | f
+ v_vertdb_node0001 | t       | 104857600 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | f
  v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/vertica.log                    | t
  v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/UDxLogs/UDxFencedProcesses.log | f
-(4 rows)
+ v_vertdb_node0001 | t       |      1024 | 7       | /data/vertdb/v_vertdb_node0001_catalog/editor.log                     | t
+(6 rows)
 
  clear_data_collector 
 ----------------------

@@ -11,7 +11,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: sh -c "cd ../../.. && make undeploy-operator"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-restart-with-liveness-probe-pri1-0
+status:
+  containerStatuses:
+  - name: nma
+  - name: server
+    ready: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-restart-with-liveness-probe-pri1-1
+status:
+  containerStatuses:
+  - name: nma
+  - name: server
+    ready: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-restart-with-liveness-probe-pri2-0
+status:
+  containerStatuses:
+  - name: nma
+  - name: server
+    ready: false

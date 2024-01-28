@@ -11,17 +11,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
 metadata:
-  name: v-restart-kill-sts-pri1
+  name: v-restart-with-sidecars
+status:
+  installCount: 1
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v-restart-kill-sts-pri1-0
-status:
-  containerStatuses:
-  - ready: false
-    name: server
-
+  name: v-restart-with-sidecars-main-0
+spec:
+  containers:
+  - name: nma
+  - name: server
+  - name: vlogger
+  - name: startup-log
+  - name: bootstrap-catalog-log
+  - name: db-log
