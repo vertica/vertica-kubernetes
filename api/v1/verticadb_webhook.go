@@ -897,12 +897,12 @@ func (v *VerticaDB) hasValidPodSecurityContext(allErrs field.ErrorList) field.Er
 }
 
 func (v *VerticaDB) hasValidNMAResourceLimit(allErrs field.ErrorList) field.ErrorList {
-	nmaMemoryLimit := vmeta.GetNMASidecarResource(v.Annotations, v1.ResourceLimitsMemory)
+	nmaMemoryLimit := vmeta.GetNMAResource(v.Annotations, v1.ResourceLimitsMemory)
 	if nmaMemoryLimit.IsZero() { // Zero implies it isn't set.
 		return allErrs
 	}
 	if vmeta.MinNMAMemoryLimit.Cmp(nmaMemoryLimit) == 1 {
-		annotationName := vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsMemory)
+		annotationName := vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)
 		err := field.Invalid(field.NewPath("metadata").Child("annotations").Child(annotationName),
 			nmaMemoryLimit, fmt.Sprintf("cannot be less than %s", vmeta.MinNMAMemoryLimit.String()))
 		allErrs = append(allErrs, err)

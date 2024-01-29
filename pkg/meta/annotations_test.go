@@ -57,22 +57,22 @@ var _ = Describe("annotations", func() {
 
 	It("should return default NMA sidecar resources", func() {
 		ann := map[string]string{}
-		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsMemory]))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsCPU]))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsCPU]))
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsMemory]))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsCPU]))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsCPU]))
 	})
 
 	It("should allow NMA sidecar resource to be overridden", func() {
 		ann := map[string]string{
-			GenNMASidecarResourceAnnotationName(corev1.ResourceLimitsMemory):   "800Mi",
-			GenNMASidecarResourceAnnotationName(corev1.ResourceRequestsMemory): "unparseable",
-			GenNMASidecarResourceAnnotationName(corev1.ResourceLimitsCPU):      "",
-			GenNMASidecarResourceAnnotationName(corev1.ResourceRequestsCPU):    "4",
+			GenNMAResourcesAnnotationName(corev1.ResourceLimitsMemory):   "800Mi",
+			GenNMAResourcesAnnotationName(corev1.ResourceRequestsMemory): "unparseable",
+			GenNMAResourcesAnnotationName(corev1.ResourceLimitsCPU):      "",
+			GenNMAResourcesAnnotationName(corev1.ResourceRequestsCPU):    "4",
 		}
-		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(resource.MustParse("800Mi")))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(resource.Quantity{}))
-		Ω(GetNMASidecarResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(resource.MustParse("4")))
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(resource.MustParse("800Mi")))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(resource.Quantity{}))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(resource.MustParse("4")))
 	})
 })

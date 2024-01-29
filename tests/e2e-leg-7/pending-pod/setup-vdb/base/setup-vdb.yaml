@@ -16,7 +16,7 @@ kind: VerticaDB
 metadata:
   name: v-pending-pod
   annotations:
-    vertica.com/nma-sidecar-resources-limits-cpu: "4"
+    vertica.com/nma-resources-limits-cpu: "4"
 spec:
   image: kustomize-vertica-image
   sidecars:

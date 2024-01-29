@@ -167,20 +167,20 @@ const (
 
 	// Set of annotations that you can use to control the resources of the NMA
 	// sidecar. The actual annotation name is:
-	//   vertica.com/nma-sidecar-resource-<limits|requests>-<memory|cpu>
+	//   vertica.com/nma-resources-<limits|requests>-<memory|cpu>
 	//
 	// For example, the following are valid:
-	//   vertica.com/nma-sidecar-resources-limits-memory
-	//   vertica.com/nma-sidecar-resources-limits-cpu
-	//   vertica.com/nma-sidecar-resources-requests-memory
-	//   vertica.com/nma-sidecar-resources-requests-cpu
+	//   vertica.com/nma-resources-limits-memory
+	//   vertica.com/nma-resources-limits-cpu
+	//   vertica.com/nma-resources-requests-memory
+	//   vertica.com/nma-resources-requests-cpu
 	//
-	// You can use GenNMASidecareResourceAnnotationName to generate the name.
+	// You can use GenNMAResourcesAnnotationName to generate the name.
 	//
 	// If the annotation is set, but has no value, than that resource is not
 	// used. If a value is specified, but isn't able to be parsed, we use the
 	// default.
-	NMASidecarResourcePrefix = "vertica.com/nma-sidecar-resources"
+	NMAResourcesPrefixAnnotation = "vertica.com/nma-resources"
 
 	// Normally the nma sidecar resources are only applied if the corresponding
 	// resource is set for the server container. This is done so that we can
@@ -188,7 +188,7 @@ const (
 	// us to run in low-resource environment. For those that don't want this
 	// behavior, but instead want the NMA sidecar resource set, you can set
 	// this annotation to true.
-	NMASidecarResourcesForced = "vertica.com/nma-sidecar-resources-forced"
+	NMAResourcesForcedAnnotation = "vertica.com/nma-resources-forced"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -296,10 +296,10 @@ func GetSkipDeploymentCheck(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, SkipDeploymentCheckAnnotation, false /* default value */)
 }
 
-// GetNMASidecarResource is used to retrieve a specific resource for the NMA
+// GetNMAResource is used to retrieve a specific resource for the NMA
 // sidecar. If any parsing error occurs, the default value is returned.
-func GetNMASidecarResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
-	annotationName := GenNMASidecarResourceAnnotationName(resourceName)
+func GetNMAResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
+	annotationName := GenNMAResourcesAnnotationName(resourceName)
 	defVal, hasDefault := DefaultNMAResources[resourceName]
 	defValStr := defVal.String()
 	if !hasDefault {
@@ -319,24 +319,24 @@ func GetNMASidecarResource(annotations map[string]string, resourceName corev1.Re
 	return quantity
 }
 
-// GetNMASidecarResourcesForced returns true if the resources for the NMA
+// IsNMAResourcesForced returns true if the resources for the NMA
 // sidecar should be set regardless if resources are set for the server. False
 // means they should only be applyied if the corresponding resource is set in
 // the server.
-func GetNMASidecarResourcesForced(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, NMASidecarResourcesForced, false /* default value */)
+func IsNMAResourcesForced(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, NMAResourcesForcedAnnotation, false /* default value */)
 }
 
-// GenNMASidecarResourceAnnotationName is a helper to generate the name of the
+// GenNMAResourcesAnnotationName is a helper to generate the name of the
 // annotation to control the resource. The resourceName given is taken from the
 // k8s corev1 package. It should be the two part name. Use const like
 // corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
-func GenNMASidecarResourceAnnotationName(resourceName corev1.ResourceName) string {
+func GenNMAResourcesAnnotationName(resourceName corev1.ResourceName) string {
 	// The resourceName pass in, taken from the corev1 k8s package, has the
 	// resource name like "limits.cpu" or "requests.memory". We don't want the
 	// period in the annotation name since it doesn't fit the style, so we
 	// replace that with a dash.
-	return fmt.Sprintf("%s-%s", NMASidecarResourcePrefix, strings.Replace(string(resourceName), ".", "-", 1))
+	return fmt.Sprintf("%s-%s", NMAResourcesPrefixAnnotation, strings.Replace(string(resourceName), ".", "-", 1))
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

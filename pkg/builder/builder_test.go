@@ -413,11 +413,11 @@ var _ = Describe("builder", func() {
 
 	It("should set NMA resources if forced too", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
-		vdb.Annotations[vmeta.NMASidecarResourcesForced] = "1"
-		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsCPU)] = "4"
+		vdb.Annotations[vmeta.NMAResourcesForcedAnnotation] = "1"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = "4"
 		// Intentionally leave cpu request out so that we will use and check the default
-		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceRequestsMemory)] = "250Mi"
-		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsMemory)] = "750Mi"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceRequestsMemory)] = "250Mi"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = "750Mi"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Resources = v1.ResourceRequirements{}
 		nma := makeNMAContainer(vdb, sc)
@@ -435,8 +435,8 @@ var _ = Describe("builder", func() {
 
 	It("should set NMA resources if set in the server", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
-		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsCPU)] = "8"
-		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsMemory)] = "1Gi"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = "8"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = "1Gi"
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Resources = v1.ResourceRequirements{
 			Requests: v1.ResourceList{
@@ -465,8 +465,8 @@ var _ = Describe("builder", func() {
 
 	It("should omit NMA resources if annotation is set without a value", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
-		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsCPU)] = ""
-		vdb.Annotations[vmeta.GenNMASidecarResourceAnnotationName(v1.ResourceLimitsMemory)] = ""
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = ""
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = ""
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Resources = v1.ResourceRequirements{
 			Requests: v1.ResourceList{

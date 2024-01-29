@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	// The default values to use for the NMA sidecar resource.  These can be
-	// overridden with annotations (see NMASidecarResourcePrefix).
+	// The default values to use for the NMA sidecar resources.  These can be
+	// overridden with annotations (see NMAResourcesPrefixAnnotation).
 	//
 	// We intentionally omit limits. The workload in the NMA container is
 	// burstable. The NMA itself is fairly stable but when it calls out to

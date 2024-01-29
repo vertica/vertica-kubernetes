@@ -232,16 +232,16 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 }
 
 func buildNMAResources(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.ResourceRequirements {
-	memoryRequest := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceRequestsMemory)
-	memoryLimit := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceLimitsMemory)
-	cpuRequest := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceRequestsCPU)
-	cpuLimit := vmeta.GetNMASidecarResource(vdb.Annotations, corev1.ResourceLimitsCPU)
+	memoryRequest := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceRequestsMemory)
+	memoryLimit := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceLimitsMemory)
+	cpuRequest := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceRequestsCPU)
+	cpuLimit := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceLimitsCPU)
 
 	// We have an option to only set the resources if the corresponding resource
 	// is set in the server pod. If the server container doesn't any resources
 	// set, then we won't set any defaults. This will allow us to run in
 	// low-resource environment.
-	forced := vmeta.GetNMASidecarResourcesForced(vdb.Annotations)
+	forced := vmeta.IsNMAResourcesForced(vdb.Annotations)
 
 	req := corev1.ResourceRequirements{
 		Requests: make(corev1.ResourceList),
