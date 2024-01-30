@@ -11,17 +11,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-pending-pod-main
+status:
+  currentReplicas: 3
+  readyReplicas: 3
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-pending-pod
-spec:
+status:
   subclusters:
-    - name: main
-    - name: high-resource-req
-      size: 2
-      resources:
-        # Set really high limits so they can't be deployed.
-        requests:
-          cpu: "128"
-          memory: 128Gi
+    - installCount: 3
+      addedToDBCount: 3
+      upNodeCount: 3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: v-pending-pod-main-0
+spec:
+  # Ensure no resources set if the server doesn't have them set
+  containers:
+    - name: nma
+      resources: {}
+    - name: server
+      resources: {}
+    - name: vlogger
+      resources: {}
+status:
+  phase: Running

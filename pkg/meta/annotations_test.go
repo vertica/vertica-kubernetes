@@ -20,6 +20,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestNames(t *testing.T) {
@@ -51,5 +53,26 @@ var _ = Describe("annotations", func() {
 	It("should treat mountNMACerts annotation as a bool", func() {
 		ann := map[string]string{MountNMACertsAnnotation: MountNMACertsAnnotationTrue}
 		Ω(UseNMACertsMount(ann)).Should(BeTrue())
+	})
+
+	It("should return default NMA sidecar resources", func() {
+		ann := map[string]string{}
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsMemory]))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceLimitsCPU]))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsCPU]))
+	})
+
+	It("should allow NMA sidecar resource to be overridden", func() {
+		ann := map[string]string{
+			GenNMAResourcesAnnotationName(corev1.ResourceLimitsMemory):   "800Mi",
+			GenNMAResourcesAnnotationName(corev1.ResourceRequestsMemory): "unparseable",
+			GenNMAResourcesAnnotationName(corev1.ResourceLimitsCPU):      "",
+			GenNMAResourcesAnnotationName(corev1.ResourceRequestsCPU):    "4",
+		}
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(resource.MustParse("800Mi")))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
+		Ω(GetNMAResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(resource.Quantity{}))
+		Ω(GetNMAResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(resource.MustParse("4")))
 	})
 })
