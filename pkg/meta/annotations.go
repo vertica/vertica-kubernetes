@@ -374,6 +374,9 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 	if err != nil {
 		return 0, false
 	}
+	if convVal < 0 {
+		return 0, false
+	}
 	return int32(convVal), true //nolint:gosec
 }
 

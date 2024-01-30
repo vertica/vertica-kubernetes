@@ -80,6 +80,7 @@ var _ = Describe("annotations", func() {
 		ann := map[string]string{
 			GenNMAHealthProbeAnnotationName(NMAHealthProbeStartup, NMAHealthProbeTimeoutSeconds):   "33",
 			GenNMAHealthProbeAnnotationName(NMAHealthProbeStartup, NMAHealthProbeFailureThreshold): "bad-filter",
+			GenNMAHealthProbeAnnotationName(NMAHealthProbeStartup, NMAHealthProbeSuccessThreshold): "-5",
 		}
 		v, ok := GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeTimeoutSeconds)
 		Ω(ok).Should(BeTrue())
@@ -87,6 +88,8 @@ var _ = Describe("annotations", func() {
 		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeFailureThreshold)
 		Ω(ok).Should(BeFalse())
 		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbePeriodSeconds)
+		Ω(ok).Should(BeFalse())
+		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeSuccessThreshold)
 		Ω(ok).Should(BeFalse())
 	})
 })
