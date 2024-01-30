@@ -18,8 +18,11 @@ package vadmin
 import (
 	"context"
 	"errors"
+
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (a *Admintools) ListRestorePoints(_ context.Context) error {
-	return errors.New("ListRestorePoints is not supported for admintools deployments")
+func (a *Admintools) ListRestorePoints(_ context.Context, _ ...restorepoints.Option) (ctrl.Result, error) {
+	return ctrl.Result{}, errors.New("ListRestorePoints is not supported for admintools deployments")
 }

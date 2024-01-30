@@ -23,7 +23,8 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
-	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepointsquery"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
 
@@ -42,6 +43,7 @@ type QueryReconciler struct {
 	VRec           *VerticaRestorePointsQueryReconciler
 	Vrpq           *vapi.VerticaRestorePointsQuery
 	Log            logr.Logger
+	Dispatcher     vadmin.Dispatcher
 	InitiatorPod   types.NamespacedName // The pod that we run admin commands from
 	InitiatorPodIP string               // The IP of the initiating pod
 	config.ConfigParamsGenerator

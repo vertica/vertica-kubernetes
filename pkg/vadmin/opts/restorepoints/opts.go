@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package restore
+package restorepoints
 
 import (
 	"k8s.io/apimachinery/pkg/types"
