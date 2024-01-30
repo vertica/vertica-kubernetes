@@ -19,16 +19,18 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// mock version of VStartDatabase() that is invoked inside VClusterOps.StartDB()
+// mock version of VStartNodes() that is invoked inside VClusterOps.StartNode()
 func (m *MockVClusterOps) VStartNodes(options *vops.VStartNodesOptions) error {
 	// verify basic options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
@@ -43,6 +45,10 @@ func (m *MockVClusterOps) VStartNodes(options *vops.VStartNodesOptions) error {
 	// verify timeout
 	if options.StatePollingTimeout != TestTimeout {
 		return fmt.Errorf("failed to retrieve timeout")
+	}
+
+	if m.ReturnReIPNoClusterQuorum {
+		return &vops.ReIPNoClusterQuorumError{Detail: "cluster quorum loss"}
 	}
 
 	return nil
@@ -65,11 +71,31 @@ var _ = Describe("restart_node_vc", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
-		ctrlRes, err := dispatcher.RestartNode(ctx,
-			restartnode.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
-			restartnode.WithHost("vnode1", nodeIPs[1]),
-		)
+		ctrlRes, err := callStartNodes(ctx, dispatcher, nodeIPs)
 		Ω(err).Should(Succeed())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})
+
+	It("should detect ReIPNoClusterQuorumError", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.DBName = TestDBName
+		vdb.Spec.NMATLSSecret = TestNMATLSSecret
+		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "10"
+		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
+			return &MockVClusterOps{ReturnReIPNoClusterQuorum: true}, logr.Logger{}
+		}
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		ctrlRes, err := callStartNodes(ctx, dispatcher, nodeIPs)
+		Ω(err).Should(Succeed())
+		Ω(ctrlRes.Requeue).Should(BeTrue())
+	})
 })
+
+func callStartNodes(ctx context.Context, dispatcher *VClusterOps, nodeIPs []string) (ctrl.Result, error) {
+	return dispatcher.RestartNode(ctx,
+		restartnode.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
+		restartnode.WithHost("vnode1", nodeIPs[1]),
+	)
+}

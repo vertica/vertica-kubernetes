@@ -17,6 +17,7 @@ package vadmin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	vops "github.com/vertica/vcluster/vclusterops"
@@ -46,6 +47,11 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 	vcOpts := v.genStartNodeOptions(&s, certs)
 	err = v.VStartNodes(vcOpts)
 	if err != nil {
+		reIPNoClusterQuorumError := &vops.ReIPNoClusterQuorumError{}
+		// if a reIPNoClusterQuorumError is found we simply return nil
+		if ok := errors.As(err, &reIPNoClusterQuorumError); ok {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to restart nodes: %w", err)
 	}
 
