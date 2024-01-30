@@ -17,6 +17,8 @@ metadata:
   name: v-pending-pod
   annotations:
     vertica.com/nma-resources-limits-cpu: "4"
+    vertica.com/nma-startup-probe-initial-delay-seconds: "5"
+    vertica.com/nma-startup-probe-period-seconds: "60"
 spec:
   image: kustomize-vertica-image
   sidecars:

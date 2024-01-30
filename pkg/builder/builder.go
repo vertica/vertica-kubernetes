@@ -718,9 +718,9 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		Resources:       buildNMAResources(vdb, sc),
 		Command:         buildNMACommand(),
 		VolumeMounts:    buildNMAVolumeMounts(vdb),
-		ReadinessProbe:  makeNMAHealthProbe(),
-		LivenessProbe:   makeNMAHealthProbe(),
-		StartupProbe:    makeNMAHealthProbe(),
+		ReadinessProbe:  makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeReadiness),
+		LivenessProbe:   makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeLiveness),
+		StartupProbe:    makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeStartup),
 	}
 }
 
@@ -842,7 +842,27 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 }
 
 // makeNMAHealthProbe will return the Probe object to use for the NMA
-func makeNMAHealthProbe() *corev1.Probe {
+func makeNMAHealthProbe(vdb *vapi.VerticaDB, probeName string) *corev1.Probe {
+	probe := makeDefaultNMAHealthProbe()
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeInitialDelaySeconds); ok {
+		probe.InitialDelaySeconds = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeTimeoutSeconds); ok {
+		probe.TimeoutSeconds = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbePeriodSeconds); ok {
+		probe.PeriodSeconds = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeSuccessThreshold); ok {
+		probe.SuccessThreshold = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeFailureThreshold); ok {
+		probe.FailureThreshold = val
+	}
+	return probe
+}
+
+func makeDefaultNMAHealthProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{

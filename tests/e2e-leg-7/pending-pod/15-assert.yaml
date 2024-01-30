@@ -15,6 +15,16 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: v-pending-pod-main
+spec:
+  template:
+    spec:
+      containers:
+      - name: nma
+        startupProbe:
+          initialDelaySeconds: 5
+          periodSeconds: 60
+      - name: server
+      - name: vlogger
 status:
   currentReplicas: 3
 ---

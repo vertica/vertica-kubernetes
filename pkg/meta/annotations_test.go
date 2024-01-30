@@ -75,4 +75,21 @@ var _ = Describe("annotations", func() {
 		Ω(GetNMAResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(resource.Quantity{}))
 		Ω(GetNMAResource(ann, corev1.ResourceRequestsCPU)).Should(Equal(resource.MustParse("4")))
 	})
+
+	It("should allow the NMA health probe to be overridden", func() {
+		ann := map[string]string{
+			GenNMAHealthProbeAnnotationName(NMAHealthProbeStartup, NMAHealthProbeTimeoutSeconds):   "33",
+			GenNMAHealthProbeAnnotationName(NMAHealthProbeStartup, NMAHealthProbeFailureThreshold): "bad-filter",
+			GenNMAHealthProbeAnnotationName(NMAHealthProbeStartup, NMAHealthProbeSuccessThreshold): "-5",
+		}
+		v, ok := GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeTimeoutSeconds)
+		Ω(ok).Should(BeTrue())
+		Ω(v).Should(Equal(int32(33)))
+		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeFailureThreshold)
+		Ω(ok).Should(BeFalse())
+		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbePeriodSeconds)
+		Ω(ok).Should(BeFalse())
+		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeSuccessThreshold)
+		Ω(ok).Should(BeFalse())
+	})
 })

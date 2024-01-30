@@ -189,6 +189,23 @@ const (
 	// behavior, but instead want the NMA sidecar resource set, you can set
 	// this annotation to true.
 	NMAResourcesForcedAnnotation = "vertica.com/nma-resources-forced"
+
+	// Set of annotations to control various settings with the health probes.
+	// The format is:
+	//   vertica.com/nma-<probe-name>-probe-<field-name>
+	//
+	// Where <probe-name> is one of:
+	NMAHealthProbeReadiness = "readiness"
+	NMAHealthProbeStartup   = "startup"
+	NMAHealthProbeLiveness  = "liveness"
+	// <field-name> is one of:
+	NMAHealthProbeSuccessThreshold    = "success-threshold"
+	NMAHealthProbeFailureThreshold    = "failure-threshold"
+	NMAHealthProbePeriodSeconds       = "period-seconds"
+	NMAHealthProbeTimeoutSeconds      = "timeout-seconds"
+	NMAHealthProbeInitialDelaySeconds = "initial-delay-seconds"
+	//
+	// Use GenNMAHealthProbeAnnotationName to generate the name.
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -337,6 +354,30 @@ func GenNMAResourcesAnnotationName(resourceName corev1.ResourceName) string {
 	// period in the annotation name since it doesn't fit the style, so we
 	// replace that with a dash.
 	return fmt.Sprintf("%s-%s", NMAResourcesPrefixAnnotation, strings.Replace(string(resourceName), ".", "-", 1))
+}
+
+// GenNMAHealthProbeAnnotationName returns the name of the annotation for a specific health probe field.
+func GenNMAHealthProbeAnnotationName(probeName, field string) string {
+	return fmt.Sprintf("vertica.com/nma-%s-probe-%s", probeName, field)
+}
+
+// GetNMAHealthProbeOverride returns the value of a NMA health probe annotation.
+// If the annotation isn't set, or its value doesn't convert to an int, then
+// (0,false) is returned.
+func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field string) (int32, bool) {
+	annName := GenNMAHealthProbeAnnotationName(probeName, field)
+	annVal := lookupStringAnnotation(annotations, annName, "" /* default value */)
+	if annVal == "" {
+		return 0, false
+	}
+	convVal, err := strconv.Atoi(annVal)
+	if err != nil {
+		return 0, false
+	}
+	if convVal < 0 {
+		return 0, false
+	}
+	return int32(convVal), true //nolint:gosec
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

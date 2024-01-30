@@ -496,6 +496,17 @@ var _ = Describe("builder", func() {
 		defVal, _ = defQuantity.AsInt64()
 		Ω(actual).Should(Equal(defVal))
 	})
+
+	It("should allow health probe field to be overridden", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		sc := &vdb.Spec.Subclusters[0]
+		vdb.Annotations[vmeta.GenNMAHealthProbeAnnotationName(vmeta.NMAHealthProbeStartup, vmeta.NMAHealthProbeSuccessThreshold)] = "13"
+		vdb.Annotations[vmeta.GenNMAHealthProbeAnnotationName(vmeta.NMAHealthProbeLiveness, vmeta.NMAHealthProbeFailureThreshold)] = "8"
+		nma := makeNMAContainer(vdb, sc)
+		Ω(nma.StartupProbe.SuccessThreshold).Should(Equal(int32(13)))
+		Ω(nma.ReadinessProbe.SuccessThreshold).Should(Equal(int32(0)))
+		Ω(nma.LivenessProbe.FailureThreshold).Should(Equal(int32(8)))
+	})
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {
