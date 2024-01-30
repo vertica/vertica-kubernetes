@@ -146,7 +146,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan == 'all' }}
       with:
-        name: security-scan
+        name: security-scan-server
         path: 'trivy-results-vertica-image.out'
 
     - name: Print a summary of the job
@@ -398,7 +398,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan != 'none' }}
       with:
-        name: security-scan
+        name: security-scan-operator
         path: 'trivy-results-verticadb-operator-image.out'
 
     - name: Print a summary of the job
@@ -496,7 +496,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan != 'none' }}
       with:
-        name: security-scan
+        name: security-scan-logger
         path: 'trivy-results-vertica-logger-image.out'
 
     - name: Print a summary of the job

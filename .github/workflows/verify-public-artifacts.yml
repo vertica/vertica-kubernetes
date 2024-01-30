@@ -74,9 +74,7 @@ jobs:
     - name: Deploy the verticadb operator with kubectl
       if: github.event.inputs.deploy_with == 'kubectl'
       run: |
-        kubectl apply --server-side=true --force-conflicts -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/verticadbs.vertica.com-crd.yaml
-        kubectl apply --server-side=true --force-conflicts -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/verticaautoscalers.vertica.com-crd.yaml
-        kubectl apply --server-side=true --force-conflicts -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/eventtriggers.vertica.com-crd.yaml
+        kubectl apply --server-side=true --force-conflicts -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/crds.yaml
         kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/operator.yaml
 
     - name: Install krew
