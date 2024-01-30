@@ -76,7 +76,7 @@ jobs:
           ${{ inputs.full_vertica_image != '' }} => ${{ inputs.full_vertica_image }}
 
     - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ github.event_name != 'pull_request' && startsWith(inputs.full_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
@@ -84,13 +84,13 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Login to Docker Hub
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ inputs.full_vertica_image != '' && startsWith(inputs.full_vertica_image, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ inputs.full_vertica_image == '' }}
 
     - name: Download the RPM
@@ -127,7 +127,7 @@ jobs:
         output: 'trivy-results-vertica-image.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan == 'all' && github.event_name != 'pull_request' }}
       with:
         sarif_file: 'trivy-results-vertica-image.sarif'
@@ -143,7 +143,7 @@ jobs:
         format: 'table'
         output: 'trivy-results-vertica-image.out'
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan == 'all' }}
       with:
         name: security-scan
@@ -184,7 +184,7 @@ jobs:
           ${{ github.event_name == 'pull_request' }} => vertica-k8s:kind-legacy
 
     - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ github.event_name != 'pull_request' && inputs.legacy_vertica_image == '' || startsWith(inputs.legacy_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
@@ -192,13 +192,13 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Login to Docker Hub
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ inputs.legacy_vertica_image != '' && startsWith(inputs.legacy_vertica_image, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ inputs.legacy_vertica_image == '' }}
 
     - name: Download the RPM
@@ -220,7 +220,7 @@ jobs:
       run: |
         docker save ${{ steps.legacy_vertica_image.outputs.value }} > legacy-vertica-image.tar
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ github.event_name == 'pull_request' }}
       with:
         name: legacy-vertica-image
@@ -258,7 +258,7 @@ jobs:
           ${{ inputs.minimal_vertica_image != '' }} => ${{ inputs.minimal_vertica_image }}
 
     - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ github.event_name != 'pull_request' && startsWith(inputs.minimal_vertica_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
@@ -266,13 +266,13 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Login to Docker Hub
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ inputs.minimal_vertica_image != '' && startsWith(inputs.minimal_vertica_image, 'docker.io') }}
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ inputs.minimal_vertica_image == '' }}
 
     - name: Download the RPM
@@ -331,14 +331,14 @@ jobs:
           ${{ github.event_name == 'pull_request' }} => verticadb-operator:kind
 
     - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ github.event_name != 'pull_request' && inputs.operator_image == '' || startsWith(inputs.operator_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ inputs.operator_image == '' }}
 
     - name: Set up Go
@@ -360,7 +360,7 @@ jobs:
       run: |
         docker save ${{ steps.operator_image.outputs.value }} > operator-image.tar
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ github.event_name == 'pull_request' }}
       with:
         name: operator-image
@@ -381,7 +381,7 @@ jobs:
         output: 'trivy-results-verticadb-operator-image.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         sarif_file: 'trivy-results-verticadb-operator-image.sarif'
@@ -395,7 +395,7 @@ jobs:
         format: 'table'
         output: 'trivy-results-verticadb-operator-image.out'
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan != 'none' }}
       with:
         name: security-scan
@@ -433,14 +433,14 @@ jobs:
           ${{ github.event_name == 'pull_request' }} => vertica-logger:kind
 
     - name: Login to GitHub Container registry for non-PRs
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       if: ${{ github.event_name != 'pull_request' && inputs.vlogger_image == '' || startsWith(inputs.vlogger_image, 'ghcr.io') }}
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       if: ${{ inputs.vlogger_image == '' }}
 
     - name: Build and optionally push vlogger image
@@ -458,7 +458,7 @@ jobs:
       run: |
         docker save ${{ steps.vlogger_image.outputs.value }} > vlogger-image.tar
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ github.event_name == 'pull_request' }}
       with:
         name: vlogger-image
@@ -479,7 +479,7 @@ jobs:
         output: 'trivy-results-vertica-logger-image.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: ${{ always() && inputs.run_security_scan != 'none' && github.event_name != 'pull_request' }}
       with:
         sarif_file: 'trivy-results-vertica-logger-image.sarif'
@@ -493,7 +493,7 @@ jobs:
         format: 'table'
         output: 'trivy-results-vertica-logger-image.out'
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: ${{ always() && inputs.run_security_scan != 'none' }}
       with:
         name: security-scan
