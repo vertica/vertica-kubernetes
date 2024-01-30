@@ -47,39 +47,13 @@ jobs:
         helm package verticadb-operator
         ls -lhrt
     
-    - name: Upload CRDs
+    - name: Upload files
       uses: actions/upload-artifact@v4
       with:
         name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/*-crd.yaml 
-
-    - name: Upload YAMLs in release artifacts directory
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/release-manifests/*yaml
-
-    - name: Upload Helm Charts
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
-
-    - name: Upload vdb-gen
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-artifacts
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
-
-    - name: Upload Bundle
-      uses: actions/upload-artifact@v4
-      with:
-        name: olm-bundle
-        path: /home/runner/work/vertica-kubernetes/vertica-kubernetes/bundle
-    
-
-    
-
-
-
-        
+        path: |
+          /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/verticadb-operator/crds/*-crd.yaml 
+          /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/release-manifests/*yaml
+          /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
+          /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
+          /home/runner/work/vertica-kubernetes/vertica-kubernetes/bundle
