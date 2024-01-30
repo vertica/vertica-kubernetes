@@ -16,7 +16,12 @@
 package meta
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -159,6 +164,48 @@ const (
 	// image is built for that (and vice-versa). This annotation allows you to
 	// skip that check.
 	SkipDeploymentCheckAnnotation = "vertica.com/skip-deployment-check"
+
+	// Set of annotations that you can use to control the resources of the NMA
+	// sidecar. The actual annotation name is:
+	//   vertica.com/nma-resources-<limits|requests>-<memory|cpu>
+	//
+	// For example, the following are valid:
+	//   vertica.com/nma-resources-limits-memory
+	//   vertica.com/nma-resources-limits-cpu
+	//   vertica.com/nma-resources-requests-memory
+	//   vertica.com/nma-resources-requests-cpu
+	//
+	// You can use GenNMAResourcesAnnotationName to generate the name.
+	//
+	// If the annotation is set, but has no value, than that resource is not
+	// used. If a value is specified, but isn't able to be parsed, we use the
+	// default.
+	NMAResourcesPrefixAnnotation = "vertica.com/nma-resources"
+
+	// Normally the nma sidecar resources are only applied if the corresponding
+	// resource is set for the server container. This is done so that we can
+	// avoid setting resources if they are left off of the server. This allows
+	// us to run in low-resource environment. For those that don't want this
+	// behavior, but instead want the NMA sidecar resource set, you can set
+	// this annotation to true.
+	NMAResourcesForcedAnnotation = "vertica.com/nma-resources-forced"
+
+	// Set of annotations to control various settings with the health probes.
+	// The format is:
+	//   vertica.com/nma-<probe-name>-probe-<field-name>
+	//
+	// Where <probe-name> is one of:
+	NMAHealthProbeReadiness = "readiness"
+	NMAHealthProbeStartup   = "startup"
+	NMAHealthProbeLiveness  = "liveness"
+	// <field-name> is one of:
+	NMAHealthProbeSuccessThreshold    = "success-threshold"
+	NMAHealthProbeFailureThreshold    = "failure-threshold"
+	NMAHealthProbePeriodSeconds       = "period-seconds"
+	NMAHealthProbeTimeoutSeconds      = "timeout-seconds"
+	NMAHealthProbeInitialDelaySeconds = "initial-delay-seconds"
+	//
+	// Use GenNMAHealthProbeAnnotationName to generate the name.
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -264,6 +311,73 @@ func FailCreateDBIfVerticaIsRunning(annotations map[string]string) bool {
 // the image was built for.
 func GetSkipDeploymentCheck(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, SkipDeploymentCheckAnnotation, false /* default value */)
+}
+
+// GetNMAResource is used to retrieve a specific resource for the NMA
+// sidecar. If any parsing error occurs, the default value is returned.
+func GetNMAResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
+	annotationName := GenNMAResourcesAnnotationName(resourceName)
+	defVal, hasDefault := DefaultNMAResources[resourceName]
+	defValStr := defVal.String()
+	if !hasDefault {
+		defValStr = ""
+	}
+	quantityStr := lookupStringAnnotation(annotations, annotationName, defValStr)
+	// If the annotation is set, but has no value, then we will omit the
+	// resource rather than use the default. This allows us to turn off the
+	// resource if need be.
+	if quantityStr == "" {
+		return resource.Quantity{}
+	}
+	quantity, err := resource.ParseQuantity(quantityStr)
+	if err != nil {
+		return defVal
+	}
+	return quantity
+}
+
+// IsNMAResourcesForced returns true if the resources for the NMA
+// sidecar should be set regardless if resources are set for the server. False
+// means they should only be applyied if the corresponding resource is set in
+// the server.
+func IsNMAResourcesForced(annotations map[string]string) bool {
+	return lookupBoolAnnotation(annotations, NMAResourcesForcedAnnotation, false /* default value */)
+}
+
+// GenNMAResourcesAnnotationName is a helper to generate the name of the
+// annotation to control the resource. The resourceName given is taken from the
+// k8s corev1 package. It should be the two part name. Use const like
+// corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
+func GenNMAResourcesAnnotationName(resourceName corev1.ResourceName) string {
+	// The resourceName pass in, taken from the corev1 k8s package, has the
+	// resource name like "limits.cpu" or "requests.memory". We don't want the
+	// period in the annotation name since it doesn't fit the style, so we
+	// replace that with a dash.
+	return fmt.Sprintf("%s-%s", NMAResourcesPrefixAnnotation, strings.Replace(string(resourceName), ".", "-", 1))
+}
+
+// GenNMAHealthProbeAnnotationName returns the name of the annotation for a specific health probe field.
+func GenNMAHealthProbeAnnotationName(probeName, field string) string {
+	return fmt.Sprintf("vertica.com/nma-%s-probe-%s", probeName, field)
+}
+
+// GetNMAHealthProbeOverride returns the value of a NMA health probe annotation.
+// If the annotation isn't set, or its value doesn't convert to an int, then
+// (0,false) is returned.
+func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field string) (int32, bool) {
+	annName := GenNMAHealthProbeAnnotationName(probeName, field)
+	annVal := lookupStringAnnotation(annotations, annName, "" /* default value */)
+	if annVal == "" {
+		return 0, false
+	}
+	convVal, err := strconv.Atoi(annVal)
+	if err != nil {
+		return 0, false
+	}
+	if convVal < 0 {
+		return 0, false
+	}
+	return int32(convVal), true //nolint:gosec
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

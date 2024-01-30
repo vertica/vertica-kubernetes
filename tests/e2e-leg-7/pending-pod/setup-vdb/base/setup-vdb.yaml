@@ -15,13 +15,29 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-pending-pod
+  annotations:
+    vertica.com/nma-resources-limits-cpu: "4"
+    vertica.com/nma-startup-probe-initial-delay-seconds: "5"
+    vertica.com/nma-startup-probe-period-seconds: "60"
 spec:
+  image: kustomize-vertica-image
+  sidecars:
+    - name: vlogger
+      image: kustomize-vlogger-image
+  dbName: Db
+  initPolicy: CreateSkipPackageInstall
+  communal:
+    includeUIDInPath: true
+  local:
+    requestSize: 100Mi
+    catalogPath: /vertica/catalog
+    dataPath: /vertica/data
   subclusters:
     - name: main
-    - name: high-resource-req
-      size: 2
-      resources:
-        # Set really high limits so they can't be deployed.
-        requests:
-          cpu: "128"
-          memory: 128Gi
+      size: 3
+  kSafety: "1"
+  certSecrets: []
+  requeueTime: 5
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

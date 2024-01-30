@@ -1,0 +1,5 @@
+kind: Added
+body: Set resources for NMA sidecar container
+time: 2024-01-25T14:22:23.131991504-04:00
+custom:
+  Issue: "674"

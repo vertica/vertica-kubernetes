@@ -11,20 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-pending-pod-main
-status:
-  currentReplicas: 3
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-pending-pod
-status:
-  subclusters:
-    - installCount: 3
-      addedToDBCount: 3
-      upNodeCount: 3
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl wait --for=condition=UpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
+    namespaced: true
