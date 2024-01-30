@@ -128,6 +128,16 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
 		return r.reconcileCluster(ctx)
 	}
+	// If at least one non-readonly is up when cluster does not have quorum,
+	// we requeue to give that node(s) time to go down before restarting the entire
+	// cluster
+	if !r.PFacts.doesDBHaveQuorum() {
+		r.Log.Info("At least one node up while db does not have quorum. Requeue reconciliation.")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * RequeueWaitTimeInSeconds,
+		}, nil
+	}
 	return r.reconcileNodes(ctx)
 }
 
