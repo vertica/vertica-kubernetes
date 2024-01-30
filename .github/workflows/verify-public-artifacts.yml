@@ -7,7 +7,7 @@ on:
         type: choice
         description: 'Select the deployment method'
         required: true
-        options: ['helm', 'olm']
+        options: ['helm', 'olm', 'kubectl']
         default: 'helm'
       expected_operator_version:
         description: 'The expected operator version to deploy (e.g. 1.5.0)'
@@ -15,6 +15,8 @@ on:
       expected_server_version:
         description: 'The expected server version to deploy (e.g. 11.1.1-0)'
         required: true
+
+run-name: ${{ inputs.deploy_with }} verification
 
 jobs:
 
@@ -60,14 +62,22 @@ jobs:
         echo "Waiting for verticadb-operator CSV to be created..."
         timeout 5m bash -c -- "while ! kubectl get csv | grep 'VerticaDB Operator' | grep -cq Succeeded; do sleep 5; done"
         echo "DONE!"
-        kubectl create namespace my-verticadb-operator
+        kubectl create namespace verticadb-operator
 
     - name: Deploy the verticadb operator with helm
       if: github.event.inputs.deploy_with == 'helm'
       run: |
         helm repo add vertica-charts https://vertica.github.io/charts
         helm repo update vertica-charts
-        helm install vdb-op --wait --namespace my-verticadb-operator --create-namespace vertica-charts/verticadb-operator
+        helm install vdb-op --wait --namespace verticadb-operator --create-namespace vertica-charts/verticadb-operator
+
+    - name: Deploy the verticadb operator with kubectl
+      if: github.event.inputs.deploy_with == 'kubectl'
+      run: |
+        kubectl apply --server-side=true --force-conflicts -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/verticadbs.vertica.com-crd.yaml
+        kubectl apply --server-side=true --force-conflicts -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/verticaautoscalers.vertica.com-crd.yaml
+        kubectl apply --server-side=true --force-conflicts -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/eventtriggers.vertica.com-crd.yaml
+        kubectl apply -f https://github.com/vertica/vertica-kubernetes/releases/latest/download/operator.yaml
 
     - name: Install krew
       run: | 
@@ -80,28 +90,28 @@ jobs:
 
     - name: Install the minio Tenant
       run: |
-        kubectl apply --namespace my-verticadb-operator -f config/samples/minio.yaml
-        kubectl wait --for=condition=Complete=True --namespace my-verticadb-operator job/create-s3-bucket --timeout=5m
+        kubectl apply --namespace verticadb-operator -f config/samples/minio.yaml
+        kubectl wait --for=condition=Complete=True --namespace verticadb-operator job/create-s3-bucket --timeout=5m
 
     - name: Create a VerticaDB CR
       run: |
-        kubectl apply --namespace my-verticadb-operator -f config/samples/verticadb_sample.yaml
-        kubectl wait --for=condition=DBInitialized=True --namespace my-verticadb-operator vdb/verticadb-sample --timeout=10m
-        kubectl get pods --namespace my-verticadb-operator --selector app.kubernetes.io/instance=verticadb-sample
+        kubectl apply --namespace verticadb-operator -f config/samples/verticadb_sample.yaml
+        kubectl wait --for=condition=DBInitialized=True --namespace verticadb-operator vdb/verticadb-sample --timeout=10m
+        kubectl get pods --namespace verticadb-operator --selector app.kubernetes.io/instance=verticadb-sample
 
     - name: Dump the vertica server version
       run: |
-        kubectl exec -it --namespace my-verticadb-operator verticadb-sample-defaultsubcluster-0 -- vsql -c "select version();"
+        kubectl exec -it --namespace verticadb-operator verticadb-sample-defaultsubcluster-0 -- vsql -c "select version();"
 
     - name: Dump the labels/annotations of the vertica pods
       run: |
-        kubectl get pods --namespace my-verticadb-operator --selector app.kubernetes.io/instance=verticadb-sample -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{.metadata.labels}{"\n"}{.metadata.annotations}{"\n"}{"\n"}{end}'
+        kubectl get pods --namespace verticadb-operator --selector app.kubernetes.io/instance=verticadb-sample -o=jsonpath='{range .items[*]}{.metadata.name}{"\n"}{.metadata.labels}{"\n"}{.metadata.annotations}{"\n"}{"\n"}{end}'
 
     - name: Verify the operator version
       run: |
-        kubectl get pods --namespace my-verticadb-operator --selector app.kubernetes.io/version=${{ github.event.inputs.expected_operator_version }} | grep -cq 'verticadb-sample-defaultsubcluster'
+        kubectl get pods --namespace verticadb-operator --selector app.kubernetes.io/version=${{ github.event.inputs.expected_operator_version }} | grep -cq 'verticadb-sample-defaultsubcluster'
 
     - name: Verify the server version
       run: |
-        kubectl exec -it --namespace my-verticadb-operator verticadb-sample-defaultsubcluster-0 -- vsql -c "select 1 where version() = 'Vertica Analytic Database v${{ github.event.inputs.expected_server_version }}';" | grep -cq '(1 row)'
+        kubectl exec -it --namespace verticadb-operator verticadb-sample-defaultsubcluster-0 -- vsql -c "select 1 where version() = 'Vertica Analytic Database v${{ github.event.inputs.expected_server_version }}';" | grep -cq '(1 row)'
  
