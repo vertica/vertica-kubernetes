@@ -1122,6 +1122,19 @@ func (p *PodFacts) getUpNodeAndNotReadOnlyCount() int {
 	})
 }
 
+// doesDBHaveQuorum returns true if more than half
+// of the primary nodes are up.
+func (p *PodFacts) doesDBHaveQuorum() bool {
+	upPrimaryCount := p.countUpPrimaryNodes()
+	totalPrimaryCount := p.countPods(func(v *PodFact) int {
+		if v.isPrimary && v.dbExists {
+			return 1
+		}
+		return 0
+	})
+	return 2*upPrimaryCount > totalPrimaryCount
+}
+
 // genPodNames will generate a string of pods names given a list of pods
 func genPodNames(pods []*PodFact) string {
 	podNames := make([]string, 0, len(pods))

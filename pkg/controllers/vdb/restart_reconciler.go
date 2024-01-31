@@ -128,6 +128,16 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly {
 		return r.reconcileCluster(ctx)
 	}
+	// If at least one non-readonly is up when cluster does not have quorum,
+	// we requeue to give that node(s) time to go down before restarting the entire
+	// cluster
+	if !r.PFacts.doesDBHaveQuorum() {
+		r.Log.Info("At least one node up while db does not have quorum. Requeue reconciliation.")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * RequeueWaitTimeInSeconds,
+		}, nil
+	}
 	return r.reconcileNodes(ctx)
 }
 
@@ -326,21 +336,11 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 
 // removePodsWithClusterUpState will see if the pods in the down list are
 // down according to the cluster state. This will return a new pod list with the
-// pods that aren't considered down removed. It exists early if there is no
-// cluster quorum
+// pods that aren't considered down removed.
 func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, pods []*PodFact) ([]*PodFact, ctrl.Result, error) {
 	clusterState, res, err := r.fetchClusterNodeStatus(ctx, pods)
 	if verrors.IsReconcileAborted(res, err) {
 		return nil, res, err
-	}
-	// If cluster does not have quorum, we requeue to
-	// restart the entire cluster
-	if !r.doesDBHaveQuorum(clusterState) {
-		r.Log.Info("Cluster does not have quorum, restart of entire cluster is needed. Requeue reconciliation.")
-		return nil, ctrl.Result{
-			Requeue:      true,
-			RequeueAfter: time.Second * RequeueWaitTimeInSeconds,
-		}, nil
 	}
 	i := 0
 	// Remove any item from pods where the state is UP
@@ -352,27 +352,6 @@ func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, po
 		}
 	}
 	return pods[:i], ctrl.Result{}, nil
-}
-
-// doesDBHaveQuorum returns true if more than half
-// of the primary nodes are up. Only nodes that are
-// already part of the database are considered
-func (r *RestartReconciler) doesDBHaveQuorum(clusterState map[string]string) bool {
-	totalPrimaryCount := 0
-	upPrimaryCount := 0
-	for _, pod := range r.PFacts.Detail {
-		if !pod.isPrimary {
-			continue
-		}
-		state, ok := clusterState[pod.vnodeName]
-		if ok {
-			totalPrimaryCount++
-			if state == vadmin.StateUp {
-				upPrimaryCount++
-			}
-		}
-	}
-	return 2*upPrimaryCount > totalPrimaryCount
 }
 
 // fetchClusterNodeStatus gets the node status (UP/DOWN) from the cluster.

@@ -1,0 +1,5 @@
+kind: Fixed
+body: Restart node when we have lost cluster quorum may cause the operator to restart
+time: 2024-01-31T01:03:05.801200259+01:00
+custom:
+  Issue: "685"
