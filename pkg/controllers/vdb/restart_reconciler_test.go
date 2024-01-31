@@ -64,15 +64,28 @@ var _ = Describe("restart_reconciler", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		fpr := &cmds.FakePodRunner{}
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{1}, PodNotReadOnly)
+		initiatorPod := names.GenPodName(vdb, sc, 4)
+		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
+		fpr.Results[initiatorPod] = []cmds.CmdResult{
+			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
+				"\n",
+			},
+		}
 
 		downPod := &corev1.Pod{}
 		downPodNm := names.GenPodName(vdb, sc, 1)
 		Expect(k8sClient.Get(ctx, downPodNm, downPod)).Should(Succeed())
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		r := act.(*RestartReconciler)
+		r.InitiatorPod = initiatorPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restartCmd := fpr.FindCommands("restart_node")
 		Expect(len(restartCmd)).Should(Equal(1))
@@ -100,11 +113,24 @@ var _ = Describe("restart_reconciler", func() {
 			Namespace: vdb.Namespace,
 		}
 
-		fpr := &cmds.FakePodRunner{}
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{1}, PodNotReadOnly)
+		initiatorPod := names.GenPodName(vdb, sc, 4)
+		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
+		fpr.Results[initiatorPod] = []cmds.CmdResult{
+			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
+				"\n",
+			},
+		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		r := act.(*RestartReconciler)
+		r.InitiatorPod = initiatorPod
 		Expect(k8sClient.Get(ctx, nm, vdb)).Should(Succeed())
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restartCmd := fpr.FindCommands("restart_node")
@@ -134,9 +160,18 @@ var _ = Describe("restart_reconciler", func() {
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{1, 4}, PodNotReadOnly)
 
 		// Setup the pod runner to fail the admintools command.
-		initiatorPod := names.GenPodName(vdb, sc, 3)
+		initiatorPod := names.GenPodName(vdb, sc, 6)
+		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{}, // check up node status via -t list_allnodes
+			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0004 | 10.244.1.9 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0005 | 10.244.1.10| DOWN  | vertica-11.0.0.20210309 | db \n" +
+				"\n",
+			}, // check up node status via -t list_allnodes
 			{
 				Err:    errors.New("all nodes are not down"),
 				Stdout: "All nodes in the input are not down, can't restart",
@@ -313,7 +348,7 @@ var _ = Describe("restart_reconciler", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.RestartTimeoutAnnotation] = "800"
 		sc := &vdb.Spec.Subclusters[0]
-		sc.Size = 2
+		sc.Size = 3
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
@@ -321,10 +356,22 @@ var _ = Describe("restart_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0}, PodNotReadOnly)
+		initiatorPod := names.GenPodName(vdb, sc, 4)
+		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
+		fpr.Results[initiatorPod] = []cmds.CmdResult{
+			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_db_node0001 | 10.244.1.6 | DOWN  | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
+				"\n",
+			},
+		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
+		r.InitiatorPod = initiatorPod
 		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(1))
@@ -404,7 +451,7 @@ var _ = Describe("restart_reconciler", func() {
 
 	It("should avoid restart_node of read-only nodes when that setting is used", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Size = 2
+		vdb.Spec.Subclusters[0].Size = 3
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -414,16 +461,30 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		const DownPodIndex = 0
-		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{DownPodIndex}, PodReadOnly)
+		const downPodIndex = 0
+		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{downPodIndex}, PodReadOnly)
+		initiatorPod := names.GenPodName(vdb, sc, 3)
+		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
+		fpr.Results[initiatorPod] = []cmds.CmdResult{
+			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_db_node0002 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0003 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
+				"\n",
+			},
+		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartSkipReadOnly, dispatcher)
-		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		r := act.(*RestartReconciler)
+		r.InitiatorPod = initiatorPod
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
 
 		act = MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		r = act.(*RestartReconciler)
+		r.InitiatorPod = initiatorPod
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart = fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(1))
@@ -630,8 +691,23 @@ var _ = Describe("restart_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, &vdb.Spec.Subclusters[0], fpr, []int32{0, 1}, PodNotReadOnly)
+		initiatorPod := names.GenPodName(vdb, sc, 6)
+		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
+		fpr.Results[initiatorPod] = []cmds.CmdResult{
+			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_db_node0001 | 10.244.1.6 | DOWN | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0002 | 10.244.1.7 | DOWN | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0003 | 10.244.1.8 | UP   | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0004 | 10.244.1.9 | UP   | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0005 | 10.244.1.10| UP   | vertica-11.0.0.20210309 | db \n" +
+				"\n",
+			},
+		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		r := act.(*RestartReconciler)
+		r.InitiatorPod = initiatorPod
 		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
 			PctOfLivenessProbeWait)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{RequeueAfter: time.Second * time.Duration(expectedRequeueTime)}))
@@ -646,6 +722,7 @@ var _ = Describe("restart_reconciler", func() {
 			PeriodSeconds:    25,
 			FailureThreshold: 2,
 		}
+		sc := &vdb.Spec.Subclusters[0]
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -655,8 +732,21 @@ var _ = Describe("restart_reconciler", func() {
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithSlowStartup(ctx, vdb, &vdb.Spec.Subclusters[0], fpr, []int32{2})
+		initiatorPod := names.GenPodName(vdb, sc, 4)
+		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
+		fpr.Results[initiatorPod] = []cmds.CmdResult{
+			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_db_node0003 | 10.244.1.8 | DOWN  | vertica-11.0.0.20210309 | db \n" +
+				"\n",
+			},
+		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		r := act.(*RestartReconciler)
+		r.InitiatorPod = initiatorPod
 		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
 			PctOfLivenessProbeWait)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{RequeueAfter: time.Second * time.Duration(expectedRequeueTime)}))
