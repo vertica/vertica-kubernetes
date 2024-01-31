@@ -626,6 +626,30 @@ spec:
         path: readinessProbeOverride
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Specifies the restore point details to use with this instance
+          of the VerticaDB.
+        displayName: Restore Point
+        path: restorePoint
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Name of the restore archive to use for bootstrapping. This name
+          refers to an object in the database. This must be specified if initPolicy
+          is Revive and a restore is intended.
+        displayName: Archive
+        path: restorePoint.archive
+      - description: The identifier of the restore point in the restore archive to
+          restore from. Specify either index or id exclusively; one of these fields
+          is mandatory, but both cannot be used concurrently.
+        displayName: ID
+        path: restorePoint.id
+      - description: The (1-based) index of the restore point in the restore archive
+          to restore from. Specify either index or id exclusively; one of these fields
+          is mandatory, but both cannot be used concurrently.
+        displayName: Index
+        path: restorePoint.index
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: "This specifies the order of nodes when doing a revive.  Each
           entry contains an index to a subcluster, which is an index in Subclusters[],
           and a pod count of the number of pods include from the subcluster. \n For
@@ -1422,6 +1446,30 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Specifies the restore point details to use with this instance
+          of the VerticaDB.
+        displayName: Restore Point
+        path: restorePoint
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Name of the restore archive to use for bootstrapping. This name
+          refers to an object in the database. This must be specified if initPolicy
+          is Revive and a restore is intended.
+        displayName: Archive
+        path: restorePoint.archive
+      - description: The identifier of the restore point in the restore archive to
+          restore from. Specify either index or id exclusively; one of these fields
+          is mandatory, but both cannot be used concurrently.
+        displayName: ID
+        path: restorePoint.id
+      - description: The (1-based) index of the restore point in the restore archive
+          to restore from. Specify either index or id exclusively; one of these fields
+          is mandatory, but both cannot be used concurrently.
+        displayName: Index
+        path: restorePoint.index
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: "This specifies the order of nodes when doing a revive.  Each
           entry contains an index to a subcluster, which is an index in Subclusters[],
           and a pod count of the number of pods include from the subcluster. \n For
@@ -1931,9 +1979,9 @@ spec:
       kind: VerticaRestorePointsQuery
       name: verticarestorepointsqueries.vertica.com
       resources:
-      - kind: Job
+      - kind: VerticaDB
         name: ""
-        version: batch/v1
+        version: vertica.com/v1beta1
       specDescriptors:
       - description: Optional parameter that will limit the query to only restore
           points from this archvie
@@ -1949,9 +1997,111 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       statusDescriptors:
-      - description: RestorePoints used to list out the available restore points.
-        displayName: Restore Points
-        path: restorePoints
+      - description: Conditions for VerticaRestorePointsQuery
+        displayName: Conditions
+        path: conditions
+      - description: Status message for running query
+        displayName: State
+        path: state
+      version: v1beta1
+    - description: VerticaScrutinize is the schema for verticascrutinize API
+      displayName: Vertica Scrutinize
+      kind: VerticaScrutinize
+      name: verticascrutinizes.vertica.com
+      resources:
+      - kind: Pod
+        name: ""
+        version: v1
+      - kind: VerticaDB
+        name: ""
+        version: vertica.com/v1beta1
+      specDescriptors:
+      - description: 'Like nodeSelector this allows you to constrain the pod only
+          to certain pods. It is more expressive than just using node selectors. More
+          info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity'
+        displayName: Affinity
+        path: affinity
+      - description: Describes node affinity scheduling rules for the pod.
+        displayName: Node Affinity
+        path: affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: Describes pod affinity scheduling rules (e.g. co-locate this
+          pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Affinity
+        path: affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: Describes pod anti-affinity scheduling rules (e.g. avoid putting
+          this pod in the same node, zone, etc. as some other pod(s)).
+        displayName: Pod Anti Affinity
+        path: affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A list of annotations that will be added to the scrutinize pod.
+        displayName: Annotations
+        path: annotations
+      - description: A list of additional init containers to run. These are run after
+          running the init container that collects the scrutinize command. These can
+          be used to do some kind of post-processing of the tarball, such as uploading
+          it to some kind of storage.
+        displayName: Init Containers
+        path: initContainers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: A list of labels that will be added to the scrutinize pod.
+        displayName: Labels
+        path: labels
+      - description: 'A map of label keys and values to restrict scrutinize node scheduling
+          to workers with matching labels. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector'
+        displayName: Node Selector
+        path: nodeSelector
+      - description: 'The priority class name given to the scrutinize. This affects
+          where the pod gets scheduled. More info: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass'
+        displayName: Priority Class Name
+        path: priorityClassName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: 'This defines the resource requests and limits for the scrutinize
+          pod. It is advisable that the request and limits match as this ensures the
+          pods are assigned to the guaranteed QoS class. This will reduces the chance
+          that pods are chosen by the OOM killer. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+        displayName: Resources
+        path: resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: 'Any tolerations and taints to use to aid in where to schedule
+          a pod. More info: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: tolerations
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The name of the VerticaDB CR that this VerticaScrutinize is defined
+          for.  The VerticaDB object must exist in the same namespace as this object.
+        displayName: Vertica DBName
+        path: verticaDBName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: This allows the user to select the volume to use for the final
+          destination of the scrutinize tarball and any intermediate files. The volume
+          must have enough space to store the scrutinize data. If this is omitted,
+          then a simple emptyDir volume is created to store the scrutinize data.
+        displayName: Volume
+        path: volume
+      statusDescriptors:
+      - description: Set of status conditions to know how far along the scrutinize
+          is.
+        displayName: Conditions
+        path: conditions
+      - description: The name of the scrutinize pod that was created.
+        displayName: Pod Name
+        path: podName
+      - description: The UID of the pod name that was created.
+        displayName: Pod UID
+        path: podUID
+      - description: The name of the scrutinize tarball that was created.
+        displayName: Tarball Name
+        path: tarballName
       version: v1beta1
   description: |-
     ### What is Vertica?

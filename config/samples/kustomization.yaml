@@ -5,4 +5,5 @@ resources:
 - v1beta1_eventtrigger.yaml
 - v1_verticadb.yaml
 - v1beta1_verticarestorepointsquery.yaml
+- v1beta1_verticascrutinize.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
