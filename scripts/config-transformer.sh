@@ -40,7 +40,7 @@ rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-rolebinding-crb.yaml
 # Generate release artifacts from the split yaml's just generated.  This is
 # done before templating the helm charts so that the yaml's can be used
 # directly with a 'kubectl apply' command.
-$SCRIPT_DIR/gen-release-artifacts.sh $TEMPLATE_DIR
+$SCRIPT_DIR/gen-release-artifacts.sh $TEMPLATE_DIR $CRD_DIR
 
 # Add templating to the manifests in templates/ so that we can use helm
 # parameters to customize the deployment.

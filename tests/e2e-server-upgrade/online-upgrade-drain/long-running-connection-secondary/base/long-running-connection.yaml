@@ -52,7 +52,7 @@ metadata:
   labels:
     stern: include
 spec:
-  restartPolicy: Never
+  restartPolicy: OnFailure
   containers:
     - name: test
       image: kustomize-vertica-image
