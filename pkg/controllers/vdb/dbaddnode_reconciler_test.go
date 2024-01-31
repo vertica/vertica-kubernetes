@@ -38,7 +38,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -84,8 +84,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := createPodFactsDefault(vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		// Make a specific pod as not having a db.
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		pfacts.Detail[podWithNoDB].dbExists = false
@@ -130,7 +130,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -147,8 +147,8 @@ var _ = Describe("dbaddnode_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := createPodFactsDefault(vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		// Make a specific pod as not having a db and not running
 		podWithNoDB := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		pfacts.Detail[podWithNoDB].dbExists = false
@@ -182,7 +182,7 @@ var _ = Describe("dbaddnode_reconcile", func() {
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithNoDB(ctx, vdb, fpr, 2)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddNodeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

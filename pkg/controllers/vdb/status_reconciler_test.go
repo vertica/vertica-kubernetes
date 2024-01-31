@@ -39,7 +39,7 @@ var _ = Describe("status_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		pfacts := createPodFactsDefault(&cmds.FakePodRunner{})
+		pfacts := createPodFactsDefault(vdb, &cmds.FakePodRunner{})
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -59,7 +59,7 @@ var _ = Describe("status_reconcile", func() {
 		// We intentionally don't create the pods or sts
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -80,7 +80,7 @@ var _ = Describe("status_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -108,7 +108,7 @@ var _ = Describe("status_reconcile", func() {
 		test.SetPodStatus(ctx, k8sClient, 1 /* funcOffset */, names.GenPodName(vdb, &sc, PodIndex), ScIndex, PodIndex, test.AllPodsRunning)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -140,7 +140,7 @@ var _ = Describe("status_reconcile", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -177,8 +177,8 @@ var _ = Describe("status_reconcile", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := createPodFactsDefault(vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		pfacts.Detail = nil // Mock no details for pods
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

@@ -156,9 +156,6 @@ func (d *DBGenerator) setParmsFromOptions() {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		} else {
 			d.Objs.Vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-			// run NMA in a monolithic container. This can be overturned when setting the image based
-			// on the server version
-			d.Objs.Vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 		}
 	}
 	d.Objs.Vdb.Annotations[vmeta.SuperuserNameAnnotation] = d.Opts.User
@@ -682,29 +679,7 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 	d.Objs.Vdb.Spec.Image = fmt.Sprintf("vertica/vertica-k8s:%s-0", version)
 
 	// Set proper annotation to ensure correct deployment method.
-	err = d.setDeploymentMethodAnnotationFromServerVersion("v" + version)
-	if err != nil {
-		return err
-	}
-
-	return d.setNMARunningModeAnnotationFromServerVersion("v" + version)
-}
-
-// setNMARunningModeAnnotationFromServerVersion will set proper annotation to ensure
-// correct NMA running mode
-func (d *DBGenerator) setNMARunningModeAnnotationFromServerVersion(version string) error {
-	if vmeta.UseVClusterOps(d.Objs.Vdb.Annotations) {
-		verInfo, err := vversion.MakeInfoFromStrCheck(version)
-		if err != nil {
-			return err
-		}
-		if verInfo.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
-			d.Objs.Vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
-		} else {
-			d.Objs.Vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
-		}
-	}
-	return nil
+	return d.setDeploymentMethodAnnotationFromServerVersion("v" + version)
 }
 
 // setDeploymentMethodAnnotationFromServerVersion will set proper annotation to ensure correct deployment method.

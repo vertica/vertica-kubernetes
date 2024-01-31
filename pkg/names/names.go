@@ -136,14 +136,3 @@ func GetNMAContainerIndex() int {
 func GetFirstContainerIndex() int {
 	return firstContainerIndex
 }
-
-// IsNMADeploymentChanging returns true if the NMA deployment types differ in the two statefulsets
-func IsNMADeploymentChanging(curSts, expSts *appsv1.StatefulSet) bool {
-	// This function relies on the first container to be the NMA container. This
-	// check here in case we ever change that in this package but forget to
-	// update this function.
-	if firstContainerIndex == serverContainerIndex {
-		panic("Expected the NMA container to be the first container when deployed as a sidecar")
-	}
-	return curSts.Spec.Template.Spec.Containers[0].Name != expSts.Spec.Template.Spec.Containers[0].Name
-}

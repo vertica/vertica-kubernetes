@@ -130,7 +130,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := MakePodFacts(r, prunner)
+	pfacts := MakePodFacts(r, vdb, prunner)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
@@ -191,6 +191,11 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
+		// Set version info in the annotations and check that the deployment is
+		// compatible with the image. Run this after each time we run the
+		// obj_reconciler since we may need to requeue if the version doesn't
+		// match the deployment.
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
@@ -222,7 +227,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Creates or updates any k8s objects the CRD creates. This includes any
 		// statefulsets and service objects.
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
-		// Set version info in the annotations and check that it is the minimum
+		// Set version info in the annotations and check that the deployment is
+		// compatible with the image.
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),

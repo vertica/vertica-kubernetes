@@ -41,7 +41,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyCreate
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -77,7 +77,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		vdb := vapi.MakeVDB()
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
@@ -112,8 +112,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
@@ -141,8 +141,8 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
@@ -161,7 +161,7 @@ var _ = Describe("revivedb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeReviveDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*ReviveDBReconciler)
@@ -170,7 +170,7 @@ var _ = Describe("revivedb_reconcile", func() {
 			{SubclusterIndex: 0, PodCount: 1},
 			{SubclusterIndex: 1, PodCount: 1}, // bad as vdb only has a single subcluster
 		}
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		_, ok := r.getPodList()
 		Expect(ok).Should(BeFalse())
 	})

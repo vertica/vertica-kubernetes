@@ -52,7 +52,7 @@ var _ = Describe("stopdb_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, &pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -73,7 +73,7 @@ var _ = Describe("stopdb_reconcile", func() {
 		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeTrue())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		recon := MakeStopDBReconciler(vdbRec, vdb, fpr, pfacts, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

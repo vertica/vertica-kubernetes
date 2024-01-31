@@ -47,7 +47,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		recon := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -229,8 +229,8 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := createPodFactsDefault(vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
 			// At least one pod needs to be totally offline.  Cannot have all of them read-only.
@@ -472,8 +472,8 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := createPodFactsDefault(vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
 			downPodNm := names.GenPodName(vdb, sc, podIndex)
 			pfacts.Detail[downPodNm].upNode = false
@@ -512,7 +512,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
@@ -554,7 +554,7 @@ var _ = Describe("restart_reconciler", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)

@@ -50,7 +50,7 @@ func MakeDrainNodeReconciler(vdbrecon *VerticaDBReconciler,
 // as pending delete.  This will drain those pods that we are going to scale
 // down before we actually remove them from the cluster.
 func (s *DrainNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
+	if err := s.PFacts.Collect(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 

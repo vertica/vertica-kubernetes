@@ -72,7 +72,7 @@ func (d *InstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 
 	// The reconcile loop works by collecting all of the facts about the running
 	// pods. We then analyze those facts to determine a course of action to take.
-	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
+	if err := d.PFacts.Collect(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 

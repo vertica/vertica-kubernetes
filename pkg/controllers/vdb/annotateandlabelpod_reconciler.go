@@ -53,7 +53,7 @@ func MakeAnnotateAndLabelPodReconciler(vdbrecon *VerticaDBReconciler, log logr.L
 // system information with the downwardAPI.  The intent of this additional data
 // is for inclusion in Vertica data collector (DC) tables.
 func (s *AnnotateAndLabelPodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
+	if err := s.PFacts.Collect(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 

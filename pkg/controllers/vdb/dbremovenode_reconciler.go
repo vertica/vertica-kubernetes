@@ -67,7 +67,7 @@ func (d *DBRemoveNodeReconciler) GetVDB() *vapi.VerticaDB {
 }
 
 func (d *DBRemoveNodeReconciler) CollectPFacts(ctx context.Context) error {
-	return d.PFacts.Collect(ctx, d.Vdb)
+	return d.PFacts.Collect(ctx)
 }
 
 // Reconcile will handle calling remove node when scale down is detected.

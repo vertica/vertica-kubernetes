@@ -59,7 +59,7 @@ func (s *RebalanceShardsReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
+	if err := s.PFacts.Collect(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 

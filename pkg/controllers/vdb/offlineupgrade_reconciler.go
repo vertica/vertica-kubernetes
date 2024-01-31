@@ -82,7 +82,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
+	if err := o.PFacts.Collect(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 

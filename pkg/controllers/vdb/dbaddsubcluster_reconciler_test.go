@@ -37,7 +37,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		a := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := a.(*DBAddSubclusterReconciler)
@@ -67,8 +67,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := createPodFactsDefault(vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		const PodIndex = 0
 		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], PodIndex)
 		// Ensure the fetch of subclusters does not list the second one (sc2)
@@ -93,11 +93,11 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		act := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		r := act.(*DBAddSubclusterReconciler)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		r.ATPod = pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)]
 
 		vdb.Spec.Subclusters[0].Type = vapi.SecondarySubcluster
@@ -122,7 +122,7 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 		Expect(vdb.IsEON()).Should(BeFalse())
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeDBAddSubclusterReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

@@ -62,7 +62,7 @@ func MakeImageVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will update the annotation in the Vdb with Vertica version info
 func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	err := v.PFacts.Collect(ctx, v.Vdb)
+	err := v.PFacts.Collect(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -104,11 +104,11 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return res, nil
 	}
 
-	return v.verifyNMADeployment(vinf)
+	return v.verifyNMADeployment(vinf, pod)
 }
 
 // Verify whether the NMA is configured to run as a sidecar container
-func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info) (ctrl.Result, error) {
+func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *PodFact) (ctrl.Result, error) {
 	// The NMA only applies to vclusterOps deployments.
 	if !vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		return ctrl.Result{}, nil
@@ -118,23 +118,18 @@ func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info) (ctrl.R
 	// Every release from 24.2.0 onwards requires that the NMA be deployed as a
 	// sidecar.
 
-	if vinf.IsOlder(vapi.NMAInSideCarDeploymentMinVersion) {
-		if v.Vdb.IsMonolithicDeploymentEnabled() {
-			return ctrl.Result{}, nil
+	if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
+		if !pf.hasNMASidecar {
+			v.Log.Info("Version requires NMA sidecar but it isn't present in pod's spec. Requeue to force recreation of the pod spec.",
+				"version", vinf)
+			return ctrl.Result{Requeue: true}, nil
 		}
-
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMADeploymentIncompatibilty,
-			"The server version only supports running the NMA in the same container as "+
-				"vertica. Change the %s annotation",
-			vmeta.RunNMAInSidecarAnnotation)
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	if v.Vdb.IsMonolithicDeploymentEnabled() {
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMADeploymentIncompatibilty,
-			"The NMA must be deployed as a sidecar in this version. Change the %s annotation",
-			vmeta.RunNMAInSidecarAnnotation)
-		return ctrl.Result{Requeue: true}, nil
+	} else {
+		if pf.hasNMASidecar {
+			v.Log.Info("Version cannot run NMA sidecar but it is present in pod's spec. Requeue to force recreation of the pod spec.",
+				"version", vinf)
+			return ctrl.Result{Requeue: true}, nil
+		}
 	}
 	return ctrl.Result{}, nil
 }
@@ -195,7 +190,7 @@ func (v *ImageVersionReconciler) reconcileVersion(ctx context.Context, pod *PodF
 
 // getVersion will get the Vertica version from the running pod.
 func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *PodFact) (string, error) {
-	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, "/opt/vertica/bin/vertica", "--version")
+	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, pod.execContainerName, "/opt/vertica/bin/vertica", "--version")
 	if err != nil {
 		return "", err
 	}

@@ -35,8 +35,7 @@ var _ = Describe("k8s/version_reconcile", func() {
 	It("should update annotations in vdb since they differ", func() {
 		vdb := vapi.MakeVDB()
 		vdb.ObjectMeta.Annotations = map[string]string{
-			vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationTrue,
-			vmeta.RunNMAInSidecarAnnotation: vmeta.RunNMAInSidecarAnnotationFalse,
+			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
 		}
 		vdb.Spec.Subclusters[0].Size = 1
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -45,8 +44,8 @@ var _ = Describe("k8s/version_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{
@@ -58,7 +57,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 			},
 		}
 		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), fetchVdb)).Should(Succeed())
@@ -81,8 +80,8 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput("v11.0.0-0")}},
@@ -105,8 +104,8 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 
 		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 		// both the vclusterops annotation and admintoolsExists are false
@@ -138,14 +137,14 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		testNMATLSSecretWithVersion(ctx, "gsm://projects/123456789/secrets/test/versions/6",
 			gsmCertNotSupported,
 			vapi.NMATLSSecretInGSMMinVersion,
-			vmeta.RunNMAInSidecarAnnotationFalse)
+			false /* does not have NMA sidecar */)
 	})
 
 	It("should fail the reconciler if we try to use an old NMA and fetch NMA certs from AWS", func() {
 		testNMATLSSecretWithVersion(ctx, "awssm://my-secret-arn",
 			vapi.VcluseropsAsDefaultDeploymentMethodMinVersion,
 			vapi.NMATLSSecretInAWSSecretsManagerMinVersion,
-			vmeta.RunNMAInSidecarAnnotationTrue)
+			true /* does not have NMA sidecar */)
 	})
 })
 
@@ -160,12 +159,11 @@ built by test from tag@abcdef on 'Dec 21 2023'`, mockVersion)
 // name of the NMA TLS Secret. The first time it will use the old version and
 // expect the reconciler to requeue. Then it will run it again but with the new
 // version and expect it to succeed.
-func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, newVersion, runNMASidecarAnnotationVal string) {
+func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, newVersion string, hasNMASidecar bool) {
 	vdb := vapi.MakeVDB()
 	vdb.Spec.Subclusters[0].Size = 1
 	vdb.ObjectMeta.Annotations = map[string]string{
-		vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationTrue,
-		vmeta.RunNMAInSidecarAnnotation: runNMASidecarAnnotationVal,
+		vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
 	}
 	vdb.Spec.NMATLSSecret = secretName
 	test.CreateVDB(ctx, k8sClient, vdb)
@@ -174,12 +172,13 @@ func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, ne
 	defer test.DeletePods(ctx, k8sClient, vdb)
 
 	fpr := &cmds.FakePodRunner{}
-	pfacts := MakePodFacts(vdbRec, fpr)
-	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+	pfacts := MakePodFacts(vdbRec, vdb, fpr)
+	Expect(pfacts.Collect(ctx)).Should(Succeed())
 	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 	fpr.Results = cmds.CmdResults{
 		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(oldVersion)}},
 	}
+	pfacts.Detail[podName].hasNMASidecar = hasNMASidecar
 
 	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 	Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
@@ -202,8 +201,8 @@ func testNMARunningMode(ctx context.Context, badVersion,
 	defer test.DeletePods(ctx, k8sClient, vdb)
 
 	fpr := &cmds.FakePodRunner{}
-	pfacts := MakePodFacts(vdbRec, fpr)
-	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+	pfacts := MakePodFacts(vdbRec, vdb, fpr)
+	Expect(pfacts.Collect(ctx)).Should(Succeed())
 	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 
 	fpr.Results = cmds.CmdResults{

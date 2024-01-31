@@ -42,7 +42,7 @@ var _ = Describe("drainnode_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(fpr)
+		pfacts := createPodFactsDefault(vdb, fpr)
 		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		cmds := fpr.FindCommands("select count(*) from session")
@@ -60,7 +60,7 @@ var _ = Describe("drainnode_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr)
+		pfacts := MakePodFacts(vdbRec, vdb, fpr)
 		r := MakeDrainNodeReconciler(vdbRec, vdb, fpr, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		cmds := fpr.FindCommands("select count(*) from session")
@@ -79,8 +79,8 @@ var _ = Describe("drainnode_reconcile", func() {
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
-		pfacts := createPodFactsDefault(fpr)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		pfacts := createPodFactsDefault(vdb, fpr)
+		Expect(pfacts.Collect(ctx)).Should(Succeed())
 		penDelPodName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
 		fpr.Results[penDelPodName] = []cmds.CmdResult{
 			{Stdout: "10\n"},

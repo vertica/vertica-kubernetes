@@ -55,7 +55,7 @@ type GenericDatabaseInitializer struct {
 
 // checkAndRunInit will check if the database needs to be initialized and run init if applicable
 func (g *GenericDatabaseInitializer) checkAndRunInit(ctx context.Context) (ctrl.Result, error) {
-	if err := g.PFacts.Collect(ctx, g.Vdb); err != nil {
+	if err := g.PFacts.Collect(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 

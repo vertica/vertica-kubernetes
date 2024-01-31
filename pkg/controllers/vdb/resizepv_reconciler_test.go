@@ -94,8 +94,8 @@ func resizeLocalStorage(ctx context.Context, vdb *vapi.VerticaDB, newSize string
 
 func runResizePVReconciler(ctx context.Context, vdb *vapi.VerticaDB, expectedRequeue, expectedDepotAlter bool) {
 	fpr := &cmds.FakePodRunner{}
-	pfacts := createPodFactsDefault(fpr)
-	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
+	pfacts := createPodFactsDefault(vdb, fpr)
+	ExpectWithOffset(1, pfacts.Collect(ctx)).Should(Succeed())
 	// Mock that depot size for each pod is 60%
 	for i := range pfacts.Detail {
 		pfacts.Detail[i].depotDiskPercentSize = "60%"
