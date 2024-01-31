@@ -23,7 +23,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("verticarestorepointsquery_controller", func() {
+var _ = Describe("verticascrutinize_controller", func() {
 	ctx := context.Background()
 
 	It("should reconcile successfully if vscr is not found", func() {
