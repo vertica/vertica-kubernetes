@@ -137,13 +137,15 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		const gsmCertNotSupported = "v23.4.0"
 		testNMATLSSecretWithVersion(ctx, "gsm://projects/123456789/secrets/test/versions/6",
 			gsmCertNotSupported,
-			vapi.NMATLSSecretInGSMMinVersion)
+			vapi.NMATLSSecretInGSMMinVersion,
+			vmeta.RunNMAInSidecarAnnotationFalse)
 	})
 
 	It("should fail the reconciler if we try to use an old NMA and fetch NMA certs from AWS", func() {
 		testNMATLSSecretWithVersion(ctx, "awssm://my-secret-arn",
 			vapi.VcluseropsAsDefaultDeploymentMethodMinVersion,
-			vapi.NMATLSSecretInAWSSecretsManagerMinVersion)
+			vapi.NMATLSSecretInAWSSecretsManagerMinVersion,
+			vmeta.RunNMAInSidecarAnnotationTrue)
 	})
 })
 
@@ -158,12 +160,12 @@ built by test from tag@abcdef on 'Dec 21 2023'`, mockVersion)
 // name of the NMA TLS Secret. The first time it will use the old version and
 // expect the reconciler to requeue. Then it will run it again but with the new
 // version and expect it to succeed.
-func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, newVersion string) {
+func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, newVersion, runNMASidecarAnnotationVal string) {
 	vdb := vapi.MakeVDB()
 	vdb.Spec.Subclusters[0].Size = 1
 	vdb.ObjectMeta.Annotations = map[string]string{
 		vmeta.VClusterOpsAnnotation:     vmeta.VClusterOpsAnnotationTrue,
-		vmeta.RunNMAInSidecarAnnotation: vmeta.RunNMAInSidecarAnnotationFalse,
+		vmeta.RunNMAInSidecarAnnotation: runNMASidecarAnnotationVal,
 	}
 	vdb.Spec.NMATLSSecret = secretName
 	test.CreateVDB(ctx, k8sClient, vdb)
@@ -209,8 +211,8 @@ func testNMARunningMode(ctx context.Context, badVersion,
 	}
 	r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
-	Expect(res).Should(Equal(ctrl.Result{}))
-	Expect(err.Error()).Should(ContainSubstring("running NMA in a sidecar container is not supported"))
+	Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
+	Expect(err).Should(Succeed())
 	fpr.Results = cmds.CmdResults{
 		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(goodVersion)}},
 	}

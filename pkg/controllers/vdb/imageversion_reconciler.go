@@ -104,24 +104,39 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return res, nil
 	}
 
-	return ctrl.Result{}, v.verifyNMARunningMode(vinf)
+	return v.verifyNMADeployment(vinf)
 }
 
-// Verify whether the NMA is configured to run in sidecar container
-func (v *ImageVersionReconciler) verifyNMARunningMode(vinf *version.Info) error {
-	ver := v.Vdb.Annotations[vmeta.VersionAnnotation]
-	// versions below 24.2.0 cannot be used to run NMA in a sidecar container
-	if v.Vdb.IsNMASideCarDeploymentEnabled() {
-		if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
-			return nil
-		}
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported,
-			"The NMA version %s cannot be used for nma sidecar deployment."+
-				" The minimum supported version is %s", ver, vapi.NMAInSideCarDeploymentMinVersion)
-		return fmt.Errorf("running NMA in a sidecar container is not supported for version %s",
-			ver)
+// Verify whether the NMA is configured to run as a sidecar container
+func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info) (ctrl.Result, error) {
+	// The NMA only applies to vclusterOps deployments.
+	if !vmeta.UseVClusterOps(v.Vdb.Annotations) {
+		return ctrl.Result{}, nil
 	}
-	return nil
+
+	// Deploying the NMA as a monolithic container was only supported in 24.1.0.
+	// Every release from 24.2.0 onwards requires that the NMA be deployed as a
+	// sidecar.
+
+	if vinf.IsOlder(vapi.NMAInSideCarDeploymentMinVersion) {
+		if v.Vdb.IsMonolithicDeploymentEnabled() {
+			return ctrl.Result{}, nil
+		}
+
+		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMADeploymentIncompatibilty,
+			"The server version only supports running the NMA in the same container as "+
+				"vertica. Change the %s annotation",
+			vmeta.RunNMAInSidecarAnnotation)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	if v.Vdb.IsMonolithicDeploymentEnabled() {
+		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMADeploymentIncompatibilty,
+			"The NMA must be deployed as a sidecar in this version. Change the %s annotation",
+			vmeta.RunNMAInSidecarAnnotation)
+		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
 }
 
 // logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a

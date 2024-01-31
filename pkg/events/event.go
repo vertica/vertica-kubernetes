@@ -83,8 +83,9 @@ const (
 	MgmtFailedDiskFull              = "MgmtFailedDiskfull"
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 	WrongImage                      = "WrongImage"
-	NMAInSidecarNotSupported        = "NMAInSidecarNotSupported"
+	NMADeploymentIncompatibilty     = "NMADeploymentIncompatibility"
 	MonolithicContainerNotSupported = "MonolithicContainerNotSupported"
+	GeneratingNMATLSCert            = "GeneratingNMATLSCert"
 )
 
 // Constants for VerticaAutoscaler reconciler

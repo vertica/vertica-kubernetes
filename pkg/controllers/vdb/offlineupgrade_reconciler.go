@@ -181,7 +181,7 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 	}
 
 	o.VRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
-		"Successfully shutdown the database and it took %s", time.Since(start))
+		"Successfully shutdown the database and it took %s", time.Since(start).Truncate(time.Second))
 	return ctrl.Result{}, nil
 }
 

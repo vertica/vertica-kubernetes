@@ -460,6 +460,20 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// change it here.
 	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
 
+	// If the NMA deployment type is changing, we cannot do a rolling update for
+	// this change. All pods need to have the same NMA deployment type. So, we
+	// drop the old sts and create a fresh one.
+	if names.IsNMADeploymentChanging(curSts, expSts) {
+		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
+		if err := o.VRec.Client.Delete(ctx, curSts); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
+	}
+
 	// Update the sts by patching in fields that changed according to expSts.
 	// Due to the omission of default fields in expSts, curSts != expSts.  We
 	// always send a patch request, then compare what came back against origSts
