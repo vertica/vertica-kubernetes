@@ -1,0 +1,6 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaScrutinize
+metadata:
+  name: verticascrutinize-sample
+spec:
+  verticaDBName: verticadb-sample

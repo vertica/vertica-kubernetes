@@ -31,6 +31,7 @@ const (
 	VerticaAutoscalerKind  = "VerticaAutoscaler"
 	EventTriggerKind       = "EventTrigger"
 	RestorePointsQueryKind = "VerticaRestorePointsQuery"
+	VerticaScrutinizeKind  = "VerticaScrutinize"
 )
 
 var (
@@ -48,4 +49,5 @@ var (
 	GkVAS  = schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}
 	GkET   = schema.GroupKind{Group: Group, Kind: EventTriggerKind}
 	GkVRPQ = schema.GroupKind{Group: Group, Kind: RestorePointsQueryKind}
+	GkVSCR = schema.GroupKind{Group: Group, Kind: VerticaScrutinizeKind}
 )
