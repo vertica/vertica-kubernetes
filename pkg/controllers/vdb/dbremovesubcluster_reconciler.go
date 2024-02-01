@@ -67,7 +67,7 @@ func (d *DBRemoveSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 	}
 
 	// We need to collect pod facts, to find a pod to run AT and vsql commands from.
-	if err := d.PFacts.Collect(ctx); err != nil {
+	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 

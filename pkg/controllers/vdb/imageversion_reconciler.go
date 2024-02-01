@@ -62,7 +62,7 @@ func MakeImageVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will update the annotation in the Vdb with Vertica version info
 func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	err := v.PFacts.Collect(ctx)
+	err := v.PFacts.Collect(ctx, v.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -38,7 +38,7 @@ var _ = Describe("prometheus_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		prunner := &cmds.FakePodRunner{}
-		pfacts := createPodFactsDefault(vdb, prunner)
+		pfacts := createPodFactsDefault(prunner)
 		actor := MakeMetricReconciler(vdbRec, logger, vdb, prunner, pfacts)
 		r := actor.(*MetricReconciler)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

@@ -361,7 +361,10 @@ endif
 # http REST interfaces. Eventually, we will go back to one version using the
 # next generation one as *THE* vertica-k8s image.
 
-VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?=
+# Using --no-cache is important so that we pick up the latest security fixes.
+# Otherwise, we risk skipping the step in the docker build when we pull the
+# latest base image.
+VERTICA_ADDITIONAL_DOCKER_BUILD_OPTIONS?="--no-cache"
 
 .PHONY: docker-build-vertica
 docker-build-vertica: docker-vertica/Dockerfile ## Build vertica server docker image

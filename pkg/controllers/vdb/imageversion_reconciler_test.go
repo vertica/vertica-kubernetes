@@ -44,8 +44,8 @@ var _ = Describe("k8s/version_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, vdb, fpr)
-		Expect(pfacts.Collect(ctx)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{
@@ -80,8 +80,8 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, vdb, fpr)
-		Expect(pfacts.Collect(ctx)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		fpr.Results = cmds.CmdResults{
 			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput("v11.0.0-0")}},
@@ -104,8 +104,8 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, vdb, fpr)
-		Expect(pfacts.Collect(ctx)).Should(Succeed())
+		pfacts := MakePodFacts(vdbRec, fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
 		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, true)
 		// both the vclusterops annotation and admintoolsExists are false
@@ -172,8 +172,8 @@ func testNMATLSSecretWithVersion(ctx context.Context, secretName, oldVersion, ne
 	defer test.DeletePods(ctx, k8sClient, vdb)
 
 	fpr := &cmds.FakePodRunner{}
-	pfacts := MakePodFacts(vdbRec, vdb, fpr)
-	Expect(pfacts.Collect(ctx)).Should(Succeed())
+	pfacts := MakePodFacts(vdbRec, fpr)
+	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 	fpr.Results = cmds.CmdResults{
 		podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput(oldVersion)}},
@@ -201,8 +201,8 @@ func testNMARunningMode(ctx context.Context, badVersion,
 	defer test.DeletePods(ctx, k8sClient, vdb)
 
 	fpr := &cmds.FakePodRunner{}
-	pfacts := MakePodFacts(vdbRec, vdb, fpr)
-	Expect(pfacts.Collect(ctx)).Should(Succeed())
+	pfacts := MakePodFacts(vdbRec, fpr)
+	Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 	podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 
 	fpr.Results = cmds.CmdResults{

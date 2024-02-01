@@ -40,8 +40,8 @@ var _ = Describe("localdatacheck_reconcile", func() {
 
 		prunner := &cmds.FakePodRunner{}
 		// PodFacts should have 1 of 2 pods running low on space
-		pfacts := createPodFactsDefault(vdb, prunner)
-		Expect(pfacts.Collect(ctx)).Should(Succeed())
+		pfacts := createPodFactsDefault(prunner)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		pn := names.GenPodName(vdb, sc, 0)
 		pfacts.Detail[pn].localDataAvail = 30 * 1024 * 1024

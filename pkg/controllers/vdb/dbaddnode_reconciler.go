@@ -63,7 +63,7 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	if err := d.PFacts.Collect(ctx); err != nil {
+	if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -76,7 +76,7 @@ func (d *DBAddNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	for i := range d.Vdb.Spec.Subclusters {
 		// Recollect pod facts to ensure correct options are used in AddNode()
-		if err := d.PFacts.Collect(ctx); err != nil {
+		if err := d.PFacts.Collect(ctx, d.Vdb); err != nil {
 			return ctrl.Result{}, err
 		}
 		if res, err := d.reconcileSubcluster(ctx, &d.Vdb.Spec.Subclusters[i]); verrors.IsReconcileAborted(res, err) {

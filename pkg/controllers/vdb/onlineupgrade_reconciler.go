@@ -128,7 +128,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 // is used in subsequent steps.
 func (o *OnlineUpgradeReconciler) loadSubclusterState(ctx context.Context) (ctrl.Result, error) {
 	var err error
-	err = o.PFacts.Collect(ctx)
+	err = o.PFacts.Collect(ctx, o.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -271,7 +271,7 @@ func (o *OnlineUpgradeReconciler) addTransientSubcluster(ctx context.Context) (c
 
 	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
 	o.traceActorReconcile(actor)
-	if err := o.PFacts.Collect(ctx); err != nil {
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 	d := actor.(*DBAddSubclusterReconciler)
@@ -287,7 +287,7 @@ func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.R
 
 	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
 	o.traceActorReconcile(actor)
-	if err := o.PFacts.Collect(ctx); err != nil {
+	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 	d := actor.(*DBAddNodeReconciler)

@@ -173,12 +173,11 @@ type PodFactDetail map[types.NamespacedName]*PodFact
 
 // CheckerFunc is the function signature for individual functions that help
 // populate a PodFact.
-type CheckerFunc func(context.Context, *PodFact, *GatherState) error
+type CheckerFunc func(context.Context, *vapi.VerticaDB, *PodFact, *GatherState) error
 
 // A collection of facts for many pods.
 type PodFacts struct {
 	VRec               *VerticaDBReconciler
-	VDB                *vapi.VerticaDB
 	PRunner            cmds.PodRunner
 	Detail             PodFactDetail
 	VDBResourceVersion string // The resourceVersion of the VerticaDB at the time the pod facts were gathered
@@ -215,19 +214,13 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFacts(vrec *VerticaDBReconciler, vdb *vapi.VerticaDB, prunner cmds.PodRunner) PodFacts {
-	return PodFacts{
-		VRec:           vrec,
-		VDB:            vdb,
-		PRunner:        prunner,
-		NeedCollection: true,
-		Detail:         make(PodFactDetail),
-	}
+func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
+	return PodFacts{VRec: vrec, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
 }
 
 // Collect will gather up the for facts if a collection is needed
 // If the facts are already up to date, this function does nothing.
-func (p *PodFacts) Collect(ctx context.Context) error {
+func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	// Skip if already up to date
 	if !p.NeedCollection {
 		return nil
@@ -235,13 +228,13 @@ func (p *PodFacts) Collect(ctx context.Context) error {
 	// Store the resource version of the VerticaDB at the time we collect. This
 	// can be used to asses whether the facts, as it pertains to the VerticaDB,
 	// are up to date.
-	p.VDBResourceVersion = p.VDB.ResourceVersion
+	p.VDBResourceVersion = vdb.ResourceVersion
 	p.Detail = make(PodFactDetail) // Clear as there may be some items cached
 
 	// Find all of the subclusters to collect facts for.  We want to include all
 	// subclusters, even ones that are scheduled to be deleted -- we keep
 	// collecting facts for those until the statefulsets are gone.
-	finder := iter.MakeSubclusterFinder(p.VRec.Client, p.VDB)
+	finder := iter.MakeSubclusterFinder(p.VRec.Client, vdb)
 	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
 	if err != nil {
 		return nil
@@ -249,7 +242,7 @@ func (p *PodFacts) Collect(ctx context.Context) error {
 
 	// Collect all of the facts about each running pod
 	for i := range subclusters {
-		if err := p.collectSubcluster(ctx, subclusters[i]); err != nil {
+		if err := p.collectSubcluster(ctx, vdb, subclusters[i]); err != nil {
 			return err
 		}
 	}
@@ -294,19 +287,19 @@ func (p *PodFacts) HasVerticaDBChangedSinceCollection(ctx context.Context, vdb *
 }
 
 // collectSubcluster will collect facts about each pod in a specific subcluster
-func (p *PodFacts) collectSubcluster(ctx context.Context, sc *vapi.Subcluster) error {
+func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster) error {
 	sts := &appsv1.StatefulSet{}
 	maxStsSize := sc.Size
 	// Attempt to fetch the sts.  We continue even for 'not found' errors
 	// because we want to populate the missing pods into the pod facts.
-	if err := p.VRec.Client.Get(ctx, names.GenStsName(p.VDB, sc), sts); err != nil && !k8sErrors.IsNotFound(err) {
+	if err := p.VRec.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !k8sErrors.IsNotFound(err) {
 		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
 		maxStsSize = *sts.Spec.Replicas
 	}
 
 	for i := int32(0); i < maxStsSize; i++ {
-		if err := p.collectPodByStsIndex(ctx, sc, sts, i); err != nil {
+		if err := p.collectPodByStsIndex(ctx, vdb, sc, sts, i); err != nil {
 			return err
 		}
 	}
@@ -314,10 +307,10 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, sc *vapi.Subcluster) e
 }
 
 // collectPodByStsIndex will collect facts about a single pod in a subcluster
-func (p *PodFacts) collectPodByStsIndex(ctx context.Context, sc *vapi.Subcluster,
+func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	sts *appsv1.StatefulSet, podIndex int32) error {
 	pf := PodFact{
-		name:              names.GenPodName(p.VDB, sc, podIndex),
+		name:              names.GenPodName(vdb, sc, podIndex),
 		subclusterName:    sc.Name,
 		isPrimary:         sc.IsPrimary(),
 		podIndex:          podIndex,
@@ -354,7 +347,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, sc *vapi.Subcluster
 		// Let's just pick the first container image
 		pf.image = pod.Spec.Containers[names.GetFirstContainerIndex()].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
-		pf.catalogPath = p.getCatalogPathFromPod(p.VDB, pod)
+		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
 		pf.hasNMASidecar = builder.HasNMAContainer(&pod.Spec)
 	}
 
@@ -377,7 +370,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, sc *vapi.Subcluster
 		if fn == nil {
 			continue
 		}
-		if err := fn(ctx, &pf, &gatherState); err != nil {
+		if err := fn(ctx, vdb, &pf, &gatherState); err != nil {
 			return err
 		}
 	}
@@ -391,7 +384,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, sc *vapi.Subcluster
 // from the pod. This is done this way to cut down on the number exec calls we
 // do into the pod. Exec can be quite expensive in terms of memory consumption
 // and will slow down the pod fact collection considerably.
-func (p *PodFacts) runGather(ctx context.Context, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) runGather(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// Early out if the pod isn't running
 	if !pf.isPodRunning {
 		return nil
@@ -403,7 +396,7 @@ func (p *PodFacts) runGather(ctx context.Context, pf *PodFact, gs *GatherState) 
 	defer tmp.Close()
 	defer os.Remove(tmp.Name())
 
-	_, err = tmp.WriteString(p.genGatherScript(pf))
+	_, err = tmp.WriteString(p.genGatherScript(vdb, pf))
 	if err != nil {
 		return err
 	}
@@ -424,7 +417,7 @@ func (p *PodFacts) runGather(ctx context.Context, pf *PodFact, gs *GatherState) 
 }
 
 // genGatherScript will generate the script that gathers multiple pieces of state in the pod
-func (p *PodFacts) genGatherScript(pf *PodFact) string {
+func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 	// The output of the script is yaml. We use a yaml package to unmarshal the
 	// output directly into a GatherState struct. And changes to this script
 	// must have a corresponding change in GatherState.
@@ -477,7 +470,7 @@ func (p *PodFacts) genGatherScript(pf *PodFact) string {
 		echo -n 'admintoolsExists: '
 		which admintools &> /dev/null && echo true || echo false
  	`,
-		p.VDB.GenInstallerIndicatorFileName(),
+		vdb.GenInstallerIndicatorFileName(),
 		paths.EulaAcceptanceFile,
 		paths.ConfigLogrotatePath, paths.ConfigLogrotatePath,
 		paths.ConfigSharePath, paths.ConfigSharePath,
@@ -488,12 +481,12 @@ func (p *PodFacts) genGatherScript(pf *PodFact) string {
 		paths.LogrotateATFile, paths.LogrotateATFile,
 		paths.LogrotateBaseConfFile, paths.LogrotateBaseConfFile,
 		paths.HTTPTLSConfFile, paths.HTTPTLSConfFile,
-		pf.catalogPath, p.VDB.Spec.DBName, strings.ToLower(p.VDB.Spec.DBName), getPathToVerifyCatalogExists(pf),
-		p.VDB.GenInstallerIndicatorFileName(),
-		p.VDB.GenInstallerIndicatorFileName(),
-		pf.catalogPath, p.VDB.Spec.DBName, strings.ToLower(p.VDB.Spec.DBName),
+		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName), getPathToVerifyCatalogExists(pf),
+		vdb.GenInstallerIndicatorFileName(),
+		vdb.GenInstallerIndicatorFileName(),
+		pf.catalogPath, vdb.Spec.DBName, strings.ToLower(vdb.Spec.DBName),
 		checkIfNodeUpCmd(pf.podIP),
-		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, p.VDB.Spec.DBName),
+		fmt.Sprintf("%s/%s/*_catalog/startup.log", pf.catalogPath, vdb.Spec.DBName),
 		pf.catalogPath,
 		pf.catalogPath,
 	))
@@ -523,16 +516,16 @@ func getPathToVerifyCatalogExists(pf *PodFact) string {
 }
 
 // checkIsInstalled will check a single pod to see if the installation has happened.
-func (p *PodFacts) checkIsInstalled(_ context.Context, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkIsInstalled(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.isInstalled = false
 
 	// VClusterOps don't have an installed state, so we can handle that without
 	// checking if the pod is running.
-	if vmeta.UseVClusterOps(p.VDB.Annotations) {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
 		return p.checkIsInstalledForVClusterOps(pf)
 	}
 
-	scs, ok := p.VDB.FindSubclusterStatus(pf.subclusterName)
+	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the install indicator first based on the install count in the status
 		// field.  There are a couple of cases where this will give us the wrong state:
@@ -547,15 +540,15 @@ func (p *PodFacts) checkIsInstalled(_ context.Context, pf *PodFact, gs *GatherSt
 	}
 
 	switch {
-	case p.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
-		return p.checkIsInstalledScheduleOnly(pf, gs)
+	case vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly:
+		return p.checkIsInstalledScheduleOnly(vdb, pf, gs)
 	default:
 		return p.checkIsInstalledForAdmintools(pf, gs)
 	}
 }
 
-func (p *PodFacts) checkIsInstalledScheduleOnly(pf *PodFact, gs *GatherState) error {
-	if vmeta.UseVClusterOps(p.VDB.Annotations) {
+func (p *PodFacts) checkIsInstalledScheduleOnly(vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+	if vmeta.UseVClusterOps(vdb.Annotations) {
 		return errors.New("schedule only does not support vdb when running with vclusterOps")
 	}
 
@@ -592,7 +585,7 @@ func (p *PodFacts) checkIsInstalledForVClusterOps(pf *PodFact) error {
 }
 
 // checkForSimpleGatherStateMapping will do any simple conversion of the gather state to pod facts.
-func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	// Gather state is only valid if the pod was running
 	if !pf.isPodRunning {
 		return nil
@@ -603,13 +596,13 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, pf *PodFa
 	pf.localDataSize = gs.LocalDataSize
 	pf.localDataAvail = gs.LocalDataAvail
 	pf.admintoolsExists = gs.AdmintoolsExists
-	pf.setNodeState(gs, vmeta.UseVClusterOps(p.VDB.Annotations))
+	pf.setNodeState(gs, vmeta.UseVClusterOps(vdb.Annotations))
 	return nil
 }
 
 // checkShardSubscriptions will count the number of shards that are subscribed
 // to the current node
-func (p *PodFacts) checkShardSubscriptions(ctx context.Context, pf *PodFact, _ *GatherState) error {
+func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	// This check depends on the vnode, which is only present if the pod is
 	// running and the database exists at the node.
 	if !pf.isPodRunning || !pf.upNode {
@@ -629,7 +622,7 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, pf *PodFact, _ *
 }
 
 // queryDepotDetails will query the database to get info about the depot for the node
-func (p *PodFacts) queryDepotDetails(ctx context.Context, pf *PodFact, _ *GatherState) error {
+func (p *PodFacts) queryDepotDetails(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	// This check depends on the database being up
 	if !pf.isPodRunning || !pf.upNode {
 		return nil
@@ -727,10 +720,10 @@ func (p *PodFacts) getEnvValueFromPod(pod *corev1.Pod, index int, envName string
 
 // checkIsDBCreated will check for evidence of a database at the local node.
 // If a db is found, we will set the vertica node name.
-func (p *PodFacts) checkIsDBCreated(_ context.Context, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.dbExists = false
 
-	scs, ok := p.VDB.FindSubclusterStatus(pf.subclusterName)
+	scs, ok := vdb.FindSubclusterStatus(pf.subclusterName)
 	if ok {
 		// Set the db exists indicator first based on the count in the status
 		// field.  We continue to check the path as we do that to figure out the
@@ -751,14 +744,14 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, pf *PodFact, gs *GatherSt
 }
 
 // checkNodeStatus will query node state
-func (p *PodFacts) checkNodeStatus(ctx context.Context, pf *PodFact, _ *GatherState) error {
+func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	if !pf.upNode {
 		return nil
 	}
 
 	// The first two columns are just for informational purposes.
 	cols := "n.node_name, node_state"
-	if p.VDB.IsEON() {
+	if vdb.IsEON() {
 		cols = fmt.Sprintf("%s, subcluster_oid", cols)
 	} else {
 		cols = fmt.Sprintf("%s, ''", cols)
@@ -766,12 +759,12 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, pf *PodFact, _ *GatherSt
 	// The read-only state is a new state added in 11.0.2.  So we can only query
 	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
 	// disabled.
-	vinf, ok := p.VDB.MakeVersionInfo()
+	vinf, ok := vdb.MakeVersionInfo()
 	if ok && vinf.IsEqualOrNewer(vapi.NodesHaveReadOnlyStateVersion) {
 		cols = fmt.Sprintf("%s, is_readonly", cols)
 	}
 	var sql string
-	if p.VDB.IsEON() {
+	if vdb.IsEON() {
 		sql = fmt.Sprintf(
 			"select %s "+
 				"from nodes as n, subclusters as s "+
@@ -789,7 +782,7 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, pf *PodFact, _ *GatherSt
 
 // checkIfNodeIsDoingStartup will determine if the pod has vertica process
 // running but not yet ready for connections.
-func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, pf *PodFact, gs *GatherState) error {
+func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
 	pf.startupInProgress = false
 	if !pf.dbExists || !pf.isPodRunning || pf.upNode || !gs.VerticaPIDRunning {
 		return nil

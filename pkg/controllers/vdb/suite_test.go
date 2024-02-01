@@ -103,7 +103,7 @@ func setVerticaNodeNameInPodFacts(vdb *vapi.VerticaDB, sc *vapi.Subcluster, pf *
 	}
 }
 
-func defaultPodFactOverrider(_ context.Context, pf *PodFact, _ *GatherState) error {
+func defaultPodFactOverrider(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	if !pf.isPodRunning {
 		return nil
 	}
@@ -121,19 +121,19 @@ func defaultPodFactOverrider(_ context.Context, pf *PodFact, _ *GatherState) err
 }
 
 // createPodFactsDefault will generate the PodFacts for test using the default settings for all.
-func createPodFactsDefault(vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, vdb, fpr)
+func createPodFactsDefault(fpr *cmds.FakePodRunner) *PodFacts {
+	pfacts := MakePodFacts(vdbRec, fpr)
 	pfacts.OverrideFunc = defaultPodFactOverrider
 	return &pfacts
 }
 
 func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner, numPodsToChange int) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, vdb, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr)
 	// Change a number of pods to indicate db doesn't exist.  Due to the map that
 	// stores the pod facts, the specific pods we change are non-deterministic.
 	podsChanged := 0
-	pfacts.OverrideFunc = func(ctx context.Context, pf *PodFact, gs *GatherState) error {
-		if err := defaultPodFactOverrider(ctx, pf, gs); err != nil {
+	pfacts.OverrideFunc = func(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, gs *GatherState) error {
+		if err := defaultPodFactOverrider(ctx, vdb, pf, gs); err != nil {
 			return err
 		}
 		if podsChanged == numPodsToChange {
@@ -144,13 +144,13 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 		podsChanged++
 		return nil
 	}
-	ExpectWithOffset(1, pfacts.Collect(ctx)).Should(Succeed())
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	return &pfacts
 }
 
 func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, vdb, fpr)
-	pfacts.OverrideFunc = func(ctx context.Context, pfact *PodFact, gs *GatherState) error {
+	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts.OverrideFunc = func(ctx context.Context, vdb *vapi.VerticaDB, pfact *PodFact, gs *GatherState) error {
 		pfact.isPodRunning = true
 		pfact.isInstalled = false
 		pfact.dbExists = false
@@ -158,14 +158,14 @@ func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, f
 		pfact.upNode = false
 		return nil
 	}
-	ExpectWithOffset(1, pfacts.Collect(ctx)).Should(Succeed())
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	return &pfacts
 }
 
 func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	fpr *cmds.FakePodRunner, podsDownByIndex []int32, readOnly bool) *PodFacts {
-	pfacts := createPodFactsDefault(vdb, fpr)
-	ExpectWithOffset(1, pfacts.Collect(ctx)).Should(Succeed())
+	pfacts := createPodFactsDefault(fpr)
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, podIndex := range podsDownByIndex {
 		downPodNm := names.GenPodName(vdb, sc, podIndex)
 		// If readOnly is true, pod will be up and running.
@@ -177,8 +177,8 @@ func createPodFactsWithRestartNeeded(ctx context.Context, vdb *vapi.VerticaDB, s
 
 func createPodFactsWithSlowStartup(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	fpr *cmds.FakePodRunner, slowPodsByIndex []int32) *PodFacts {
-	pfacts := createPodFactsDefault(vdb, fpr)
-	ExpectWithOffset(1, pfacts.Collect(ctx)).Should(Succeed())
+	pfacts := createPodFactsDefault(fpr)
+	ExpectWithOffset(1, pfacts.Collect(ctx, vdb)).Should(Succeed())
 	for _, podIndex := range slowPodsByIndex {
 		downPodNm := names.GenPodName(vdb, sc, podIndex)
 		pfacts.Detail[downPodNm].startupInProgress = true

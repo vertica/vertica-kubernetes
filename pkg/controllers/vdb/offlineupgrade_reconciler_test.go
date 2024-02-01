@@ -123,7 +123,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container2:newimage")
 		r, fpr, pfacts := createOfflineUpgradeReconciler(vdb)
-		Expect(pfacts.Collect(ctx)).Should(Succeed())
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfacts.Detail[names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)].upNode = false
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 		h := fpr.FindCommands("admintools -t stop_db")
@@ -142,7 +142,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 		updateVdbToCauseUpgrade(ctx, vdb, "container3:newimage")
 		r, fpr, pfacts := createOfflineUpgradeReconciler(vdb)
-		Expect(pfacts.Collect(ctx)).Should(Succeed())
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 
 		// Fail stop_db so that the reconciler fails
 		pn := names.GenPodName(vdb, sc, 0)
@@ -170,7 +170,7 @@ func updateVdbToCauseUpgrade(ctx context.Context, vdb *vapi.VerticaDB, newImage 
 // createOfflineUpgradeReconciler is a helper to run the OfflineUpgradeReconciler.
 func createOfflineUpgradeReconciler(vdb *vapi.VerticaDB) (*OfflineUpgradeReconciler, *cmds.FakePodRunner, *PodFacts) {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := createPodFactsDefault(vdb, fpr)
+	pfacts := createPodFactsDefault(fpr)
 	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 	actor := MakeOfflineUpgradeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
 	return actor.(*OfflineUpgradeReconciler), fpr, pfacts

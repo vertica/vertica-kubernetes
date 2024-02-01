@@ -116,7 +116,7 @@ func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctr
 		}
 	}
 
-	if err := r.PFacts.Collect(ctx); err != nil {
+	if err := r.PFacts.Collect(ctx, r.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 

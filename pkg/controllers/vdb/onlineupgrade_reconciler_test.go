@@ -382,7 +382,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		r := createOnlineUpgradeReconciler(ctx, vdb)
 		pn := names.GenPodName(vdb, sc, 0)
-		Expect(r.PFacts.Collect(ctx)).Should(Succeed())
+		Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
 		r.PFacts.Detail[pn].upNode = true
 		r.PFacts.Detail[pn].readOnly = false
 		fpr := r.PRunner.(*cmds.FakePodRunner)
@@ -537,13 +537,13 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 // createOnlineUpgradeReconciler is a helper to run the OnlineUpgradeReconciler.
 func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := MakePodFacts(vdbRec, vdb, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr)
 	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 	r := actor.(*OnlineUpgradeReconciler)
 
 	// Ensure one pod is up so that we can do an online upgrade
-	Expect(r.PFacts.Collect(ctx)).Should(Succeed())
+	Expect(r.PFacts.Collect(ctx, vdb)).Should(Succeed())
 	pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 	r.PFacts.Detail[pn].upNode = true
 	r.PFacts.Detail[pn].readOnly = false

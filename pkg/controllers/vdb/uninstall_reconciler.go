@@ -66,7 +66,7 @@ func (s *UninstallReconciler) GetVDB() *vapi.VerticaDB {
 }
 
 func (s *UninstallReconciler) CollectPFacts(ctx context.Context) error {
-	return s.PFacts.Collect(ctx)
+	return s.PFacts.Collect(ctx, s.Vdb)
 }
 
 // Reconcile will handle state where a pod in a subcluster is being scaled down.
@@ -87,7 +87,7 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	if err := s.PFacts.Collect(ctx); err != nil {
+	if err := s.PFacts.Collect(ctx, s.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 

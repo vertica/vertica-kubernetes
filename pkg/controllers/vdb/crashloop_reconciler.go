@@ -49,11 +49,11 @@ func MakeCrashLoopReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 }
 
 // Reconcile will check for a crash loop in vclusterOps deployments.
-func (v *CrashLoopReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (c *CrashLoopReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// This reconciler is intended to find cases where the image does not have
 	// the nma, causing the pod to get into a CrashLoop backoff. So, if not
 	// deployed with vclusterOps we can skip this entirely.
-	if !vmeta.UseVClusterOps(v.VDB.Annotations) {
+	if !vmeta.UseVClusterOps(c.VDB.Annotations) {
 		return ctrl.Result{}, nil
 	}
 
@@ -62,36 +62,36 @@ func (v *CrashLoopReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// happen before the version annotation has been set, or for the case
 	// of upgrade its still set to the old version. Exit out if the version in
 	// the annotation, if present, supports vclusterOps.
-	vinf, ok := v.VDB.MakeVersionInfo()
+	vinf, ok := c.VDB.MakeVersionInfo()
 	if ok && vinf.IsEqualOrNewer(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 		return ctrl.Result{}, nil
 	}
 
-	v.reconcileStatefulSets(ctx)
+	c.reconcileStatefulSets(ctx)
 	return ctrl.Result{}, nil
 }
 
-func (v *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
-	finder := iter.MakeSubclusterFinder(v.VRec.Client, v.VDB)
+func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
+	finder := iter.MakeSubclusterFinder(c.VRec.Client, c.VDB)
 	stss, err := finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted)
 	if err != nil {
 		// This reconciler is a best effort. It only tries to surface meaningful
 		// error messages based on the events it see. For this reason, no errors
 		// are emitted. We will log them then carry on to the next reconciler.
-		v.Log.Info("Failure detecting in CrashLoopReconciler. Will continue on", "err", err)
+		c.Log.Info("Failure detecting in CrashLoopReconciler. Will continue on", "err", err)
 		return
 	}
 	for i := range stss.Items {
 		sts := &stss.Items[i]
 		for j := int32(0); j < *sts.Spec.Replicas; j++ {
-			pn := names.GenPodNameFromSts(v.VDB, sts, j)
+			pn := names.GenPodNameFromSts(c.VDB, sts, j)
 			pod := &corev1.Pod{}
-			err = v.VRec.Client.Get(ctx, pn, pod)
+			err = c.VRec.Client.Get(ctx, pn, pod)
 			if err != nil {
 				// Any error found during fetch are ignored. We will just go onto the next pod.
 				continue
 			}
-			nmaStatus := v.findNMAContainerStatus(pod)
+			nmaStatus := c.findNMAContainerStatus(pod)
 			if nmaStatus == nil {
 				continue
 			}
@@ -99,7 +99,7 @@ func (v *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 				!nmaStatus.Ready &&
 				nmaStatus.LastTerminationState.Terminated != nil &&
 				nmaStatus.LastTerminationState.Terminated.Reason == "StartError" {
-				v.VRec.Eventf(v.VDB, corev1.EventTypeWarning, events.WrongImage,
+				c.VRec.Eventf(c.VDB, corev1.EventTypeWarning, events.WrongImage,
 					"Image cannot be used for vclusterOps deployments. Change the deployment by changing the %s annotation",
 					vmeta.VClusterOpsAnnotation)
 				// Don't bother checking anymore pods as this setting is global for the CR.
@@ -109,7 +109,7 @@ func (v *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 	}
 }
 
-func (v *CrashLoopReconciler) findNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
+func (c *CrashLoopReconciler) findNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
 	for i := range pod.Status.ContainerStatuses {
 		if pod.Status.ContainerStatuses[i].Name == names.NMAContainer {
 			return &pod.Status.ContainerStatuses[i]

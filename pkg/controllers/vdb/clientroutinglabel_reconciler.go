@@ -68,7 +68,7 @@ func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler, log logr.Lo
 func (c *ClientRoutingLabelReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconcile client routing label", "applyMethod", c.ApplyMethod)
 
-	if err := c.PFacts.Collect(ctx); err != nil {
+	if err := c.PFacts.Collect(ctx, c.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
 
