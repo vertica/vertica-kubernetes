@@ -24,7 +24,6 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -43,7 +42,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -55,21 +53,25 @@ const (
 )
 
 type QueryReconciler struct {
-	VRec           *VerticaRestorePointsQueryReconciler
-	Vrpq           *vapi.VerticaRestorePointsQuery
-	Log            logr.Logger
-	InitiatorPod   types.NamespacedName // The pod that we run admin commands from
-	InitiatorPodIP string               // The IP of the initiating pod
+	VRec *VerticaRestorePointsQueryReconciler
+	Vrpq *vapi.VerticaRestorePointsQuery
+	Log  logr.Logger
 	config.ConfigParamsGenerator
-	OpCfg opcfg.OperatorConfig
+	OpCfg    opcfg.OperatorConfig
+	PFacts   *PodFacts
+	PRunner  cmds.PodRunner
+	Password string
 }
 
 func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
-	log logr.Logger) controllers.ReconcileActor {
+	log logr.Logger, prunner cmds.PodRunner, pfacts *PodFacts, password string) controllers.ReconcileActor {
 	return &QueryReconciler{
-		VRec: r,
-		Vrpq: vrpq,
-		Log:  log.WithName("QueryReconciler"),
+		VRec:     r,
+		Vrpq:     vrpq,
+		Log:      log.WithName("QueryReconciler"),
+		PFacts:   pfacts,
+		PRunner:  prunner,
+		Password: password,
 		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec: r,
 			Log:  log.WithName("QueryReconciler"),
@@ -88,29 +90,22 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 		return res, err
 	}
 
+	dispatcher := q.makeDispatcher(q.Log, q.Vdb, q.PRunner, q.Password)
 	// Create a TLS secret for the NMA service
 	err := q.generateCertsForNMA(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	passwd, err := q.GetSuperuserPassword(ctx, q.Log)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	prunner := cmds.MakeClusterPodRunner(q.Log, q.VRec.Cfg, q.Vdb.GetVerticaUser(), passwd)
-	pfacts := MakePodFacts(q.VRec, prunner)
-	dispatcher := q.makeDispatcher(q.Log, q.Vdb, prunner, passwd)
-
-	if e := pfacts.Collect(ctx, q.Vdb); e != nil {
+	if e := q.PFacts.Collect(ctx, q.Vdb); e != nil {
 		return ctrl.Result{}, e
 	}
-	hostList := pfacts.findExpectedNodeIps()
-	pf, found := pfacts.findRunningPod()
+	pf, found := q.PFacts.findRunningPod()
 	if !found {
 		q.Log.Info("No pods running")
 		return ctrl.Result{}, nil
 	}
+	hostList := q.PFacts.findExpectedNodeIps()
 
 	opts := []restorepointsquery.Option{}
 	// extract out the communal and config information to pass down to the vclusterops API.
@@ -180,30 +175,6 @@ func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Requ
 	// set the QueryComplete if the vclusterops API succeeded
 	return vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "Completed"), stateSuccessQuery)
-}
-
-// GetSuperuserPassword returns the superuser password if it has been provided
-func (q *QueryReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger) (string, error) {
-	if q.Vdb.Spec.PasswordSecret == "" {
-		return "", nil
-	}
-
-	fetcher := cloud.VerticaDBSecretFetcher{
-		Client:   q.VRec.GetClient(),
-		Log:      log,
-		VDB:      q.Vdb,
-		EVWriter: q.VRec,
-	}
-	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(q.Vdb))
-	if err != nil {
-		return "", err
-	}
-
-	pwd, ok := secret[builder.SuperuserPasswordKey]
-	if !ok {
-		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
-	}
-	return string(pwd), nil
 }
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.

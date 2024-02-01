@@ -30,10 +30,14 @@ import (
 	"github.com/go-logr/logr"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 )
 
 // VerticaRestorePointsQueryReconciler reconciles a VerticaRestorePointsQuery object
@@ -80,8 +84,16 @@ func (r *VerticaRestorePointsQueryReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, nil
 	}
 
+	vdb := &v1vapi.VerticaDB{}
+	passwd, err := r.GetSuperuserPassword(ctx, log, vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
+	pfacts := MakePodFacts(r, prunner)
+
 	// Iterate over each actor
-	actors := r.constructActors(vrpq, log)
+	actors := r.constructActors(vrpq, log, prunner, &pfacts, passwd)
 	var res ctrl.Result
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
@@ -112,10 +124,10 @@ func (r *VerticaRestorePointsQueryReconciler) SetupWithManager(mgr ctrl.Manager)
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
 func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.VerticaRestorePointsQuery,
-	log logr.Logger) []controllers.ReconcileActor {
+	log logr.Logger, prunner *cmds.ClusterPodRunner, pfacts *PodFacts, passwd string) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vrpq.
 	actors := []controllers.ReconcileActor{
-		MakeRestorePointsQueryReconciler(r, vrpq, log),
+		MakeRestorePointsQueryReconciler(r, vrpq, log, prunner, pfacts, passwd),
 	}
 	return actors
 }
@@ -141,4 +153,29 @@ func (r *VerticaRestorePointsQueryReconciler) Eventf(vdb runtime.Object, eventty
 // GetClient gives access to the Kubernetes client
 func (r *VerticaRestorePointsQueryReconciler) GetClient() client.Client {
 	return r.Client
+}
+
+// GetSuperuserPassword returns the superuser password if it has been provided
+func (r *VerticaRestorePointsQueryReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger,
+	vdb *v1vapi.VerticaDB) (string, error) {
+	if vdb.Spec.PasswordSecret == "" {
+		return "", nil
+	}
+
+	fetcher := cloud.VerticaDBSecretFetcher{
+		Client:   r.Client,
+		Log:      log,
+		VDB:      vdb,
+		EVWriter: r,
+	}
+	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
+	if err != nil {
+		return "", err
+	}
+
+	pwd, ok := secret[builder.SuperuserPasswordKey]
+	if !ok {
+		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
+	}
+	return string(pwd), nil
 }

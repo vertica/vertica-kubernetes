@@ -23,12 +23,15 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+const TestPassword = "test-pw"
 
 var _ = Describe("query_reconcile", func() {
 	ctx := context.Background()
@@ -53,10 +56,13 @@ var _ = Describe("query_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
+		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
+		pfacts := MakePodFacts(vrpqRec, fpr)
+
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
+		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger, fpr, &pfacts, TestPassword)
 
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// make sure that Quering condition is updated to false and

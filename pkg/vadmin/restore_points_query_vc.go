@@ -60,7 +60,10 @@ func (v *VClusterOps) genRestorePointsOptions(s *restorepoints.Parms, certs *HTT
 
 	*opts.HonorUserInput = true
 	opts.RawHosts = []string{s.InitiatorIP}
-	v.Log.Info("Setup restore point options", "hosts", opts.RawHosts)
+	opts.Hosts = s.Hosts
+	v.Log.Info("Setup restore point options", "rawhosts", opts.RawHosts)
+	v.Log.Info("Setup restore point options", "hosts", opts.Hosts)
+
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 	opts.ConfigurationParameters = s.ConfigurationParams
 
