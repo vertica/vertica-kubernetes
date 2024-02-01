@@ -116,7 +116,7 @@ const (
 )
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:categories=all;vertica,shortName=vscr
+// +kubebuilder:resource:path=verticascrutinizers,singular=verticascrutinize,categories=all;vertica,shortName=vscr
 // +kubebuilder:subresource:status
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1,""},{VerticaDB,vertica.com/v1beta1,""}}
 

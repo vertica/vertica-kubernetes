@@ -38,9 +38,9 @@ type VerticaScrutinizeReconciler struct {
 	EVRec  record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizes,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizes/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizes/finalizers,verbs=update
+//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -52,7 +52,7 @@ type VerticaScrutinizeReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *VerticaScrutinizeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("vrpq", req.NamespacedName)
+	log := r.Log.WithValues("vscr", req.NamespacedName)
 	log.Info("starting reconcile of vertica scrutinize")
 
 	vscr := &vapi.VerticaScrutinize{}

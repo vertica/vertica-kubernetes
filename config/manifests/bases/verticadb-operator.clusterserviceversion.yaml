@@ -2007,7 +2007,7 @@ spec:
     - description: VerticaScrutinize is the schema for verticascrutinize API
       displayName: Vertica Scrutinize
       kind: VerticaScrutinize
-      name: verticascrutinizes.vertica.com
+      name: verticascrutinizers.vertica.com
       resources:
       - kind: Pod
         name: ""
