@@ -992,13 +992,6 @@ func (p *PodFacts) findPodsLowOnDiskSpace(availThreshold int) []*PodFact {
 	}))
 }
 
-// findPrimaryPods returns a list of primary pods
-func (p *PodFacts) findPrimaryPods() []*PodFact {
-	return p.filterPods((func(v *PodFact) bool {
-		return v.isPrimary
-	}))
-}
-
 // filterPods return a list of PodFact that match the given filter.
 // The filterFunc determines what pods to include.  If this function returns
 // true, the pod is included.
@@ -1169,24 +1162,6 @@ func getHostAndPodNameList(podList []*PodFact) ([]string, []types.NamespacedName
 		podNames = append(podNames, pod.name)
 	}
 	return hostList, podNames
-}
-
-// combinePodsWithoutDuplicates merges 2 list of pods into one
-// by removing any pod they have in common
-func combinePodsWithoutDuplicates(p1, p2 []*PodFact) []*PodFact {
-	podMap := map[types.NamespacedName]bool{}
-	pods := []*PodFact{}
-	for _, p := range p1 {
-		podMap[p.name] = true
-		pods = append(pods, p)
-	}
-	for _, p := range p2 {
-		if _, ok := podMap[p.name]; ok {
-			continue
-		}
-		pods = append(pods, p)
-	}
-	return pods
 }
 
 // findExpectedNodeNames will return a list of pods that should have been in the database

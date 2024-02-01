@@ -54,12 +54,10 @@ var _ = Describe("fetch_node_state_vc", func() {
 	ctx := context.Background()
 
 	expectedResults := make(map[string]string)
-	var nodeNames []string
 	var nodeIPs []string
 	for i := 1; i <= 3; i++ {
 		nodeName := fmt.Sprintf("v_%s_node000%d", TestDBName, i)
 		nodeIP := fmt.Sprintf("192.168.1.%d", i)
-		nodeNames = append(nodeNames, nodeName)
 		nodeIPs = append(nodeIPs, nodeIP)
 		expectedResults[nodeName] = "UP"
 	}
@@ -69,9 +67,6 @@ var _ = Describe("fetch_node_state_vc", func() {
 		dispatcher.VDB.Spec.DBName = TestDBName
 		actualResults, ctrlRes, err := dispatcher.FetchNodeState(ctx,
 			fetchnodestate.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
-			fetchnodestate.WithHost(nodeNames[0], nodeIPs[0]),
-			fetchnodestate.WithHost(nodeNames[1], nodeIPs[1]),
-			fetchnodestate.WithHost(nodeNames[2], nodeIPs[2]),
 		)
 		Ω(err).ShouldNot(HaveOccurred())
 		Ω(ctrlRes).Should(Equal(ctrl.Result{}))

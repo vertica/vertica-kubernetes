@@ -275,10 +275,9 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 
 // restartPods restart the down pods using an admin command
 func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
-	// we want to fetch the state of down pods and primary pods. The letter will
-	// allow us to check cluster quorum and abort restart_node if needed
-	podsToFetch := combinePodsWithoutDuplicates(r.PFacts.findPrimaryPods(), pods)
-	clusterState, res, err := r.fetchClusterNodeStatus(ctx, podsToFetch)
+	// we will fetch the state of all nodes. The returned map will be used
+	// to check cluster quorum and reduce the down pod list
+	clusterState, res, err := r.fetchClusterNodeStatus(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -380,12 +379,9 @@ func (r *RestartReconciler) doesDBHaveQuorum(clusterState map[string]string) boo
 // show up as down in the cluster state.  Even then, there is still a chance
 // that this may report a node is UP but not yet accepting connections because
 // it could doing the initialization phase.
-func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context, pods []*PodFact) (map[string]string, ctrl.Result, error) {
+func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context) (map[string]string, ctrl.Result, error) {
 	opts := []fetchnodestate.Option{
 		fetchnodestate.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
-	}
-	for i := range pods {
-		opts = append(opts, fetchnodestate.WithHost(pods[i].vnodeName, pods[i].podIP))
 	}
 	return r.Dispatcher.FetchNodeState(ctx, opts...)
 }

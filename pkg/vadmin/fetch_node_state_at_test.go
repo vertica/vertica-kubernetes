@@ -43,8 +43,6 @@ var _ = Describe("fetch_node_state_at", func() {
 		}
 		state, res, err := d.FetchNodeState(ctx,
 			fetchnodestate.WithInitiator(atPod, "10.244.1.6"),
-			fetchnodestate.WithHost("v_d_node0001", "10.244.1.6"),
-			fetchnodestate.WithHost("v_d_node0002", "10.244.1.7"),
 		)
 		Ω(err).Should(Succeed())
 		Ω(res).Should(Equal(ctrl.Result{}))
@@ -52,18 +50,18 @@ var _ = Describe("fetch_node_state_at", func() {
 		Ω(state["v_d_node0001"]).Should(Equal("UP"))
 		Ω("v_d_node0002").Should(BeKeyOf(state))
 		Ω(state["v_d_node0002"]).Should(Equal("DOWN"))
-		Ω("v_d_node0003").ShouldNot(BeKeyOf(state))
+		Ω("v_d_node0003").Should(BeKeyOf(state))
+		Ω(state["v_d_node0003"]).Should(Equal("UP"))
 	})
 
 	It("should parse the list_allnodes output", func() {
 		at, _, _ := mockAdmintoolsDispatcher()
 		stateMap := at.parseClusterNodeStatus(
-			" Node          | Host       | State | Version                 | DB \n"+
-				"---------------+------------+-------+-------------------------+----\n"+
-				" v_d_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n"+
-				" v_d_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n"+
+			" Node          | Host       | State | Version                 | DB \n" +
+				"---------------+------------+-------+-------------------------+----\n" +
+				" v_d_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
+				" v_d_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
 				"\n",
-			map[string]bool{"v_d_node0001": true, "v_d_node0002": true},
 		)
 		n1, ok := stateMap["v_d_node0001"]
 		Ω(ok).Should(BeTrue())
@@ -72,16 +70,4 @@ var _ = Describe("fetch_node_state_at", func() {
 		Ω(ok).Should(BeTrue())
 		Ω(n2).Should(Equal("DOWN"))
 	})
-
-	It("should fail if the same vnode is given twice", func() {
-		d, vdb, _ := mockAdmintoolsDispatcher()
-		atPod := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 1)
-		_, _, err := d.FetchNodeState(ctx,
-			fetchnodestate.WithInitiator(atPod, "10.244.1.6"),
-			fetchnodestate.WithHost("v_d_node0001", "10.244.1.6"),
-			fetchnodestate.WithHost("v_d_node0001", "10.244.1.7"),
-		)
-		Ω(err).ShouldNot(Succeed())
-	})
-
 })
