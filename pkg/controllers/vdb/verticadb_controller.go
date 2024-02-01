@@ -161,6 +161,8 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
+//
+//nolint:funlen
 func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.VerticaDB, prunner *cmds.ClusterPodRunner,
 	pfacts *PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vdb.
@@ -197,11 +199,6 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// preserving other things.
 		MakeObjReconciler(r, log, vdb, pfacts,
 			ObjReconcileModePreserveScaling|ObjReconcileModePreserveUpdateStrategy),
-		// Set version info in the annotations and check that the deployment is
-		// compatible with the image. Run this after each time we run the
-		// obj_reconciler since we may need to requeue if the version doesn't
-		// match the deployment.
-		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false),
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
@@ -209,6 +206,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		// Stop vertica if the status condition indicates
 		MakeStopDBReconciler(r, vdb, prunner, pfacts, dispatcher),
+		// Check the version information ahead of restart. The version is needed
+		// to properly pick the correct NMA deployment (monolithic vs sidecar).
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
 		// Handles restart + re_ip of vertica
 		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
@@ -235,7 +235,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeObjReconciler(r, log, vdb, pfacts, ObjReconcileModeAll),
 		// Set version info in the annotations and check that the deployment is
 		// compatible with the image.
-		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false),
+		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
 		// Handle calls to add hosts to admintools.conf
 		MakeInstallReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
