@@ -69,10 +69,6 @@ jobs:
         fi
         export VERTICA_DEPLOYMENT_METHOD=vclusterops
         export E2E_TEST_DIRS="tests/e2e-leg-7"
-        # As a temporary fix until VER-91552 is addressed, we are going to run
-        # the tests serially. The operator can crash, which can impact
-        # concurrent running tests.
-        export E2E_PARALLELISM=1
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s
 
