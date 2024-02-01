@@ -238,13 +238,17 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 
 	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		if pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for vclusterops deployments")
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+				"Image cannot be used for vclusterops deployments. Change the deployment by changing the %s annotation",
+				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for admintools style of deployments and cannot be used for vclusterops",
 				v.Vdb.Spec.Image)
 		}
 	} else {
 		if !pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for admintools deployments")
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+				"Image cannot be used for admintools deployments. Change the deployment by changing the %s annotation",
+				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for vclusterops style of deployments and cannot be used for admintools",
 				v.Vdb.Spec.Image)
 		}

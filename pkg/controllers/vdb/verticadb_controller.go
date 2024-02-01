@@ -167,6 +167,12 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 	// Note, we run the StatusReconciler multiple times. This allows us to
 	// refresh the status of the vdb as we do operations that affect it.
 	return []controllers.ReconcileActor{
+		// Log an event if we are in a crash loop due to a bad deployment type
+		// chosen. This should be at or near the top as it will help with error
+		// detection when we can't even run anything in the pod. So any
+		// reconcile actor that depends on running pods should not be before
+		// this one.
+		MakeCrashLoopReconciler(r, log, vdb),
 		// Always start with a status reconcile in case the prior reconcile failed.
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
