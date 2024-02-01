@@ -92,6 +92,8 @@ type MockVClusterOps struct {
 	// Set this to true if you want VCreateDatabase to return the DBIsRunningError
 	ReturnDBIsRunning               bool
 	VerifyTimeoutNodeStartupSeconds bool
+	// Set this to true if you want VStartNodes to return the ReIPNoClusterQuorumError
+	ReturnReIPNoClusterQuorum bool
 }
 
 // const variables used for vcluster-ops unit test

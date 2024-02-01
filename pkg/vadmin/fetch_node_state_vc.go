@@ -34,9 +34,7 @@ func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.O
 
 	// get fetch node state options
 	s := fetchnodestate.Parms{}
-	if err := s.Make(opts...); err != nil {
-		return nil, ctrl.Result{}, err
-	}
+	s.Make(opts...)
 
 	// call vcluster-ops library to fetch node states
 	vopts := v.genFetchNodeStateOptions(&s)
@@ -49,10 +47,7 @@ func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.O
 	// parse node states
 	stateMap := map[string]string{} // node name to state map
 	for _, nodeInfo := range nodesInfo {
-		nodeName := nodeInfo.Name
-		if _, ok := s.HostsNeeded[nodeName]; ok {
-			stateMap[nodeName] = nodeInfo.State
-		}
+		stateMap[nodeInfo.Name] = nodeInfo.State
 	}
 
 	return stateMap, ctrl.Result{}, nil
