@@ -70,7 +70,7 @@ var _ = Describe("restore_points_vc", func() {
 
 		ctrlRes, err := dispatcher.ListRestorePoints(ctx,
 			restorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
-			restorepoints.WithHost(nodeIPs[0]),
+			restorepoints.WithHosts(nodeIPs),
 			restorepoints.WithCommunalPath(TestCommunalPath),
 			restorepoints.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())

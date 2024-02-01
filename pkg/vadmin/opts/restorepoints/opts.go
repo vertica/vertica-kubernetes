@@ -44,12 +44,9 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 	}
 }
 
-func WithHost(hostName string) Option {
+func WithHosts(hosts []string) Option {
 	return func(s *Parms) {
-		if s.Hosts == nil {
-			s.Hosts = make([]string, 0)
-		}
-		s.Hosts = append(s.Hosts, hostName)
+		s.Hosts = hosts
 	}
 }
 

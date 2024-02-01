@@ -194,17 +194,19 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 		msg := "Querying"
 		msg1 := "Query successful"
-		cond := v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "")
-
+		conds := []metav1.Condition{
+			{Type: vapi.Querying, Status: metav1.ConditionTrue, Reason: v1.UnknownReason},
+			{Type: vapi.QueryComplete, Status: metav1.ConditionFalse, Reason: v1.UnknownReason},
+		}
 		Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq,
-			cond, msg)).Should(Succeed())
+			&conds[0], msg)).Should(Succeed())
 
 		nm := types.NamespacedName{Namespace: vrpq.Namespace, Name: vrpq.Name}
 		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
 		Expect(vrpq.Status.State).Should(Equal(msg))
 
 		Expect(UpdateConditionAndState(ctx, k8sClient, logger, vrpq,
-			cond, msg1)).Should(Succeed())
+			&conds[1], msg1)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, nm, vrpq)).Should(Succeed())
 		Expect(vrpq.Status.State).Should(Equal(msg1))
 	})
