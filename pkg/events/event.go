@@ -85,7 +85,6 @@ const (
 	WrongImage                      = "WrongImage"
 	NMADeploymentIncompatibilty     = "NMADeploymentIncompatibility"
 	MonolithicContainerNotSupported = "MonolithicContainerNotSupported"
-	GeneratingNMATLSCert            = "GeneratingNMATLSCert"
 )
 
 // Constants for VerticaAutoscaler reconciler

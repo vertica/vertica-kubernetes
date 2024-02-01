@@ -1,0 +1,5 @@
+kind: Changed
+body: Support restricted SCC in OpenShift (depends on v24.2.0 server)
+time: 2024-02-01T16:03:04.954963569-04:00
+custom:
+  Issue: "689"
