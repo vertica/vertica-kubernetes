@@ -20,9 +20,7 @@ spec:
     spec:
       containers:
       - name: nma
-        image: vertica/vertica-k8s-private:latest-minimal-master
       - name: server
-        image: vertica/vertica-k8s-private:latest-minimal-master
 status:
   replicas: 2
   readyReplicas: 2
@@ -36,16 +34,7 @@ spec:
     spec:
       containers:
       - name: nma
-        image: vertica/vertica-k8s-private:latest-minimal-master
       - name: server
-        image: vertica/vertica-k8s-private:latest-minimal-master
 status:
   replicas: 1
   readyReplicas: 1
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-upgrade-vertica
-spec:
-  image: vertica/vertica-k8s-private:latest-minimal-master

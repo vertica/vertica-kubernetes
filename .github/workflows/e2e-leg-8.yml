@@ -6,6 +6,9 @@ on:
       operator-image:
         type: string
         required: false
+      vertica-image:
+        type: string
+        required: false
     secrets:
       DOCKERHUB_USERNAME:
         description: 'When working with images from docker.io, this is the username for login purposes'
@@ -17,6 +20,10 @@ on:
     inputs:
       operator-image:
         description: 'Name of the operator image'
+        type: string
+        required: false
+      vertica-image:
+        description: 'Name of the vertica server image'
         type: string
         required: false
 
@@ -43,7 +50,16 @@ jobs:
       run: |
         export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg
         export OPERATOR_IMG=${{ inputs.operator-image }}
+        export VERTICA_IMG=${{ inputs.vertica-image }}
         export E2E_TEST_DIRS="tests/e2e-leg-8"
+        # Leg 8 is tests with a set of fixed server images. The image must be
+        # at least a 24.2.0+. If it is older, then we complete this leg as a
+        # no-op.
+        if scripts/is-image.sh -i $VERTICA_IMG older 24.2.0
+        then
+          echo "Old version detected, skipping all of the tests"
+          exit 0
+        fi
         scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt
 
     - uses: actions/upload-artifact@v4

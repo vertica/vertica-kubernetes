@@ -286,11 +286,10 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 	return nil
 }
 
-// changeNMASidecarDeploymentIfNeeded will handle the case where we upgrading
-// across versions such that we need to deploy the NMA sidecar.
+// changeNMASidecarDeploymentIfNeeded will handle the case where we are
+// upgrading across versions such that we need to deploy the NMA sidecar.
 func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	// Early out if the sts already has an NMA sidecar
-	// SPILLY - add a UT for this
 	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
 		return ctrl.Result{}, nil
 	}
