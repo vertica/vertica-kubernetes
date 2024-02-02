@@ -99,6 +99,8 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		o.updateImageInStatefulSets,
 		// Delete pods that have the old image.
 		o.deletePods,
+		// Moving from 24.1.0 to 24.2.0 requires a change in the NMA deployment. Check for that.
+		o.checkNMADeploymentChange,
 		// Check for the pods to be created by the sts controller with the new image
 		o.checkForNewPods,
 		// Check that the version is compatible
@@ -213,6 +215,28 @@ func (o *OfflineUpgradeReconciler) deletePods(ctx context.Context) (ctrl.Result,
 		o.PFacts.Invalidate()
 	}
 	return ctrl.Result{}, err
+}
+
+func (o *OfflineUpgradeReconciler) checkNMADeploymentChange(ctx context.Context) (ctrl.Result, error) {
+	// This step only applies when running with a monolithic deployment.
+	if !o.Vdb.IsMonolithicDeploymentEnabled() {
+		return ctrl.Result{}, nil
+	}
+
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	var res ctrl.Result
+	for inx := range stss.Items {
+		sts := &stss.Items[inx]
+
+		res, err = o.Manager.changeNMASidecarDeploymentIfNeeded(ctx, sts)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // checkForNewPods will check to ensure at least one pod exists with the new image.

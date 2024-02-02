@@ -511,6 +511,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		// Trigger an upgrade and change the deployment type to vclusterops
 		vdb.Spec.Image = NewImageName
 		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(ctx, vdb)
@@ -524,6 +525,9 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		r.PFacts.Detail[spn].admintoolsExists = true
 		r.PFacts.Detail[spn].upNode = true
 
+		// The reconcile will fail because of processing that tries to read the
+		// pod, which has been deleted. It depends on the pod being regenerated,
+		// which doesn't happen in UT environments.
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		// Verify reconciler deleted the old sts

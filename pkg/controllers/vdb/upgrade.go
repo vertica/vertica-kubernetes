@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -31,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -206,7 +208,7 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 	// Skip the statefulset if it already has the proper image.
 	cnts := sts.Spec.Template.Spec.Containers
 	inx := names.GetServerContainerIndex(i.Vdb)
-	if cnts[inx].Image != i.Vdb.Spec.Image {
+	if len(cnts) > inx && cnts[inx].Image != i.Vdb.Spec.Image {
 		i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
 		sts.Spec.Template.Spec.Containers[inx].Image = i.Vdb.Spec.Image
 		if i.Vdb.IsNMASideCarDeploymentEnabled() {
@@ -282,6 +284,66 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// changeNMASidecarDeploymentIfNeeded will handle the case where we upgrading
+// across versions such that we need to deploy the NMA sidecar.
+func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
+	// Early out if the sts already has an NMA sidecar
+	// SPILLY - add a UT for this
+	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
+		return ctrl.Result{}, nil
+	}
+	i.Log.Info("Checking if NMA sidecar deployment is changing")
+
+	// Check the state of the first pod in the sts.
+	pn := names.GenPodNameFromSts(i.Vdb, sts, 0)
+	pod := &corev1.Pod{}
+	err := i.VRec.Client.Get(ctx, pn, pod)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	serverContainer := builder.FindServerContainerStatus(pod)
+	if serverContainer == nil {
+		return ctrl.Result{}, fmt.Errorf("could not find server container in pod spec of %s", pn.Name)
+	}
+	if serverContainer.Ready ||
+		(serverContainer.Started != nil && *serverContainer.Started) ||
+		serverContainer.State.Waiting == nil ||
+		serverContainer.State.Waiting.Reason != "CreateContainerError" {
+		return ctrl.Result{}, nil
+	}
+	// Sadly if we determine that we need to change and deploy the NMA sidecar,
+	// we need to apply this across all subcluster. This effectively makes the
+	// upgrade offline. The way we trigger the new NMA sidecar is by updating
+	// the version in the VerticaDB. Since this is a CR wide value, it applies to
+	// all subclusters.
+	i.Log.Info("Detected that we need to switch to NMA sidecar. Deleting all sts")
+	err = i.deleteStsRunningOldImage(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// Change the vdb version to the first one that supports the NMA sidecar.
+	// This is likely not the correct version. But it at least will force
+	// creation of a sts with a sidecar. The actual true version will replace
+	// this dummy version we setup once the pods are running.
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err = i.VRec.Client.Get(ctx, i.Vdb.ExtractNamespacedName(), i.Vdb)
+		if err != nil {
+			return err
+		}
+		if i.Vdb.Annotations == nil {
+			i.Vdb.Annotations = map[string]string{}
+		}
+		i.Vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
+		i.Log.Info("Force a dummy version in the vdb to ensure NMA sidecar is created", "version", i.Vdb.Annotations[vmeta.VersionAnnotation])
+		return i.VRec.Client.Update(ctx, i.Vdb)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{Requeue: true}, nil
 }
 
 // postNextStatusMsg will set the next status message.  This will only

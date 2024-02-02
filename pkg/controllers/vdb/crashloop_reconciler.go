@@ -20,6 +20,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
@@ -91,7 +92,7 @@ func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 				// Any error found during fetch are ignored. We will just go onto the next pod.
 				continue
 			}
-			nmaStatus := c.findNMAContainerStatus(pod)
+			nmaStatus := builder.FindNMAContainerStatus(pod)
 			if nmaStatus == nil {
 				continue
 			}
@@ -107,13 +108,4 @@ func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 			}
 		}
 	}
-}
-
-func (c *CrashLoopReconciler) findNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
-	for i := range pod.Status.ContainerStatuses {
-		if pod.Status.ContainerStatuses[i].Name == names.NMAContainer {
-			return &pod.Status.ContainerStatuses[i]
-		}
-	}
-	return nil
 }

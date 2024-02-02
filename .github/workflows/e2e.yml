@@ -49,6 +49,7 @@ on:
         - vcluster leg 5
         - vcluster leg 6
         - vcluster leg 7
+        - leg 8
         - vcluster server upgrade
         - vcluster udx
       run_security_scan:
@@ -293,6 +294,16 @@ jobs:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  e2e-leg-8-vcluster:
+    if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'leg 8' || inputs.e2e_test_suites == '')}}
+    needs: [build]
+    uses: ./.github/workflows/e2e-leg-8.yml
+    with:
+      operator-image: ${{ needs.build.outputs.operator-image }}
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
