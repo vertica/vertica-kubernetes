@@ -44,7 +44,28 @@ var _ = Describe("query_reconcile", func() {
 		Expect(vrpqRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
-	It("should update query conditions if the vclusterops API succeeded", func() {
+	It("should updated failed query state with admintools", func() {
+		vdb := v1.MakeVDB()
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		vrpq := vapi.MakeVrpq()
+		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
+		result, err := recon.Reconcile(ctx, &ctrl.Request{})
+
+		Expect(result).Should(Equal(ctrl.Result{}))
+		Expect(err.Error()).To(ContainSubstring("ShowRestorePoints is not supported for admintools deployments"))
+		Expect(vrpq.Status.State).Should(Equal(stateFailedQuery))
+	})
+
+	It("should update query conditions and state if the vclusterops API succeeded", func() {
 		vdb := v1.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		secretName := "tls-1"

@@ -162,6 +162,7 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, _ *ctrl.Requ
 			if err != nil {
 				return err
 			}
+			return errRun
 		}
 	}
 	q.VRec.Eventf(q.Vrpq, corev1.EventTypeNormal, events.ShowRestorePointsSucceeded,
