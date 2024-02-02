@@ -261,8 +261,8 @@ func (p *PodFacts) Invalidate() {
 // deployments because that will guaranteed a running container. We cannot use
 // the server incase the statefulset is (temporarily) setup for NMA sidecar but
 // can't support that. It's a classic chicken-in-egg situation where we don't
-// know the proper pod spec until we know the Vertica version, but you don't the
-// Vertica version until the pod runs.
+// know the proper pod spec until we know the Vertica version, but you don't
+// know the Vertica version until the pod runs.
 func getExecContainerName(sts *appsv1.StatefulSet) string {
 	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
 		return names.NMAContainer

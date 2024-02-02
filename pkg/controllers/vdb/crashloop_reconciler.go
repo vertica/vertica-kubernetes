@@ -79,7 +79,7 @@ func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 		// This reconciler is a best effort. It only tries to surface meaningful
 		// error messages based on the events it see. For this reason, no errors
 		// are emitted. We will log them then carry on to the next reconciler.
-		c.Log.Info("Failure detecting in CrashLoopReconciler. Will continue on", "err", err)
+		c.Log.Info("Despite a detected failure, the CrashLoopReconciler will continue.", "err", err)
 		return
 	}
 	for i := range stss.Items {
@@ -96,6 +96,9 @@ func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 			if nmaStatus == nil {
 				continue
 			}
+			// Check if the container has issues starting up. This can happen if
+			// attempting to run the NMA in a container that doesn't have that
+			// executable.
 			if nmaStatus.RestartCount > 0 &&
 				!nmaStatus.Ready &&
 				nmaStatus.LastTerminationState.Terminated != nil &&
