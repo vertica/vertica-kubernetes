@@ -24,7 +24,8 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
 
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
@@ -44,7 +45,7 @@ var _ = Describe("query_reconcile", func() {
 		Expect(vrpqRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
-	It("should updated failed query state with admintools", func() {
+	It("should failed the reconciler with admintools", func() {
 		vdb := v1.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		createS3CredSecret(ctx, vdb)
@@ -62,39 +63,31 @@ var _ = Describe("query_reconcile", func() {
 
 		Expect(result).Should(Equal(ctrl.Result{}))
 		Expect(err.Error()).To(ContainSubstring("ShowRestorePoints is not supported for admintools deployments"))
-		Expect(vrpq.Status.State).Should(Equal(stateFailedQuery))
 	})
 
 	It("should update query conditions and state if the vclusterops API succeeded", func() {
-		vdb := v1.MakeVDB()
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		dispatcher := mockVClusterOpsDispatcher()
 		secretName := "tls-1"
-		vdb.Spec.NMATLSSecret = secretName
+		dispatcher.VDB.Spec.DBName = "test-db"
+		dispatcher.VDB.Spec.NMATLSSecret = secretName
 
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		caCert, err := security.NewSelfSignedCACertificate(2048)
-		Expect(err).Should(Succeed())
-		cert, err := security.NewCertificate(caCert, 2048, "dbadmin", []string{"host1", "host2"})
-		Expect(err).Should(Succeed())
-		test.CreateFakePemTLSSecret(ctx, vdb, k8sClient, secretName, caCert, cert)
+		createS3CredSecret(ctx, dispatcher.VDB)
+		defer deleteCommunalCredSecret(ctx, dispatcher.VDB)
+		test.CreateVDB(ctx, k8sClient, dispatcher.VDB)
+		defer test.DeleteVDB(ctx, k8sClient, dispatcher.VDB)
+		test.CreatePods(ctx, k8sClient, dispatcher.VDB, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, dispatcher.VDB)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, secretName)
 		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
+		err := constructVrpqDispatcher(ctx, vrpq, dispatcher)
+		Ω(err).Should(Succeed())
 
-		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
-		// make sure that Quering condition is updated to false and
 		// QueryComplete condition is updated to True
 		// message is updated to "Query successful"
-		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).Should(BeTrue())
 		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
 		Expect(vrpq.Status.State).Should(Equal(stateSuccessQuery))
 	})
@@ -203,4 +196,23 @@ func constructVrpqQuery(ctx context.Context, vrpq *vapi.VerticaRestorePointsQuer
 	ExpectWithOffset(1, err).Should(Succeed())
 	ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
 	return g
+}
+
+func constructVrpqDispatcher(ctx context.Context, vrpq *vapi.VerticaRestorePointsQuery, dispatcher *vadmin.VClusterOps) error {
+	g := &QueryReconciler{
+		VRec: vrpqRec,
+		Vrpq: vrpq,
+		Log:  logger,
+		ConfigParamsGenerator: config.ConfigParamsGenerator{
+			VRec: vrpqRec,
+			Log:  logger,
+		},
+	}
+	opts := []restorepointsquery.Option{}
+	opts = append(opts,
+		restorepointsquery.WithInitiator(vrpq.ExtractNamespacedName(), "192.168.0.1"),
+		restorepointsquery.WithCommunalPath("/communal"),
+	)
+	err := g.runShowRestorePoints(ctx, dispatcher, opts)
+	return err
 }

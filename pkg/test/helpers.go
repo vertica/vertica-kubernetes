@@ -23,7 +23,6 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -196,21 +195,6 @@ func BuildTLSSecret(vdb *vapi.VerticaDB, name, key, cert, rootca string) *corev1
 		},
 	}
 	return secret
-}
-
-func CreateFakePemTLSSecret(ctx context.Context, vdb *vapi.VerticaDB, c client.Client, name string, caCert, cert security.Certificate) {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: vdb.Namespace,
-		},
-		Data: map[string][]byte{
-			corev1.TLSPrivateKeyKey:        cert.TLSKey(),
-			corev1.TLSCertKey:              cert.TLSCrt(),
-			corev1.ServiceAccountRootCAKey: caCert.TLSCrt(),
-		},
-	}
-	Expect(c.Create(ctx, secret)).Should(Succeed())
 }
 
 func DeleteSecret(ctx context.Context, c client.Client, name string) {

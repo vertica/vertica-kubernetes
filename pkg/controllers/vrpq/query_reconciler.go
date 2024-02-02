@@ -17,21 +17,18 @@ package vrpq
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
@@ -40,7 +37,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -48,6 +44,7 @@ const (
 	stateQuerying     = "Querying"
 	stateSuccessQuery = "Query successful"
 	stateFailedQuery  = "Query failed"
+	podRunning        = "Running"
 )
 
 type QueryReconciler struct {
@@ -71,7 +68,7 @@ func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vr
 	}
 }
 
-func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
+func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op if QueryComplete is true
 	isSet := q.Vrpq.IsStatusConditionTrue(vapi.QueryComplete)
 	if isSet {
@@ -91,21 +88,26 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 	// find a pod to execute the vclusterops API
 	var podIP string
 	for i := range pods.Items {
-		if i != names.GetNMAContainerIndex() {
-			continue
-		}
 		pod := &pods.Items[i]
-		podIP = pod.Status.PodIP
-		break
+		if pod.Status.Phase == podRunning {
+			for j := range pod.Status.ContainerStatuses {
+				// check NMA container ready
+				if pod.Status.ContainerStatuses[j].Ready {
+					podIP = pod.Status.PodIP
+					break
+				}
+			}
+		}
+		if podIP != "" {
+			break
+		}
 	}
 
 	// setup dispatcher for vclusterops API
-	passwd, err := q.GetSuperuserPassword(ctx, q.Log, q.Vdb)
+	dispatcher, err := q.makeDispatcher(q.Log, q.Vdb, nil)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	prunner := cmds.MakeClusterPodRunner(q.Log, q.VRec.Cfg, q.Vdb.GetVerticaUser(), passwd)
-	dispatcher := q.makeDispatcher(q.Log, q.Vdb, prunner, passwd)
 
 	// extract out the communal and config information to pass down to the vclusterops API.
 	opts := []restorepointsquery.Option{}
@@ -114,35 +116,32 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 		restorepointsquery.WithCommunalPath(q.Vdb.GetCommunalPath()),
 		restorepointsquery.WithConfigurationParams(q.ConfigurationParams.GetMap()),
 	)
-	return ctrl.Result{}, q.runShowRestorePoints(ctx, req, dispatcher, opts)
+	return ctrl.Result{}, q.runShowRestorePoints(ctx, dispatcher, opts)
 }
 
-// fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR,
+// fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR
 func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
 	vdb := &v1.VerticaDB{}
-	res := ctrl.Result{}
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		var e error
-		if res, e = fetchVDB(ctx, q.VRec, q.Vrpq, vdb); verrors.IsReconcileAborted(res, e) {
-			return e
+	var res ctrl.Result
+	var err error
+	if res, err = fetchVDB(ctx, q.VRec, q.Vrpq, vdb); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+	q.Vdb = vdb
+
+	// Build communal storage params if there is not one
+	if q.ConfigurationParams == nil {
+		res, err = q.ConstructConfigParms(ctx)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
 		}
-		q.Vdb = vdb
-		// build communal storage params if there is not one
-		if q.ConfigurationParams == nil {
-			res, e = q.ConstructConfigParms(ctx)
-			if verrors.IsReconcileAborted(res, e) {
-				return e
-			}
-		}
-		return nil
-	})
+	}
 
 	return res, err
 }
 
-// runShowRestorePoints will update the status condition and state before and after calling
-// showrestorepoints vclusterops api
-func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, _ *ctrl.Request, dispatcher vadmin.Dispatcher,
+// runShowRestorePoints call the vclusterOps API to get the restore points
+func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher vadmin.Dispatcher,
 	opts []restorepointsquery.Option) (err error) {
 	// set Querying status condition and state prior to calling vclusterops API
 	err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
@@ -160,20 +159,13 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, _ *ctrl.Requ
 			err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 				v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Failed"), stateFailedQuery)
 			if err != nil {
-				return err
+				errRun = errors.Join(errRun, err)
 			}
 			return errRun
 		}
 	}
 	q.VRec.Eventf(q.Vrpq, corev1.EventTypeNormal, events.ShowRestorePointsSucceeded,
-		"Successfully showed restore point with database '%s'. It took %s", q.Vdb.Spec.DBName, time.Since(start))
-
-	// clear Querying status condition
-	err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Completed"), stateQuerying)
-	if err != nil {
-		return err
-	}
+		"Successfully queried restore points in %s", time.Since(start).Truncate(time.Second))
 
 	// set the QueryComplete if the vclusterops API succeeded
 	return vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
@@ -181,35 +173,14 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, _ *ctrl.Requ
 }
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
-func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *v1.VerticaDB, prunner cmds.PodRunner,
-	passwd string) vadmin.Dispatcher {
+func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *v1.VerticaDB,
+	passwd *string) (vadmin.Dispatcher, error) {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), passwd, q.VRec, vadmin.SetupVClusterOps)
+		var password string
+		if passwd != nil {
+			password = *passwd
+		}
+		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), password, q.VRec, vadmin.SetupVClusterOps), nil
 	}
-	return vadmin.MakeAdmintools(log, vdb, prunner, q.VRec, q.OpCfg.DevMode)
-}
-
-// GetSuperuserPassword returns the superuser password if it has been provided
-func (q *QueryReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger,
-	vdb *v1.VerticaDB) (string, error) {
-	if vdb.Spec.PasswordSecret == "" {
-		return "", nil
-	}
-
-	fetcher := cloud.VerticaDBSecretFetcher{
-		Client:   q.VRec.GetClient(),
-		Log:      log,
-		VDB:      vdb,
-		EVWriter: q.VRec,
-	}
-	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
-	if err != nil {
-		return "", err
-	}
-
-	pwd, ok := secret[builder.SuperuserPasswordKey]
-	if !ok {
-		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
-	}
-	return string(pwd), nil
+	return nil, fmt.Errorf("ShowRestorePoints is not supported for admintools deployments")
 }
