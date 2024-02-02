@@ -3,6 +3,9 @@ name: e2e (leg-8) tests
 on: 
   workflow_call:
     inputs:
+      vlogger-image:
+        type: string
+        required: false
       operator-image:
         type: string
         required: false
@@ -18,6 +21,10 @@ on:
         required: true
   workflow_dispatch:
     inputs:
+      vlogger-image:
+        description: 'Name of the vertica logger image'
+        type: string
+        required: false
       operator-image:
         description: 'Name of the operator image'
         type: string
@@ -51,6 +58,7 @@ jobs:
         export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VERTICA_IMG=${{ inputs.vertica-image }}
+        export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS="tests/e2e-leg-8"
         # Leg 8 is tests with a set of fixed server images. The image must be
         # at least a 24.2.0+. If it is older, then we complete this leg as a
