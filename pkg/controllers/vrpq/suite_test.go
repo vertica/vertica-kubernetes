@@ -91,6 +91,7 @@ var _ = BeforeSuite(func() {
 	vrpqRec = &VerticaRestorePointsQueryReconciler{
 		Client: k8sClient,
 		Scheme: scheme.Scheme,
+		Cfg:    cfg,
 		Log:    logger,
 		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 	}

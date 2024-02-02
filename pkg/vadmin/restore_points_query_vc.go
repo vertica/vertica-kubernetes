@@ -17,9 +17,57 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
+
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
+	"github.com/vertica/vertica-kubernetes/pkg/net"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (v *VClusterOps) ListRestorePoints(_ context.Context) error {
-	v.Log.Info("start restore points query")
-	return nil
+// ShowRestorePoints can query the restore points from an archive. It can
+// show list restore points in a database
+func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...restorepoints.Option) (ctrl.Result, error) {
+	v.setupForAPICall("RestorePoints")
+	defer v.tearDownForAPICall()
+	v.Log.Info("Starting vcluster RestorePoints")
+
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	s := restorepoints.Parms{}
+	s.Make(opts...)
+
+	vcOpts := v.genRestorePointsOptions(&s, certs)
+	_, err = v.VShowRestorePoints(vcOpts)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to show restore points: %w", err)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (v *VClusterOps) genRestorePointsOptions(s *restorepoints.Parms, certs *HTTPSCerts) *vops.VShowRestorePointsOptions {
+	opts := vops.VShowRestorePointsFactory()
+
+	// required options
+	opts.DBName = &v.VDB.Spec.DBName
+	opts.CommunalStorageLocation = &s.CommunalPath
+
+	*opts.HonorUserInput = true
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
+	v.Log.Info("Setup restore point options", "rawhosts", opts.RawHosts)
+
+	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.ConfigurationParameters = s.ConfigurationParams
+
+	// auth options
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
+
+	return &opts
 }
