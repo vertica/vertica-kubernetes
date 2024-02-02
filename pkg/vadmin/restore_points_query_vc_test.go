@@ -30,7 +30,7 @@ import (
 // mock version of VStartDatabase() that is invoked inside VClusterOps.StartDB()
 func (m *MockVClusterOps) VShowRestorePoints(options *vops.VShowRestorePointsOptions) (restorePoints []vops.RestorePoint, err error) {
 	// verify basic options
-	err = m.VerifyCommonOptions(&options.DatabaseOptions)
+	err = m.VerifyDBNameAndIPv6(&options.DatabaseOptions)
 	if err != nil {
 		return restorePoints, err
 	}
@@ -68,9 +68,8 @@ var _ = Describe("restore_points_vc", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
-		ctrlRes, err := dispatcher.ListRestorePoints(ctx,
+		ctrlRes, err := dispatcher.ShowRestorePoints(ctx,
 			restorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
-			restorepoints.WithHosts(nodeIPs),
 			restorepoints.WithCommunalPath(TestCommunalPath),
 			restorepoints.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())

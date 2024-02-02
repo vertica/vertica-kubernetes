@@ -44,12 +44,6 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 	}
 }
 
-func WithHosts(hosts []string) Option {
-	return func(s *Parms) {
-		s.Hosts = hosts
-	}
-}
-
 func WithCommunalPath(path string) Option {
 	return func(s *Parms) {
 		s.CommunalPath = path

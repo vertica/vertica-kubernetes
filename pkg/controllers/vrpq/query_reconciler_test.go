@@ -23,8 +23,9 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/security"
+
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
@@ -48,6 +49,8 @@ var _ = Describe("query_reconcile", func() {
 	It("should update query conditions if the vclusterops API succeeded", func() {
 		vdb := v1.MakeVDB()
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		secretName := "tls-1"
+		vdb.Spec.NMATLSSecret = secretName
 
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
@@ -56,13 +59,17 @@ var _ = Describe("query_reconcile", func() {
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
-		fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-		pfacts := MakePodFacts(vrpqRec, fpr)
+		caCert, err := security.NewSelfSignedCACertificate(2048)
+		Expect(err).Should(Succeed())
+		cert, err := security.NewCertificate(caCert, 2048, "dbadmin", []string{"host1", "host2"})
+		Expect(err).Should(Succeed())
+		test.CreateFakePEMTLSSecret(ctx, vdb, k8sClient, secretName, caCert, cert)
+		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
 		vrpq := vapi.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger, fpr, &pfacts, TestPassword)
+		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
 
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		// make sure that Quering condition is updated to false and

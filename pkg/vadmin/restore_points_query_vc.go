@@ -26,10 +26,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// RestartNode will restart a subset of nodes. Use this when vertica has not
-// lost cluster quorum. The IP given for each vnode may not match the current IP
-// in the vertica catalogs.
-func (v *VClusterOps) ListRestorePoints(ctx context.Context, opts ...restorepoints.Option) (ctrl.Result, error) {
+// ShowRestorePoints can query the restore points from an archive. It can
+// show list restore points in a database
+func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...restorepoints.Option) (ctrl.Result, error) {
 	v.setupForAPICall("RestorePoints")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster RestorePoints")
@@ -59,10 +58,8 @@ func (v *VClusterOps) genRestorePointsOptions(s *restorepoints.Parms, certs *HTT
 	opts.CommunalStorageLocation = &s.CommunalPath
 
 	*opts.HonorUserInput = true
-	opts.RawHosts = []string{s.InitiatorIP}
-	opts.Hosts = s.Hosts
+	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup restore point options", "rawhosts", opts.RawHosts)
-	v.Log.Info("Setup restore point options", "hosts", opts.Hosts)
 
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
 	opts.ConfigurationParameters = s.ConfigurationParams
@@ -71,8 +68,6 @@ func (v *VClusterOps) genRestorePointsOptions(s *restorepoints.Parms, certs *HTT
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = v.VDB.GetVerticaUser()
-	opts.Password = &v.Password
 
 	return &opts
 }

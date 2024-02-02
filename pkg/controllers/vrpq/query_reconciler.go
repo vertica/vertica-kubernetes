@@ -24,23 +24,21 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
-	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	"github.com/vertica/vertica-kubernetes/pkg/secrets"
-	"github.com/vertica/vertica-kubernetes/pkg/security"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	vrpqstatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
 	corev1 "k8s.io/api/core/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -49,7 +47,7 @@ import (
 const (
 	stateQuerying     = "Querying"
 	stateSuccessQuery = "Query successful"
-	PKKeySize         = 2048
+	stateFailedQuery  = "Query failed"
 )
 
 type QueryReconciler struct {
@@ -57,21 +55,15 @@ type QueryReconciler struct {
 	Vrpq *vapi.VerticaRestorePointsQuery
 	Log  logr.Logger
 	config.ConfigParamsGenerator
-	OpCfg    opcfg.OperatorConfig
-	PFacts   *PodFacts
-	PRunner  cmds.PodRunner
-	Password string
+	OpCfg opcfg.OperatorConfig
 }
 
 func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
-	log logr.Logger, prunner cmds.PodRunner, pfacts *PodFacts, password string) controllers.ReconcileActor {
+	log logr.Logger) controllers.ReconcileActor {
 	return &QueryReconciler{
-		VRec:     r,
-		Vrpq:     vrpq,
-		Log:      log.WithName("QueryReconciler"),
-		PFacts:   pfacts,
-		PRunner:  prunner,
-		Password: password,
+		VRec: r,
+		Vrpq: vrpq,
+		Log:  log.WithName("QueryReconciler"),
 		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec: r,
 			Log:  log.WithName("QueryReconciler"),
@@ -81,7 +73,7 @@ func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vr
 
 func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctrl.Result, error) {
 	// no-op if QueryComplete is true
-	isSet := q.Vrpq.IsStatusConditionTrue(vapi.Querying)
+	isSet := q.Vrpq.IsStatusConditionTrue(vapi.QueryComplete)
 	if isSet {
 		return ctrl.Result{}, nil
 	}
@@ -90,32 +82,39 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, req *ctrl.Request) (ctr
 		return res, err
 	}
 
-	dispatcher := q.makeDispatcher(q.Log, q.Vdb, q.PRunner, q.Password)
-	// Create a TLS secret for the NMA service
-	err := q.generateCertsForNMA(ctx)
+	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
+	pods, err := finder.FindPods(ctx, iter.FindExisting)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if e := q.PFacts.Collect(ctx, q.Vdb); e != nil {
-		return ctrl.Result{}, e
+	// find a pod to execute the vclusterops API
+	var podIP string
+	for i := range pods.Items {
+		if i != names.GetNMAContainerIndex() {
+			continue
+		}
+		pod := &pods.Items[i]
+		podIP = pod.Status.PodIP
+		break
 	}
-	pf, found := q.PFacts.findRunningPod()
-	if !found {
-		q.Log.Info("No pods running")
-		return ctrl.Result{}, nil
-	}
-	hostList := q.PFacts.findExpectedNodeIps()
 
-	opts := []restorepointsquery.Option{}
+	// setup dispatcher for vclusterops API
+	passwd, err := q.GetSuperuserPassword(ctx, q.Log, q.Vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	prunner := cmds.MakeClusterPodRunner(q.Log, q.VRec.Cfg, q.Vdb.GetVerticaUser(), passwd)
+	dispatcher := q.makeDispatcher(q.Log, q.Vdb, prunner, passwd)
+
 	// extract out the communal and config information to pass down to the vclusterops API.
+	opts := []restorepointsquery.Option{}
 	opts = append(opts,
-		restorepointsquery.WithInitiator(pf.name, pf.podIP),
-		restorepointsquery.WithHosts(hostList),
+		restorepointsquery.WithInitiator(q.Vrpq.ExtractNamespacedName(), podIP),
 		restorepointsquery.WithCommunalPath(q.Vdb.GetCommunalPath()),
 		restorepointsquery.WithConfigurationParams(q.ConfigurationParams.GetMap()),
 	)
-	return ctrl.Result{}, q.runListRestorePoints(ctx, req, dispatcher, opts)
+	return ctrl.Result{}, q.runShowRestorePoints(ctx, req, dispatcher, opts)
 }
 
 // fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR,
@@ -141,29 +140,32 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, 
 	return res, err
 }
 
-// runListRestorePoints will update the status condition before and after calling
-// list restore points api
-// Temporarily, runListRestorePoints will not call the ListRestorePoints API
-// since the dispatcher is not set up yet
-func (q *QueryReconciler) runListRestorePoints(ctx context.Context, _ *ctrl.Request, dispatcher vadmin.Dispatcher,
-	opts []restorepointsquery.Option) error {
+// runShowRestorePoints will update the status condition and state before and after calling
+// showrestorepoints vclusterops api
+func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, _ *ctrl.Request, dispatcher vadmin.Dispatcher,
+	opts []restorepointsquery.Option) (err error) {
 	// set Querying status condition and state prior to calling vclusterops API
-	err := vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+	err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "Started"), stateQuerying)
 	if err != nil {
 		return err
 	}
 
-	// API should be called to proceed here
-	// If we receive a failure result from the API, a state message and condition need to be updated
-	q.VRec.Eventf(q.Vdb, corev1.EventTypeNormal, events.ListRestorePointsStarted,
-		"Starting list restore points")
+	// call showRestorePoints vcluster API
+	q.VRec.Eventf(q.Vrpq, corev1.EventTypeNormal, events.ShowRestorePointsStarted,
+		"Starting show restore points")
 	start := time.Now()
-	if res, errRun := dispatcher.ListRestorePoints(ctx, opts...); verrors.IsReconcileAborted(res, errRun) {
-		return errRun
+	if res, errRun := dispatcher.ShowRestorePoints(ctx, opts...); verrors.IsReconcileAborted(res, errRun) {
+		if errRun != nil {
+			err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+				v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Failed"), stateFailedQuery)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	q.VRec.Eventf(q.Vdb, corev1.EventTypeNormal, events.CreateDBSucceeded,
-		"Successfully listed restore point with database '%s'. It took %s", q.Vdb.Spec.DBName, time.Since(start))
+	q.VRec.Eventf(q.Vrpq, corev1.EventTypeNormal, events.ShowRestorePointsSucceeded,
+		"Successfully showed restore point with database '%s'. It took %s", q.Vdb.Spec.DBName, time.Since(start))
 
 	// clear Querying status condition
 	err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
@@ -186,100 +188,27 @@ func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *v1.VerticaDB, pru
 	return vadmin.MakeAdmintools(log, vdb, prunner, q.VRec, q.OpCfg.DevMode)
 }
 
-// getDNSNames returns the DNS names to include in the certificate that we generate
-func (q *QueryReconciler) getDNSNames() []string {
-	return []string{
-		fmt.Sprintf("*.%s.svc", q.Vdb.Namespace),
-		fmt.Sprintf("*.%s.svc.cluster.local", q.Vdb.Namespace),
+// GetSuperuserPassword returns the superuser password if it has been provided
+func (q *QueryReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger,
+	vdb *v1.VerticaDB) (string, error) {
+	if vdb.Spec.PasswordSecret == "" {
+		return "", nil
 	}
-}
 
-func (q *QueryReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
-	isController := true
-	blockOwnerDeletion := false
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   q.Vdb.Namespace,
-			Annotations: builder.MakeAnnotationsForObject(q.Vdb),
-			Labels:      builder.MakeCommonLabels(q.Vdb, nil, false),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         vapi.GroupVersion.String(),
-					Kind:               vapi.VerticaDBKind,
-					Name:               q.Vdb.Name,
-					UID:                q.Vdb.GetUID(),
-					Controller:         &isController,
-					BlockOwnerDeletion: &blockOwnerDeletion,
-				},
-			},
-		},
-		Type: corev1.SecretTypeTLS,
-		Data: map[string][]byte{
-			corev1.TLSPrivateKeyKey:   cert.TLSKey(),
-			corev1.TLSCertKey:         cert.TLSCrt(),
-			paths.HTTPServerCACrtName: caCert.TLSCrt(),
-		},
+	fetcher := cloud.VerticaDBSecretFetcher{
+		Client:   q.VRec.GetClient(),
+		Log:      log,
+		VDB:      vdb,
+		EVWriter: q.VRec,
 	}
-	// Either generate a name or use the one already present in the vdb. Using
-	// the name already present is the case where the name was filled in but the
-	// secret didn't exist.
-	if q.Vdb.Spec.NMATLSSecret == "" {
-		secret.GenerateName = fmt.Sprintf("%s-nma-tls-", q.Vdb.Name)
-	} else {
-		secret.Name = q.Vdb.Spec.NMATLSSecret
+	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
+	if err != nil {
+		return "", err
 	}
-	err := q.VRec.Client.Create(ctx, &secret)
-	return &secret, err
-}
 
-func (q *QueryReconciler) setSecretNameInVDB(ctx context.Context, secretName string) error {
-	nm := q.Vdb.ExtractNamespacedName()
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		// Always fetch the latest in case we are in the retry loop
-		if err := q.VRec.Client.Get(ctx, nm, q.Vdb); err != nil {
-			return err
-		}
-		q.Vdb.Spec.NMATLSSecret = secretName
-		return q.VRec.Client.Update(ctx, q.Vdb)
-	})
-}
-
-func (q *QueryReconciler) generateCertsForNMA(ctx context.Context) error {
-	if q.Vdb.Spec.NMATLSSecret != "" {
-		// As a convenience we will regenerate the secret using the same name. But
-		// only do this if it is a k8s secret. We skip if there is a path reference
-		// for a different secret store.
-		if !secrets.IsK8sSecret(q.Vdb.Spec.NMATLSSecret) {
-			q.Log.Info("nmaTLSSecret is set but uses a path reference that isn't for k8s.")
-			return nil
-		}
-		nm := names.GenNamespacedName(q.Vdb, q.Vdb.Spec.NMATLSSecret)
-		secret := corev1.Secret{}
-		err := q.VRec.Client.Get(ctx, nm, &secret)
-		if errors.IsNotFound(err) {
-			q.Log.Info("nmaTLSSecret is set but doesn't exist. Will recreate the secret.", "name", nm)
-		} else if err != nil {
-			return fmt.Errorf("failed while attempting to read the tls secret %s: %w", q.Vdb.Spec.NMATLSSecret, err)
-		} else {
-			// Secret is filled in and exists. We can exit.
-			return nil
-		}
+	pwd, ok := secret[builder.SuperuserPasswordKey]
+	if !ok {
+		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
 	}
-	caCert, err := security.NewSelfSignedCACertificate(PKKeySize)
-	if err != nil {
-		return err
-	}
-	cert, err := security.NewCertificate(caCert, PKKeySize, "dbadmin", q.getDNSNames())
-	if err != nil {
-		return err
-	}
-	secret, err := q.createSecret(ctx, cert, caCert)
-	if err != nil {
-		return err
-	}
-	err = q.setSecretNameInVDB(ctx, secret.ObjectMeta.Name)
-	if err != nil {
-		return err
-	}
-	return nil
+	return string(pwd), nil
 }

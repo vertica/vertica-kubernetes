@@ -23,6 +23,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (a *Admintools) ListRestorePoints(_ context.Context, _ ...restorepoints.Option) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("ListRestorePoints is not supported for admintools deployments")
+func (a *Admintools) ShowRestorePoints(_ context.Context, _ ...restorepoints.Option) (ctrl.Result, error) {
+	return ctrl.Result{}, errors.New("ShowRestorePoints is not supported for admintools deployments")
 }

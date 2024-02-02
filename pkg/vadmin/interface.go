@@ -86,8 +86,8 @@ type Dispatcher interface {
 	// in the vertica catalog. If they aren't a call to ReIP is necessary.
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
 
-	// ListRestorePoints will list existing restore points in a database
-	ListRestorePoints(ctx context.Context, opts ...restorepoints.Option) (ctrl.Result, error)
+	// ShowRestorePoints will list existing restore points in a database
+	ShowRestorePoints(ctx context.Context, opts ...restorepoints.Option) (ctrl.Result, error)
 }
 
 const (
