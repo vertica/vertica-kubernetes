@@ -99,10 +99,16 @@ func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 			// Check if the container has issues starting up. This can happen if
 			// attempting to run the NMA in a container that doesn't have that
 			// executable.
+			//
+			// In images 23.4.0 and prior than 12.0.2, the NMA doesn't exist. In
+			// 12.0.4, the NMA exists but it won't start. For this reason we
+			// look for two types Reasons: StartError is when NMA doesn't exist
+			// and Error is when NMA does exist but cannot start.
 			if nmaStatus.RestartCount > 0 &&
 				!nmaStatus.Ready &&
 				nmaStatus.LastTerminationState.Terminated != nil &&
-				nmaStatus.LastTerminationState.Terminated.Reason == "StartError" {
+				(nmaStatus.LastTerminationState.Terminated.Reason == "StartError" ||
+					nmaStatus.LastTerminationState.Terminated.Reason == "Error") {
 				c.VRec.Eventf(c.VDB, corev1.EventTypeWarning, events.WrongImage,
 					"Image cannot be used for vclusterOps deployments. Change the deployment by changing the %s annotation",
 					vmeta.VClusterOpsAnnotation)

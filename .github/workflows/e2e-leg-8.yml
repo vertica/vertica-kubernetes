@@ -59,6 +59,9 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VERTICA_IMG=${{ inputs.vertica-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
+        # Initial deployments in the tests are admintools. They will transition
+        # to vclusterOps through upgrades.
+        export VERTICA_DEPLOYMENT_METHOD=admintools
         export E2E_TEST_DIRS="tests/e2e-leg-8"
         # Leg 8 is tests with a set of fixed server images. The image must be
         # at least a 24.2.0+. If it is older, then we complete this leg as a
