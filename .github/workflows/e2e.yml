@@ -303,6 +303,7 @@ jobs:
     needs: [build]
     uses: ./.github/workflows/e2e-leg-8.yml
     with:
+      vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
       vertica-image: ${{ needs.build.outputs.full-vertica-image }}
     secrets:
