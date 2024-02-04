@@ -48,6 +48,7 @@ const (
 	RemoveNodesFailed               = "RemoveNodesFailed"
 	NodeRestartStarted              = "NodeRestartStarted"
 	NodeRestartSucceeded            = "NodeRestartSucceeded"
+	NodeRestartFailed               = "NodeRestartFailed"
 	ClusterRestartStarted           = "ClusterRestartStarted"
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"

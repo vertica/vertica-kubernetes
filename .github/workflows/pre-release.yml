@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.action == 'change operator version' && inputs.new-operator-version != '' }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Change version in the source files
       run: |
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.action == 'generate CHANGELOG' }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Save current version to env
       run: |

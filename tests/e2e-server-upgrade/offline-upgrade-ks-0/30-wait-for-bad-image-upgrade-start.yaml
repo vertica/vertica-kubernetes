@@ -11,29 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-pending-pod
-spec:
-  image: kustomize-vertica-image
-  sidecars:
-    - name: vlogger
-      image: kustomize-vlogger-image
-  dbName: Db
-  initPolicy: CreateSkipPackageInstall
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-    catalogPath: /vertica/catalog
-    dataPath: /vertica/data
-  subclusters:
-    - name: main
-      size: 3
-  kSafety: "1"
-  certSecrets: []
-  requeueTime: 5
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl wait --for=condition=UpgradeInProgress=True vdb/v-base-upgrade --timeout=600s
+    namespaced: true

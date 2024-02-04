@@ -276,11 +276,23 @@ func (r *RestartReconciler) reconcileNodes(ctx context.Context) (ctrl.Result, er
 
 // restartPods restart the down pods using an admin command
 func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (ctrl.Result, error) {
-	// Reduce the pod list according to the cluster node state
-	downPods, res, err := r.removePodsWithClusterUpState(ctx, pods)
+	// we will fetch the state of all nodes. The returned map will be used
+	// to check cluster quorum and reduce the down pod list
+	clusterState, res, err := r.fetchClusterNodeStatus(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+	// If cluster does not have quorum, we requeue to
+	// restart the entire cluster
+	if !r.doesDBHaveQuorum(clusterState) {
+		r.Log.Info("Cluster does not have quorum, restart of entire cluster is needed. Requeue reconciliation.")
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * RequeueWaitTimeInSeconds,
+		}, nil
+	}
+	// Reduce the pod list according to the cluster node state
+	downPods := r.removePodsWithClusterUpState(pods, clusterState)
 	if len(downPods) == 0 {
 		r.Log.Info("Pods are down but the cluster state doesn't show that yet. Requeue the reconciliation.")
 		return r.makeResultForLivenessProbeWait(ctx)
@@ -328,11 +340,7 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 // removePodsWithClusterUpState will see if the pods in the down list are
 // down according to the cluster state. This will return a new pod list with the
 // pods that aren't considered down removed.
-func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, pods []*PodFact) ([]*PodFact, ctrl.Result, error) {
-	clusterState, res, err := r.fetchClusterNodeStatus(ctx, pods)
-	if verrors.IsReconcileAborted(res, err) {
-		return nil, res, err
-	}
+func (r *RestartReconciler) removePodsWithClusterUpState(pods []*PodFact, clusterState map[string]string) []*PodFact {
 	i := 0
 	// Remove any item from pods where the state is UP
 	for _, pod := range pods {
@@ -342,7 +350,28 @@ func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, po
 			i++
 		}
 	}
-	return pods[:i], ctrl.Result{}, nil
+	return pods[:i]
+}
+
+// doesDBHaveQuorum returns true if more than half
+// of the primary nodes are up. Only nodes that are
+// already part of the database are considered
+func (r *RestartReconciler) doesDBHaveQuorum(clusterState map[string]string) bool {
+	totalPrimaryCount := 0
+	upPrimaryCount := 0
+	for _, pod := range r.PFacts.Detail {
+		if !pod.isPrimary {
+			continue
+		}
+		_, ok := clusterState[pod.vnodeName]
+		if ok {
+			totalPrimaryCount++
+			if pod.upNode {
+				upPrimaryCount++
+			}
+		}
+	}
+	return 2*upPrimaryCount > totalPrimaryCount
 }
 
 // fetchClusterNodeStatus gets the node status (UP/DOWN) from the cluster.
@@ -351,12 +380,9 @@ func (r *RestartReconciler) removePodsWithClusterUpState(ctx context.Context, po
 // show up as down in the cluster state.  Even then, there is still a chance
 // that this may report a node is UP but not yet accepting connections because
 // it could doing the initialization phase.
-func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context, pods []*PodFact) (map[string]string, ctrl.Result, error) {
+func (r *RestartReconciler) fetchClusterNodeStatus(ctx context.Context) (map[string]string, ctrl.Result, error) {
 	opts := []fetchnodestate.Option{
 		fetchnodestate.WithInitiator(r.InitiatorPod, r.InitiatorPodIP),
-	}
-	for i := range pods {
-		opts = append(opts, fetchnodestate.WithHost(pods[i].vnodeName, pods[i].podIP))
 	}
 	return r.Dispatcher.FetchNodeState(ctx, opts...)
 }

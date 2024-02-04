@@ -10,9 +10,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-apiVersion: v2
-name: verticadb-operator
-description: An operator that can deploy and manage Vertica clusters
-type: application
-# Versions follow Semantic Versioning (https://semver.org/)
-version: 2.0.2
+
+apiVersion: vertica.com/v1beta1
+kind: VerticaDB
+metadata:
+  name: v-pending-pod
+spec:
+  subclusters:
+    - name: main
+    - name: high-resource-req
+      size: 2
+      resources:
+        # Set really high limits so they can't be deployed.
+        requests:
+          cpu: "128"
+          memory: 128Gi
+        limits:
+          cpu: "128"
