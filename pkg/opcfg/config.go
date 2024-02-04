@@ -41,6 +41,7 @@ const (
 	DefaultVerticaAutoscalerDBConcurrency       = 1
 	DefaultEventTriggerDBConcurrency            = 1
 	DefaultVerticaRestorePointsQueryConcurrency = 1
+	DefaultVerticaScrutinizeConcurrency         = 1
 )
 
 type OperatorConfig struct {
@@ -62,6 +63,7 @@ type OperatorConfig struct {
 	VerticaAutoscalerConcurrency         int
 	EventTriggerConcurrency              int
 	VerticaRestorePointsQueryConcurrency int
+	VerticaScrutinizeConcurrency         int
 	Logging
 }
 
@@ -113,6 +115,8 @@ func (o *OperatorConfig) SetFlagArgs() {
 		"The amount of concurrency to reconcile EventTrigger CRs")
 	flag.IntVar(&o.VerticaRestorePointsQueryConcurrency, "verticarestorepointsquery-concurrency", DefaultVerticaRestorePointsQueryConcurrency,
 		"The amount of concurrency to reconcile VerticaRestorePointsQuery CRs")
+	flag.IntVar(&o.VerticaScrutinizeConcurrency, "verticascrutinize-concurrency", DefaultVerticaScrutinizeConcurrency,
+		"The amount of concurrency to reconcile VerticaScrutinize CRs")
 }
 
 // getEncoderConfig returns a concrete encoders configuration
