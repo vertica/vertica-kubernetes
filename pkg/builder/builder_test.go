@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -42,25 +43,25 @@ var _ = Describe("builder", func() {
 		const MaxLoopIteratons = 100
 		for i := 1; i < MaxLoopIteratons; i++ {
 			c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-			Expect(reflect.DeepEqual(c, baseContainer)).Should(BeTrue())
+			Ω(reflect.DeepEqual(c, baseContainer)).Should(BeTrue())
 		}
 	})
 
 	It("should add our own capabilities to the securityContext for admintools only", func() {
 		vdb := vapi.MakeVDB()
 		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE"}))
+		Ω(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT", "AUDIT_WRITE"}))
 
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		vdb.Spec.SecurityContext = &v1.SecurityContext{
 			Capabilities: &v1.Capabilities{},
 		}
 		baseContainer = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"SYS_CHROOT"}))
-		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
+		Ω(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"SYS_CHROOT"}))
+		Ω(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
 
 	})
 
@@ -72,10 +73,10 @@ var _ = Describe("builder", func() {
 			},
 		}
 		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT"}))
-		Expect(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
+		Ω(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Capabilities).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Capabilities.Add).Should(ContainElements([]v1.Capability{"SYS_CHROOT"}))
+		Ω(baseContainer.SecurityContext.Capabilities.Add).ShouldNot(ContainElement([]v1.Capability{"AUDIT_WRITE"}))
 	})
 
 	It("should allow you to run in priv mode", func() {
@@ -85,18 +86,18 @@ var _ = Describe("builder", func() {
 			Privileged: &priv,
 		}
 		baseContainer := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(baseContainer.SecurityContext).ShouldNot(BeNil())
-		Expect(baseContainer.SecurityContext.Privileged).ShouldNot(BeNil())
-		Expect(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
+		Ω(baseContainer.SecurityContext).ShouldNot(BeNil())
+		Ω(baseContainer.SecurityContext.Privileged).ShouldNot(BeNil())
+		Ω(*baseContainer.SecurityContext.Privileged).Should(BeTrue())
 	})
 
 	It("should add a catalog mount point if it differs from data", func() {
 		vdb := vapi.MakeVDB()
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
+		Ω(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
 		vdb.Spec.Local.CatalogPath = "/catalog"
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
+		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
 	})
 
 	It("should only have separate mount paths for data, depot and catalog if they are different", func() {
@@ -104,30 +105,30 @@ var _ = Describe("builder", func() {
 		vdb.Spec.Local.DataPath = "/vertica"
 		vdb.Spec.Local.DepotPath = vdb.Spec.Local.DataPath
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
-		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("depot")))
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("data")))
+		Ω(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
+		Ω(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("depot")))
+		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("data")))
 		vdb.Spec.Local.DepotPath = "/depot"
 		vdb.Spec.Local.CatalogPath = vdb.Spec.Local.DepotPath
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("depot")))
-		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("data")))
+		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("depot")))
+		Ω(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("catalog")))
+		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("data")))
 		vdb.Spec.Local.CatalogPath = "/vertica/catalog"
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
+		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
 	})
 
 	It("should have a specific mount name and no subPath for depot if depotVolume is EmptyDir", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Local.DepotVolume = vapi.PersistentVolume
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeVolumeMountNames(&c)).ShouldNot(ContainElement(ContainSubstring(vapi.DepotMountName)))
-		Expect(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("depot")))
+		Ω(makeVolumeMountNames(&c)).ShouldNot(ContainElement(ContainSubstring(vapi.DepotMountName)))
+		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("depot")))
 		vdb.Spec.Local.DepotVolume = vapi.EmptyDir
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(makeVolumeMountNames(&c)).Should(ContainElement(ContainSubstring(vapi.DepotMountName)))
-		Expect(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("depot")))
+		Ω(makeVolumeMountNames(&c)).Should(ContainElement(ContainSubstring(vapi.DepotMountName)))
+		Ω(makeSubPaths(&c)).ShouldNot(ContainElement(ContainSubstring("depot")))
 	})
 
 	It("should allow parts of the readiness probe to be overridden", func() {
@@ -151,12 +152,12 @@ var _ = Describe("builder", func() {
 			SuccessThreshold:    NewSuccessThreshold,
 		}
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.ReadinessProbe.Exec.Command).Should(Equal(NewCommand))
-		Expect(c.ReadinessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
-		Expect(c.ReadinessProbe.FailureThreshold).Should(Equal(NewFailureThreshold))
-		Expect(c.ReadinessProbe.InitialDelaySeconds).Should(Equal(NewInitialDelaySeconds))
-		Expect(c.ReadinessProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
-		Expect(c.ReadinessProbe.SuccessThreshold).Should(Equal(NewSuccessThreshold))
+		Ω(c.ReadinessProbe.Exec.Command).Should(Equal(NewCommand))
+		Ω(c.ReadinessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
+		Ω(c.ReadinessProbe.FailureThreshold).Should(Equal(NewFailureThreshold))
+		Ω(c.ReadinessProbe.InitialDelaySeconds).Should(Equal(NewInitialDelaySeconds))
+		Ω(c.ReadinessProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
+		Ω(c.ReadinessProbe.SuccessThreshold).Should(Equal(NewSuccessThreshold))
 	})
 
 	It("should allow parts of the startupProbe and livenessProbe to be overridden", func() {
@@ -170,8 +171,8 @@ var _ = Describe("builder", func() {
 			PeriodSeconds: NewPeriodSeconds,
 		}
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.LivenessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
-		Expect(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
+		Ω(c.LivenessProbe.TimeoutSeconds).Should(Equal(NewTimeout))
+		Ω(c.StartupProbe.PeriodSeconds).Should(Equal(NewPeriodSeconds))
 	})
 
 	It("should have all probes use the http version endpoint", func() {
@@ -179,15 +180,15 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Expect(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Expect(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Expect(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Expect(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
-		Expect(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
-		Expect(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
-		Expect(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
+		Ω(c.ReadinessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Ω(c.ReadinessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
+		Ω(c.ReadinessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
+		Ω(c.LivenessProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Ω(c.LivenessProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
+		Ω(c.LivenessProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
+		Ω(c.StartupProbe.HTTPGet.Path).Should(Equal(HTTPServerVersionPath))
+		Ω(c.StartupProbe.HTTPGet.Port).Should(Equal(intstr.FromInt(VerticaHTTPPort)))
+		Ω(c.StartupProbe.HTTPGet.Scheme).Should(Equal(v1.URISchemeHTTPS))
 	})
 
 	It("should not mount superuser password", func() {
@@ -210,35 +211,36 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
+		Ω(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 
 		vdb.Spec.StartupProbeOverride = nil
 
 		// case 2: if in vclusterops mode
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
+		Ω(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 
 		// case 3: should mount
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeTrue())
+		Ω(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeTrue())
 	})
 
 	It("should mount startup vol only when nma sidecar mode", func() {
 		vdb := vapi.MakeVDB()
 
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(getStartupConfVolume(c.Volumes)).Should(BeNil())
+		Ω(getStartupConfVolume(c.Volumes)).Should(BeNil())
 
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(getStartupConfVolume(c.Volumes)).Should(BeNil())
+		Ω(getStartupConfVolume(c.Volumes)).Should(BeNil())
 
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(getStartupConfVolume(c.Volumes)).ShouldNot(BeNil())
+		Ω(getStartupConfVolume(c.Volumes)).ShouldNot(BeNil())
 	})
 
 	It("should allow override of probe with grpc and httpget", func() {
@@ -258,10 +260,10 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.Containers[0].ReadinessProbe.Exec).Should(BeNil())
-		Expect(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
-		Expect(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
-		Expect(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+		Ω(c.Containers[0].ReadinessProbe.Exec).Should(BeNil())
+		Ω(c.Containers[0].ReadinessProbe.GRPC).ShouldNot(BeNil())
+		Ω(c.Containers[0].LivenessProbe.Exec).Should(BeNil())
+		Ω(c.Containers[0].LivenessProbe.HTTPGet).ShouldNot(BeNil())
 	})
 
 	It("should override readiness and liveness probes when vclusterops is enabled", func() {
@@ -270,8 +272,8 @@ var _ = Describe("builder", func() {
 
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		inx := names.GetServerContainerIndex(vdb)
-		Expect(c.Containers[inx].ReadinessProbe.HTTPGet).ShouldNot(BeNil())
-		Expect(c.Containers[inx].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+		Ω(c.Containers[inx].ReadinessProbe.HTTPGet).ShouldNot(BeNil())
+		Ω(c.Containers[inx].LivenessProbe.HTTPGet).ShouldNot(BeNil())
 
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
@@ -288,10 +290,10 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(c.Containers[inx].ReadinessProbe.HTTPGet).Should(BeNil())
-		Expect(c.Containers[inx].LivenessProbe.HTTPGet).Should(BeNil())
-		Expect(c.Containers[inx].ReadinessProbe.Exec).ShouldNot(BeNil())
-		Expect(c.Containers[inx].LivenessProbe.TCPSocket).ShouldNot(BeNil())
+		Ω(c.Containers[inx].ReadinessProbe.HTTPGet).Should(BeNil())
+		Ω(c.Containers[inx].LivenessProbe.HTTPGet).Should(BeNil())
+		Ω(c.Containers[inx].ReadinessProbe.Exec).ShouldNot(BeNil())
+		Ω(c.Containers[inx].LivenessProbe.TCPSocket).ShouldNot(BeNil())
 	})
 
 	It("should not use canary query probe if using GSM", func() {
@@ -299,7 +301,7 @@ var _ = Describe("builder", func() {
 		vdb.Spec.PasswordSecret = "gsm://project/team/dbadmin/secret/1"
 		vdb.Spec.Communal.Path = "gs://vertica-fleeting/mydb"
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
+		Ω(isPasswdIncludedInPodInfo(vdb, &c)).Should(BeFalse())
 	})
 
 	It("should override some of the pod securityContext settings", func() {
@@ -311,11 +313,11 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Expect(len(c.SecurityContext.Sysctls)).Should(Equal(2))
-		Expect(c.SecurityContext.Sysctls[0].Name).Should(Equal("net.ipv4.tcp_keepalive_time"))
-		Expect(c.SecurityContext.Sysctls[0].Value).Should(Equal("45"))
-		Expect(c.SecurityContext.Sysctls[1].Name).Should(Equal("net.ipv4.tcp_keepalive_intvl"))
-		Expect(c.SecurityContext.Sysctls[1].Value).Should(Equal("5"))
+		Ω(len(c.SecurityContext.Sysctls)).Should(Equal(2))
+		Ω(c.SecurityContext.Sysctls[0].Name).Should(Equal("net.ipv4.tcp_keepalive_time"))
+		Ω(c.SecurityContext.Sysctls[0].Value).Should(Equal("45"))
+		Ω(c.SecurityContext.Sysctls[1].Name).Should(Equal("net.ipv4.tcp_keepalive_intvl"))
+		Ω(c.SecurityContext.Sysctls[1].Value).Should(Equal("5"))
 	})
 
 	It("should mount ssh secret for dbadmin and root", func() {
@@ -324,41 +326,40 @@ var _ = Describe("builder", func() {
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		cnt := &c.Containers[0]
 		i, ok := getFirstSSHSecretVolumeMountIndex(cnt)
-		Expect(ok).Should(BeTrue())
-		const ExpectedPathsPerMount = 3
-		Expect(len(cnt.VolumeMounts)).Should(BeNumerically(">=", i+2*ExpectedPathsPerMount))
-		for j := 0; i < ExpectedPathsPerMount; i++ {
-			Expect(cnt.VolumeMounts[i+j].MountPath).Should(ContainSubstring(paths.DBAdminSSHPath))
+		Ω(ok).Should(BeTrue())
+		const ΩedPathsPerMount = 3
+		Ω(len(cnt.VolumeMounts)).Should(BeNumerically(">=", i+2*ΩedPathsPerMount))
+		for j := 0; i < ΩedPathsPerMount; i++ {
+			Ω(cnt.VolumeMounts[i+j].MountPath).Should(ContainSubstring(paths.DBAdminSSHPath))
 		}
-		for j := 0; i < ExpectedPathsPerMount; i++ {
-			Expect(cnt.VolumeMounts[i+ExpectedPathsPerMount+j].MountPath).Should(ContainSubstring(paths.RootSSHPath))
+		for j := 0; i < ΩedPathsPerMount; i++ {
+			Ω(cnt.VolumeMounts[i+ΩedPathsPerMount+j].MountPath).Should(ContainSubstring(paths.RootSSHPath))
 		}
 	})
 
-	It("should mount or not mount NMA certs volume according to annotation(monolithic)", func() {
+	It("should mount or not mount NMA certs volume based on NMA container", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
 		// monolithic container
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
 		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
-		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		// test default value (which should be true)
 		delete(vdb.Annotations, vmeta.MountNMACertsAnnotation)
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 	})
 
 	It("should mount or not mount NMA certs volume according to annotation(sidecar)", func() {
@@ -366,33 +367,145 @@ var _ = Describe("builder", func() {
 
 		// server container
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
 		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
-		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeFalse())
 
 		// nma container
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
-		Expect(NMACertsVolumeMountExists(&c)).Should(BeFalse())
-		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeFalse())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeFalse())
+		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationTrue
 		ps = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c = makeNMAContainer(vdb, &vdb.Spec.Subclusters[0])
-		Expect(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
-		Expect(NMACertsVolumeMountExists(&c)).Should(BeTrue())
-		Expect(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+		Ω(NMACertsVolumeExists(vdb, ps.Volumes)).Should(BeTrue())
+		Ω(NMACertsVolumeMountExists(&c)).Should(BeTrue())
+		Ω(NMACertsEnvVarsExist(vdb, &c)).Should(BeTrue())
+	})
+
+	It("should not set any NMA resources if none are set for the subcluster", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Resources = v1.ResourceRequirements{}
+		nma := makeNMAContainer(vdb, sc)
+		_, ok := nma.Resources.Limits[v1.ResourceCPU]
+		Ω(ok).Should(BeFalse())
+		_, ok = nma.Resources.Limits[v1.ResourceMemory]
+		Ω(ok).Should(BeFalse())
+		_, ok = nma.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeFalse())
+		_, ok = nma.Resources.Requests[v1.ResourceMemory]
+		Ω(ok).Should(BeFalse())
+	})
+
+	It("should set NMA resources if forced too", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		vdb.Annotations[vmeta.NMAResourcesForcedAnnotation] = "1"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = "4"
+		// Intentionally leave cpu request out so that we will use and check the default
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceRequestsMemory)] = "250Mi"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = "750Mi"
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Resources = v1.ResourceRequirements{}
+		nma := makeNMAContainer(vdb, sc)
+		actual, _ := nma.Resources.Limits.Cpu().AsInt64()
+		Ω(actual).Should(Equal(int64(4)))
+		actual, _ = nma.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultNMAResources[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = nma.Resources.Limits.Memory().AsInt64()
+		Ω(actual).Should(Equal(int64(750 * 1024 * 1024)))
+		actual, _ = nma.Resources.Requests.Memory().AsInt64()
+		Ω(actual).Should(Equal(int64(250 * 1024 * 1024)))
+	})
+
+	It("should set NMA resources if set in the server", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = "8"
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = "1Gi"
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Resources = v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("16"),
+				v1.ResourceMemory: resource.MustParse("32Gi"),
+			},
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("32"),
+				v1.ResourceMemory: resource.MustParse("64Gi"),
+			},
+		}
+		nma := makeNMAContainer(vdb, sc)
+		actual, _ := nma.Resources.Limits.Cpu().AsInt64()
+		Ω(actual).Should(Equal(int64(8)))
+		actual, _ = nma.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultNMAResources[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = nma.Resources.Limits.Memory().AsInt64()
+		Ω(actual).Should(Equal(int64(1 * 1024 * 1024 * 1024)))
+		actual, _ = nma.Resources.Requests.Memory().AsInt64()
+		defQuantity = vmeta.DefaultNMAResources[v1.ResourceRequestsMemory]
+		defVal, _ = defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+	})
+
+	It("should omit NMA resources if annotation is set without a value", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = ""
+		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = ""
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Resources = v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("16"),
+				v1.ResourceMemory: resource.MustParse("32Gi"),
+			},
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    resource.MustParse("32"),
+				v1.ResourceMemory: resource.MustParse("64Gi"),
+			},
+		}
+		nma := makeNMAContainer(vdb, sc)
+		_, ok := nma.Resources.Limits[v1.ResourceCPU]
+		Ω(ok).Should(BeFalse())
+		_, ok = nma.Resources.Limits[v1.ResourceMemory]
+		Ω(ok).Should(BeFalse())
+		_, ok = nma.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		_, ok = nma.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		actual, _ := nma.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultNMAResources[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = nma.Resources.Requests.Memory().AsInt64()
+		defQuantity = vmeta.DefaultNMAResources[v1.ResourceRequestsMemory]
+		defVal, _ = defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+	})
+
+	It("should allow health probe field to be overridden", func() {
+		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
+		sc := &vdb.Spec.Subclusters[0]
+		vdb.Annotations[vmeta.GenNMAHealthProbeAnnotationName(vmeta.NMAHealthProbeStartup, vmeta.NMAHealthProbeSuccessThreshold)] = "13"
+		vdb.Annotations[vmeta.GenNMAHealthProbeAnnotationName(vmeta.NMAHealthProbeLiveness, vmeta.NMAHealthProbeFailureThreshold)] = "8"
+		nma := makeNMAContainer(vdb, sc)
+		Ω(nma.StartupProbe.SuccessThreshold).Should(Equal(int32(13)))
+		Ω(nma.ReadinessProbe.SuccessThreshold).Should(Equal(int32(0)))
+		Ω(nma.LivenessProbe.FailureThreshold).Should(Equal(int32(8)))
 	})
 })
 

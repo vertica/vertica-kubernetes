@@ -16,8 +16,6 @@
 package fetchnodestate
 
 import (
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -26,8 +24,6 @@ type Parms struct {
 	DBName      string
 	Initiator   types.NamespacedName
 	InitiatorIP string
-	Hosts       []Host
-	HostsNeeded map[string]bool // The set of hosts that are in the Hosts list
 }
 
 // Host has information about a single host to get state for
@@ -39,42 +35,15 @@ type Host struct {
 type Option func(*Parms)
 
 // Make will fill in the Parms based on the options chosen
-func (s *Parms) Make(opts ...Option) error {
+func (s *Parms) Make(opts ...Option) {
 	for _, opt := range opts {
 		opt(s)
 	}
-
-	return s.buildHostsNeededSet()
-}
-
-// buildHostsNeededSet will validate that a host only shows up at most once.
-func (s *Parms) buildHostsNeededSet() error {
-	s.HostsNeeded = map[string]bool{}
-	for i := range s.Hosts {
-		// For test purposes, we will skip any empty vnode
-		if s.Hosts[i].VNode == "" {
-			continue
-		}
-		if _, ok := s.HostsNeeded[s.Hosts[i].VNode]; ok {
-			return fmt.Errorf("the same vnode was passed in twice: %s", s.Hosts[i].VNode)
-		}
-		s.HostsNeeded[s.Hosts[i].VNode] = true
-	}
-	return nil
 }
 
 func WithInitiator(nm types.NamespacedName, ip string) Option {
 	return func(s *Parms) {
 		s.Initiator = nm
 		s.InitiatorIP = ip
-	}
-}
-
-func WithHost(vnode, ip string) Option {
-	return func(s *Parms) {
-		if s.Hosts == nil {
-			s.Hosts = make([]Host, 0)
-		}
-		s.Hosts = append(s.Hosts, Host{VNode: vnode, IP: ip})
 	}
 }

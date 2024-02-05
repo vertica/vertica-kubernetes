@@ -36,6 +36,7 @@ spec:
     - --verticaautoscaler-concurrency=1
     - --eventtrigger-concurrency=1
     - --verticarestorepointsquery-concurrency=1
+    - --verticascrutinize-concurrency=1
 status:
   phase: Running
 ---

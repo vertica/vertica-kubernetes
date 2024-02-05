@@ -3,7 +3,7 @@ This helm chart will install the operator and an admission controller webhook.  
 | Parameter Name | Description | Default Value |
 |----------------|-------------|---------------|
 | affinity | The [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) parameter allows you to constrain the operator pod only to specific nodes. If this parameter is not set, then no affinity setting is used with the operator pod. | Not set |
-| image.name | The name of image that runs the operator. | vertica/verticadb-operator:2.0.1 |
+| image.name | The name of image that runs the operator. | vertica/verticadb-operator:2.0.2 |
 | image.repo | Repo server hosting image.name | docker.io |
 | image.pullPolicy | The pull policy for the image that runs the operator  | IfNotPresent |
 | imagePullSecrets | List of Secret names containing login credentials for above repos | null (pull images anonymously) |
@@ -24,6 +24,7 @@ This helm chart will install the operator and an admission controller webhook.  
 | reconcileConcurrency.verticaautoscaler | Set this to control the concurrency of reconciliations of VerticaAutoscaler CRs | 1 |
 | reconcileConcurrency.verticadb | Set this to control the concurrency of reconciliations of VerticaDB CRs | 5 |
 | reconcileConcurrency.verticarestorepointsquery | Set this to control the concurrency of reconciliations of VerticaRestorePointsQuery CRs | 1 |
+| reconcileConcurrency.verticascrutinize | Set this to control the concurrency of reconciliations of VerticaScrutinize CRs | 1 |
 | rbac_proxy_image.name | Image name of Kubernetes RBAC proxy. | kubebuilder/kube-rbac-proxy:v0.13.1 |
 | rbac_proxy_image.repo | Repo server hosting rbac_proxy_image.name | gcr.io |
 | resources.\* | The resource requirements for the operator pod. | <pre>limits:<br>  cpu: 100m<br>  memory: 750Mi<br>requests:<br>  cpu: 100m<br>  memory: 20Mi</pre> |

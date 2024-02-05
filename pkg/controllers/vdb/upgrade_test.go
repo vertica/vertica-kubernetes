@@ -226,4 +226,51 @@ var _ = Describe("upgrade", func() {
 
 		Expect(mgr.postNextStatusMsg(ctx, statusMsgs, 9)).ShouldNot(Succeed()) // fail - out of bounds
 	})
+
+	It("should delete sts if upgrading a monolithic NMA deployment", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		vdb.Spec.Image = NewImage // Change image to force pod deletion
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		sts := &appsv1.StatefulSet{}
+		stsnm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+		Expect(k8sClient.Get(ctx, stsnm, sts)).Should(Succeed())
+
+		pod := &corev1.Pod{}
+		podnm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		Expect(k8sClient.Get(ctx, podnm, pod)).Should(Succeed())
+
+		// Mock in a status showing the server pod not starting.
+		started := false
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			{Name: names.ServerContainer,
+				Ready:   false,
+				Started: &started,
+				State: corev1.ContainerState{
+					Waiting: &corev1.ContainerStateWaiting{
+						Reason: "CreateContainerError",
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, pod)).Should(Succeed())
+
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.changeNMASidecarDeploymentIfNeeded(ctx, sts)).Should(Equal(ctrl.Result{Requeue: true}))
+
+		fetchedVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Annotations[vmeta.VersionAnnotation]).Should(Equal(vapi.NMAInSideCarDeploymentMinVersion))
+
+		// Verify the sts is deleted
+		Expect(k8sClient.Get(ctx, stsnm, sts)).ShouldNot(Succeed())
+	})
 })

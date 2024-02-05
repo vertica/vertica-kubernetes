@@ -34,6 +34,19 @@ then
     exit 1
 fi
 
+CRD_DIR=$2
+if [ -z $CRD_DIR ]
+then
+    echo "*** Must specify directory to find the crds"
+    exit 1
+fi
+
+if [ ! -d $CRD_DIR ]
+then
+    echo "*** The directory $CRD_DIR doesn't exist"
+    exit 1
+fi
+
 # Copy out manifests that we will include as release artifacts.  We do this
 # *before* templating so that they can used directly with a 'kubectl apply'
 # command.
@@ -60,3 +73,13 @@ cp $REPO_DIR/config/rbac/verticadb-operator-cr-user-role.yaml $RELEASE_ARTIFACT_
 # Copy the Role that must be linked to the ServiceAccount running the vertica
 # server pods.
 cp $REPO_DIR/config/rbac/vertica-server-role.yaml $RELEASE_ARTIFACT_TARGET_DIR
+
+# Create a single YAML with all of the CRDs.
+megaCRD=$RELEASE_ARTIFACT_TARGET_DIR/crds.yaml
+rm $megaCRD || true
+for f in $CRD_DIR/*-crd.yaml
+do
+    cat $f >> $megaCRD
+    echo "---" >> $megaCRD
+done
+sed -i '$ d' $megaCRD  # Remove the last '---'

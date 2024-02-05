@@ -29,10 +29,7 @@ CRD_DIR=$OPERATOR_CHART/crds
 
 rm $TEMPLATE_DIR/*yaml 2>/dev/null || true
 $KUSTOMIZE build $REPO_DIR/config/default | $KUBERNETES_SPLIT_YAML --outdir $TEMPLATE_DIR -
-mv $TEMPLATE_DIR/verticadbs.vertica.com-crd.yaml $CRD_DIR
-mv $TEMPLATE_DIR/verticaautoscalers.vertica.com-crd.yaml $CRD_DIR
-mv $TEMPLATE_DIR/eventtriggers.vertica.com-crd.yaml $CRD_DIR
-mv $TEMPLATE_DIR/verticarestorepointsqueries.vertica.com-crd.yaml $CRD_DIR
+mv $TEMPLATE_DIR/*-crd.yaml $CRD_DIR
 
 # Delete openshift clusterRole and clusterRoleBinding files
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 
@@ -41,7 +38,7 @@ rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-rolebinding-crb.yaml
 # Generate release artifacts from the split yaml's just generated.  This is
 # done before templating the helm charts so that the yaml's can be used
 # directly with a 'kubectl apply' command.
-$SCRIPT_DIR/gen-release-artifacts.sh $TEMPLATE_DIR
+$SCRIPT_DIR/gen-release-artifacts.sh $TEMPLATE_DIR $CRD_DIR
 
 # Add templating to the manifests in templates/ so that we can use helm
 # parameters to customize the deployment.

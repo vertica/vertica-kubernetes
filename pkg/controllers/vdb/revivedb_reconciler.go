@@ -137,7 +137,7 @@ func (r *ReviveDBReconciler) execCmd(ctx context.Context, initiatorPod types.Nam
 		return res, err
 	}
 	r.VRec.Eventf(r.Vdb, corev1.EventTypeNormal, events.ReviveDBSucceeded,
-		"Successfully revived database. It took %s", time.Since(start))
+		"Successfully revived database. It took %s", time.Since(start).Truncate(time.Second))
 	return ctrl.Result{}, nil
 }
 

@@ -48,6 +48,7 @@ const (
 	RemoveNodesFailed               = "RemoveNodesFailed"
 	NodeRestartStarted              = "NodeRestartStarted"
 	NodeRestartSucceeded            = "NodeRestartSucceeded"
+	NodeRestartFailed               = "NodeRestartFailed"
 	ClusterRestartStarted           = "ClusterRestartStarted"
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
 	ShowRestorePointsStarted        = "ShowRestorePointsStarted"
@@ -88,7 +89,6 @@ const (
 	MgmtFailedDiskFull              = "MgmtFailedDiskfull"
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 	WrongImage                      = "WrongImage"
-	NMAInSidecarNotSupported        = "NMAInSidecarNotSupported"
 	MonolithicContainerNotSupported = "MonolithicContainerNotSupported"
 )
 
