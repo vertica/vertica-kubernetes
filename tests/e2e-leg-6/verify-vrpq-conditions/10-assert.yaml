@@ -13,6 +13,26 @@
 
 # Wait for the operator to update the sts with the new license
 
+apiVersion: v1
+kind: Event
+reason: ShowRestorePointsStarted
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaRestorePointsQuery
+  name: archive-query
+---
+apiVersion: v1
+kind: Event
+reason: ShowRestorePointsSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaRestorePointsQuery
+  name: archive-query
+---
 apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
 metadata:

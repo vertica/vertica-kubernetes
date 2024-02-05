@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package restore
+package showrestorepoints
 
 import (
 	"k8s.io/apimachinery/pkg/types"
@@ -41,15 +41,6 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 	return func(s *Parms) {
 		s.InitiatorName = nm
 		s.InitiatorIP = ip
-	}
-}
-
-func WithHost(hostName string) Option {
-	return func(s *Parms) {
-		if s.Hosts == nil {
-			s.Hosts = make([]string, 0)
-		}
-		s.Hosts = append(s.Hosts, hostName)
 	}
 }
 

@@ -18,8 +18,10 @@ package vadmin
 import (
 	"context"
 	"errors"
+
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 )
 
-func (a *Admintools) ListRestorePoints(_ context.Context) error {
-	return errors.New("ListRestorePoints is not supported for admintools deployments")
+func (a *Admintools) ShowRestorePoints(_ context.Context, _ ...showrestorepoints.Option) error {
+	return errors.New("ShowRestorePoints is not supported for admintools deployments")
 }
