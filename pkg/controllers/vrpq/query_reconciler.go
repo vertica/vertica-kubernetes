@@ -30,7 +30,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
@@ -53,7 +52,6 @@ type QueryReconciler struct {
 	Vrpq *vapi.VerticaRestorePointsQuery
 	Log  logr.Logger
 	config.ConfigParamsGenerator
-	OpCfg opcfg.OperatorConfig
 }
 
 func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
@@ -143,7 +141,7 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	start := time.Now()
 	errRun := dispatcher.ShowRestorePoints(ctx, opts...)
 	if errRun != nil {
-		q.VRec.Eventf(q.Vrpq, corev1.EventTypeNormal, events.ShowRestorePointsFailed, "Failed when calling show restore points")
+		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.ShowRestorePointsFailed, "Failed when calling show restore points")
 		err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 			v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Failed"), stateFailedQuery)
 		if err != nil {
