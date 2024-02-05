@@ -1,0 +1,6 @@
+kind: Changed
+body: Auto detect NMA sidecar deployment and remove vertica.com/run-nma-in-sidecar
+  annotation
+time: 2024-02-01T16:00:11.454799452-04:00
+custom:
+  Issue: "689"

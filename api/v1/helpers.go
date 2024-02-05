@@ -399,13 +399,26 @@ func (v *VerticaDB) GetRestartTimeout() int {
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
-	return vmeta.UseVClusterOps(v.Annotations) && vmeta.RunNMAInSidecarMode(v.Annotations)
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	vinf, hasVersion := v.MakeVersionInfo()
+	// Assume NMA is running as a sidecar if version isn't present. We rely on
+	// the operator to correct things later if it turns out we are running an
+	// older release that doesn't have support.
+	if !hasVersion {
+		return true
+	}
+	return vinf.IsEqualOrNewer(NMAInSideCarDeploymentMinVersion)
 }
 
 // IsMonolithicDeploymentEnabled returns true if NMA must run in the
 // same container as vertica
 func (v *VerticaDB) IsMonolithicDeploymentEnabled() bool {
-	return vmeta.UseVClusterOps(v.Annotations) && !vmeta.RunNMAInSidecarMode(v.Annotations)
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		return false
+	}
+	return !v.IsNMASideCarDeploymentEnabled()
 }
 
 // IsKSafety0 returns true if k-safety of 0 is set.

@@ -102,13 +102,6 @@ func convertToAnnotations(src *VerticaDB) (newAnnotations map[string]string) {
 	if !VClusterOpsAnnotationOK {
 		newAnnotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 	}
-	_, RunNMAInSidecarAnnotationOK := src.Annotations[vmeta.RunNMAInSidecarAnnotation]
-	// If the VClusterOpsAnnotation annotation is there and set to true, set the RunNMAInSidecarAnnotation
-	// to false if it's not present so that CRs converted from v1beta1 will still run NMA in a monolithic container, which is
-	// the default behavior of v1beta1
-	if VClusterOpsAnnotationOK && vmeta.UseVClusterOps(src.Annotations) && !RunNMAInSidecarAnnotationOK {
-		newAnnotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
-	}
 	return newAnnotations
 }
 
@@ -133,13 +126,6 @@ func convertFromAnnotations(src *v1.VerticaDB) (newAnnotations map[string]string
 			continue
 		}
 		newAnnotations[key] = val
-	}
-	_, RunNMAInSidecarAnnotationOK := src.Annotations[vmeta.RunNMAInSidecarAnnotation]
-	// If the VClusterOpsAnnotation annotation is set to true or not present, set the RunNMAInSidecarAnnotation
-	// to true if it's not present so that CRs converted from v1 will still run NMA in a sidecar container, which is
-	// the default behavior of v1
-	if (vmeta.UseVClusterOps(src.Annotations)) && !RunNMAInSidecarAnnotationOK {
-		newAnnotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
 	}
 	return
 }

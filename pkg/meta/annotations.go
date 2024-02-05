@@ -57,15 +57,6 @@ const (
 	MountNMACertsAnnotationTrue  = "true"
 	MountNMACertsAnnotationFalse = "false"
 
-	// This is a feature flag for running NMA process in a sidecar container together with
-	// server container within the same pod. When set to true the NMA process runs in a sidecar
-	// container together with server container within the same pod, which is also the default
-	// behavior when this annotation is not present. When set to false the NMA process runs in
-	// a monolithic container together with the vertica main process.
-	RunNMAInSidecarAnnotation      = "vertica.com/run-nma-in-sidecar"
-	RunNMAInSidecarAnnotationTrue  = "true"
-	RunNMAInSidecarAnnotationFalse = "false"
-
 	// Two annotations that are set by the operator when creating objects.
 	OperatorDeploymentMethodAnnotation = "vertica.com/operator-deployment-method"
 	OperatorVersionAnnotation          = "vertica.com/operator-version"
@@ -225,10 +216,6 @@ func UseVClusterOps(annotations map[string]string) bool {
 // volume rather than directly from k8s secret store.
 func UseNMACertsMount(annotations map[string]string) bool {
 	return lookupBoolAnnotation(annotations, MountNMACertsAnnotation, true /* default value */)
-}
-
-func RunNMAInSidecarMode(annotations map[string]string) bool {
-	return lookupBoolAnnotation(annotations, RunNMAInSidecarAnnotation, true /* default value */)
 }
 
 // IgnoreClusterLease returns true if revive/start should ignore the cluster lease
