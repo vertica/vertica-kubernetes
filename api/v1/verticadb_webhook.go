@@ -173,6 +173,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidProbeOverrides(allErrs)
 	allErrs = v.hasValidPodSecurityContext(allErrs)
 	allErrs = v.hasValidNMAResourceLimit(allErrs)
+	allErrs = v.hasValidCreateDBTimeout(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -905,6 +906,17 @@ func (v *VerticaDB) hasValidNMAResourceLimit(allErrs field.ErrorList) field.Erro
 		annotationName := vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)
 		err := field.Invalid(field.NewPath("metadata").Child("annotations").Child(annotationName),
 			nmaMemoryLimit, fmt.Sprintf("cannot be less than %s", vmeta.MinNMAMemoryLimit.String()))
+		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidCreateDBTimeout(allErrs field.ErrorList) field.ErrorList {
+	createDBTimeout := v.GetCreateDBNodeStartTimeout()
+	if createDBTimeout < 0 {
+		annotationName := vmeta.CreateDBTimeoutAnnotation
+		err := field.Invalid(field.NewPath("metadata").Child("annotations").Child(annotationName),
+			createDBTimeout, fmt.Sprintf("%s must be non-negative", annotationName))
 		allErrs = append(allErrs, err)
 	}
 	return allErrs
