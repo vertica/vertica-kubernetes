@@ -18,12 +18,12 @@ package vrpq
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
 
@@ -47,7 +47,6 @@ var _ = Describe("query_reconcile", func() {
 
 	It("should failed the reconciler with admintools", func() {
 		vdb := v1.MakeVDB()
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -66,11 +65,13 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should update query conditions and state if the vclusterops API succeeded", func() {
-		dispatcher := mockVClusterOpsDispatcher()
+		vdb := v1.MakeVDB()
 		secretName := "tls-1"
-		dispatcher.VDB.Spec.DBName = "test-db"
-		dispatcher.VDB.Spec.NMATLSSecret = secretName
-
+		vdb.Spec.NMATLSSecret = secretName
+		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
+			return &MockVClusterOps{}, logr.Logger{}
+		}
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
 		createS3CredSecret(ctx, dispatcher.VDB)
 		defer deleteCommunalCredSecret(ctx, dispatcher.VDB)
 		test.CreateVDB(ctx, k8sClient, dispatcher.VDB)

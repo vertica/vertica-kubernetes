@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
@@ -79,6 +80,12 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 		return res, err
 	}
 
+	// setup dispatcher for vclusterops API
+	dispatcher, err := q.makeDispatcher(q.Log, q.Vdb, nil /*password*/)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
 	pods, err := finder.FindPods(ctx, iter.FindExisting)
 	if err != nil {
@@ -86,25 +93,7 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 	}
 
 	// find a pod to execute the vclusterops API
-	var podIP string
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		if pod.Status.Phase == podRunning {
-			for j := range pod.Status.ContainerStatuses {
-				// check NMA container ready
-				if pod.Status.ContainerStatuses[j].Ready {
-					podIP = pod.Status.PodIP
-					break
-				}
-			}
-		}
-		if podIP != "" {
-			break
-		}
-	}
-
-	// setup dispatcher for vclusterops API
-	dispatcher, err := q.makeDispatcher(q.Log, q.Vdb, nil)
+	podIP, err := q.findRunningPodWithNMAContainer(pods)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -120,10 +109,8 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 }
 
 // fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR
-func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
+func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (res ctrl.Result, err error) {
 	vdb := &v1.VerticaDB{}
-	var res ctrl.Result
-	var err error
 	if res, err = fetchVDB(ctx, q.VRec, q.Vrpq, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -172,15 +159,27 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 		v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "Completed"), stateSuccessQuery)
 }
 
+// findRunningPodWithNMAContainer finds a pod to execute the vclusterops API.
+// The pod should be running and the NMA container should be ready
+func (q *QueryReconciler) findRunningPodWithNMAContainer(pods *corev1.PodList) (string, error) {
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.Status.Phase == podRunning {
+			for j := range pod.Status.ContainerStatuses {
+				if pod.Status.ContainerStatuses[j].Ready && pod.Status.ContainerStatuses[j].Name == names.NMAContainer {
+					return pod.Status.PodIP, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("can't find a pod to call the vclusterOps API")
+}
+
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *v1.VerticaDB,
-	passwd *string) (vadmin.Dispatcher, error) {
+	_ *string) (vadmin.Dispatcher, error) {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
-		var password string
-		if passwd != nil {
-			password = *passwd
-		}
-		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), password, q.VRec, vadmin.SetupVClusterOps), nil
+		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps), nil
 	}
 	return nil, fmt.Errorf("ShowRestorePoints is not supported for admintools deployments")
 }

@@ -140,20 +140,6 @@ func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }
 
-// mockVClusterOpsDispatcher will create an vcluster-ops dispatcher for test
-// purposes. This uses a standard function to setup the API.
-func mockVClusterOpsDispatcher() *vadmin.VClusterOps {
-	vdb := v1.MakeVDB()
-	vdb.Spec.NMATLSSecret = "test-secret"
-	// We use a function to construct the VClusterProvider. This is called
-	// ahead of each API rather than once so that we can setup a custom
-	// logger for each API call.
-	setupAPIFunc := func(log logr.Logger, apiName string) (vadmin.VClusterProvider, logr.Logger) {
-		return &MockVClusterOps{}, logr.Logger{}
-	}
-	return mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
-}
-
 // mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
 // except you provide your own setup API function.
 func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
