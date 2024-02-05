@@ -25,7 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
-	restorepointsquery "github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
@@ -209,10 +209,10 @@ func constructVrpqDispatcher(ctx context.Context, vrpq *vapi.VerticaRestorePoint
 			Log:  logger,
 		},
 	}
-	opts := []restorepointsquery.Option{}
+	opts := []showrestorepoints.Option{}
 	opts = append(opts,
-		restorepointsquery.WithInitiator(vrpq.ExtractNamespacedName(), "192.168.0.1"),
-		restorepointsquery.WithCommunalPath("/communal"),
+		showrestorepoints.WithInitiator(vrpq.ExtractNamespacedName(), "192.168.0.1"),
+		showrestorepoints.WithCommunalPath("/communal"),
 	)
 	err := g.runShowRestorePoints(ctx, dispatcher, opts)
 	return err

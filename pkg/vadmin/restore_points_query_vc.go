@@ -22,35 +22,34 @@ import (
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 )
 
 // ShowRestorePoints can query the restore points from an archive. It can
 // show list restore points in a database
-func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...restorepoints.Option) (ctrl.Result, error) {
-	v.setupForAPICall("RestorePoints")
+func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) error {
+	v.setupForAPICall("ShowRestorePoints")
 	defer v.tearDownForAPICall()
-	v.Log.Info("Starting vcluster RestorePoints")
+	v.Log.Info("Starting vcluster ShowRestorePoints")
 
 	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
-	s := restorepoints.Parms{}
+	s := showrestorepoints.Parms{}
 	s.Make(opts...)
 
 	vcOpts := v.genRestorePointsOptions(&s, certs)
 	_, err = v.VShowRestorePoints(vcOpts)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to show restore points: %w", err)
+		return fmt.Errorf("failed to show restore points: %w", err)
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func (v *VClusterOps) genRestorePointsOptions(s *restorepoints.Parms, certs *HTTPSCerts) *vops.VShowRestorePointsOptions {
+func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs *HTTPSCerts) *vops.VShowRestorePointsOptions {
 	opts := vops.VShowRestorePointsFactory()
 
 	// required options

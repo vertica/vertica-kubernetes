@@ -19,10 +19,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 )
 
-func (a *Admintools) ShowRestorePoints(_ context.Context, _ ...restorepoints.Option) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("ShowRestorePoints is not supported for admintools deployments")
+func (a *Admintools) ShowRestorePoints(_ context.Context, _ ...showrestorepoints.Option) error {
+	return errors.New("ShowRestorePoints is not supported for admintools deployments")
 }

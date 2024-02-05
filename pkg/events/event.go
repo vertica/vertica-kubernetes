@@ -51,6 +51,7 @@ const (
 	ClusterRestartStarted           = "ClusterRestartStarted"
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
 	ShowRestorePointsStarted        = "ShowRestorePointsStarted"
+	ShowRestorePointsFailed         = "ShowRestorePointsFailed"
 	ShowRestorePointsSucceeded      = "ShowRestorePointsSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"

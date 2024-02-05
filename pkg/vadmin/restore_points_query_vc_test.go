@@ -23,8 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 )
 
 // mock version of VShowRestorePoints() that is invoked inside VClusterOps.VShowRestorePoints()
@@ -61,18 +60,17 @@ var _ = Describe("restore_points_vc", func() {
 		nodeIPs = append(nodeIPs, nodeIP)
 	}
 
-	It("should call vcluster-ops library with restore_points task", func() {
+	It("should call ShowRestorePoints in the vcluster-ops library", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
 		dispatcher.VDB.Spec.NMATLSSecret = "restore-point-test-secret"
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
-		ctrlRes, err := dispatcher.ShowRestorePoints(ctx,
-			restorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
-			restorepoints.WithCommunalPath(TestCommunalPath),
-			restorepoints.WithConfigurationParams(TestCommunalStorageParams))
+		err := dispatcher.ShowRestorePoints(ctx,
+			showrestorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
+			showrestorepoints.WithCommunalPath(TestCommunalPath),
+			showrestorepoints.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())
-		Ω(ctrlRes).Should(Equal(ctrl.Result{}))
 	})
 })

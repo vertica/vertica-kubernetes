@@ -33,8 +33,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -87,7 +87,7 @@ type Dispatcher interface {
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
 
 	// ShowRestorePoints will list existing restore points in a database
-	ShowRestorePoints(ctx context.Context, opts ...restorepoints.Option) (ctrl.Result, error)
+	ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) error
 }
 
 const (
