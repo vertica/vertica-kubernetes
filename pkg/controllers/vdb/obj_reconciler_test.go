@@ -28,6 +28,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -795,6 +796,42 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(sts.Spec.VolumeClaimTemplates[0].OwnerReferences[0].Kind).Should(Equal(vapi.VerticaDBKind))
 			Expect(sts.Spec.VolumeClaimTemplates[0].OwnerReferences[0].Name).Should(Equal(vdb.Name))
 			Expect(sts.Spec.VolumeClaimTemplates[0].OwnerReferences[0].UID).Should(Equal(vdb.UID))
+		})
+
+		It("should recreate sts if NMA deployment type is changing", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+			vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
+			vdb.Spec.NMATLSSecret = "tls-abcdef"
+			test.CreateFakeTLSSecret(ctx, vdb, k8sClient, vdb.Spec.NMATLSSecret)
+			defer test.DeleteSecret(ctx, k8sClient, vdb.Spec.NMATLSSecret)
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			// To know if the sts was recreated, we are going to modify the sts
+			// by adding an annotation. This annotation will be missing after
+			// the reconcile, which is proof that it was recreated.
+			sc := &vdb.Spec.Subclusters[0]
+			nm := names.GenStsName(vdb, sc)
+			sts := &appsv1.StatefulSet{}
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(sts.Spec.Template.Spec.Containers).Should(HaveLen(1))
+			const testAnnotationName = "added-by-test"
+			const testAnnotationVal = "ut"
+			sts.Annotations = map[string]string{
+				testAnnotationName: testAnnotationVal,
+			}
+			Expect(k8sClient.Update(ctx, sts)).Should(Succeed())
+
+			// Update the vdb so that the reconciler will recreate the sts.
+			Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+			vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
+			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+			Expect(k8sClient.Get(ctx, nm, sts)).Should(Succeed())
+			Expect(sts.Annotations[testAnnotationName]).ShouldNot(Equal(testAnnotationVal))
+			Expect(sts.Spec.Template.Spec.Containers).Should(HaveLen(2))
 		})
 	})
 })

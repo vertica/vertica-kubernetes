@@ -21,7 +21,6 @@ metadata:
   name: verticadb-sample
   annotations:
     vertica.com/include-uid-in-path: "true"
-    vertica.com/run-nma-in-sidecar: "false"
     # This controls the deployment method. Any server version that is older
     # than 24.1.0 (e.g. 23.x.0, 12.0.x, etc.) will want this to set false so
     # the operator treats it as an admintools deployment. Server versions that

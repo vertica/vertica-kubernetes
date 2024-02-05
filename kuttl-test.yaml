@@ -29,6 +29,7 @@ testDirs:
   - tests/e2e-leg-5-at-only
   - tests/e2e-leg-6
   - tests/e2e-leg-7
+  - tests/e2e-leg-8
   - tests/e2e-udx
   - tests/e2e-server-upgrade
   - tests/e2e-server-upgrade-at-only

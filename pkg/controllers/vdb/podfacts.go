@@ -161,6 +161,12 @@ type PodFact struct {
 
 	// The in-container path to the catalog. e.g. /catalog/vertdb/v_node0001_catalog
 	catalogPath string
+
+	// true if the pod's spec includes a sidecar to run the NMA
+	hasNMASidecar bool
+
+	// The name of the container to run exec commands on.
+	execContainerName string
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -250,6 +256,20 @@ func (p *PodFacts) Invalidate() {
 	p.NeedCollection = true
 }
 
+// getExecContainerName returns the name of the container that podfacts
+// collection should be done in. We use the nma container for vclusterops
+// deployments because that will guaranteed a running container. We cannot use
+// the server incase the statefulset is (temporarily) setup for NMA sidecar but
+// can't support that. It's a classic chicken-in-egg situation where we don't
+// know the proper pod spec until we know the Vertica version, but you don't
+// know the Vertica version until the pod runs.
+func getExecContainerName(sts *appsv1.StatefulSet) string {
+	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
+		return names.NMAContainer
+	}
+	return names.ServerContainer
+}
+
 // HasVerticaDBChangedSinceCollection will return true if we detect the
 // VerticaDB has changed since the last time we collected podfacts. This always
 // returns true if we haven't collected podfacts yet.
@@ -290,10 +310,11 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB, sc *vapi.Subcluster,
 	sts *appsv1.StatefulSet, podIndex int32) error {
 	pf := PodFact{
-		name:           names.GenPodName(vdb, sc, podIndex),
-		subclusterName: sc.Name,
-		isPrimary:      sc.IsPrimary(),
-		podIndex:       podIndex,
+		name:              names.GenPodName(vdb, sc, podIndex),
+		subclusterName:    sc.Name,
+		isPrimary:         sc.IsPrimary(),
+		podIndex:          podIndex,
+		execContainerName: getExecContainerName(sts),
 	}
 	// It is possible for a pod to be managed by a parent sts but not yet exist.
 	// So, this has to be checked before we check for pod existence.
@@ -327,6 +348,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.image = pod.Spec.Containers[names.GetFirstContainerIndex()].Image
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
 		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
+		pf.hasNMASidecar = builder.HasNMAContainer(&pod.Spec)
 	}
 
 	fns := []CheckerFunc{
@@ -382,7 +404,7 @@ func (p *PodFacts) runGather(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFa
 
 	// Copy the script into the pod and execute it
 	var out string
-	out, _, err = p.PRunner.CopyToPod(ctx, pf.name, names.ServerContainer, tmp.Name(), paths.PodFactGatherScript,
+	out, _, err = p.PRunner.CopyToPod(ctx, pf.name, pf.execContainerName, tmp.Name(), paths.PodFactGatherScript,
 		"bash", paths.PodFactGatherScript)
 	if err != nil {
 		return errors.Wrap(err, "failed to copy and execute the gather script")
@@ -591,7 +613,7 @@ func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaD
 		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s' and shard_name != 'replica'",
 			pf.vnodeName),
 	}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
 	if err != nil {
 		// An error implies the server is down, so skipping this check.
 		return nil
@@ -610,7 +632,7 @@ func (p *PodFacts) queryDepotDetails(ctx context.Context, _ *vapi.VerticaDB, pf 
 		fmt.Sprintf("select max_size, disk_percent from storage_locations "+
 			"where location_usage = 'DEPOT' and node_name = '%s'", pf.vnodeName),
 	}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
 	if err != nil {
 		// An error implies the server is down, so skipping this check.
 		return nil
@@ -774,7 +796,7 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaD
 // database exists and the pod is running.
 func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact, sql string) error {
 	cmd := []string{"-tAc", sql}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
 	if err != nil {
 		// Skip parsing that happens next. But otherwise continue collecting facts.
 		return nil

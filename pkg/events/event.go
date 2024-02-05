@@ -86,7 +86,6 @@ const (
 	MgmtFailedDiskFull              = "MgmtFailedDiskfull"
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 	WrongImage                      = "WrongImage"
-	NMAInSidecarNotSupported        = "NMAInSidecarNotSupported"
 	MonolithicContainerNotSupported = "MonolithicContainerNotSupported"
 )
 

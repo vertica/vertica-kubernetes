@@ -2,10 +2,8 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: verticadb-sample
-  annotations:
-    vertica.com/run-nma-in-sidecar: "false"
 spec:
-  image: "vertica/vertica-k8s:23.4.0-0-minimal"
+  image: "vertica/vertica-k8s:24.1.0-0-minimal"
   communal:
     # path: "s3://<your-bucket>/"
     endpoint: https://s3.amazonaws.com

@@ -229,15 +229,16 @@ var _ = Describe("builder", func() {
 	It("should mount startup vol only when nma sidecar mode", func() {
 		vdb := vapi.MakeVDB()
 
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Ω(getStartupConfVolume(c.Volumes)).Should(BeNil())
 
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Ω(getStartupConfVolume(c.Volumes)).Should(BeNil())
 
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		Ω(getStartupConfVolume(c.Volumes)).ShouldNot(BeNil())
 	})
@@ -336,11 +337,10 @@ var _ = Describe("builder", func() {
 		}
 	})
 
-	It("should mount or not mount NMA certs volume according to annotation(monolithic)", func() {
+	It("should mount or not mount NMA certs volume based on NMA container", func() {
 		vdb := vapi.MakeVDBForHTTP("v-nma-tls-abcde")
 		// monolithic container
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationFalse
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
 		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
@@ -367,7 +367,7 @@ var _ = Describe("builder", func() {
 
 		// server container
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-		vdb.Annotations[vmeta.RunNMAInSidecarAnnotation] = vmeta.RunNMAInSidecarAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.NMAInSideCarDeploymentMinVersion
 		vdb.Annotations[vmeta.MountNMACertsAnnotation] = vmeta.MountNMACertsAnnotationFalse
 		ps := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
 		c := makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
