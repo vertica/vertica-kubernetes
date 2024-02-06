@@ -460,6 +460,20 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// change it here.
 	expSts.Spec.VolumeClaimTemplates = curSts.Spec.VolumeClaimTemplates
 
+	// If the NMA deployment type is changing, we cannot do a rolling update for
+	// this change. All pods need to have the same NMA deployment type. So, we
+	// drop the old sts and create a fresh one.
+	if isNMADeploymentDifferent(curSts, expSts) {
+		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
+		if err := o.VRec.Client.Delete(ctx, curSts); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
+	}
+
 	// Update the sts by patching in fields that changed according to expSts.
 	// Due to the omission of default fields in expSts, curSts != expSts.  We
 	// always send a patch request, then compare what came back against origSts
@@ -479,6 +493,12 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
+}
+
+// isNMADeploymentDifferent will return true if one of the statefulsets have a
+// NMA sidecar deployment and the other one doesn't.
+func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
+	return builder.HasNMAContainer(&sts1.Spec.Template.Spec) != builder.HasNMAContainer(&sts2.Spec.Template.Spec)
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed

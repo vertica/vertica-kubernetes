@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,6 +41,7 @@ type VerticaRestorePointsQueryReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+	Cfg    *rest.Config
 	EVRec  record.EventRecorder
 }
 
@@ -119,21 +121,21 @@ func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.Vertica
 }
 
 // Event a wrapper for Event() that also writes a log entry
-func (r *VerticaRestorePointsQueryReconciler) Event(vdb runtime.Object, eventtype, reason, message string) {
+func (r *VerticaRestorePointsQueryReconciler) Event(vrpq runtime.Object, eventtype, reason, message string) {
 	evWriter := events.Writer{
 		Log:   r.Log,
 		EVRec: r.EVRec,
 	}
-	evWriter.Event(vdb, eventtype, reason, message)
+	evWriter.Event(vrpq, eventtype, reason, message)
 }
 
 // Eventf is a wrapper for Eventf() that also writes a log entry
-func (r *VerticaRestorePointsQueryReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+func (r *VerticaRestorePointsQueryReconciler) Eventf(vrpq runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
 	evWriter := events.Writer{
 		Log:   r.Log,
 		EVRec: r.EVRec,
 	}
-	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
+	evWriter.Eventf(vrpq, eventtype, reason, messageFmt, args...)
 }
 
 // GetClient gives access to the Kubernetes client

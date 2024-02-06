@@ -144,6 +144,17 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	return svc
 }
 
+// HasNMAContainer returns true if the given statefulset spec has the NMA
+// sidecar container.
+func HasNMAContainer(podSpec *corev1.PodSpec) bool {
+	// For test purposes, the container spec could be false. So, it doesn't
+	// matter what we return.
+	if len(podSpec.Containers) == 0 {
+		return false
+	}
+	return podSpec.Containers[0].Name == names.NMAContainer
+}
+
 // buildConfigVolumeMount returns the volume mount for config.
 // If vclusterops flag is enabled we mount only
 // /opt/vertica/config/node_management_agent.pid
@@ -233,6 +244,44 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts = append(volMnts, vdb.Spec.VolumeMounts...)
 
 	return volMnts
+}
+
+func buildNMAResources(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.ResourceRequirements {
+	memoryRequest := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceRequestsMemory)
+	memoryLimit := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceLimitsMemory)
+	cpuRequest := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceRequestsCPU)
+	cpuLimit := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceLimitsCPU)
+
+	// We have an option to only set the resources if the corresponding resource
+	// is set in the server pod. If the server container doesn't any resources
+	// set, then we won't set any defaults. This will allow us to run in
+	// low-resource environment.
+	forced := vmeta.IsNMAResourcesForced(vdb.Annotations)
+
+	req := corev1.ResourceRequirements{
+		Requests: make(corev1.ResourceList),
+		Limits:   make(corev1.ResourceList),
+	}
+	if forced {
+		req.Requests[corev1.ResourceMemory] = memoryRequest
+		req.Limits[corev1.ResourceMemory] = memoryLimit
+		req.Requests[corev1.ResourceCPU] = cpuRequest
+		req.Limits[corev1.ResourceCPU] = cpuLimit
+		return req
+	}
+	if _, ok := sc.Resources.Requests[corev1.ResourceMemory]; ok && !memoryRequest.IsZero() {
+		req.Requests[corev1.ResourceMemory] = memoryRequest
+	}
+	if _, ok := sc.Resources.Limits[corev1.ResourceMemory]; ok && !memoryLimit.IsZero() {
+		req.Limits[corev1.ResourceMemory] = memoryLimit
+	}
+	if _, ok := sc.Resources.Requests[corev1.ResourceCPU]; ok && !cpuRequest.IsZero() {
+		req.Requests[corev1.ResourceCPU] = cpuRequest
+	}
+	if _, ok := sc.Resources.Limits[corev1.ResourceCPU]; ok && !cpuLimit.IsZero() {
+		req.Limits[corev1.ResourceCPU] = cpuLimit
+	}
+	return req
 }
 
 func buildStartupConfVolumeMount() corev1.VolumeMount {
@@ -723,11 +772,12 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		ImagePullPolicy: vdb.Spec.ImagePullPolicy,
 		Name:            names.NMAContainer,
 		Env:             envVars,
+		Resources:       buildNMAResources(vdb, sc),
 		Command:         buildNMACommand(),
 		VolumeMounts:    buildNMAVolumeMounts(vdb),
-		ReadinessProbe:  makeNMAHealthProbe(),
-		LivenessProbe:   makeNMAHealthProbe(),
-		StartupProbe:    makeNMAHealthProbe(),
+		ReadinessProbe:  makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeReadiness),
+		LivenessProbe:   makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeLiveness),
+		StartupProbe:    makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeStartup),
 	}
 }
 
@@ -880,7 +930,27 @@ func makeLivenessProbe(vdb *vapi.VerticaDB) *corev1.Probe {
 }
 
 // makeNMAHealthProbe will return the Probe object to use for the NMA
-func makeNMAHealthProbe() *corev1.Probe {
+func makeNMAHealthProbe(vdb *vapi.VerticaDB, probeName string) *corev1.Probe {
+	probe := makeDefaultNMAHealthProbe()
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeInitialDelaySeconds); ok {
+		probe.InitialDelaySeconds = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeTimeoutSeconds); ok {
+		probe.TimeoutSeconds = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbePeriodSeconds); ok {
+		probe.PeriodSeconds = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeSuccessThreshold); ok {
+		probe.SuccessThreshold = val
+	}
+	if val, ok := vmeta.GetNMAHealthProbeOverride(vdb.Annotations, probeName, vmeta.NMAHealthProbeFailureThreshold); ok {
+		probe.FailureThreshold = val
+	}
+	return probe
+}
+
+func makeDefaultNMAHealthProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -1402,4 +1472,24 @@ func GetK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 		PodAffinity:     a.PodAffinity,
 		PodAntiAffinity: a.PodAntiAffinity,
 	}
+}
+
+// FindNMAContainerStatus will return the status of the NMA container if available.
+func FindNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
+	return findContainerStatus(pod, names.NMAContainer)
+}
+
+// FindNMAContainerStatus will return the status of the server container
+func FindServerContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
+	return findContainerStatus(pod, names.ServerContainer)
+}
+
+// findContainerStatus is a helper to return status for a named container
+func findContainerStatus(pod *corev1.Pod, containerName string) *corev1.ContainerStatus {
+	for i := range pod.Status.ContainerStatuses {
+		if pod.Status.ContainerStatuses[i].Name == containerName {
+			return &pod.Status.ContainerStatuses[i]
+		}
+	}
+	return nil
 }

@@ -16,7 +16,7 @@ require (
 	github.com/onsi/gomega v1.24.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
-	github.com/vertica/vcluster v1.1.1-0.20240125183229-a7b16dc76c02
+	github.com/vertica/vcluster v1.1.1-0.20240130155647-29203c00b7b5
 	github.com/vertica/vertica-sql-go v1.1.1
 	go.uber.org/zap v1.25.0
 	golang.org/x/text v0.14.0

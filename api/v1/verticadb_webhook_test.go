@@ -890,6 +890,18 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs = oldVdb.validateVerticaDBSpec()
 		Ω(allErrs).Should(HaveLen(0))
 	})
+
+	It("should prevent setting the memory limit for the NMA to be less than 1Gi", func() {
+		vdb := MakeVDB()
+		annotationName := vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)
+		vdb.Annotations[annotationName] = "500Mi"
+		allErrs := vdb.validateVerticaDBSpec()
+		Ω(allErrs).ShouldNot(HaveLen(0))
+
+		vdb.Annotations[annotationName] = "1Gi"
+		allErrs = vdb.validateVerticaDBSpec()
+		Ω(allErrs).Should(HaveLen(0))
+	})
 })
 
 func createVDBHelper() *VerticaDB {

@@ -170,7 +170,7 @@ func (d *DBRemoveNodeReconciler) runRemoveNode(ctx context.Context, initiatorPod
 		return err
 	}
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.RemoveNodesSucceeded,
-		"Successfully removed nodes from database and it took %s", time.Since(start))
+		"Successfully removed nodes from database and it took %s", time.Since(start).Truncate(time.Second))
 	return nil
 }
 

@@ -112,6 +112,6 @@ func (s *StopDBReconciler) runATCmd(ctx context.Context, initiatorName types.Nam
 		return err
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.StopDBSucceeded,
-		"Successfully stopped the database.  It took %ds", int(time.Since(start).Seconds()))
+		"Successfully stopped the database.  It took %s", time.Since(start).Truncate(time.Second))
 	return nil
 }

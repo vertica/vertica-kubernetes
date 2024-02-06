@@ -182,6 +182,6 @@ func (d *DBAddNodeReconciler) runAddNodeForPod(ctx context.Context,
 		return err
 	}
 	d.VRec.Eventf(d.Vdb, corev1.EventTypeNormal, events.AddNodeSucceeded,
-		"Successfully added database nodes and it took %s", time.Since(start))
+		"Successfully added database nodes and it took %s", time.Since(start).Truncate(time.Second))
 	return nil
 }

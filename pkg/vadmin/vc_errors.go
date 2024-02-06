@@ -76,6 +76,11 @@ func (v *vcErrors) LogFailure(cmd string, err error) (ctrl.Result, error) {
 		return v.logReviveDBRestorePointNotFoundError(reviveDBRestorePointNotFoundError)
 	}
 
+	reIPNoClusterQuorumError := &vclusterops.ReIPNoClusterQuorumError{}
+	if ok := errors.As(err, &reIPNoClusterQuorumError); ok {
+		return v.logReIPNoClusterQuorumError(reIPNoClusterQuorumError)
+	}
+
 	return v.logGenericFailure(cmd, err)
 }
 
@@ -141,5 +146,10 @@ func (v *vcErrors) logReviveDBRestorePointNotFoundError(err *vclusterops.ReviveD
 	v.EVWriter.Eventf(v.VDB, corev1.EventTypeWarning, events.ReviveDBRestorePointNotFound,
 		"revive_db failed during restore because %s",
 		err.Error())
+	return ctrl.Result{Requeue: true}, nil
+}
+
+func (v *vcErrors) logReIPNoClusterQuorumError(err *vclusterops.ReIPNoClusterQuorumError) (ctrl.Result, error) {
+	v.Log.Info("vclusterOps command aborted because cluster has lost quorum", "msg", err.Error())
 	return ctrl.Result{Requeue: true}, nil
 }

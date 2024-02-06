@@ -447,6 +447,16 @@ func (o *OnlineUpgradeReconciler) recreateSubclusterWithNewImage(ctx context.Con
 	if podsDeleted > 0 {
 		o.PFacts.Invalidate()
 	}
+
+	// When deployed as a monolithic container, when upgrading we need to
+	// consider switching to an NMA sidecar. This is needed once we upgrade to
+	// 24.2.0 release. In this new container, the it won't be able to start
+	// because the s6-overlay init process has been removed. If we are
+	// monolithic, and the pods aren't starting then we will trick the upgrade
+	// into thinking we are going to 24.2.0.
+	if o.Vdb.IsMonolithicDeploymentEnabled() {
+		return o.Manager.changeNMASidecarDeploymentIfNeeded(ctx, sts)
+	}
 	return ctrl.Result{}, nil
 }
 

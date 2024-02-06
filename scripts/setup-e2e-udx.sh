@@ -86,7 +86,7 @@ fi
 
 logInfo Pull the samples from the samples image: $SAMPLES_IMG
 rm -rf $REPO_DIR/sdk || true
-SAMPLES_CONTAINER=$(docker create $SAMPLES_IMG)
+SAMPLES_CONTAINER=$(docker create $SAMPLES_IMG --entrypoint bash)
 docker cp $SAMPLES_CONTAINER:/opt/vertica/sdk $REPO_DIR
 mkdir -p $REPO_DIR/bin
 rm -f $REPO_DIR/bin/VerticaSDK.jar || true

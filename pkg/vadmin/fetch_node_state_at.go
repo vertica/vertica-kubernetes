@@ -28,9 +28,7 @@ import (
 // or DOWN in our consensus state. It returns a map of vnode and its node state.
 func (a *Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
 	s := fetchnodestate.Parms{}
-	if err := s.Make(opts...); err != nil {
-		return nil, ctrl.Result{}, err
-	}
+	s.Make(opts...)
 	cmd := []string{
 		"-t", "list_allnodes",
 	}
@@ -39,11 +37,11 @@ func (a *Admintools) FetchNodeState(ctx context.Context, opts ...fetchnodestate.
 		res, err2 := a.logFailure("list_allnodes", events.MgmtFailed, stdout, err)
 		return nil, res, err2
 	}
-	return a.parseClusterNodeStatus(stdout, s.HostsNeeded), ctrl.Result{}, nil
+	return a.parseClusterNodeStatus(stdout), ctrl.Result{}, nil
 }
 
 // parseClusterNodeStatus will parse the output from a AT -t list_allnodes call
-func (a *Admintools) parseClusterNodeStatus(stdout string, hostsNeeded map[string]bool) map[string]string {
+func (a *Admintools) parseClusterNodeStatus(stdout string) map[string]string {
 	stateMap := map[string]string{}
 	lines := strings.Split(stdout, "\n")
 	const HeaderRowCount = 2
@@ -66,10 +64,7 @@ func (a *Admintools) parseClusterNodeStatus(stdout string, hostsNeeded map[strin
 		vnode := strings.Trim(cols[0], " ")
 		state := strings.Trim(cols[2], " ")
 
-		// Only include state for this host if it was requested by the caller.
-		if _, ok := hostsNeeded[vnode]; ok {
-			stateMap[vnode] = state
-		}
+		stateMap[vnode] = state
 	}
 	return stateMap
 }

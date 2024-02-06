@@ -104,24 +104,34 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 		return res, nil
 	}
 
-	return ctrl.Result{}, v.verifyNMARunningMode(vinf)
+	return v.verifyNMADeployment(vinf, pod)
 }
 
-// Verify whether the NMA is configured to run in sidecar container
-func (v *ImageVersionReconciler) verifyNMARunningMode(vinf *version.Info) error {
-	ver := v.Vdb.Annotations[vmeta.VersionAnnotation]
-	// versions below 24.2.0 cannot be used to run NMA in a sidecar container
-	if v.Vdb.IsNMASideCarDeploymentEnabled() {
-		if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
-			return nil
-		}
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.NMAInSidecarNotSupported,
-			"The NMA version %s cannot be used for nma sidecar deployment."+
-				" The minimum supported version is %s", ver, vapi.NMAInSideCarDeploymentMinVersion)
-		return fmt.Errorf("running NMA in a sidecar container is not supported for version %s",
-			ver)
+// Verify whether the NMA is configured to run as a sidecar container
+func (v *ImageVersionReconciler) verifyNMADeployment(vinf *version.Info, pf *PodFact) (ctrl.Result, error) {
+	// The NMA only applies to vclusterOps deployments.
+	if !vmeta.UseVClusterOps(v.Vdb.Annotations) {
+		return ctrl.Result{}, nil
 	}
-	return nil
+
+	// Deploying the NMA as a monolithic container was only supported in 24.1.0.
+	// Every release from 24.2.0 onwards requires that the NMA be deployed as a
+	// sidecar.
+
+	if vinf.IsEqualOrNewer(vapi.NMAInSideCarDeploymentMinVersion) {
+		if !pf.hasNMASidecar {
+			v.Log.Info("Version requires NMA sidecar but it isn't present in pod's spec. Requeue to force recreation of the pod spec.",
+				"version", vinf)
+			return ctrl.Result{Requeue: true}, nil
+		}
+	} else {
+		if pf.hasNMASidecar {
+			v.Log.Info("Version cannot run NMA sidecar but it is present in pod's spec. Requeue to force recreation of the pod spec.",
+				"version", vinf)
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // logWarningIfVersionDoesNotSupportCGroupV2 will log a warning if it detects a
@@ -180,7 +190,7 @@ func (v *ImageVersionReconciler) reconcileVersion(ctx context.Context, pod *PodF
 
 // getVersion will get the Vertica version from the running pod.
 func (v *ImageVersionReconciler) getVersion(ctx context.Context, pod *PodFact) (string, error) {
-	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, "/opt/vertica/bin/vertica", "--version")
+	stdout, _, err := v.PRunner.ExecInPod(ctx, pod.name, pod.execContainerName, "/opt/vertica/bin/vertica", "--version")
 	if err != nil {
 		return "", err
 	}
@@ -228,13 +238,17 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 
 	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		if pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for vclusterops deployments")
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+				"Image cannot be used for vclusterops deployments. Change the deployment by changing the %s annotation",
+				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for admintools style of deployments and cannot be used for vclusterops",
 				v.Vdb.Spec.Image)
 		}
 	} else {
 		if !pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage, "Image cannot be used for admintools deployments")
+			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+				"Image cannot be used for admintools deployments. Change the deployment by changing the %s annotation",
+				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for vclusterops style of deployments and cannot be used for admintools",
 				v.Vdb.Spec.Image)
 		}

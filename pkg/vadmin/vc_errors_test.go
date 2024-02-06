@@ -95,4 +95,16 @@ var _ = Describe("verrors suite", func() {
 		Ω(err).Should(BeNil())
 	})
 
+	It("should handle re-ip no cluster quorum error", func() {
+		vce := vcErrors{
+			Log:      logger,
+			EVWriter: &aterrors.TestEVWriter{},
+			VDB:      vapi.MakeVDB(),
+		}
+		origErr := &vclusterops.ReIPNoClusterQuorumError{Detail: "no cluster quorum"}
+		res, err := vce.LogFailure("test re-ip no cluster quorum error", origErr)
+		Ω(res).Should(Equal(ctrl.Result{Requeue: true}))
+		Ω(err).Should(BeNil())
+	})
+
 })
