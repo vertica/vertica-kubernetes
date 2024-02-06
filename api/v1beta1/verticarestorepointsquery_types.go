@@ -37,7 +37,7 @@ type VerticaRestorePointsQuerySpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Optional parameter that will limit the query to only restore points
-	// from this archvie
+	// from this archive
 	ArchiveName string `json:"archiveName"`
 }
 

@@ -38,4 +38,15 @@ kind: VerticaRestorePointsQuery
 metadata:
   name: archive-query
 status:
+  restorePoints:
+    - archive: db
+      index: 1
+    - archive: db
+      index: 2
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
+metadata:
+  name: archive-query
+status:
   state: "Query successful"

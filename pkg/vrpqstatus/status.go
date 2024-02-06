@@ -61,28 +61,21 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi
 	})
 }
 
-// UpdateConditionAndState will update a condition and state status
-// This is a no-op if the status condition is already set.  The input vrpq will
+// UpdateStatusForRestorePointsQuery will update a condition, state and restore points status
+// This is a no-op if the status condition is already set. The input vrpq will
 // be updated with the status condition.
-func UpdateConditionAndState(ctx context.Context, clnt client.Client, log logr.Logger,
-	vrpq *vapi.VerticaRestorePointsQuery, condition *metav1.Condition, state string) error {
-	// refreshConditionInPlace will update the status condition in vrpq.  The update
-	// will be applied in-place.
+func UpdateStatusForRestorePointsQuery(ctx context.Context, clnt client.Client, log logr.Logger,
+	vrpq *vapi.VerticaRestorePointsQuery, conditions []*metav1.Condition, state string,
+	restorePoints []vclusterops.RestorePoint) error {
+	// refreshConditionInPlace will update the status condition, state and
+	// restore points in vrpq.  The update will be applied in-place.
 	refreshConditionInPlace := func(vrpq *vapi.VerticaRestorePointsQuery) error {
 		if vrpq.Status.State != state {
 			vrpq.Status.State = state
 		}
-		meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
-		return nil
-	}
-	return Update(ctx, clnt, log, vrpq, refreshConditionInPlace)
-}
-
-// UpdateRestorePointStatus will update the restore points status. The input vrpq
-// will be updated with restore points
-func UpdateRestorePointStatus(ctx context.Context, clnt client.Client, log logr.Logger,
-	vrpq *vapi.VerticaRestorePointsQuery, restorePoints []vclusterops.RestorePoint) error {
-	return Update(ctx, clnt, log, vrpq, func(vrpq *vapi.VerticaRestorePointsQuery) error {
+		for _, condition := range conditions {
+			meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
+		}
 		if len(vrpq.Status.RestorePoints) < len(restorePoints) {
 			vrpq.Status.RestorePoints = make([]vapi.RestorePoint, len(restorePoints))
 		}
@@ -93,5 +86,6 @@ func UpdateRestorePointStatus(ctx context.Context, clnt client.Client, log logr.
 			vrpq.Status.RestorePoints[i].Timestamp = restorePoints[i].Timestamp
 		}
 		return nil
-	})
+	}
+	return Update(ctx, clnt, log, vrpq, refreshConditionInPlace)
 }
