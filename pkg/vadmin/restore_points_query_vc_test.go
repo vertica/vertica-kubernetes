@@ -67,7 +67,7 @@ var _ = Describe("restore_points_vc", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 
-		err := dispatcher.ShowRestorePoints(ctx,
+		_, err := dispatcher.ShowRestorePoints(ctx,
 			showrestorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
 			showrestorepoints.WithCommunalPath(TestCommunalPath),
 			showrestorepoints.WithConfigurationParams(TestCommunalStorageParams))

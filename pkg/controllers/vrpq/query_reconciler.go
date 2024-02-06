@@ -139,7 +139,7 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	q.VRec.Eventf(q.Vrpq, corev1.EventTypeNormal, events.ShowRestorePointsStarted,
 		"Starting show restore points")
 	start := time.Now()
-	errRun := dispatcher.ShowRestorePoints(ctx, opts...)
+	restorePoints, errRun := dispatcher.ShowRestorePoints(ctx, opts...)
 	if errRun != nil {
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.ShowRestorePointsFailed, "Failed when calling show restore points")
 		err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
@@ -151,6 +151,12 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	}
 	q.VRec.Eventf(q.Vrpq, corev1.EventTypeNormal, events.ShowRestorePointsSucceeded,
 		"Successfully queried restore points in %s", time.Since(start).Truncate(time.Second))
+
+	err = vrpqstatus.UpdateRestorePointStatus(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+		restorePoints)
+	if err != nil {
+		return err
+	}
 
 	// clear Querying status condition
 	err = vrpqstatus.UpdateConditionAndState(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,

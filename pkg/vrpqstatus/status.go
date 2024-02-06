@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	"github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -75,4 +76,22 @@ func UpdateConditionAndState(ctx context.Context, clnt client.Client, log logr.L
 		return nil
 	}
 	return Update(ctx, clnt, log, vrpq, refreshConditionInPlace)
+}
+
+// UpdateRestorePointStatus will update the restore points status. The input vrpq
+// will be updated with restore points
+func UpdateRestorePointStatus(ctx context.Context, clnt client.Client, log logr.Logger,
+	vrpq *vapi.VerticaRestorePointsQuery, restorePoints []vclusterops.RestorePoint) error {
+	return Update(ctx, clnt, log, vrpq, func(vrpq *vapi.VerticaRestorePointsQuery) error {
+		if len(vrpq.Status.RestorePoints) < len(restorePoints) {
+			vrpq.Status.RestorePoints = make([]vapi.RestorePoint, len(restorePoints))
+		}
+		for i := range restorePoints {
+			vrpq.Status.RestorePoints[i].Archive = restorePoints[i].Archive
+			vrpq.Status.RestorePoints[i].ID = restorePoints[i].ID
+			vrpq.Status.RestorePoints[i].Index = restorePoints[i].Index
+			vrpq.Status.RestorePoints[i].Timestamp = restorePoints[i].Timestamp
+		}
+		return nil
+	})
 }

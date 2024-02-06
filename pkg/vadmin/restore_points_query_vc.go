@@ -27,26 +27,26 @@ import (
 
 // ShowRestorePoints can query the restore points from an archive. It can
 // show list restore points in a database
-func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) error {
+func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) (restorePoints []vops.RestorePoint, err error) {
 	v.setupForAPICall("ShowRestorePoints")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster ShowRestorePoints")
 
 	certs, err := v.retrieveNMACerts(ctx)
 	if err != nil {
-		return err
+		return restorePoints, err
 	}
 
 	s := showrestorepoints.Parms{}
 	s.Make(opts...)
 
 	vcOpts := v.genRestorePointsOptions(&s, certs)
-	_, err = v.VShowRestorePoints(vcOpts)
+	restorepoints, err := v.VShowRestorePoints(vcOpts)
 	if err != nil {
-		return fmt.Errorf("failed to show restore points: %w", err)
+		return restorePoints, fmt.Errorf("failed to show restore points: %w", err)
 	}
 
-	return nil
+	return restorepoints, nil
 }
 
 func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs *HTTPSCerts) *vops.VShowRestorePointsOptions {

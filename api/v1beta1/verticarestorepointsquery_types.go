@@ -53,7 +53,30 @@ type VerticaRestorePointsQueryStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Status message for running query
-	State string `json:"state"`
+	State string `json:"state,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// RestorePoint contains information about a single restore point
+	RestorePoints []RestorePoint `json:"restorePoints,omitempty"`
+}
+
+// SubclusterStatus defines the per-subcluster status that we track
+type RestorePoint struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the archive that this restore point was created in.
+	Archive string `json:"archive"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The ID of the restore point. This is a form of a UID that is static for the restore point.
+	ID string `json:"id"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// This changes when new restore points are created.
+	Index int `json:"index"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The timestamp when the restore point was created.
+	Timestamp string `json:"timestamp"`
 }
 
 const (
