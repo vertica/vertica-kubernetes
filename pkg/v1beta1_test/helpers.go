@@ -54,3 +54,11 @@ func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 func DeleteVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	ExpectWithOffset(1, c.Delete(ctx, vdb)).Should(Succeed())
 }
+
+func CreateVSCR(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize) {
+	ExpectWithOffset(1, c.Create(ctx, vscr)).Should(Succeed())
+}
+
+func DeleteVSCR(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize) {
+	ExpectWithOffset(1, c.Delete(ctx, vscr)).Should(Succeed())
+}

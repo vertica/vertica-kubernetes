@@ -33,15 +33,13 @@ import (
 
 	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
-	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/util"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 )
@@ -260,26 +258,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *VerticaDBReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *vapi.VerticaDB) (string, error) {
-	if vdb.Spec.PasswordSecret == "" {
-		return "", nil
-	}
-
-	fetcher := cloud.VerticaDBSecretFetcher{
-		Client:   r.Client,
-		Log:      log,
-		VDB:      vdb,
-		EVWriter: r,
-	}
-	secret, err := fetcher.Fetch(ctx, names.GenSUPasswdSecretName(vdb))
-	if err != nil {
-		return "", err
-	}
-
-	pwd, ok := secret[builder.SuperuserPasswordKey]
-	if !ok {
-		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
-	}
-	return string(pwd), nil
+	return util.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
 }
 
 // checkShardToNodeRatio will check the subclusters ratio of shards to node.  If

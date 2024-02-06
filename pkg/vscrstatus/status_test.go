@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vdbstatus
+package vscrstatus
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,7 +55,7 @@ var _ = BeforeSuite(func() {
 	ExpectWithOffset(1, cfg).NotTo(BeNil())
 	restCfg := cfg
 
-	err = vapi.AddToScheme(scheme.Scheme)
+	err = v1beta1.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
@@ -70,44 +71,42 @@ var _ = AfterSuite(func() {
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "vdbstatus Suite")
+	RunSpecs(t, "vscrstatus Suite")
 }
 
 var _ = Describe("status", func() {
 	ctx := context.Background()
 
 	It("should update status condition when no conditions have been set", func() {
-		vdb := vapi.MakeVDB()
-		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+		vscr := v1beta1.MakeVscr()
+		Expect(k8sClient.Create(ctx, vscr)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
-		cond := vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionTrue, "")
-		Expect(UpdateCondition(ctx, k8sClient, vdb, cond)).Should(Succeed())
-		fetchVdb := &vapi.VerticaDB{}
-		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
-		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
-		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
+		cond := vapi.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "")
+		Expect(UpdateCondition(ctx, k8sClient, vscr, cond)).Should(Succeed())
+		fetchVscr := &v1beta1.VerticaScrutinize{}
+		Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), fetchVscr)).Should(Succeed())
+		for _, v := range []*v1beta1.VerticaScrutinize{vscr, fetchVscr} {
 			Expect(len(v.Status.Conditions)).Should(Equal(1))
 			Expect(v.Status.Conditions[0]).Should(test.EqualMetaV1Condition(*cond))
 		}
 	})
 
 	It("should be able to change an existing status condition", func() {
-		vdb := vapi.MakeVDB()
-		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+		vscr := v1beta1.MakeVscr()
+		Expect(k8sClient.Create(ctx, vscr)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
 		conds := []metav1.Condition{
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.UnknownReason},
+			{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
+			{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionFalse, Reason: vapi.UnknownReason},
 		}
 
 		for i := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, vdb, &conds[i])).Should(Succeed())
-			fetchVdb := &vapi.VerticaDB{}
-			nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
-			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
-			for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
+			Expect(UpdateCondition(ctx, k8sClient, vscr, &conds[i])).Should(Succeed())
+			fetchVscr := &v1beta1.VerticaScrutinize{}
+			Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), fetchVscr)).Should(Succeed())
+			for _, v := range []*v1beta1.VerticaScrutinize{vscr, fetchVscr} {
 				Expect(len(v.Status.Conditions)).Should(Equal(1))
 				Expect(v.Status.Conditions[0]).Should(test.EqualMetaV1Condition(conds[i]))
 			}
@@ -115,55 +114,54 @@ var _ = Describe("status", func() {
 	})
 
 	It("should be able to handle multiple status conditions", func() {
-		vdb := vapi.MakeVDB()
-		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+		vscr := v1beta1.MakeVscr()
+		Expect(k8sClient.Create(ctx, vscr)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
 		conds := []metav1.Condition{
-			{Type: vapi.DBInitialized, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
-			{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, Reason: vapi.UnknownReason},
+			{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
+			{Type: v1beta1.ScrutinizeCollectionFinished, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
 		}
 
 		for i := range conds {
-			Expect(UpdateCondition(ctx, k8sClient, vdb, &conds[i])).Should(Succeed())
+			Expect(UpdateCondition(ctx, k8sClient, vscr, &conds[i])).Should(Succeed())
 		}
 
-		fetchVdb := &vapi.VerticaDB{}
-		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
-		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
-		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
+		fetchVscr := &v1beta1.VerticaScrutinize{}
+		nm := types.NamespacedName{Namespace: vscr.Namespace, Name: vscr.Name}
+		Expect(k8sClient.Get(ctx, nm, fetchVscr)).Should(Succeed())
+		for _, v := range []*v1beta1.VerticaScrutinize{vscr, fetchVscr} {
 			Expect(len(v.Status.Conditions)).Should(Equal(2))
 			Expect(v.Status.Conditions[0]).Should(test.EqualMetaV1Condition(conds[0]))
-			Expect(v.Status.Conditions[1]).Should(test.EqualMetaV1Condition(conds[2]))
+			Expect(v.Status.Conditions[1]).Should(test.EqualMetaV1Condition(conds[1]))
 		}
 	})
 
 	It("should change the lastTransitionTime when a status condition is changed", func() {
-		vdb := vapi.MakeVDB()
-		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+		vscr := v1beta1.MakeVscr()
+		Expect(k8sClient.Create(ctx, vscr)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
 		origTime := metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
-		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionFalse, LastTransitionTime: origTime,
+		Expect(UpdateCondition(ctx, k8sClient, vscr,
+			&metav1.Condition{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionFalse, LastTransitionTime: origTime,
 				Reason: vapi.UnknownReason},
 		)).Should(Succeed())
-		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			&metav1.Condition{Type: vapi.AutoRestartVertica, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
+		Expect(UpdateCondition(ctx, k8sClient, vscr,
+			&metav1.Condition{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
 		)).Should(Succeed())
-		Expect(vdb.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
+		Expect(vscr.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
 
 	It("should return false in IsStatusConditionTrue if condition isn't present", func() {
-		vdb := vapi.MakeVDB()
-		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+		vscr := v1beta1.MakeVscr()
+		Expect(k8sClient.Create(ctx, vscr)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
-		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeFalse())
-		Expect(UpdateCondition(ctx, k8sClient, vdb,
-			&metav1.Condition{Type: vapi.VerticaRestartNeeded, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
+		Expect(vscr.IsStatusConditionTrue(v1beta1.ScrutinizePodCreated)).Should(BeFalse())
+		Expect(UpdateCondition(ctx, k8sClient, vscr,
+			&metav1.Condition{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
 		)).Should(Succeed())
-		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeTrue())
+		Expect(vscr.IsStatusConditionTrue(v1beta1.ScrutinizePodCreated)).Should(BeTrue())
 	})
 })

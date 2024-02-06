@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -24,9 +25,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/go-logr/logr"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
@@ -41,6 +44,7 @@ type VerticaScrutinizeReconciler struct {
 //+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/finalizers,verbs=update
+//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -55,7 +59,7 @@ func (r *VerticaScrutinizeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	log := r.Log.WithValues("vscr", req.NamespacedName)
 	log.Info("starting reconcile of vertica scrutinize")
 
-	vscr := &vapi.VerticaScrutinize{}
+	vscr := &v1beta1.VerticaScrutinize{}
 	err := r.Get(ctx, req.NamespacedName, vscr)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -86,22 +90,50 @@ func (r *VerticaScrutinizeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}
 
+	log.Info("ending reconcile of VerticaScrutinize", "result", res, "err", err)
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaScrutinizeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&vapi.VerticaScrutinize{}).
+		For(&v1beta1.VerticaScrutinize{}).
+		Owns(&v1.VerticaDB{}).
+		Owns(&corev1.Pod{}).
 		Complete(r)
 }
 
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
-func (r *VerticaScrutinizeReconciler) constructActors(_ *vapi.VerticaScrutinize,
-	_ logr.Logger) []controllers.ReconcileActor {
+func (r *VerticaScrutinizeReconciler) constructActors(vscr *v1beta1.VerticaScrutinize,
+	log logr.Logger) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vscr.
-	// Temporarily, we set nil value for constructActors
-	return nil
+	return []controllers.ReconcileActor{
+		MakeVDBVerifyReconciler(r, vscr, log),
+		MakeScrutinizePodReconciler(r, vscr, log),
+	}
+}
+
+// Event a wrapper for Event() that also writes a log entry
+func (r *VerticaScrutinizeReconciler) Event(vdb runtime.Object, eventtype, reason, message string) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Event(vdb, eventtype, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (r *VerticaScrutinizeReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
+}
+
+// GetClient gives access to the Kubernetes client
+func (r *VerticaScrutinizeReconciler) GetClient() client.Client {
+	return r.Client
 }

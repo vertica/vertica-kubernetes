@@ -16,7 +16,10 @@ limitations under the License.
 
 package v1beta1
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+)
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
 // This structure is used in some CRs fields to define the "Affinity".
@@ -37,4 +40,16 @@ type Affinity struct {
 	// Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
 	// +optional
 	PodAntiAffinity *corev1.PodAntiAffinity `json:"podAntiAffinity,omitempty" protobuf:"bytes,3,opt,name=podAntiAffinity"`
+}
+
+// IsStatusConditionTrue returns true when the conditionType is present and set to
+// `metav1.ConditionTrue`
+func (vscr *VerticaScrutinize) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vscr.Status.Conditions, statusCondition)
+}
+
+// IsStatusConditionFalse returns true when the conditionType is present and set to
+// `metav1.ConditionFalse`
+func (vscr *VerticaScrutinize) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vscr.Status.Conditions, statusCondition)
 }

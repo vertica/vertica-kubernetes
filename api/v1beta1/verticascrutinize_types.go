@@ -149,6 +149,13 @@ func (vscr *VerticaScrutinize) ExtractNamespacedName() types.NamespacedName {
 	}
 }
 
+func (vscr *VerticaScrutinize) ExtractVDBNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      vscr.Spec.VerticaDBName,
+		Namespace: vscr.ObjectMeta.Namespace,
+	}
+}
+
 func MakeSampleVscrName() types.NamespacedName {
 	return types.NamespacedName{Name: "vscr-sample", Namespace: "default"}
 }
@@ -171,4 +178,20 @@ func MakeVscr() *VerticaScrutinize {
 			VerticaDBName: VDBNm.Name,
 		},
 	}
+}
+
+func (vscr *VerticaScrutinize) GetLabels() map[string]string {
+	labels := make(map[string]string, len(vscr.Spec.Labels))
+	for k, v := range vscr.Spec.Labels {
+		labels[k] = v
+	}
+	return labels
+}
+
+func (vscr *VerticaScrutinize) GetAnnotations() map[string]string {
+	annotations := make(map[string]string, len(vscr.Spec.Annotations))
+	for k, v := range vscr.Spec.Annotations {
+		annotations[k] = v
+	}
+	return annotations
 }

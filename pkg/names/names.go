@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	ServerContainer = "server"
-	NMAContainer    = "nma"
+	ServerContainer         = "server"
+	NMAContainer            = "nma"
+	ScrutinizeInitContainer = "scrutinize"
+	ScrutinizeMainContainer = "main"
 )
 
 const (
