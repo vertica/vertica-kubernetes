@@ -129,7 +129,7 @@ func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (res ctrl.Resu
 func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher vadmin.Dispatcher,
 	opts []showrestorepoints.Option) (err error) {
 	// set Querying status condition ,state and restore points prior to calling vclusterops API
-	err = vrpqstatus.UpdateStatusForRestorePointsQuery(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+	err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		[]*metav1.Condition{v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "Started")}, stateQuerying, nil)
 	if err != nil {
 		return err
@@ -142,7 +142,7 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	restorePoints, errRun := dispatcher.ShowRestorePoints(ctx, opts...)
 	if errRun != nil {
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.ShowRestorePointsFailed, "Failed when calling show restore points")
-		err = vrpqstatus.UpdateStatusForRestorePointsQuery(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 			[]*metav1.Condition{v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Failed")}, stateFailedQuery, nil)
 		if err != nil {
 			errRun = errors.Join(errRun, err)
@@ -154,7 +154,7 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 
 	// clear Querying status condition, set the QueryComplete if the vclusterops API succeeded
 	// and copy the result of the query into the CRs restore points status
-	return vrpqstatus.UpdateStatusForRestorePointsQuery(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+	return vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 		[]*metav1.Condition{v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Completed"),
 			v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "Completed")}, stateSuccessQuery, restorePoints)
 }

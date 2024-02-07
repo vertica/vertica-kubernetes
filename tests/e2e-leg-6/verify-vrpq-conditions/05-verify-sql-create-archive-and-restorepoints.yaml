@@ -1,0 +1,79 @@
+# (c) Copyright [2021-2023] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Verifies access to the external service through port 5433.  It does this
+# by connecting using vsql
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-vrpq-create-archive-and-restorepoints
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    set -o errexit
+    set -o xtrace
+
+    POD_NAME=archive-query-sc1-0
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"CREATE TABLE public.test_table (val INTEGER);\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"INSERT INTO public.test_table VALUES (99); COMMIT;\""
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")
+    echo "$result" | grep -Pzo "^99\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 99, got $result"
+      exit 1
+    fi
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"CREATE ARCHIVE db;\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SAVE RESTORE POINT TO ARCHIVE db;\""
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SELECT COUNT(*) FROM archive_restore_points;\"")
+    echo "$result" | grep -Pzo "^1\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 1, got $result"
+      exit 1
+    fi
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"INSERT INTO public.test_table VALUES (100); COMMIT;\""
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SELECT * FROM public.test_table ORDER BY val;\"")
+    echo "$result" | grep -Pzo "^99\n100\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected lines containing 99 and 100"
+      exit 1
+    fi
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SAVE RESTORE POINT TO ARCHIVE db;\""
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SELECT COUNT(*) FROM archive_restore_points;\"")
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 2, got $result"
+      exit 1
+    fi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-verify-vrpq-create-archive-and-restorepoints
+  labels:
+    stern: include
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: bitnami/kubectl:1.20.4
+      command: ["/bin/entrypoint.sh"]
+      volumeMounts:
+        - name: entrypoint-volume
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+  volumes:
+    - name: entrypoint-volume
+      configMap:
+        defaultMode: 0777
+        name: script-vrpq-create-archive-and-restorepoints

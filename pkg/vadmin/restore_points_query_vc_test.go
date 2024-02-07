@@ -48,6 +48,11 @@ func (m *MockVClusterOps) VShowRestorePoints(options *vops.VShowRestorePointsOpt
 		return restorePoints, err
 	}
 
+	// Dummy restore points data for testing
+	restorePoints = []vops.RestorePoint{
+		{Archive: "db", Timestamp: "2024-02-06 07:25:07.437957", ID: "1465516c-e207-4d33-ae62-ce7cd5cfe8d0", Index: 1},
+	}
+
 	return restorePoints, nil
 }
 
@@ -72,6 +77,8 @@ var _ = Describe("restore_points_vc", func() {
 			showrestorepoints.WithCommunalPath(TestCommunalPath),
 			showrestorepoints.WithConfigurationParams(TestCommunalStorageParams))
 		Ω(err).Should(Succeed())
-		Ω(len(showRestorePoints)).Should(Equal(0))
+		Ω(len(showRestorePoints)).Should(Equal(1))
+		Ω(showRestorePoints[0].Archive).Should(Equal("db"))
+		Ω(showRestorePoints[0].Index).Should(Equal(1))
 	})
 })

@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi.VerticaRestorePointsQuery,
+func updateImpl(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi.VerticaRestorePointsQuery,
 	updateFunc func(*vapi.VerticaRestorePointsQuery) error) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
@@ -61,10 +61,10 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi
 	})
 }
 
-// UpdateStatusForRestorePointsQuery will update a condition, state and restore points status
+// Update will update a condition, state and restore points status
 // This is a no-op if the status condition is already set. The input vrpq will
 // be updated with the status condition.
-func UpdateStatusForRestorePointsQuery(ctx context.Context, clnt client.Client, log logr.Logger,
+func Update(ctx context.Context, clnt client.Client, log logr.Logger,
 	vrpq *vapi.VerticaRestorePointsQuery, conditions []*metav1.Condition, state string,
 	restorePoints []vclusterops.RestorePoint) error {
 	// refreshConditionInPlace will update the status condition, state and
@@ -76,16 +76,8 @@ func UpdateStatusForRestorePointsQuery(ctx context.Context, clnt client.Client, 
 		for _, condition := range conditions {
 			meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
 		}
-		if len(vrpq.Status.RestorePoints) < len(restorePoints) {
-			vrpq.Status.RestorePoints = make([]vapi.RestorePoint, len(restorePoints))
-		}
-		for i := range restorePoints {
-			vrpq.Status.RestorePoints[i].Archive = restorePoints[i].Archive
-			vrpq.Status.RestorePoints[i].ID = restorePoints[i].ID
-			vrpq.Status.RestorePoints[i].Index = restorePoints[i].Index
-			vrpq.Status.RestorePoints[i].Timestamp = restorePoints[i].Timestamp
-		}
+		vrpq.Status.RestorePoints = restorePoints
 		return nil
 	}
-	return Update(ctx, clnt, log, vrpq, refreshConditionInPlace)
+	return updateImpl(ctx, clnt, log, vrpq, refreshConditionInPlace)
 }

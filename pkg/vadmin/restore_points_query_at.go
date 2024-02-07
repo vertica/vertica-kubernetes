@@ -24,5 +24,5 @@ import (
 )
 
 func (a *Admintools) ShowRestorePoints(_ context.Context, _ ...showrestorepoints.Option) ([]vops.RestorePoint, error) {
-	return []vops.RestorePoint{}, errors.New("ShowRestorePoints is not supported for admintools deployments")
+	return nil, errors.New("ShowRestorePoints is not supported for admintools deployments")
 }

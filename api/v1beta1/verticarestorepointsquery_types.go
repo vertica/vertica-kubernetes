@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/vertica/vcluster/vclusterops"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,27 +57,9 @@ type VerticaRestorePointsQueryStatus struct {
 	State string `json:"state,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// RestorePoint contains information about a single restore point
-	RestorePoints []RestorePoint `json:"restorePoints,omitempty"`
-}
-
-// SubclusterStatus defines the per-subcluster status that we track
-type RestorePoint struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Name of the archive that this restore point was created in.
-	Archive string `json:"archive"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The ID of the restore point. This is a form of a UID that is static for the restore point.
-	ID string `json:"id"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// This changes when new restore points are created.
-	Index int `json:"index"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// The timestamp when the restore point was created.
-	Timestamp string `json:"timestamp"`
+	// This contains the result of the restore points query. Check the QueryComplete
+	// status condition to know when this has been populated by the operator.
+	RestorePoints []vclusterops.RestorePoint `json:"restorePoints,omitempty"`
 }
 
 const (
