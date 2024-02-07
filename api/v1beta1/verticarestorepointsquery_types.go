@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/vertica/vcluster/vclusterops"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,7 +38,7 @@ type VerticaRestorePointsQuerySpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Optional parameter that will limit the query to only restore points
-	// from this archvie
+	// from this archive
 	ArchiveName string `json:"archiveName"`
 }
 
@@ -53,7 +54,12 @@ type VerticaRestorePointsQueryStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Status message for running query
-	State string `json:"state"`
+	State string `json:"state,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// This contains the result of the restore points query. Check the QueryComplete
+	// status condition to know when this has been populated by the operator.
+	RestorePoints []vclusterops.RestorePoint `json:"restorePoints,omitempty"`
 }
 
 const (
