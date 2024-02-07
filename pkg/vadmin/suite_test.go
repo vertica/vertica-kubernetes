@@ -90,7 +90,8 @@ func mockAdmintoolsDispatcher() (*Admintools, *vapi.VerticaDB, *cmds.FakePodRunn
 // MockVClusterOps is used to invoke mock vcluster-ops functions
 type MockVClusterOps struct {
 	// Set this to true if you want VCreateDatabase to return the DBIsRunningError
-	ReturnDBIsRunning bool
+	ReturnDBIsRunning               bool
+	VerifyTimeoutNodeStartupSeconds bool
 	// Set this to true if you want VStartNodes to return the ReIPNoClusterQuorumError
 	ReturnReIPNoClusterQuorum bool
 }

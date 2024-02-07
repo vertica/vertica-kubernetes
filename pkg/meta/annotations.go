@@ -77,6 +77,10 @@ const (
 	// entire cluster.  If omitted, we use the default timeout of 20 minutes.
 	RestartTimeoutAnnotation = "vertica.com/restart-timeout"
 
+	// The timeout, in seconds, to use when the operator creates a db and
+	// waits for its startup.  If omitted, we use the default timeout of 5 minutes.
+	CreateDBTimeoutAnnotation = "vertica.com/createdb-timeout"
+
 	// Sets the fault tolerance for the cluster.  Allowable values are 0 or 1.  0 is only
 	// suitable for test environments because we have no fault tolerance and the cluster
 	// can only have between 1 and 3 pods.  If set to 1, which is the default,
@@ -233,6 +237,12 @@ func IgnoreUpgradePath(annotations map[string]string) bool {
 // 0 is returned, this means to use the default.
 func GetRestartTimeout(annotations map[string]string) int {
 	return lookupIntAnnotation(annotations, RestartTimeoutAnnotation)
+}
+
+// GetCreateDBNodeStartTimeout returns the timeout to use for create db node startup. If
+// 0 is returned, this means to use the default.
+func GetCreateDBNodeStartTimeout(annotations map[string]string) int {
+	return lookupIntAnnotation(annotations, CreateDBTimeoutAnnotation)
 }
 
 // IsKSafety0 returns true if k-safety is set to 0. False implies 1.

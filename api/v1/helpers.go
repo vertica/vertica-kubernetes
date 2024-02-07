@@ -396,6 +396,11 @@ func (v *VerticaDB) GetRestartTimeout() int {
 	return vmeta.GetRestartTimeout(v.Annotations)
 }
 
+// GetCreateDBNodeStartTimeout returns the timeout value for createdb node startup
+func (v *VerticaDB) GetCreateDBNodeStartTimeout() int {
+	return vmeta.GetCreateDBNodeStartTimeout(v.Annotations)
+}
+
 // IsNMASideCarDeploymentEnabled returns true if the conditions to run NMA
 // in a sidecar are met
 func (v *VerticaDB) IsNMASideCarDeploymentEnabled() bool {
