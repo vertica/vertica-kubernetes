@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	"github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi.VerticaRestorePointsQuery,
+func updateImpl(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi.VerticaRestorePointsQuery,
 	updateFunc func(*vapi.VerticaRestorePointsQuery) error) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
@@ -60,19 +61,23 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger, vrpq *vapi
 	})
 }
 
-// UpdateConditionAndState will update a condition and state status
-// This is a no-op if the status condition is already set.  The input vrpq will
+// Update will update a condition, state and restore points status
+// This is a no-op if the status condition is already set. The input vrpq will
 // be updated with the status condition.
-func UpdateConditionAndState(ctx context.Context, clnt client.Client, log logr.Logger,
-	vrpq *vapi.VerticaRestorePointsQuery, condition *metav1.Condition, state string) error {
-	// refreshConditionInPlace will update the status condition in vrpq.  The update
-	// will be applied in-place.
+func Update(ctx context.Context, clnt client.Client, log logr.Logger,
+	vrpq *vapi.VerticaRestorePointsQuery, conditions []*metav1.Condition, state string,
+	restorePoints []vclusterops.RestorePoint) error {
+	// refreshConditionInPlace will update the status condition, state and
+	// restore points in vrpq.  The update will be applied in-place.
 	refreshConditionInPlace := func(vrpq *vapi.VerticaRestorePointsQuery) error {
 		if vrpq.Status.State != state {
 			vrpq.Status.State = state
 		}
-		meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
+		for _, condition := range conditions {
+			meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
+		}
+		vrpq.Status.RestorePoints = restorePoints
 		return nil
 	}
-	return Update(ctx, clnt, log, vrpq, refreshConditionInPlace)
+	return updateImpl(ctx, clnt, log, vrpq, refreshConditionInPlace)
 }

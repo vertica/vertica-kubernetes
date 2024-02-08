@@ -87,7 +87,7 @@ type Dispatcher interface {
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
 
 	// ShowRestorePoints will list existing restore points in a database
-	ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) error
+	ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) ([]vops.RestorePoint, error)
 }
 
 const (
