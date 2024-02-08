@@ -22,6 +22,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,19 +35,27 @@ type ScrutinizePodReconciler struct {
 	VRec *VerticaScrutinizeReconciler
 	Vscr *v1beta1.VerticaScrutinize
 	Log  logr.Logger
+	VInf *version.Info
 }
 
 // MakeScrutinizePodReconciler will build a ScrutinizePodReconciler object
 func MakeScrutinizePodReconciler(r *VerticaScrutinizeReconciler, vscr *v1beta1.VerticaScrutinize,
-	log logr.Logger) controllers.ReconcileActor {
+	log logr.Logger, vinf *version.Info) controllers.ReconcileActor {
 	return &ScrutinizePodReconciler{
 		VRec: r,
 		Vscr: vscr,
-		Log:  log,
+		Log:  log.WithName("ScrutinizePodReconciler"),
+		VInf: vinf,
 	}
 }
 
 func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// At this point we already know the server version from the previous
+	// reconciler so we exit if the version does not support vclusterops
+	if s.VInf.IsOlder(v1.VcluseropsAsDefaultDeploymentMethodMinVersion) {
+		return ctrl.Result{}, nil
+	}
+
 	isSet := s.Vscr.IsStatusConditionTrue(v1beta1.ScrutinizePodCreated)
 	if isSet {
 		return ctrl.Result{}, nil
@@ -55,21 +65,7 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	if res, err := s.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-
-	pod := builder.BuildScrutinizePod(s.Vscr)
-	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
-	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	err = s.VRec.Client.Create(ctx, pod)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	s.Log.Info("Scrutinize pod created successfully")
-	err = vscrstatus.UpdateCondition(ctx, s.VRec.Client, s.Vscr,
-		v1.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "PodCreated"))
-	return ctrl.Result{}, err
+	return ctrl.Result{}, s.createPod(ctx)
 }
 
 // collectInfoFromVdb pull data from the VerticaDB so that we can provide all of the parameters
@@ -78,8 +74,28 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
 	vdb := &v1.VerticaDB{}
 
-	if res, err := fetchVDB(ctx, s.VRec, s.Vscr, vdb); verrors.IsReconcileAborted(res, err) {
+	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, s.Vscr.ExtractVDBNamespacedName(), vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	return ctrl.Result{}, nil
+}
+
+// createPod creates the scrutinize pod
+func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
+	pod := builder.BuildScrutinizePod(s.Vscr)
+	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
+	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
+	if err != nil {
+		return err
+	}
+	err = s.VRec.Client.Create(ctx, pod)
+	if err != nil {
+		return err
+	}
+	s.Log.Info("Scrutinize pod created successfully")
+	stat := &v1beta1.VerticaScrutinizeStatus{}
+	stat.PodName = pod.Name
+	stat.PodUID = pod.UID
+	stat.Conditions = []metav1.Condition{*v1.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "PodCreated")}
+	return vscrstatus.UpdateStatus(ctx, s.VRec.Client, s.Vscr, stat)
 }

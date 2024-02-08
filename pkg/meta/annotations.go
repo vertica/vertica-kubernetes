@@ -197,6 +197,15 @@ const (
 	NMAHealthProbeInitialDelaySeconds = "initial-delay-seconds"
 	//
 	// Use GenNMAHealthProbeAnnotationName to generate the name.
+
+	// Set of annotations for scrutinize
+	//
+	ScrutinizePodTimeToLive             = "vertica.com/scrutinize-pod-ttl"
+	ScrutinizePodTimeToLiveDefaultValue = 1800 // 30min
+	ScrutinizePodRestartPolicy          = "vertica.com/scrutinize-pod-restart-policy"
+	RestartPolicyAlways                 = "Always"
+	RestartPolicyOnFailure              = "OnFailure"
+	RestartPolicyNever                  = "Never"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -232,7 +241,7 @@ func IgnoreUpgradePath(annotations map[string]string) bool {
 // GetRestartTimeout returns the timeout to use for restart node or start db. If
 // 0 is returned, this means to use the default.
 func GetRestartTimeout(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, RestartTimeoutAnnotation)
+	return lookupIntAnnotation(annotations, RestartTimeoutAnnotation, 0 /* default value */)
 }
 
 // IsKSafety0 returns true if k-safety is set to 0. False implies 1.
@@ -243,13 +252,13 @@ func IsKSafety0(annotations map[string]string) bool {
 // GetRequeueTime returns the amount of seconds to wait between reconciliation
 // that are requeued. 0 means use the exponential backoff algorithm.
 func GetRequeueTime(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, RequeueTimeAnnotation)
+	return lookupIntAnnotation(annotations, RequeueTimeAnnotation, 0 /* default value */)
 }
 
 // GetUpgradeRequeueTime returns the amount of seconds to wait between
 // reconciliations during an upgrade.
 func GetUpgradeRequeueTime(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, UpgradeRequeueTimeAnnotation)
+	return lookupIntAnnotation(annotations, UpgradeRequeueTimeAnnotation, 0 /* default value */)
 }
 
 // GetSSHSecretName returns the name of the secret that contains SSH keys to use
@@ -283,7 +292,7 @@ func IsKSafetyCheckStrict(annotations map[string]string) bool {
 // termination grace period in vertica pods. This is the amount of time k8s will
 // wait before forcibly removing the pod.
 func GetTerminationGracePeriodSeconds(annotations map[string]string) int {
-	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotaton)
+	return lookupIntAnnotation(annotations, TerminationGracePeriodSecondsAnnotaton, 0 /* default value */)
 }
 
 // FailCreateDBIfVerticaIsRunning is used to see how to handle failures during create
@@ -367,6 +376,28 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 	return int32(convVal), true //nolint:gosec
 }
 
+// GetScrutinizePodTimeToLive returns the length of time the scrutinize
+// pod will be available after the init containers are completed
+func GetScrutinizePodTimeToLive(annotations map[string]string) int {
+	val := lookupIntAnnotation(annotations,
+		ScrutinizePodTimeToLive, ScrutinizePodTimeToLiveDefaultValue)
+	if val < 0 {
+		return ScrutinizePodTimeToLiveDefaultValue
+	}
+	return val
+}
+
+// GetScrutinizePodRestartPolicy returns the scrutinize pod restart policy
+func GetScrutinizePodRestartPolicy(annotations map[string]string) string {
+	policy := lookupStringAnnotation(annotations, ScrutinizePodRestartPolicy, RestartPolicyNever)
+	if policy == RestartPolicyNever ||
+		policy == RestartPolicyAlways ||
+		policy == RestartPolicyOnFailure {
+		return policy
+	}
+	return RestartPolicyNever
+}
+
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
 // treat it as if it were a boolean.
 func lookupBoolAnnotation(annotations map[string]string, annotation string, defaultValue bool) bool {
@@ -380,8 +411,7 @@ func lookupBoolAnnotation(annotations map[string]string, annotation string, defa
 	return defaultValue
 }
 
-func lookupIntAnnotation(annotations map[string]string, annotation string) int {
-	const defaultValue = 0
+func lookupIntAnnotation(annotations map[string]string, annotation string, defaultValue int) int {
 	if val, ok := annotations[annotation]; ok {
 		varAsInt, err := strconv.ParseInt(val, 10, 0)
 		if err != nil {

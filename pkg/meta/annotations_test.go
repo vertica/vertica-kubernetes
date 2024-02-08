@@ -92,4 +92,41 @@ var _ = Describe("annotations", func() {
 		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeSuccessThreshold)
 		Ω(ok).Should(BeFalse())
 	})
+
+	It("should return the scrutinize pod ttl based on the annotations map", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ScrutinizePodTimeToLiveDefaultValue))
+
+		ann = map[string]string{
+			ScrutinizePodTimeToLive: "-1",
+		}
+		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ScrutinizePodTimeToLiveDefaultValue))
+
+		ann = map[string]string{
+			ScrutinizePodTimeToLive: "not a number",
+		}
+		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ScrutinizePodTimeToLiveDefaultValue))
+
+		const ttlStr = "180"
+		const ttl = 180
+		ann = map[string]string{
+			ScrutinizePodTimeToLive: ttlStr,
+		}
+		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ttl))
+	})
+
+	It("should return the scrutinize pod restart policy based on the annotations map", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(RestartPolicyNever))
+
+		ann = map[string]string{
+			ScrutinizePodRestartPolicy: "wrong-policy",
+		}
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(RestartPolicyNever))
+
+		ann = map[string]string{
+			ScrutinizePodRestartPolicy: RestartPolicyAlways,
+		}
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(RestartPolicyAlways))
+	})
 })

@@ -19,10 +19,17 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
@@ -31,6 +38,7 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 )
 
 // VerticaScrutinizeReconciler reconciles a VerticaScrutinize object
@@ -41,10 +49,14 @@ type VerticaScrutinizeReconciler struct {
 	EVRec  record.EventRecorder
 }
 
+const (
+	vdbNameField = ".spec.verticaDBName"
+)
+
 //+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=vertica.com,resources=verticascrutinizers/finalizers,verbs=update
-//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;create;update;patch;delete
+//+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -98,9 +110,38 @@ func (r *VerticaScrutinizeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *VerticaScrutinizeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.VerticaScrutinize{}).
-		Owns(&v1.VerticaDB{}).
 		Owns(&corev1.Pod{}).
+		Watches(
+			&source.Kind{Type: &v1.VerticaDB{}},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForVerticaDB),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+// findObjectsForVerticaDB will generate requests to reconcile VerticaScrutiners
+// based on watched VerticaDB.
+func (r *VerticaScrutinizeReconciler) findObjectsForVerticaDB(vdb client.Object) []reconcile.Request {
+	scrutinizers := &v1beta1.VerticaScrutinizeList{}
+	listOps := &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(vdbNameField, vdb.GetName()),
+		Namespace:     vdb.GetNamespace(),
+	}
+	err := r.List(context.Background(), scrutinizers, listOps)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	requests := make([]reconcile.Request, len(scrutinizers.Items))
+	for i := range scrutinizers.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      scrutinizers.Items[i].GetName(),
+				Namespace: scrutinizers.Items[i].GetNamespace(),
+			},
+		}
+	}
+	return requests
 }
 
 // constructActors will a list of actors that should be run for the reconcile.
@@ -108,10 +149,11 @@ func (r *VerticaScrutinizeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // earlier ones.
 func (r *VerticaScrutinizeReconciler) constructActors(vscr *v1beta1.VerticaScrutinize,
 	log logr.Logger) []controllers.ReconcileActor {
+	vinf := &version.Info{}
 	// The actors that will be applied, in sequence, to reconcile a vscr.
 	return []controllers.ReconcileActor{
-		MakeVDBVerifyReconciler(r, vscr, log),
-		MakeScrutinizePodReconciler(r, vscr, log),
+		MakeVDBVerifyReconciler(r, vscr, log, vinf),
+		MakeScrutinizePodReconciler(r, vscr, log, vinf),
 	}
 }
 

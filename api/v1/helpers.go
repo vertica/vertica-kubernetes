@@ -121,6 +121,14 @@ func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	return vdb
 }
 
+// MakeVDBForVclusterOps is a helper that constructs a VerticaDB struct for
+// vclusterops. This is intended for test purposes.
+func MakeVDBForVclusterOps() *VerticaDB {
+	vdb := MakeVDB()
+	vdb.Annotations[vmeta.VersionAnnotation] = VcluseropsAsDefaultDeploymentMethodMinVersion
+	return vdb
+}
+
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	scMap := map[string]*Subcluster{}
@@ -607,5 +615,6 @@ func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
 // IsRestoreEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
 func (v *VerticaDB) IsRestoreEnabled() bool {
+	v.GetResourceVersion()
 	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
 }

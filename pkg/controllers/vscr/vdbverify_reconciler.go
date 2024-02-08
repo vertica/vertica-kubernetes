@@ -17,13 +17,16 @@ package vscr
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -33,11 +36,18 @@ type VDBVerifyReconciler struct {
 	Vscr *vapi.VerticaScrutinize
 	Vdb  *v1.VerticaDB
 	Log  logr.Logger
+	VInf *version.Info
 }
 
 func MakeVDBVerifyReconciler(r *VerticaScrutinizeReconciler, vscr *vapi.VerticaScrutinize,
-	log logr.Logger) controllers.ReconcileActor {
-	return &VDBVerifyReconciler{VRec: r, Vscr: vscr, Log: log, Vdb: &v1.VerticaDB{}}
+	log logr.Logger, vinf *version.Info) controllers.ReconcileActor {
+	return &VDBVerifyReconciler{
+		VRec: r,
+		Vscr: vscr,
+		Log:  log.WithName("VDBVerifyReconciler"),
+		Vdb:  &v1.VerticaDB{},
+		VInf: vinf,
+	}
 }
 
 // Reconcile will verify the VerticaDB in the Vscr CR exists
@@ -45,7 +55,7 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// This reconciler is intended to be the first thing we run.  We want early
 	// feedback if the VerticaDB that is referenced in the vscr doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.
-	if res, err := fetchVDB(ctx, s.VRec, s.Vscr, s.Vdb); verrors.IsReconcileAborted(res, err) {
+	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, s.Vscr.ExtractVDBNamespacedName(), s.Vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	return s.checkVersion()
@@ -60,10 +70,12 @@ func (s *VDBVerifyReconciler) checkVersion() (ctrl.Result, error) {
 		s.Log.Info("Vertica version is not available yet in the vdb, requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
 	}
+	s.VInf.Copy(vinf)
 	if vinf.IsOlder(v1.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 		ver, _ := s.Vdb.GetVerticaVersionStr()
-		return ctrl.Result{}, fmt.Errorf("the server version %s does not support vclusterops",
-			ver)
+		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			"the server version %s does not support vclusterops", ver)
+		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, nil
 }

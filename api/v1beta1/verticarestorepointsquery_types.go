@@ -100,6 +100,13 @@ func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedN
 	}
 }
 
+func (vrpq *VerticaRestorePointsQuery) ExtractVDBNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      vrpq.Spec.VerticaDBName,
+		Namespace: vrpq.ObjectMeta.Namespace,
+	}
+}
+
 func (vrpq *VerticaRestorePointsQuery) IsStatusConditionTrue(statusCondition string) bool {
 	return meta.IsStatusConditionTrue(vrpq.Status.Conditions, statusCondition)
 }

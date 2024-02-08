@@ -93,6 +93,14 @@ func (i *Info) IsEqual(other *Info) bool {
 	return i.IsEqualExceptPatch(other) && other.VdbPatch == i.VdbPatch
 }
 
+// Copy copies the parameter's fields into the receiver's
+func (i *Info) Copy(other *Info) {
+	i.VdbVer = other.VdbVer
+	i.VdbMajor = other.VdbMajor
+	i.VdbMinor = other.VdbMinor
+	i.VdbPatch = other.VdbPatch
+}
+
 // IsUnsupported returns true if the version in the vdb is unsupported by the operator.
 func (i *Info) IsUnsupported(minVersion string) bool {
 	return !i.IsSupported(minVersion)

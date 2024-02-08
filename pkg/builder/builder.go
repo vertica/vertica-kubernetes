@@ -79,8 +79,9 @@ const (
 	// Name of the volume shared by nma and vertica containers
 	startupConfMountName = "startup-conf"
 
-	// Name of the volume shared by containers in the scrutinize pod
-	scrutinizeMountName = "scrutinize"
+	// Scrutinize constants
+	scrutinizeMountName       = "scrutinize"
+	scrutinizeTermGracePeriod = 0
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -419,7 +420,7 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	return vols
 }
 
-// buildScrutinizeVolume returns an emptir volume for scrutinize if no volume was
+// buildScrutinizeVolume returns an emptyDir volume for scrutinize if no volume was
 // specified in the vscr CR. Otherwise the specified volume is returned
 func buildScrutinizeVolume(vscr *v1beta1.VerticaScrutinize) corev1.Volume {
 	if vscr.Spec.Volume == nil {
@@ -695,13 +696,16 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 
 // buildScrutinizePodSpec creates a PodSpec for the scrutinize pod
 func buildScrutinizePodSpec(vscr *v1beta1.VerticaScrutinize) corev1.PodSpec {
+	termGracePeriod := int64(scrutinizeTermGracePeriod)
 	return corev1.PodSpec{
-		NodeSelector:   vscr.Spec.NodeSelector,
-		Affinity:       GetK8sAffinity(vapi.Affinity(vscr.Spec.Affinity)),
-		Tolerations:    vscr.Spec.Tolerations,
-		InitContainers: makeScrutinizeInitContainers(vscr),
-		Containers:     []corev1.Container{makeScrutinizeMainContainer(vscr)},
-		Volumes:        []corev1.Volume{buildScrutinizeVolume(vscr)},
+		NodeSelector:                  vscr.Spec.NodeSelector,
+		Affinity:                      GetK8sAffinity(vapi.Affinity(vscr.Spec.Affinity)),
+		Tolerations:                   vscr.Spec.Tolerations,
+		InitContainers:                makeScrutinizeInitContainers(vscr),
+		Containers:                    []corev1.Container{makeScrutinizeMainContainer(vscr)},
+		Volumes:                       []corev1.Volume{buildScrutinizeVolume(vscr)},
+		TerminationGracePeriodSeconds: &termGracePeriod,
+		RestartPolicy:                 corev1.RestartPolicy(vmeta.GetScrutinizePodRestartPolicy(vscr.Annotations)),
 	}
 }
 
@@ -806,9 +810,8 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Contain
 		Command: []string{
 			"sh",
 			"-c",
-			"sleep infinity",
+			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTimeToLive(vscr.Annotations)),
 		},
-		Resources: vscr.Spec.Resources,
 	}
 }
 
@@ -1181,8 +1184,8 @@ func BuildScrutinizePod(vscr *v1beta1.VerticaScrutinize) *corev1.Pod {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vscr.Name,
 			Namespace:   vscr.Namespace,
-			Labels:      vscr.GetLabels(),
-			Annotations: vscr.GetAnnotations(),
+			Labels:      vscr.CopyLabels(),
+			Annotations: vscr.CopyAnnotations(),
 		},
 		Spec: buildScrutinizePodSpec(vscr),
 	}

@@ -24,6 +24,7 @@ import (
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	test "github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
+	"github.com/vertica/vertica-kubernetes/pkg/version"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -39,13 +40,13 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		test.CreateVSCR(ctx, k8sClient, vscr)
 		defer test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger)
+		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should fail if server version does not support vcluster", func() {
+	It("should return no error if server version does not support vcluster", func() {
 		vdb := v1beta1.MakeVDB()
 		vdb.Annotations[vmeta.VersionAnnotation] = "v23.4.0"
 		test.CreateVDB(ctx, k8sClient, vdb)
@@ -54,9 +55,9 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		test.CreateVSCR(ctx, k8sClient, vscr)
 		defer test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger)
+		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
 		_, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).ShouldNot(Succeed())
+		Expect(err).Should(Succeed())
 	})
 
 	It("should requeue if vdb does not have server version info yet", func() {
@@ -67,7 +68,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		test.CreateVSCR(ctx, k8sClient, vscr)
 		defer test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger)
+		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
@@ -78,7 +79,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		test.CreateVSCR(ctx, k8sClient, vscr)
 		defer test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger)
+		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))

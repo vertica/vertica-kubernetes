@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package util
+package vk8s
 
 import (
 	"context"

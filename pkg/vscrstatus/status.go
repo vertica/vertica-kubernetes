@@ -21,7 +21,6 @@ import (
 
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -54,11 +53,23 @@ func Update(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScruti
 	})
 }
 
-func UpdateCondition(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize, condition *metav1.Condition) error {
-	// refreshConditionInPlace will update the status condition in vscr.  The update
+func UpdateStatus(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize,
+	vscrChgStatus *v1beta1.VerticaScrutinizeStatus) error {
+	// refreshStatus will update the status in vscr.  The update
 	// will be applied in-place.
 	refreshConditionInPlace := func(vscr *v1beta1.VerticaScrutinize) error {
-		meta.SetStatusCondition(&vscr.Status.Conditions, *condition)
+		if vscr.Status.PodName != vscrChgStatus.PodName {
+			vscr.Status.PodName = vscrChgStatus.PodName
+		}
+		if vscr.Status.PodUID != vscrChgStatus.PodUID {
+			vscr.Status.PodUID = vscrChgStatus.PodUID
+		}
+		if vscr.Status.TarballName != vscrChgStatus.TarballName {
+			vscr.Status.TarballName = vscrChgStatus.TarballName
+		}
+		for _, condition := range vscrChgStatus.Conditions {
+			meta.SetStatusCondition(&vscr.Status.Conditions, condition)
+		}
 		return nil
 	}
 
