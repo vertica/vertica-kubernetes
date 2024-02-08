@@ -53,6 +53,8 @@ func Update(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScruti
 	})
 }
 
+// UpdateStatus updates vertica scrutinize status. The input vscr's status will
+// be updated with the values from the VerticaScrutinizeStatus object
 func UpdateStatus(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize,
 	vscrChgStatus *v1beta1.VerticaScrutinizeStatus) error {
 	// refreshStatus will update the status in vscr.  The update
