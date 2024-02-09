@@ -173,8 +173,8 @@ func (*MockVClusterOps) VRemoveNode(_ *vclusterops.VRemoveNodeOptions) (vcluster
 func (*MockVClusterOps) VRemoveSubcluster(_ *vclusterops.VRemoveScOptions) (vclusterops.VCoordinationDatabase, error) {
 	return vclusterops.VCoordinationDatabase{}, nil
 }
-func (*MockVClusterOps) VReviveDatabase(_ *vclusterops.VReviveDatabaseOptions) (string, error) {
-	return "", nil
+func (*MockVClusterOps) VReviveDatabase(_ *vclusterops.VReviveDatabaseOptions) (string, *vclusterops.VCoordinationDatabase, error) {
+	return "", &vclusterops.VCoordinationDatabase{}, nil
 }
 func (*MockVClusterOps) VShowRestorePoints(_ *vclusterops.VShowRestorePointsOptions) ([]vclusterops.RestorePoint, error) {
 	return nil, nil

@@ -31,11 +31,11 @@ const (
 )
 
 // mock version of VReviveDatabase() that is invoked inside VClusterOps
-func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, error) {
+func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, *vops.VCoordinationDatabase, error) {
 	// verify basic options
 	err := m.VerifyDBNameAndIPv6(&options.DatabaseOptions)
 	if err != nil {
-		return "", err
+		return "", &vops.VCoordinationDatabase{}, err
 	}
 
 	// If running with display only, we only use a single host.
@@ -45,20 +45,20 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 	}
 	err = m.VerifyHosts(&options.DatabaseOptions, expectedHosts)
 	if err != nil {
-		return "", err
+		return "", &vops.VCoordinationDatabase{}, err
 	}
 	err = m.VerifyCerts(&options.DatabaseOptions)
 	if err != nil {
-		return "", err
+		return "", &vops.VCoordinationDatabase{}, err
 	}
 	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
-		return "", err
+		return "", &vops.VCoordinationDatabase{}, err
 	}
 	if *options.DisplayOnly {
-		return TestDescribeOutput, nil
+		return TestDescribeOutput, &vops.VCoordinationDatabase{}, nil
 	}
-	return "", nil
+	return "", &vops.VCoordinationDatabase{}, nil
 }
 
 var _ = Describe("revive_db_vc", func() {

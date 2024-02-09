@@ -42,7 +42,7 @@ func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ct
 	s.Make(opts...)
 
 	vcOpts := v.genReviveDBOptions(&s, certs)
-	_, err = v.VReviveDatabase(vcOpts)
+	_, _, err = v.VReviveDatabase(vcOpts)
 	if err != nil {
 		return v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
 	}
