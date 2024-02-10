@@ -95,38 +95,38 @@ var _ = Describe("annotations", func() {
 
 	It("should return the scrutinize pod ttl based on the annotations map", func() {
 		ann := map[string]string{}
-		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ScrutinizePodTimeToLiveDefaultValue))
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ScrutinizePodTTLDefaultValue))
 
 		ann = map[string]string{
-			ScrutinizePodTimeToLive: "-1",
+			ScrutinizePodTTLAnnotation: "-1",
 		}
-		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ScrutinizePodTimeToLiveDefaultValue))
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ScrutinizePodTTLDefaultValue))
 
 		ann = map[string]string{
-			ScrutinizePodTimeToLive: "not a number",
+			ScrutinizePodTTLAnnotation: "not a number",
 		}
-		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ScrutinizePodTimeToLiveDefaultValue))
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ScrutinizePodTTLDefaultValue))
 
 		const ttlStr = "180"
 		const ttl = 180
 		ann = map[string]string{
-			ScrutinizePodTimeToLive: ttlStr,
+			ScrutinizePodTTLAnnotation: ttlStr,
 		}
-		Ω(GetScrutinizePodTimeToLive(ann)).Should(Equal(ttl))
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ttl))
 	})
 
 	It("should return the scrutinize pod restart policy based on the annotations map", func() {
 		ann := map[string]string{}
-		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(RestartPolicyNever))
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(string(corev1.RestartPolicyNever)))
 
 		ann = map[string]string{
-			ScrutinizePodRestartPolicy: "wrong-policy",
+			ScrutinizePodRestartPolicyAnnotation: "wrong-policy",
 		}
-		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(RestartPolicyNever))
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(string(corev1.RestartPolicyNever)))
 
 		ann = map[string]string{
-			ScrutinizePodRestartPolicy: RestartPolicyAlways,
+			ScrutinizePodRestartPolicyAnnotation: string(corev1.RestartPolicyAlways),
 		}
-		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(RestartPolicyAlways))
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(string(corev1.RestartPolicyAlways)))
 	})
 })

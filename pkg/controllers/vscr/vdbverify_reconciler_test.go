@@ -23,8 +23,9 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	test "github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -32,56 +33,87 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 	ctx := context.Background()
 
 	It("should reconcile successfully", func() {
-		vdb := v1beta1.MakeVDB()
-		vdb.Annotations[vmeta.VersionAnnotation] = v1.VcluseropsAsDefaultDeploymentMethodMinVersion
+		vdb := v1.MakeVDBForVclusterOps()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vscr := v1beta1.MakeVscr()
-		test.CreateVSCR(ctx, k8sClient, vscr)
-		defer test.DeleteVSCR(ctx, k8sClient, vscr)
+		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
+		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
+		runVDBVerifyReconcile(ctx, vscr)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionTrue, verticaDBSetForScrutinize)
 	})
 
-	It("should return no error if server version does not support vcluster", func() {
-		vdb := v1beta1.MakeVDB()
+	It("should update status if vclusterops is disabled", func() {
+		vdb := v1.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		vscr := v1beta1.MakeVscr()
+		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
+		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
+
+		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
+		runVDBVerifyReconcile(ctx, vscr)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, vclusterOpsDisabled)
+	})
+
+	It("should update status if server version does not have scrutinize support through vclusterOps", func() {
+		vdb := v1.MakeVDBForVclusterOps()
 		vdb.Annotations[vmeta.VersionAnnotation] = "v23.4.0"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vscr := v1beta1.MakeVscr()
-		test.CreateVSCR(ctx, k8sClient, vscr)
-		defer test.DeleteVSCR(ctx, k8sClient, vscr)
+		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
+		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
-		_, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
+		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
+		runVDBVerifyReconcile(ctx, vscr)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, vclusterOpsScrutinizeNotSupported)
 	})
 
-	It("should requeue if vdb does not have server version info yet", func() {
-		vdb := v1beta1.MakeVDB()
+	It("should update status if vdb does not have server version info", func() {
+		vdb := v1.MakeVDBForVclusterOps()
+		delete(vdb.Annotations, vmeta.VersionAnnotation)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vscr := v1beta1.MakeVscr()
-		test.CreateVSCR(ctx, k8sClient, vscr)
-		defer test.DeleteVSCR(ctx, k8sClient, vscr)
+		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
+		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
+		runVDBVerifyReconcile(ctx, vscr)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, verticaVersionNotFound)
+
 	})
 
-	It("should requeue if vdb does not exist", func() {
+	It("should update status if vdb does not exist", func() {
 		vscr := v1beta1.MakeVscr()
-		test.CreateVSCR(ctx, k8sClient, vscr)
-		defer test.DeleteVSCR(ctx, k8sClient, vscr)
+		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
+		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
 
-		r := MakeVDBVerifyReconciler(vscrRec, vscr, logger, &version.Info{})
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).Should(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
+		runVDBVerifyReconcile(ctx, vscr)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, verticaDBNotFound)
 	})
 })
+
+func checkStatusConditionAfterReconcile(ctx context.Context, vscr *v1beta1.VerticaScrutinize,
+	status metav1.ConditionStatus, reason string) {
+	Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), vscr)).Should(Succeed())
+	Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeTrue())
+	Expect(vscr.Status.Conditions[0]).Should(test.EqualMetaV1Condition(
+		metav1.Condition{
+			Type:   v1beta1.ScrutinizeReady,
+			Status: status,
+			Reason: reason,
+		},
+	))
+}
+
+func runVDBVerifyReconcile(ctx context.Context, vscr *v1beta1.VerticaScrutinize) {
+	r := MakeVDBVerifyReconciler(vscrRec, vscr, logger)
+	res, err := r.Reconcile(ctx, &ctrl.Request{})
+	Expect(err).Should(Succeed())
+	Expect(res).Should(Equal(ctrl.Result{}))
+}

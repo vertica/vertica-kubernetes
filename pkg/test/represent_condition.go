@@ -46,7 +46,9 @@ func (matcher *representMetaV1Condition) Match(actual interface{}) (success bool
 	}
 
 	// Compare everything except lastTransitionTime
-	return response.Type == expectedObj.Type && response.Status == expectedObj.Status, nil
+	return response.Type == expectedObj.Type &&
+		response.Status == expectedObj.Status &&
+		response.Reason == expectedObj.Reason, nil
 }
 
 func (matcher *representMetaV1Condition) FailureMessage(actual interface{}) (message string) {

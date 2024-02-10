@@ -15,17 +15,27 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
-  name: vertica-scrutinize
+  name: vertica-scrutinize-vdb-exist
 spec:
   verticaDBName: v-collect-scrutinize
 status:
-  podName: vertica-scrutinize
+  podName: vertica-scrutinize-vdb-exist
+  conditions:
+  - status: "True"
+    type: ScrutinizeReady
+  - status: "True"
+    type: ScrutinizePodCreated
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vertica-scrutinize
+  name: vertica-scrutinize-vdb-exist
 spec:
+  containers:
+  - name: main
+    workingDir: /tmp/scrutinize
+  initContainers:
+  - name: scrutinize
   restartPolicy: Never
 status:
   phase: Running

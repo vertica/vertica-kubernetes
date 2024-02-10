@@ -22,7 +22,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,24 +34,22 @@ type ScrutinizePodReconciler struct {
 	VRec *VerticaScrutinizeReconciler
 	Vscr *v1beta1.VerticaScrutinize
 	Log  logr.Logger
-	VInf *version.Info
 }
 
 // MakeScrutinizePodReconciler will build a ScrutinizePodReconciler object
 func MakeScrutinizePodReconciler(r *VerticaScrutinizeReconciler, vscr *v1beta1.VerticaScrutinize,
-	log logr.Logger, vinf *version.Info) controllers.ReconcileActor {
+	log logr.Logger) controllers.ReconcileActor {
 	return &ScrutinizePodReconciler{
 		VRec: r,
 		Vscr: vscr,
 		Log:  log.WithName("ScrutinizePodReconciler"),
-		VInf: vinf,
 	}
 }
 
 func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// At this point we already know the server version from the previous
-	// reconciler so we exit if the version does not support vclusterops
-	if s.VInf.IsOlder(v1.VcluseropsAsDefaultDeploymentMethodMinVersion) {
+	// no-op if ScrutinizeReady is false. This means that VerticaDB
+	// was not found or is not configured for vclusterops
+	if s.Vscr.IsStatusConditionFalse(v1beta1.ScrutinizeReady) {
 		return ctrl.Result{}, nil
 	}
 

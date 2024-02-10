@@ -20,62 +20,86 @@ import (
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+const (
+	verticaDBNotFound                 = "VerticaDBNotFound"
+	vclusterOpsDisabled               = "VclusterOpsDisabled"
+	verticaVersionNotFound            = "VerticaVersionNotFound"
+	vclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
+	verticaDBSetForScrutinize         = "VerticaDBSetForVclusterOpsScrutinize"
 )
 
 // VDBVerifyReconciler will verify the VerticaDB in the Vscr CR exists
 type VDBVerifyReconciler struct {
 	VRec *VerticaScrutinizeReconciler
-	Vscr *vapi.VerticaScrutinize
+	Vscr *v1beta1.VerticaScrutinize
 	Vdb  *v1.VerticaDB
 	Log  logr.Logger
-	VInf *version.Info
 }
 
-func MakeVDBVerifyReconciler(r *VerticaScrutinizeReconciler, vscr *vapi.VerticaScrutinize,
-	log logr.Logger, vinf *version.Info) controllers.ReconcileActor {
+func MakeVDBVerifyReconciler(r *VerticaScrutinizeReconciler, vscr *v1beta1.VerticaScrutinize,
+	log logr.Logger) controllers.ReconcileActor {
 	return &VDBVerifyReconciler{
 		VRec: r,
 		Vscr: vscr,
 		Log:  log.WithName("VDBVerifyReconciler"),
 		Vdb:  &v1.VerticaDB{},
-		VInf: vinf,
 	}
 }
 
 // Reconcile will verify the VerticaDB in the Vscr CR exists
 func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// no-op if the check has already been done once
+	isSet := s.Vscr.IsStatusConditionTrue(v1beta1.ScrutinizeReady)
+	if isSet {
+		return ctrl.Result{}, nil
+	}
 	// This reconciler is intended to be the first thing we run.  We want early
 	// feedback if the VerticaDB that is referenced in the vscr doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.
 	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, s.Vscr.ExtractVDBNamespacedName(), s.Vdb); verrors.IsReconcileAborted(res, err) {
-		return res, err
+		return ctrl.Result{}, s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, verticaDBNotFound)
 	}
-	return s.checkVersion()
+	return ctrl.Result{}, s.checkVersionAndDeploymentType(ctx)
 }
 
-// checkVersion verifies that a vertica version supporting vcluster is running
-func (s *VDBVerifyReconciler) checkVersion() (ctrl.Result, error) {
+// checkVersion verifies that vclusterops is enabled and the server version supports
+// vclusterops deployment
+func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context) error {
+	if !vmeta.UseVClusterOps(s.Vdb.Annotations) {
+		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, vclusterOpsDisabled)
+	}
 	vinf, ok := s.Vdb.MakeVersionInfo()
 	if !ok {
-		// the vertica version is not stored yet in the vdb
-		// so let's requeue
-		s.Log.Info("Vertica version is not available yet in the vdb, requeue reconciliation.")
-		return ctrl.Result{Requeue: true}, nil
+		// if we don't find the server version in the vdb, we assume the vdb
+		// is not ready for scrutinize and exit
+		s.Log.Info("Vertica version is not available in the vdb")
+		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, verticaVersionNotFound)
 	}
-	s.VInf.Copy(vinf)
+
 	if vinf.IsOlder(v1.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 		ver, _ := s.Vdb.GetVerticaVersionStr()
 		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
-			"the server version %s does not support vclusterops", ver)
-		return ctrl.Result{}, nil
+			"The server version %s does not have scrutinize support through vclusterOps", ver)
+		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, vclusterOpsScrutinizeNotSupported)
 	}
-	return ctrl.Result{}, nil
+	return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionTrue, verticaDBSetForScrutinize)
+}
+
+// updateScrutinizeReadyCondition updates ScrutinizeReady status condition
+func (s *VDBVerifyReconciler) updateScrutinizeReadyCondition(ctx context.Context,
+	status metav1.ConditionStatus, reason string) error {
+	cond := v1.MakeCondition(v1beta1.ScrutinizeReady, status, reason)
+	return vscrstatus.UpdateCondition(ctx, s.VRec.Client, s.Vscr, cond)
 }

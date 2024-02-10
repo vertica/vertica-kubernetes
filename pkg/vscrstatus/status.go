@@ -21,11 +21,12 @@ import (
 
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func Update(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize,
+func update(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize,
 	updateFunc func(*v1beta1.VerticaScrutinize) error) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
@@ -59,7 +60,7 @@ func UpdateStatus(ctx context.Context, clnt client.Client, vscr *v1beta1.Vertica
 	vscrChgStatus *v1beta1.VerticaScrutinizeStatus) error {
 	// refreshStatus will update the status in vscr.  The update
 	// will be applied in-place.
-	refreshConditionInPlace := func(vscr *v1beta1.VerticaScrutinize) error {
+	refreshStatus := func(vscr *v1beta1.VerticaScrutinize) error {
 		if vscr.Status.PodName != vscrChgStatus.PodName {
 			vscr.Status.PodName = vscrChgStatus.PodName
 		}
@@ -75,5 +76,19 @@ func UpdateStatus(ctx context.Context, clnt client.Client, vscr *v1beta1.Vertica
 		return nil
 	}
 
-	return Update(ctx, clnt, vscr, refreshConditionInPlace)
+	return update(ctx, clnt, vscr, refreshStatus)
+}
+
+// UpdateCondition will update a condition status
+// This is a no-op if the status condition is already set. The input vscr will
+// be updated with the status condition.
+func UpdateCondition(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize, condition *metav1.Condition) error {
+	// refreshConditionInPlace will update the status condition in vscr.  The update
+	// will be applied in-place.
+	refreshConditionInPlace := func(vscr *v1beta1.VerticaScrutinize) error {
+		meta.SetStatusCondition(&vscr.Status.Conditions, *condition)
+		return nil
+	}
+
+	return update(ctx, clnt, vscr, refreshConditionInPlace)
 }

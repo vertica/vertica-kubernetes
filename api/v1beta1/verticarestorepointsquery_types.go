@@ -18,9 +18,7 @@ package v1beta1
 
 import (
 	"github.com/vertica/vcluster/vclusterops"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // VerticaRestorePointsQuerySpec defines the desired state of VerticaRestorePointsQuery
@@ -97,51 +95,4 @@ type VerticaRestorePointsQueryList struct {
 
 func init() {
 	SchemeBuilder.Register(&VerticaRestorePointsQuery{}, &VerticaRestorePointsQueryList{})
-}
-
-func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vrpq.ObjectMeta.Name,
-		Namespace: vrpq.ObjectMeta.Namespace,
-	}
-}
-
-func (vrpq *VerticaRestorePointsQuery) ExtractVDBNamespacedName() types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vrpq.Spec.VerticaDBName,
-		Namespace: vrpq.ObjectMeta.Namespace,
-	}
-}
-
-func (vrpq *VerticaRestorePointsQuery) IsStatusConditionTrue(statusCondition string) bool {
-	return meta.IsStatusConditionTrue(vrpq.Status.Conditions, statusCondition)
-}
-
-func (vrpq *VerticaRestorePointsQuery) IsStatusConditionFalse(statusCondition string) bool {
-	return meta.IsStatusConditionFalse(vrpq.Status.Conditions, statusCondition)
-}
-
-func MakeSampleVrpqName() types.NamespacedName {
-	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
-}
-
-// MakeVrpq will make an VerticaRestorePointsQuery for test purposes
-func MakeVrpq() *VerticaRestorePointsQuery {
-	VDBNm := MakeVDBName()
-	nm := MakeSampleVrpqName()
-	return &VerticaRestorePointsQuery{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: GroupVersion.String(),
-			Kind:       RestorePointsQueryKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      nm.Name,
-			Namespace: nm.Namespace,
-			UID:       "zxcvbn-ghi-lkm",
-		},
-		Spec: VerticaRestorePointsQuerySpec{
-			VerticaDBName: VDBNm.Name,
-			ArchiveName:   archiveNm,
-		},
-	}
 }

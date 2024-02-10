@@ -83,9 +83,7 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
 		cond := vapi.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "")
-		stat := &v1beta1.VerticaScrutinizeStatus{}
-		stat.Conditions = []metav1.Condition{*cond}
-		Expect(UpdateStatus(ctx, k8sClient, vscr, stat)).Should(Succeed())
+		Expect(UpdateCondition(ctx, k8sClient, vscr, cond)).Should(Succeed())
 		fetchVscr := &v1beta1.VerticaScrutinize{}
 		Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), fetchVscr)).Should(Succeed())
 		for _, v := range []*v1beta1.VerticaScrutinize{vscr, fetchVscr} {
@@ -105,9 +103,7 @@ var _ = Describe("status", func() {
 		}
 
 		for i := range conds {
-			stat := &v1beta1.VerticaScrutinizeStatus{}
-			stat.Conditions = []metav1.Condition{conds[i]}
-			Expect(UpdateStatus(ctx, k8sClient, vscr, stat)).Should(Succeed())
+			Expect(UpdateCondition(ctx, k8sClient, vscr, &conds[i])).Should(Succeed())
 			fetchVscr := &v1beta1.VerticaScrutinize{}
 			Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), fetchVscr)).Should(Succeed())
 			for _, v := range []*v1beta1.VerticaScrutinize{vscr, fetchVscr} {
@@ -145,15 +141,11 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
 		origTime := metav1.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
-		stat := &v1beta1.VerticaScrutinizeStatus{}
-		stat.Conditions = []metav1.Condition{
-			{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionFalse, LastTransitionTime: origTime, Reason: vapi.UnknownReason},
-		}
-		Expect(UpdateStatus(ctx, k8sClient, vscr, stat)).Should(Succeed())
-		stat.Conditions = []metav1.Condition{
-			{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
-		}
-		Expect(UpdateStatus(ctx, k8sClient, vscr, stat)).Should(Succeed())
+		Expect(UpdateCondition(ctx, k8sClient, vscr,
+			&metav1.Condition{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionFalse, LastTransitionTime: origTime,
+				Reason: vapi.UnknownReason})).Should(Succeed())
+		Expect(UpdateCondition(ctx, k8sClient, vscr,
+			&metav1.Condition{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason})).Should(Succeed())
 		Expect(vscr.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
 
@@ -163,11 +155,8 @@ var _ = Describe("status", func() {
 		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
 
 		Expect(vscr.IsStatusConditionTrue(v1beta1.ScrutinizePodCreated)).Should(BeFalse())
-		stat := &v1beta1.VerticaScrutinizeStatus{}
-		stat.Conditions = []metav1.Condition{
-			{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason},
-		}
-		Expect(UpdateStatus(ctx, k8sClient, vscr, stat)).Should(Succeed())
+		Expect(UpdateCondition(ctx, k8sClient, vscr,
+			&metav1.Condition{Type: v1beta1.ScrutinizePodCreated, Status: metav1.ConditionTrue, Reason: vapi.UnknownReason})).Should(Succeed())
 		Expect(vscr.IsStatusConditionTrue(v1beta1.ScrutinizePodCreated)).Should(BeTrue())
 	})
 

@@ -40,40 +40,43 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		vscr := v1beta1.MakeVscr()
 		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
 		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
+		cond := v1.MakeCondition(v1beta1.ScrutinizeReady, metav1.ConditionTrue, "")
+		meta.SetStatusCondition(&vscr.Status.Conditions, *cond)
 
-		vinf, _ := vdb.MakeVersionInfo()
-		r := MakeScrutinizePodReconciler(vscrRec, vscr, logger, vinf)
+		r := MakeScrutinizePodReconciler(vscrRec, vscr, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 
 		pod := &corev1.Pod{}
 		Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), pod)).Should(Succeed())
+		Expect(vscr.Status.PodName).Should(Equal(pod.Name))
+		Expect(vscr.Status.PodUID).Should(Equal(pod.UID))
 	})
 
-	It("should exit early without error if vclusterops is not supported", func() {
-		vdb := v1.MakeVDB()
+	It("should exit early without error if ScrutinizeReady is false", func() {
 		vscr := v1beta1.MakeVscr()
 		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
 		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
+		cond := v1.MakeCondition(v1beta1.ScrutinizeReady, metav1.ConditionFalse, "")
+		meta.SetStatusCondition(&vscr.Status.Conditions, *cond)
 
-		vinf, _ := vdb.MakeVersionInfo()
-		r := MakeScrutinizePodReconciler(vscrRec, vscr, logger, vinf)
+		r := MakeScrutinizePodReconciler(vscrRec, vscr, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should exit early without error if ScrutinizePodCreated is true", func() {
-		vdb := v1.MakeVDBForVclusterOps()
 		vscr := v1beta1.MakeVscr()
 		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
 		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
-		cond := v1.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "")
+		cond := v1.MakeCondition(v1beta1.ScrutinizeReady, metav1.ConditionTrue, "")
+		meta.SetStatusCondition(&vscr.Status.Conditions, *cond)
+		cond = v1.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "")
 		meta.SetStatusCondition(&vscr.Status.Conditions, *cond)
 
-		vinf, _ := vdb.MakeVersionInfo()
-		r := MakeScrutinizePodReconciler(vscrRec, vscr, logger, vinf)
+		r := MakeScrutinizePodReconciler(vscrRec, vscr, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))

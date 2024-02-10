@@ -11,10 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Wait for the scrutinize pod creation
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-    - script: kubectl wait --for=condition=ScrutinizeReady=True -n $NAMESPACE vscr/vertica-scrutinize-vdb-exist --timeout=600s
-    - script: kubectl wait --for=condition=ScrutinizePodCreated=True -n $NAMESPACE vscr/vertica-scrutinize-vdb-exist --timeout=600s
+apiVersion: vertica.com/v1beta1
+kind: VerticaScrutinize
+metadata:
+  name: vertica-scrutinize-vdb-exist
+spec:
+  verticaDBName: v-collect-scrutinize
+  volumes:
+    name: scrutinize-vol
+    emptyDir:
+      sizeLimit: 500Mi
+    

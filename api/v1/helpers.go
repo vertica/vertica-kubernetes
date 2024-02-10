@@ -126,6 +126,7 @@ func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 func MakeVDBForVclusterOps() *VerticaDB {
 	vdb := MakeVDB()
 	vdb.Annotations[vmeta.VersionAnnotation] = VcluseropsAsDefaultDeploymentMethodMinVersion
+	vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 	return vdb
 }
 
@@ -615,6 +616,5 @@ func (r *RestorePointPolicy) IsValidRestorePointPolicy() bool {
 // IsRestoreEnabled will return whether the vdb is configured to initialize by reviving from
 // a restore point in an archive
 func (v *VerticaDB) IsRestoreEnabled() bool {
-	v.GetResourceVersion()
 	return v.Spec.InitPolicy == CommunalInitPolicyRevive && v.Spec.RestorePoint != nil
 }

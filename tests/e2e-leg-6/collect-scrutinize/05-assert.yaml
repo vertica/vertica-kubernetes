@@ -21,3 +21,13 @@ involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaScrutinize
   name: vertica-scrutinize
+---
+apiVersion: vertica.com/v1beta1
+kind: VerticaScrutinize
+metadata:
+  name: vertica-scrutinize
+status:
+  conditions:
+  - reason: VerticaDBNotFound
+    status: "False"
+    type: ScrutinizeReady

@@ -19,6 +19,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +39,6 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 )
 
 // VerticaScrutinizeReconciler reconciles a VerticaScrutinize object
@@ -86,6 +86,11 @@ func (r *VerticaScrutinizeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if meta.IsPauseAnnotationSet(vscr.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
+		return ctrl.Result{}, nil
+	}
+
+	if ok, reason := r.abortReconcile(vscr); ok {
+		r.logScrutinizeNotReadyMsg(log, vscr.Spec.VerticaDBName, reason)
 		return ctrl.Result{}, nil
 	}
 
@@ -149,11 +154,10 @@ func (r *VerticaScrutinizeReconciler) findObjectsForVerticaDB(vdb client.Object)
 // earlier ones.
 func (r *VerticaScrutinizeReconciler) constructActors(vscr *v1beta1.VerticaScrutinize,
 	log logr.Logger) []controllers.ReconcileActor {
-	vinf := &version.Info{}
 	// The actors that will be applied, in sequence, to reconcile a vscr.
 	return []controllers.ReconcileActor{
-		MakeVDBVerifyReconciler(r, vscr, log, vinf),
-		MakeScrutinizePodReconciler(r, vscr, log, vinf),
+		MakeVDBVerifyReconciler(r, vscr, log),
+		MakeScrutinizePodReconciler(r, vscr, log),
 	}
 }
 
@@ -178,4 +182,35 @@ func (r *VerticaScrutinizeReconciler) Eventf(vdb runtime.Object, eventtype, reas
 // GetClient gives access to the Kubernetes client
 func (r *VerticaScrutinizeReconciler) GetClient() client.Client {
 	return r.Client
+}
+
+// abortReconcile returns true if it is not the first reconciliation iteration and VerticaDB is not
+// configured for vclusterops scrutinize
+func (r *VerticaScrutinizeReconciler) abortReconcile(vscr *v1beta1.VerticaScrutinize) (ok bool, reason string) {
+	cond := vscr.FindStatusCondition(v1beta1.ScrutinizeReady)
+	if cond == nil {
+		// this is likely the first reconciliation iteration
+		return false, ""
+	}
+	ok = cond.Status == metav1.ConditionFalse
+	reason = cond.Reason
+	return
+}
+
+// logScrutinizeNotReadyMsg logs a non-error message when ScrutinizeReady is false
+// after one reconciliation iteration
+func (r *VerticaScrutinizeReconciler) logScrutinizeNotReadyMsg(log logr.Logger, vdbName, reason string) {
+	var msg string
+	switch reason {
+	case verticaDBNotFound:
+		msg = fmt.Sprintf("VerticaDB %s not found. Must exist before the VerticaScrutinize resource is created.",
+			vdbName)
+	case vclusterOpsDisabled:
+		msg = fmt.Sprintf("VerticaDB %s has vclusterOps disabled.", vdbName)
+	case verticaVersionNotFound:
+		msg = fmt.Sprintf("The server version could not be found in the VerticaDB %s", vdbName)
+	default:
+		msg = "The server version does not have scrutinize support through vclusterOps"
+	}
+	log.Info(msg)
 }

@@ -160,8 +160,8 @@ var _ = Describe("builder", func() {
 
 	It("should set some fields from vscr metadata annotations", func() {
 		vscr := v1beta1.MakeVscr()
-		vscr.Annotations[vmeta.ScrutinizePodRestartPolicy] = vmeta.RestartPolicyAlways
-		vscr.Annotations[vmeta.ScrutinizePodTimeToLive] = "180"
+		vscr.Annotations[vmeta.ScrutinizePodRestartPolicyAnnotation] = string(v1.RestartPolicyAlways)
+		vscr.Annotations[vmeta.ScrutinizePodTTLAnnotation] = "180"
 		pod := BuildScrutinizePod(vscr)
 
 		Ω(pod.Spec.RestartPolicy).Should(Equal(v1.RestartPolicyAlways))

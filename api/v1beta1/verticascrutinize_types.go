@@ -113,6 +113,9 @@ const (
 	ScrutinizePodCreated = "ScrutinizePodCreated"
 	// ScrutinizeCollectionFinished indicates whether scrutinize collection is done
 	ScrutinizeCollectionFinished = "ScrutinizeCollectionFinished"
+	// ScrutinizeReady indicates that there is a VerticaDB ready for scrutinize, meaning
+	// the server version supports vclusterops and vclusterops is enabled
+	ScrutinizeReady = "ScrutinizeReady"
 )
 
 // +kubebuilder:object:root=true

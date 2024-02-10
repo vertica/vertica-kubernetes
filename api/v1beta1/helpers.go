@@ -64,10 +64,7 @@ func (vscr *VerticaScrutinize) ExtractNamespacedName() types.NamespacedName {
 }
 
 func (vscr *VerticaScrutinize) ExtractVDBNamespacedName() types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vscr.Spec.VerticaDBName,
-		Namespace: vscr.ObjectMeta.Namespace,
-	}
+	return genNamespacedName(vscr.Spec.VerticaDBName, vscr.ObjectMeta.Namespace)
 }
 
 func MakeSampleVscrName() types.NamespacedName {
@@ -121,4 +118,68 @@ func (vscr *VerticaScrutinize) CopyAnnotations() map[string]string {
 		annotations[k] = v
 	}
 	return annotations
+}
+
+// FindStatusCondition finds the conditionType in conditions.
+func (vscr *VerticaScrutinize) FindStatusCondition(conditionType string) *metav1.Condition {
+	return meta.FindStatusCondition(vscr.Status.Conditions, conditionType)
+}
+
+// IsStatusConditionPresent returns true when conditionType is present
+func (vscr *VerticaScrutinize) IsStatusConditionPresent(conditionType string) bool {
+	cond := vscr.FindStatusCondition(conditionType)
+	return cond != nil
+}
+
+// genNamespacedName will take a name and a namespace and return
+// a namespaced name
+func genNamespacedName(name, namespace string) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+}
+
+func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      vrpq.ObjectMeta.Name,
+		Namespace: vrpq.ObjectMeta.Namespace,
+	}
+}
+
+func (vrpq *VerticaRestorePointsQuery) ExtractVDBNamespacedName() types.NamespacedName {
+	return genNamespacedName(vrpq.Spec.VerticaDBName, vrpq.ObjectMeta.Namespace)
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrpq.Status.Conditions, statusCondition)
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vrpq.Status.Conditions, statusCondition)
+}
+
+func MakeSampleVrpqName() types.NamespacedName {
+	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
+}
+
+// MakeVrpq will make an VerticaRestorePointsQuery for test purposes
+func MakeVrpq() *VerticaRestorePointsQuery {
+	VDBNm := MakeVDBName()
+	nm := MakeSampleVrpqName()
+	return &VerticaRestorePointsQuery{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       RestorePointsQueryKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+			UID:       "zxcvbn-ghi-lkm",
+		},
+		Spec: VerticaRestorePointsQuerySpec{
+			VerticaDBName: VDBNm.Name,
+			ArchiveName:   archiveNm,
+		},
+	}
 }

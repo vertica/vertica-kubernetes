@@ -199,13 +199,12 @@ const (
 	// Use GenNMAHealthProbeAnnotationName to generate the name.
 
 	// Set of annotations for scrutinize
-	//
-	ScrutinizePodTimeToLive             = "vertica.com/scrutinize-pod-ttl"
-	ScrutinizePodTimeToLiveDefaultValue = 1800 // 30min
-	ScrutinizePodRestartPolicy          = "vertica.com/scrutinize-pod-restart-policy"
-	RestartPolicyAlways                 = "Always"
-	RestartPolicyOnFailure              = "OnFailure"
-	RestartPolicyNever                  = "Never"
+
+	// Controls how long the scrutinize pod will keep running. The time is specified in seconds.
+	ScrutinizePodTTLAnnotation   = "vertica.com/scrutinize-pod-ttl"
+	ScrutinizePodTTLDefaultValue = 1800 // 30min
+	// Allows you to control the restartPolicy of the scrutinize pod.
+	ScrutinizePodRestartPolicyAnnotation = "vertica.com/scrutinize-pod-restart-policy"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -376,26 +375,25 @@ func GetNMAHealthProbeOverride(annotations map[string]string, probeName, field s
 	return int32(convVal), true //nolint:gosec
 }
 
-// GetScrutinizePodTimeToLive returns the length of time the scrutinize
-// pod will be available after the init containers are completed
-func GetScrutinizePodTimeToLive(annotations map[string]string) int {
+// GetScrutinizePodTTL returns how long the scrutinize pod will keep running
+func GetScrutinizePodTTL(annotations map[string]string) int {
 	val := lookupIntAnnotation(annotations,
-		ScrutinizePodTimeToLive, ScrutinizePodTimeToLiveDefaultValue)
+		ScrutinizePodTTLAnnotation, ScrutinizePodTTLDefaultValue)
 	if val < 0 {
-		return ScrutinizePodTimeToLiveDefaultValue
+		return ScrutinizePodTTLDefaultValue
 	}
 	return val
 }
 
 // GetScrutinizePodRestartPolicy returns the scrutinize pod restart policy
 func GetScrutinizePodRestartPolicy(annotations map[string]string) string {
-	policy := lookupStringAnnotation(annotations, ScrutinizePodRestartPolicy, RestartPolicyNever)
-	if policy == RestartPolicyNever ||
-		policy == RestartPolicyAlways ||
-		policy == RestartPolicyOnFailure {
+	policy := lookupStringAnnotation(annotations, ScrutinizePodRestartPolicyAnnotation, string(corev1.RestartPolicyNever))
+	if policy == string(corev1.RestartPolicyNever) ||
+		policy == string(corev1.RestartPolicyAlways) ||
+		policy == string(corev1.RestartPolicyOnFailure) {
 		return policy
 	}
-	return RestartPolicyNever
+	return string(corev1.RestartPolicyNever)
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

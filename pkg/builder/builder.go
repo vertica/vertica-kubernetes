@@ -810,7 +810,7 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Contain
 		Command: []string{
 			"sh",
 			"-c",
-			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTimeToLive(vscr.Annotations)),
+			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTTL(vscr.Annotations)),
 		},
 		WorkingDir: paths.ScrutinizeTmp,
 	}
