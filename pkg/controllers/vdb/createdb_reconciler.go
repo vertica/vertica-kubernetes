@@ -211,7 +211,8 @@ func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, e
 	// condition. Now that has changed, we need to set an annotation to continue
 	// getting the same behavior. Since the default behavior is to generate the
 	// file, we need to set an annotation if we didn't generate the file yet.
-	if !pf.fileExists[paths.HTTPTLSConfFileName] {
+	if c.VInf.IsEqualOrNewer(vapi.AutoGenerateHTTPSCertsForNewDatabasesMinVersion) &&
+		!pf.fileExists[paths.HTTPTLSConfFileName] {
 		chgs := vk8s.MetaChanges{
 			NewAnnotations: map[string]string{
 				vmeta.HTTPSTLSConfGenerationAnnotation: vmeta.HTTPSTLSConfGenerationAnnotationFalse,

@@ -96,6 +96,11 @@ func (d *InstallReconciler) doInstall(ctx context.Context) (ctrl.Result, error) 
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		d.Log.V(1).Info("Ensuring httpstls.json is generated")
+		if len(fns) == 0 {
+			// This is needed to ensure the directory where we put httpstls.json exists.
+			fns = append(fns, d.createConfigDirsIfNecessary)
+		}
 		fns = append(fns, d.generateHTTPCerts)
 	}
 	if len(fns) == 0 {
@@ -324,19 +329,21 @@ func (d *InstallReconciler) genCreateConfigDirsScript(p *PodFact) (string, error
 		numCmds++
 	}
 
-	if !p.dirExists[paths.ConfigSharePath] {
-		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
-		numCmds++
-	}
+	if !vmeta.UseVClusterOps(d.Vdb.Annotations) {
+		if !p.dirExists[paths.ConfigSharePath] {
+			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigSharePath))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigLicensingPath] {
-		sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
-		numCmds++
-	}
+		if !p.dirExists[paths.ConfigLicensingPath] {
+			sb.WriteString(fmt.Sprintf("mkdir %s\n", paths.ConfigLicensingPath))
+			numCmds++
+		}
 
-	if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
-		sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
-		numCmds++
+		if !p.dirExists[paths.ConfigLicensingPath] || !p.fileExists[paths.CELicenseFile] {
+			sb.WriteString(fmt.Sprintf("cp /home/dbadmin/licensing/ce/%s %s 2>/dev/null || true\n", paths.CELicenseFileName, paths.CELicenseFile))
+			numCmds++
+		}
 	}
 
 	if numCmds == 0 {
