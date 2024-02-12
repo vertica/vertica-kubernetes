@@ -46,32 +46,12 @@ func MetaUpdate(ctx context.Context, cl client.Client, nm types.NamespacedName, 
 			return err
 		}
 
-		annotationsChanged := false
-		objAnnotations := obj.GetAnnotations()
-		for k, v := range chgs.NewAnnotations {
-			if objAnnotations[k] != v {
-				if objAnnotations == nil {
-					objAnnotations = map[string]string{}
-				}
-				objAnnotations[k] = v
-				annotationsChanged = true
-			}
-		}
+		objAnnotations, annotationsChanged := addOrReplaceMap(obj.GetAnnotations(), chgs.NewAnnotations)
 		if annotationsChanged {
 			obj.SetAnnotations(objAnnotations)
 		}
 
-		labelsChanged := false
-		objLabels := obj.GetLabels()
-		for k, v := range chgs.NewLabels {
-			if objLabels[k] != v {
-				if objLabels == nil {
-					objLabels = map[string]string{}
-				}
-				objLabels[k] = v
-				labelsChanged = true
-			}
-		}
+		objLabels, labelsChanged := addOrReplaceMap(obj.GetLabels(), chgs.NewLabels)
 		if labelsChanged {
 			obj.SetLabels(objLabels)
 		}
@@ -86,4 +66,18 @@ func MetaUpdate(ctx context.Context, cl client.Client, nm types.NamespacedName, 
 		return nil
 	})
 	return updated, err
+}
+
+func addOrReplaceMap(oldMap, newMap map[string]string) (map[string]string, bool) {
+	mapChanged := false
+	for k, v := range newMap {
+		if oldMap[k] != v {
+			if oldMap == nil {
+				oldMap = map[string]string{}
+			}
+			oldMap[k] = v
+			mapChanged = true
+		}
+	}
+	return oldMap, mapChanged
 }
