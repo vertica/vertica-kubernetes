@@ -43,7 +43,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionTrue, events.VerticaDBSetForScrutinize)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize)
 	})
 
 	It("should update status if vclusterops is disabled", func() {

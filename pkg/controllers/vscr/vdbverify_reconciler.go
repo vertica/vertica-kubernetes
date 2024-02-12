@@ -33,6 +33,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const verticaDBSetForVclusterOpsScrutinize = "VerticaDBSetForVclusterOpsScrutinize"
+
 // VDBVerifyReconciler will verify the VerticaDB in the Vscr CR exists
 type VDBVerifyReconciler struct {
 	VRec *VerticaScrutinizeReconciler
@@ -91,9 +93,7 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 			"The server version %s does not have scrutinize support through vclusterOps", ver)
 		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported)
 	}
-	s.VRec.Eventf(s.Vscr, corev1.EventTypeNormal, events.VerticaDBSetForScrutinize,
-		"The VerticaDB named '%s' is configured for scrutinize through vclusterops", s.Vdb.Name)
-	return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionTrue, events.VerticaDBSetForScrutinize)
+	return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize)
 }
 
 // updateScrutinizeReadyCondition updates ScrutinizeReady status condition

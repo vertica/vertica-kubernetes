@@ -27,16 +27,6 @@ status:
     type: ScrutinizePodCreated
 ---
 apiVersion: v1
-kind: Event
-reason: VerticaDBSetForVclusterOpsScrutinize
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaScrutinize
-  name: vertica-scrutinize-vdb-exist
----
-apiVersion: v1
 kind: Pod
 metadata:
   name: vertica-scrutinize-vdb-exist

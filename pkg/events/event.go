@@ -104,5 +104,4 @@ const (
 	VclusterOpsDisabled               = "VclusterOpsDisabled"
 	VerticaVersionNotFound            = "VerticaVersionNotFound"
 	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
-	VerticaDBSetForScrutinize         = "VerticaDBSetForVclusterOpsScrutinize"
 )
