@@ -110,7 +110,8 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 // fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR
 func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (res ctrl.Result, err error) {
 	vdb := &v1.VerticaDB{}
-	if res, err = vk8s.FetchVDB(ctx, q.VRec, q.Vrpq, q.Vrpq.ExtractVDBNamespacedName(), vdb); verrors.IsReconcileAborted(res, err) {
+	nm := names.GenNamespacedName(q.Vrpq, q.Vrpq.Spec.VerticaDBName)
+	if res, err = vk8s.FetchVDB(ctx, q.VRec, q.Vrpq, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	q.Vdb = vdb

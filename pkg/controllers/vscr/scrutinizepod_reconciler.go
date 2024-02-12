@@ -22,6 +22,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,8 +71,8 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 // the logic to collect those data will be added after VER-91241
 func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
 	vdb := &v1.VerticaDB{}
-
-	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, s.Vscr.ExtractVDBNamespacedName(), vdb); verrors.IsReconcileAborted(res, err) {
+	nm := names.GenNamespacedName(s.Vscr, s.Vscr.Spec.VerticaDBName)
+	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 	return ctrl.Result{}, nil

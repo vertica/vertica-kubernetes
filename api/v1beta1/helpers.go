@@ -63,10 +63,6 @@ func (vscr *VerticaScrutinize) ExtractNamespacedName() types.NamespacedName {
 	}
 }
 
-func (vscr *VerticaScrutinize) ExtractVDBNamespacedName() types.NamespacedName {
-	return genNamespacedName(vscr.Spec.VerticaDBName, vscr.ObjectMeta.Namespace)
-}
-
 func MakeSampleVscrName() types.NamespacedName {
 	return types.NamespacedName{Name: "vscr-sample", Namespace: "default"}
 }
@@ -131,24 +127,11 @@ func (vscr *VerticaScrutinize) IsStatusConditionPresent(conditionType string) bo
 	return cond != nil
 }
 
-// genNamespacedName will take a name and a namespace and return
-// a namespaced name
-func genNamespacedName(name, namespace string) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      name,
-		Namespace: namespace,
-	}
-}
-
 func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      vrpq.ObjectMeta.Name,
 		Namespace: vrpq.ObjectMeta.Namespace,
 	}
-}
-
-func (vrpq *VerticaRestorePointsQuery) ExtractVDBNamespacedName() types.NamespacedName {
-	return genNamespacedName(vrpq.Spec.VerticaDBName, vrpq.ObjectMeta.Namespace)
 }
 
 func (vrpq *VerticaRestorePointsQuery) IsStatusConditionTrue(statusCondition string) bool {

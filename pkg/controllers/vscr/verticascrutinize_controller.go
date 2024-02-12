@@ -202,12 +202,12 @@ func (r *VerticaScrutinizeReconciler) abortReconcile(vscr *v1beta1.VerticaScruti
 func (r *VerticaScrutinizeReconciler) logScrutinizeNotReadyMsg(log logr.Logger, vdbName, reason string) {
 	var msg string
 	switch reason {
-	case verticaDBNotFound:
+	case events.VerticaDBNotFound:
 		msg = fmt.Sprintf("VerticaDB %s not found. Must exist before the VerticaScrutinize resource is created.",
 			vdbName)
-	case vclusterOpsDisabled:
+	case events.VclusterOpsDisabled:
 		msg = fmt.Sprintf("VerticaDB %s has vclusterOps disabled.", vdbName)
-	case verticaVersionNotFound:
+	case events.VerticaVersionNotFound:
 		msg = fmt.Sprintf("The server version could not be found in the VerticaDB %s", vdbName)
 	default:
 		msg = "The server version does not have scrutinize support through vclusterOps"

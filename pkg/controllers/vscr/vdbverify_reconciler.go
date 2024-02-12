@@ -25,19 +25,12 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-)
-
-const (
-	verticaDBNotFound                 = "VerticaDBNotFound"
-	vclusterOpsDisabled               = "VclusterOpsDisabled"
-	verticaVersionNotFound            = "VerticaVersionNotFound"
-	vclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
-	verticaDBSetForScrutinize         = "VerticaDBSetForVclusterOpsScrutinize"
 )
 
 // VDBVerifyReconciler will verify the VerticaDB in the Vscr CR exists
@@ -68,8 +61,9 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// This reconciler is intended to be the first thing we run.  We want early
 	// feedback if the VerticaDB that is referenced in the vscr doesn't exist.
 	// This will print out an event if the VerticaDB cannot be found.
-	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, s.Vscr.ExtractVDBNamespacedName(), s.Vdb); verrors.IsReconcileAborted(res, err) {
-		return ctrl.Result{}, s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, verticaDBNotFound)
+	nm := names.GenNamespacedName(s.Vscr, s.Vscr.Spec.VerticaDBName)
+	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, nm, s.Vdb); verrors.IsReconcileAborted(res, err) {
+		return ctrl.Result{}, s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VerticaDBNotFound)
 	}
 	return ctrl.Result{}, s.checkVersionAndDeploymentType(ctx)
 }
@@ -78,23 +72,28 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 // vclusterops deployment
 func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context) error {
 	if !vmeta.UseVClusterOps(s.Vdb.Annotations) {
-		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, vclusterOpsDisabled)
+		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsDisabled,
+			"The VerticaDB named '%s' has vclusterops disabled", s.Vdb.Name)
+		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsDisabled)
 	}
 	vinf, ok := s.Vdb.MakeVersionInfo()
 	if !ok {
 		// if we don't find the server version in the vdb, we assume the vdb
 		// is not ready for scrutinize and exit
-		s.Log.Info("Vertica version is not available in the vdb")
-		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, verticaVersionNotFound)
+		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VerticaVersionNotFound,
+			"The VerticaDB named '%s' does not have the version annotation set", s.Vdb.Name)
+		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VerticaVersionNotFound)
 	}
 
 	if vinf.IsOlder(v1.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 		ver, _ := s.Vdb.GetVerticaVersionStr()
-		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeNotSupported,
 			"The server version %s does not have scrutinize support through vclusterOps", ver)
-		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, vclusterOpsScrutinizeNotSupported)
+		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported)
 	}
-	return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionTrue, verticaDBSetForScrutinize)
+	s.VRec.Eventf(s.Vscr, corev1.EventTypeNormal, events.VerticaDBSetForScrutinize,
+		"The VerticaDB named '%s' is configured for scrutinize through vclusterops", s.Vdb.Name)
+	return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionTrue, events.VerticaDBSetForScrutinize)
 }
 
 // updateScrutinizeReadyCondition updates ScrutinizeReady status condition

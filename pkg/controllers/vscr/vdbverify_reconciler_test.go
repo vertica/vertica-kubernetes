@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
@@ -42,7 +43,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionTrue, verticaDBSetForScrutinize)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionTrue, events.VerticaDBSetForScrutinize)
 	})
 
 	It("should update status if vclusterops is disabled", func() {
@@ -55,7 +56,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, vclusterOpsDisabled)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VclusterOpsDisabled)
 	})
 
 	It("should update status if server version does not have scrutinize support through vclusterOps", func() {
@@ -69,7 +70,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, vclusterOpsScrutinizeNotSupported)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported)
 	})
 
 	It("should update status if vdb does not have server version info", func() {
@@ -83,7 +84,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, verticaVersionNotFound)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VerticaVersionNotFound)
 
 	})
 
@@ -94,7 +95,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, verticaDBNotFound)
+		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VerticaDBNotFound)
 	})
 })
 
