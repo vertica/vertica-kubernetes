@@ -278,6 +278,13 @@ var _ = Describe("verticadb_webhook", func() {
 		validateSpecValuesHaveErr(vdb, false)
 	})
 
+	It("should not have negative createdb timeout", func() {
+		vdb := MakeVDB()
+		annotationName := vmeta.CreateDBTimeoutAnnotation
+		vdb.Annotations[annotationName] = "-1"
+		validateSpecValuesHaveErr(vdb, true)
+	})
+
 	// validate immutable fields
 	It("should succeed without changing immutable fields", func() {
 		vdb := createVDBHelper()

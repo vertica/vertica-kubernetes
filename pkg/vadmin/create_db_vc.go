@@ -115,5 +115,10 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 		opts.Password = &v.Password
 	}
 
+	// Timeout
+	if timeout := v.VDB.GetCreateDBNodeStartTimeout(); timeout != 0 {
+		opts.TimeoutNodeStartupSeconds = &timeout
+	}
+
 	return opts
 }

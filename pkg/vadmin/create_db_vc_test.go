@@ -34,12 +34,13 @@ import (
 var TestHosts = []string{"pod-1", "pod-2", "pod-3"}
 
 const (
-	TestCatalogPath        = "/catalog"
-	TestDepotPath          = "/depot"
-	TestDataPath           = "/data"
-	TestLicensePath        = "/root/license.key"
-	TestShardCount         = 11
-	TestSkipPackageInstall = true
+	TestCatalogPath               = "/catalog"
+	TestDepotPath                 = "/depot"
+	TestDataPath                  = "/data"
+	TestLicensePath               = "/root/license.key"
+	TestShardCount                = 11
+	TestSkipPackageInstall        = true
+	TestTimeoutNodeStartupSeconds = 600
 )
 
 // mock version of VCreateDatabase() that is invoked inside VClusterOps.CreateDB()
@@ -93,6 +94,11 @@ func (m *MockVClusterOps) VCreateDatabase(options *vops.VCreateDatabaseOptions) 
 		return vdb, &vops.DBIsRunningError{Detail: "db is already running"}
 	}
 
+	// verify TimeoutNodeStartupSeconds
+	if m.VerifyTimeoutNodeStartupSeconds && *options.TimeoutNodeStartupSeconds != TestTimeoutNodeStartupSeconds {
+		return vdb, fmt.Errorf("fail to read TimeoutNodeStartupSeconds from annotations: %d", *options.TimeoutNodeStartupSeconds)
+	}
+
 	return vdb, nil
 }
 
@@ -124,6 +130,20 @@ var _ = Describe("create_db_vc", func() {
 		Ω(ok).Should(BeTrue())
 
 		vdb.Annotations[vmeta.FailCreateDBIfVerticaIsRunningAnnotation] = vmeta.FailCreateDBIfVerticaIsRunningAnnotationFalse
+		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
+	})
+
+	It("should detect TimeoutNodeStartupSeconds", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.NMATLSSecret = TestNMATLSSecret
+		vdb.Annotations[vmeta.CreateDBTimeoutAnnotation] = fmt.Sprint(TestTimeoutNodeStartupSeconds)
+		Ω(vdb.GetCreateDBNodeStartTimeout()).Should(Equal(TestTimeoutNodeStartupSeconds))
+		setupAPIFunc := func(logr.Logger, string) (VClusterProvider, logr.Logger) {
+			return &MockVClusterOps{VerifyTimeoutNodeStartupSeconds: true}, logr.Logger{}
+		}
+		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		Ω(callCreateDB(ctx, dispatcher)).Should(Equal(ctrl.Result{}))
 	})
 })
