@@ -18,19 +18,21 @@
 # namespace of the vdb you want to check.
 
 TIMEOUT=30  # Default, can be overridden
+CONTROL_PLANE_LABEL=verticadb-operator
 
 function usage() {
-    echo "usage: $(basename $0) [-n <namespace>] [-t <timeout>] [<vdb-namespace>]"
+    echo "usage: $(basename $0) [-n <namespace>] [-t <timeout>] [-l <label>] [<vdb-namespace>]"
     echo
     echo "Options:"
     echo "  -n    Namespace the operator is deployed in.  Defaults to current namespace"
     echo "  -t    Timeout in seconds.  Defaults to $TIMEOUT"
+    echo "  -l    The label of control-plane to use to find the operator. Defaults to $CONTROL_PLANE_LABEL"
     echo
     exit 1
 }
 
 OPTIND=1
-while getopts "n:ht:" opt
+while getopts "n:ht:l:" opt
 do
     case $opt in
         n)
@@ -38,6 +40,9 @@ do
             ;;
         t)
             TIMEOUT=$OPTARG
+            ;;
+        l)
+            CONTROL_PLANE_LABEL=$OPTARG
             ;;
         h)
             usage
@@ -67,7 +72,7 @@ then
     NS_OPT="-n $NAMESPACE "
 fi
 
-LOG_CMD="kubectl ${NS_OPT}logs -l control-plane=verticadb-operator -c manager --tail=-1"
+LOG_CMD="kubectl ${NS_OPT}logs -l control-plane=$CONTROL_PLANE_LABEL -c manager --tail=-1"
 WEBHOOK_FILTER="--invert-match -e 'controller-runtime.webhook.webhooks' -e 'verticadb-resource'"
 DEPRECATION_FILTER="--invert-match 'VerticaDB is deprecated'"
 timeout $TIMEOUT bash -c -- "while ! $LOG_CMD | \

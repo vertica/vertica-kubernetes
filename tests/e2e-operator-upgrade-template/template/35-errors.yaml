@@ -15,4 +15,4 @@ apiVersion: v1
 kind: Pod
 metadata:
   labels:
-    control-plane: verticadb-operator
+    control-plane: controller-manager
