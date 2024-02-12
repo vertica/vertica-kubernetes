@@ -200,7 +200,7 @@ type VClusterProvider interface {
 	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
 	VStopDatabase(options *vops.VStopDatabaseOptions) error
 	VStartDatabase(options *vops.VStartDatabaseOptions) error
-	VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, error)
+	VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, *vops.VCoordinationDatabase, error)
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error
 	VRemoveSubcluster(options *vops.VRemoveScOptions) (vops.VCoordinationDatabase, error)

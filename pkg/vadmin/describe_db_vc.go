@@ -51,7 +51,7 @@ func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option)
 	vcOpts := v.genReviveDBOptions(&reviveParms, certs)
 	*vcOpts.DisplayOnly = true // Set flag to indicate we only want to see the cluster info
 
-	op, err := v.VReviveDatabase(vcOpts)
+	op, _, err := v.VReviveDatabase(vcOpts)
 	if err != nil {
 		var res ctrl.Result
 		res, err = v.logFailure("VReviveDatabase", events.ReviveDBFailed, err)
