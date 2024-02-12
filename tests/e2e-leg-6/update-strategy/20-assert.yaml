@@ -15,6 +15,9 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaDB
 metadata:
   name: v-ks-0-update-strategy
+  annotations:
+    # This annotation is set because we created a database with a new server
+    vertica.com/https-tls-conf-generation: "false"
 status:
   subclusters:
     - installCount: 1

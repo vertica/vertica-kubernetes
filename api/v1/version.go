@@ -54,6 +54,10 @@ const (
 	// Starting in v24.1.0, the default deployment method supported changes from admintools to vclusterops
 	// for official releases of vertica-k8s images
 	VcluseropsAsDefaultDeploymentMethodMinVersion = "v24.1.0"
+	// Starting in this version, new databases would have HTTPS certs be auto
+	// generated during the bootstrap process. We can omit generating the
+	// httpstls.json for those deployments.
+	AutoGenerateHTTPSCertsForNewDatabasesMinVersion = "v24.1.0"
 	// Starting in v24.1.0, we use server logrotate and not depend on cron job
 	InDatabaseLogRotateMinVersion = "v24.1.0"
 	// The NMA TLS secret can be stored in an external secret store. These are

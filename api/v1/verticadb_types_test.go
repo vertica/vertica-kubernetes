@@ -19,6 +19,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("verticadb_types", func() {
@@ -71,5 +73,32 @@ var _ = Describe("verticadb_types", func() {
 		sc := vdb.GetFirstPrimarySubcluster()
 		Ω(sc).ShouldNot(BeNil())
 		Ω(sc.Name).Should(Equal("pri1"))
+	})
+
+	It("should generate httpstls.json for some versions", func() {
+		vdb := MakeVDB()
+		// Annotation takes precedence
+		vdb.Annotations[vmeta.HTTPSTLSConfGenerationAnnotation] = vmeta.HTTPSTLSConfGenerationAnnotationFalse
+		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeFalse())
+		vdb.Annotations[vmeta.HTTPSTLSConfGenerationAnnotation] = vmeta.HTTPSTLSConfGenerationAnnotationTrue
+		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeTrue())
+		delete(vdb.Annotations, vmeta.HTTPSTLSConfGenerationAnnotation)
+		// Fail if no version is set
+		delete(vdb.Annotations, vmeta.VersionAnnotation)
+		_, err := vdb.IsHTTPSTLSConfGenerationEnabled()
+		Ω(err).ShouldNot(Succeed())
+		vdb.Annotations[vmeta.VersionAnnotation] = "v11.0.0"
+		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeTrue())
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.1.0"
+		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeFalse())
+		// Applies only for create, not revive
+		vdb.Spec.InitPolicy = CommunalInitPolicyRevive
+		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeTrue())
+		vdb.Spec.InitPolicy = CommunalInitPolicyCreateSkipPackageInstall
+		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeFalse())
+		// If database is already created, then we assume we have to generate it.
+		cond := MakeCondition(DBInitialized, metav1.ConditionTrue, "Initialized")
+		meta.SetStatusCondition(&vdb.Status.Conditions, *cond)
+		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeTrue())
 	})
 })

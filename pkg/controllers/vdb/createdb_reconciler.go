@@ -23,12 +23,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/license"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
@@ -36,6 +38,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -199,7 +202,27 @@ func (c *CreateDBReconciler) generatePostDBCreateSQL(ctx context.Context, initia
 }
 
 // postCmdCleanup will handle any cleanup action after initializing the database
-func (c *CreateDBReconciler) postCmdCleanup(_ context.Context) (ctrl.Result, error) {
+func (c *CreateDBReconciler) postCmdCleanup(ctx context.Context) (ctrl.Result, error) {
+	pf, ok := c.findPodToRunInit()
+	if !ok {
+		return ctrl.Result{}, errors.New("could not find a PodFact for create db's post cmd cleanup")
+	}
+	// The generation of httpstls.json is influenced by the DBInitialized status
+	// condition. Now that has changed, we need to set an annotation to continue
+	// getting the same behavior. Since the default behavior is to generate the
+	// file, we need to set an annotation if we didn't generate the file yet.
+	if c.VInf.IsEqualOrNewer(vapi.AutoGenerateHTTPSCertsForNewDatabasesMinVersion) &&
+		!pf.fileExists[paths.HTTPTLSConfFileName] {
+		chgs := vk8s.MetaChanges{
+			NewAnnotations: map[string]string{
+				vmeta.HTTPSTLSConfGenerationAnnotation: vmeta.HTTPSTLSConfGenerationAnnotationFalse,
+			},
+		}
+		if _, err := vk8s.MetaUpdate(ctx, c.VRec.Client, c.Vdb.ExtractNamespacedName(), c.Vdb, chgs); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// In old versions if encryptSpreadComm was set we need to initiate a restart of the
 	// cluster.  If this is needed we do it in a separate reconciler but causing
 	// a requeue.
