@@ -35,7 +35,7 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 	// verify basic options
 	err := m.VerifyDBNameAndIPv6(&options.DatabaseOptions)
 	if err != nil {
-		return "", &vops.VCoordinationDatabase{}, err
+		return "", nil, err
 	}
 
 	// If running with display only, we only use a single host.
@@ -45,20 +45,20 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 	}
 	err = m.VerifyHosts(&options.DatabaseOptions, expectedHosts)
 	if err != nil {
-		return "", &vops.VCoordinationDatabase{}, err
+		return "", nil, err
 	}
 	err = m.VerifyCerts(&options.DatabaseOptions)
 	if err != nil {
-		return "", &vops.VCoordinationDatabase{}, err
+		return "", nil, err
 	}
 	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
-		return "", &vops.VCoordinationDatabase{}, err
+		return "", nil, err
 	}
 	if *options.DisplayOnly {
-		return TestDescribeOutput, &vops.VCoordinationDatabase{}, nil
+		return TestDescribeOutput, nil, nil
 	}
-	return "", &vops.VCoordinationDatabase{}, nil
+	return "", nil, nil
 }
 
 var _ = Describe("revive_db_vc", func() {

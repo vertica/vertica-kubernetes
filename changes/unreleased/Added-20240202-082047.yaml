@@ -1,0 +1,5 @@
+kind: Added
+body: Configure createdb timeout by annotation vertica.com/createdb-timeout
+time: 2024-02-02T08:20:47.779581369-04:00
+custom:
+  Issue: "691"
