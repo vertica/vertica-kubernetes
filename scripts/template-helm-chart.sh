@@ -87,7 +87,7 @@ perl -i -0777 -pe "s/--level=.*/--level={{ .Values.logging.level }}/" $TEMPLATE_
 perl -i -0777 -pe "s/--dev=.*/--dev={{ .Values.logging.dev }}/" $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 
 # 9.  Template the serviceaccount, roles and rolebindings
-perl -i -0777 -pe 's/serviceAccountName: verticadb-operator/serviceAccountName: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
+perl -i -0777 -pe 's/serviceAccountName: verticadb-operator-manager/serviceAccountName: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 perl -i -0777 -pe 's/name: .*/name: {{ include "vdb-op.serviceAccount" . }}/' $TEMPLATE_DIR/verticadb-operator-manager-sa.yaml
 cat << EOF >> $TEMPLATE_DIR/verticadb-operator-manager-sa.yaml
 {{- if .Values.serviceAccountAnnotations }}

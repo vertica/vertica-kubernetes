@@ -64,7 +64,7 @@ spec:
               configMapKeyRef:
                 name: manager-config
                 key: VERSION
-      serviceAccountName: verticadb-operator
+      serviceAccountName: verticadb-operator-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: tmp
