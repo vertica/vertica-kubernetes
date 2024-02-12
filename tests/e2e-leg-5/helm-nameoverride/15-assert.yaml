@@ -15,7 +15,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   labels:
-    control-plane: controller-manager
+    control-plane: verticadb-operator
 status:
   phase: Running
 ---
@@ -32,7 +32,7 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: matt-controller-manager
+  name: matt-manager
 ---
 apiVersion: v1
 kind: ConfigMap

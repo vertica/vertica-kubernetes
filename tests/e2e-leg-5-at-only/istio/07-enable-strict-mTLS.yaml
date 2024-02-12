@@ -32,4 +32,4 @@ spec:
       mode: PERMISSIVE
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: verticadb-operator
