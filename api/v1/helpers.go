@@ -121,6 +121,15 @@ func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 	return vdb
 }
 
+// MakeVDBForVclusterOps is a helper that constructs a VerticaDB struct for
+// vclusterops. This is intended for test purposes.
+func MakeVDBForVclusterOps() *VerticaDB {
+	vdb := MakeVDB()
+	vdb.Annotations[vmeta.VersionAnnotation] = VcluseropsAsDefaultDeploymentMethodMinVersion
+	vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+	return vdb
+}
+
 // GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	scMap := map[string]*Subcluster{}

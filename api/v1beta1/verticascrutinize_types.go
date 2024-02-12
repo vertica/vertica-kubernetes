@@ -113,6 +113,9 @@ const (
 	ScrutinizePodCreated = "ScrutinizePodCreated"
 	// ScrutinizeCollectionFinished indicates whether scrutinize collection is done
 	ScrutinizeCollectionFinished = "ScrutinizeCollectionFinished"
+	// ScrutinizeReady indicates that there is a VerticaDB ready for scrutinize, meaning
+	// the server version supports vclusterops and vclusterops is enabled
+	ScrutinizeReady = "ScrutinizeReady"
 )
 
 // +kubebuilder:object:root=true
@@ -140,35 +143,4 @@ type VerticaScrutinizeList struct {
 
 func init() {
 	SchemeBuilder.Register(&VerticaScrutinize{}, &VerticaScrutinizeList{})
-}
-
-func (vscr *VerticaScrutinize) ExtractNamespacedName() types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vscr.ObjectMeta.Name,
-		Namespace: vscr.ObjectMeta.Namespace,
-	}
-}
-
-func MakeSampleVscrName() types.NamespacedName {
-	return types.NamespacedName{Name: "vscr-sample", Namespace: "default"}
-}
-
-// MakeVscr will make an VerticaScrutinize for test purposes
-func MakeVscr() *VerticaScrutinize {
-	VDBNm := MakeVDBName()
-	nm := MakeSampleVscrName()
-	return &VerticaScrutinize{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: GroupVersion.String(),
-			Kind:       VerticaScrutinizeKind,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      nm.Name,
-			Namespace: nm.Namespace,
-			UID:       "abcdef-123-ttt",
-		},
-		Spec: VerticaScrutinizeSpec{
-			VerticaDBName: VDBNm.Name,
-		},
-	}
 }

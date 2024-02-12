@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -77,6 +78,10 @@ const (
 
 	// Name of the volume shared by nma and vertica containers
 	startupConfMountName = "startup-conf"
+
+	// Scrutinize constants
+	scrutinizeMountName       = "scrutinize"
+	scrutinizeTermGracePeriod = 0
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -287,6 +292,13 @@ func buildStartupConfVolumeMount() corev1.VolumeMount {
 	}
 }
 
+func buildScrutinizeVolumeMount(vscr *v1beta1.VerticaScrutinize) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      getScrutinizeVolumeMountName(vscr),
+		MountPath: paths.ScrutinizeTmp,
+	}
+}
+
 func buildKerberosVolumeMounts() []corev1.VolumeMount {
 	// We create two mounts.  One is to set /etc/krb5.conf.  It needs to be set
 	// at the specific location.  The second one is to mount a directory that
@@ -406,6 +418,19 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	vols = append(vols, buildCertSecretVolumes(vdb)...)
 	vols = append(vols, vdb.Spec.Volumes...)
 	return vols
+}
+
+// buildScrutinizeVolume returns an emptyDir volume for scrutinize if no volume was
+// specified in the vscr CR. Otherwise the specified volume is returned
+func buildScrutinizeVolume(vscr *v1beta1.VerticaScrutinize) corev1.Volume {
+	if vscr.Spec.Volume == nil {
+		return buildDefaultScrutinizeVolume()
+	}
+	return *vscr.Spec.Volume
+}
+
+func buildDefaultScrutinizeVolume() corev1.Volume {
+	return buildEmptyDirVolume(scrutinizeMountName)
 }
 
 // buildLicenseVolume returns a volume that contains any licenses
@@ -669,6 +694,21 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 	}
 }
 
+// buildScrutinizePodSpec creates a PodSpec for the scrutinize pod
+func buildScrutinizePodSpec(vscr *v1beta1.VerticaScrutinize) corev1.PodSpec {
+	termGracePeriod := int64(scrutinizeTermGracePeriod)
+	return corev1.PodSpec{
+		NodeSelector:                  vscr.Spec.NodeSelector,
+		Affinity:                      GetK8sAffinity(vapi.Affinity(vscr.Spec.Affinity)),
+		Tolerations:                   vscr.Spec.Tolerations,
+		InitContainers:                makeScrutinizeInitContainers(vscr),
+		Containers:                    []corev1.Container{makeScrutinizeMainContainer(vscr)},
+		Volumes:                       []corev1.Volume{buildScrutinizeVolume(vscr)},
+		TerminationGracePeriodSeconds: &termGracePeriod,
+		RestartPolicy:                 corev1.RestartPolicy(vmeta.GetScrutinizePodRestartPolicy(vscr.Annotations)),
+	}
+}
+
 // makeVerticaContainers creates a list that contains the server container and
 // the nma container(if nma sidecar deployment is enabled)
 func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Container {
@@ -677,6 +717,16 @@ func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Co
 		cnts = append(cnts, makeNMAContainer(vdb, sc))
 	}
 	cnts = append(cnts, makeServerContainer(vdb, sc))
+	return cnts
+}
+
+// makeScrutinizeInitContainers creates a list of init container specs that will be
+// part of the scrutinize pod. The first container is the one that collects
+// scrutinize command
+func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize) []corev1.Container {
+	cnts := []corev1.Container{}
+	cnts = append(cnts, makeScrutinizeInitContainer(vscr))
+	cnts = append(cnts, vscr.Spec.InitContainers...)
 	return cnts
 }
 
@@ -732,6 +782,37 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 		ReadinessProbe:  makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeReadiness),
 		LivenessProbe:   makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeLiveness),
 		StartupProbe:    makeNMAHealthProbe(vdb, vmeta.NMAHealthProbeStartup),
+	}
+}
+
+// makeScrutinizeInitContainer builds the spec of the init container that collects
+// scrutinize command
+func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize) corev1.Container {
+	return corev1.Container{
+		Image: "busybox:latest",
+		Name:  names.ScrutinizeInitContainer,
+		Command: []string{
+			"sh",
+			"-c",
+			"sleep 5",
+		},
+		VolumeMounts: []corev1.VolumeMount{buildScrutinizeVolumeMount(vscr)},
+		Resources:    vscr.Spec.Resources,
+	}
+}
+
+// makeScrutinizeMainContainer builds the spec of the container that will
+// be running after all init containers are completed
+func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Container {
+	return corev1.Container{
+		Image: "busybox:latest",
+		Name:  names.ScrutinizeMainContainer,
+		Command: []string{
+			"sh",
+			"-c",
+			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTTL(vscr.Annotations)),
+		},
+		WorkingDir: paths.ScrutinizeTmp,
 	}
 }
 
@@ -1098,6 +1179,19 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 	}
 }
 
+// BuildScrutinizePod construct the spec for the scrutinize pod
+func BuildScrutinizePod(vscr *v1beta1.VerticaScrutinize) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        vscr.Name,
+			Namespace:   vscr.Namespace,
+			Labels:      vscr.CopyLabels(),
+			Annotations: vscr.CopyAnnotations(),
+		},
+		Spec: buildScrutinizePodSpec(vscr),
+	}
+}
+
 // buildPod will construct a spec for a pod.
 // This is only here for testing purposes when we need to construct the pods ourselves.  This
 // bit is typically handled by the statefulset controller.
@@ -1355,6 +1449,13 @@ func buildCommonEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 		{Name: DatabaseNameEnv, Value: vdb.Spec.DBName},
 		{Name: VSqlUserEnv, Value: vdb.GetVerticaUser()},
 	}
+}
+
+func getScrutinizeVolumeMountName(vscr *v1beta1.VerticaScrutinize) string {
+	if vscr.Spec.Volume == nil {
+		return scrutinizeMountName
+	}
+	return vscr.Spec.Volume.Name
 }
 
 // GetK8sLocalObjectReferenceArray returns a k8s LocalObjecReference array

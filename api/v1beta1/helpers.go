@@ -16,7 +16,12 @@ limitations under the License.
 
 package v1beta1
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+)
 
 // Affinity is used instead of corev1.Affinity and behaves the same.
 // This structure is used in some CRs fields to define the "Affinity".
@@ -37,4 +42,127 @@ type Affinity struct {
 	// Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
 	// +optional
 	PodAntiAffinity *corev1.PodAntiAffinity `json:"podAntiAffinity,omitempty" protobuf:"bytes,3,opt,name=podAntiAffinity"`
+}
+
+// IsStatusConditionTrue returns true when the conditionType is present and set to
+// `metav1.ConditionTrue`
+func (vscr *VerticaScrutinize) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vscr.Status.Conditions, statusCondition)
+}
+
+// IsStatusConditionFalse returns true when the conditionType is present and set to
+// `metav1.ConditionFalse`
+func (vscr *VerticaScrutinize) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vscr.Status.Conditions, statusCondition)
+}
+
+func (vscr *VerticaScrutinize) ExtractNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      vscr.ObjectMeta.Name,
+		Namespace: vscr.ObjectMeta.Namespace,
+	}
+}
+
+func MakeSampleVscrName() types.NamespacedName {
+	return types.NamespacedName{Name: "vscr-sample", Namespace: "default"}
+}
+
+// MakeVscr will make an VerticaScrutinize for test purposes
+func MakeVscr() *VerticaScrutinize {
+	VDBNm := MakeVDBName()
+	nm := MakeSampleVscrName()
+	return &VerticaScrutinize{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       VerticaScrutinizeKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        nm.Name,
+			Namespace:   nm.Namespace,
+			UID:         "abcdef-123-ttt",
+			Annotations: make(map[string]string),
+		},
+		Spec: VerticaScrutinizeSpec{
+			VerticaDBName: VDBNm.Name,
+			Labels:        make(map[string]string),
+			Annotations:   make(map[string]string),
+		},
+	}
+}
+
+// CopyLabels returns a copy of vscr.Spec.Labels. This is not cheap
+// as we have to iterate over the map and copy it entry by entry.
+// This is to be used when you want to do a deep copy of the map.
+// Once we move to go1.21, we can replace this with maps.Clone()
+// from the standard ibrary
+func (vscr *VerticaScrutinize) CopyLabels() map[string]string {
+	labels := make(map[string]string, len(vscr.Spec.Labels))
+	for k, v := range vscr.Spec.Labels {
+		labels[k] = v
+	}
+	return labels
+}
+
+// CopyAnnotations returns a copy of vscr.Spec.Annotations. This is not cheap
+// as we have to iterate over the map and copy it entry by entry.
+// This is to be used when you want to do a deep copy of the map.
+// Once we move to go1.21, we can replace this with maps.Clone()
+// from the standard ibrary
+func (vscr *VerticaScrutinize) CopyAnnotations() map[string]string {
+	annotations := make(map[string]string, len(vscr.Spec.Annotations))
+	for k, v := range vscr.Spec.Annotations {
+		annotations[k] = v
+	}
+	return annotations
+}
+
+// FindStatusCondition finds the conditionType in conditions.
+func (vscr *VerticaScrutinize) FindStatusCondition(conditionType string) *metav1.Condition {
+	return meta.FindStatusCondition(vscr.Status.Conditions, conditionType)
+}
+
+// IsStatusConditionPresent returns true when conditionType is present
+func (vscr *VerticaScrutinize) IsStatusConditionPresent(conditionType string) bool {
+	cond := vscr.FindStatusCondition(conditionType)
+	return cond != nil
+}
+
+func (vrpq *VerticaRestorePointsQuery) ExtractNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      vrpq.ObjectMeta.Name,
+		Namespace: vrpq.ObjectMeta.Namespace,
+	}
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionTrue(statusCondition string) bool {
+	return meta.IsStatusConditionTrue(vrpq.Status.Conditions, statusCondition)
+}
+
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionFalse(statusCondition string) bool {
+	return meta.IsStatusConditionFalse(vrpq.Status.Conditions, statusCondition)
+}
+
+func MakeSampleVrpqName() types.NamespacedName {
+	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
+}
+
+// MakeVrpq will make an VerticaRestorePointsQuery for test purposes
+func MakeVrpq() *VerticaRestorePointsQuery {
+	VDBNm := MakeVDBName()
+	nm := MakeSampleVrpqName()
+	return &VerticaRestorePointsQuery{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: GroupVersion.String(),
+			Kind:       RestorePointsQueryKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: nm.Namespace,
+			UID:       "zxcvbn-ghi-lkm",
+		},
+		Spec: VerticaRestorePointsQuerySpec{
+			VerticaDBName: VDBNm.Name,
+			ArchiveName:   archiveNm,
+		},
+	}
 }
