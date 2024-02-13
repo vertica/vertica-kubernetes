@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl delete pod v-from-x-pri1-0 v-from-x-pri1-1 -n $NAMESPACE
+  - command: kubectl delete sts v-from-x-pri1 -n $NAMESPACE
 

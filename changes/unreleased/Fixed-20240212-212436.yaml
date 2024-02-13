@@ -2,4 +2,4 @@ kind: Fixed
 body: Avoid deploying the operator with default label
 time: 2024-02-12T21:24:36.201941181-04:00
 custom:
-  Issue: "700"
+  Issue: "701"
