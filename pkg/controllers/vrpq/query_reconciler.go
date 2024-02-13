@@ -18,7 +18,6 @@ package vrpq
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -78,10 +77,32 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 		return res, err
 	}
 
-	// setup dispatcher for vclusterops API
-	dispatcher, err := q.makeDispatcher(q.Log, q.Vdb, nil /*password*/)
+	// check version for Vdb, the minimim version should be 24.2.0
+	vinf, err := q.Vdb.MakeVersionInfoCheck()
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
+	}
+	if !vinf.IsEqualOrNewer(v1.RestoreSupportedMinVersion) {
+		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.IncompatibleDB, "Incompatibility with the database")
+		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+			[]*metav1.Condition{v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "IncompatibleDB")}, stateFailedQuery, nil)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// setup dispatcher for vclusterops API
+	dispatcher := q.makeDispatcher(q.Log, q.Vdb, nil /*password*/)
+	if dispatcher == nil {
+		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.AdmintoolsNotSupported,
+			"ShowRestorePoints is not supported for admintools deployments")
+		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+			[]*metav1.Condition{v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "AdmintoolsNotSupported")}, stateFailedQuery, nil)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
@@ -178,10 +199,10 @@ func (q *QueryReconciler) findRunningPodWithNMAContainer(pods *corev1.PodList) (
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *v1.VerticaDB,
-	_ *string) (vadmin.Dispatcher, error) {
+	_ *string) vadmin.Dispatcher {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		// The password isn't needed since our API is going to strictly communicate with the NMA
-		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps), nil
+		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps)
 	}
-	return nil, fmt.Errorf("ShowRestorePoints is not supported for admintools deployments")
+	return nil
 }

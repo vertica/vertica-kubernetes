@@ -53,6 +53,8 @@ const (
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
 	ShowRestorePointsStarted        = "ShowRestorePointsStarted"
 	ShowRestorePointsFailed         = "ShowRestorePointsFailed"
+	IncompatibleDB                  = "IncompatibleDB"
+	AdmintoolsNotSupported          = "AdmintoolsNotSupported"
 	ShowRestorePointsSucceeded      = "ShowRestorePointsSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
