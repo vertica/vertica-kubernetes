@@ -33,6 +33,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -412,13 +413,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	err := o.VRec.Client.Get(ctx, nm, curSts)
 	if err != nil && errors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
-		err = ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		// Invalidate the pod facts cache since we are creating a new sts
-		o.PFacts.Invalidate()
-		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
+		return ctrl.Result{}, o.createSts(ctx, expSts)
 	}
 
 	// We can only remove pods if we have called remove node and done the
@@ -434,13 +429,20 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// We always preserve the image. This is done because during upgrade, the
 	// image is changed outside of this reconciler. It is done through a
 	// separate update to the sts.
-	i := names.GetServerContainerIndex(o.Vdb)
-	// It does not matter which is the first container,
-	// they have the same image
-	curImage := curSts.Spec.Template.Spec.Containers[0].Image
-	expSts.Spec.Template.Spec.Containers[i].Image = curImage
-	if o.Vdb.IsNMASideCarDeploymentEnabled() {
-		expSts.Spec.Template.Spec.Containers[names.GetNMAContainerIndex()].Image = curImage
+	//
+	// Both the NMA and server container have the same image, but the server
+	// container is guaranteed to be their for all deployments.
+	curImage, err := vk8s.GetServerImage(curSts.Spec.Template.Spec.Containers)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	expSvrCnt := vk8s.GetServerContainer(expSts.Spec.Template.Spec.Containers)
+	if expSvrCnt == nil {
+		return ctrl.Result{}, fmt.Errorf("could not find server container in sts %s", expSts.Name)
+	}
+	expSvrCnt.Image = curImage
+	if expNMACnt := vk8s.GetNMAContainer(expSts.Spec.Template.Spec.Containers); expNMACnt != nil {
+		expNMACnt.Image = curImage
 	}
 
 	// Preserve scaling if told to do so. This is used when doing early
@@ -465,15 +467,33 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	// drop the old sts and create a fresh one.
 	if isNMADeploymentDifferent(curSts, expSts) {
 		o.Log.Info("Dropping then recreating statefulset", "Name", expSts.Name)
-		if err := o.VRec.Client.Delete(ctx, curSts); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, o.VRec.Client.Create(ctx, expSts)
+		return ctrl.Result{}, o.recreateSts(ctx, curSts, expSts)
 	}
 
+	return ctrl.Result{}, o.updateSts(ctx, curSts, expSts)
+}
+
+// recreateSts will drop then create the statefulset
+func (o *ObjReconciler) recreateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {
+	if err := o.VRec.Client.Delete(ctx, curSts); err != nil {
+		return err
+	}
+	return o.createSts(ctx, expSts)
+}
+
+// createSts will create a new sts. It assumes the statefulset doesn't already exist.
+func (o *ObjReconciler) createSts(ctx context.Context, expSts *appsv1.StatefulSet) error {
+	err := ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme)
+	if err != nil {
+		return err
+	}
+	// Invalidate the pod facts cache since we are creating a new sts
+	o.PFacts.Invalidate()
+	return o.VRec.Client.Create(ctx, expSts)
+}
+
+// updateSts will patch an existing statefulset.
+func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {
 	// Update the sts by patching in fields that changed according to expSts.
 	// Due to the omission of default fields in expSts, curSts != expSts.  We
 	// always send a patch request, then compare what came back against origSts
@@ -484,15 +504,14 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	expSts.Spec.DeepCopyInto(&curSts.Spec)
 	curSts.Labels = expSts.Labels
 	if err := o.VRec.Client.Patch(ctx, curSts, patch); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	if !reflect.DeepEqual(curSts.Spec, origSts.Spec) {
 		o.Log.Info("Patching statefulset", "Name", expSts.Name, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		// Invalidate the pod facts cache since we are about to change the sts
 		o.PFacts.Invalidate()
-		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // isNMADeploymentDifferent will return true if one of the statefulsets have a

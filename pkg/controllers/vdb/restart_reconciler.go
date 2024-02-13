@@ -38,6 +38,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -597,8 +598,11 @@ func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) 
 		}
 		return ctrl.Result{}, err
 	}
-	cnts := pod.Spec.Containers
-	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
+	svrCnt := vk8s.GetServerContainer(pod.Spec.Containers)
+	if svrCnt == nil {
+		return ctrl.Result{}, fmt.Errorf("could not find server container for pod %s", pod.Name)
+	}
+	probe := svrCnt.LivenessProbe
 	if probe == nil {
 		// For backwards compatibility, if the probe isn't set, then we just
 		// return a simple requeue with exponential backoff.
@@ -621,9 +625,11 @@ func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.N
 	}
 	// If the pod doesn't have a livenessProbe then we always return true. This
 	// can happen if we are in the middle of upgrading the operator.
-	cnts := pod.Spec.Containers
-	probe := cnts[names.GetServerContainerIndexInSlice(cnts)].LivenessProbe
-	if probe == nil {
+	svrCnt := vk8s.GetServerContainer(pod.Spec.Containers)
+	if svrCnt == nil {
+		return false, fmt.Errorf("could not find server container for pod %s", nm.Name)
+	}
+	if svrCnt.LivenessProbe == nil {
 		r.Log.Info("Pod doesn't have a livenessProbe. Okay to restart", "pod", nm)
 		return true, nil
 	}

@@ -27,6 +27,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -333,9 +334,9 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
+		Expect(vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)).Should(Equal(NewImageName))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImageName))
+		Expect(vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)).Should(Equal(NewImageName))
 	})
 
 	It("should have an upgradeStatus set when it fails part way through", func() {

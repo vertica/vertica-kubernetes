@@ -26,6 +26,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -45,7 +46,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).ShouldNot(Equal(NewImage))
+		Expect(vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)).ShouldNot(Equal(NewImage))
 
 		updateVdbToCauseUpgrade(ctx, vdb, NewImage)
 
@@ -53,7 +54,7 @@ var _ = Describe("offlineupgrade_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration()}))
 
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image).Should(Equal(NewImage))
+		Expect(vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)).Should(Equal(NewImage))
 	})
 
 	It("should stop cluster during an upgrade", func() {

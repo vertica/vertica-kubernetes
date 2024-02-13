@@ -1,0 +1,5 @@
+kind: Fixed
+body: Fix when istio proxy sidecar is injected as the first container
+time: 2024-02-13T11:13:03.768289581-04:00
+custom:
+  Issue: "702"
