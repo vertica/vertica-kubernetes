@@ -11,8 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Wait for the operator to update the sts with the new license
-
 apiVersion: v1
 kind: Event
 reason: ShowRestorePointsStarted
@@ -21,7 +19,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaRestorePointsQuery
-  name: archive-query-end
+  name: archive-query-both
 ---
 apiVersion: v1
 kind: Event
@@ -31,16 +29,14 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaRestorePointsQuery
-  name: archive-query-end
+  name: archive-query-both
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
 metadata:
-  name: archive-query-end
+  name: archive-query-both
 status:
   restorePoints:
     - archive: db
       index: 1
-    - archive: db
-      index: 2
   state: "Query successful"

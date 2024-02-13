@@ -163,10 +163,9 @@ func MakeVrpq() *VerticaRestorePointsQuery {
 		Spec: VerticaRestorePointsQuerySpec{
 			VerticaDBName: VDBNm.Name,
 			FilterOptions: &VerticaRestorePointQueryFilterOptions{
-				ArchiveName: new(string),
+				ArchiveName: archiveNm,
 			},
 		},
 	}
-	*vrpq.Spec.FilterOptions.ArchiveName = archiveNm
 	return vrpq
 }
