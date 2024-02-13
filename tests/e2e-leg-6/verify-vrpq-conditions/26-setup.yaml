@@ -11,11 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaRestorePointsQuery
-metadata:
-  name: archive-query-name
-spec:
-  verticaDBName: archive-query
-  filterOptions:
-    archiveName: db
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |-
+      export STARTTIMESTAMP=$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==1 and .archive=="db") | .timestamp')
+      export ENDTIMESTAMP=$STARTTIMESTAMP
+      sh -c "envsubst < vrpq-start-timestamp.yaml | kubectl apply -n $NAMESPACE -f -"

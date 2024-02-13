@@ -60,36 +60,18 @@ func WithConfigurationParams(parms map[string]string) Option {
 
 func WithArchiveNameFilter(archiveName string) Option {
 	return func(s *Parms) {
-		if s.FilterOptions == nil {
-			s.FilterOptions = &vops.ShowRestorePointFilterOptions{
-				ArchiveName: &archiveName,
-			}
-		} else {
-			s.FilterOptions.ArchiveName = &archiveName
-		}
+		s.FilterOptions.ArchiveName = &archiveName
 	}
 }
 
 func WithStartTimestampFilter(startTimestamp string) Option {
 	return func(s *Parms) {
-		if s.FilterOptions == nil {
-			s.FilterOptions = &vops.ShowRestorePointFilterOptions{
-				StartTimestamp: &startTimestamp,
-			}
-		} else {
-			s.FilterOptions.StartTimestamp = &startTimestamp
-		}
+		s.FilterOptions.StartTimestamp = &startTimestamp
 	}
 }
 
 func WithEndTimestampFilter(endTimestamp string) Option {
 	return func(s *Parms) {
-		if s.FilterOptions == nil {
-			s.FilterOptions = &vops.ShowRestorePointFilterOptions{
-				EndTimestamp: &endTimestamp,
-			}
-		} else {
-			s.FilterOptions.EndTimestamp = &endTimestamp
-		}
+		s.FilterOptions.EndTimestamp = &endTimestamp
 	}
 }

@@ -111,7 +111,7 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 		if filter.StartTimestamp != nil {
 			opts = append(opts, showrestorepoints.WithStartTimestampFilter(*filter.StartTimestamp))
 		}
-		if filter.StartTimestamp != nil {
+		if filter.EndTimestamp != nil {
 			opts = append(opts, showrestorepoints.WithEndTimestampFilter(*filter.EndTimestamp))
 		}
 	}

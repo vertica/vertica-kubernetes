@@ -38,7 +38,9 @@ func (v *VClusterOps) ShowRestorePoints(ctx context.Context, opts ...showrestore
 		return restorePoints, err
 	}
 
-	s := showrestorepoints.Parms{}
+	s := showrestorepoints.Parms{
+		FilterOptions: &vops.ShowRestorePointFilterOptions{},
+	}
 	s.Make(opts...)
 
 	vcOpts := v.genRestorePointsOptions(&s, certs)
