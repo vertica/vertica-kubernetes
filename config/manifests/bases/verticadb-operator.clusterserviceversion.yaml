@@ -1984,7 +1984,7 @@ spec:
         version: vertica.com/v1beta1
       specDescriptors:
       - description: Optional parameter that will limit the query to only restore
-          points from this archvie
+          points from this archive
         displayName: Archive Name
         path: archiveName
         x-descriptors:
@@ -2000,6 +2000,11 @@ spec:
       - description: Conditions for VerticaRestorePointsQuery
         displayName: Conditions
         path: conditions
+      - description: This contains the result of the restore points query. Check the
+          QueryComplete status condition to know when this has been populated by the
+          operator.
+        displayName: Restore Points
+        path: restorePoints
       - description: Status message for running query
         displayName: State
         path: state

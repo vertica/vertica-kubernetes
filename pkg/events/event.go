@@ -100,3 +100,10 @@ const (
 	VerticaDBNotFound             = "VerticaDBNotFound"
 	NoSubclusterTemplate          = "NoSubclusterTemplate"
 )
+
+// Constants for VerticaScrutinize reconciler
+const (
+	VclusterOpsDisabled               = "VclusterOpsDisabled"
+	VerticaVersionNotFound            = "VerticaVersionNotFound"
+	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
+)

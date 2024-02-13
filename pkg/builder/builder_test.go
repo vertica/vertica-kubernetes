@@ -21,11 +21,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -98,6 +100,73 @@ var _ = Describe("builder", func() {
 		vdb.Spec.Local.CatalogPath = "/catalog"
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
+	})
+
+	It("should enforce volume in vscr", func() {
+		const testVol = "custom-vol"
+		vscr := v1beta1.MakeVscr()
+		vscr.Spec.Volume = &v1.Volume{
+			Name: testVol,
+		}
+		pod := BuildScrutinizePod(vscr)
+		vols := pod.Spec.Volumes
+		Ω(len(vols)).Should(Equal(1))
+		Ω(vols[0].Name).Should(Equal(testVol))
+		cnts := pod.Spec.InitContainers
+		Ω(len(cnts)).Should(Equal(1))
+		volMounts := cnts[0].VolumeMounts
+		Ω(len(volMounts)).Should(Equal(1))
+		Ω(volMounts[0].Name).Should(Equal(testVol))
+
+		cnts = pod.Spec.Containers
+		Ω(len(cnts)).Should(Equal(1))
+		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeMainContainer))
+	})
+
+	It("should add init cnts in vscr to scrutinize pod spec", func() {
+		vscr := v1beta1.MakeVscr()
+		vscr.Spec.InitContainers = []v1.Container{
+			{Name: "init1"},
+			{Name: "init2"},
+		}
+		pod := BuildScrutinizePod(vscr)
+		cnts := pod.Spec.InitContainers
+		Ω(len(cnts)).Should(Equal(3))
+		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeInitContainer))
+		for i := range vscr.Spec.InitContainers {
+			Ω(cnts[i+1].Name).Should(Equal(vscr.Spec.InitContainers[i].Name))
+		}
+	})
+
+	It("should add annotations and labels in vscr spec to scrutinize pod", func() {
+		vscr := v1beta1.MakeVscr()
+		vscr.Spec.Labels = map[string]string{
+			"label1": "val1",
+			"label2": "val2",
+		}
+		vscr.Spec.Annotations = map[string]string{
+			"ant1": "val3",
+			"ant2": "val4",
+		}
+		pod := BuildScrutinizePod(vscr)
+		verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta) {
+			Ω(objectMeta.Labels["label1"]).Should(Equal("val1"))
+			Ω(objectMeta.Labels["label2"]).Should(Equal("val2"))
+			Ω(objectMeta.Annotations["ant1"]).Should(Equal("val3"))
+			Ω(objectMeta.Annotations["ant2"]).Should(Equal("val4"))
+		}
+		verifyLabelsAnnotations(&pod.ObjectMeta)
+	})
+
+	It("should set some fields from vscr metadata annotations", func() {
+		vscr := v1beta1.MakeVscr()
+		vscr.Annotations[vmeta.ScrutinizePodRestartPolicyAnnotation] = string(v1.RestartPolicyAlways)
+		vscr.Annotations[vmeta.ScrutinizePodTTLAnnotation] = "180"
+		pod := BuildScrutinizePod(vscr)
+
+		Ω(pod.Spec.RestartPolicy).Should(Equal(v1.RestartPolicyAlways))
+		cnt := pod.Spec.Containers[0]
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("180")))
 	})
 
 	It("should only have separate mount paths for data, depot and catalog if they are different", func() {
