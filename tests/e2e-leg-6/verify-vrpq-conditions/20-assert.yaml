@@ -11,7 +11,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Wait for the operator to update the sts with the new license
 
 apiVersion: v1
 kind: Event
