@@ -104,6 +104,17 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 		showrestorepoints.WithCommunalPath(q.Vdb.GetCommunalPath()),
 		showrestorepoints.WithConfigurationParams(q.ConfigurationParams.GetMap()),
 	)
+	if filter := q.Vrpq.Spec.FilterOptions; filter != nil {
+		if filter.ArchiveName != nil {
+			opts = append(opts, showrestorepoints.WithArchiveNameFilter(*filter.ArchiveName))
+		}
+		if filter.StartTimestamp != nil {
+			opts = append(opts, showrestorepoints.WithStartTimestampFilter(*filter.StartTimestamp))
+		}
+		if filter.StartTimestamp != nil {
+			opts = append(opts, showrestorepoints.WithEndTimestampFilter(*filter.EndTimestamp))
+		}
+	}
 	return ctrl.Result{}, q.runShowRestorePoints(ctx, dispatcher, opts)
 }
 

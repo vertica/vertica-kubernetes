@@ -43,6 +43,4 @@ status:
       index: 1
     - archive: db
       index: 2
-    - archive: db2
-      index: 1
   state: "Query successful"

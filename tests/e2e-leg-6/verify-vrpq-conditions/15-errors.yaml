@@ -13,7 +13,3 @@
 
 apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
-metadata:
-  name: archive-query
-spec:
-  verticaDBName: archive-query

@@ -16,6 +16,7 @@
 package showrestorepoints
 
 import (
+	vops "github.com/vertica/vcluster/vclusterops"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -26,6 +27,7 @@ type Parms struct {
 	Hosts               []string
 	CommunalPath        string
 	ConfigurationParams map[string]string
+	FilterOptions       *vops.ShowRestorePointFilterOptions
 }
 
 type Option func(*Parms)
@@ -53,5 +55,41 @@ func WithCommunalPath(path string) Option {
 func WithConfigurationParams(parms map[string]string) Option {
 	return func(s *Parms) {
 		s.ConfigurationParams = parms
+	}
+}
+
+func WithArchiveNameFilter(archiveName string) Option {
+	return func(s *Parms) {
+		if s.FilterOptions == nil {
+			s.FilterOptions = &vops.ShowRestorePointFilterOptions{
+				ArchiveName: &archiveName,
+			}
+		} else {
+			s.FilterOptions.ArchiveName = &archiveName
+		}
+	}
+}
+
+func WithStartTimestampFilter(startTimestamp string) Option {
+	return func(s *Parms) {
+		if s.FilterOptions == nil {
+			s.FilterOptions = &vops.ShowRestorePointFilterOptions{
+				StartTimestamp: &startTimestamp,
+			}
+		} else {
+			s.FilterOptions.StartTimestamp = &startTimestamp
+		}
+	}
+}
+
+func WithEndTimestampFilter(endTimestamp string) Option {
+	return func(s *Parms) {
+		if s.FilterOptions == nil {
+			s.FilterOptions = &vops.ShowRestorePointFilterOptions{
+				EndTimestamp: &endTimestamp,
+			}
+		} else {
+			s.FilterOptions.EndTimestamp = &endTimestamp
+		}
 	}
 }

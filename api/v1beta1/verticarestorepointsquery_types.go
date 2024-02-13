@@ -23,9 +23,6 @@ import (
 
 // VerticaRestorePointsQuerySpec defines the desired state of VerticaRestorePointsQuery
 type VerticaRestorePointsQuerySpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
@@ -33,11 +30,36 @@ type VerticaRestorePointsQuerySpec struct {
 	// VerticaDB object must exist in the same namespace as this object.
 	VerticaDBName string `json:"verticaDBName"`
 
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Optional parameter that will limit the query to only restore points satisfying provided filter options
+	FilterOptions *VerticaRestorePointQueryFilterOptions `json:"filterOptions,omitempty"`
+}
+
+// VerticaRestorePointQueryFilterOptions defines the filter options to use while listing restore points
+type VerticaRestorePointQueryFilterOptions struct {
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
-	// Optional parameter that will limit the query to only restore points
-	// from this archive
-	ArchiveName string `json:"archiveName"`
+	// Optional parameter that will limit the query to only restore points from this archive
+	ArchiveName *string `json:"archiveName,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Optional parameter that will limit the query to only restore points created at this timestamp or after this timestamp;
+	// the timestamp can be of date time format or date only format, e.g. "2006-01-02", "2006-01-02 15:04:05", "2006-01-02 15:04:05.000000000";
+	// the timestamp is interpreted as in UTC timezone
+	StartTimestamp *string `json:"startTimestamp,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Optional parameter that will limit the query to only restore points created at this timestamp or before timestamp;
+	// the timestamp can be of date time format or date only format, e.g. "2006-01-02", "2006-01-02 15:04:05", "2006-01-02 15:04:05.000000000";
+	// the timestamp is interpreted as in UTC timezone
+	EndTimestamp *string `json:"endTimestamp,omitempty"`
 }
 
 const (
