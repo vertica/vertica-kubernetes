@@ -115,6 +115,9 @@ func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.Vertica
 	log logr.Logger) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a vrpq.
 	actors := []controllers.ReconcileActor{
+		// Verify some checks before performing a query
+		MakePreCheckQueryReconciler(r, vrpq, log),
+		// Handle calls to show restore points
 		MakeRestorePointsQueryReconciler(r, vrpq, log),
 	}
 	return actors

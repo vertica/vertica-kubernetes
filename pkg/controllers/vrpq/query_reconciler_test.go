@@ -24,7 +24,6 @@ import (
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 
@@ -36,62 +35,6 @@ import (
 
 var _ = Describe("query_reconcile", func() {
 	ctx := context.Background()
-
-	It("should requeue if VerticaDB doesn't exist", func() {
-		vrpq := vapi.MakeVrpq()
-		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-
-		req := ctrl.Request{NamespacedName: vapi.MakeSampleVrpqName()}
-		Expect(vrpqRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{Requeue: true}))
-	})
-
-	It("should return no-op if the reconciler with admintools", func() {
-		vdb := v1.MakeVDB()
-		vdb.Annotations[vmeta.VersionAnnotation] = "v24.2.0"
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		vrpq := vapi.MakeVrpq()
-		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
-		result, _ := recon.Reconcile(ctx, &ctrl.Request{})
-		Expect(result).Should(Equal(ctrl.Result{}))
-		Expect(vrpq.Status.Conditions[0].Reason).Should(Equal("AdmintoolsNotSupported"))
-	})
-
-	It("should not update querying condition and state with incompatible database", func() {
-		vdb := v1.MakeVDB()
-		secretName := "tls-2"
-		vdb.Spec.NMATLSSecret = secretName
-		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-
-		createS3CredSecret(ctx, vdb)
-		defer deleteCommunalCredSecret(ctx, vdb)
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
-		defer test.DeleteSecret(ctx, k8sClient, secretName)
-
-		vrpq := vapi.MakeVrpq()
-		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
-		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
-		result, _ := recon.Reconcile(ctx, &ctrl.Request{})
-		Expect(result).Should(Equal(ctrl.Result{}))
-		Expect(vrpq.Status.Conditions[0].Reason).Should(Equal("IncompatibleDB"))
-
-		// Querying condition is not updated to False
-		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).ShouldNot(BeTrue())
-		Expect(vrpq.Status.State).ShouldNot(Equal(stateSuccessQuery))
-	})
 
 	It("should update query conditions and state if the vclusterops API succeeded", func() {
 		vdb := v1.MakeVDB()

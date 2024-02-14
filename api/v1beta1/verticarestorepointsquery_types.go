@@ -65,6 +65,8 @@ const (
 	Querying = "Querying"
 	// QueryComplete indicates the query has been completed
 	QueryComplete = "QueryComplete"
+	// QueryReady indicates whether the operator is ready to start querying
+	QueryReady = "QueryReady"
 )
 
 // +kubebuilder:object:root=true

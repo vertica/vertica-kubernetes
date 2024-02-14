@@ -78,33 +78,8 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 		return res, err
 	}
 
-	// check version for Vdb, the minimim version should be 24.2.0
-	vinf, err := q.Vdb.MakeVersionInfoCheck()
-	if err != nil {
-		return ctrl.Result{}, nil
-	}
-	if !vinf.IsEqualOrNewer(v1.RestoreSupportedMinVersion) {
-		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.IncompatibleDB, "Incompatibility with the database")
-		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-			[]*metav1.Condition{v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "IncompatibleDB")}, stateFailedQuery, nil)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
-	}
-
 	// setup dispatcher for vclusterops API
 	dispatcher := q.makeDispatcher(q.Log, q.Vdb, nil /*password*/)
-	if dispatcher == nil {
-		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.AdmintoolsNotSupported,
-			"ShowRestorePoints is not supported for admintools deployments")
-		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-			[]*metav1.Condition{v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "AdmintoolsNotSupported")}, stateFailedQuery, nil)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
-	}
 
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
 	pods, err := finder.FindPods(ctx, iter.FindExisting)
@@ -153,7 +128,8 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	opts []showrestorepoints.Option) (err error) {
 	// set Querying status condition ,state and restore points prior to calling vclusterops API
 	err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		[]*metav1.Condition{v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "Started")}, stateQuerying, nil)
+		[]*metav1.Condition{v1.MakeCondition(vapi.QueryReady, metav1.ConditionTrue, "Started"),
+			v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "Started")}, stateQuerying, nil)
 	if err != nil {
 		return err
 	}
