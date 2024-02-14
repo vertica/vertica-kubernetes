@@ -20,24 +20,27 @@ LAST_RELEASED_IMAGE="24.1.0"
 # master branch. Update this as the server repo changes the version.
 NIGHTLY_MAJOR=24
 NIGHTLY_MINOR=2
-VERTICA_REPO=vertica
-PRIVATE_IMAGE=vertica-k8s-private
+PUBLIC_REPO=vertica
+PRIVATE_REPO=mspilchen
+PRIVATE_IMAGE=vertica-private
 PUBLIC_IMAGE=vertica-k8s
 
 function print_vertica_k8s_img
 {
-    imageName=$1
-    major=$2
-    minor=$3
-    patch=$4
-    print_vertica_k8s_img_with_tag $imageName "$major.$minor.$patch-0"
+    repo=$1
+    imageName=$2
+    major=$3
+    minor=$4
+    patch=$5
+    print_vertica_k8s_img_with_tag $repo $imageName "$major.$minor.$patch-0"
 }
 
 function print_vertica_k8s_img_with_tag
 {
-    imageName=$1
-    tag=$2
-    echo "${VERTICA_REPO}/$imageName:$tag"
+    repo=$1
+    imageName=$2
+    tag=$3
+    echo "${repo}/$imageName:$tag"
 }
 
 function get_rpm_version 

@@ -12,7 +12,7 @@ Choose the serviceAccount name
 {{- if .Values.serviceAccountNameOverride }}
 {{- .Values.serviceAccountNameOverride }}
 {{- else }}
-{{- include "vdb-op.name" . }}-controller-manager
+{{- include "vdb-op.name" . }}-manager
 {{- end }}
 {{- end }}
 
@@ -38,6 +38,6 @@ it is generated internally)
 {{- else if eq .Values.webhook.certSource "internal" }}
 {{- "" }}
 {{- else }}
-{{- include "vdb-op.name" . }}-controller-manager-service-cert
+{{- include "vdb-op.name" . }}-service-cert
 {{- end }}
 {{- end }}
