@@ -267,7 +267,7 @@ func getWebhookServiceName(prefixName string) string {
 	// We have slightly different names depending on the deployment type since
 	// OLM likes to generate it themselves and tie the CA cert to it.
 	if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok && val == vmeta.OLMDeploymentType {
-		return fmt.Sprintf("%s-controller-manager-service", prefixName)
+		return fmt.Sprintf("%s-manager-service", prefixName)
 	}
 	return fmt.Sprintf("%s-webhook-service", prefixName)
 }

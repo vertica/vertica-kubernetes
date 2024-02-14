@@ -22,11 +22,10 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -115,41 +114,16 @@ func (s *AnnotateAndLabelPodReconciler) generateLabels() map[string]string {
 func (s *AnnotateAndLabelPodReconciler) applyAnnotationsAndLabels(ctx context.Context,
 	podName types.NamespacedName,
 	anns, labels map[string]string) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		pod := &corev1.Pod{}
-		if err := s.VRec.Client.Get(ctx, podName, pod); err != nil {
-			if errors.IsNotFound(err) {
-				return nil
-			}
-			return err
-		}
-
-		annotationsOrLabelsChanged := false
-		for k, v := range anns {
-			if pod.Annotations[k] != v {
-				if pod.Annotations == nil {
-					pod.Annotations = map[string]string{}
-				}
-				pod.Annotations[k] = v
-				annotationsOrLabelsChanged = true
-			}
-		}
-		for k, v := range labels {
-			if pod.Labels == nil {
-				pod.Labels = map[string]string{}
-			}
-			pod.Labels[k] = v
-			annotationsOrLabelsChanged = true
-		}
-		if annotationsOrLabelsChanged {
-			err := s.VRec.Client.Update(ctx, pod)
-			if err == nil {
-				// We have added/updated the annotations.  Refresh the podfacts.
-				// This saves having to invalidate the entire thing.
-				s.PFacts.Detail[podName].hasDCTableAnnotations = true
-			}
-			return err
-		}
-		return nil
-	})
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: anns,
+		NewLabels:      labels,
+	}
+	pod := corev1.Pod{}
+	updated, err := vk8s.MetaUpdate(ctx, s.VRec.Client, podName, &pod, chgs)
+	if updated {
+		// We have added/updated the annotations.  Refresh the podfacts.
+		// This saves having to invalidate the entire thing.
+		s.PFacts.Detail[podName].hasDCTableAnnotations = true
+	}
+	return err
 }

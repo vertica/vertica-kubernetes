@@ -1,1 +1,1 @@
-This is a test suite that verifies the server's HTTP service.
+This is a test suite that is only ever run against 24.2.0+ servers.

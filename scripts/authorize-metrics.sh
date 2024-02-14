@@ -23,7 +23,7 @@ set -o pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 REPO_DIR=$(dirname $SCRIPT_DIR)
-OP_SA=verticadb-operator-controller-manager
+OP_SA=verticadb-operator
 UNDO=
 
 function usage() {
