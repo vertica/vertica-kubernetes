@@ -66,9 +66,10 @@ jobs:
 
     - name: Run e2e tests
       run: |
+        set -o errexit
+        set -o xtrace
         export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg
         export VERTICA_IMG=${{ inputs.vertica-image }}
-        echo "Upgrading server from image: $BASE_VERTICA_IMG"
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         # We cannot parallelize these tests because they each deploy/undeploy
@@ -80,6 +81,7 @@ jobs:
         export E2E_TEST_DIRS=tests/e2e-leg-5
         # Some tests in this suite do an upgrade, so set the base image to upgrade from
         export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG)
+        echo "Upgrading server from image: $BASE_VERTICA_IMG"
         if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-5-at-only"; fi
         mkdir -p $GITHUB_WORKSPACE/../host-path
         scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s

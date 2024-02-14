@@ -48,7 +48,7 @@ then
     usage
 fi
 
-TARGET_IMAGE=${@:$OPTIND:1}
+TARGET_IMG=${@:$OPTIND:1}
 
 # We used to have a strict upgrade path policy. So, it was important to pick the
 # preceding image version. However, we have since relaxed that. The only factor
@@ -58,19 +58,19 @@ TARGET_IMAGE=${@:$OPTIND:1}
 # supported by the operator so arbitrarily I picked 12.0.2.
 if [[ $VERTICA_DEPLOYMENT_METHOD == vclusterops ]]
 then
-    if [ "$(determine_image_version $VERTICA_IMG)" == "24.1.0" ]
+    if [ "$(determine_image_version $TARGET_IMG)" == "24.1.0" ]
     then
         # To make things easier in our e2e tests, whenever we are upgrading to
         # 24.1.0, we pick another 24.1.0 image. This saves us having to change
         # the deployment type during the upgrade. We don't go to a newer image
         # because in 24.2.0 we support the NMA sidecar only. This git ref
         # refers to a 24.1.0 build.
-        print_vertica_k8s_img_with_tag $PRIVATE_IMAGE "36ee8c3de77d43c6ad7bbef252302977952ac9d6-minimal"
+        print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "36ee8c3de77d43c6ad7bbef252302977952ac9d6-minimal"
     else
         # For versions 24.2.0+, we need to pick a corresponding image to
         # upgrade from. We will pick a random 24.2.0 image.
-        print_vertica_k8s_img_with_tag $PRIVATE_IMAGE "bc04fdd7eb767802524a4d1fa56c91febdfa3818-minimal"
+        print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "1f759615f0f723080b398edcf096a0bc8bc03aef-minimal"
     fi
 else
-    print_vertica_k8s_img $PUBLIC_IMAGE 12 0 2
+    print_vertica_k8s_img $PUBLIC_REPO $PUBLIC_IMAGE 12 0 2
 fi
