@@ -48,7 +48,7 @@ var killOperatorPodTemplate = `
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl -n {{ .Namespace }} delete pod -l control-plane=controller-manager
+  - command: kubectl -n {{ .Namespace }} delete pod -l control-plane=verticadb-operator
   - command: {{ .ScriptsDir }}/wait-for-webhook.sh -n {{ .Namespace }}
 `
 

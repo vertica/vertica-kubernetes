@@ -53,13 +53,13 @@ done
 
 logInfo "Wait for operator Deployment object to exist"
 timeout $TIMEOUT bash -c -- "\
-    while ! kubectl get $NAMESPACE_OPT deployments -l control-plane=controller-manager 2> /dev/null; \
+    while ! kubectl get $NAMESPACE_OPT deployments -l control-plane=verticadb-operator 2> /dev/null; \
     do \
       sleep 0.1; \
     done"
 
 logInfo "Ensure that webhook is enabled for the operator"
-WEBHOOK_ENABLED=$(kubectl get $NAMESPACE_OPT deployments -l control-plane=controller-manager -o jsonpath='{.items[0].spec.template.spec.containers[0].env[1].value}')
+WEBHOOK_ENABLED=$(kubectl get $NAMESPACE_OPT deployments -l control-plane=verticadb-operator -o jsonpath='{.items[0].spec.template.spec.containers[0].env[1].value}')
 if [ "$WEBHOOK_ENABLED" == "false" ]
 then
   logWarning "Webhook is not enabled. Skipping wait."

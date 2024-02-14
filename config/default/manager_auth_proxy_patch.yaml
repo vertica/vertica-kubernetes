@@ -3,7 +3,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: manager
   namespace: system
 spec:
   template:
@@ -47,7 +47,7 @@ spec:
         - "--level=info"
         - "--dev=false"
         - "--prefix-name=verticadb-operator"
-        - "--webhook-cert-secret=verticadb-operator-controller-manager-service-cert"
+        - "--webhook-cert-secret=verticadb-operator-service-cert"
         - "--verticadb-concurrency=5"
         - "--verticaautoscaler-concurrency=1"
         - "--eventtrigger-concurrency=1"
