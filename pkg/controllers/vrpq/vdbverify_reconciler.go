@@ -54,6 +54,12 @@ func MakeVDBVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1bet
 // Reconcile will verify the VerticaDB in the Vrpq CR exists, vclusterops is enabled and
 // the vertica version supports vclusterops deployment
 func (q *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// no-op if the check has already been done once
+	isSet := q.Vrpq.IsStatusConditionTrue(v1beta1.QueryReady)
+	if isSet {
+		return ctrl.Result{}, nil
+	}
+
 	vdb := &vapi.VerticaDB{}
 	nm := names.GenNamespacedName(q.Vrpq, q.Vrpq.Spec.VerticaDBName)
 	if res, err := vk8s.FetchVDB(ctx, q.VRec, q.Vrpq, nm, vdb); verrors.IsReconcileAborted(res, err) {
@@ -88,5 +94,5 @@ func (q *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 	return ctrl.Result{}, vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionTrue, "Started")}, stateQuerying, nil)
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionTrue, "Completed")}, stateQuerying, nil)
 }
