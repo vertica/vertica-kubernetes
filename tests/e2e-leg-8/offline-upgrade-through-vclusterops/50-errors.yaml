@@ -13,25 +13,3 @@
 
 apiVersion: vertica.com/v1
 kind: VerticaDB
-metadata:
-  name: v-upgrade-vertica
-  annotations:
-    vertica.com/vcluster-ops: "false"
-spec:
-  image: vertica/vertica-k8s:12.0.4-0-minimal
-  imagePullPolicy: IfNotPresent
-  passwordSecret: su-passwd
-  communal: {}
-  local:
-    requestSize: 100Mi
-  dbName: Upgrade
-  initPolicy: Create
-  upgradePolicy: Offline
-  encryptSpreadComm: disabled
-  subclusters:
-    - name: defsc
-      size: 3
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []

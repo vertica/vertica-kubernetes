@@ -11,27 +11,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: v-upgrade-vertica-defsc
+status:
+  replicas: 3
+  readyReplicas: 3
+---
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
-  annotations:
-    vertica.com/vcluster-ops: "false"
-spec:
-  image: vertica/vertica-k8s:12.0.4-0-minimal
-  imagePullPolicy: IfNotPresent
-  passwordSecret: su-passwd
-  communal: {}
-  local:
-    requestSize: 100Mi
-  dbName: Upgrade
-  initPolicy: Create
-  upgradePolicy: Offline
-  encryptSpreadComm: disabled
+status:
   subclusters:
-    - name: defsc
-      size: 3
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+    - upNodeCount: 3

@@ -11,27 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-upgrade-vertica
-  annotations:
-    vertica.com/vcluster-ops: "false"
-spec:
-  image: vertica/vertica-k8s:12.0.4-0-minimal
-  imagePullPolicy: IfNotPresent
-  passwordSecret: su-passwd
-  communal: {}
-  local:
-    requestSize: 100Mi
-  dbName: Upgrade
-  initPolicy: Create
-  upgradePolicy: Offline
-  encryptSpreadComm: disabled
-  subclusters:
-    - name: defsc
-      size: 3
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: clean-communal
+status:
+  phase: Succeeded
