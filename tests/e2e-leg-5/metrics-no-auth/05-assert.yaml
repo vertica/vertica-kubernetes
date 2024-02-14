@@ -15,7 +15,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   labels:
-    control-plane: controller-manager
+    control-plane: verticadb-operator
 spec:
   containers:
   - name: manager
@@ -30,7 +30,7 @@ spec:
     - --level=info
     - --dev=true
     - --prefix-name=verticadb-operator
-    - --webhook-cert-secret=verticadb-operator-controller-manager-service-cert
+    - --webhook-cert-secret=verticadb-operator-service-cert
     - --use-cert-manager
     - --verticadb-concurrency=5
     - --verticaautoscaler-concurrency=1
