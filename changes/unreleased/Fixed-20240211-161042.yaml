@@ -1,5 +1,0 @@
-kind: Fixed
-body: Ensure httpstls.json is generated for databases migrating to v24.1.0
-time: 2024-02-11T16:10:42.069395098-04:00
-custom:
-  Issue: "698"
