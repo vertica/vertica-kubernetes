@@ -16,7 +16,6 @@ kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
   annotations:
-    vertica.com/include-uid-in-path: "true"
     vertica.com/vcluster-ops: "false"
 spec:
   image: vertica/vertica-k8s:12.0.4-0-minimal

@@ -1,6 +1,6 @@
 suite: test that resources can be specified for the operator 
 templates:
-  - verticadb-operator-controller-manager-deployment.yaml
+  - verticadb-operator-manager-deployment.yaml
 tests:
   - it: we can override the resources for the pod
     set:

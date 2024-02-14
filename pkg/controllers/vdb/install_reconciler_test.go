@@ -192,6 +192,7 @@ var _ = Describe("k8s/install_reconcile_test", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.NMATLSSecret = secretName
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.VcluseropsAsDefaultDeploymentMethodMinVersion
 		test.CreateFakeTLSSecret(ctx, vdb, k8sClient, secretName)
 		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
