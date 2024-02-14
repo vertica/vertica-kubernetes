@@ -18,4 +18,4 @@ commands:
   - command: kubectl delete ns verticadb-operator
   - command: sh -c "cd ../../.. && make install"  # Add the CRDs
   - command: sh -c "cd ../../.. && kubectl apply -f config/release-manifests/operator.yaml"
-  - command: kubectl wait pod --namespace verticadb-operator -l control-plane=controller-manager --for=condition=Ready=True
+  - command: kubectl wait pod --namespace verticadb-operator -l control-plane=verticadb-operator --for=condition=Ready=True

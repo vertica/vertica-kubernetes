@@ -8,7 +8,7 @@ roleRef:
   name: metrics-reader
 subjects:
 - kind: ServiceAccount
-  name: controller-manager
+  name: manager
   namespace: system
 - apiGroup: rbac.authorization.k8s.io
   kind: Group

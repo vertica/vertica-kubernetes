@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
+  name: manager
   namespace: system
   labels:
-    control-plane: controller-manager
+    control-plane: verticadb-operator
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: verticadb-operator
   replicas: 1
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        control-plane: controller-manager
+        control-plane: verticadb-operator
         app.kubernetes.io/name: verticadb-operator
     spec:
       securityContext:
@@ -64,7 +64,7 @@ spec:
               configMapKeyRef:
                 name: manager-config
                 key: VERSION
-      serviceAccountName: controller-manager
+      serviceAccountName: verticadb-operator-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: tmp
