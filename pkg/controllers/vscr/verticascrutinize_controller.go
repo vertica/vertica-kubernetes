@@ -158,6 +158,7 @@ func (r *VerticaScrutinizeReconciler) constructActors(vscr *v1beta1.VerticaScrut
 	return []controllers.ReconcileActor{
 		MakeVDBVerifyReconciler(r, vscr, log),
 		MakeScrutinizePodReconciler(r, vscr, log),
+		MakePodPollingReconciler(r, vscr, log),
 	}
 }
 
@@ -209,8 +210,10 @@ func (r *VerticaScrutinizeReconciler) logScrutinizeNotReadyMsg(log logr.Logger, 
 		msg = fmt.Sprintf("VerticaDB %s has vclusterOps disabled.", vdbName)
 	case events.VerticaVersionNotFound:
 		msg = fmt.Sprintf("The server version could not be found in the VerticaDB %s", vdbName)
-	default:
+	case events.VclusterOpsScrutinizeNotSupported:
 		msg = "The server version does not have scrutinize support through vclusterOps"
+	default:
+		msg = "The server version does not support vclusterOps scrutinize reading db password from secret"
 	}
 	log.Info(msg)
 }

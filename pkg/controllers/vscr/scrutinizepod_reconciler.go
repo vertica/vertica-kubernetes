@@ -15,6 +15,7 @@ package vscr
 
 import (
 	"context"
+	"strings"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
@@ -22,19 +23,28 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+type ScrutinizeCmdArgs struct {
+	hosts    []string
+	username string
+}
+
 // ScrutinizePodReconciler will reconcile for the scrutinize
 // pod creation
 type ScrutinizePodReconciler struct {
-	VRec *VerticaScrutinizeReconciler
-	Vscr *v1beta1.VerticaScrutinize
-	Log  logr.Logger
+	VRec    *VerticaScrutinizeReconciler
+	Vscr    *v1beta1.VerticaScrutinize
+	Log     logr.Logger
+	Vdb     *v1.VerticaDB
+	ScrArgs *ScrutinizeCmdArgs
 }
 
 // MakeScrutinizePodReconciler will build a ScrutinizePodReconciler object
@@ -59,6 +69,12 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
+	s.Vdb = &v1.VerticaDB{}
+	nm := names.GenNamespacedName(s.Vscr, s.Vscr.Spec.VerticaDBName)
+	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, nm, s.Vdb); verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
 	// collect information from a VerticaDB.
 	if res, err := s.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -70,17 +86,27 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 // to the vcluster scrutinize CLI
 // the logic to collect those data will be added after VER-91241
 func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
-	vdb := &v1.VerticaDB{}
-	nm := names.GenNamespacedName(s.Vscr, s.Vscr.Spec.VerticaDBName)
-	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, nm, vdb); verrors.IsReconcileAborted(res, err) {
-		return res, err
+	finder := iter.MakeSubclusterFinder(s.VRec.Client, s.Vdb)
+	pods, err := finder.FindPods(ctx, iter.FindExisting)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+
+	hosts := s.getHostList(pods.Items)
+	if len(hosts) == 0 {
+		s.Log.Info("could not find any pod with NMA running, requeue reconciliation")
+		return ctrl.Result{Requeue: true}, nil
+	}
+	s.ScrArgs = &ScrutinizeCmdArgs{}
+	s.ScrArgs.hosts = hosts
+	s.ScrArgs.username = s.Vdb.GetVerticaUser()
+
 	return ctrl.Result{}, nil
 }
 
 // createPod creates the scrutinize pod
 func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
-	pod := builder.BuildScrutinizePod(s.Vscr)
+	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.ScrArgs.buildScrutinizeCmdArgs())
 	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
 	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
 	if err != nil {
@@ -96,4 +122,34 @@ func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 	stat.PodUID = pod.UID
 	stat.Conditions = []metav1.Condition{*v1.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "PodCreated")}
 	return vscrstatus.UpdateStatus(ctx, s.VRec.Client, s.Vscr, stat)
+}
+
+// getHostList returns the list of hosts that have NMA running
+func (s *ScrutinizePodReconciler) getHostList(pods []corev1.Pod) []string {
+	hosts := []string{}
+	for i := range pods {
+		pod := &pods[i]
+		if s.isNMAReady(pod) {
+			hosts = append(hosts, pod.Status.PodIP)
+		}
+	}
+	return hosts
+}
+
+func (s *ScrutinizePodReconciler) isNMAReady(pod *corev1.Pod) bool {
+	for i := range pod.Status.ContainerStatuses {
+		if pod.Status.ContainerStatuses[i].Name == names.NMAContainer {
+			return pod.Status.ContainerStatuses[i].Ready
+		}
+	}
+	return false
+}
+
+// buildScrutinizeCmdArgs returns the arguments of vcluster scrutinize command
+func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs() []string {
+	return []string{
+		"--db-user", s.username,
+		"--hosts", strings.Join(s.hosts, ","),
+		"--honor-user-input",
+	}
 }

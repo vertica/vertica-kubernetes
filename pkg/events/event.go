@@ -101,7 +101,11 @@ const (
 
 // Constants for VerticaScrutinize reconciler
 const (
-	VclusterOpsDisabled               = "VclusterOpsDisabled"
-	VerticaVersionNotFound            = "VerticaVersionNotFound"
-	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
+	VclusterOpsDisabled                             = "VclusterOpsDisabled"
+	VerticaVersionNotFound                          = "VerticaVersionNotFound"
+	VclusterOpsScrutinizeNotSupported               = "VclusterOpsScrutinizeNotSupported"
+	VclusterOpsScrutinizePasswdInSecretNotSupported = "VclusterOpsScrutinizePasswdInSecretNotSupported" // #nosec G101
+	VclusterOpsScrutinizeSucceeded                  = "VclusterOpsScrutinizeSucceeded"
+	VclusterOpsScrutinizeFailed                     = "VclusterOpsScrutinizeFailed"
+	VclusterOpsScrutinizeInProgress                 = "VclusterOpsScrutinizeInProgress"
 )

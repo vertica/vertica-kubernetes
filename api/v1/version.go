@@ -64,6 +64,9 @@ const (
 	NMATLSSecretInAWSSecretsManagerMinVersion = "v24.2.0"
 	// Starting in v24.2.0, NMA is deployed in a sidecar container
 	NMAInSideCarDeploymentMinVersion = "v24.2.0"
+	// Starting in v24.2.0, vcluster scrutinize command can read the
+	// database password from secret(k8s, aws, gsm)
+	ScrutinizeDBPasswdInSecretMinVersion = "v24.2.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
