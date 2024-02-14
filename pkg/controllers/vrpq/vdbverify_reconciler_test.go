@@ -20,63 +20,63 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("precheckquery_reconcile", func() {
+var _ = Describe("vdbverify_reconcile", func() {
 	ctx := context.Background()
 
 	It("should requeue if VerticaDB doesn't exist", func() {
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
-		req := ctrl.Request{NamespacedName: vapi.MakeSampleVrpqName()}
+		req := ctrl.Request{NamespacedName: v1beta1.MakeSampleVrpqName()}
 		Expect(vrpqRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
 	It("should update the queryReady condition and state to false with admintools", func() {
-		vdb := v1.MakeVDB()
+		vdb := vapi.MakeVDB()
 		vdb.Annotations[vmeta.VersionAnnotation] = "v24.2.0"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakePreCheckQueryReconciler(vrpqRec, vrpq, logger)
+		recon := MakeVDBVerifyReconciler(vrpqRec, vrpq, logger)
 		result, _ := recon.Reconcile(ctx, &ctrl.Request{})
 		Expect(result).Should(Equal(ctrl.Result{}))
 		Expect(vrpq.Status.Conditions[0].Reason).Should(Equal("AdmintoolsNotSupported"))
 
 		// QueryReady condition is updated to False
-		Expect(vrpq.IsStatusConditionFalse(vapi.QueryReady)).Should(BeTrue())
-		Expect(vrpq.Status.State).Should(Equal(stateFailedQuery))
+		Expect(vrpq.IsStatusConditionFalse(v1beta1.QueryReady)).Should(BeTrue())
+		Expect(vrpq.Status.State).Should(Equal(stateIncompatibleDB))
 	})
 
 	It("should update the queryReady condition and state to false for incompatible databases", func() {
-		vdb := v1.MakeVDB()
+		vdb := vapi.MakeVDB()
 		secretName := "tls-2"
 		vdb.Spec.NMATLSSecret = secretName
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
-		recon := MakePreCheckQueryReconciler(vrpqRec, vrpq, logger)
+		recon := MakeVDBVerifyReconciler(vrpqRec, vrpq, logger)
 		result, _ := recon.Reconcile(ctx, &ctrl.Request{})
 		Expect(result).Should(Equal(ctrl.Result{}))
 		Expect(vrpq.Status.Conditions[0].Reason).Should(Equal("IncompatibleDB"))
 
 		// QueryReady condition is updated to False
-		Expect(vrpq.IsStatusConditionFalse(vapi.QueryReady)).Should(BeTrue())
-		Expect(vrpq.Status.State).Should(Equal(stateFailedQuery))
+		Expect(vrpq.IsStatusConditionFalse(v1beta1.QueryReady)).Should(BeTrue())
+		Expect(vrpq.Status.State).Should(Equal(stateIncompatibleDB))
 	})
 })

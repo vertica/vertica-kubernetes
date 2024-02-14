@@ -21,8 +21,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
@@ -36,8 +36,27 @@ import (
 var _ = Describe("query_reconcile", func() {
 	ctx := context.Background()
 
+	It("should failed the reconciler with admintools", func() {
+		vdb := vapi.MakeVDB()
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		vrpq := v1beta1.MakeVrpq()
+		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
+		recon := MakeRestorePointsQueryReconciler(vrpqRec, vrpq, logger)
+		result, err := recon.Reconcile(ctx, &ctrl.Request{})
+
+		Expect(result).Should(Equal(ctrl.Result{}))
+		Expect(err.Error()).To(ContainSubstring("ShowRestorePoints is not supported for admintools deployments"))
+	})
+
 	It("should update query conditions and state if the vclusterops API succeeded", func() {
-		vdb := v1.MakeVDB()
+		vdb := vapi.MakeVDB()
 		secretName := "tls-1"
 		vdb.Spec.NMATLSSecret = secretName
 		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
@@ -53,7 +72,7 @@ var _ = Describe("query_reconcile", func() {
 		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, secretName)
 		defer test.DeleteSecret(ctx, k8sClient, secretName)
 
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 		err := constructVrpqDispatcher(ctx, vrpq, dispatcher)
@@ -62,20 +81,20 @@ var _ = Describe("query_reconcile", func() {
 		// make sure that Quering condition is updated to false and
 		// QueryComplete condition is updated to True
 		// message is updated to "Query successful"
-		Expect(vrpq.IsStatusConditionFalse(vapi.Querying)).Should(BeTrue())
-		Expect(vrpq.IsStatusConditionTrue(vapi.QueryComplete)).Should(BeTrue())
+		Expect(vrpq.IsStatusConditionFalse(v1beta1.Querying)).Should(BeTrue())
+		Expect(vrpq.IsStatusConditionTrue(v1beta1.QueryComplete)).Should(BeTrue())
 		Expect(vrpq.Status.State).Should(Equal(stateSuccessQuery))
 	})
 
 	It("should set azure parms in config parms map when using azb:// scheme and accountKey", func() {
-		vdb := v1.MakeVDB()
+		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "azb://account/container/path1"
 		createAzureAccountKeyCredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
@@ -85,14 +104,14 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should set azure parms in config parms map when using azb:// scheme and shared access signature", func() {
-		vdb := v1.MakeVDB()
+		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = "azb://account/container/path2"
 		createAzureSASCredSecret(ctx, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
@@ -102,12 +121,12 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should not create an auth parms if no communal path given", func() {
-		vdb := v1.MakeVDB()
+		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.Path = ""
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
@@ -115,7 +134,7 @@ var _ = Describe("query_reconcile", func() {
 	})
 
 	It("should add additional server config parms to config parms map", func() {
-		vdb := v1.MakeVDB()
+		vdb := vapi.MakeVDB()
 		vdb.Spec.Communal.AdditionalConfig = map[string]string{
 			"Parm1": "parm1",
 		}
@@ -124,7 +143,7 @@ var _ = Describe("query_reconcile", func() {
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 
-		vrpq := vapi.MakeVrpq()
+		vrpq := v1beta1.MakeVrpq()
 		Expect(k8sClient.Create(ctx, vrpq)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrpq)).Should(Succeed()) }()
 
@@ -135,14 +154,14 @@ var _ = Describe("query_reconcile", func() {
 })
 
 func contructAuthParmsMapForVrpq(ctx context.Context,
-	vrpq *vapi.VerticaRestorePointsQuery, key string) *types.CiMap {
+	vrpq *v1beta1.VerticaRestorePointsQuery, key string) *types.CiMap {
 	g := constructVrpqQuery(ctx, vrpq)
 	_, ok := g.ConfigurationParams.Get(key)
 	ExpectWithOffset(1, ok).Should(Equal(true))
 	return g.ConfigurationParams
 }
 
-func contructAuthParmsHelperForVrpq(ctx context.Context, vrpq *vapi.VerticaRestorePointsQuery, key, value string) {
+func contructAuthParmsHelperForVrpq(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery, key, value string) {
 	g := constructVrpqQuery(ctx, vrpq)
 	if g.Vdb.Spec.Communal.Path == "" {
 		ExpectWithOffset(1, g.ConfigurationParams.Size()).Should(Equal(0))
@@ -156,7 +175,7 @@ func contructAuthParmsHelperForVrpq(ctx context.Context, vrpq *vapi.VerticaResto
 	ExpectWithOffset(1, g.ConfigurationParams.ContainKeyValuePair(key, value)).Should(Equal(true))
 }
 
-func constructVrpqQuery(ctx context.Context, vrpq *vapi.VerticaRestorePointsQuery) *QueryReconciler {
+func constructVrpqQuery(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery) *QueryReconciler {
 	g := &QueryReconciler{
 		VRec: vrpqRec,
 		Vrpq: vrpq,
@@ -173,7 +192,7 @@ func constructVrpqQuery(ctx context.Context, vrpq *vapi.VerticaRestorePointsQuer
 	return g
 }
 
-func constructVrpqDispatcher(ctx context.Context, vrpq *vapi.VerticaRestorePointsQuery, dispatcher *vadmin.VClusterOps) error {
+func constructVrpqDispatcher(ctx context.Context, vrpq *v1beta1.VerticaRestorePointsQuery, dispatcher *vadmin.VClusterOps) error {
 	g := &QueryReconciler{
 		VRec: vrpqRec,
 		Vrpq: vrpq,

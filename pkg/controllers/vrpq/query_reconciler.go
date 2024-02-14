@@ -18,11 +18,12 @@ package vrpq
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -49,12 +50,12 @@ const (
 
 type QueryReconciler struct {
 	VRec *VerticaRestorePointsQueryReconciler
-	Vrpq *vapi.VerticaRestorePointsQuery
+	Vrpq *v1beta1.VerticaRestorePointsQuery
 	Log  logr.Logger
 	config.ConfigParamsGenerator
 }
 
-func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
+func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1beta1.VerticaRestorePointsQuery,
 	log logr.Logger) controllers.ReconcileActor {
 	return &QueryReconciler{
 		VRec: r,
@@ -69,17 +70,27 @@ func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vr
 
 func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op if QueryComplete is true
-	isSet := q.Vrpq.IsStatusConditionTrue(vapi.QueryComplete)
+	isSet := q.Vrpq.IsStatusConditionTrue(v1beta1.QueryComplete)
 	if isSet {
 		return ctrl.Result{}, nil
 	}
+
+	// no-op if QueryReady is false
+	isSet = q.Vrpq.IsStatusConditionFalse(v1beta1.QueryReady)
+	if isSet {
+		return ctrl.Result{}, nil
+	}
+
 	// collect information from a VerticaDB.
 	if res, err := q.collectInfoFromVdb(ctx); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
 	// setup dispatcher for vclusterops API
-	dispatcher := q.makeDispatcher(q.Log, q.Vdb, nil /*password*/)
+	dispatcher, err := q.makeDispatcher(q.Log, q.Vdb, nil /*password*/)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
 	pods, err := finder.FindPods(ctx, iter.FindExisting)
@@ -105,7 +116,7 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 
 // fetch the VerticaDB and collect access information to the communal storage for the VerticaRestorePointsQuery CR
 func (q *QueryReconciler) collectInfoFromVdb(ctx context.Context) (res ctrl.Result, err error) {
-	vdb := &v1.VerticaDB{}
+	vdb := &vapi.VerticaDB{}
 	nm := names.GenNamespacedName(q.Vrpq, q.Vrpq.Spec.VerticaDBName)
 	if res, err = vk8s.FetchVDB(ctx, q.VRec, q.Vrpq, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -128,8 +139,7 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	opts []showrestorepoints.Option) (err error) {
 	// set Querying status condition ,state and restore points prior to calling vclusterops API
 	err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		[]*metav1.Condition{v1.MakeCondition(vapi.QueryReady, metav1.ConditionTrue, "Started"),
-			v1.MakeCondition(vapi.Querying, metav1.ConditionTrue, "Started")}, stateQuerying, nil)
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Querying, metav1.ConditionTrue, "Started")}, stateQuerying, nil)
 	if err != nil {
 		return err
 	}
@@ -142,7 +152,7 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	if errRun != nil {
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.ShowRestorePointsFailed, "Failed when calling show restore points")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-			[]*metav1.Condition{v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Failed")}, stateFailedQuery, nil)
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Querying, metav1.ConditionFalse, "Failed")}, stateFailedQuery, nil)
 		if err != nil {
 			errRun = errors.Join(errRun, err)
 		}
@@ -154,8 +164,8 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	// clear Querying status condition, set the QueryComplete if the vclusterops API succeeded
 	// and copy the result of the query into the CRs restore points status
 	return vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-		[]*metav1.Condition{v1.MakeCondition(vapi.Querying, metav1.ConditionFalse, "Completed"),
-			v1.MakeCondition(vapi.QueryComplete, metav1.ConditionTrue, "Completed")}, stateSuccessQuery, restorePoints)
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.Querying, metav1.ConditionFalse, "Completed"),
+			vapi.MakeCondition(v1beta1.QueryComplete, metav1.ConditionTrue, "Completed")}, stateSuccessQuery, restorePoints)
 }
 
 // findRunningPodWithNMAContainer finds a pod to execute the vclusterops API.
@@ -176,11 +186,11 @@ func (q *QueryReconciler) findRunningPodWithNMAContainer(pods *corev1.PodList) (
 }
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
-func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *v1.VerticaDB,
-	_ *string) vadmin.Dispatcher {
+func (q *QueryReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaDB,
+	_ *string) (vadmin.Dispatcher, error) {
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		// The password isn't needed since our API is going to strictly communicate with the NMA
-		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps)
+		return vadmin.MakeVClusterOps(log, vdb, q.VRec.GetClient(), "", q.VRec, vadmin.SetupVClusterOps), nil
 	}
-	return nil
+	return nil, fmt.Errorf("ShowRestorePoints is not supported for admintools deployments")
 }

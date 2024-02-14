@@ -19,8 +19,8 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/vertica/vertica-kubernetes/api/v1"
-	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
@@ -34,23 +34,27 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type PrecheckQueryReconciler struct {
+const stateIncompatibleDB = "Incompatible"
+
+type VDBVerifyReconciler struct {
 	VRec *VerticaRestorePointsQueryReconciler
-	Vrpq *vapi.VerticaRestorePointsQuery
+	Vrpq *v1beta1.VerticaRestorePointsQuery
 	Log  logr.Logger
 }
 
-func MakePreCheckQueryReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *vapi.VerticaRestorePointsQuery,
+func MakeVDBVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1beta1.VerticaRestorePointsQuery,
 	log logr.Logger) controllers.ReconcileActor {
-	return &PrecheckQueryReconciler{
+	return &VDBVerifyReconciler{
 		VRec: r,
 		Vrpq: vrpq,
-		Log:  log.WithName("PrecheckQueryReconciler"),
+		Log:  log.WithName("VDBVerifyReconciler"),
 	}
 }
 
-func (q *PrecheckQueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	vdb := &v1.VerticaDB{}
+// Reconcile will verify the VerticaDB in the Vrpq CR exists, vclusterops is enabled and
+// the vertica version supports vclusterops deployment
+func (q *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	vdb := &vapi.VerticaDB{}
 	nm := names.GenNamespacedName(q.Vrpq, q.Vrpq.Spec.VerticaDBName)
 	if res, err := vk8s.FetchVDB(ctx, q.VRec, q.Vrpq, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -59,12 +63,13 @@ func (q *PrecheckQueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	// check version for Vdb, the minimim version should be 24.2.0
 	vinf, err := vdb.MakeVersionInfoCheck()
 	if err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
-	if !vinf.IsEqualOrNewer(v1.RestoreSupportedMinVersion) {
-		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.RestoreNotSupported, "Incompatibility with the database")
+	if !vinf.IsEqualOrNewer(vapi.RestoreSupportedMinVersion) {
+		q.VRec.Eventf(q.Vrpq, corev1.EventTypeWarning, events.RestoreNotSupported,
+			"The Vertica version '%s' doesn't support in-database restore points", vinf.VdbVer)
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-			[]*metav1.Condition{v1.MakeCondition(vapi.QueryReady, metav1.ConditionFalse, "IncompatibleDB")}, stateFailedQuery, nil)
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionFalse, "IncompatibleDB")}, stateIncompatibleDB, nil)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -76,10 +81,12 @@ func (q *PrecheckQueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.AdmintoolsNotSupported,
 			"ShowRestorePoints is not supported for admintools deployments")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-			[]*metav1.Condition{v1.MakeCondition(vapi.QueryReady, metav1.ConditionFalse, "AdmintoolsNotSupported")}, stateFailedQuery, nil)
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionFalse, "AdmintoolsNotSupported")}, stateIncompatibleDB, nil)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
+		[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionTrue, "Started")}, stateQuerying, nil)
 }
