@@ -22,8 +22,8 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -271,9 +271,10 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		inx := names.GetServerContainerIndex(vdb)
-		Ω(c.Containers[inx].ReadinessProbe.HTTPGet).ShouldNot(BeNil())
-		Ω(c.Containers[inx].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+		svrCnt := vk8s.GetServerContainer(c.Containers)
+		Ω(svrCnt).ShouldNot(BeNil())
+		Ω(svrCnt.ReadinessProbe.HTTPGet).ShouldNot(BeNil())
+		Ω(svrCnt.LivenessProbe.HTTPGet).ShouldNot(BeNil())
 
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
@@ -290,10 +291,12 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Ω(c.Containers[inx].ReadinessProbe.HTTPGet).Should(BeNil())
-		Ω(c.Containers[inx].LivenessProbe.HTTPGet).Should(BeNil())
-		Ω(c.Containers[inx].ReadinessProbe.Exec).ShouldNot(BeNil())
-		Ω(c.Containers[inx].LivenessProbe.TCPSocket).ShouldNot(BeNil())
+		svrCnt = vk8s.GetServerContainer(c.Containers)
+		Ω(svrCnt).ShouldNot(BeNil())
+		Ω(svrCnt.ReadinessProbe.HTTPGet).Should(BeNil())
+		Ω(svrCnt.LivenessProbe.HTTPGet).Should(BeNil())
+		Ω(svrCnt.ReadinessProbe.Exec).ShouldNot(BeNil())
+		Ω(svrCnt.LivenessProbe.TCPSocket).ShouldNot(BeNil())
 	})
 
 	It("should not use canary query probe if using GSM", func() {

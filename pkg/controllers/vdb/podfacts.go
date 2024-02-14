@@ -34,6 +34,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -345,9 +346,15 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
 		pf.isPendingDelete = podIndex >= sc.Size
 		// Let's just pick the first container image
-		pf.image = pod.Spec.Containers[names.GetFirstContainerIndex()].Image
+		pf.image, err = vk8s.GetServerImage(pod.Spec.Containers)
+		if err != nil {
+			return err
+		}
 		pf.hasDCTableAnnotations = p.checkDCTableAnnotations(pod)
-		pf.catalogPath = p.getCatalogPathFromPod(vdb, pod)
+		pf.catalogPath, err = p.getCatalogPathFromPod(vdb, pod)
+		if err != nil {
+			return err
+		}
 		pf.hasNMASidecar = builder.HasNMAContainer(&pod.Spec)
 	}
 
@@ -689,30 +696,33 @@ func (p *PodFacts) checkDCTableAnnotations(pod *corev1.Pod) bool {
 }
 
 // getCatalogPathFromPod will get the current catalog path from the pod
-func (p *PodFacts) getCatalogPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) string {
+func (p *PodFacts) getCatalogPathFromPod(vdb *vapi.VerticaDB, pod *corev1.Pod) (string, error) {
 	// both server and nma(if sidecar deployment enabled) have
-	// the catalog path env set so we can pick either to get it
-	index := names.GetFirstContainerIndex()
-	return p.getEnvValueFromPodWithDefault(pod, index,
-		builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath())
+	// the catalog path env set so we just pick the server since that container
+	// will be available in all deployments.
+	cnt := vk8s.GetServerContainer(pod.Spec.Containers)
+	if cnt == nil {
+		return "", fmt.Errorf("could not find the server container in the pod %s", pod.Name)
+	}
+	return p.getEnvValueFromPodWithDefault(cnt,
+		builder.CatalogPathEnv, vdb.Spec.Local.GetCatalogPath()), nil
 }
 
 // getEnvValueFromPodWithDefault will get an environment value from the pod. A default
 // value is used if the env var isn't found.
-func (p *PodFacts) getEnvValueFromPodWithDefault(pod *corev1.Pod, cntIndex int,
+func (p *PodFacts) getEnvValueFromPodWithDefault(cnt *corev1.Container,
 	envName, defaultValue string) string {
-	pathPrefix, ok := p.getEnvValueFromPod(pod, cntIndex, envName)
+	pathPrefix, ok := p.getEnvValueFromPod(cnt, envName)
 	if !ok {
 		return defaultValue
 	}
 	return pathPrefix
 }
 
-func (p *PodFacts) getEnvValueFromPod(pod *corev1.Pod, index int, envName string) (string, bool) {
-	c := pod.Spec.Containers[index]
-	for i := range c.Env {
-		if c.Env[i].Name == envName {
-			return c.Env[i].Value, true
+func (p *PodFacts) getEnvValueFromPod(cnt *corev1.Container, envName string) (string, bool) {
+	for i := range cnt.Env {
+		if cnt.Env[i].Name == envName {
+			return cnt.Env[i].Value, true
 		}
 	}
 	return "", false

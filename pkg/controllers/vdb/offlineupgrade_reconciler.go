@@ -27,9 +27,9 @@ import (
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
-	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -252,8 +252,11 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 	}
 	for i := range pods.Items {
 		pod := &pods.Items[i]
-		cnts := pod.Spec.Containers
-		if cnts[names.GetFirstContainerIndex()].Image == o.Vdb.Spec.Image {
+		cntImage, err := vk8s.GetServerImage(pod.Spec.Containers)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if cntImage == o.Vdb.Spec.Image {
 			foundPodWithNewImage = true
 			break
 		}
@@ -334,8 +337,11 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 		if errors.IsNotFound(err) {
 			continue
 		}
-		cnts := pod.Spec.Containers
-		if cnts[names.GetFirstContainerIndex()].Image != o.Vdb.Spec.Image {
+		cntImage, err := vk8s.GetServerImage(pod.Spec.Containers)
+		if err != nil {
+			return false, err
+		}
+		if cntImage != o.Vdb.Spec.Image {
 			return true, nil
 		}
 	}

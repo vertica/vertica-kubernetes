@@ -24,6 +24,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -112,11 +113,14 @@ var _ = Describe("upgrade", func() {
 		Expect(stsChange).Should(Equal(2))
 
 		sts := &appsv1.StatefulSet{}
-		inx := names.GetServerContainerIndex(vdb)
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[inx].Image).Should(Equal(NewImage))
+		svrCnt := vk8s.GetServerContainer(sts.Spec.Template.Spec.Containers)
+		Expect(svrCnt).ShouldNot(BeNil())
+		Expect(svrCnt.Image).Should(Equal(NewImage))
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
-		Expect(sts.Spec.Template.Spec.Containers[inx].Image).Should(Equal(NewImage))
+		svrCnt = vk8s.GetServerContainer(sts.Spec.Template.Spec.Containers)
+		Expect(svrCnt).ShouldNot(BeNil())
+		Expect(svrCnt.Image).Should(Equal(NewImage))
 	})
 
 	It("should delete pods of all subclusters", func() {

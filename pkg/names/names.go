@@ -20,18 +20,12 @@ import (
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	ServerContainer = "server"
 	NMAContainer    = "nma"
-)
-
-const (
-	firstContainerIndex = iota
-	serverContainerIndex
 )
 
 // GenNamespacedName will take any name and make it a namespace name that uses
@@ -104,35 +98,4 @@ func GenPVName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.N
 	return types.NamespacedName{
 		Name: fmt.Sprintf("pv-%s-%s-%s-%d", vapi.LocalDataPVC, vdb.Name, sc.GenCompatibleFQDN(), podIndex),
 	}
-}
-
-// GetServerContainerIndex returns the correct server container
-// index according to the NMA running mode. If there is no nma
-// container, the server will be the first, otherwise the second
-func GetServerContainerIndex(vdb *vapi.VerticaDB) int {
-	if vdb.IsNMASideCarDeploymentEnabled() {
-		return serverContainerIndex
-	}
-	return firstContainerIndex
-}
-
-// GetServerContainerIndexInContainers returns the server index in a given
-// containers slice coming from a Vertica pod
-func GetServerContainerIndexInSlice(cnts []corev1.Container) int {
-	// the server can either be the first or the 2nd container(if nma sidecar is enabled)
-	if cnts[firstContainerIndex].Name == ServerContainer {
-		return firstContainerIndex
-	}
-	return serverContainerIndex
-}
-
-// GetNMAContainerIndex returns the index of
-// the NMA container
-func GetNMAContainerIndex() int {
-	// nma when in a sidecar is always the first container
-	return firstContainerIndex
-}
-
-func GetFirstContainerIndex() int {
-	return firstContainerIndex
 }
