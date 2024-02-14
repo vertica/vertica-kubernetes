@@ -27,7 +27,7 @@ type Parms struct {
 	Hosts               []string
 	CommunalPath        string
 	ConfigurationParams map[string]string
-	FilterOptions       *vops.ShowRestorePointFilterOptions
+	FilterOptions       vops.ShowRestorePointFilterOptions
 }
 
 type Option func(*Parms)
