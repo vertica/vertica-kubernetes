@@ -98,15 +98,18 @@ type MockVClusterOps struct {
 
 // const variables used for vcluster-ops unit test
 const (
-	TestDBName       = "test-db"
-	TestPassword     = "test-pw"
-	TestIPv6         = false
-	TestParm         = "Parm1"
-	TestValue        = "val1"
-	TestInitiatorIP  = "10.10.10.10"
-	TestIsEon        = true
-	TestCommunalPath = "/communal"
-	TestNMATLSSecret = "test-secret"
+	TestDBName         = "test-db"
+	TestPassword       = "test-pw"
+	TestIPv6           = false
+	TestParm           = "Parm1"
+	TestValue          = "val1"
+	TestInitiatorIP    = "10.10.10.10"
+	TestIsEon          = true
+	TestCommunalPath   = "/communal"
+	TestNMATLSSecret   = "test-secret"
+	TestArchiveName    = "test-archive-name"
+	TestStartTimestamp = "2006-01-02"
+	TestEndTimestamp   = "2006-01-02 15:04:05"
 )
 
 var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsconnecttimeout": "10"}
@@ -177,6 +180,22 @@ func (m *MockVClusterOps) VerifyCommunalStorageOptions(communalStoragePath strin
 		return fmt.Errorf("failed to retrieve configuration params")
 	}
 
+	return nil
+}
+
+func (m *MockVClusterOps) VerifyFilterOptions(options *vops.ShowRestorePointFilterOptions) error {
+	if options == nil {
+		return fmt.Errorf("failed to retrieve filter options")
+	}
+	if options.ArchiveName == nil || *options.ArchiveName != TestArchiveName {
+		return fmt.Errorf("failed to retrieve archive name filter")
+	}
+	if options.StartTimestamp == nil || *options.StartTimestamp != TestStartTimestamp {
+		return fmt.Errorf("failed to retrieve start timestamp filter")
+	}
+	if options.EndTimestamp == nil || *options.EndTimestamp != TestEndTimestamp {
+		return fmt.Errorf("failed to retrieve end timestamp filter")
+	}
 	return nil
 }
 

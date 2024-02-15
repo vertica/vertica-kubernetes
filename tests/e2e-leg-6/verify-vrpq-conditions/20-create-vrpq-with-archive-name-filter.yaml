@@ -11,10 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Wait for the operator to update the sts with the new license
-
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-    # verifying type:"QueryComplete", and status:"True"
-    - script: kubectl wait --for=condition=QueryComplete=True -n $NAMESPACE vrpq/archive-query --timeout=600s
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
+metadata:
+  name: archive-query-name
+spec:
+  verticaDBName: archive-query
+  filterOptions:
+    archiveName: db

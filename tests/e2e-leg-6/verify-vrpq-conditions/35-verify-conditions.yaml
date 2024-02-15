@@ -11,11 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
-kind: VerticaRestorePointsQuery
-metadata:
-  name: archive-query
-spec:
-  verticaDBName: archive-query
-  archiveName: backup
-    
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+    # verifying type:"QueryComplete", and status:"True"
+    - script: kubectl wait --for=condition=QueryComplete=True -n $NAMESPACE vrpq/archive-query-start --timeout=600s
