@@ -296,18 +296,31 @@ func buildStartupConfVolumeMount() corev1.VolumeMount {
 	}
 }
 
-func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize) []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
-			Name:      getScrutinizeVolumeMountName(vscr),
-			MountPath: paths.ScrutinizeTmp,
-			SubPath:   "scrutinize",
-		},
+func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	volMnts := []corev1.VolumeMount{
+		buildScrutinizeSharedVolumeMount(vscr),
 		{
 			Name:      getScrutinizeVolumeMountName(vscr),
 			MountPath: paths.LogPath,
 			SubPath:   "log",
 		},
+	}
+
+	if vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+	}
+	return volMnts
+}
+
+// buildScrutinizeSharedVolumeMount returns the volume mount shared by the scrutinize
+// init container and the main container
+func buildScrutinizeSharedVolumeMount(vscr *v1beta1.VerticaScrutinize) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      getScrutinizeVolumeMountName(vscr),
+		MountPath: paths.ScrutinizeTmp,
+		SubPath:   "scrutinize",
 	}
 }
 
@@ -432,13 +445,21 @@ func buildVolumes(vdb *vapi.VerticaDB) []corev1.Volume {
 	return vols
 }
 
-// buildScrutinizeVolume returns an emptyDir volume for scrutinize if no volume was
-// specified in the vscr CR. Otherwise the specified volume is returned
-func buildScrutinizeVolume(vscr *v1beta1.VerticaScrutinize) corev1.Volume {
-	if vscr.Spec.Volume == nil {
-		return buildDefaultScrutinizeVolume()
+// buildScrutinizeVolumes returns volumes that will be used by the scrutinize pod
+func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.Volume {
+	vols := []corev1.Volume{}
+	if vmeta.UseVClusterOps(vdb.Annotations) &&
+		vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
-	return *vscr.Spec.Volume
+	if vscr.Spec.Volume == nil {
+		vols = append(vols, buildDefaultScrutinizeVolume())
+		return vols
+	}
+	vols = append(vols, *vscr.Spec.Volume)
+	return vols
 }
 
 func buildDefaultScrutinizeVolume() corev1.Volume {
@@ -715,7 +736,7 @@ func buildScrutinizePodSpec(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 		Tolerations:                   vscr.Spec.Tolerations,
 		InitContainers:                makeScrutinizeInitContainers(vscr, vdb, args),
 		Containers:                    []corev1.Container{makeScrutinizeMainContainer(vscr)},
-		Volumes:                       []corev1.Volume{buildScrutinizeVolume(vscr)},
+		Volumes:                       buildScrutinizeVolumes(vscr, vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		RestartPolicy:                 corev1.RestartPolicy(vmeta.GetScrutinizePodRestartPolicy(vscr.Annotations)),
 		SecurityContext:               vdb.Spec.PodSecurityContext,
@@ -806,11 +827,11 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Image:        vdb.Spec.Image,
 		Name:         names.ScrutinizeInitContainer,
 		Command:      buildScrutinizeCmd(args),
-		VolumeMounts: buildScrutinizeVolumeMounts(vscr),
+		VolumeMounts: buildScrutinizeVolumeMounts(vscr, vdb),
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
-	cnt.Env = append(cnt.Env, buildNMASecretEnvVars(vdb)...)
+	cnt.Env = append(cnt.Env, buildNMAEnvVars(vdb)...)
 	if vdb.Spec.PasswordSecret != "" {
 		env := buildScrutinizeEnvVars(names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))
 		cnt.Env = append(cnt.Env, env...)
@@ -830,7 +851,7 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Contain
 			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTTL(vscr.Annotations)),
 		},
 		WorkingDir:   paths.ScrutinizeTmp,
-		VolumeMounts: buildScrutinizeVolumeMounts(vscr),
+		VolumeMounts: []corev1.VolumeMount{buildScrutinizeSharedVolumeMount(vscr)},
 	}
 }
 
@@ -1460,10 +1481,6 @@ func buildNMAEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 			{Name: NMAKeyEnv, Value: fmt.Sprintf("%s/%s", paths.NMACertsRoot, corev1.TLSPrivateKeyKey)},
 		}
 	}
-	return buildNMASecretEnvVars(vdb)
-}
-
-func buildNMASecretEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		// The NMA will read the secrets directly from the secret store.
 		// We provide the secret namespace and name for this reason.

@@ -82,9 +82,8 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	return ctrl.Result{}, s.createPod(ctx)
 }
 
-// collectInfoFromVdb pull data from the VerticaDB so that we can provide all of the parameters
+// collectInfoFromVdb fetches data from the VerticaDB so that we can provide all of the parameters
 // to the vcluster scrutinize CLI
-// the logic to collect those data will be added after VER-91241
 func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
 	finder := iter.MakeSubclusterFinder(s.VRec.Client, s.Vdb)
 	pods, err := finder.FindPods(ctx, iter.FindExisting)

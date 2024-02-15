@@ -73,10 +73,14 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		}
 	}
 
-	// No need to create the role and rolebinding if NMA reads certs from
-	// mounted volume or non-k8s secret store.
+	// There are some cases where there is no need to create the role and rolebinding:
+	//	- NMA reads certs from mounted volume or non-k8s secret store
+	//	- no password secret is specified or the password secret is a non-k8s secret.
+	//    This case refers to vclusterOps scrutinize which may need to read the db
+	//	  password directly from the API
 	if vmeta.UseVClusterOps(s.Vdb.Annotations) &&
-		(vmeta.UseNMACertsMount(s.Vdb.Annotations) || !secrets.IsK8sSecret(s.Vdb.Spec.NMATLSSecret)) {
+		(vmeta.UseNMACertsMount(s.Vdb.Annotations) || !secrets.IsK8sSecret(s.Vdb.Spec.NMATLSSecret)) &&
+		(s.Vdb.Spec.PasswordSecret == "" || !secrets.IsK8sSecret(s.Vdb.Spec.PasswordSecret)) {
 		return ctrl.Result{}, s.saveServiceAccountNameInVDB(ctx, sa.Name)
 	}
 

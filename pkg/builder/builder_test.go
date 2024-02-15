@@ -202,7 +202,7 @@ var _ = Describe("builder", func() {
 		pod := BuildScrutinizePod(vscr, vdb, []string{})
 
 		cnt := pod.Spec.InitContainers[0]
-		l := len(buildNMASecretEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
+		l := len(buildNMAEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
 		Ω(len(cnt.Env)).Should(Equal(l))
 		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(superuserPasswordSecretNameEnv)))
 		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(superuserPasswordSecretNamespaceEnv)))
