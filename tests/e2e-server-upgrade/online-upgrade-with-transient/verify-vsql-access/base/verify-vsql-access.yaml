@@ -46,7 +46,10 @@ metadata:
   labels:
     stern: include
 spec:
-  restartPolicy: Never
+  # There can be cache issues when going through the service object where it
+  # still routes to the old pod. So, we always restart the pod to keep
+  # retrying.
+  restartPolicy: Always
   containers:
     - name: test
       image: kustomize-vertica-image
