@@ -150,7 +150,7 @@ func MakeSampleVrpqName() types.NamespacedName {
 func MakeVrpq() *VerticaRestorePointsQuery {
 	VDBNm := MakeVDBName()
 	nm := MakeSampleVrpqName()
-	return &VerticaRestorePointsQuery{
+	vrpq := &VerticaRestorePointsQuery{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: GroupVersion.String(),
 			Kind:       RestorePointsQueryKind,
@@ -162,7 +162,10 @@ func MakeVrpq() *VerticaRestorePointsQuery {
 		},
 		Spec: VerticaRestorePointsQuerySpec{
 			VerticaDBName: VDBNm.Name,
-			ArchiveName:   archiveNm,
+			FilterOptions: &VerticaRestorePointQueryFilterOptions{
+				ArchiveName: archiveNm,
+			},
 		},
 	}
+	return vrpq
 }

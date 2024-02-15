@@ -50,8 +50,17 @@ data:
     fi
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SAVE RESTORE POINT TO ARCHIVE db;\""
     result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SELECT COUNT(*) FROM archive_restore_points;\"")
+    echo "$result" | grep -Pzo "^2\n$" > /dev/null
     if [ $? -ne 0 ]; then
       echo "Assertion failed: expected 2, got $result"
+      exit 1
+    fi
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"CREATE ARCHIVE db2;\""
+    kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SAVE RESTORE POINT TO ARCHIVE db2;\""
+    result=$(kubectl exec $POD_NAME -i -c server -- bash -c "vsql -w superuser -tAc \"SELECT COUNT(*) FROM archive_restore_points;\"")
+    echo "$result" | grep -Pzo "^3\n$" > /dev/null
+    if [ $? -ne 0 ]; then
+      echo "Assertion failed: expected 3, got $result"
       exit 1
     fi
 ---

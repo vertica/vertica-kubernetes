@@ -14,8 +14,8 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
 metadata:
-  name: archive-query
+  name: archive-query-name
 spec:
   verticaDBName: archive-query
-  archiveName: backup
-    
+  filterOptions:
+    archiveName: db

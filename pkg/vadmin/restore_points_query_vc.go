@@ -69,5 +69,8 @@ func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs 
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
 
+	// optional query filter options
+	opts.FilterOptions = &s.FilterOptions
+
 	return &opts
 }

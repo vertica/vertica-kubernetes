@@ -10,4 +10,7 @@ metadata:
   name: verticarestorepointsquery-sample
 spec:
   verticaDBName: verticadb-sample
-  archiveName: archiveNm-sample
+  filterOptions:
+    archiveName: archive-name-sample
+    startTimestamp: "2006-01-02 15:04:05"
+    endTimestamp: "2006-01-02 15:04:05"

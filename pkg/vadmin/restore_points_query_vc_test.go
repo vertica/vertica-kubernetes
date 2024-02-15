@@ -48,6 +48,11 @@ func (m *MockVClusterOps) VShowRestorePoints(options *vops.VShowRestorePointsOpt
 		return restorePoints, err
 	}
 
+	err = m.VerifyFilterOptions(options.FilterOptions)
+	if err != nil {
+		return restorePoints, err
+	}
+
 	// Dummy restore points data for testing
 	restorePoints = []vops.RestorePoint{
 		{Archive: "db", Timestamp: "2024-02-06 07:25:07.437957", ID: "1465516c-e207-4d33-ae62-ce7cd5cfe8d0", Index: 1},
@@ -75,7 +80,11 @@ var _ = Describe("restore_points_vc", func() {
 		showRestorePoints, err := dispatcher.ShowRestorePoints(ctx,
 			showrestorepoints.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
 			showrestorepoints.WithCommunalPath(TestCommunalPath),
-			showrestorepoints.WithConfigurationParams(TestCommunalStorageParams))
+			showrestorepoints.WithConfigurationParams(TestCommunalStorageParams),
+			showrestorepoints.WithArchiveNameFilter(TestArchiveName),
+			showrestorepoints.WithStartTimestampFilter(TestStartTimestamp),
+			showrestorepoints.WithEndTimestampFilter(TestEndTimestamp),
+		)
 		Ω(err).Should(Succeed())
 		Ω(len(showRestorePoints)).Should(Equal(1))
 		Ω(showRestorePoints[0].Archive).Should(Equal("db"))
