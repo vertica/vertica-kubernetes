@@ -16,5 +16,4 @@ kind: TestStep
 commands:
   - script: |-
       export STARTTIMESTAMP=$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==1 and .archive=="db") | .timestamp')
-      export ENDTIMESTAMP=$STARTTIMESTAMP
       sh -c "envsubst < vrpq-start-timestamp.yaml | kubectl apply -n $NAMESPACE -f -"
