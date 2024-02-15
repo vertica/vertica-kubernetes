@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/lithammer/dedent"
@@ -168,6 +169,9 @@ type PodFact struct {
 
 	// The name of the container to run exec commands on.
 	execContainerName string
+
+	// The time that the pod was created.
+	creationTimestamp string
 }
 
 type PodFactDetail map[types.NamespacedName]*PodFact
@@ -343,6 +347,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.isPodRunning = pod.Status.Phase == corev1.PodRunning && !pf.isTerminating
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
+		pf.creationTimestamp = pod.CreationTimestamp.Format(time.DateTime)
 		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
 		pf.isPendingDelete = podIndex >= sc.Size
 		// Let's just pick the first container image
