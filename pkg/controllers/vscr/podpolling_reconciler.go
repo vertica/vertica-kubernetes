@@ -1,14 +1,16 @@
 /*
-Copyright [2021-2023] Open Text.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ (c) Copyright [2021-2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
 */
 
 package vscr
@@ -79,11 +81,13 @@ func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Contex
 			return ctrl.Result{}, vscrstatus.UpdateCondition(ctx, p.VRec.Client, p.Vscr, cond)
 		}
 		if cntStatus.State.Running != nil {
-			p.VRec.Eventf(p.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeInProgress,
-				"Vcluster scrutinize run in progress")
+			p.Log.Info("Vcluster scrutinize run in progress")
 			return ctrl.Result{Requeue: true}, nil
 		}
-		return ctrl.Result{}, nil
+		// if the scrutinize init container is neither running nor terminated then
+		// it is in waiting state. We requeue
+		p.Log.Info("Waiting for the scrutinize container to start running")
+		return ctrl.Result{Requeue: true}, nil
 	}
 	p.VRec.Eventf(p.Vscr, corev1.EventTypeNormal, events.VclusterOpsScrutinizeSucceeded,
 		"Successfully completed scrutinize run for the VerticaDB named '%s'", p.Vscr.Spec.VerticaDBName)

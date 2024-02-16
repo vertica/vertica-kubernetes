@@ -116,13 +116,15 @@ var _ = Describe("builder", func() {
 		cnts := pod.Spec.InitContainers
 		Ω(len(cnts)).Should(Equal(1))
 		volMounts := cnts[0].VolumeMounts
-		Ω(len(volMounts)).Should(Equal(2))
+		Ω(len(volMounts)).Should(Equal(1))
 		Ω(volMounts[0].Name).Should(Equal(testVol))
-		Ω(volMounts[1].Name).Should(Equal(testVol))
 
 		cnts = pod.Spec.Containers
 		Ω(len(cnts)).Should(Equal(1))
 		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeMainContainer))
+		volMounts = cnts[0].VolumeMounts
+		Ω(len(volMounts)).Should(Equal(1))
+		Ω(volMounts[0].Name).Should(Equal(testVol))
 	})
 
 	It("should add init cnts in vscr to scrutinize pod spec", func() {
@@ -167,14 +169,16 @@ var _ = Describe("builder", func() {
 		vdb := vapi.MakeVDB()
 		vscr.Annotations[vmeta.ScrutinizePodRestartPolicyAnnotation] = string(v1.RestartPolicyAlways)
 		vscr.Annotations[vmeta.ScrutinizePodTTLAnnotation] = "180"
+		vscr.Annotations[vmeta.ScrutinizeMainContainerImageAnnotation] = "alpine"
 		pod := BuildScrutinizePod(vscr, vdb, []string{})
 
 		Ω(pod.Spec.RestartPolicy).Should(Equal(v1.RestartPolicyAlways))
+		Ω(pod.Spec.Containers[0].Image).Should(Equal("alpine"))
 		cnt := pod.Spec.Containers[0]
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("180")))
 	})
 
-	It("should set scrutinize container img and command from parameters", func() {
+	It("should set scrutinize init container img and command from parameters", func() {
 		vscr := v1beta1.MakeVscr()
 		vdb := vapi.MakeVDB()
 		pod := BuildScrutinizePod(vscr, vdb, []string{
@@ -202,17 +206,17 @@ var _ = Describe("builder", func() {
 		pod := BuildScrutinizePod(vscr, vdb, []string{})
 
 		cnt := pod.Spec.InitContainers[0]
-		l := len(buildNMAEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
+		l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
 		Ω(len(cnt.Env)).Should(Equal(l))
-		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(superuserPasswordSecretNameEnv)))
-		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(superuserPasswordSecretNamespaceEnv)))
+		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
 
 		vdb.Spec.PasswordSecret = "passwd"
 		pod = BuildScrutinizePod(vscr, vdb, []string{})
 		cnt = pod.Spec.InitContainers[0]
 		Ω(len(cnt.Env)).Should(Equal(l + 2))
-		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(superuserPasswordSecretNameEnv)))
-		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(superuserPasswordSecretNamespaceEnv)))
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
 	})
 
 	It("should only have separate mount paths for data, depot and catalog if they are different", func() {

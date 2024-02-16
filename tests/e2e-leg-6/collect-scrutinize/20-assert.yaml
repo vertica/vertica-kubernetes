@@ -52,13 +52,3 @@ involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaScrutinize
   name: vertica-scrutinize-vdb-exist
----
-apiVersion: v1
-kind: Event
-reason: VclusterOpsScrutinizeInProgress
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaScrutinize
-  name: vertica-scrutinize-vdb-exist

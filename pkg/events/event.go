@@ -107,5 +107,4 @@ const (
 	VclusterOpsScrutinizePasswdInSecretNotSupported = "VclusterOpsScrutinizePasswdInSecretNotSupported" // #nosec G101
 	VclusterOpsScrutinizeSucceeded                  = "VclusterOpsScrutinizeSucceeded"
 	VclusterOpsScrutinizeFailed                     = "VclusterOpsScrutinizeFailed"
-	VclusterOpsScrutinizeInProgress                 = "VclusterOpsScrutinizeInProgress"
 )

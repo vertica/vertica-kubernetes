@@ -82,10 +82,10 @@ const (
 	// Scrutinize constants
 	scrutinizeMountName       = "scrutinize"
 	scrutinizeTermGracePeriod = 0
-	// Environment variables to allow vcluster scrutinize to get the password
+	// Environment variables to allow vcluster scrutinize to read the password
 	// from a secret
-	superuserPasswordSecretNamespaceEnv = "SUPERUSER_PASSWD_NAMESPACE"
-	superuserPasswordSecretNameEnv      = "SUPERUSER_PASSWD"
+	passwordSecretNamespaceEnv = "PASSWORD_SECRET_NAMESPACE"
+	passwordSecretNameEnv      = "PASSWORD_SECRET_NAME"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -299,11 +299,6 @@ func buildStartupConfVolumeMount() corev1.VolumeMount {
 func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	volMnts := []corev1.VolumeMount{
 		buildScrutinizeSharedVolumeMount(vscr),
-		{
-			Name:      getScrutinizeVolumeMountName(vscr),
-			MountPath: paths.LogPath,
-			SubPath:   "log",
-		},
 	}
 
 	if vmeta.UseNMACertsMount(vdb.Annotations) &&
@@ -320,7 +315,6 @@ func buildScrutinizeSharedVolumeMount(vscr *v1beta1.VerticaScrutinize) corev1.Vo
 	return corev1.VolumeMount{
 		Name:      getScrutinizeVolumeMountName(vscr),
 		MountPath: paths.ScrutinizeTmp,
-		SubPath:   "scrutinize",
 	}
 }
 
@@ -774,7 +768,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 	)
 
 	if vdb.IsMonolithicDeploymentEnabled() {
-		envVars = append(envVars, buildNMAEnvVars(vdb)...)
+		envVars = append(envVars, buildNMATLSCertsEnvVars(vdb)...)
 	}
 	cnt := corev1.Container{
 		Image:           pickImage(vdb, sc),
@@ -801,7 +795,7 @@ func makeServerContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Contai
 
 // makeNMAContainer builds the spec for the nma container
 func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container {
-	envVars := buildNMAEnvVars(vdb)
+	envVars := buildNMATLSCertsEnvVars(vdb)
 	envVars = append(envVars, buildCommonEnvVars(vdb)...)
 	envVars = append(envVars,
 		corev1.EnvVar{Name: NMALogPath, Value: StdOut},
@@ -831,7 +825,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
-	cnt.Env = append(cnt.Env, buildNMAEnvVars(vdb)...)
+	cnt.Env = append(cnt.Env, buildNMATLSCertsEnvVars(vdb)...)
 	if vdb.Spec.PasswordSecret != "" {
 		env := buildScrutinizeEnvVars(names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))
 		cnt.Env = append(cnt.Env, env...)
@@ -843,10 +837,10 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 // be running after all init containers are completed
 func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Container {
 	return corev1.Container{
-		Image: "busybox:latest",
+		Image: vmeta.GetScrutinizeMainContainerImage(vscr.Annotations),
 		Name:  names.ScrutinizeMainContainer,
 		Command: []string{
-			"sh",
+			"bash",
 			"-c",
 			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTTL(vscr.Annotations)),
 		},
@@ -1466,13 +1460,14 @@ func buildScrutinizeCmd(args []string) []string {
 // by vcluster scrutinize
 func buildScrutinizeEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 	return []corev1.EnvVar{
-		{Name: superuserPasswordSecretNamespaceEnv, Value: nm.Namespace},
-		{Name: superuserPasswordSecretNameEnv, Value: nm.Name},
+		{Name: passwordSecretNamespaceEnv, Value: nm.Namespace},
+		{Name: passwordSecretNameEnv, Value: nm.Name},
 	}
 }
 
-// buildNMAEnvVars returns environment variables that are needed by NMA
-func buildNMAEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
+// buildNMATLSCertsEnvVars returns environment variables about NMA certs,
+// that are needed by NMA and vcluster scrutinize
+func buildNMATLSCertsEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	if vmeta.UseNMACertsMount(vdb.Annotations) && secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		return []corev1.EnvVar{
 			// Provide the path to each of the certs that are mounted in the container.
