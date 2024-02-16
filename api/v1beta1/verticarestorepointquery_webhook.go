@@ -78,7 +78,9 @@ func (vrpq *VerticaRestorePointsQuery) validateVrpqSpec() field.ErrorList {
 	return allErrs
 }
 
-// validateTimeStamp will check if the scalingGranularity field is valid
+// validateTimeStamp will check if all non-empty timestamps specified have valid date time or date only format
+// convert date only format to date time format when applicable, and make sure end timestamp
+// is no earlier than start timestamp
 func (vrpq *VerticaRestorePointsQuery) validateTimeStamp(allErrs field.ErrorList) field.ErrorList {
 	if filter := vrpq.Spec.FilterOptions; filter != nil {
 		options := vops.ShowRestorePointFilterOptions{}
