@@ -11,10 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: |-
-      export STARTTIMESTAMP=$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==2 and .archive=="db") | .timestamp' | cut -d ' ' -f 1)
-      export ENDTIMESTAMP=$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==1 and .archive=="db2") | .timestamp' | cut -d ' ' -f 1)
-      sh -c "envsubst < vrpq-both-date-only-timestamps.yaml | kubectl apply -n $NAMESPACE -f -"
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
+metadata:
+  name: archive-query
+spec:
+  verticaDBName: archive-query
+  filterOptions:
+    startTimestamp: "2024-02-18"

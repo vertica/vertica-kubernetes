@@ -15,5 +15,5 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - script: |-
-      export ENDTIMESTAMP=$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==1 and .archive=="db") | .timestamp')
+      export ENDTIMESTAMP="$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==1 and .archive=="db") | .timestamp')"
       sh -c "envsubst < vrpq-end-timestamp.yaml | kubectl apply -n $NAMESPACE -f -"
