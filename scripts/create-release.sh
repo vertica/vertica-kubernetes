@@ -83,4 +83,7 @@ gh release create v$VERSION \
     --notes-file $TMP_CHANGELOG_FILE \
     --target $VERSION_SHA \
     --title "Vertica Kubernetes $VERSION" \
-    $ARTIFACTS_DIR/*
+    $ARTIFACTS_DIR/bin/* \
+    $ARTIFACTS_DIR/config/*/* \
+    $ARTIFACTS_DIR/helm-charts/*tgz \
+    $ARTIFACTS_DIR/helm-charts/verticadb-operator/crds/*
