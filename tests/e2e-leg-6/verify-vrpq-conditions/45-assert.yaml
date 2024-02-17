@@ -19,7 +19,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaRestorePointsQuery
-  name: archive-query-end
+  name: archive-query-start
 ---
 apiVersion: v1
 kind: Event
@@ -29,16 +29,16 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaRestorePointsQuery
-  name: archive-query-end
+  name: archive-query-start
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
 metadata:
-  name: archive-query-end
+  name: archive-query-start
 status:
   restorePoints:
     - archive: db
       index: 1
-    - archive: db
-      index: 2
+    - archive: db2
+      index: 1
   state: "Query successful"

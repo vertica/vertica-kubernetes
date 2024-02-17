@@ -14,5 +14,7 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-    # verifying type:"QueryComplete", and status:"True"
-    - script: kubectl wait --for=condition=QueryComplete=True -n $NAMESPACE vrpq/archive-query-start --timeout=600s
+  - script: |-
+      export STARTTIMESTAMP="$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==2 and .archive=="db") | .timestamp' | cut -d ' ' -f 1)"
+      export ENDTIMESTAMP="$(kubectl get vrpq archive-query -o json -n $NAMESPACE | jq -r '.status.restorePoints[] | select(.index==1 and .archive=="db2") | .timestamp' | cut -d ' ' -f 1)"
+      sh -c "envsubst < vrpq-both-date-only-timestamps.yaml | kubectl apply -n $NAMESPACE -f -"

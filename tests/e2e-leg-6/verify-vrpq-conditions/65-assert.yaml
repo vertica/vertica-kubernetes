@@ -34,13 +34,9 @@ involvedObject:
 apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
 metadata:
-  name: archive-query-both-date-only
+  name: archive-query-both
 status:
   restorePoints:
     - archive: db
-      index: 1
-    - archive: db
-      index: 2
-    - archive: db2
       index: 1
   state: "Query successful"

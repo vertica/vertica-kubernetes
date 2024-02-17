@@ -76,10 +76,11 @@ type VerticaRestorePointsQueryStatus struct {
 	// Status message for running query
 	State string `json:"state,omitempty"`
 
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// This contains the result of the restore points query. Check the QueryComplete
 	// status condition to know when this has been populated by the operator.
-	RestorePoints []vclusterops.RestorePoint `json:"restorePoints,omitempty"`
+	RestorePoints []vclusterops.RestorePoint `json:"restorePoints"`
 }
 
 const (

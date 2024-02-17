@@ -11,35 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-apiVersion: v1
-kind: Event
-reason: ShowRestorePointsStarted
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaRestorePointsQuery
-  name: archive-query-name
----
-apiVersion: v1
-kind: Event
-reason: ShowRestorePointsSucceeded
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1beta1
-  kind: VerticaRestorePointsQuery
-  name: archive-query-name
----
 apiVersion: vertica.com/v1beta1
 kind: VerticaRestorePointsQuery
 metadata:
-  name: archive-query-name
-status:
-  restorePoints:
-    - archive: db
-      index: 1
-    - archive: db
-      index: 2
-  state: "Query successful"
+  name: archive-query
+spec:
+  verticaDBName: archive-query
+  filterOptions:
+    startTimestamp: "2024-02-18"
