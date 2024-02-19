@@ -97,10 +97,11 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 
 	if vinf.IsOlder(v1.ScrutinizeDBPasswdInSecretMinVersion) {
 		ver, _ := s.Vdb.GetVerticaVersionStr()
-		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizePasswdInSecretNotSupported,
-			"The server version %s does not support vclusterOps scrutinize reading db password from secret", ver)
+		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeNotSupported,
+			"The server version %s is not supported with VerticaScrutinize. The minimum server version it supports is %s.",
+			ver, v1.ScrutinizeDBPasswdInSecretMinVersion)
 		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse,
-			events.VclusterOpsScrutinizePasswdInSecretNotSupported)
+			events.VclusterOpsScrutinizeNotSupported)
 	}
 
 	s.Log.Info(fmt.Sprintf("The VerticaDB named '%s' is configured for scrutinize through vclusterops", s.Vdb.Name))

@@ -85,7 +85,7 @@ var _ = Describe("vdbverifypod_reconciler", func() {
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
 		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeReady, metav1.ConditionFalse,
-			events.VclusterOpsScrutinizePasswdInSecretNotSupported)
+			events.VclusterOpsScrutinizeNotSupported)
 	})
 
 	It("should update status if vdb does not have server version info", func() {
