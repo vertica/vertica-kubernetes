@@ -316,14 +316,13 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 		return ctrl.Result{}, err
 	}
 
-	serverContainer := builder.FindServerContainerStatus(pod)
+	serverContainer := vk8s.FindServerContainerStatus(pod)
 	if serverContainer == nil {
 		return ctrl.Result{}, fmt.Errorf("could not find server container in pod spec of %s", pn.Name)
 	}
 	if serverContainer.Ready ||
 		(serverContainer.Started != nil && *serverContainer.Started) ||
-		serverContainer.State.Waiting == nil ||
-		serverContainer.State.Waiting.Reason != "CreateContainerError" {
+		!vk8s.HasCreateContainerError(serverContainer) {
 		return ctrl.Result{}, nil
 	}
 	// Sadly if we determine that we need to change and deploy the NMA sidecar,

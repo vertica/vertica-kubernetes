@@ -259,7 +259,8 @@ var _ = Describe("upgrade", func() {
 				Started: &started,
 				State: corev1.ContainerState{
 					Waiting: &corev1.ContainerStateWaiting{
-						Reason: "CreateContainerError",
+						Reason:  "CreateContainerError",
+						Message: `failed to generate container "abcd" spec: failed to apply OCI options: no command specified'`,
 					},
 				},
 			},
