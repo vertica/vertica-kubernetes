@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -269,7 +269,7 @@ func (p *PodFacts) Invalidate() {
 // know the proper pod spec until we know the Vertica version, but you don't
 // know the Vertica version until the pod runs.
 func getExecContainerName(sts *appsv1.StatefulSet) string {
-	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
+	if vk8s.HasNMAContainer(&sts.Spec.Template.Spec) {
 		return names.NMAContainer
 	}
 	return names.ServerContainer
@@ -360,7 +360,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		if err != nil {
 			return err
 		}
-		pf.hasNMASidecar = builder.HasNMAContainer(&pod.Spec)
+		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
 	}
 
 	fns := []CheckerFunc{

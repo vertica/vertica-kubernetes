@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -81,4 +81,10 @@ func HasCreateContainerError(containerStatus *corev1.ContainerStatus) bool {
 	return containerStatus.State.Waiting != nil &&
 		containerStatus.State.Waiting.Reason == "CreateContainerError" &&
 		strings.Contains(containerStatus.State.Waiting.Message, "no command specified")
+}
+
+// HasNMAContainer returns true if the given container spec has the NMA
+// sidecar container.
+func HasNMAContainer(podSpec *corev1.PodSpec) bool {
+	return GetNMAContainer(podSpec.Containers) != nil
 }

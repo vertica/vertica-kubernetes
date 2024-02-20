@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -517,7 +517,7 @@ func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.St
 // isNMADeploymentDifferent will return true if one of the statefulsets have a
 // NMA sidecar deployment and the other one doesn't.
 func isNMADeploymentDifferent(sts1, sts2 *appsv1.StatefulSet) bool {
-	return builder.HasNMAContainer(&sts1.Spec.Template.Spec) != builder.HasNMAContainer(&sts2.Spec.Template.Spec)
+	return vk8s.HasNMAContainer(&sts1.Spec.Template.Spec) != vk8s.HasNMAContainer(&sts2.Spec.Template.Spec)
 }
 
 // checkIfReadyForStsUpdate will check whether it is okay to proceed
