@@ -76,6 +76,9 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger,
 		for _, condition := range conditions {
 			meta.SetStatusCondition(&vrpq.Status.Conditions, *condition)
 		}
+		if restorePoints == nil {
+			restorePoints = []vclusterops.RestorePoint{}
+		}
 		vrpq.Status.RestorePoints = restorePoints
 		return nil
 	}
