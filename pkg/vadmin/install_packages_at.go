@@ -13,30 +13,26 @@
  limitations under the License.
 */
 
-package stopdb
+package vadmin
 
 import (
-	"k8s.io/apimachinery/pkg/types"
+	"context"
+
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 )
 
-// Parms holds all of the option for a stop DB invocation.
-type Parms struct {
-	InitiatorName types.NamespacedName
-	InitiatorIP   string
-}
-
-type Option func(*Parms)
-
-// Make will fill in the Parms based on the options chosen
-func (s *Parms) Make(opts ...Option) {
-	for _, opt := range opts {
-		opt(s)
+// InstallPackages will install all packages under /opt/vertica/packages where Autoinstall is marked true
+func (a *Admintools) InstallPackages(ctx context.Context, opts ...installpackages.Option) error {
+	s := installpackages.Parms{}
+	s.Make(opts...)
+	cmd := []string{
+		"-t", "install_package",
+		"--database", a.VDB.Spec.DBName,
+		"--package", "default",
 	}
-}
-
-func WithInitiator(nm types.NamespacedName, ip string) Option {
-	return func(s *Parms) {
-		s.InitiatorName = nm
-		s.InitiatorIP = ip
+	if s.ForceReinstall {
+		cmd = append(cmd, "--force-reinstall")
 	}
+	_, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
+	return err
 }

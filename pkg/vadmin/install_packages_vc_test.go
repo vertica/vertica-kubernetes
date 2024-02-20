@@ -13,30 +13,13 @@
  limitations under the License.
 */
 
-package stopdb
+package vadmin
 
 import (
-	"k8s.io/apimachinery/pkg/types"
+	vops "github.com/vertica/vcluster/vclusterops"
 )
 
-// Parms holds all of the option for a stop DB invocation.
-type Parms struct {
-	InitiatorName types.NamespacedName
-	InitiatorIP   string
-}
-
-type Option func(*Parms)
-
-// Make will fill in the Parms based on the options chosen
-func (s *Parms) Make(opts ...Option) {
-	for _, opt := range opts {
-		opt(s)
-	}
-}
-
-func WithInitiator(nm types.NamespacedName, ip string) Option {
-	return func(s *Parms) {
-		s.InitiatorName = nm
-		s.InitiatorIP = ip
-	}
+// mock version of VInstallPackages() that is invoked inside VClusterOps.InstallPackages()
+func (m *MockVClusterOps) VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error) {
+	return nil, nil
 }
