@@ -140,17 +140,6 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 	return svc
 }
 
-// HasNMAContainer returns true if the given statefulset spec has the NMA
-// sidecar container.
-func HasNMAContainer(podSpec *corev1.PodSpec) bool {
-	// For test purposes, the container spec could be false. So, it doesn't
-	// matter what we return.
-	if len(podSpec.Containers) == 0 {
-		return false
-	}
-	return podSpec.Containers[0].Name == names.NMAContainer
-}
-
 // buildConfigVolumeMount returns the volume mount for config.
 // If vclusterops flag is enabled we mount only
 // /opt/vertica/config/node_management_agent.pid

@@ -269,7 +269,7 @@ func (p *PodFacts) Invalidate() {
 // know the proper pod spec until we know the Vertica version, but you don't
 // know the Vertica version until the pod runs.
 func getExecContainerName(sts *appsv1.StatefulSet) string {
-	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
+	if vk8s.HasNMAContainer(&sts.Spec.Template.Spec) {
 		return names.NMAContainer
 	}
 	return names.ServerContainer
@@ -360,7 +360,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		if err != nil {
 			return err
 		}
-		pf.hasNMASidecar = builder.HasNMAContainer(&pod.Spec)
+		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
 	}
 
 	fns := []CheckerFunc{
