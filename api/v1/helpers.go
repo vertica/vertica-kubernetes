@@ -125,7 +125,7 @@ func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 // vclusterops. This is intended for test purposes.
 func MakeVDBForVclusterOps() *VerticaDB {
 	vdb := MakeVDB()
-	vdb.Annotations[vmeta.VersionAnnotation] = VcluseropsAsDefaultDeploymentMethodMinVersion
+	vdb.Annotations[vmeta.VersionAnnotation] = ScrutinizeDBPasswdInSecretMinVersion
 	vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 	return vdb
 }

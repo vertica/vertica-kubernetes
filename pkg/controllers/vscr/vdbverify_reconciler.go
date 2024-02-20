@@ -17,6 +17,7 @@ package vscr
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
@@ -93,6 +94,17 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 			"The server version %s does not have scrutinize support through vclusterOps", ver)
 		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported)
 	}
+
+	if vinf.IsOlder(v1.ScrutinizeDBPasswdInSecretMinVersion) {
+		ver, _ := s.Vdb.GetVerticaVersionStr()
+		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeNotSupported,
+			"The server version %s is not supported with VerticaScrutinize. The minimum server version it supports is %s.",
+			ver, v1.ScrutinizeDBPasswdInSecretMinVersion)
+		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse,
+			events.VclusterOpsScrutinizeNotSupported)
+	}
+
+	s.Log.Info(fmt.Sprintf("The VerticaDB named '%s' is configured for scrutinize through vclusterops", s.Vdb.Name))
 	return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize)
 }
 

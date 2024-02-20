@@ -129,4 +129,20 @@ var _ = Describe("annotations", func() {
 		}
 		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(string(corev1.RestartPolicyAlways)))
 	})
+
+	It("should return scrutinize main container image based on the annotations map", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizeMainContainerImage(ann)).Should(Equal(ScrutinizeMainContainerImageDefaultValue))
+
+		ann = map[string]string{
+			ScrutinizeMainContainerImageAnnotation: "",
+		}
+		Ω(GetScrutinizeMainContainerImage(ann)).Should(Equal(ScrutinizeMainContainerImageDefaultValue))
+
+		const img = "busybox:latest"
+		ann = map[string]string{
+			ScrutinizeMainContainerImageAnnotation: img,
+		}
+		Ω(GetScrutinizeMainContainerImage(ann)).Should(Equal(img))
+	})
 })

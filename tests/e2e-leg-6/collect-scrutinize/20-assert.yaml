@@ -25,6 +25,9 @@ status:
     type: ScrutinizeReady
   - status: "True"
     type: ScrutinizePodCreated
+  - status: "True"
+    type: ScrutinizeCollectionFinished
+    reason: VclusterOpsScrutinizeSucceeded
 ---
 apiVersion: v1
 kind: Pod
@@ -38,4 +41,14 @@ spec:
   - name: scrutinize
   restartPolicy: Never
 status:
-  phase: Pending
+  phase: Running
+---
+apiVersion: v1
+kind: Event
+reason: VclusterOpsScrutinizeSucceeded
+source:
+  component: verticadb-operator
+involvedObject:
+  apiVersion: vertica.com/v1beta1
+  kind: VerticaScrutinize
+  name: vertica-scrutinize-vdb-exist

@@ -11,20 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-collect-scrutinize-sc1
-status:
-  currentReplicas: 3
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-collect-scrutinize
-status:
-  subclusters:
-    - installCount: 3
-      addedToDBCount: 3
-      upNodeCount: 3
+# Wait for the scrutinize pod creation
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+    - script: kubectl wait --for=condition=ScrutinizeCollectionFinished=True -n $NAMESPACE vscr/vertica-scrutinize-vdb-exist --timeout=600s
+

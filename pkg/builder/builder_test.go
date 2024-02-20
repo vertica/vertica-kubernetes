@@ -105,10 +105,11 @@ var _ = Describe("builder", func() {
 	It("should enforce volume in vscr", func() {
 		const testVol = "custom-vol"
 		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
 		vscr.Spec.Volume = &v1.Volume{
 			Name: testVol,
 		}
-		pod := BuildScrutinizePod(vscr)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		vols := pod.Spec.Volumes
 		Ω(len(vols)).Should(Equal(1))
 		Ω(vols[0].Name).Should(Equal(testVol))
@@ -121,15 +122,19 @@ var _ = Describe("builder", func() {
 		cnts = pod.Spec.Containers
 		Ω(len(cnts)).Should(Equal(1))
 		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeMainContainer))
+		volMounts = cnts[0].VolumeMounts
+		Ω(len(volMounts)).Should(Equal(1))
+		Ω(volMounts[0].Name).Should(Equal(testVol))
 	})
 
 	It("should add init cnts in vscr to scrutinize pod spec", func() {
 		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
 		vscr.Spec.InitContainers = []v1.Container{
 			{Name: "init1"},
 			{Name: "init2"},
 		}
-		pod := BuildScrutinizePod(vscr)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		cnts := pod.Spec.InitContainers
 		Ω(len(cnts)).Should(Equal(3))
 		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeInitContainer))
@@ -140,6 +145,7 @@ var _ = Describe("builder", func() {
 
 	It("should add annotations and labels in vscr spec to scrutinize pod", func() {
 		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
 		vscr.Spec.Labels = map[string]string{
 			"label1": "val1",
 			"label2": "val2",
@@ -148,7 +154,7 @@ var _ = Describe("builder", func() {
 			"ant1": "val3",
 			"ant2": "val4",
 		}
-		pod := BuildScrutinizePod(vscr)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta) {
 			Ω(objectMeta.Labels["label1"]).Should(Equal("val1"))
 			Ω(objectMeta.Labels["label2"]).Should(Equal("val2"))
@@ -160,13 +166,57 @@ var _ = Describe("builder", func() {
 
 	It("should set some fields from vscr metadata annotations", func() {
 		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
 		vscr.Annotations[vmeta.ScrutinizePodRestartPolicyAnnotation] = string(v1.RestartPolicyAlways)
 		vscr.Annotations[vmeta.ScrutinizePodTTLAnnotation] = "180"
-		pod := BuildScrutinizePod(vscr)
+		vscr.Annotations[vmeta.ScrutinizeMainContainerImageAnnotation] = "alpine"
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 
 		Ω(pod.Spec.RestartPolicy).Should(Equal(v1.RestartPolicyAlways))
+		Ω(pod.Spec.Containers[0].Image).Should(Equal("alpine"))
 		cnt := pod.Spec.Containers[0]
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("180")))
+	})
+
+	It("should set scrutinize init container img and command from parameters", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		pod := BuildScrutinizePod(vscr, vdb, []string{
+			"--hosts", "h1,h2,h3",
+			"--db-name", "db",
+			"--db-user", "dbadmin",
+		})
+
+		cnt := pod.Spec.InitContainers[0]
+		Ω(cnt.Image).Should(Equal(vdb.Spec.Image))
+
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--db-name")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--db-user")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("h1,h2,h3")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("dbadmin")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("/opt/vertica/bin/vcluster")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("scrutinize")))
+	})
+
+	It("should add passwd env var if vdb.Spec.PasswordSecret is non-empty", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+
+		cnt := pod.Spec.InitContainers[0]
+		l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
+		Ω(len(cnt.Env)).Should(Equal(l))
+		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
+
+		vdb.Spec.PasswordSecret = "passwd"
+		pod = BuildScrutinizePod(vscr, vdb, []string{})
+		cnt = pod.Spec.InitContainers[0]
+		Ω(len(cnt.Env)).Should(Equal(l + 2))
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
 	})
 
 	It("should only have separate mount paths for data, depot and catalog if they are different", func() {
@@ -603,6 +653,14 @@ func makeVolumeMountNames(c *v1.Container) []string {
 		volNames = append(volNames, c.VolumeMounts[i].Name)
 	}
 	return volNames
+}
+
+func makeEnvVars(c *v1.Container) []string {
+	envVars := []string{}
+	for i := range c.Env {
+		envVars = append(envVars, c.Env[i].Name)
+	}
+	return envVars
 }
 
 func getPodInfoVolume(vols []v1.Volume) *v1.Volume {

@@ -1,14 +1,16 @@
 /*
-Copyright [2021-2023] Open Text.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ (c) Copyright [2021-2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
 */
 
 package vscr
@@ -158,6 +160,7 @@ func (r *VerticaScrutinizeReconciler) constructActors(vscr *v1beta1.VerticaScrut
 	return []controllers.ReconcileActor{
 		MakeVDBVerifyReconciler(r, vscr, log),
 		MakeScrutinizePodReconciler(r, vscr, log),
+		MakePodPollingReconciler(r, vscr, log),
 	}
 }
 
@@ -209,8 +212,10 @@ func (r *VerticaScrutinizeReconciler) logScrutinizeNotReadyMsg(log logr.Logger, 
 		msg = fmt.Sprintf("VerticaDB %s has vclusterOps disabled.", vdbName)
 	case events.VerticaVersionNotFound:
 		msg = fmt.Sprintf("The server version could not be found in the VerticaDB %s", vdbName)
-	default:
+	case events.VclusterOpsScrutinizeNotSupported:
 		msg = "The server version does not have scrutinize support through vclusterOps"
+	default:
+		msg = "The server version does not support vclusterOps scrutinize reading db password from secret"
 	}
 	log.Info(msg)
 }

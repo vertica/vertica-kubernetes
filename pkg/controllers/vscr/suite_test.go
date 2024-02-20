@@ -1,19 +1,22 @@
 /*
-Copyright [2021-2023] Open Text.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ (c) Copyright [2021-2023] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
 */
 
 package vscr
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -22,6 +25,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	test "github.com/vertica/vertica-kubernetes/pkg/test"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
-	v1vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -66,7 +71,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = v1vapi.AddToScheme(scheme.Scheme)
+	err = v1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = v1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -95,3 +100,17 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+func checkStatusConditionAfterReconcile(ctx context.Context, vscr *v1beta1.VerticaScrutinize,
+	condType string, status metav1.ConditionStatus, reason string) {
+	Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), vscr)).Should(Succeed())
+	cond := vscr.FindStatusCondition(condType)
+	Expect(cond).ShouldNot(BeNil())
+	Expect(*cond).Should(test.EqualMetaV1Condition(
+		metav1.Condition{
+			Type:   condType,
+			Status: status,
+			Reason: reason,
+		},
+	))
+}

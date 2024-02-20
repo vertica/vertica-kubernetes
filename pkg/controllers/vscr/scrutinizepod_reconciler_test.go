@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	test "github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
 	corev1 "k8s.io/api/core/v1"
@@ -35,16 +36,25 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 	It("should create scrutinize pod", func() {
 		vdb := v1.MakeVDBForVclusterOps()
+		sc := &vdb.Spec.Subclusters[0]
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
 		vscr := v1beta1.MakeVscr()
 		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
 		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
 		cond := v1.MakeCondition(v1beta1.ScrutinizeReady, metav1.ConditionTrue, "")
 		meta.SetStatusCondition(&vscr.Status.Conditions, *cond)
 
+		cntStatuses := []corev1.ContainerStatus{
+			{Name: names.NMAContainer, Ready: true},
+		}
+		test.SetPodContainerStatus(ctx, k8sClient, names.GenPodName(vdb, sc, 0), cntStatuses)
+
 		r := MakeScrutinizePodReconciler(vscrRec, vscr, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
+		defer v1beta1_test.DeleteScrutinizePod(ctx, k8sClient, vscr)
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 

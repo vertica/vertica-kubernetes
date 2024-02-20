@@ -17,8 +17,7 @@ metadata:
   name: vertica-scrutinize-vdb-exist
 spec:
   verticaDBName: v-collect-scrutinize
-  volumes:
+  volume:
     name: scrutinize-vol
-    emptyDir:
-      sizeLimit: 500Mi
+    emptyDir: {}
     

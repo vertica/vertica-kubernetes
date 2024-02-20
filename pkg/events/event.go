@@ -106,4 +106,6 @@ const (
 	VclusterOpsDisabled               = "VclusterOpsDisabled"
 	VerticaVersionNotFound            = "VerticaVersionNotFound"
 	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
+	VclusterOpsScrutinizeSucceeded    = "VclusterOpsScrutinizeSucceeded"
+	VclusterOpsScrutinizeFailed       = "VclusterOpsScrutinizeFailed"
 )

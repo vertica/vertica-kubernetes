@@ -30,7 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ = Describe("scrutinizepod_reconciler", func() {
+var _ = Describe("vdbverifypod_reconciler", func() {
 	ctx := context.Background()
 
 	It("should reconcile successfully", func() {
@@ -43,7 +43,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize)
+		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeReady, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize)
 	})
 
 	It("should update status if vclusterops is disabled", func() {
@@ -56,7 +56,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VclusterOpsDisabled)
+		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeReady, metav1.ConditionFalse, events.VclusterOpsDisabled)
 	})
 
 	It("should update status if server version does not have scrutinize support through vclusterOps", func() {
@@ -70,7 +70,22 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported)
+		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeReady, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported)
+	})
+
+	It("should update status if server version does not support vclusterOps scrutinize reading db password from secret", func() {
+		vdb := v1.MakeVDBForVclusterOps()
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.1.0"
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		vscr := v1beta1.MakeVscr()
+		v1beta1_test.CreateVSCR(ctx, k8sClient, vscr)
+		defer v1beta1_test.DeleteVSCR(ctx, k8sClient, vscr)
+
+		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
+		runVDBVerifyReconcile(ctx, vscr)
+		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeReady, metav1.ConditionFalse,
+			events.VclusterOpsScrutinizeNotSupported)
 	})
 
 	It("should update status if vdb does not have server version info", func() {
@@ -84,7 +99,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VerticaVersionNotFound)
+		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeReady, metav1.ConditionFalse, events.VerticaVersionNotFound)
 
 	})
 
@@ -95,22 +110,9 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 
 		Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeFalse())
 		runVDBVerifyReconcile(ctx, vscr)
-		checkStatusConditionAfterReconcile(ctx, vscr, metav1.ConditionFalse, events.VerticaDBNotFound)
+		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeReady, metav1.ConditionFalse, events.VerticaDBNotFound)
 	})
 })
-
-func checkStatusConditionAfterReconcile(ctx context.Context, vscr *v1beta1.VerticaScrutinize,
-	status metav1.ConditionStatus, reason string) {
-	Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), vscr)).Should(Succeed())
-	Expect(vscr.IsStatusConditionPresent(v1beta1.ScrutinizeReady)).Should(BeTrue())
-	Expect(vscr.Status.Conditions[0]).Should(test.EqualMetaV1Condition(
-		metav1.Condition{
-			Type:   v1beta1.ScrutinizeReady,
-			Status: status,
-			Reason: reason,
-		},
-	))
-}
 
 func runVDBVerifyReconcile(ctx context.Context, vscr *v1beta1.VerticaScrutinize) {
 	r := MakeVDBVerifyReconciler(vscrRec, vscr, logger)
