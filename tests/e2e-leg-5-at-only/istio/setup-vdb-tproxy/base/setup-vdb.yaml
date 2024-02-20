@@ -20,6 +20,8 @@ metadata:
 spec:
   annotations:
     sidecar.istio.io/interceptionMode: TPROXY
+    # Force the istio sidecar as the first container in the spec
+    proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }' 
   initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal: {}
