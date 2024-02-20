@@ -52,3 +52,9 @@ func GetServerImage(cnts []corev1.Container) (string, error) {
 	}
 	return cnt.Image, nil
 }
+
+// HasNMAContainer returns true if the given container spec has the NMA
+// sidecar container.
+func HasNMAContainer(podSpec *corev1.PodSpec) bool {
+	return GetNMAContainer(podSpec.Containers) != nil
+}

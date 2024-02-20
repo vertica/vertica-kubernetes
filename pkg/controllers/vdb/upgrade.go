@@ -303,7 +303,7 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 // upgrading across versions such that we need to deploy the NMA sidecar.
 func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	// Early out if the sts already has an NMA sidecar
-	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
+	if vk8s.HasNMAContainer(&sts.Spec.Template.Spec) {
 		return ctrl.Result{}, nil
 	}
 	i.Log.Info("Checking if NMA sidecar deployment is changing")
