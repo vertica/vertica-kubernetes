@@ -27,7 +27,7 @@ func (a *Admintools) InstallPackages(ctx context.Context, opts ...installpackage
 	s.Make(opts...)
 	cmd := []string{
 		"-t", "install_package",
-		"--database", a.VDB.Spec.DBName,
+		"--dbname", a.VDB.Spec.DBName,
 		"--package", "default",
 	}
 	if s.ForceReinstall {

@@ -58,6 +58,7 @@ var OfflineUpgradeStatusMsgs = []string{
 	"Shutting down cluster",
 	"Rescheduling pods with new image",
 	"Restarting cluster with new image",
+	"Reinstalling default packages after the first restart of all subcluster(s)",
 }
 
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
@@ -110,6 +111,9 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		o.addPodAnnotations,
 		o.runInstaller,
 		o.restartCluster,
+		// Reinstall default packages after all subclusters start after the upgrade
+		o.postInstallPackagesMsg,
+		o.installPackages,
 		// Apply labels so svc objects can route to the new pods that came up
 		o.addClientRoutingLabel,
 		// Cleanup up the condition and event recording for a completed upgrade
@@ -287,6 +291,12 @@ func (o *OfflineUpgradeReconciler) postRestartingClusterMsg(ctx context.Context)
 	return o.postNextStatusMsg(ctx, ClusterRestartOfflineMsgIndex)
 }
 
+// postInstallPackagesMsg will update the status message to indicate the
+// default packages are installed after the first restart of all subcluster(s)
+func (o *OfflineUpgradeReconciler) postInstallPackagesMsg(ctx context.Context) (ctrl.Result, error) {
+	return o.postNextStatusMsg(ctx, ClusterRestartOfflineMsgIndex)
+}
+
 // addPodAnnotations will call the PodAnnotationReconciler so that we have the
 // necessary annotations on the pod prior to restart.
 func (o *OfflineUpgradeReconciler) addPodAnnotations(ctx context.Context) (ctrl.Result, error) {
@@ -310,6 +320,11 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
 	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true, o.Dispatcher)
+	return r.Reconcile(ctx, &ctrl.Request{})
+}
+
+func (o *OfflineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Result, error) {
+	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
