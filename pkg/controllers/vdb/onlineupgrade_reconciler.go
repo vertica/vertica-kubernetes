@@ -171,8 +171,10 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 	if res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubcluster, procFunc); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	o.StatusMsgs = append(o.StatusMsgs, "Reinstalling default packages after the first restart of all subcluster(s)")
-	o.StatusMsgs = append(o.StatusMsgs, "Destroying transient secondary subcluster")
+	o.StatusMsgs = append(o.StatusMsgs,
+		"Reinstalling default packages after the first restart of all subcluster(s)",
+		"Destroying transient secondary subcluster",
+	)
 	o.MsgIndex = -1
 	return ctrl.Result{}, nil
 }

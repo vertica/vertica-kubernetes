@@ -20,6 +20,6 @@ import (
 )
 
 // mock version of VInstallPackages() that is invoked inside VClusterOps.InstallPackages()
-func (m *MockVClusterOps) VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error) {
+func (m *MockVClusterOps) VInstallPackages(_ *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error) {
 	return nil, nil
 }
