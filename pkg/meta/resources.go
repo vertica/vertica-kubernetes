@@ -37,4 +37,9 @@ var (
 	// programs that the NMA calls out (bootstrap-catalog, catalog editor, etc.)
 	// do not run if there is less than 1Gi of total memory.
 	MinNMAMemoryLimit = resource.MustParse("1Gi")
+
+	DefaultScrutinizeMainContainerResources = map[corev1.ResourceName]resource.Quantity{
+		corev1.ResourceRequestsCPU:    resource.MustParse("1"),
+		corev1.ResourceRequestsMemory: resource.MustParse("250Mi"),
+	}
 )
