@@ -323,6 +323,8 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
+// installPackages will install default packages. This is called after the clusters have
+// all been restarted.
 func (o *OfflineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Result, error) {
 	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
 	return r.Reconcile(ctx, &ctrl.Request{})

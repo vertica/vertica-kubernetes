@@ -65,7 +65,7 @@ func (s *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	// Force reinstall default libraries
+	// Force reinstall default packages
 	if s.PFacts.getUpNodeCount() > 0 {
 		err = s.installPackagesInPod(ctx)
 		if err != nil {
@@ -80,7 +80,8 @@ func (s *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 func (s *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) error {
 	pf, ok := s.PFacts.findPodToRunAdminCmdAny()
 	if !ok {
-		// If no running pod found, then there is nothing to stop and we can just continue on
+		// If no running pod found, then there is no where to install packages
+		// and we can just continue on
 		return nil
 	}
 
