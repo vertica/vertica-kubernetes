@@ -14,5 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
+  - command: kubectl wait -n $NAMESPACE --for=condition=UpgradeInProgress=False vdb/v-upgrade-vertica --timeout=600s
   - script: kubectl exec -i -n $NAMESPACE v-upgrade-vertica-pri-0 -c server -- vsql -tAf /opt/vertica/packages/flextable/ddl/isinstalled.sql -w topsecret
   - script: kubectl exec -i -n $NAMESPACE v-upgrade-vertica-pri-0 -c server -- vsql -tAf /opt/vertica/packages/flextable/ddl/isinstalled.sql -w topsecret | grep -cq '^t$'
