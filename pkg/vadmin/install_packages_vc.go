@@ -54,6 +54,7 @@ func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms) vops.V
 	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(i.InitiatorIP))
 
 	opts.DBName = &v.VDB.Spec.DBName
+	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
 
 	// auth options
 	*opts.UserName = v.VDB.GetVerticaUser()

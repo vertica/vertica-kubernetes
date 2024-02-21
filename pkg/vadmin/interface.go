@@ -86,6 +86,8 @@ type Dispatcher interface {
 	// in the vertica catalog. If they aren't a call to ReIP is necessary.
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
 
+	// InstallPackages will install all packages under /opt/vertica/packages
+	// where Autoinstall is marked true.
 	InstallPackages(ctx context.Context, opts ...installpackages.Option) error
 }
 

@@ -16,10 +16,45 @@
 package vadmin
 
 import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 )
 
 // mock version of VInstallPackages() that is invoked inside VClusterOps.InstallPackages()
-func (m *MockVClusterOps) VInstallPackages(_ *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error) {
+func (m *MockVClusterOps) VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error) {
+	// verify common options
+	err := m.VerifyCommonOptions(&options.DatabaseOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// verify hosts and eon mode
+	err = m.VerifyInitiatorIPAndEonMode(&options.DatabaseOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// verify force reinstall option
+	if !*options.ForceReinstall {
+		return nil, err
+	}
+
 	return nil, nil
 }
+
+var _ = Describe("install_packages_vc", func() {
+	ctx := context.Background()
+
+	It("should call vcluster-ops library with install packages task", func() {
+		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher.VDB.Spec.DBName = TestDBName
+		Ω(dispatcher.InstallPackages(ctx,
+			installpackages.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
+			installpackages.WithForceReinstall(true),
+		)).Should(Succeed())
+	})
+})
