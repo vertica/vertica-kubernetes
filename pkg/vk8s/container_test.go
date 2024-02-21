@@ -43,5 +43,26 @@ var _ = Describe("vk8s/container_test", func() {
 		Ω(GetServerContainer(pod.Spec.Containers)).ShouldNot(BeNil())
 		Ω(GetServerImage(pod.Spec.Containers)).Should(Equal(vapi.NMAInSideCarDeploymentMinVersion))
 		Ω(GetNMAContainer(pod.Spec.Containers)).ShouldNot(BeNil())
+
+		pod.Status.ContainerStatuses = []corev1.ContainerStatus{
+			{
+				Name:  names.NMAContainer,
+				Ready: true,
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+		Ω(GetNMAContainerStatus(pod.Status.ContainerStatuses)).ShouldNot(BeNil())
+		Ω(IsNMAContainerReady(&pod.Status)).Should(BeTrue())
+	})
+
+	It("should find scrutinize init container status", func() {
+		cntStatuses := []corev1.ContainerStatus{}
+		Ω(GetScrutinizeInitContainerStatus(cntStatuses)).Should(BeNil())
+		cntStatuses = append(cntStatuses, corev1.ContainerStatus{
+			Name: names.ScrutinizeInitContainer,
+		})
+		stat := GetScrutinizeInitContainerStatus(cntStatuses)
+		Ω(stat).ShouldNot(BeNil())
+		Ω(stat.Name).Should(Equal(names.ScrutinizeInitContainer))
 	})
 })

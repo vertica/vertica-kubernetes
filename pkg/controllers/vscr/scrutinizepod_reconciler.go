@@ -131,20 +131,11 @@ func (s *ScrutinizePodReconciler) getHostList(pods []corev1.Pod) []string {
 	hosts := []string{}
 	for i := range pods {
 		pod := &pods[i]
-		if s.isNMAReady(pod) {
+		if vk8s.IsNMAContainerReady(&pod.Status) {
 			hosts = append(hosts, pod.Status.PodIP)
 		}
 	}
 	return hosts
-}
-
-func (s *ScrutinizePodReconciler) isNMAReady(pod *corev1.Pod) bool {
-	for i := range pod.Status.ContainerStatuses {
-		if pod.Status.ContainerStatuses[i].Name == names.NMAContainer {
-			return pod.Status.ContainerStatuses[i].Ready
-		}
-	}
-	return false
 }
 
 // buildScrutinizeCmdArgs returns the arguments of vcluster scrutinize command

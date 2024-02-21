@@ -34,10 +34,30 @@ func GetNMAContainer(cnts []corev1.Container) *corev1.Container {
 	return getNamedContainer(cnts, names.NMAContainer)
 }
 
+// GetScrutinizeInitContainerStatus returns a pointer to the status of the
+// scrutinize init container
+func GetScrutinizeInitContainerStatus(cntStatuses []corev1.ContainerStatus) *corev1.ContainerStatus {
+	return getNamedContainerStatus(cntStatuses, names.ScrutinizeInitContainer)
+}
+
+// GetNMAContainerStatus returns a pointer to the status of the NMA container
+func GetNMAContainerStatus(cntStatuses []corev1.ContainerStatus) *corev1.ContainerStatus {
+	return getNamedContainerStatus(cntStatuses, names.NMAContainer)
+}
+
 func getNamedContainer(cnts []corev1.Container, cntName string) *corev1.Container {
 	for i := range cnts {
 		if cnts[i].Name == cntName {
 			return &cnts[i]
+		}
+	}
+	return nil
+}
+
+func getNamedContainerStatus(cntStatuses []corev1.ContainerStatus, cntName string) *corev1.ContainerStatus {
+	for i := range cntStatuses {
+		if cntStatuses[i].Name == cntName {
+			return &cntStatuses[i]
 		}
 	}
 	return nil
@@ -57,4 +77,14 @@ func GetServerImage(cnts []corev1.Container) (string, error) {
 // sidecar container.
 func HasNMAContainer(podSpec *corev1.PodSpec) bool {
 	return GetNMAContainer(podSpec.Containers) != nil
+}
+
+// IsNMAContainerReady returns true if the NMA container has its status
+// in the given pod status and is in ready state
+func IsNMAContainerReady(podStatus *corev1.PodStatus) bool {
+	cntStatus := GetNMAContainerStatus(podStatus.ContainerStatuses)
+	if cntStatus == nil {
+		return false
+	}
+	return cntStatus.Ready
 }
