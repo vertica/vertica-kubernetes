@@ -47,7 +47,7 @@ jobs:
         helm package verticadb-operator
         ls -lhrt
     
-    - name: Upload files
+    - name: Upload release-artifacts
       uses: actions/upload-artifact@v4
       with:
         name: release-artifacts
@@ -56,4 +56,10 @@ jobs:
           /home/runner/work/vertica-kubernetes/vertica-kubernetes/config/release-manifests/*yaml
           /home/runner/work/vertica-kubernetes/vertica-kubernetes/helm-charts/*.tgz
           /home/runner/work/vertica-kubernetes/vertica-kubernetes/bin/vdb-gen
+
+    - name: Upload bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: olm-bundle
+        path: |
           /home/runner/work/vertica-kubernetes/vertica-kubernetes/bundle

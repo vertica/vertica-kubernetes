@@ -1,5 +1,0 @@
-kind: Removed
-body: s6-overlay init process in v2 server container to be released in v24.2.0.
-time: 2024-02-01T16:00:42.082401997-04:00
-custom:
-  Issue: "689"

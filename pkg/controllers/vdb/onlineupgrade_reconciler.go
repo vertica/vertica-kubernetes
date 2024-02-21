@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -32,6 +32,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -411,7 +412,10 @@ func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulS
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.
 // This is a no-op if the image has already been updated for the subcluster.
 func (o *OnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
-	img := sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image
+	img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	if img != o.Vdb.Spec.Image {
 		scName := sts.Labels[vmeta.SubclusterNameLabel]
@@ -542,7 +546,10 @@ func (o *OnlineUpgradeReconciler) waitForReadOnly(_ context.Context, sts *appsv1
 	if o.PFacts.countUpPrimaryNodes() != 0 {
 		return ctrl.Result{}, nil
 	}
-	newImage := sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image
+	newImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	// If all the pods that are running the old image are read-only we are done
 	// our wait.
 	if o.PFacts.countNotReadOnlyWithOldImage(newImage) == 0 {
@@ -661,7 +668,10 @@ func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error 
 	for i := range stss.Items {
 		sts := &stss.Items[i]
 		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster {
-			img := sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image
+			img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
+			if err != nil {
+				return err
+			}
 			imageFound := false
 			for j := range o.PrimaryImages {
 				imageFound = o.PrimaryImages[j] == img

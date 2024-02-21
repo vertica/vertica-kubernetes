@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,8 +102,11 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 	}
 	for inx := range stss.Items {
 		sts := stss.Items[inx]
-		cnts := sts.Spec.Template.Spec.Containers
-		if cnts[names.GetFirstContainerIndex()].Image != i.Vdb.Spec.Image {
+		cntImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
+		if err != nil {
+			return false, err
+		}
+		if cntImage != i.Vdb.Spec.Image {
 			return true, nil
 		}
 	}
@@ -206,13 +210,15 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, er
 func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *appsv1.StatefulSet) (bool, error) {
 	stsUpdated := false
 	// Skip the statefulset if it already has the proper image.
-	cnts := sts.Spec.Template.Spec.Containers
-	inx := names.GetServerContainerIndex(i.Vdb)
-	if len(cnts) > inx && cnts[inx].Image != i.Vdb.Spec.Image {
+	svrCnt := vk8s.GetServerContainer(sts.Spec.Template.Spec.Containers)
+	if svrCnt == nil {
+		return false, fmt.Errorf("could not find the server container in the sts %s", sts.Name)
+	}
+	if svrCnt.Image != i.Vdb.Spec.Image {
 		i.Log.Info("Updating image in old statefulset", "name", sts.ObjectMeta.Name)
-		sts.Spec.Template.Spec.Containers[inx].Image = i.Vdb.Spec.Image
-		if i.Vdb.IsNMASideCarDeploymentEnabled() {
-			sts.Spec.Template.Spec.Containers[names.GetNMAContainerIndex()].Image = i.Vdb.Spec.Image
+		svrCnt.Image = i.Vdb.Spec.Image
+		if nmaCnt := vk8s.GetNMAContainer(sts.Spec.Template.Spec.Containers); nmaCnt != nil {
+			nmaCnt.Image = i.Vdb.Spec.Image
 		}
 		// We change the update strategy to OnDelete.  We don't want the k8s
 		// sts controller to interphere and do a rolling update after the
@@ -253,8 +259,11 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 		}
 
 		// Skip the pod if it already has the proper image.
-		cnts := pod.Spec.Containers
-		if cnts[names.GetFirstContainerIndex()].Image != i.Vdb.Spec.Image {
+		cntImage, err := vk8s.GetServerImage(pod.Spec.Containers)
+		if err != nil {
+			return numPodsDeleted, err
+		}
+		if cntImage != i.Vdb.Spec.Image {
 			i.Log.Info("Deleting pod that had old image", "name", pod.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, pod)
 			if err != nil {
@@ -275,7 +284,11 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		if sts.Spec.Template.Spec.Containers[names.GetFirstContainerIndex()].Image != i.Vdb.Spec.Image {
+		cntImage, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
+		if err != nil {
+			return err
+		}
+		if cntImage != i.Vdb.Spec.Image {
 			i.Log.Info("Deleting sts that had old image", "name", sts.ObjectMeta.Name)
 			err = i.VRec.Client.Delete(ctx, sts)
 			if err != nil {
@@ -290,7 +303,7 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 // upgrading across versions such that we need to deploy the NMA sidecar.
 func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	// Early out if the sts already has an NMA sidecar
-	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
+	if vk8s.HasNMAContainer(&sts.Spec.Template.Spec) {
 		return ctrl.Result{}, nil
 	}
 	i.Log.Info("Checking if NMA sidecar deployment is changing")

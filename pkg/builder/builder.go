@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -148,17 +148,6 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 			corev1.ServicePort{Port: SSHPort, Name: "tcp-ssh"})
 	}
 	return svc
-}
-
-// HasNMAContainer returns true if the given statefulset spec has the NMA
-// sidecar container.
-func HasNMAContainer(podSpec *corev1.PodSpec) bool {
-	// For test purposes, the container spec could be false. So, it doesn't
-	// matter what we return.
-	if len(podSpec.Containers) == 0 {
-		return false
-	}
-	return podSpec.Containers[0].Name == names.NMAContainer
 }
 
 // buildConfigVolumeMount returns the volume mount for config.
@@ -651,7 +640,7 @@ func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProject
 		return &corev1.SecretProjection{
 			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
 			Items: []corev1.KeyToPath{
-				{Key: SuperuserPasswordKey, Path: SuperuserPasswordPath},
+				{Key: names.SuperuserPasswordKey, Path: SuperuserPasswordPath},
 			},
 		}
 	}

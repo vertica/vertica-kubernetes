@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -27,6 +27,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -454,9 +455,10 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		c := buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		inx := names.GetServerContainerIndex(vdb)
-		Ω(c.Containers[inx].ReadinessProbe.HTTPGet).ShouldNot(BeNil())
-		Ω(c.Containers[inx].LivenessProbe.HTTPGet).ShouldNot(BeNil())
+		svrCnt := vk8s.GetServerContainer(c.Containers)
+		Ω(svrCnt).ShouldNot(BeNil())
+		Ω(svrCnt.ReadinessProbe.HTTPGet).ShouldNot(BeNil())
+		Ω(svrCnt.LivenessProbe.HTTPGet).ShouldNot(BeNil())
 
 		vdb.Spec.ReadinessProbeOverride = &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
@@ -473,10 +475,12 @@ var _ = Describe("builder", func() {
 			},
 		}
 		c = buildPodSpec(vdb, &vdb.Spec.Subclusters[0])
-		Ω(c.Containers[inx].ReadinessProbe.HTTPGet).Should(BeNil())
-		Ω(c.Containers[inx].LivenessProbe.HTTPGet).Should(BeNil())
-		Ω(c.Containers[inx].ReadinessProbe.Exec).ShouldNot(BeNil())
-		Ω(c.Containers[inx].LivenessProbe.TCPSocket).ShouldNot(BeNil())
+		svrCnt = vk8s.GetServerContainer(c.Containers)
+		Ω(svrCnt).ShouldNot(BeNil())
+		Ω(svrCnt.ReadinessProbe.HTTPGet).Should(BeNil())
+		Ω(svrCnt.LivenessProbe.HTTPGet).Should(BeNil())
+		Ω(svrCnt.ReadinessProbe.Exec).ShouldNot(BeNil())
+		Ω(svrCnt.LivenessProbe.TCPSocket).ShouldNot(BeNil())
 	})
 
 	It("should not use canary query probe if using GSM", func() {
