@@ -1,5 +1,0 @@
-kind: Changed
-body: Don't run vertica as a deamon process when deployed with the NMA sidecar container
-time: 2024-01-19T12:46:07.624871055-04:00
-custom:
-  Issue: "667"

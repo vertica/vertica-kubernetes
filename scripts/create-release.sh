@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# (c) Copyright [2021-2023] Open Text.
+# (c) Copyright [2021-2024] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -83,4 +83,7 @@ gh release create v$VERSION \
     --notes-file $TMP_CHANGELOG_FILE \
     --target $VERSION_SHA \
     --title "Vertica Kubernetes $VERSION" \
-    $ARTIFACTS_DIR/*
+    $ARTIFACTS_DIR/bin/* \
+    $ARTIFACTS_DIR/config/*/* \
+    $ARTIFACTS_DIR/helm-charts/*tgz \
+    $ARTIFACTS_DIR/helm-charts/verticadb-operator/crds/*
