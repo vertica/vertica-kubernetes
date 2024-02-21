@@ -21,7 +21,6 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -46,9 +45,9 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 		return "", err
 	}
 
-	pwd, ok := secret[builder.SuperuserPasswordKey]
+	pwd, ok := secret[names.SuperuserPasswordKey]
 	if !ok {
-		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", builder.SuperuserPasswordKey)
+		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", names.SuperuserPasswordKey)
 	}
 	return string(pwd), nil
 }

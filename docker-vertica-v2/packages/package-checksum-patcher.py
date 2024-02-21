@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
-# Copyright 2021 Vertica
-
+# (c) Copyright [2021-2024] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
+# You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,7 +17,7 @@
 To save about 900MB of space, we strip the package libraries in
 /opt/vertica/packages.
 
-Unfortunately, each directory in /opt/vertica/packages has two files: 
+Unfortunately, each directory in /opt/vertica/packages has two files:
  - package.conf
  - ddl/isinstalled.sql
 
@@ -36,7 +35,7 @@ SELECT (COUNT(0) = 5) FROM user_libraries
 INNER JOIN user_library_manifest ON user_libraries.lib_name = user_library_manifest.lib_name
 WHERE user_library_manifest.lib_name = 'awslib'
 AND user_libraries.schema_name = 'public'
-AND (user_libraries.md5_sum = 'b22b4486faa8df8d70fc399ac5a85521' 
+AND (user_libraries.md5_sum = 'b22b4486faa8df8d70fc399ac5a85521'
         OR public.length('b22b4486faa8df8d70fc399ac5a85521') = 7);
 
 by stripping the libraries, we've changed their checksums, so these
@@ -57,9 +56,9 @@ progname = sys.argv[0]
 
 def parse_conf(dir):
     """
-    Extract the Autoinstall and md5sum fields from the 
+    Extract the Autoinstall and md5sum fields from the
     package.conf file
-    
+
     Args:
      - dir: directory name
     Returns:
@@ -70,7 +69,7 @@ def parse_conf(dir):
     autopat = re.compile('^Autoinstall=(.*)$')
     checksum = None
     autoinstall = None
-    
+
     with open(dir + '/package.conf', 'r') as fp:
         for line in fp:
             m = md5pat.match(line)
@@ -105,7 +104,7 @@ def patch_file(fname, old_checksum, new_checksum):
             for line in ifp:
                 edited = re.sub(xsumpat, new_checksum, line)
                 print(f'{edited}', file=ofp, end='')
-    
+
     try:
         os.remove(file_backup)
     except FileNotFoundError:
@@ -119,7 +118,7 @@ def patch_dir(dir, old_checksum):
     Patch the package.conf and ddl/isinstalled.sql files in directory dir
     Args:
      - dir: the package directory
-     - old_checksum: the old checksum to be replaced with the new checksum 
+     - old_checksum: the old checksum to be replaced with the new checksum
     Returns:
      None
     """
@@ -136,8 +135,8 @@ def process_dir(dir):
     """
     Process a package directory:
      - figure out if the package is auto-installed
-     - if so, patch its checksum 
-    Skips packages that aren't automatically installed (maybe it 
+     - if so, patch its checksum
+    Skips packages that aren't automatically installed (maybe it
     shouldn't --- how to install those, after all?)
     """
     (autoinstall, checksum) = parse_conf(dir)
