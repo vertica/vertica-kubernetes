@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -18,6 +18,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/gomega" //nolint:revive,stylecheck
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -28,6 +29,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -268,4 +270,20 @@ func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 
 func DeleteVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	ExpectWithOffset(1, c.Delete(ctx, vdb)).Should(Succeed())
+}
+
+func GetEventForObj(ctx context.Context, cl client.Client, obj client.Object) *corev1.EventList {
+	// Even when using envtest, the events that were created aren't always
+	// available right away. We keep trying to fetch the event.
+	eventList := corev1.EventList{}
+	evReader := func() int {
+		Ω(cl.List(ctx, &eventList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("involvedObject.uid", string(obj.GetUID())),
+		}))
+		return len(eventList.Items)
+	}
+	const timeout = 10 * time.Second
+	const pollInterval = 1 * time.Second
+	Eventually(evReader).Within(timeout).ProbeEvery(pollInterval).Should(BeNumerically(">=", 1))
+	return &eventList
 }

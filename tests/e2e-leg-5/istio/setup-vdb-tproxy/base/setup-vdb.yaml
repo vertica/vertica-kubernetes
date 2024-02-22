@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2023] Open Text.
+# (c) Copyright [2021-2024] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,23 +11,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-istio-tproxy-main
-status:
-  replicas: 3
-  readyReplicas: 3
----
 apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-istio-tproxy
-status:
+  annotations:
+    vertica.com/include-uid-in-path: true
+spec:
+  annotations:
+    sidecar.istio.io/interceptionMode: TPROXY
+    # Force the istio sidecar as the first container in the spec
+    proxy.istio.io/config: '{ "holdApplicationUntilProxyStarts": true }' 
+  initPolicy: CreateSkipPackageInstall
+  image: kustomize-vertica-image
+  communal: {}
+  local:
+    requestSize: 100Mi
   subclusters:
-    - upNodeCount: 3
-  conditions:
-  - type: AutoRestartVertica
-    status: "True"
-  - type: DBInitialized
-    status: "True"
+    - name: main
+      size: 3
+      type: primary
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
+  encryptSpreadComm: disabled

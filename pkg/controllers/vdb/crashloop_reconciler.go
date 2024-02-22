@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -20,12 +20,12 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -51,13 +51,6 @@ func MakeCrashLoopReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 
 // Reconcile will check for a crash loop in vclusterOps deployments.
 func (c *CrashLoopReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// This reconciler is intended to find cases where the image does not have
-	// the nma, causing the pod to get into a CrashLoop backoff. So, if not
-	// deployed with vclusterOps we can skip this entirely.
-	if !vmeta.UseVClusterOps(c.VDB.Annotations) {
-		return ctrl.Result{}, nil
-	}
-
 	// We have to be careful about logging events about the wrong deployment type
 	// for other kinds of crash loops. If the deployment is wrong it should
 	// happen before the version annotation has been set, or for the case
@@ -92,29 +85,67 @@ func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 				// Any error found during fetch are ignored. We will just go onto the next pod.
 				continue
 			}
-			nmaStatus := builder.FindNMAContainerStatus(pod)
-			if nmaStatus == nil {
-				continue
+
+			fns := []func(*corev1.Pod) bool{
+				c.checkForNMAStartError,
+				c.checkForWrongDeploymentType,
 			}
-			// Check if the container has issues starting up. This can happen if
-			// attempting to run the NMA in a container that doesn't have that
-			// executable.
-			//
-			// In images 23.4.0 and prior than 12.0.2, the NMA doesn't exist. In
-			// 12.0.4, the NMA exists but it won't start. For this reason we
-			// look for two types Reasons: StartError is when NMA doesn't exist
-			// and Error is when NMA does exist but cannot start.
-			if nmaStatus.RestartCount > 0 &&
-				!nmaStatus.Ready &&
-				nmaStatus.LastTerminationState.Terminated != nil &&
-				(nmaStatus.LastTerminationState.Terminated.Reason == "StartError" ||
-					nmaStatus.LastTerminationState.Terminated.Reason == "Error") {
-				c.VRec.Eventf(c.VDB, corev1.EventTypeWarning, events.WrongImage,
-					"Image cannot be used for vclusterOps deployments. Change the deployment by changing the %s annotation",
-					vmeta.VClusterOpsAnnotation)
-				// Don't bother checking anymore pods as this setting is global for the CR.
-				return
+			for i := range fns {
+				if eventLogged := fns[i](pod); eventLogged {
+					// Don't bother checking anymore pods as this setting is global for the CR.
+					return
+				}
 			}
 		}
 	}
+}
+
+func (c *CrashLoopReconciler) checkForNMAStartError(pod *corev1.Pod) (eventLogged bool) {
+	// This check is intended to find cases where the image does not have
+	// the nma, causing the pod to get into a CrashLoop backoff. So, if not
+	// deployed with vclusterOps we can skip this entirely.
+	if !vmeta.UseVClusterOps(c.VDB.Annotations) {
+		return false
+	}
+
+	nmaStatus := vk8s.FindNMAContainerStatus(pod)
+	if nmaStatus == nil {
+		return false
+	}
+
+	// Check if the container has issues starting up. This can happen if
+	// attempting to run the NMA in a container that doesn't have that
+	// executable.
+	//
+	// In images 23.4.0 and prior than 12.0.2, the NMA doesn't exist. In
+	// 12.0.4, the NMA exists but it won't start. For this reason we
+	// look for two types Reasons: StartError is when NMA doesn't exist
+	// and Error is when NMA does exist but cannot start.
+	if nmaStatus.RestartCount > 0 &&
+		!nmaStatus.Ready &&
+		nmaStatus.LastTerminationState.Terminated != nil &&
+		(nmaStatus.LastTerminationState.Terminated.Reason == "StartError" ||
+			nmaStatus.LastTerminationState.Terminated.Reason == "Error") {
+		c.VRec.Eventf(c.VDB, corev1.EventTypeWarning, events.WrongImage,
+			"Image cannot be used for vclusterOps deployments. Change the deployment by changing the %s annotation",
+			vmeta.VClusterOpsAnnotation)
+		return true
+	}
+	return false
+}
+
+func (c *CrashLoopReconciler) checkForWrongDeploymentType(pod *corev1.Pod) (eventLogged bool) {
+	// Starting in 24.2.0, there is no default action to run. If we get an error
+	// about no command specified, chances are the image was built for
+	// vclusterOps but we are trying to run it as an admintools deployment.
+	serverContainer := vk8s.FindServerContainerStatus(pod)
+	if !vmeta.UseVClusterOps(c.VDB.Annotations) &&
+		serverContainer != nil &&
+		vk8s.HasCreateContainerError(serverContainer) {
+		c.VRec.Eventf(c.VDB, corev1.EventTypeWarning, events.WrongImage,
+			"Image cannot be used for admintools deployments. Change the deployment by changing the %s annotation",
+			vmeta.VClusterOpsAnnotation)
+		return true
+	}
+	return false
 }

@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2023] Open Text.
+# (c) Copyright [2021-2024] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,11 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-- command: sh -c "cd ../../.. && make istioctl"
-- command: sh -c "../../../bin/istioctl operator init"
-- command: sh -c "../../../bin/istioctl uninstall --purge --skip-confirmation || true"
-- command: sh -c "../../../bin/istioctl install --set profile=demo --skip-confirmation"
-- command: kubectl label namespace $NAMESPACE istio-injection=enabled
+apiVersion: v1
+kind: Pod
+metadata:
+  name: clean-communal
+status:
+  phase: Succeeded

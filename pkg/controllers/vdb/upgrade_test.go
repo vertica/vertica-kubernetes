@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -259,7 +259,8 @@ var _ = Describe("upgrade", func() {
 				Started: &started,
 				State: corev1.ContainerState{
 					Waiting: &corev1.ContainerStateWaiting{
-						Reason: "CreateContainerError",
+						Reason:  "CreateContainerError",
+						Message: `failed to generate container "abcd" spec: failed to apply OCI options: no command specified'`,
 					},
 				},
 			},

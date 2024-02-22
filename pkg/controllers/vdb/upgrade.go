@@ -1,5 +1,5 @@
 /*
- (c) Copyright [2021-2023] Open Text.
+ (c) Copyright [2021-2024] Open Text.
  Licensed under the Apache License, Version 2.0 (the "License");
  You may not use this file except in compliance with the License.
  You may obtain a copy of the License at
@@ -22,7 +22,6 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -303,7 +302,7 @@ func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
 // upgrading across versions such that we need to deploy the NMA sidecar.
 func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	// Early out if the sts already has an NMA sidecar
-	if builder.HasNMAContainer(&sts.Spec.Template.Spec) {
+	if vk8s.HasNMAContainer(&sts.Spec.Template.Spec) {
 		return ctrl.Result{}, nil
 	}
 	i.Log.Info("Checking if NMA sidecar deployment is changing")
@@ -316,14 +315,13 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 		return ctrl.Result{}, err
 	}
 
-	serverContainer := builder.FindServerContainerStatus(pod)
+	serverContainer := vk8s.FindServerContainerStatus(pod)
 	if serverContainer == nil {
 		return ctrl.Result{}, fmt.Errorf("could not find server container in pod spec of %s", pn.Name)
 	}
 	if serverContainer.Ready ||
 		(serverContainer.Started != nil && *serverContainer.Started) ||
-		serverContainer.State.Waiting == nil ||
-		serverContainer.State.Waiting.Reason != "CreateContainerError" {
+		!vk8s.HasCreateContainerError(serverContainer) {
 		return ctrl.Result{}, nil
 	}
 	// Sadly if we determine that we need to change and deploy the NMA sidecar,
