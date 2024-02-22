@@ -17,6 +17,7 @@ package vk8s
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	corev1 "k8s.io/api/core/v1"
@@ -51,6 +52,35 @@ func GetServerImage(cnts []corev1.Container) (string, error) {
 		return "", errors.New("could not find the server container")
 	}
 	return cnt.Image, nil
+}
+
+// FindNMAContainerStatus will return the status of the NMA container if available.
+func FindNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
+	return findContainerStatus(pod, names.NMAContainer)
+}
+
+// FindNMAContainerStatus will return the status of the server container
+func FindServerContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
+	return findContainerStatus(pod, names.ServerContainer)
+}
+
+// findContainerStatus is a helper to return status for a named container
+func findContainerStatus(pod *corev1.Pod, containerName string) *corev1.ContainerStatus {
+	for i := range pod.Status.ContainerStatuses {
+		if pod.Status.ContainerStatuses[i].Name == containerName {
+			return &pod.Status.ContainerStatuses[i]
+		}
+	}
+	return nil
+}
+
+// HasCreateContainerError returns true if the container cannot start because
+// there is no command specified. This can happen if the image doesn't have a
+// command to automatically run. This typically means the image is designed for 24.2.0+.
+func HasCreateContainerError(containerStatus *corev1.ContainerStatus) bool {
+	return containerStatus.State.Waiting != nil &&
+		containerStatus.State.Waiting.Reason == "CreateContainerError" &&
+		strings.Contains(containerStatus.State.Waiting.Message, "no command specified")
 }
 
 // HasNMAContainer returns true if the given container spec has the NMA
