@@ -1550,23 +1550,3 @@ func GetK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 		PodAntiAffinity: a.PodAntiAffinity,
 	}
 }
-
-// FindNMAContainerStatus will return the status of the NMA container if available.
-func FindNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
-	return findContainerStatus(pod, names.NMAContainer)
-}
-
-// FindNMAContainerStatus will return the status of the server container
-func FindServerContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
-	return findContainerStatus(pod, names.ServerContainer)
-}
-
-// findContainerStatus is a helper to return status for a named container
-func findContainerStatus(pod *corev1.Pod, containerName string) *corev1.ContainerStatus {
-	for i := range pod.Status.ContainerStatuses {
-		if pod.Status.ContainerStatuses[i].Name == containerName {
-			return &pod.Status.ContainerStatuses[i]
-		}
-	}
-	return nil
-}
