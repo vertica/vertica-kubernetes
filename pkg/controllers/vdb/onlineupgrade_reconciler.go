@@ -101,9 +101,6 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		o.restartPrimaries,
 		// Handle restart of secondary subclusters
 		o.restartSecondaries,
-		// Reinstall default packages after all subclusters start after the upgrade
-		o.postNextStatusMsg,
-		o.installPackages,
 		// Will cleanup the transient subcluster now that the primaries are back up.
 		o.postNextStatusMsg,
 		o.removeTransientFromVdb,
@@ -111,6 +108,9 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
+		// Reinstall default packages after all subclusters start after the upgrade
+		o.postNextStatusMsg,
+		o.installPackages,
 		// Cleanup up the condition and event recording for a completed upgrade
 		o.Manager.finishUpgrade,
 	}
@@ -380,7 +380,7 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 // installPackages will install default packages. This is called after the clusters have
 // all been restarted.
 func (o *OnlineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Result, error) {
-	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
+	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher, o.Log)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

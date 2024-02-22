@@ -20,6 +20,7 @@ import (
 
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vcluster/vclusterops/vstruct"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 )
@@ -38,11 +39,13 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	vopts := v.genInstallPackagesOptions(&s)
 	status, err := v.VInstallPackages(&vopts)
 	if err != nil {
+		_, err = v.logFailure("VInstallPackages", events.InstallPackagesFailed, err)
 		v.Log.Error(err, "failed to install packages", "installPackageStatus", *status)
 		return err
 	}
 
-	v.Log.Info("Successfully installed packages", "dbName", *vopts.DBName)
+	v.Log.Info("Successfully installed packages", "dbName", *vopts.DBName,
+		"installPackageStatus", *status)
 	return nil
 }
 

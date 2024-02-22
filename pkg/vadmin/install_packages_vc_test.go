@@ -24,6 +24,11 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 )
 
+const (
+	TestPackageName   = "test_package_name"
+	TestInstallStatus = "test_installation_status"
+)
+
 // mock version of VInstallPackages() that is invoked inside VClusterOps.InstallPackages()
 func (m *MockVClusterOps) VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error) {
 	// verify common options
@@ -43,7 +48,17 @@ func (m *MockVClusterOps) VInstallPackages(options *vops.VInstallPackagesOptions
 		return nil, err
 	}
 
-	return nil, nil
+	// verify install packages status
+	status := &vops.InstallPackageStatus{
+		Packages: []vops.PackageStatus{
+			{
+				PackageName:   TestPackageName,
+				InstallStatus: TestInstallStatus,
+			},
+		},
+	}
+
+	return status, nil
 }
 
 var _ = Describe("install_packages_vc", func() {

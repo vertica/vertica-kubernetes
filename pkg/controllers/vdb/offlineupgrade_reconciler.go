@@ -52,6 +52,7 @@ const (
 	ClusterShutdownOfflineMsgIndex = iota
 	ReschedulePodsOfflineMsgIndex
 	ClusterRestartOfflineMsgIndex
+	ReinstallDefaultPackagesMsgIndex
 )
 
 var OfflineUpgradeStatusMsgs = []string{
@@ -294,7 +295,7 @@ func (o *OfflineUpgradeReconciler) postRestartingClusterMsg(ctx context.Context)
 // postInstallPackagesMsg will update the status message to indicate the
 // default packages are installed after the first restart of all subcluster(s)
 func (o *OfflineUpgradeReconciler) postInstallPackagesMsg(ctx context.Context) (ctrl.Result, error) {
-	return o.postNextStatusMsg(ctx, ClusterRestartOfflineMsgIndex)
+	return o.postNextStatusMsg(ctx, ReinstallDefaultPackagesMsgIndex)
 }
 
 // addPodAnnotations will call the PodAnnotationReconciler so that we have the
@@ -326,7 +327,7 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 // installPackages will install default packages. This is called after the clusters have
 // all been restarted.
 func (o *OfflineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Result, error) {
-	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
+	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher, o.Log)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 

@@ -23,16 +23,23 @@ import (
 
 // InstallPackages will install all packages under /opt/vertica/packages where Autoinstall is marked true
 func (a *Admintools) InstallPackages(ctx context.Context, opts ...installpackages.Option) error {
-	s := installpackages.Parms{}
-	s.Make(opts...)
+	i := installpackages.Parms{}
+	i.Make(opts...)
+	cmd := a.genInstallPackagesCmd(&i)
+	_, err := a.execAdmintools(ctx, i.InitiatorName, cmd...)
+	return err
+}
+
+// genInstallPackagesCmd will generate the command line options for calling
+// admintools -t install_package.
+func (a *Admintools) genInstallPackagesCmd(i *installpackages.Parms) []string {
 	cmd := []string{
 		"-t", "install_package",
 		"--dbname", a.VDB.Spec.DBName,
 		"--package", "default",
 	}
-	if s.ForceReinstall {
+	if i.ForceReinstall {
 		cmd = append(cmd, "--force-reinstall")
 	}
-	_, err := a.execAdmintools(ctx, s.InitiatorName, cmd...)
-	return err
+	return cmd
 }

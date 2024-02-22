@@ -19,6 +19,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
@@ -32,6 +33,7 @@ import (
 
 // InstallPackagesReconciler will install all packages under /opt/vertica/packages where Autoinstall is marked true
 type InstallPackagesReconciler struct {
+	Log        logr.Logger
 	VRec       *VerticaDBReconciler
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
@@ -43,8 +45,10 @@ type InstallPackagesReconciler struct {
 func MakeInstallPackagesReconciler(
 	vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher,
+	log logr.Logger,
 ) controllers.ReconcileActor {
 	return &InstallPackagesReconciler{
+		Log:        log.WithName("InstallPackagesReconciler"),
 		VRec:       vdbrecon,
 		Vdb:        vdb,
 		PRunner:    prunner,
@@ -54,61 +58,55 @@ func MakeInstallPackagesReconciler(
 }
 
 // Reconcile will force install default packages in the running database
-func (s *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {
+func (i *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if i.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {
 		return ctrl.Result{}, nil
 	}
-	err := s.PFacts.Collect(ctx, s.Vdb)
+	err := i.PFacts.Collect(ctx, i.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// No-op if no database exists
-	if !s.PFacts.doesDBExist() {
-		return ctrl.Result{Requeue: true}, nil
+	if !i.PFacts.doesDBExist() {
+		return ctrl.Result{}, nil
 	}
 
 	// Force reinstall default packages
-	if s.PFacts.getUpNodeCount() > 0 {
-		err = s.installPackagesInPod(ctx)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	if i.PFacts.getUpNodeCount() > 0 {
+		return i.installPackagesInPod(ctx)
 	}
-
-	return ctrl.Result{}, nil
+	// Retry if no up nodes
+	i.Log.Info("Could not find any running pod, requeuing reconciliation.")
+	return ctrl.Result{Requeue: true}, nil
 }
 
 // installPackagesInPod will find one pod to initiate the process of installing default packages
-func (s *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) error {
-	pf, ok := s.PFacts.findPodToRunAdminCmdAny()
+func (i *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) (ctrl.Result, error) {
+	pf, ok := i.PFacts.findPodToRunAdminCmdAny()
 	if !ok {
-		// If no running pod found, then there is nowhere to install packages
-		// and we can just continue on
-		return nil
+		// If no suitable pod found, there is nowhere to install packages
+		// and we should retry
+		i.Log.Info("Could not find any target to issue install packages command, requeuing reconciliation.")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Run the install_packages command
-	err := s.runCmd(ctx, pf.name, pf.podIP)
-
-	return s.runCmd(ctx, pf.name, pf.podIP)
-
-
+	return ctrl.Result{}, i.runCmd(ctx, pf.name, pf.podIP)
 }
 
 // runCmd issues the admintools or vclusterops command to force install the default packages
-func (s *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName types.NamespacedName, initiatorIP string) error {
-	s.VRec.Event(s.Vdb, corev1.EventTypeNormal, events.InstallPackagesStarted, "Starting install packages")
+func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName types.NamespacedName, initiatorIP string) error {
+	i.VRec.Event(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesStarted, "Starting install packages")
 	start := time.Now()
 	opts := []installpackages.Option{
 		installpackages.WithInitiator(initiatorName, initiatorIP),
 		installpackages.WithForceReinstall(true),
 	}
-	if err := s.Dispatcher.InstallPackages(ctx, opts...); err != nil {
-		s.VRec.Event(s.Vdb, corev1.EventTypeWarning, events.InstallPackagesFailed, "Failed to install packages")
+	if err := i.Dispatcher.InstallPackages(ctx, opts...); err != nil {
 		return err
 	}
-	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.InstallPackagesSucceeded,
+	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesSucceeded,
 		"Successfully installed packages. It took %s", time.Since(start).Truncate(time.Second))
 	return nil
 }
