@@ -91,7 +91,9 @@ func (s *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) er
 	// Run the install_packages command
 	err := s.runCmd(ctx, pf.name, pf.podIP)
 
-	return err
+	return s.runCmd(ctx, pf.name, pf.podIP)
+
+
 }
 
 // runCmd issues the admintools or vclusterops command to force install the default packages
