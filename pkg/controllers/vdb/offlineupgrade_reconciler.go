@@ -58,7 +58,7 @@ var OfflineUpgradeStatusMsgs = []string{
 	"Shutting down cluster",
 	"Rescheduling pods with new image",
 	"Restarting cluster with new image",
-	"Reinstalling default packages after the first restart of all subcluster(s)",
+	"Reinstalling default packages",
 }
 
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
