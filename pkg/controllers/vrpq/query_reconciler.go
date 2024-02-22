@@ -181,7 +181,7 @@ func (q *QueryReconciler) findRunningPodWithNMAContainer(pods *corev1.PodList) (
 	for i := range pods.Items {
 		pod := &pods.Items[i]
 		if pod.Status.Phase == podRunning {
-			if vk8s.IsNMAContainerReady(&pod.Status) {
+			if vk8s.IsNMAContainerReady(pod) {
 				return pod.Status.PodIP, ctrl.Result{}
 			}
 		}

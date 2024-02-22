@@ -131,7 +131,7 @@ func (s *ScrutinizePodReconciler) getHostList(pods []corev1.Pod) []string {
 	hosts := []string{}
 	for i := range pods {
 		pod := &pods[i]
-		if vk8s.IsNMAContainerReady(&pod.Status) {
+		if vk8s.IsNMAContainerReady(pod) {
 			hosts = append(hosts, pod.Status.PodIP)
 		}
 	}

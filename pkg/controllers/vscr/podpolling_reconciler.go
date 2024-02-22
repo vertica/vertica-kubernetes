@@ -69,7 +69,7 @@ func (p *PodPollingReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (
 // checkScrutinizeContainerStatus checks the status of the scrutinize pod
 // and update status conditions based on what is found
 func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Context, pod *corev1.Pod) (ctrl.Result, error) {
-	cntStatus := vk8s.GetScrutinizeInitContainerStatus(pod.Status.InitContainerStatuses)
+	cntStatus := vk8s.FindScrutinizeInitContainerStatus(pod)
 	if cntStatus == nil {
 		return ctrl.Result{}, fmt.Errorf("could not find scrutinize container status")
 	}
