@@ -172,7 +172,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 		return res, err
 	}
 	o.StatusMsgs = append(o.StatusMsgs,
-		"Reinstalling default packages after the first restart of all subcluster(s)",
+		"Reinstalling default packages",
 		"Destroying transient secondary subcluster",
 	)
 	o.MsgIndex = -1
