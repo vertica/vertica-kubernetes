@@ -104,6 +104,6 @@ func (s *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName ty
 		return err
 	}
 	s.VRec.Eventf(s.Vdb, corev1.EventTypeNormal, events.InstallPackagesSucceeded,
-		"Successfully installed packages.  It took %s", time.Since(start).Truncate(time.Second))
+		"Successfully installed packages. It took %s", time.Since(start).Truncate(time.Second))
 	return nil
 }
