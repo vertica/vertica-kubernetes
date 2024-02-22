@@ -15,8 +15,16 @@ apiVersion: vertica.com/v1beta1
 kind: VerticaScrutinize
 metadata:
   name: vertica-scrutinize-vdb-exist
+  annotations:
+    vertica.com/scrutinize-main-container-resources-limits-cpu: "4"
 spec:
   verticaDBName: v-collect-scrutinize
+  resources:
+    requests:
+      cpu: "2"
+      memory: 300Mi
+    limits:
+      cpu: "4"
   volume:
     name: scrutinize-vol
     emptyDir: {}

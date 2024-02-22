@@ -226,6 +226,22 @@ const (
 	// This controls the docker image of that main container.
 	ScrutinizeMainContainerImageAnnotation   = "vertica.com/scrutinize-main-container-image"
 	ScrutinizeMainContainerImageDefaultValue = "rockylinux:8"
+	// Set of annotations that you can use to control the resources of the scrutinize
+	// main container. The actual annotation name is:
+	//   vertica.com/scrutinize-main-container-resources-<limits|requests>-<memory|cpu>
+	//
+	// For example, the following are valid:
+	//   vertica.com/scrutinize-main-container-resources-limits-memory
+	//   vertica.com/scrutinize-main-container-resources-limits-cpu
+	//   vertica.com/scrutinize-main-container-resources-requests-memory
+	//   vertica.com/scrutinize-main-container-resources-requests-cpu
+	//
+	// You can use GenScrutinizeMainContainerResourcesAnnotationName to generate the name.
+	//
+	// If the annotation is set, but has no value, then that resource is not
+	// used. If a value is specified, but isn't able to be parsed, we use the
+	// default.
+	ScrutinizeMainContainerResourcesPrefixAnnotation = "vertica.com/scrutinize-main-container-resources"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -358,18 +374,7 @@ func GetNMAResource(annotations map[string]string, resourceName corev1.ResourceN
 	if !hasDefault {
 		defValStr = ""
 	}
-	quantityStr := lookupStringAnnotation(annotations, annotationName, defValStr)
-	// If the annotation is set, but has no value, then we will omit the
-	// resource rather than use the default. This allows us to turn off the
-	// resource if need be.
-	if quantityStr == "" {
-		return resource.Quantity{}
-	}
-	quantity, err := resource.ParseQuantity(quantityStr)
-	if err != nil {
-		return defVal
-	}
-	return quantity
+	return getResource(annotations, annotationName, defValStr, defVal)
 }
 
 // IsNMAResourcesForced returns true if the resources for the NMA
@@ -381,15 +386,11 @@ func IsNMAResourcesForced(annotations map[string]string) bool {
 }
 
 // GenNMAResourcesAnnotationName is a helper to generate the name of the
-// annotation to control the resource. The resourceName given is taken from the
+// annotation to control the resource for NMA. The resourceName given is taken from the
 // k8s corev1 package. It should be the two part name. Use const like
 // corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
 func GenNMAResourcesAnnotationName(resourceName corev1.ResourceName) string {
-	// The resourceName pass in, taken from the corev1 k8s package, has the
-	// resource name like "limits.cpu" or "requests.memory". We don't want the
-	// period in the annotation name since it doesn't fit the style, so we
-	// replace that with a dash.
-	return fmt.Sprintf("%s-%s", NMAResourcesPrefixAnnotation, strings.Replace(string(resourceName), ".", "-", 1))
+	return genResourcesAnnotationName(NMAResourcesPrefixAnnotation, resourceName)
 }
 
 // GenNMAHealthProbeAnnotationName returns the name of the annotation for a specific health probe field.
@@ -447,6 +448,27 @@ func GetScrutinizeMainContainerImage(annotations map[string]string) string {
 	return img
 }
 
+// GetScrutinizeMainContainerResource retrieves a specific resource for the scrutinize
+// main container. If any parsing error occurs, the default value is returned.
+func GetScrutinizeMainContainerResource(annotations map[string]string, resourceName corev1.ResourceName) resource.Quantity {
+	annotationName := GenScrutinizeMainContainerResourcesAnnotationName(resourceName)
+	defVal, hasDefault := DefaultScrutinizeMainContainerResources[resourceName]
+	defValStr := defVal.String()
+	if !hasDefault {
+		defValStr = ""
+	}
+	return getResource(annotations, annotationName, defValStr, defVal)
+}
+
+// GenScrutinizeMainContainerResourcesAnnotationName is a helper to generate the name of the
+// annotation to control the resource for scrutinize main container. The resourceName
+// given is taken from the k8s corev1 package. It should be the two part name. Use const like
+// corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
+func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.ResourceName) string {
+	return genResourcesAnnotationName(ScrutinizeMainContainerResourcesPrefixAnnotation,
+		resourceName)
+}
+
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and
 // treat it as if it were a boolean.
 func lookupBoolAnnotation(annotations map[string]string, annotation string, defaultValue bool) bool {
@@ -476,4 +498,34 @@ func lookupStringAnnotation(annotations map[string]string, annotation, defaultVa
 		return val
 	}
 	return defaultValue
+}
+
+// genResourcesAnnotationName is a helper to generate the name of the
+// annotation to control a resource. The resourceName given is taken from the
+// k8s corev1 package. It should be the two part name. Use const like
+// corev1.ResourceLimitsCPU, corev1.ResourceRequestsMemory, etc.
+func genResourcesAnnotationName(prefix string, resourceName corev1.ResourceName) string {
+	// The resourceName pass in, taken from the corev1 k8s package, has the
+	// resource name like "limits.cpu" or "requests.memory". We don't want the
+	// period in the annotation name since it doesn't fit the style, so we
+	// replace that with a dash.
+	return fmt.Sprintf("%s-%s", prefix, strings.Replace(string(resourceName), ".", "-", 1))
+}
+
+// getResource retrieves a specific resource given the annotation.
+// If any parsing error occurs, the default value is returned.
+func getResource(annotations map[string]string, annotationName, defValStr string,
+	defVal resource.Quantity) resource.Quantity {
+	quantityStr := lookupStringAnnotation(annotations, annotationName, defValStr)
+	// If the annotation is set, but has no value, then we will omit the
+	// resource rather than use the default. This allows us to turn off the
+	// resource if need be.
+	if quantityStr == "" {
+		return resource.Quantity{}
+	}
+	quantity, err := resource.ParseQuantity(quantityStr)
+	if err != nil {
+		return defVal
+	}
+	return quantity
 }

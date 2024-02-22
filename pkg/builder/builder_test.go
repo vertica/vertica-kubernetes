@@ -16,7 +16,9 @@
 package builder
 
 import (
+	"fmt"
 	"reflect"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,6 +32,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+const (
+	cpuLimit = 8
+	memLimit = 1
 )
 
 var _ = Describe("builder", func() {
@@ -199,6 +206,63 @@ var _ = Describe("builder", func() {
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("/opt/vertica/bin/vcluster")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("scrutinize")))
+	})
+
+	It("should not set any main container resources if none are set for the init container", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Spec.Resources = v1.ResourceRequirements{}
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		cnt := pod.Spec.Containers[0]
+		verifyNoResourcesSet(&cnt)
+	})
+
+	It("should set scrutinize main container resources if set in the init container", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsCPU)] = strconv.Itoa(cpuLimit)
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsMemory)] = fmt.Sprintf("%dGi", memLimit)
+		vscr.Spec.Resources = makeResources()
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		cnt := pod.Spec.Containers[0]
+		actual, _ := cnt.Resources.Limits.Cpu().AsInt64()
+		Ω(actual).Should(Equal(int64(cpuLimit)))
+		actual, _ = cnt.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = cnt.Resources.Limits.Memory().AsInt64()
+		Ω(actual).Should(Equal(int64(memLimit * 1024 * 1024 * 1024)))
+		actual, _ = cnt.Resources.Requests.Memory().AsInt64()
+		defQuantity = vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsMemory]
+		defVal, _ = defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+	})
+
+	It("should omit scrutinize main container resources if annotation is set without a value", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsCPU)] = ""
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsMemory)] = ""
+		vscr.Spec.Resources = makeResources()
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		cnt := pod.Spec.Containers[0]
+		_, ok := cnt.Resources.Limits[v1.ResourceCPU]
+		Ω(ok).Should(BeFalse())
+		_, ok = cnt.Resources.Limits[v1.ResourceMemory]
+		Ω(ok).Should(BeFalse())
+		_, ok = cnt.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		_, ok = cnt.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		actual, _ := cnt.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = cnt.Resources.Requests.Memory().AsInt64()
+		defQuantity = vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsMemory]
+		defVal, _ = defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
 	})
 
 	It("should add passwd env var if vdb.Spec.PasswordSecret is non-empty", func() {
@@ -524,14 +588,7 @@ var _ = Describe("builder", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Resources = v1.ResourceRequirements{}
 		nma := makeNMAContainer(vdb, sc)
-		_, ok := nma.Resources.Limits[v1.ResourceCPU]
-		Ω(ok).Should(BeFalse())
-		_, ok = nma.Resources.Limits[v1.ResourceMemory]
-		Ω(ok).Should(BeFalse())
-		_, ok = nma.Resources.Requests[v1.ResourceCPU]
-		Ω(ok).Should(BeFalse())
-		_, ok = nma.Resources.Requests[v1.ResourceMemory]
-		Ω(ok).Should(BeFalse())
+		verifyNoResourcesSet(&nma)
 	})
 
 	It("should set NMA resources if forced too", func() {
@@ -561,16 +618,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = "8"
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = "1Gi"
 		sc := &vdb.Spec.Subclusters[0]
-		sc.Resources = v1.ResourceRequirements{
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("16"),
-				v1.ResourceMemory: resource.MustParse("32Gi"),
-			},
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("32"),
-				v1.ResourceMemory: resource.MustParse("64Gi"),
-			},
-		}
+		sc.Resources = makeResources()
 		nma := makeNMAContainer(vdb, sc)
 		actual, _ := nma.Resources.Limits.Cpu().AsInt64()
 		Ω(actual).Should(Equal(int64(8)))
@@ -591,16 +639,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = ""
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = ""
 		sc := &vdb.Spec.Subclusters[0]
-		sc.Resources = v1.ResourceRequirements{
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("16"),
-				v1.ResourceMemory: resource.MustParse("32Gi"),
-			},
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("32"),
-				v1.ResourceMemory: resource.MustParse("64Gi"),
-			},
-		}
+		sc.Resources = makeResources()
 		nma := makeNMAContainer(vdb, sc)
 		_, ok := nma.Resources.Limits[v1.ResourceCPU]
 		Ω(ok).Should(BeFalse())
@@ -734,4 +773,28 @@ func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {
 		}
 	}
 	return false
+}
+
+func makeResources() v1.ResourceRequirements {
+	return v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("16"),
+			v1.ResourceMemory: resource.MustParse("32Gi"),
+		},
+		Limits: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("32"),
+			v1.ResourceMemory: resource.MustParse("64Gi"),
+		},
+	}
+}
+
+func verifyNoResourcesSet(cnt *v1.Container) {
+	_, ok := cnt.Resources.Limits[v1.ResourceCPU]
+	Ω(ok).Should(BeFalse())
+	_, ok = cnt.Resources.Limits[v1.ResourceMemory]
+	Ω(ok).Should(BeFalse())
+	_, ok = cnt.Resources.Requests[v1.ResourceCPU]
+	Ω(ok).Should(BeFalse())
+	_, ok = cnt.Resources.Requests[v1.ResourceMemory]
+	Ω(ok).Should(BeFalse())
 }

@@ -64,12 +64,7 @@ var _ = Describe("annotations", func() {
 	})
 
 	It("should allow NMA sidecar resource to be overridden", func() {
-		ann := map[string]string{
-			GenNMAResourcesAnnotationName(corev1.ResourceLimitsMemory):   "800Mi",
-			GenNMAResourcesAnnotationName(corev1.ResourceRequestsMemory): "unparseable",
-			GenNMAResourcesAnnotationName(corev1.ResourceLimitsCPU):      "",
-			GenNMAResourcesAnnotationName(corev1.ResourceRequestsCPU):    "4",
-		}
+		ann := makeResourceAnnotations(GenNMAResourcesAnnotationName)
 		Ω(GetNMAResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(resource.MustParse("800Mi")))
 		Ω(GetNMAResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
 		Ω(GetNMAResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(resource.Quantity{}))
@@ -145,4 +140,37 @@ var _ = Describe("annotations", func() {
 		}
 		Ω(GetScrutinizeMainContainerImage(ann)).Should(Equal(img))
 	})
+
+	It("should return default scrutinize main container resources", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsMemory)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceLimitsMemory]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsMemory)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceRequestsMemory]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsCPU)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceLimitsCPU]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsCPU)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceRequestsCPU]))
+	})
+
+	It("should allow scrutinize main container resources to be overridden", func() {
+		ann := makeResourceAnnotations(GenScrutinizeMainContainerResourcesAnnotationName)
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsMemory)).
+			Should(Equal(resource.MustParse("800Mi")))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsMemory)).
+			Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsCPU)).
+			Should(Equal(resource.Quantity{}))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsCPU)).
+			Should(Equal(resource.MustParse("4")))
+	})
 })
+
+func makeResourceAnnotations(fn func(resourceName corev1.ResourceName) string) map[string]string {
+	return map[string]string{
+		fn(corev1.ResourceLimitsMemory):   "800Mi",
+		fn(corev1.ResourceRequestsMemory): "unparseable",
+		fn(corev1.ResourceLimitsCPU):      "",
+		fn(corev1.ResourceRequestsCPU):    "4",
+	}
+}

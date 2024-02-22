@@ -32,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -241,38 +242,67 @@ func buildVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 }
 
 func buildNMAResources(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.ResourceRequirements {
-	memoryRequest := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceRequestsMemory)
-	memoryLimit := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceLimitsMemory)
-	cpuRequest := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceRequestsCPU)
-	cpuLimit := vmeta.GetNMAResource(vdb.Annotations, corev1.ResourceLimitsCPU)
-
 	// We have an option to only set the resources if the corresponding resource
 	// is set in the server pod. If the server container doesn't any resources
 	// set, then we won't set any defaults. This will allow us to run in
 	// low-resource environment.
 	forced := vmeta.IsNMAResourcesForced(vdb.Annotations)
 
+	target := buildResources(vdb.Annotations, vmeta.GetNMAResource)
+	return pickResources(&target, &sc.Resources, forced)
+}
+
+func buildScrutinizeMainContainerResources(vscr *v1beta1.VerticaScrutinize) corev1.ResourceRequirements {
+	targetResources := buildResources(vscr.Annotations, vmeta.GetScrutinizeMainContainerResource)
+	return pickResources(&targetResources, &vscr.Spec.Resources, false /* pick based on dependsOn */)
+}
+
+// buildResources returns a corev1.ResourceRequirements where each field is
+// set using the passed function. That function is a generic function that
+// extracts each resource from the annotations
+func buildResources(ann map[string]string,
+	getResourceFunc func(map[string]string, corev1.ResourceName) resource.Quantity) corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    getResourceFunc(ann, corev1.ResourceRequestsCPU),
+			corev1.ResourceMemory: getResourceFunc(ann, corev1.ResourceRequestsMemory),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    getResourceFunc(ann, corev1.ResourceLimitsCPU),
+			corev1.ResourceMemory: getResourceFunc(ann, corev1.ResourceLimitsMemory),
+		},
+	}
+}
+
+// pickResources gets a target resources and returns a subset of it based
+// on the corresponding fields set in dependsOn resources. If forced is true,
+// it returns the whole target
+func pickResources(target *corev1.ResourceRequirements, dependsOn *corev1.ResourceRequirements,
+	forced bool) corev1.ResourceRequirements {
+	if forced {
+		return *target
+	}
+
+	memoryRequest := target.Requests[corev1.ResourceMemory]
+	memoryLimit := target.Limits[corev1.ResourceMemory]
+	cpuRequest := target.Requests[corev1.ResourceCPU]
+	cpuLimit := target.Limits[corev1.ResourceCPU]
+
 	req := corev1.ResourceRequirements{
 		Requests: make(corev1.ResourceList),
 		Limits:   make(corev1.ResourceList),
 	}
-	if forced {
-		req.Requests[corev1.ResourceMemory] = memoryRequest
-		req.Limits[corev1.ResourceMemory] = memoryLimit
-		req.Requests[corev1.ResourceCPU] = cpuRequest
-		req.Limits[corev1.ResourceCPU] = cpuLimit
-		return req
-	}
-	if _, ok := sc.Resources.Requests[corev1.ResourceMemory]; ok && !memoryRequest.IsZero() {
+
+	if _, ok := dependsOn.Requests[corev1.ResourceMemory]; ok && !memoryRequest.IsZero() {
 		req.Requests[corev1.ResourceMemory] = memoryRequest
 	}
-	if _, ok := sc.Resources.Limits[corev1.ResourceMemory]; ok && !memoryLimit.IsZero() {
+	if _, ok := dependsOn.Limits[corev1.ResourceMemory]; ok && !memoryLimit.IsZero() {
 		req.Limits[corev1.ResourceMemory] = memoryLimit
 	}
-	if _, ok := sc.Resources.Requests[corev1.ResourceCPU]; ok && !cpuRequest.IsZero() {
+	if _, ok := dependsOn.Requests[corev1.ResourceCPU]; ok && !cpuRequest.IsZero() {
 		req.Requests[corev1.ResourceCPU] = cpuRequest
 	}
-	if _, ok := sc.Resources.Limits[corev1.ResourceCPU]; ok && !cpuLimit.IsZero() {
+	if _, ok := dependsOn.Limits[corev1.ResourceCPU]; ok && !cpuLimit.IsZero() {
 		req.Limits[corev1.ResourceCPU] = cpuLimit
 	}
 	return req
@@ -833,6 +863,7 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Contain
 			"-c",
 			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTTL(vscr.Annotations)),
 		},
+		Resources:    buildScrutinizeMainContainerResources(vscr),
 		WorkingDir:   paths.ScrutinizeTmp,
 		VolumeMounts: []corev1.VolumeMount{buildScrutinizeSharedVolumeMount(vscr)},
 	}

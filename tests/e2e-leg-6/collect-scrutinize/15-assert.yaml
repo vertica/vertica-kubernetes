@@ -34,8 +34,20 @@ spec:
   containers:
   - name: main
     workingDir: /tmp/scrutinize
+    resources:
+      requests:
+        cpu: "1"
+        memory: "250Mi"
+      limits:
+        cpu: "4"
   initContainers:
   - name: scrutinize
+    resources:
+      requests:
+        cpu: "2"
+        memory: "300Mi"
+      limits:
+        cpu: "4"
   restartPolicy: Never
 status:
   phase: Pending
