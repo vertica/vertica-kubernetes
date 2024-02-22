@@ -76,7 +76,7 @@ func (s *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		}
 	}
 
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 // installPackagesInPod will find one pod to initiate the process of installing default packages
