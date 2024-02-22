@@ -55,6 +55,9 @@ func MakeInstallPackagesReconciler(
 
 // Reconcile will force install default packages in the running database
 func (s *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if s.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyCreateSkipPackageInstall {
+		return ctrl.Result{}, nil
+	}
 	err := s.PFacts.Collect(ctx, s.Vdb)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -62,7 +65,7 @@ func (s *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 
 	// No-op if no database exists
 	if !s.PFacts.doesDBExist() {
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Force reinstall default packages
@@ -80,7 +83,7 @@ func (s *InstallPackagesReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 func (s *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) error {
 	pf, ok := s.PFacts.findPodToRunAdminCmdAny()
 	if !ok {
-		// If no running pod found, then there is no where to install packages
+		// If no running pod found, then there is nowhere to install packages
 		// and we can just continue on
 		return nil
 	}
