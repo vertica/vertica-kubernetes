@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go v1.49.5
 	github.com/bigkevmcd/go-configparser v0.0.0-20210106142102-909504547ead
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.4.1
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/uuid v1.3.0
 	github.com/lithammer/dedent v1.1.0

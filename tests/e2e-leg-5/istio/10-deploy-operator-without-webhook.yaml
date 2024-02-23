@@ -16,7 +16,8 @@ kind: TestStep
 commands:
 - command: sh -c "cd ../../.. && make undeploy-operator || true"
 # With istio now setup, we need to reinstall the operator so that it has the
-# istio sidecar running. We are going to run with the webhook disabled.
-- command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator HELM_OVERRIDES='--set webhook.enable=false' NAMESPACE=verticadb-operator"
-
+# istio sidecar running. We are going to run the operator in the mesh and the
+# webhook outside of the mesh.
+- command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator HELM_OVERRIDES='--set webhook.enable=false' NAMESPACE=$NAMESPACE"
+- command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-webhook NAMESPACE=verticadb-operator"
 

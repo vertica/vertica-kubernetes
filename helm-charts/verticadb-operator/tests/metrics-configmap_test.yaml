@@ -1,0 +1,20 @@
+suite: Metrics configmap tests
+templates:
+  - verticadb-operator-manager-config-cm.yaml
+tests:
+  - it: should not include proxy sidecar if expose is without auth
+    set:
+      prometheus:
+        expose: EnableWithoutAuth
+    asserts:
+      - equal:
+          path: data.METRICS_ADDR
+          value: :8443
+  - it: should include proxy sidecar if expose is with auth
+    set:
+      prometheus:
+        expose: EnableWithAuthProxy
+    asserts:
+      - equal:
+          path: data.METRICS_ADDR
+          value: 127.0.0.1:8080

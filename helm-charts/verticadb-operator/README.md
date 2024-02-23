@@ -7,12 +7,6 @@ This helm chart will install the operator and an admission controller webhook.  
 | image.repo | Repo server hosting image.name | docker.io |
 | image.pullPolicy | The pull policy for the image that runs the operator  | IfNotPresent |
 | imagePullSecrets | List of Secret names containing login credentials for above repos | null (pull images anonymously) |
-| logging.filePath | The path to the log file. If omitted, all logging will be written to stdout.  | |
-| logging.maxFileSize | The maximum size, in MB, of the logging file before log rotation occurs. This is only applicable if logging to a file. | 500 |
-| logging.maxFileAge | The maximum number of days to retain old log files based on the timestamp encoded in the file. This is only applicable if logging to a file. |
-| logging.maxFileRotation | The maximum number of files that are kept in rotation before the old ones are removed. This is only applicable if logging to a file. | 3 |
-| logging.level | The minimum logging level. Valid values are: debug, info, warn, and error | info |
-| logging.dev | Enables development mode if true and production mode otherwise. | false |
 | nameOverride | Setting this allows you to control the prefix of all of the objects created by the helm chart.  If this is left blank, we use the name of the chart as the prefix | |
 | nodeSelector | The [node selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector) provides control over which nodes are used to schedule a pod. If this parameter is not set, the node selector is omitted from the pod that is created by the operator's Deployment object. To set this parameter, provide a list of key/value pairs. | Not set |
 | priorityClassName | The [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass) that is assigned to the operator pod. This affects where the pod gets scheduled. | Not set |

@@ -17,3 +17,6 @@ resources:
 - auth_proxy_role_binding.yaml
 - auth_proxy_client_clusterrole.yaml
 - auth_proxy_client_clusterrolebinding.yaml
+# The next setup the RBAC rules for the webhook.
+- webhook_config_clusterrole.yaml
+- webhook_config_clusterrolebinding.yaml

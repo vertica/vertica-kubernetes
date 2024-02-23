@@ -1,6 +1,6 @@
 suite: test that verifies we can control the concurrency of reconcile iterations
 templates:
-  - verticadb-operator-manager-deployment.yaml
+  - verticadb-operator-manager-config-cm.yaml
 tests:
   - it: we can specify a concurrency for various CRs
     set:
@@ -9,15 +9,12 @@ tests:
         verticaautoscaler: 2
         eventtrigger: 3
     asserts:
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content:
-            --verticadb-concurrency=8
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content:
-            --verticaautoscaler-concurrency=2
-      - contains:
-          path: spec.template.spec.containers[0].args
-          content:
-            --eventtrigger-concurrency=3
+      - equal:
+          path: data.CONCURRENCY_VERTICADB
+          value: "8"
+      - equal:
+          path: data.CONCURRENCY_VERTICAAUTOSCALER
+          value: "2"
+      - equal:
+          path: data.CONCURRENCY_EVENTTRIGGER
+          value: "3"

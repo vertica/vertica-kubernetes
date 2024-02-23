@@ -155,14 +155,15 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	}
 	defer os.Remove(atConfTempFile)
 
-	if d.VRec.OpCfg.DevMode {
+	// Only dump if verbose logging is on
+	if d.Log.GetV() > 0 {
 		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 	}
 	if err := distributeAdmintoolsConf(ctx, d.Vdb, d.VRec, d.PFacts, d.PRunner, atConfTempFile); err != nil {
 		return err
 	}
 	installedPods = append(installedPods, pods...)
-	if d.VRec.OpCfg.DevMode {
+	if d.Log.GetV() > 0 {
 		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 	}
 

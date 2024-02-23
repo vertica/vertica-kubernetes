@@ -19,3 +19,30 @@ metadata:
     control-plane: verticadb-operator
 status:
   phase: Running
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: verticadb-operator
+  labels:
+    control-plane: verticadb-operator
+data:
+  ENABLE_WEBHOOKS: "true"
+  ENABLE_CONTROLLERS: "false"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    control-plane: verticadb-operator
+status:
+  phase: Running
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    control-plane: verticadb-operator
+data:
+  ENABLE_WEBHOOKS: "false"
+  ENABLE_CONTROLLERS: "true"

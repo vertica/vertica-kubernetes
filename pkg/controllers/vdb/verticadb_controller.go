@@ -42,7 +42,6 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/metrics"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 )
 
@@ -53,7 +52,6 @@ type VerticaDBReconciler struct {
 	Scheme *runtime.Scheme
 	Cfg    *rest.Config
 	EVRec  record.EventRecorder
-	OpCfg  opcfg.OperatorConfig
 }
 
 //+kubebuilder:rbac:groups=vertica.com,resources=verticadbs,verbs=get;list;watch;create;update;patch;delete
@@ -73,8 +71,6 @@ type VerticaDBReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;update;patch
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VerticaDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -318,7 +314,7 @@ func (r *VerticaDBReconciler) makeDispatcher(log logr.Logger, vdb *vapi.VerticaD
 	if vmeta.UseVClusterOps(vdb.Annotations) {
 		return vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 	}
-	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec, r.OpCfg.DevMode)
+	return vadmin.MakeAdmintools(log, vdb, prunner, r.EVRec)
 }
 
 // Event a wrapper for Event() that also writes a log entry

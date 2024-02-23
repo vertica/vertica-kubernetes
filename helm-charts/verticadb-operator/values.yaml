@@ -35,6 +35,19 @@ rbac_proxy_image:
 
 imagePullSecrets: null
 
+# What is the scope of the operator? Allowed options are: cluster or namespace.
+# When the operator is scoped at the namespace level, the watchNamespace must
+# be set. We will grant only Roles/RoleBindings at the watched namespace.
+scope: cluster
+
+controllers:
+  # If true, the controllers will run watching for changes in any of the
+  # Vertica custom resources. Setting this to false and webhook.enabled to true
+  # will cause the manager to only serve webhook requests. This mode allows you
+  # to decouple the webhook from the controllers, allowing you to run them from
+  # in different pods.
+  enable: true
+
 webhook:
   # The webhook requires a TLS certificate to work. This parm defines how the
   # cert is supplied. Valid values are:
@@ -72,26 +85,6 @@ webhook:
   # If you do not have necessary privileges to add these configurations, then this option 
   # can be used to skip that and still deploy the operator.
   enable: true
-
-logging:
-  # filePath is the path to the log file. If omitted, all logging will be written to stdout.
-  filePath: ""
-  # maxFileSize is the maximum size, in MB, of the logging file before log rotation occurs. 
-  # This is only applicable if logging to a file.
-  maxFileSize: 500
-  # maxFileAge is the maximum number of days to retain old log files based on the timestamp
-  # encoded in the file. This is only applicable if logging to a file.
-  maxFileAge: 7
-  # maxFileRotation is the maximum number of files that are kept in rotation before the old ones are removed. 
-  # This is only applicable if logging to a file.
-  maxFileRotation: 3
-  # level is the minimum logging level. Valid values are: debug, info, warn, and error
-  level: info
-  # dev Enables development mode if true and production mode otherwise and also affects
-  # logs format. A few differences on logging will be: in dev mode stack traces are produced more liberally,
-  # on logs of WarnLevel and above while in production, they are included on logs of ErrorLevel and above.
-  # Moreover dev mode disables sampling. 
-  dev: false
 
 # Controls the amount of concurrency within the operator to handle the various
 # CRs we have.

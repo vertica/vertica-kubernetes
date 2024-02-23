@@ -83,7 +83,7 @@ func mockAdmintoolsDispatcher() (*Admintools, *vapi.VerticaDB, *cmds.FakePodRunn
 	vdb := vapi.MakeVDB()
 	fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 	evWriter := aterrors.TestEVWriter{}
-	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter, false)
+	dispatcher := MakeAdmintools(logger, vdb, fpr, &evWriter)
 	return dispatcher.(*Admintools), vdb, fpr
 }
 

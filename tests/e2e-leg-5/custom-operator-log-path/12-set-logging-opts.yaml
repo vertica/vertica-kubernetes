@@ -11,8 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - command: sh -c "cd ../../.. && make undeploy-operator || true"
-  - command: sh -c "cd ../../.. && DEPLOY_WITH=helm HELM_OVERRIDES='--set prometheus.expose=Disabled --set webhook.certSource=cert-manager' make deploy-operator NAMESPACE=$NAMESPACE"
+# The logging options were removed from the helm chart. To get the old
+# behaviour, we will set explicit vars in the config map.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verticadb-operator-manager-config
+data:
+  LOG_FILE_PATH: "/logs/try.log"
+  LOG_MAX_FILE_SIZE: "500"
+  LOG_MAX_FILE_AGE: "7"
+  LOG_MAX_FILE_ROTATION: "3"
+  LOG_USE_PRODUCTION_CONFIG: "true"
+  LOG_LEVEL: "info" # Old legacy value
