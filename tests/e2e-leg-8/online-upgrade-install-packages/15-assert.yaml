@@ -14,20 +14,8 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: v12-4
+  namespace: verticadb-operator
+  labels:
+    control-plane: verticadb-operator
 status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v23-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v24-1
-status:
-  phase: Succeeded
+  phase: Running

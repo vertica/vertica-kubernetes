@@ -11,23 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v12-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v23-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v24-1
-status:
-  phase: Succeeded
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl exec -i -n $NAMESPACE v-upgrade-vertica-pri-0 -c server -- vsql -tAf /opt/vertica/packages/flextable/ddl/isinstalled.sql -w topsecret
+  - script: kubectl exec -i -n $NAMESPACE v-upgrade-vertica-pri-0 -c server -- vsql -tAf /opt/vertica/packages/flextable/ddl/isinstalled.sql -w topsecret | grep -cq '^t$'

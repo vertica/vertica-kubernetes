@@ -12,22 +12,4 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Pod
-metadata:
-  name: v12-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v23-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v24-1
-status:
-  phase: Succeeded
+kind: PersistentVolumeClaim

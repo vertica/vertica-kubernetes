@@ -11,23 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
-  name: v12-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v23-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v24-1
-status:
-  phase: Succeeded
+  name: v-upgrade-vertica
+  annotations:
+    vertica.com/vcluster-ops: "true"
+spec:
+  image: vertica/vertica-k8s:24.1.0-0-minimal

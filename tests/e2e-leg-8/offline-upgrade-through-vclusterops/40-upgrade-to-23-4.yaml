@@ -1,4 +1,4 @@
-# (c) Copyright [2021-2024] Open Text.
+# (c) Copyright [2021-2023] Open Text.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # You may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,23 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
-  name: v12-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v23-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v24-1
-status:
-  phase: Succeeded
+  name: v-upgrade-vertica
+spec:
+  image: vertica/vertica-k8s:23.4.0-0-minimal

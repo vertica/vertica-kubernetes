@@ -26,7 +26,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	corev1 "k8s.io/api/core/v1"
@@ -129,11 +128,6 @@ func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName ty
 		"skipped installation package list", categorizedStatus.skippedPackages,
 	)
 
-	if !vmeta.UseVClusterOps(i.Vdb.Annotations) && len(status.Packages) > 0 {
-		// admintools implementation returns error if any individual package
-		// installation failed somehow; we don't treat this as an error here
-		err = nil
-	}
 	return err
 }
 

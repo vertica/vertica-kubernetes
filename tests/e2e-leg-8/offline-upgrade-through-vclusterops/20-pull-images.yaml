@@ -15,4 +15,5 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - command: kubectl run v12-4 -n $NAMESPACE --image=vertica/vertica-k8s:12.0.4-0-minimal --restart=Never --command -- vertica --version
+  - command: kubectl run v23-4 -n $NAMESPACE --image=vertica/vertica-k8s:23.4.0-0-minimal --restart=Never --command -- vertica --version
   - command: kubectl run v24-1 -n $NAMESPACE --image=vertica/vertica-k8s:24.1.0-0-minimal --restart=Never --command -- vertica --version

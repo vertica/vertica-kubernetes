@@ -11,23 +11,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
-  name: v12-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v23-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v24-1
-status:
-  phase: Succeeded
+  name: v-upgrade-vertica
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/vcluster-ops: "false"
+    vertica.com/k-safety: "0"
+spec:
+  image: vertica/vertica-k8s:23.4.0-0-minimal
+  imagePullPolicy: IfNotPresent
+  passwordSecret: su-passwd
+  communal: {}
+  local:
+    requestSize: 100Mi
+  dbName: Upgrade
+  initPolicy: Create
+  upgradePolicy: Online
+  encryptSpreadComm: disabled
+  subclusters:
+    - name: pri
+      size: 1
+      type: primary
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []

@@ -11,23 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v12-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v23-4
-status:
-  phase: Succeeded
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: v24-1
-status:
-  phase: Succeeded
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl run v23-4 -n $NAMESPACE --image=vertica/vertica-k8s:23.4.0-0-minimal --restart=Never --command -- vertica --version
+  - command: kubectl run v24-1 -n $NAMESPACE --image=vertica/vertica-k8s:24.1.0-0-minimal --restart=Never --command -- vertica --version

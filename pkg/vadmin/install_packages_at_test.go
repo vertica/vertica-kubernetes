@@ -45,7 +45,7 @@ var _ = Describe("install_package_at", func() {
 		status, err := dispatcher.InstallPackages(ctx,
 			installpackages.WithInitiator(nm, "10.9.1.1"),
 		)
-		Ω(err).ShouldNot(Succeed())
+		Ω(err).Should(Succeed())
 		Ω(len(status.Packages)).Should(Equal(2))
 		Ω(status.Packages[0].PackageName).Should(Equal("VFunctions"))
 		Ω(status.Packages[0].InstallStatus).Should(Equal("Failed to install package VFunctions"))

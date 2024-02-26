@@ -33,11 +33,14 @@ func (a *Admintools) InstallPackages(ctx context.Context, opts ...installpackage
 	stdout, err := a.execAdmintools(ctx, i.InitiatorName, cmd...)
 
 	status := genInstallPackageStatus(stdout)
-	if err != nil {
+	if err != nil && len(status.Packages) == 0 {
 		_, logErr := a.logFailure("install_package", events.InstallPackagesFailed, stdout, err)
 		a.Log.Error(err, "failed to finish package installation", "installPackageStatus", *status)
 		return status, logErr
 	}
+	// If err != nil && len(status.Packages) > 0, we assume it's due to individual package installation failures,
+	// rather than fatal errors such as incorrect command line arguments. In line with the
+	// behavior of the vclusterops implementation, we don't treat this as an error.
 	a.Log.Info("Packages installation finished", "dbName", a.VDB.Spec.DBName,
 		"installPackageStatus", *status)
 	return status, nil
