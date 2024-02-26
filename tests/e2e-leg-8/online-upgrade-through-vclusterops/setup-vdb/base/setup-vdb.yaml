@@ -27,7 +27,7 @@ spec:
   local:
     requestSize: 100Mi
   dbName: Upgrade
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall
   upgradePolicy: Online
   encryptSpreadComm: disabled
   subclusters:
