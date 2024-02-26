@@ -67,9 +67,13 @@ var _ = Describe("install_packages_vc", func() {
 	It("should call vcluster-ops library with install packages task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		Ω(dispatcher.InstallPackages(ctx,
+		status, err := dispatcher.InstallPackages(ctx,
 			installpackages.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
 			installpackages.WithForceReinstall(true),
-		)).Should(Succeed())
+		)
+		Ω(err).Should(Succeed())
+		Ω(len(status.Packages)).Should(Equal(1))
+		Ω(status.Packages[0].PackageName).Should(Equal(TestPackageName))
+		Ω(status.Packages[0].InstallStatus).Should(Equal(TestInstallStatus))
 	})
 })

@@ -88,7 +88,7 @@ type Dispatcher interface {
 
 	// InstallPackages will install all packages under /opt/vertica/packages
 	// where Autoinstall is marked true.
-	InstallPackages(ctx context.Context, opts ...installpackages.Option) error
+	InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error)
 }
 
 const (

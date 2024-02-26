@@ -17,9 +17,11 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 )
@@ -27,12 +29,28 @@ import (
 var _ = Describe("install_package_at", func() {
 	ctx := context.Background()
 
-	It("should call admintools -t install_package", func() {
+	It("should call admintools -t install_package and parse result", func() {
 		dispatcher, vdb, fpr := mockAdmintoolsDispatcher()
 		nm := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
-		Ω(dispatcher.InstallPackages(ctx,
+		fpr.Results[nm] = []cmds.CmdResult{
+			{Stdout: "Checking whether package VFunctions is already installed...\n" +
+				"Installing package VFunctions...\n" +
+				"Failed to install package VFunctions\n" +
+				"Checking whether package approximate is already installed...\n" +
+				"Installing package approximate...\n" +
+				"...Success!\n",
+				Err: fmt.Errorf("command terminated with exit code 1"),
+			},
+		}
+		status, err := dispatcher.InstallPackages(ctx,
 			installpackages.WithInitiator(nm, "10.9.1.1"),
-		)).Should(Succeed())
+		)
+		Ω(err).ShouldNot(Succeed())
+		Ω(len(status.Packages)).Should(Equal(2))
+		Ω(status.Packages[0].PackageName).Should(Equal("VFunctions"))
+		Ω(status.Packages[0].InstallStatus).Should(Equal("Failed to install package VFunctions"))
+		Ω(status.Packages[1].PackageName).Should(Equal("approximate"))
+		Ω(status.Packages[1].InstallStatus).Should(Equal("...Success!"))
 		hist := fpr.FindCommands("-t install_package")
 		Ω(len(hist)).Should(Equal(1))
 	})

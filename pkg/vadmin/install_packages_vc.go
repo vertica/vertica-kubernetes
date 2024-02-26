@@ -26,7 +26,7 @@ import (
 )
 
 // InstallPackages will install all packages under /opt/vertica/packages where Autoinstall is marked true
-func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages.Option) error {
+func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error) {
 	v.setupForAPICall("InstallPackages")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster InstallPackages")
@@ -38,15 +38,18 @@ func (v *VClusterOps) InstallPackages(_ context.Context, opts ...installpackages
 	// call vcluster-ops library to install packages
 	vopts := v.genInstallPackagesOptions(&s)
 	status, err := v.VInstallPackages(&vopts)
+	if status == nil {
+		status = &vops.InstallPackageStatus{}
+	}
 	if err != nil {
 		_, err = v.logFailure("VInstallPackages", events.InstallPackagesFailed, err)
-		v.Log.Error(err, "failed to install packages", "installPackageStatus", *status)
-		return err
+		v.Log.Error(err, "failed to finish package installation", "installPackageStatus", *status)
+		return status, err
 	}
 
-	v.Log.Info("Successfully installed packages", "dbName", *vopts.DBName,
+	v.Log.Info("Packages installation finished", "dbName", *vopts.DBName,
 		"installPackageStatus", *status)
-	return nil
+	return status, nil
 }
 
 func (v *VClusterOps) genInstallPackagesOptions(i *installpackages.Parms) vops.VInstallPackagesOptions {

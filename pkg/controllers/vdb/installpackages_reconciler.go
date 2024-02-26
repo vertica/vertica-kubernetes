@@ -17,13 +17,16 @@ package vdb
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	vops "github.com/vertica/vcluster/vclusterops"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	corev1 "k8s.io/api/core/v1"
@@ -95,6 +98,14 @@ func (i *InstallPackagesReconciler) installPackagesInPod(ctx context.Context) (c
 	return ctrl.Result{}, i.runCmd(ctx, pf.name, pf.podIP)
 }
 
+// categorizedInstallPackageStatus provides status for each package install attempted;
+// the status are categorized as either succeeded, failed, or skipped.
+type categorizedInstallPackageStatus struct {
+	succeededPackages []vops.PackageStatus
+	failedPackages    []vops.PackageStatus
+	skippedPackages   []vops.PackageStatus
+}
+
 // runCmd issues the admintools or vclusterops command to force install the default packages
 func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName types.NamespacedName, initiatorIP string) error {
 	i.VRec.Event(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesStarted, "Starting install packages")
@@ -103,10 +114,48 @@ func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName ty
 		installpackages.WithInitiator(initiatorName, initiatorIP),
 		installpackages.WithForceReinstall(true),
 	}
-	if err := i.Dispatcher.InstallPackages(ctx, opts...); err != nil {
-		return err
-	}
+	status, err := i.Dispatcher.InstallPackages(ctx, opts...)
+	categorizedStatus := categorizeInstallPackageStatus(status)
 	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesSucceeded,
-		"Successfully installed packages. It took %s", time.Since(start).Truncate(time.Second))
-	return nil
+		"Packages installation finished. It took %s. Number of packages succeeded: %v."+
+			" Number of packages failed: %v. Number of packages skipped: %v.", time.Since(start).Truncate(time.Second),
+		len(categorizedStatus.succeededPackages),
+		len(categorizedStatus.failedPackages),
+		len(categorizedStatus.skippedPackages))
+
+	i.Log.Info("Individual package installation status retrieved.",
+		"succeeded installation package list", categorizedStatus.succeededPackages,
+		"failed installation package list", categorizedStatus.failedPackages,
+		"skipped installation package list", categorizedStatus.skippedPackages,
+	)
+
+	if !vmeta.UseVClusterOps(i.Vdb.Annotations) && len(status.Packages) > 0 {
+		// admintools implementation returns error if any individual package
+		// installation failed somehow; we don't treat this as an error here
+		err = nil
+	}
+	return err
+}
+
+func categorizeInstallPackageStatus(status *vops.InstallPackageStatus) *categorizedInstallPackageStatus {
+	categorizedStatus := &categorizedInstallPackageStatus{}
+	if status == nil {
+		return categorizedStatus
+	}
+	for _, nameStatus := range status.Packages {
+		if nameStatus.InstallStatus == "Success" ||
+			nameStatus.InstallStatus == "...Success!" {
+			categorizedStatus.succeededPackages =
+				append(categorizedStatus.succeededPackages, nameStatus)
+		} else if nameStatus.InstallStatus == "Skipped" ||
+			strings.Contains(nameStatus.InstallStatus, "is already installed") ||
+			strings.Contains(nameStatus.InstallStatus, "is not allowed to be force-installed...Skip") {
+			categorizedStatus.skippedPackages =
+				append(categorizedStatus.skippedPackages, nameStatus)
+		} else {
+			categorizedStatus.failedPackages =
+				append(categorizedStatus.failedPackages, nameStatus)
+		}
+	}
+	return categorizedStatus
 }

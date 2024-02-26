@@ -17,17 +17,73 @@ package vadmin
 
 import (
 	"context"
+	"regexp"
+	"strings"
 
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 )
 
 // InstallPackages will install all packages under /opt/vertica/packages where Autoinstall is marked true
-func (a *Admintools) InstallPackages(ctx context.Context, opts ...installpackages.Option) error {
+func (a *Admintools) InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error) {
 	i := installpackages.Parms{}
 	i.Make(opts...)
 	cmd := a.genInstallPackagesCmd(&i)
-	_, err := a.execAdmintools(ctx, i.InitiatorName, cmd...)
-	return err
+	stdout, err := a.execAdmintools(ctx, i.InitiatorName, cmd...)
+
+	status := genInstallPackageStatus(stdout)
+	if err != nil {
+		_, logErr := a.logFailure("install_package", events.InstallPackagesFailed, stdout, err)
+		a.Log.Error(err, "failed to finish package installation", "installPackageStatus", *status)
+		return status, logErr
+	}
+	a.Log.Info("Packages installation finished", "dbName", a.VDB.Spec.DBName,
+		"installPackageStatus", *status)
+	return status, nil
+}
+
+func genInstallPackageStatus(stdout string) *vops.InstallPackageStatus {
+	status := &vops.InstallPackageStatus{}
+	lines := strings.Split(stdout, "\n")
+	if len(lines) > 1 {
+		// remove the final empty string after splitting the last "\n"
+		lines = lines[:len(lines)-1]
+	}
+	var currPackageStatus *vops.PackageStatus
+	for _, line := range lines {
+		if isNewPackage, packageName := isCheckingANewPackage(line); isNewPackage {
+			// start processing a new package
+			if currPackageStatus != nil {
+				// insert the previous package info
+				status.Packages = append(status.Packages, *currPackageStatus)
+			}
+			// initialize a new package status with parsed package name
+			currPackageStatus = &vops.PackageStatus{
+				PackageName:   packageName,
+				InstallStatus: "",
+			}
+			continue
+		}
+		// "Installing package {p}..." message should be ignored
+		if !strings.Contains(line, "Installing package") {
+			currPackageStatus.InstallStatus = line
+		}
+	}
+	if currPackageStatus != nil {
+		// insert the last package info
+		status.Packages = append(status.Packages, *currPackageStatus)
+	}
+	return status
+}
+
+func isCheckingANewPackage(line string) (isNewPackage bool, packageName string) {
+	re := regexp.MustCompile(`Checking whether package (.+) is already installed...`)
+	match := re.FindStringSubmatch(line)
+	if match != nil {
+		return true, match[1]
+	}
+	return false, ""
 }
 
 // genInstallPackagesCmd will generate the command line options for calling
