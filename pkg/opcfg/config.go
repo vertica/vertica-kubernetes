@@ -102,12 +102,6 @@ func getLoggingMaxFileRotation() int {
 	return lookupIntEnvVar("LOG_MAX_FILE_ROTATION", envCanNotExist)
 }
 
-// getIsLoggingSamplingEnabled returns true if sampling is to be used to cut
-// down on the CPU and I/O costs of the logging.
-func getIsLoggingSamplingEnabled() bool {
-	return lookupBoolEnvVar("ENABLE_LOG_SAMPLING", envMustExist)
-}
-
 // GetLoggingLevel returns the logging level to use. Logging levels are: debug,
 // info, warn, error.
 func getLoggingLevel() string {
