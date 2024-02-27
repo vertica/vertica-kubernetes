@@ -109,8 +109,7 @@ do
     perl -i -0777 -pe 's/(  annotations:)/$1\n{{- if eq .Values.webhook.certSource "cert-manager" }}/' $f
     perl -i -0777 -pe 's/(    cert-manager.io.*)/$1\n{{- else }}\n    \{\}\n{{- end }}/' $f
 done
-for f in $TEMPLATE_DIR/verticadb-operator-metrics-reader-cr.yaml \
-  $TEMPLATE_DIR/verticadb-operator-webhook-config-cr.yaml \
+for f in $TEMPLATE_DIR/verticadb-operator-webhook-config-cr.yaml \
   $TEMPLATE_DIR/verticadb-operator-webhook-config-crb.yaml
 do
   perl -i -pe 's/^/{{- if .Values.webhook.enable -}}\n/ if 1 .. 1' $f
@@ -220,10 +219,9 @@ done
 # 22. Template the operator config
 for fn in $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 do
-  # Set ENABLE_WEBHOOK according to webhook.enable value
-  perl -i -0777 -pe 's/(ENABLE_WEBHOOKS:).*/$1 {{ quote .Values.webhook.enable }}/g' $fn
-  perl -i -0777 -pe 's/(ENABLE_CONTROLLERS:).*/$1 {{ quote .Values.controllers.enable }}/g' $fn
-  perl -i -0777 -pe 's/(OPERATOR_SCOPE:).*/$1 {{ quote .Values.scope }}/g' $fn
+  perl -i -0777 -pe 's/(WEBHOOKS_ENABLED:).*/$1 {{ quote .Values.webhook.enable }}/g' $fn
+  perl -i -0777 -pe 's/(CONTROLLERS_ENABLED:).*/$1 {{ quote .Values.controllers.enable }}/g' $fn
+  perl -i -0777 -pe 's/(CONTROLLERS_SCOPE:).*/$1 {{ quote .Values.controllers.scope }}/g' $fn
   # Update the webhook-cert-secret configMap entry to include the actual name of the secret
   perl -i -0777 -pe 's/(WEBHOOK_CERT_SECRET: )(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
   perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}/g' $fn

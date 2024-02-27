@@ -35,18 +35,18 @@ rbac_proxy_image:
 
 imagePullSecrets: null
 
-# What is the scope of the operator? Allowed options are: cluster or namespace.
-# When the operator is scoped at the namespace level, the watchNamespace must
-# be set. We will grant only Roles/RoleBindings at the watched namespace.
-scope: cluster
-
 controllers:
   # If true, the controllers will run watching for changes in any of the
   # Vertica custom resources. Setting this to false and webhook.enabled to true
   # will cause the manager to only serve webhook requests. This mode allows you
-  # to decouple the webhook from the controllers, allowing you to run them from
-  # in different pods.
+  # to decouple the webhook from the controllers, allowing you to run them in
+  # different pods.
   enable: true
+  # What is the scope of the controllers? Allowed options are: cluster or namespace.
+  # Two things happen when the controllers are scoped at the namespace level: we
+  # only setup watches for the namespace the operator is deployed in, and we will only
+  # grant Role/RoleBindings to the manager for deployed namespace.
+  scope: cluster
 
 webhook:
   # The webhook requires a TLS certificate to work. This parm defines how the

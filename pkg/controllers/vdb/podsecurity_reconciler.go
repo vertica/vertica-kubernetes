@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -153,6 +154,14 @@ func getIDFromAnnotationIfAvailable(ann map[string]string, keyName string, defau
 }
 
 func (p *PodSecurityReconciler) getNamespaceAnnotations(ctx context.Context) (map[string]string, error) {
+	// If the operator is scoped at the namespace level, we won't have
+	// privileges to read the namespace since that is a cluster scoped object.
+	// So, we cannot get any annotations.
+	if opcfg.GetAreControllersNamespaceScoped() {
+		p.Log.Info("unable to read namespace annotations due to namespace scope")
+		return nil, nil
+	}
+
 	nm := types.NamespacedName{
 		Name: p.Vdb.Namespace,
 	}

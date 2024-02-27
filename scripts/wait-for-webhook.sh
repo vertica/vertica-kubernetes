@@ -59,7 +59,7 @@ timeout $TIMEOUT bash -c -- "\
     done"
 
 logInfo "Ensure that webhook is enabled for the operator"
-WEBHOOK_ENABLED=$(kubectl get $NAMESPACE_OPT cm -l control-plane=verticadb-operator -o jsonpath='{.items[0].data.ENABLE_WEBHOOKS}')
+WEBHOOK_ENABLED=$(kubectl get $NAMESPACE_OPT cm -l control-plane=verticadb-operator -o jsonpath='{.items[0].data.WEBHOOKS_ENABLED}')
 if [ "$WEBHOOK_ENABLED" == "false" ]
 then
   logWarning "Webhook is not enabled. Skipping wait."

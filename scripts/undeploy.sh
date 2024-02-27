@@ -73,9 +73,12 @@ set -o xtrace
 
 if helm list --all-namespaces --filter $HELM_RELEASE_NAME | grep -q $HELM_RELEASE_NAME
 then
-    NS=$(helm list --all-namespaces --filter vdb-op --output json | jq -r '[.[].namespace][0]')
-    helm uninstall -n $NS $HELM_RELEASE_NAME
-    remove_cluster_objects  
+    while helm list --all-namespaces --filter $HELM_RELEASE_NAME | grep -q $HELM_RELEASE_NAME
+    do
+        NS=$(helm list --all-namespaces --filter vdb-op --output json | jq -r '[.[].namespace][0]')
+        helm uninstall -n $NS $HELM_RELEASE_NAME
+        remove_cluster_objects  
+    done
 elif kubectl get subscription --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null || \
    kubectl get operatorgroups --all-namespaces=true | grep -cqe "verticadb-operator" 2> /dev/null ||
    kubectl get csv --all-namespaces=true | grep -cqe "VerticaDB Operator" 2> /dev/null

@@ -63,6 +63,9 @@ commands:
     background: true
 
   # Start the operator. Some test steps expects the operator to be in a
-  # specific namespace.
+  # specific namespace. When deploying the operator at the namespace scope, we
+  # only deploy the webhook here.
   - script: make undeploy || true
-  - script: NAMESPACE=verticadb-operator make deploy
+  - script: if [ "$CONTROLLERS_SCOPE" != "namespace" ]]; then NAMESPACE=verticadb-operator make deploy; fi
+  - script: if [ "$CONTROLLERS_SCOPE" = "namespace" ]]; then NAMESPACE=verticadb-operator make deploy-webhook; fi
+

@@ -193,7 +193,7 @@ func main() {
 	setupLog.Info("Build info", "gitCommit", GitCommit,
 		"buildDate", BuildDate, "vclusterVersion", VClusterVersion)
 	setupLog.Info("Operator Config",
-		"scope", opcfg.GetOperatorScope(),
+		"controllersScope", opcfg.GetControllersScope(),
 		"version", opcfg.GetVersion(),
 		"watchNamespace", opcfg.GetWatchNamespace(),
 		"webhooksEnabled", opcfg.GetIsWebhookEnabled(),

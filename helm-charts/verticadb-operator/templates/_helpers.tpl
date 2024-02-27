@@ -53,7 +53,7 @@ it is generated internally)
 Choose between Role or ClusterRole for the manager.
 */}}
 {{- define "vdb-op.roleKind" -}}
-{{- if eq .Values.scope "namespace" }}
+{{- if eq .Values.controllers.scope "namespace" }}
 {{- cat "Role" }}
 {{- else }}
 {{- cat "ClusterRole" }}
@@ -64,7 +64,7 @@ Choose between Role or ClusterRole for the manager.
 Choose between RoleBinding or ClusterRoleBinding for the manager.
 */}}
 {{- define "vdb-op.roleBindingKind" -}}
-{{- if eq .Values.scope "namespace" }}
+{{- if eq .Values.controllers.scope "namespace" }}
 {{- cat "RoleBinding" }}
 {{- else }}
 {{- cat "ClusterRoleBinding" }}

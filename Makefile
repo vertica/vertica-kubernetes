@@ -171,21 +171,21 @@ export DEPLOY_WITH
 # Set this to allow us to enable/disable the controllers in the operator.
 # Disabling the controller will force the operator just to serve webhook
 # requests.
-ENABLE_CONTROLLERS?=true
-export ENABLE_CONTROLLERS
+CONTROLLERS_ENABLED?=true
+export CONTROLLERS_ENABLED
 #
 # Set this to control if the webhook is enabled or disabled in the operator.
-ENABLE_WEBHOOKS?=true
-export ENABLE_WEBHOOKS
+WEBHOOKS_ENABLED?=true
+export WEBHOOKS_ENABLED
 #
-# Use this to control what scope the operator is deployed at. It supports two
+# Use this to control what scope the controller is deployed at. It supports two
 # values:
-# - cluster - operator is cluster scoped and will watch for objects in any
+# - cluster - controllers are cluster scoped and will watch for objects in any
 #             namespace
-# - namespace - operator is scoped to a single namespace and will watch for
-#               objects in the namespace where the operator is deployed.
-OPERATOR_SCOPE?=cluster
-export OPERATOR_SCOPE
+# - namespace - controllers are scoped to a single namespace and will watch for
+#               objects in the namespace where the manager is deployed.
+CONTROLLERS_SCOPE?=cluster
+export CONTROLLERS_SCOPE
 #
 # The address the operators Prometheus metrics endpoint binds to. Setting this
 # to 0 will disable metric serving.
@@ -195,18 +195,12 @@ export METRICS_ADDR
 # Set this to enable the memory profiler. Enables runtime profiling collection.
 # The profiling data can be inspected by connecting to port 6060 
 #"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.
-ENABLE_PROFILER?=false
-export ENABLE_PROFILER
+PROFILER_ENABLED?=false
+export PROFILER_ENABLED
 #
 # The minimum logging level. Valid values are: debug, info, warn, and error.
 LOG_LEVEL?=info
 export LOG_LEVEL
-#
-# When true, logging for the operator will be sampled, which caps the CPU and
-# I/O load of logging while attempting to preserve a representative subset of
-# the logs.
-ENABLE_LOG_SAMPLING?=false
-export ENABLE_LOG_SAMPLING
 #
 # The operators concurrency with each CR. If the number is > 1, this means the
 # operator can reconcile multiple CRs at the same time. Note, the operator never
@@ -565,7 +559,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)

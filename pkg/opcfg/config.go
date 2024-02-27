@@ -1,15 +1,16 @@
-/* (c) Copyright [2021-2024] Open Text.
-Licensed under the Apache License, Version 2.0 (the "License");
-You may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+/*
+ (c) Copyright [2021-2024] Open Text.
+ Licensed under the Apache License, Version 2.0 (the "License");
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+ http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
 */
 
 package opcfg
@@ -30,33 +31,39 @@ import (
 
 // GetIsWebhookEnabled returns true if the webhook is enabled.
 func GetIsWebhookEnabled() bool {
-	return lookupBoolEnvVar("ENABLE_WEBHOOKS", envMustExist)
+	return lookupBoolEnvVar("WEBHOOKS_ENABLED", envMustExist)
 }
 
 // GetIsControllersEnabled returns true if the controllers for each custom
 // resource will start. If this is false, then the manager will just act as a
 // webhook (if enabled).
 func GetIsControllersEnabled() bool {
-	return lookupBoolEnvVar("ENABLE_CONTROLLERS", envMustExist)
+	return lookupBoolEnvVar("CONTROLLERS_ENABLED", envMustExist)
+}
+
+// GetAreControllersNamespaceScoped returns true if the controllers only watch a
+// single namespace.
+func GetAreControllersNamespaceScoped() bool {
+	scope := GetControllersScope()
+	return scope == "namespace"
 }
 
 // GetWatchNamespace returns the namespace that the operator should watch
 func GetWatchNamespace() string {
-	// The watch namespace depends on the scope of the operator.
-	scope := GetOperatorScope()
-	if scope == "namespace" {
-		// A namespace scoped operator only watches for objects in the namespace
+	// The watch namespace depends on the scope of the controllers.
+	if GetAreControllersNamespaceScoped() {
+		// A namespace scoped controller only watches for objects in the namespace
 		// it is deployed in.
 		return GetOperatorNamespace()
 	}
-	// A cluster scoped operator. Return an empty string so that all namespaces
+	// A cluster scoped controller. Return an empty string so that all namespaces
 	// are watched.
 	return ""
 }
 
-// GetOperatorScope returns the scope, cluster or namespace, of the operator.
-func GetOperatorScope() string {
-	return lookupStringEnvVar("OPERATOR_SCOPE", envMustExist)
+// GetControllersScope returns the scope, cluster or namespace, of the operator.
+func GetControllersScope() string {
+	return lookupStringEnvVar("CONTROLLERS_SCOPE", envMustExist)
 }
 
 // GetMetricsAddr returns the address of the manager's Prometheus endpoint. This
@@ -68,7 +75,7 @@ func GetMetricsAddr() string {
 // GetIsProfilerEnabled returns true if the memory profiler started with the
 // manager.
 func GetIsProfilerEnabled() bool {
-	return lookupBoolEnvVar("ENABLE_PROFILER", envMustExist)
+	return lookupBoolEnvVar("PROFILER_ENABLED", envMustExist)
 }
 
 // GetUseCertManager returns true if cert-manager is used to setup the webhook's
@@ -106,6 +113,12 @@ func getLoggingMaxFileRotation() int {
 // info, warn, error.
 func getLoggingLevel() string {
 	return lookupStringEnvVar("LOG_LEVEL", envMustExist)
+}
+
+// GetIsDebugLoggingEnabled returns true if the debug logging level is selected.
+func GetIsDebugLoggingEnabled() bool {
+	lvl := getLoggingLevel()
+	return lvl == "debug"
 }
 
 // GetVerticaDBConcurrency returns the number of goroutines that will service

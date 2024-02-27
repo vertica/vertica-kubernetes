@@ -27,8 +27,8 @@ metadata:
   labels:
     control-plane: verticadb-operator
 data:
-  ENABLE_WEBHOOKS: "true"
-  ENABLE_CONTROLLERS: "false"
+  WEBHOOKS_ENABLED: "true"
+  CONTROLLERS_ENABLED: "false"
 ---
 apiVersion: v1
 kind: Pod
@@ -44,5 +44,6 @@ metadata:
   labels:
     control-plane: verticadb-operator
 data:
-  ENABLE_WEBHOOKS: "false"
-  ENABLE_CONTROLLERS: "true"
+  WEBHOOKS_ENABLED: "false"
+  CONTROLLERS_ENABLED: "true"
+  CONTROLLERS_SCOPE: "namespace"
