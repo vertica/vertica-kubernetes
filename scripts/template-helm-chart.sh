@@ -226,4 +226,5 @@ do
   perl -i -0777 -pe 's/(OPERATOR_SCOPE:).*/$1 {{ quote .Values.scope }}/g' $fn
   # Update the webhook-cert-secret configMap entry to include the actual name of the secret
   perl -i -0777 -pe 's/(WEBHOOK_CERT_SECRET: )(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
+  perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}/g' $fn
 done

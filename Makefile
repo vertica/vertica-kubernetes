@@ -198,10 +198,8 @@ export METRICS_ADDR
 ENABLE_PROFILER?=false
 export ENABLE_PROFILER
 #
-# The operators logging level. This is a numbered value. The higher the level
-# the more verbose logging is shown. 0 is the lowest value and has the minimum
-# amount of logging.
-LOG_LEVEL?=0
+# The minimum logging level. Valid values are: debug, info, warn, and error.
+LOG_LEVEL?=info
 export LOG_LEVEL
 #
 # When true, logging for the operator will be sampled, which caps the CPU and

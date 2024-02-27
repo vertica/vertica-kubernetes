@@ -16,6 +16,7 @@ package opcfg
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -107,24 +108,10 @@ func getIsLoggingSamplingEnabled() bool {
 	return lookupBoolEnvVar("ENABLE_LOG_SAMPLING", envMustExist)
 }
 
-// GetLoggingLevel returns the logging level to use. 0 is the level with the
-// least amount of output. Anything higher will have more verbose output.
-func getLoggingLevel() int {
-	lvl := lookupStringEnvVar("LOG_LEVEL", envMustExist)
-	// In case we use the old named levels, we will tolerate errors when
-	// converting to int. We will just default to 0 in that case.
-	intLevel, err := strconv.Atoi(lvl)
-	if err != nil {
-		return 0
-	}
-	return intLevel
-}
-
-// getUseProductionLoggingConfig returns true if production logging output
-// should be generated. This produces a slightly more terse output than dev
-// logging.
-func getUseProductionLoggingConfig() bool {
-	return lookupBoolEnvVar("LOG_USE_PRODUCTION_CONFIG", envCanNotExist)
+// GetLoggingLevel returns the logging level to use. Logging levels are: debug,
+// info, warn, error.
+func getLoggingLevel() string {
+	return lookupStringEnvVar("LOG_LEVEL", envMustExist)
 }
 
 // GetVerticaDBConcurrency returns the number of goroutines that will service
@@ -189,6 +176,11 @@ func GetLeaderElectionID() string {
 		return "5c1e6227.vertica.com"
 	}
 	return "87f832c4.vertica.com"
+}
+
+// GetDevMode returns true if logging is enabled for dev mode.
+func GetDevMode() bool {
+	return lookupBoolEnvVar("DEV_MODE", envCanNotExist)
 }
 
 func dieIfNotFound(envName string) {
@@ -258,13 +250,13 @@ func lookupIntEnvVar(envName string, mustExist bool) int {
 
 // getEncoderConfig returns a concrete encoders configuration
 func getEncoderConfig() zapcore.EncoderConfig {
-	if getUseProductionLoggingConfig() {
-		encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig := zap.NewDevelopmentEncoderConfig()
+	if !GetDevMode() {
+		encoderConfig = zap.NewProductionEncoderConfig()
 		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-		return encoderConfig
 	}
-	return zap.NewDevelopmentEncoderConfig()
+	return encoderConfig
 }
 
 // getLogger is a wrapper that calls other functions
@@ -278,7 +270,7 @@ func GetLogger() logr.Logger {
 		w := getLogWriter()
 		writes = append(writes, w)
 	}
-	if GetLoggingFilePath() == "" || !getUseProductionLoggingConfig() {
+	if GetLoggingFilePath() == "" || GetDevMode() {
 		writes = append(writes, zapcore.AddSync(os.Stdout))
 	}
 	core := zapcore.NewCore(
@@ -287,7 +279,7 @@ func GetLogger() logr.Logger {
 		lvl,
 	)
 	opts = append(opts, getStackTrace())
-	if getIsLoggingSamplingEnabled() {
+	if !GetDevMode() {
 		const first = 100
 		const thereAfter = 100
 		core = zapcore.NewSamplerWithOptions(core, time.Second, first, thereAfter)
@@ -308,17 +300,25 @@ func getLogWriter() zapcore.WriteSyncer {
 }
 
 // getZapcoreLevel return the logging level to use for the logging. Levels are
-// numbered. 0 is the minimum amount of logging. Higher numbers will dump out
-// more verbose messages.
 func getZapcoreLevel() zapcore.Level {
-	return zapcore.Level(getLoggingLevel())
+	const (
+		DefaultZapcoreLevel = zapcore.InfoLevel
+		DefaultLevel        = "info"
+	)
+	var level = new(zapcore.Level)
+	err := level.UnmarshalText([]byte(getLoggingLevel()))
+	if err != nil {
+		log.Printf("unrecognized level, %s level will be used instead", DefaultLevel)
+		return DefaultZapcoreLevel
+	}
+	return *level
 }
 
 // getStackTrace returns an option that configures
 // the logger to record a stack strace.
 func getStackTrace() zap.Option {
 	lvl := zapcore.WarnLevel
-	if getUseProductionLoggingConfig() {
+	if GetDevMode() {
 		lvl = zapcore.ErrorLevel
 	}
 	return zap.AddStacktrace(zapcore.LevelEnabler(lvl))

@@ -23,5 +23,5 @@ data:
   LOG_MAX_FILE_SIZE: "500"
   LOG_MAX_FILE_AGE: "7"
   LOG_MAX_FILE_ROTATION: "3"
-  LOG_USE_PRODUCTION_CONFIG: "true"
-  LOG_LEVEL: "info" # Old legacy value
+  DEV_MODE: "true"
+  LOG_LEVEL: "info"
