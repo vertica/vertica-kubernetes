@@ -66,9 +66,9 @@ func DeleteVSCR(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutini
 	ExpectWithOffset(1, c.Delete(ctx, vscr)).Should(Succeed())
 }
 
-func CreateScrutinizePod(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize) {
+func CreateScrutinizePod(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize, tarballName string) {
 	vdb := v1vapi.MakeVDB()
-	pod := builder.BuildScrutinizePod(vscr, vdb, []string{})
+	pod := builder.BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
 	ExpectWithOffset(1, c.Create(ctx, pod)).Should(Succeed())
 }
 

@@ -242,6 +242,9 @@ const (
 	// used. If a value is specified, but isn't able to be parsed, we use the
 	// default.
 	ScrutinizeMainContainerResourcesPrefixAnnotation = "vertica.com/scrutinize-main-container-resources"
+	// This is added to the scrutinize pod to allow the operator to retrieve the tarball name
+	// when needed
+	ScrutinizeTarballName = "vertica.com/scrutinize-tarball-name"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

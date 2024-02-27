@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	corev1 "k8s.io/api/core/v1"
@@ -91,8 +92,13 @@ func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Contex
 	}
 	p.VRec.Eventf(p.Vscr, corev1.EventTypeNormal, events.VclusterOpsScrutinizeSucceeded,
 		"Successfully completed scrutinize run for the VerticaDB named '%s'", p.Vscr.Spec.VerticaDBName)
+	stat := &v1beta1.VerticaScrutinizeStatus{}
+	stat.PodName = p.Vscr.Status.PodName
+	stat.PodUID = p.Vscr.Status.PodUID
+	stat.TarballName = pod.Annotations[vmeta.ScrutinizeTarballName]
 	cond := v1.MakeCondition(v1beta1.ScrutinizeCollectionFinished, metav1.ConditionTrue, events.VclusterOpsScrutinizeSucceeded)
-	return ctrl.Result{}, vscrstatus.UpdateCondition(ctx, p.VRec.Client, p.Vscr, cond)
+	stat.Conditions = []metav1.Condition{*cond}
+	return ctrl.Result{}, vscrstatus.UpdateStatus(ctx, p.VRec.Client, p.Vscr, stat)
 }
 
 func (p *PodPollingReconciler) fetchScrutinizePod(ctx context.Context, pod *corev1.Pod) (bool, error) {
