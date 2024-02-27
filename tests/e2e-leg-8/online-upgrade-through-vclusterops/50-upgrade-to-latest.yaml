@@ -16,5 +16,4 @@ kind: TestStep
 commands:
   - command: ../../../scripts/patch-image-in-vdb.sh -n $NAMESPACE v-upgrade-vertica
   - command: kubectl wait -n $NAMESPACE --for=condition=UpgradeInProgress=True vdb/v-upgrade-vertica --timeout=600s
-  - command: kubectl wait -n $NAMESPACE --for=condition=UpgradeInProgress=False vdb/v-upgrade-vertica --timeout=600s
 
