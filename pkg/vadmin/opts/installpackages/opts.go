@@ -13,16 +13,18 @@
  limitations under the License.
 */
 
-package stopdb
+package installpackages
 
 import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// Parms holds all of the option for a stop DB invocation.
+// Parms holds all of the option for a install packages invocation.
 type Parms struct {
 	InitiatorName types.NamespacedName
 	InitiatorIP   string
+
+	ForceReinstall bool
 }
 
 type Option func(*Parms)
@@ -38,5 +40,11 @@ func WithInitiator(nm types.NamespacedName, ip string) Option {
 	return func(s *Parms) {
 		s.InitiatorName = nm
 		s.InitiatorIP = ip
+	}
+}
+
+func WithForceReinstall(forceReinstall bool) Option {
+	return func(s *Parms) {
+		s.ForceReinstall = forceReinstall
 	}
 }

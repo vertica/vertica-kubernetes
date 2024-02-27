@@ -108,6 +108,9 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		o.removeTransientSubclusters,
 		o.uninstallTransientNodes,
 		o.deleteTransientSts,
+		// Reinstall default packages after all subclusters start after the upgrade
+		o.postNextStatusMsg,
+		o.installPackages,
 		// Cleanup up the condition and event recording for a completed upgrade
 		o.Manager.finishUpgrade,
 	}
@@ -168,7 +171,10 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 	if res, err := o.iterateSubclusterType(ctx, vapi.SecondarySubcluster, procFunc); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	o.StatusMsgs = append(o.StatusMsgs, "Destroying transient secondary subcluster")
+	o.StatusMsgs = append(o.StatusMsgs,
+		"Destroying transient secondary subcluster",
+		"Reinstalling default packages",
+	)
 	o.MsgIndex = -1
 	return ctrl.Result{}, nil
 }
@@ -369,6 +375,13 @@ func (o *OnlineUpgradeReconciler) restartPrimaries(ctx context.Context) (ctrl.Re
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+// installPackages will install default packages. This is called after the clusters have
+// all been restarted.
+func (o *OnlineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Result, error) {
+	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher, o.Log)
+	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
 // restartSecondaries will restart all of the secondaries, temporarily
