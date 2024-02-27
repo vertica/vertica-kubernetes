@@ -21,8 +21,8 @@ LAST_RELEASED_IMAGE="24.1.0"
 NIGHTLY_MAJOR=24
 NIGHTLY_MINOR=2
 PUBLIC_REPO=vertica
-PRIVATE_REPO=mspilchen
-PRIVATE_IMAGE=vertica-private
+PRIVATE_REPO=opentext
+PRIVATE_IMAGE=vertica-k8s-private
 PUBLIC_IMAGE=vertica-k8s
 
 function print_vertica_k8s_img
