@@ -27,6 +27,7 @@ spec:
   local:
     requestSize: 100Mi
   dbName: Upgrade
+  # skip package install due to disk space limitation in GitHub CI
   initPolicy: CreateSkipPackageInstall
   upgradePolicy: Online
   encryptSpreadComm: disabled
