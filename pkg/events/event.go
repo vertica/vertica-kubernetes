@@ -87,7 +87,7 @@ const (
 	MonolithicContainerNotSupported = "MonolithicContainerNotSupported"
 	InstallPackagesStarted          = "InstallPackagesStarted"
 	InstallPackagesFailed           = "InstallPackagesFailed"
-	InstallPackagesSucceeded        = "InstallPackagesSucceeded"
+	InstallPackagesFinished         = "InstallPackagesFinished"
 )
 
 // Constants for VerticaAutoscaler reconciler

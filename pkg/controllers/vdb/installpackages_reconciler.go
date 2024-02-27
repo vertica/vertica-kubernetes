@@ -115,7 +115,7 @@ func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName ty
 	}
 	status, err := i.Dispatcher.InstallPackages(ctx, opts...)
 	categorizedStatus := categorizeInstallPackageStatus(status)
-	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesSucceeded,
+	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesFinished,
 		"Packages installation finished. It took %s. Number of packages succeeded: %v."+
 			" Number of packages failed: %v. Number of packages skipped: %v.", time.Since(start).Truncate(time.Second),
 		len(categorizedStatus.succeededPackages),
