@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
@@ -88,6 +89,10 @@ type Dispatcher interface {
 
 	// ShowRestorePoints will list existing restore points in a database
 	ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) ([]vops.RestorePoint, error)
+
+	// InstallPackages will install all packages under /opt/vertica/packages
+	// where Autoinstall is marked true.
+	InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error)
 }
 
 const (
@@ -209,4 +214,5 @@ type VClusterProvider interface {
 	VReIP(options *vops.VReIPOptions) error
 	VStartNodes(options *vops.VStartNodesOptions) error
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
+	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 }

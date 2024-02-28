@@ -1,0 +1,5 @@
+kind: Added
+body: Reinstall packages during upgrade
+time: 2024-02-22T09:23:18.236193113-04:00
+custom:
+  Issue: "717"

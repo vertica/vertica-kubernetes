@@ -92,6 +92,9 @@ const (
 	LowLocalDataAvailSpace          = "LowLocalDataAvailSpace"
 	WrongImage                      = "WrongImage"
 	MonolithicContainerNotSupported = "MonolithicContainerNotSupported"
+	InstallPackagesStarted          = "InstallPackagesStarted"
+	InstallPackagesFailed           = "InstallPackagesFailed"
+	InstallPackagesFinished         = "InstallPackagesFinished"
 )
 
 // Constants for VerticaAutoscaler reconciler
