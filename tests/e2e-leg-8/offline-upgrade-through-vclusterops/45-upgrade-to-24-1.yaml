@@ -18,4 +18,4 @@ metadata:
   annotations:
     vertica.com/vcluster-ops: "true"
 spec:
-  image: vertica/vertica-k8s:24.1.0-0-minimal
+  image: opentext/vertica-k8s:24.1.0-0-minimal
