@@ -13,7 +13,7 @@ Each tag follows this format: _`<major>.<minor>.<patch>-<hotfix>[-minimal]`_. Fo
 
 The `latest` tag always refers to the minimal image of the most recently released version.
 
-For a comprehensive list, see [Tags](https://hub.docker.com/r/vertica/vertica-k8s/tags).
+For a comprehensive list, see [Tags](https://hub.docker.com/r/opentext/vertica-k8s/tags).
 
 # Quick Reference
 
@@ -32,7 +32,7 @@ https://www.vertica.com/
 
 # How to Use This Image
 
-This image runs the Vertica server that is optimized for use with the [Vertica operator](https://hub.docker.com/r/vertica/verticadb-operator). The operator automates management and administrative tasks for an [Eon Mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes. 
+This image runs the Vertica server that is optimized for use with the [Vertica operator](https://hub.docker.com/r/opentext/verticadb-operator). The operator automates management and administrative tasks for an [Eon Mode](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Eon/Architecture.htm) database in Kubernetes. 
 
 Vertica provides two versions of this image, depending on whether you require the TensorFlow package:
 - If you do not require the TensorFlow package, Vertica recommends downloading the image with the *-minimal* supported tag suffix. Because it does not include the TensorFlow package, it has a reduced size. The *-minimal* image is the default image included in the [Vertica Helm chart](https://github.com/vertica/charts).

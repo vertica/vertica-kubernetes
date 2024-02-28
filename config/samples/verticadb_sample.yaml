@@ -27,8 +27,10 @@ metadata:
     # are 24.1.0 or newer will want this set to true to deploy with vclusterops.
     vertica.com/vcluster-ops: "true"
 spec:
-  image: "vertica/vertica-k8s:latest" # ensure vertica.com/vcluster-ops is true
-  #image: "vertica/vertica-k8s:23.3.0-0-minimal" # ensure vertica.com/vcluster-ops is false
+  # Let the operator pick the latest image. It will be an image that uses
+  # vclusterOps deployment. If you want to deploy with admintools, uncomment the
+  # next line and update the annotations.
+  #image: "opentext/vertica-k8s:23.3.0-0-minimal" # ensure vertica.com/vcluster-ops is false
   communal:
     path: "s3://nimbusdb/db"
     endpoint: "http://minio"
