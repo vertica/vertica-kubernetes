@@ -46,11 +46,11 @@ func (a *Admintools) execAdmintools(ctx context.Context, initiatorPod types.Name
 	// Dump relevant contents of the admintools.conf before and after the
 	// admintools calls. We do this for PD purposes to see what changes occurred
 	// in the file.
-	if opcfg.GetIsDebugLoggingEnabled() {
+	if opcfg.IsDebugLoggingEnabled() {
 		a.PRunner.DumpAdmintoolsConf(ctx, initiatorPod)
 	}
 	stdout, _, err := a.PRunner.ExecAdmintools(ctx, initiatorPod, names.ServerContainer, cmd...)
-	if opcfg.GetIsDebugLoggingEnabled() {
+	if opcfg.IsDebugLoggingEnabled() {
 		a.PRunner.DumpAdmintoolsConf(ctx, initiatorPod)
 	}
 	return stdout, err

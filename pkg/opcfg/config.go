@@ -41,17 +41,10 @@ func GetIsControllersEnabled() bool {
 	return lookupBoolEnvVar("CONTROLLERS_ENABLED", envMustExist)
 }
 
-// GetAreControllersNamespaceScoped returns true if the controllers only watch a
-// single namespace.
-func GetAreControllersNamespaceScoped() bool {
-	scope := GetControllersScope()
-	return scope == "namespace"
-}
-
 // GetWatchNamespace returns the namespace that the operator should watch
 func GetWatchNamespace() string {
 	// The watch namespace depends on the scope of the controllers.
-	if GetAreControllersNamespaceScoped() {
+	if AreControllersNamespaceScoped() {
 		// A namespace scoped controller only watches for objects in the namespace
 		// it is deployed in.
 		return GetOperatorNamespace()
@@ -61,9 +54,24 @@ func GetWatchNamespace() string {
 	return ""
 }
 
+const ControllersScopeEnvVar = "CONTROLLERS_SCOPE" // Environment variable used to set scope of the controllers
+const ControllersScopeCluster = "cluster"
+const controllersScopeNamespace = "namespace"
+
 // GetControllersScope returns the scope, cluster or namespace, of the operator.
 func GetControllersScope() string {
-	return lookupStringEnvVar("CONTROLLERS_SCOPE", envMustExist)
+	val := lookupStringEnvVar(ControllersScopeEnvVar, envCanNotExist)
+	if val != controllersScopeNamespace {
+		return ControllersScopeCluster
+	}
+	return val
+}
+
+// AreControllersNamespaceScoped returns true if the controllers only watch a
+// single namespace.
+func AreControllersNamespaceScoped() bool {
+	scope := GetControllersScope()
+	return scope == controllersScopeNamespace
 }
 
 // GetMetricsAddr returns the address of the manager's Prometheus endpoint. This
@@ -112,11 +120,11 @@ func getLoggingMaxFileRotation() int {
 // GetLoggingLevel returns the logging level to use. Logging levels are: debug,
 // info, warn, error.
 func getLoggingLevel() string {
-	return lookupStringEnvVar("LOG_LEVEL", envMustExist)
+	return lookupStringEnvVar("LOG_LEVEL", envCanNotExist)
 }
 
-// GetIsDebugLoggingEnabled returns true if the debug logging level is selected.
-func GetIsDebugLoggingEnabled() bool {
+// IsDebugLoggingEnabled returns true if the debug logging level is selected.
+func IsDebugLoggingEnabled() bool {
 	lvl := getLoggingLevel()
 	return lvl == "debug"
 }
@@ -155,12 +163,12 @@ func GetIsOLMDeployment() bool {
 // GetDeploymentMethod returns the name of the method that was used to deploy
 // the operator.
 func GetDeploymentMethod() string {
-	return lookupStringEnvVar("DEPLOY_WITH", envMustExist)
+	return lookupStringEnvVar("DEPLOY_WITH", envCanNotExist)
 }
 
 // GetVersion returns the version of the operator.
 func GetVersion() string {
-	return lookupStringEnvVar("VERSION", envMustExist)
+	return lookupStringEnvVar("VERSION", envCanNotExist)
 }
 
 // GetWebhookCertSecret returns the name of the secret that stores the TLS cert
@@ -175,7 +183,7 @@ func GetOperatorNamespace() string {
 }
 
 // GetLeaderElectionID returns the name to use for leader election. This ensures
-// that the operator can only once in a namespace.
+// that the operator can only run once in a namespace.
 func GetLeaderElectionID() string {
 	// We need to have a separate ID if the webhook running is decoupled from
 	// the controllers. This allows both of them to co-exist at the same time.
@@ -202,12 +210,13 @@ func dieIfNotValid(envName, rawVal string) {
 
 const (
 	// Helper consts for the mustExist parameter for the lookup*EnvVar functions.
-	envMustExist   = true
-	envCanNotExist = false
+	envMustExist   = true  // The environment variable must exist. Manager stops if not found.
+	envCanNotExist = false // The environment variable is optional. No error is generated if not found.
 )
 
 // lookupBoolEnvVar will look for an environment variable and return its value
-// as if it's a boolean. Any errors will stop the manager.
+// as if it's a boolean. If mustExist is true and the variable isn't found, the
+// manager is stopped.
 func lookupBoolEnvVar(envName string, mustExist bool) bool {
 	valStr, found := os.LookupEnv(envName)
 	if !found {
@@ -225,7 +234,8 @@ func lookupBoolEnvVar(envName string, mustExist bool) bool {
 }
 
 // lookupStringEnvVar will look for an environment variable and return its value
-// as a string. Any errors will stop the manager.
+// as a string. If mustExist is true and the variable isn't found, the manager
+// is stopped.
 func lookupStringEnvVar(envName string, mustExist bool) string {
 	valStr, found := os.LookupEnv(envName)
 	if !found {
@@ -237,8 +247,9 @@ func lookupStringEnvVar(envName string, mustExist bool) string {
 	return valStr
 }
 
-// lookupBoolEnvVar will look for an environment variable and return its value
-// as if it's a boolean. Any errors will stop the manager.
+// lookupIntEnvVar will look for an environment variable and return its value
+// as if it's an integer. If mustExist is true and the variable isn't found, the
+// manager is stopped.
 func lookupIntEnvVar(envName string, mustExist bool) int {
 	valStr, found := os.LookupEnv(envName)
 	if !found {
@@ -306,7 +317,9 @@ func getLogWriter() zapcore.WriteSyncer {
 	return zapcore.AddSync(lumberJackLogger)
 }
 
-// getZapcoreLevel return the logging level to use for the logging. Levels are
+// getZapcoreLevel return the zapcore level to use for the logging. Levels are
+// taken from string level, via getLoggingLevel, and mapped to its corresponding
+// zapcore level. If the string level is invalid, it returns the default level.
 func getZapcoreLevel() zapcore.Level {
 	const (
 		DefaultZapcoreLevel = zapcore.InfoLevel

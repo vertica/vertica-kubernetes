@@ -157,7 +157,7 @@ func (p *PodSecurityReconciler) getNamespaceAnnotations(ctx context.Context) (ma
 	// If the operator is scoped at the namespace level, we won't have
 	// privileges to read the namespace since that is a cluster scoped object.
 	// So, we cannot get any annotations.
-	if opcfg.GetAreControllersNamespaceScoped() {
+	if opcfg.AreControllersNamespaceScoped() {
 		p.Log.Info("unable to read namespace annotations due to namespace scope")
 		return nil, nil
 	}
