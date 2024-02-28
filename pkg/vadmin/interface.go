@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
@@ -84,6 +85,10 @@ type Dispatcher interface {
 	// cluster quorum. The IP given for each vnode *must* match the current IP
 	// in the vertica catalog. If they aren't a call to ReIP is necessary.
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
+
+	// InstallPackages will install all packages under /opt/vertica/packages
+	// where Autoinstall is marked true.
+	InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error)
 }
 
 const (
@@ -202,4 +207,5 @@ type VClusterProvider interface {
 	VRemoveNode(options *vops.VRemoveNodeOptions) (vops.VCoordinationDatabase, error)
 	VReIP(options *vops.VReIPOptions) error
 	VStartNodes(options *vops.VStartNodesOptions) error
+	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 }
