@@ -122,7 +122,7 @@ func getTarballName(pod *corev1.Pod) string {
 	}
 	for i := range cnt.Command {
 		if cnt.Command[i] == "--tarball-name" && i < len(cnt.Command)-1 {
-			return cnt.Command[i+1]
+			return fmt.Sprintf("%s.tar", cnt.Command[i+1])
 		}
 	}
 	return ""

@@ -60,7 +60,7 @@ var _ = Describe("podpolling_reconciler", func() {
 		runPodPollingReconcile(ctx, vscr, false)
 		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeCollectionFinished,
 			metav1.ConditionTrue, events.VclusterOpsScrutinizeSucceeded)
-		Expect(vscr.Status.TarballName).Should(Equal("test"))
+		Expect(vscr.Status.TarballName).Should(Equal("test.tar"))
 
 		// scrutinize init container is still busy running scrutinize command
 		pod.Status.InitContainerStatuses = []corev1.ContainerStatus{
