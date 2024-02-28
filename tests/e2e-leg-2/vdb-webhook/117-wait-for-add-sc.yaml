@@ -14,4 +14,4 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE $NAMESPACE -t 300"
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -t 300 -n $NAMESPACE $NAMESPACE"
