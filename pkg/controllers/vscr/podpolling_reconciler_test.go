@@ -42,8 +42,7 @@ var _ = Describe("podpolling_reconciler", func() {
 		meta.SetStatusCondition(&vscr.Status.Conditions, *cond)
 		cond = v1.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "")
 		meta.SetStatusCondition(&vscr.Status.Conditions, *cond)
-		const tarballName = "test"
-		v1beta1_test.CreateScrutinizePod(ctx, k8sClient, vscr, tarballName)
+		v1beta1_test.CreateScrutinizePod(ctx, k8sClient, vscr)
 		defer v1beta1_test.DeleteScrutinizePod(ctx, k8sClient, vscr)
 
 		pn := vscr.ExtractNamespacedName()
@@ -61,7 +60,7 @@ var _ = Describe("podpolling_reconciler", func() {
 		runPodPollingReconcile(ctx, vscr, false)
 		checkStatusConditionAfterReconcile(ctx, vscr, v1beta1.ScrutinizeCollectionFinished,
 			metav1.ConditionTrue, events.VclusterOpsScrutinizeSucceeded)
-		Expect(vscr.Status.TarballName).Should(Equal(tarballName))
+		Expect(vscr.Status.TarballName).Should(Equal("test"))
 
 		// scrutinize init container is still busy running scrutinize command
 		pod.Status.InitContainerStatuses = []corev1.ContainerStatus{

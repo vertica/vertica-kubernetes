@@ -24,7 +24,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	corev1 "k8s.io/api/core/v1"
@@ -95,7 +94,7 @@ func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Contex
 	stat := &v1beta1.VerticaScrutinizeStatus{}
 	stat.PodName = p.Vscr.Status.PodName
 	stat.PodUID = p.Vscr.Status.PodUID
-	stat.TarballName = pod.Annotations[vmeta.ScrutinizeTarballName]
+	stat.TarballName = getTarballName(pod)
 	cond := v1.MakeCondition(v1beta1.ScrutinizeCollectionFinished, metav1.ConditionTrue, events.VclusterOpsScrutinizeSucceeded)
 	stat.Conditions = []metav1.Condition{*cond}
 	return ctrl.Result{}, vscrstatus.UpdateStatus(ctx, p.VRec.Client, p.Vscr, stat)
@@ -112,4 +111,19 @@ func (p *PodPollingReconciler) fetchScrutinizePod(ctx context.Context, pod *core
 		return false, err
 	}
 	return true, nil
+}
+
+// getTarballName extracts the tarball name from the scrutinize
+// init container command
+func getTarballName(pod *corev1.Pod) string {
+	cnt := vk8s.GetScrutinizeInitContainer(pod.Spec.InitContainers)
+	if cnt == nil {
+		return ""
+	}
+	for i := range cnt.Command {
+		if cnt.Command[i] == "--tarball-name" && i < len(cnt.Command)-1 {
+			return cnt.Command[i+1]
+		}
+	}
+	return ""
 }

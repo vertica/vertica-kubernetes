@@ -1233,8 +1233,8 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 }
 
 // BuildScrutinizePod construct the spec for the scrutinize pod
-func BuildScrutinizePod(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, args []string, tarballName string) *corev1.Pod {
-	pod := &corev1.Pod{
+func BuildScrutinizePod(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, args []string) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        vscr.Name,
 			Namespace:   vscr.Namespace,
@@ -1243,8 +1243,6 @@ func BuildScrutinizePod(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, ar
 		},
 		Spec: buildScrutinizePodSpec(vscr, vdb, args),
 	}
-	pod.Annotations[vmeta.ScrutinizeTarballName] = tarballName
-	return pod
 }
 
 // buildPod will construct a spec for a pod.

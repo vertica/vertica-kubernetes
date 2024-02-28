@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	test "github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
@@ -63,7 +62,6 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), pod)).Should(Succeed())
 		Expect(vscr.Status.PodName).Should(Equal(pod.Name))
 		Expect(vscr.Status.PodUID).Should(Equal(pod.UID))
-		Expect(pod.Annotations[vmeta.ScrutinizeTarballName]).Should(MatchRegexp(`^VerticaScrutinize\.\d{14}$`))
 	})
 
 	It("should exit early without error if ScrutinizeReady is false", func() {

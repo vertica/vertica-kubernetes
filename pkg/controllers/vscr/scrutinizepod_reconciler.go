@@ -111,7 +111,7 @@ func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.
 // createPod creates the scrutinize pod
 func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 	s.ScrArgs.tarballName = generateScrutinizeID()
-	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.ScrArgs.buildScrutinizeCmdArgs(), s.ScrArgs.tarballName)
+	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.ScrArgs.buildScrutinizeCmdArgs())
 	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
 	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
 	if err != nil {

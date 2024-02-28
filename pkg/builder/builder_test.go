@@ -35,9 +35,8 @@ import (
 )
 
 const (
-	cpuLimit    = 8
-	memLimit    = 1
-	tarballName = "test"
+	cpuLimit = 8
+	memLimit = 1
 )
 
 var _ = Describe("builder", func() {
@@ -118,7 +117,7 @@ var _ = Describe("builder", func() {
 		vscr.Spec.Volume = &v1.Volume{
 			Name: testVol,
 		}
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		vols := pod.Spec.Volumes
 		Ω(len(vols)).Should(Equal(1))
 		Ω(vols[0].Name).Should(Equal(testVol))
@@ -143,7 +142,7 @@ var _ = Describe("builder", func() {
 			{Name: "init1"},
 			{Name: "init2"},
 		}
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		cnts := pod.Spec.InitContainers
 		Ω(len(cnts)).Should(Equal(3))
 		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeInitContainer))
@@ -163,13 +162,12 @@ var _ = Describe("builder", func() {
 			"ant1": "val3",
 			"ant2": "val4",
 		}
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta) {
 			Ω(objectMeta.Labels["label1"]).Should(Equal("val1"))
 			Ω(objectMeta.Labels["label2"]).Should(Equal("val2"))
 			Ω(objectMeta.Annotations["ant1"]).Should(Equal("val3"))
 			Ω(objectMeta.Annotations["ant2"]).Should(Equal("val4"))
-			Ω(objectMeta.Annotations[vmeta.ScrutinizeTarballName]).Should(Equal(tarballName))
 		}
 		verifyLabelsAnnotations(&pod.ObjectMeta)
 	})
@@ -180,7 +178,7 @@ var _ = Describe("builder", func() {
 		vscr.Annotations[vmeta.ScrutinizePodRestartPolicyAnnotation] = string(v1.RestartPolicyAlways)
 		vscr.Annotations[vmeta.ScrutinizePodTTLAnnotation] = "180"
 		vscr.Annotations[vmeta.ScrutinizeMainContainerImageAnnotation] = "alpine"
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 
 		Ω(pod.Spec.RestartPolicy).Should(Equal(v1.RestartPolicyAlways))
 		Ω(pod.Spec.Containers[0].Image).Should(Equal("alpine"))
@@ -195,7 +193,7 @@ var _ = Describe("builder", func() {
 			"--hosts", "h1,h2,h3",
 			"--db-name", "db",
 			"--db-user", "dbadmin",
-		}, tarballName)
+		})
 
 		cnt := pod.Spec.InitContainers[0]
 		Ω(cnt.Image).Should(Equal(vdb.Spec.Image))
@@ -214,7 +212,7 @@ var _ = Describe("builder", func() {
 		vscr := v1beta1.MakeVscr()
 		vdb := vapi.MakeVDB()
 		vscr.Spec.Resources = v1.ResourceRequirements{}
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		cnt := pod.Spec.Containers[0]
 		verifyNoResourcesSet(&cnt)
 	})
@@ -225,7 +223,7 @@ var _ = Describe("builder", func() {
 		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsCPU)] = strconv.Itoa(cpuLimit)
 		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsMemory)] = fmt.Sprintf("%dGi", memLimit)
 		vscr.Spec.Resources = makeResources()
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		cnt := pod.Spec.Containers[0]
 		actual, _ := cnt.Resources.Limits.Cpu().AsInt64()
 		Ω(actual).Should(Equal(int64(cpuLimit)))
@@ -247,7 +245,7 @@ var _ = Describe("builder", func() {
 		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsCPU)] = ""
 		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsMemory)] = ""
 		vscr.Spec.Resources = makeResources()
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 		cnt := pod.Spec.Containers[0]
 		_, ok := cnt.Resources.Limits[v1.ResourceCPU]
 		Ω(ok).Should(BeFalse())
@@ -270,7 +268,7 @@ var _ = Describe("builder", func() {
 	It("should add passwd env var if vdb.Spec.PasswordSecret is non-empty", func() {
 		vscr := v1beta1.MakeVscr()
 		vdb := vapi.MakeVDB()
-		pod := BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
 
 		cnt := pod.Spec.InitContainers[0]
 		l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
@@ -279,7 +277,7 @@ var _ = Describe("builder", func() {
 		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
 
 		vdb.Spec.PasswordSecret = "passwd"
-		pod = BuildScrutinizePod(vscr, vdb, []string{}, tarballName)
+		pod = BuildScrutinizePod(vscr, vdb, []string{})
 		cnt = pod.Spec.InitContainers[0]
 		Ω(len(cnt.Env)).Should(Equal(l + 2))
 		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNameEnv)))
