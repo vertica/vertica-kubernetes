@@ -96,7 +96,6 @@ metadata:
   labels:
     $SELECTOR_KEY: $SELECTOR_VAL
 spec:
-  image: "vertica/vertica-k8s:latest"
   initPolicy: ScheduleOnly
   subclusters:
   - name: sc1

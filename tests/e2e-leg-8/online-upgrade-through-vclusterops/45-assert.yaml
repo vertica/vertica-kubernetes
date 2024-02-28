@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: vertica/vertica-k8s:24.1.0-0-minimal
+        image: opentext/vertica-k8s:24.1.0-0-minimal
 status:
   replicas: 2
   readyReplicas: 2
@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
       - name: server
-        image: vertica/vertica-k8s:24.1.0-0-minimal
+        image: opentext/vertica-k8s:24.1.0-0-minimal
 status:
   replicas: 1
   readyReplicas: 1
@@ -44,4 +44,4 @@ kind: VerticaDB
 metadata:
   name: v-upgrade-vertica
 spec:
-  image: vertica/vertica-k8s:24.1.0-0-minimal
+  image: opentext/vertica-k8s:24.1.0-0-minimal
