@@ -1,5 +1,5 @@
 kind: Removed
-body: Most logging helm chart parameters. Only logging.level still exists.
+body: Removed most of the logging helm chart parameters. Only logging.level still exists.
 time: 2024-02-27T15:05:40.510018124-04:00
 custom:
   Issue: "719"
