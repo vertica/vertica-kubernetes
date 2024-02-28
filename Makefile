@@ -400,20 +400,24 @@ ifeq ($(shell $(KIND_CHECK)), 1)
 endif
 endif
 
-# PLATFORMS defines the target platforms for  the manager image be build to provide support to multiple
-# architectures. (i.e. make docker-buildx-operator OPERATOR_IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
-# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
-# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# - be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
-# To properly provided solutions that supports more than one platform you should use this option.
-PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
-.PHONY: docker-buildx-operator
-docker-buildx-operator: test ## Build and push docker image for the manager for cross-platform support
+# PLATFORMS defines the target platforms that the image will be used for. Use
+# this with docker-build-crossplatform-* targets.
+PLATFORMS?=linux/arm64,linux/amd64
+
+.PHONY: docker-build-crossplatform-operator
+docker-build-crossplatform-operator: manifests generate fmt vet ## Build and push operator image for cross-platform support
+	docker pull golang:${GO_VERSION} # Ensure we have the latest Go lang version
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' docker-operator/Dockerfile > Dockerfile.cross
 	- docker buildx create --name project-v3-builder
 	docker buildx use project-v3-builder
-	- docker buildx build --push --platform=$(PLATFORMS) --tag ${OPERATOR_IMG} -f Dockerfile.cross
+	docker buildx build \
+		--push \
+		--platform=$(PLATFORMS) \
+		--build-arg GO_VERSION=${GO_VERSION} \
+		--tag ${OPERATOR_IMG} \
+		-f Dockerfile.cross \
+		.
 	- docker buildx rm project-v3-builder
 	rm Dockerfile.cross
 
