@@ -12,32 +12,13 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Pod
+kind: ConfigMap
 metadata:
   labels:
     control-plane: verticadb-operator
-spec:
-  containers:
-  - name: manager
-    args:
-    - --health-probe-bind-address=:8081
-    - --leader-elect
-    - --filepath=
-    - --maxfilesize=500
-    - --maxfileage=7
-    - --maxfilerotation=3
-    - --level=info
-    - --dev=false
-    - --prefix-name=verticadb-operator
-    - --webhook-cert-secret=verticadb-operator-service-cert
-    - --use-cert-manager
-    - --verticadb-concurrency=5
-    - --verticaautoscaler-concurrency=1
-    - --eventtrigger-concurrency=1
-    - --verticarestorepointsquery-concurrency=1
-    - --verticascrutinize-concurrency=1
-status:
-  phase: Running
+data:
+  WEBHOOK_CERT_SOURCE: cert-manager
+  METRICS_ADDR: ""
 ---
 apiVersion: v1
 kind: Service

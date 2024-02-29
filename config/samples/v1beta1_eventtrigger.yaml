@@ -27,5 +27,5 @@ spec:
           restartPolicy: OnFailure
           containers:
           - name: main
-            image: "vertica/vertica-k8s:latest"
+            image: "opentext/vertica-k8s:23.4.0-0-minimal"
             command: ["/opt/vertica/bin/vsql", "-h", "verticadb-sample-defaultsubcluster", "-c", "CREATE TABLE T1 (C1 INT);"]

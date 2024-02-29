@@ -59,7 +59,7 @@ timeout $TIMEOUT bash -c -- "\
     done"
 
 logInfo "Ensure that webhook is enabled for the operator"
-WEBHOOK_ENABLED=$(kubectl get $NAMESPACE_OPT deployments -l control-plane=verticadb-operator -o jsonpath='{.items[0].spec.template.spec.containers[0].env[1].value}')
+WEBHOOK_ENABLED=$(kubectl get $NAMESPACE_OPT cm -l control-plane=verticadb-operator -o jsonpath='{.items[0].data.WEBHOOKS_ENABLED}')
 if [ "$WEBHOOK_ENABLED" == "false" ]
 then
   logWarning "Webhook is not enabled. Skipping wait."
@@ -96,7 +96,6 @@ metadata:
   labels:
     $SELECTOR_KEY: $SELECTOR_VAL
 spec:
-  image: "vertica/vertica-k8s:latest"
   initPolicy: ScheduleOnly
   subclusters:
   - name: sc1

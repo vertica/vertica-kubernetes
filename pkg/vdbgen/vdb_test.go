@@ -323,9 +323,9 @@ var _ = Describe("vdb", func() {
 				AddRow("Vertica Analytic Database 11.0.1-0"))
 
 		Expect(dbGen.setImage(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("vertica/vertica-k8s:12.0.2-0"))
+		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("opentext/vertica-k8s:12.0.2-0"))
 		Expect(dbGen.setImage(ctx)).Should(Succeed())
-		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("vertica/vertica-k8s:11.0.1-0"))
+		Expect(dbGen.Objs.Vdb.Spec.Image).Should(Equal("opentext/vertica-k8s:11.0.1-0"))
 	})
 
 	It("should set default deployment method based on server version if the user doesn't force a deployment method", func() {

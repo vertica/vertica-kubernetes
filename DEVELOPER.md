@@ -236,44 +236,15 @@ make generate manifests
 
 ## Run the VerticaDB operator
 
-You have two options to run the VerticaDB operator:
-
-- [Local](#local-operator): run the operator synchronously in a shell environment.
-- [Deployment object](#deployment-object): Package the operator in a container and deploy in Kubernetes as a deployment object.
-
-The operator is cluster-scoped for both options, so it monitors CRs in all namespaces.
-
-### Local operator
-
-> **NOTE**
-> When you run the operator locally, you cannot run [e2e tests](#e2e-tests). You can run only [ad-hoc tests](#unit-tests).
-
-The local deployment option is the fastest method to get the operator up and running, but it has limitations:
-
-- A local operator does not accurately simulate how the operator runs in a Kubernetes environment.
-- The webhook is disabled. The webhook requires TLS certs that are available only when the operator is packaged in a container.
-
-#### Install
-
-To run the operator in the shell, enter the following command:
-
-```shell
-make install run
-```
-
-#### Stop the operator
-
-To stop the operator, press **Ctrl + C**.
-
-### Deployment object
-
-When you run the operator as a deployment object, it runs in a container in a real Kubernetes environment.
+In order to run the operator, you must run it inside Kubernetes by packaging it in a container. It cannot run standalone outside of Kubernetes.
 
 Vertica on Kubernetes supports two deployment models: Helm chart and [Operator Lifecycle Manager (OLM)](https://olm.operatorframework.io/). You specify the deployment model with the `DEPLOY_WITH` environment variable in the `make` command. By default, the operator is deployed in the `verticadb-operator` namespace. If that namespace does not exists, it creates it if necessary.
 
+By default, the operator is cluster-scoped, meaning it monitors CRs in all namespaces. But when deployed with helm, it can be run as namespace scoped as well by setting the `scope` parameter to `namespace`.
+
 The operator pod contains a webhook, which requires TLS certificates. The TLS setup for each deployment model is different.
 
-#### Helm deployment
+### Helm deployment
 
 Deploy the operator with Helm and all its prerequisites:
 
@@ -283,7 +254,7 @@ DEPLOY_WITH=helm make config-transformer deploy
 
 The operator generates a self-signed TLS certificate at runtime. You can also provide a custom TLS certificate. For details, see `webhook.certSource` in [Helm chart parameters](https://docs.vertica.com/latest/en/containerized/db-operator/helm-chart-parameters/).
 
-#### OLM deployment
+### OLM deployment
 
 You must configure OLM deployments when you run an operator with a webhook. For details, see the [OLM documentation](https://olm.operatorframework.io/docs/advanced-tasks/adding-admission-and-conversion-webhooks/).
 
@@ -293,7 +264,7 @@ Deploy OLM and all its prerequisites:
 DEPLOY_WITH=olm make setup-olm deploy
 ```
 
-#### Remove the operator
+### Remove the operator
 
 The `undeploy` make target removes the operator from the environment. The following command removes both Helm and OLM deployments:
 

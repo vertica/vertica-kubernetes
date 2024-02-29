@@ -108,18 +108,16 @@ type Admintools struct {
 	Log      logr.Logger
 	EVWriter events.EVWriter
 	VDB      *vapi.VerticaDB
-	DevMode  bool // true to include verbose logging for some operations
 }
 
 // MakeAdmintools will create a dispatcher that uses admintools to call the
 // admin commands.
-func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter events.EVWriter, devMode bool) Dispatcher {
+func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter events.EVWriter) Dispatcher {
 	return &Admintools{
 		PRunner:  prunner,
 		VDB:      vdb,
 		Log:      log,
 		EVWriter: evWriter,
-		DevMode:  devMode,
 	}
 }
 

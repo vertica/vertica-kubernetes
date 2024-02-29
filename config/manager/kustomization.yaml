@@ -7,4 +7,12 @@ generatorOptions:
 configMapGenerator:
 - envs:
   - operator-envs
+  literals:
+  - PREFIX_NAME=verticadb-operator
+  - WEBHOOK_CERT_SECRET=verticadb-operator-service-cert
   name: manager-config
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    control-plane: verticadb-operator

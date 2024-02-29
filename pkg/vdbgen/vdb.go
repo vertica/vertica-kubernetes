@@ -676,7 +676,7 @@ func (d *DBGenerator) setImage(ctx context.Context) error {
 	// Pick an image we hosted in Docker Hub.  We always publish an image for
 	// hotfix 0. Rarely do we publish one for subsequent hotfixes, so always use
 	// hotfix 0 regardless of what hotfix was currently in use.
-	d.Objs.Vdb.Spec.Image = fmt.Sprintf("vertica/vertica-k8s:%s-0", version)
+	d.Objs.Vdb.Spec.Image = fmt.Sprintf("opentext/vertica-k8s:%s-0", version)
 
 	// Set proper annotation to ensure correct deployment method.
 	return d.setDeploymentMethodAnnotationFromServerVersion("v" + version)

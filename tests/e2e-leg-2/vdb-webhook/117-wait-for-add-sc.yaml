@@ -11,23 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: v-upgrade-vertica-defsc
-spec:
-  template:
-    spec:
-      containers:
-      - name: server
-        image: opentext/vertica-k8s:24.1.0-0-minimal
-status:
-  replicas: 3
-  readyReplicas: 3
----
-apiVersion: vertica.com/v1beta1
-kind: VerticaDB
-metadata:
-  name: v-upgrade-vertica
-spec:
-  image: opentext/vertica-k8s:24.1.0-0-minimal
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -t 300 -n $NAMESPACE $NAMESPACE"

@@ -24,7 +24,7 @@ https://www.vertica.com/
 
 # How to Use This Image
 
-This image is used to deploy a sidecar utility container that assists with logging for the [vertica/vertica-k8s](https://hub.docker.com/r/vertica/vertica-k8s/tags?page=1&ordering=last_updated) server image. The sidecar sends logs from vertica.log in the Vertica server to stdout on the host node to simplify log aggregation.
+This image is used to deploy a sidecar utility container that assists with logging for the [opentext/vertica-k8s](https://hub.docker.com/r/opentext/vertica-k8s/tags?page=1&ordering=last_updated) server image. The sidecar sends logs from vertica.log in the Vertica server to stdout on the host node to simplify log aggregation.
 
 For an overview of the sidecar container, see [Containerized Vertica on Kubernetes](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/ContainerizedVerticaWithK8s.htm). For sidecar implementation details, see [Creating a Custom Resource](https://www.vertica.com/docs/latest/HTML/Content/Authoring/Containers/Kubernetes/Operator/CreatingCustomResource.htm).
 
