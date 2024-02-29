@@ -11,11 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Pod
-metadata:
-  namespace: verticadb-operator
-  labels:
-    control-plane: verticadb-operator
-status:
-  phase: Running
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set webhook.enable=false,controllers.enable=true,controllers.scope=namespace"

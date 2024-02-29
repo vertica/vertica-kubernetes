@@ -11,9 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: kuttl.dev/v1beta1
-kind: TestStep
-commands:
-  - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.subclusters[1].name="sc1"' | kubectl -n $NAMESPACE replace -f -
-    ignoreFailure: true
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE $NAMESPACE"
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
+  name: v-istio-tproxy
+spec:
+  initPolicy: CreateSkipPackageInstall

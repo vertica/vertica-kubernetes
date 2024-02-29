@@ -17,11 +17,13 @@ package vdb
 
 import (
 	"context"
+	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -76,6 +78,13 @@ var _ = Describe("podsecurity_reconcile", func() {
 		vdb.Spec.NMATLSSecret = "os-nma-secret"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		// This test relies on the operator being cluster scoped. Namespace
+		// scoped operator do not have access to read annotations in the
+		// Namespace.
+		origVal := os.Getenv(opcfg.GetControllersScope())
+		os.Setenv(opcfg.ControllersScopeEnvVar, opcfg.ControllersScopeCluster)
+		defer os.Setenv(opcfg.ControllersScopeEnvVar, origVal)
 
 		// Setup a namespace with the OpenShift annotations. This defines the
 		// valid ID that can be used, so will affect the expected result.

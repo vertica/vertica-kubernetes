@@ -16,6 +16,7 @@ kind: TestStep
 commands:
   - command: sh -c "cd ../../.. && make undeploy-operator || true"
   - command: kubectl delete ns verticadb-operator
+    ignoreFailure: true
   - command: sh -c "cd ../../.. && make install"  # Add the CRDs
   - command: sh -c "cd ../../.. && kubectl apply -f config/release-manifests/operator.yaml"
   - command: kubectl wait pod --namespace verticadb-operator -l control-plane=verticadb-operator --for=condition=Ready=True

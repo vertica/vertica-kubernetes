@@ -15,3 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - command: kubectl delete ns $NAMESPACE
+  - command: kubectl delete ns verticadb-operator # Where the webhook is running

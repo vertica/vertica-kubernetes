@@ -143,9 +143,6 @@ HELM_RELEASE_NAME?=vdb-op
 # For example to specify a custom webhook tls cert when deploying use this command:
 #   HELM_OVERRIDES="--set webhook.tlsSecret=custom-cert" make deploy-operator
 HELM_OVERRIDES?=
-# Enables development mode by default. Is used only when the operator is deployed
-# through the Makefile 
-DEV_MODE?=true
 # Maximum number of tests to run at once. (default 2)
 # Set it to any value not greater than 8 to override the default one
 E2E_PARALLELISM?=2
@@ -157,11 +154,65 @@ E2E_TEST_DIRS?=tests/e2e-leg-1
 # Additional arguments to pass to 'kubectl kuttl'
 E2E_ADDITIONAL_ARGS?=
 
+#
+# Deployment Variables 
+# ====================
+#
+# The following set of variables get passed down to the operator through a
+# configMap. Each variable that we export here is included in the config/
+# kustomize bundle (see config/manager/operator-env).
+#
 # Specify how to deploy the operator.  Allowable values are 'helm' or 'olm'.
 # When deploying with olm, it is expected that `make setup-olm` has been run
 # already.
 DEPLOY_WITH?=helm
 export DEPLOY_WITH
+#
+# Set this to allow us to enable/disable the controllers in the operator.
+# Disabling the controller will force the operator just to serve webhook
+# requests.
+CONTROLLERS_ENABLED?=true
+export CONTROLLERS_ENABLED
+#
+# Set this to control if the webhook is enabled or disabled in the operator.
+WEBHOOKS_ENABLED?=true
+export WEBHOOKS_ENABLED
+#
+# Use this to control what scope the controller is deployed at. It supports two
+# values:
+# - cluster - controllers are cluster scoped and will watch for objects in any
+#             namespace
+# - namespace - controllers are scoped to a single namespace and will watch for
+#               objects in the namespace where the manager is deployed.
+CONTROLLERS_SCOPE?=cluster
+export CONTROLLERS_SCOPE
+#
+# The address the operators Prometheus metrics endpoint binds to. Setting this
+# to 0 will disable metric serving.
+METRICS_ADDR?=127.0.0.1:8080
+export METRICS_ADDR
+#
+# Set this to enable the memory profiler. Enables runtime profiling collection.
+# The profiling data can be inspected by connecting to port 6060 
+#"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.
+PROFILER_ENABLED?=false
+export PROFILER_ENABLED
+#
+# The minimum logging level. Valid values are: debug, info, warn, and error.
+LOG_LEVEL?=info
+export LOG_LEVEL
+#
+# The operators concurrency with each CR. If the number is > 1, this means the
+# operator can reconcile multiple CRs at the same time. Note, the operator never
+# parallelizes reconcile iterations for the same CR. Only distinct CRs can be
+# reconciled in parallel.
+CONCURRENCY_VERTICADB?=5
+CONCURRENCY_VERTICAAUTOSCALER?=1
+CONCURRENCY_EVENTTRIGGER?=1
+export CONCURRENCY_VERTICADB \
+  CONCURRENCY_VERTICAAUTOSCALER \
+  CONCURRENCY_EVENTTRIGGER
+
 # Clear this variable if you don't want to wait for the helm deployment to
 # finish before returning control. This exists to allow tests to attempt deploy
 # when it should fail.
@@ -319,10 +370,6 @@ setup-olm: operator-sdk bundle docker-build-bundle docker-push-bundle docker-bui
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/operator/main.go
-
-.PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
-	scripts/run-operator.sh
 
 .PHONY: docker-build-operator
 docker-build-operator: manifests generate fmt vet ## Build operator docker image with the manager.
@@ -512,13 +559,21 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 # If this secret does not exist then it is simply ignored.
 deploy-operator: manifests kustomize ## Using helm or olm, deploy the operator in the K8s cluster
 ifeq ($(DEPLOY_WITH), helm)
-	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set logging.dev=${DEV_MODE} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred $(HELM_OVERRIDES)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred --set controllers.scope=$(CONTROLLERS_SCOPE) $(HELM_OVERRIDES)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else ifeq ($(DEPLOY_WITH), olm)
 	scripts/deploy-olm.sh -n $(NAMESPACE) $(OLM_TEST_CATALOG_SOURCE)
 	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
 else
 	$(error Unknown deployment method: $(DEPLOY_WITH))
+endif
+
+deploy-webhook: manifests kustomize ## Using helm, deploy just the webhook in the k8s cluster
+ifeq ($(DEPLOY_WITH), helm)
+	helm install $(DEPLOY_WAIT) -n $(NAMESPACE) --create-namespace $(HELM_RELEASE_NAME) $(OPERATOR_CHART) --set image.repo=null --set image.name=${OPERATOR_IMG} --set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) --set imagePullSecrets[0].name=priv-reg-cred $(HELM_OVERRIDES) --set webhook.enable=true,controllers.enable=false
+	scripts/wait-for-webhook.sh -n $(NAMESPACE) -t 60
+else
+	$(error Unsupported deployment method for webhook only: $(DEPLOY_WITH))
 endif
 
 .PHONY: undeploy-operator

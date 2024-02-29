@@ -25,7 +25,7 @@ import (
 	"github.com/pkg/errors"
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -266,7 +266,7 @@ func getMutatingWebhookConfigName(prefixName string) string {
 func getWebhookServiceName(prefixName string) string {
 	// We have slightly different names depending on the deployment type since
 	// OLM likes to generate it themselves and tie the CA cert to it.
-	if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok && val == vmeta.OLMDeploymentType {
+	if opcfg.GetIsOLMDeployment() {
 		return fmt.Sprintf("%s-manager-service", prefixName)
 	}
 	return fmt.Sprintf("%s-webhook-service", prefixName)

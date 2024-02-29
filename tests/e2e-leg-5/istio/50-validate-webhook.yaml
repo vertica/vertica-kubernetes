@@ -14,6 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-- command: sh -c "cd ../../.. && make undeploy-operator || true"
-- command: sh -c "cd ../../.. && DEPLOY_WITH=helm make deploy-operator NAMESPACE=verticadb-operator"
-
+  - script: kubectl -n $NAMESPACE get vdb v-istio-tproxy -o json | jq '.spec.initPolicy="BadValue"' | kubectl -n $NAMESPACE replace -f -
+    ignoreFailure: true

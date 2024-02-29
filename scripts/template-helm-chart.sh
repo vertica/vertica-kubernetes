@@ -62,10 +62,6 @@ do
   # Include the secret only if not using webhook.certSource=internal
   perl -i -0777 -pe 's/(.*- name: webhook-cert\n.*secret:\n.*defaultMode:.*\n.*secretName:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
   perl -i -0777 -pe 's/(.*- mountPath: .*\n.*name: webhook-cert\n.*readOnly:.*)/\{\{- if or (ne .Values.webhook.certSource "internal") (not (empty .Values.webhook.tlsSecret)) \}\}\n$1\n\{\{- end \}\}/g' $fn
-  # Update the --webhook-cert-secret option to include the actual name of the secret
-  perl -i -0777 -pe 's/(- --webhook-cert-secret=)(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
-  # Set ENABLE_WEBHOOK according to webhook.enable value
-  perl -i -0777 -pe 's/(name: ENABLE_WEBHOOKS\n.*value:) .*/$1 {{ quote .Values.webhook.enable }}/g' $fn
 done
 for fn in verticadb-operator-selfsigned-issuer-issuer.yaml \
     verticadb-operator-serving-cert-certificate.yaml
@@ -113,12 +109,12 @@ do
     perl -i -0777 -pe 's/(  annotations:)/$1\n{{- if eq .Values.webhook.certSource "cert-manager" }}/' $f
     perl -i -0777 -pe 's/(    cert-manager.io.*)/$1\n{{- else }}\n    \{\}\n{{- end }}/' $f
 done
-perl -i -pe 's/^/{{- if .Values.webhook.enable -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
-echo "{{- end }}" >> $TEMPLATE_DIR/verticadb-operator-webhook-service-svc.yaml
-# Add in the --use-cert-manager option if we use cert-manager to generate the
-# TLS for the webhook. This is needed to tell the operator to add the
-# appropriate annotation for CA bundle injections.
-perl -i -0777 -pe 's/(--webhook-cert-secret.*)/$1\n{{- if eq .Values.webhook.certSource "cert-manager" }}\n        - --use-cert-manager\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
+for f in $TEMPLATE_DIR/verticadb-operator-webhook-config-cr.yaml \
+  $TEMPLATE_DIR/verticadb-operator-webhook-config-crb.yaml
+do
+  perl -i -pe 's/^/{{- if .Values.webhook.enable -}}\n/ if 1 .. 1' $f
+  echo "{{- end }}" >> $f
+done
 
 # 11.  Template the prometheus metrics service
 perl -i -pe 's/^/{{- if hasPrefix "Enable" .Values.prometheus.expose -}}\n/ if 1 .. 1' $TEMPLATE_DIR/verticadb-operator-metrics-service-svc.yaml
@@ -132,6 +128,8 @@ for f in verticadb-operator-proxy-rolebinding-crb.yaml \
 do
     perl -i -pe 's/^/{{- if and (.Values.prometheus.createProxyRBAC) (eq .Values.prometheus.expose "EnableWithAuthProxy") -}}\n/ if 1 .. 1' $TEMPLATE_DIR/$f
     echo "{{- end }}" >> $TEMPLATE_DIR/$f
+    perl -i -0777 -pe 's/-metrics-reader/-{{ include "vdb-op.metricsRbacPrefix" . }}metrics-reader/g' $TEMPLATE_DIR/$f
+    perl -i -0777 -pe 's/-(proxy-role.*)/-{{ include "vdb-op.metricsRbacPrefix" . }}$1/g' $TEMPLATE_DIR/$f
 done
 
 # 13.  Template the ServiceMonitor object for Promtheus operator
@@ -141,8 +139,8 @@ perl -i -0777 -pe 's/(.*endpoints:)/$1\n{{- if eq "EnableWithAuthProxy" .Values.
 perl -i -0777 -pe 's/(.*insecureSkipVerify:.*)/$1\n{{- else }}\n  - path: \/metrics\n    port: metrics\n    scheme: http\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-metrics-monitor-servicemonitor.yaml
 
 # 14.  Template the metrics bind address
-perl -i -0777 -pe 's/- --metrics-bind-address=.*/- --metrics-bind-address={{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}/' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
-perl -i -0777 -pe 's/(.*metrics-bind-address.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
+perl -i -0777 -pe 's/(METRICS_ADDR: )(.*)/$1 "{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}127.0.0.1{{ end }}:{{ if eq "EnableWithAuthProxy" .Values.prometheus.expose }}8080{{ else }}8443{{ end }}"/' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
+perl -i -0777 -pe 's/(.*METRICS_ADDR:.*)/{{- if hasPrefix "Enable" .Values.prometheus.expose }}\n$1\n{{- else }}\n  METRICS_ADDR: ""\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 perl -i -0777 -pe 's/(.*ports:\n.*containerPort: 9443\n.*webhook-server.*\n.*)/$1\n{{- if hasPrefix "EnableWithoutAuth" .Values.prometheus.expose }}\n        - name: metrics\n          containerPort: 8443\n          protocol: TCP\n{{- end }}/g' $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 
 # 15.  Template the rbac container
@@ -183,17 +181,18 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
 EOF
 
 # 19. Template the per-CR concurrency parameters
-for f in $TEMPLATE_DIR/verticadb-operator-manager-deployment.yaml
+for f in $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
 do
-    perl -i -0777 -pe 's/(--verticadb-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.verticadb \}\}/g' $f
-    perl -i -0777 -pe 's/(--verticaautoscaler-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.verticaautoscaler \}\}/g' $f
-    perl -i -0777 -pe 's/(--eventtrigger-concurrency=)[0-9]+/$1\{\{ .Values.reconcileConcurrency.eventtrigger \}\}/g' $f
+    perl -i -0777 -pe 's/(CONCURRENCY_VERTICADB: ).*/$1\{\{ .Values.reconcileConcurrency.verticadb | quote \}\}/g' $f
+    perl -i -0777 -pe 's/(CONCURRENCY_VERTICAAUTOSCALER: ).*/$1\{\{ .Values.reconcileConcurrency.verticaautoscaler | quote \}\}/g' $f
+    perl -i -0777 -pe 's/(CONCURRENCY_EVENTTRIGGER: ).*/$1\{\{ .Values.reconcileConcurrency.eventtrigger | quote \}\}/g' $f
 done
 
 # 20. Add permissions to manager ClusterRole to allow it to patch the CRD. This
 # is only needed if the webhook cert is generated by the operator or provided
 # by a Secret.
-cat << EOF >> $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
+cat << EOF >> $TEMPLATE_DIR/verticadb-operator-webhook-config-cr.yaml
+{{- if .Values.webhook.enable }}
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -203,4 +202,27 @@ cat << EOF >> $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
   - list
   - patch
   - update
+{{- end }}
 EOF
+
+# 21. Change change ClusterRoles/ClusterRoleBindings for the manager to be
+# Roles/RoleBindings if the operator is scoped to a single namespace.
+for f in $TEMPLATE_DIR/verticadb-operator-manager-clusterrolebinding-crb.yaml \
+    $TEMPLATE_DIR/verticadb-operator-manager-role-cr.yaml
+do
+    perl -i -0777 -pe 's/kind: ClusterRoleBinding/kind: {{ include "vdb-op.roleBindingKind" . }}/g' $f
+    perl -i -0777 -pe 's/kind: ClusterRole/kind: {{ include "vdb-op.roleKind" . }}/g' $f
+    perl -i -pe 's/^/{{- if .Values.controllers.enable -}}\n/ if 1 .. 1' $f
+    echo "{{- end }}" >> $f
+done
+
+# 22. Template the operator config
+for fn in $TEMPLATE_DIR/verticadb-operator-manager-config-cm.yaml
+do
+  perl -i -0777 -pe 's/(WEBHOOKS_ENABLED:).*/$1 {{ quote .Values.webhook.enable }}/g' $fn
+  perl -i -0777 -pe 's/(CONTROLLERS_ENABLED:).*/$1 {{ quote .Values.controllers.enable }}/g' $fn
+  perl -i -0777 -pe 's/(CONTROLLERS_SCOPE:).*/$1 {{ quote .Values.controllers.scope }}/g' $fn
+  # Update the webhook-cert-secret configMap entry to include the actual name of the secret
+  perl -i -0777 -pe 's/(WEBHOOK_CERT_SECRET: )(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
+  perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}/g' $fn
+done

@@ -3,16 +3,13 @@ This helm chart will install the operator and an admission controller webhook.  
 | Parameter Name | Description | Default Value |
 |----------------|-------------|---------------|
 | affinity | The [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) parameter allows you to constrain the operator pod only to specific nodes. If this parameter is not set, then no affinity setting is used with the operator pod. | Not set |
+| controllers.enable | This controls if controllers are enabled when running the operator. The controllers are the part of the operator that watches and acts on custom resources. This option is useful if you want to deploy the operator just as a webhook. This comes in handy when deploying the operator as the namespace scope | true |
+| controllers.scope | Defines the scope of the operator. You can define one of two values: cluster or namespace.<br><br>When set to cluster, the operator is cluster scoped. This means it will watch for changes to any custom resource across all namespaces. This is the default deployment.<br><br>When set to namespace, the operator is cluster scope. The operator will only set up watches for the namespace it is deployed in. You can deploy the operator in multiple namespaces this way. However, the webhook can only be run once in the cluster. You can control running of the webhook with the webhook.enable option. | cluster |
 | image.name | The name of image that runs the operator. | vertica/verticadb-operator:2.0.2 |
 | image.repo | Repo server hosting image.name | docker.io |
 | image.pullPolicy | The pull policy for the image that runs the operator  | IfNotPresent |
 | imagePullSecrets | List of Secret names containing login credentials for above repos | null (pull images anonymously) |
-| logging.filePath | The path to the log file. If omitted, all logging will be written to stdout.  | |
-| logging.maxFileSize | The maximum size, in MB, of the logging file before log rotation occurs. This is only applicable if logging to a file. | 500 |
-| logging.maxFileAge | The maximum number of days to retain old log files based on the timestamp encoded in the file. This is only applicable if logging to a file. |
-| logging.maxFileRotation | The maximum number of files that are kept in rotation before the old ones are removed. This is only applicable if logging to a file. | 3 |
 | logging.level | The minimum logging level. Valid values are: debug, info, warn, and error | info |
-| logging.dev | Enables development mode if true and production mode otherwise. | false |
 | nameOverride | Setting this allows you to control the prefix of all of the objects created by the helm chart.  If this is left blank, we use the name of the chart as the prefix | |
 | nodeSelector | The [node selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector) provides control over which nodes are used to schedule a pod. If this parameter is not set, the node selector is omitted from the pod that is created by the operator's Deployment object. To set this parameter, provide a list of key/value pairs. | Not set |
 | priorityClassName | The [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass) that is assigned to the operator pod. This affects where the pod gets scheduled. | Not set |
