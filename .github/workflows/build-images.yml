@@ -23,6 +23,11 @@ on:
         description: 'Name of an existing vlogger image. If blank we will build one using the default name'
         type: string
         required: true
+      operator_platform:
+        description: 'If building the operator, this identifies the platforms to build it for. Separate multiple platforms with a comma. Example: linux/arm64,linux/amd64'
+        type: string
+        required: false
+        default: 'linux/amd64,linux/arm64'
       run_security_scan:
         description: 'What images to scan?'
         type: string
@@ -347,10 +352,16 @@ jobs:
       if: ${{ inputs.operator_image == '' }}
       run: |
         export OPERATOR_IMG=${{ steps.operator_image.outputs.value }}
-        make docker-build-operator
+        export PLATFORMS=${{ inputs.operator_platform }}
+        # For pull requests we build the operator locally then pass it around
+        # to dependent stages as an artifact. Otherwise, we will build a
+        # cross-platform operator. The make target we use for that handles
+        # pushing it up to an external repository.
         if [ $GITHUB_EVENT_NAME != 'pull_request' ]
         then
-          make docker-push-operator
+          make docker-build-crossplatform-operator
+        else
+          make docker-build-operator
         fi
 
     - name: Save the image for consumption by dependent jobs (PRs only)
