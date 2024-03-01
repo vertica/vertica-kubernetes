@@ -1,0 +1,7 @@
+logging:
+  filePath: "/logs/try.log"
+  maxFileSize: 500
+  maxFileAge: 7
+  maxFileRotation: 3
+  dev: true
+  level: "info"

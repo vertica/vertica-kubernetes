@@ -154,7 +154,7 @@ prometheus:
   #    endpoint (i.e. any pod in k8s) will be able to read the metrics.  The
   #    metrics endpoint will use the http scheme.
   # Disable: Prometheus metrics are not exposed at all.
-  expose: EnableWithAuthProxy
+  expose: Disable
 
   # If prometheus is exposed with an auth proxy (EnableWithAuthProxy), use this
   # parameter to control what certificates are used for the https endpoint. If
@@ -169,6 +169,6 @@ prometheus:
   # https://github.com/prometheus-operator/prometheus-operator
   createServiceMonitor: false
 
-  # Set this to false if you want skip creating the rbac rules for accessing
-  # the metrics endpoint when it is protected by the rbac auth proxy.
+  # This controls the creation of ClusterRole/ClusterRoleBinding to access
+  # the metrics endpoint.
   createProxyRBAC: true

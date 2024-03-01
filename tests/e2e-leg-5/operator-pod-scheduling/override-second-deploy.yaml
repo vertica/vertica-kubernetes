@@ -20,3 +20,7 @@ tolerations:
   operator: "Equal"
   value: "value1"
   effect: "NoSchedule"
+# Expose prometheus to get the rbac sidecar
+prometheus:
+  expose: EnableWithAuthProxy
+
