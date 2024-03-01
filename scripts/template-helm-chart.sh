@@ -224,5 +224,5 @@ do
   perl -i -0777 -pe 's/(CONTROLLERS_SCOPE:).*/$1 {{ quote .Values.controllers.scope }}/g' $fn
   # Update the webhook-cert-secret configMap entry to include the actual name of the secret
   perl -i -0777 -pe 's/(WEBHOOK_CERT_SECRET: )(.*)/$1\{\{ include "vdb-op.certSecret" . \}\}/g' $fn
-  perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}/g' $fn
+  perl -i -0777 -pe 's/(LOG_LEVEL: )(.*)/$1\{{ quote .Values.logging.level }}\n  LOG_FILE_PATH: {{ default "" .Values.logging.filePath | quote }}\n  LOG_MAX_FILE_SIZE: {{ default "" .Values.logging.maxFileSize | quote }}\n  LOG_MAX_FILE_AGE: {{ default "" .Values.logging.maxFileAge | quote }}\n  LOG_MAX_FILE_ROTATION: {{ default "" .Values.logging.maxFileRotation | quote }}\n  DEV_MODE: {{ default "" .Values.logging.dev | quote }}/g' $fn
 done

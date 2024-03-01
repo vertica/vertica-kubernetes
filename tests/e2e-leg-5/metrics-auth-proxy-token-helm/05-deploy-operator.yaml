@@ -15,4 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - command: sh -c "cd ../../.. && make undeploy-operator || true"
-  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE DEPLOY_WITH=helm"
+  - command: sh -c "cd ../../.. && make deploy-operator NAMESPACE=$NAMESPACE DEPLOY_WITH=helm HELM_OVERRIDES='--set prometheus.expose=EnableWithAuthProxy'"

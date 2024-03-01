@@ -1,0 +1,6 @@
+kind: Deprecated
+body: The logging helm chart parameters, except logging.level, are deprecated and
+  will be removed in a future release.
+time: 2024-03-01T10:24:09.303640269-04:00
+custom:
+  Issue: "719"

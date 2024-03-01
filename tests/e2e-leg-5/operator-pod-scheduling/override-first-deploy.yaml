@@ -22,3 +22,6 @@ affinity:
           operator: In
           values:
           - another-node-label-value
+# Expose prometheus to get the rbac sidecar
+prometheus:
+  expose: EnableWithAuthProxy
