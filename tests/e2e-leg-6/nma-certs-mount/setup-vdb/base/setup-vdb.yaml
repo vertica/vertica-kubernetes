@@ -19,7 +19,7 @@ metadata:
     vertica.com/vcluster-ops: "true"
     vertica.com/mount-nma-certs: "false"
 spec:
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall
   image: kustomize-vertica-image
   communal:
     includeUIDInPath: true

@@ -17,12 +17,12 @@ metadata:
   name: v-create-1-node
 spec:
   image: kustomize-vertica-image
-  # superuserPasswordSecret: su-passwd
+  superuserPasswordSecret: su-passwd
   communal:
     includeUIDInPath: false
   local:
     requestSize: 100Mi
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall
   dbName: vertdb
   subclusters:
     - name: sc1

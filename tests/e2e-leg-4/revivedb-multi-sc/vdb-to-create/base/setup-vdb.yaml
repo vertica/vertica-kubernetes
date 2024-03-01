@@ -22,7 +22,7 @@ spec:
       image: kustomize-vlogger-image
   communal:
     includeUIDInPath: false
-  initPolicy: Create
+  initPolicy: CreateSkipPackageInstall
   local:
     dataPath: /data
     depotPath: /depot
