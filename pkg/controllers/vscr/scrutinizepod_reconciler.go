@@ -148,7 +148,6 @@ func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs() []string {
 		"--hosts", strings.Join(s.hosts, ","),
 		"--log-path", paths.ScrutinizeLogFile,
 		"--tarball-name", s.tarballName,
-		"--honor-user-input",
 	}
 }
 

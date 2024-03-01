@@ -17,7 +17,7 @@ metadata:
   name: v-revive-1-node
 spec:
   image: kustomize-vertica-image
-  superuserPasswordSecret: su-passwd
+  # superuserPasswordSecret: su-passwd
   ignoreClusterLease: true
   communal:
     includeUIDInPath: false
