@@ -104,6 +104,10 @@ type VerticaScrutinizeStatus struct {
 	TarballName string `json:"tarballName"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Status message for scrutinize
+	State string `json:"state,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Set of status conditions to know how far along the scrutinize is.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
