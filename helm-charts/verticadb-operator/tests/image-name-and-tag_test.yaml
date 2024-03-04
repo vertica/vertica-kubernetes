@@ -23,6 +23,8 @@ tests:
         name: my-rbac-proxy:v1
       imagePullSecrets:
         - name: image-pull-secrets
+      prometheus:
+        expose: EnableWithAuthProxy
     asserts:
       - equal:
           path: spec.template.spec.containers[0].image

@@ -18,3 +18,15 @@ metadata:
     control-plane: verticadb-operator
 status:
   phase: Running
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verticadb-operator-manager-config
+data:
+  LOG_FILE_PATH: "/logs/try.log"
+  LOG_MAX_FILE_SIZE: "500"
+  LOG_MAX_FILE_AGE: "7"
+  LOG_MAX_FILE_ROTATION: "3"
+  DEV_MODE: "true"
+  LOG_LEVEL: "info"
