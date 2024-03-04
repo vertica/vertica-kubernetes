@@ -96,6 +96,7 @@ func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Contex
 	}
 	p.VRec.Eventf(p.Vscr, corev1.EventTypeNormal, events.VclusterOpsScrutinizeSucceeded,
 		"Successfully completed scrutinize run for the VerticaDB named '%s'", p.Vscr.Spec.VerticaDBName)
+	stat.TarballName = getTarballName(pod)
 	cond := v1.MakeCondition(v1beta1.ScrutinizeCollectionFinished, metav1.ConditionTrue, events.VclusterOpsScrutinizeSucceeded)
 	stat.State = "ScrutinizeSucceeded"
 	stat.Conditions = []metav1.Condition{*cond}
@@ -113,4 +114,19 @@ func (p *PodPollingReconciler) fetchScrutinizePod(ctx context.Context, pod *core
 		return false, err
 	}
 	return true, nil
+}
+
+// getTarballName extracts the tarball name from the scrutinize
+// init container command
+func getTarballName(pod *corev1.Pod) string {
+	cnt := vk8s.GetScrutinizeInitContainer(pod.Spec.InitContainers)
+	if cnt == nil {
+		return ""
+	}
+	for i := range cnt.Command {
+		if cnt.Command[i] == "--tarball-name" && i < len(cnt.Command)-1 {
+			return fmt.Sprintf("%s.tar", cnt.Command[i+1])
+		}
+	}
+	return ""
 }

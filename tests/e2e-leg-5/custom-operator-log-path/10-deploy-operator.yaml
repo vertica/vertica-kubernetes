@@ -15,4 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - command: sh -c "cd ../../.. && make undeploy-operator || true"
-  - script: cd ../../..  && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="--set logging.filePath=/logs/try.log"
+  - script: P=$(pwd) && cd ../../..  && make deploy-operator DEPLOY_WITH=helm NAMESPACE=$NAMESPACE HELM_OVERRIDES="-f $P/helm-overrides.yaml"

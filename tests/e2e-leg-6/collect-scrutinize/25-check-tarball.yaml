@@ -14,4 +14,6 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl exec vertica-scrutinize-vdb-exist -n $NAMESPACE -c main -- sh -c "ls | grep -q VerticaScrutinize.*.tar"
+  - script: |-
+      tarball=$(kubectl -n $NAMESPACE get vscr vertica-scrutinize-vdb-exist -o json | jq -r '.status.tarballName' | grep -E '^VerticaScrutinize\.[0-9]{14}(\.tar)$')
+      kubectl exec vertica-scrutinize-vdb-exist -n $NAMESPACE -c main -- ls | grep -q $tarball

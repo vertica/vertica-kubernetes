@@ -35,6 +35,11 @@ func GetNMAContainer(cnts []corev1.Container) *corev1.Container {
 	return getNamedContainer(cnts, names.NMAContainer)
 }
 
+// GetScrutinizeInitContainer returns a pointer to the container that runs scrutinize
+func GetScrutinizeInitContainer(cnts []corev1.Container) *corev1.Container {
+	return getNamedContainer(cnts, names.ScrutinizeInitContainer)
+}
+
 func getNamedContainer(cnts []corev1.Container, cntName string) *corev1.Container {
 	for i := range cnts {
 		if cnts[i].Name == cntName {

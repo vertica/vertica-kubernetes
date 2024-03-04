@@ -237,6 +237,9 @@ func lookupBoolEnvVar(envName string, mustExist bool) bool {
 		}
 		return false
 	}
+	if valStr == "" {
+		return false
+	}
 	valBool, err := strconv.ParseBool(valStr)
 	if err != nil {
 		dieIfNotValid(envName, valStr)
