@@ -44,7 +44,7 @@ const (
 	NameLabel    = "app.kubernetes.io/name"
 	OperatorName = "verticadb-operator" // The name of the operator
 
-	CurOperatorVersion = "2.0.2" // The version number of the operator
+	CurOperatorVersion = "2.1.0" // The version number of the operator
 	// If any of the operator versions are used in the code, add a const here.
 	// But it isn't necessary to create a const for each version.
 	OperatorVersion100 = "1.0.0"

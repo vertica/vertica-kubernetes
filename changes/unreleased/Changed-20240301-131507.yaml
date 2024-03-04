@@ -1,0 +1,5 @@
+kind: Changed
+body: Default value for prometheus.expose helm chart is now Disable
+time: 2024-03-01T13:15:07.55296968-04:00
+custom:
+  Issue: "725"
