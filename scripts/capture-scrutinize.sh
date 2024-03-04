@@ -165,12 +165,10 @@ function scrutinizeForVClusterOps() {
     # option to control the name of the file so we must extract it from
     # the output and rename it.
     set -o xtrace
-    scrut_out=$(kubectl exec -t -n $ns $pod -- /opt/vertica/bin/vcluster \
+    scrut_out=$(kubectl exec -t -n $ns $pod -- bash -c "VERBOSE_OUTPUT=yes /opt/vertica/bin/vcluster \
         scrutinize \
         --hosts=$hosts \
-        --db-user=$superuser \
-        --password=$password \
-        --honor-user-input)
+        --db-user=$superuser")
     set +o xtrace
     scrut_res=$?
     if [[ -n $EXIT_ON_ERROR && $scrut_res -ne 0 ]]
