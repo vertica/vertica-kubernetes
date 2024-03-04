@@ -125,6 +125,8 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=verticascrutinizers,singular=verticascrutinize,categories=all;vertica,shortName=vscr
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Pod",type="string",JSONPath=".status.podName"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1,""},{VerticaDB,vertica.com/v1beta1,""}}
 
 // VerticaScrutinize is the schema for verticascrutinize API

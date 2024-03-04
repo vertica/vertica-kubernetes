@@ -92,3 +92,17 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vscr *v1beta1.Vert
 
 	return update(ctx, clnt, vscr, refreshConditionInPlace)
 }
+
+// UpdateState will update the state field in vscr status
+func UpdateState(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize, state string) error {
+	// refreshState will update the state field in vscr.  The update
+	// will be applied in-place.
+	refreshState := func(vscr *v1beta1.VerticaScrutinize) error {
+		if vscr.Status.State != state {
+			vscr.Status.State = state
+		}
+		return nil
+	}
+
+	return update(ctx, clnt, vscr, refreshState)
+}

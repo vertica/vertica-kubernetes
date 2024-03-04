@@ -73,16 +73,21 @@ func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Contex
 	if cntStatus == nil {
 		return ctrl.Result{}, fmt.Errorf("could not find scrutinize container status")
 	}
+	stat := &v1beta1.VerticaScrutinizeStatus{}
+	stat.PodName = p.Vscr.Status.PodName
+	stat.PodUID = p.Vscr.Status.PodUID
 	if !cntStatus.Ready {
 		if cntStatus.State.Terminated != nil {
 			p.VRec.Eventf(p.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeFailed,
 				"Vcluster scrutinize run failed")
 			cond := v1.MakeCondition(v1beta1.ScrutinizeCollectionFinished, metav1.ConditionTrue, events.VclusterOpsScrutinizeFailed)
-			return ctrl.Result{}, vscrstatus.UpdateCondition(ctx, p.VRec.Client, p.Vscr, cond)
+			stat.State = "ScrutinizeFailed"
+			stat.Conditions = []metav1.Condition{*cond}
+			return ctrl.Result{}, vscrstatus.UpdateStatus(ctx, p.VRec.Client, p.Vscr, stat)
 		}
 		if cntStatus.State.Running != nil {
 			p.Log.Info("Vcluster scrutinize run in progress")
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{Requeue: true}, vscrstatus.UpdateState(ctx, p.VRec.Client, p.Vscr, "ScrutinizeInProgress")
 		}
 		// if the scrutinize init container is neither running nor terminated then
 		// it is in waiting state. We requeue
@@ -92,7 +97,9 @@ func (p *PodPollingReconciler) checkScrutinizeContainerStatus(ctx context.Contex
 	p.VRec.Eventf(p.Vscr, corev1.EventTypeNormal, events.VclusterOpsScrutinizeSucceeded,
 		"Successfully completed scrutinize run for the VerticaDB named '%s'", p.Vscr.Spec.VerticaDBName)
 	cond := v1.MakeCondition(v1beta1.ScrutinizeCollectionFinished, metav1.ConditionTrue, events.VclusterOpsScrutinizeSucceeded)
-	return ctrl.Result{}, vscrstatus.UpdateCondition(ctx, p.VRec.Client, p.Vscr, cond)
+	stat.State = "ScrutinizeSucceeded"
+	stat.Conditions = []metav1.Condition{*cond}
+	return ctrl.Result{}, vscrstatus.UpdateStatus(ctx, p.VRec.Client, p.Vscr, stat)
 }
 
 func (p *PodPollingReconciler) fetchScrutinizePod(ctx context.Context, pod *corev1.Pod) (bool, error) {
