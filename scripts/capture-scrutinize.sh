@@ -169,8 +169,7 @@ function scrutinizeForVClusterOps() {
         scrutinize \
         --hosts=$hosts \
         --db-user=$superuser \
-        --password=$password \
-        --honor-user-input)
+        --password=$password)
     set +o xtrace
     scrut_res=$?
     if [[ -n $EXIT_ON_ERROR && $scrut_res -ne 0 ]]
