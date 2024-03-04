@@ -16,9 +16,10 @@
 package opcfg
 
 import (
-	"flag"
+	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -28,101 +29,259 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
+// GetIsWebhookEnabled returns true if the webhook is enabled.
+func GetIsWebhookEnabled() bool {
+	return lookupBoolEnvVar("WEBHOOKS_ENABLED", envMustExist)
+}
+
+// GetIsControllersEnabled returns true if the controllers for each custom
+// resource will start. If this is false, then the manager will just act as a
+// webhook (if enabled).
+func GetIsControllersEnabled() bool {
+	return lookupBoolEnvVar("CONTROLLERS_ENABLED", envMustExist)
+}
+
+// GetWatchNamespace returns the namespace that the operator should watch
+func GetWatchNamespace() string {
+	// The watch namespace depends on the scope of the controllers.
+	if AreControllersNamespaceScoped() {
+		// A namespace scoped controller only watches for objects in the namespace
+		// it is deployed in.
+		return GetOperatorNamespace()
+	}
+	// A cluster scoped controller. Return an empty string so that all namespaces
+	// are watched.
+	return ""
+}
+
+const ControllersScopeEnvVar = "CONTROLLERS_SCOPE" // Environment variable used to set scope of the controllers
+const ControllersScopeCluster = "cluster"
+const controllersScopeNamespace = "namespace"
+
+// GetControllersScope returns the scope, cluster or namespace, of the operator.
+func GetControllersScope() string {
+	val := lookupStringEnvVar(ControllersScopeEnvVar, envCanNotExist)
+	if val != controllersScopeNamespace {
+		return ControllersScopeCluster
+	}
+	return val
+}
+
+// AreControllersNamespaceScoped returns true if the controllers only watch a
+// single namespace.
+func AreControllersNamespaceScoped() bool {
+	scope := GetControllersScope()
+	return scope == controllersScopeNamespace
+}
+
+// GetMetricsAddr returns the address of the manager's Prometheus endpoint. This
+// determines if its disabled or if its behind an HTTPS or HTTP scheme.
+func GetMetricsAddr() string {
+	return lookupStringEnvVar("METRICS_ADDR", envCanNotExist)
+}
+
+// GetIsProfilerEnabled returns true if the memory profiler started with the
+// manager.
+func GetIsProfilerEnabled() bool {
+	return lookupBoolEnvVar("PROFILER_ENABLED", envMustExist)
+}
+
+// GetUseCertManager returns true if cert-manager is used to setup the webhook's
+// TLS certs.
+func GetUseCertManager() bool {
+	source := lookupStringEnvVar("WEBHOOK_CERT_SOURCE", envMustExist)
+	return source == "cert-manager"
+}
+
+// GetLoggingFilePath returns the full path to the log file. If this is empty,
+// then logging will be written to the console only.
+func GetLoggingFilePath() string {
+	return lookupStringEnvVar("LOG_FILE_PATH", envCanNotExist)
+}
+
+// getLoggingMaxFileSize will return the size of the log file when writing logs
+// to a file.
+func getLoggingMaxFileSize() int {
+	return lookupIntEnvVar("LOG_MAX_FILE_SIZE", envCanNotExist)
+}
+
+// getLoggingMaxFileAge will return the age, in days, an log file stays around.
+// This only applies if writing logs to a file.
+func getLoggingMaxFileAge() int {
+	return lookupIntEnvVar("LOG_MAX_FILE_AGE", envCanNotExist)
+}
+
+// getLoggingMaxFileRotation will determine how many rotated log files it will
+// keep around. This only applies if logging to a file.
+func getLoggingMaxFileRotation() int {
+	return lookupIntEnvVar("LOG_MAX_FILE_ROTATION", envCanNotExist)
+}
+
+// GetLoggingLevel returns the logging level to use. Logging levels are: debug,
+// info, warn, error.
+func getLoggingLevel() string {
+	return lookupStringEnvVar("LOG_LEVEL", envCanNotExist)
+}
+
+// IsDebugLoggingEnabled returns true if the debug logging level is selected.
+func IsDebugLoggingEnabled() bool {
+	lvl := getLoggingLevel()
+	return lvl == "debug"
+}
+
+// GetVerticaDBConcurrency returns the number of goroutines that will service
+// VerticaDB CRs.
+func GetVerticaDBConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_VERTICADB", envMustExist)
+}
+
+// GetVerticaAutoscalerConcurrency returns the number of goroutines that will
+// service VerticaAutoscaler CRs.
+func GetVerticaAutoscalerConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_VERTICAAUTOSCALER", envMustExist)
+}
+
+// GetEventTriggerConcurrency returns the number of goroutines that will service
+// EventTrigger CRs.
+func GetEventTriggerConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_EVENTTRIGGER", envMustExist)
+}
+
+// GetVerticaRestorePointsQueryConcurrency returns the number of goroutines that
+// will service VerticaRestorePointsQuery CRs.
+func GetVerticaRestorePointsQueryConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_VERTICARESTOREPOINTSQUERY", envMustExist)
+}
+
+// GetVerticaScrutinizeConcurrency returns the number of goroutines that will
+// service VerticaScrutinize CRs.
+func GetVerticaScrutinizeConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_VERTICASCRUTINIZE", envMustExist)
+}
+
+// GetPrefixName returns the common prefix for all objects used to deploy the
+// operator.
+func GetPrefixName() string {
+	return lookupStringEnvVar("PREFIX_NAME", envMustExist)
+}
+
+// GetIsOLMDeployment returns true if operator lifecylce manager (OLM) was used
+// to deploy the operator.
+func GetIsOLMDeployment() bool {
+	deployWith := GetDeploymentMethod()
+	return deployWith == "olm"
+}
+
+// GetDeploymentMethod returns the name of the method that was used to deploy
+// the operator.
+func GetDeploymentMethod() string {
+	return lookupStringEnvVar("DEPLOY_WITH", envCanNotExist)
+}
+
+// GetVersion returns the version of the operator.
+func GetVersion() string {
+	return lookupStringEnvVar("VERSION", envCanNotExist)
+}
+
+// GetWebhookCertSecret returns the name of the secret that stores the TLS cert
+// for the webhook.
+func GetWebhookCertSecret() string {
+	return lookupStringEnvVar("WEBHOOK_CERT_SECRET", envMustExist)
+}
+
+// GetOperatorNamespace retrieves the namespace that the operator is running in
+func GetOperatorNamespace() string {
+	return lookupStringEnvVar("OPERATOR_NAMESPACE", envMustExist)
+}
+
+// GetLeaderElectionID returns the name to use for leader election. This ensures
+// that the operator can only run once in a namespace.
+func GetLeaderElectionID() string {
+	// We need to have a separate ID if the webhook running is decoupled from
+	// the controllers. This allows both of them to co-exist at the same time.
+	if GetIsControllersEnabled() {
+		return "5c1e6227.vertica.com"
+	}
+	return "87f832c4.vertica.com"
+}
+
+// GetDevMode returns true if logging is enabled for dev mode.
+func GetDevMode() bool {
+	return lookupBoolEnvVar("DEV_MODE", envCanNotExist)
+}
+
+func dieIfNotFound(envName string) {
+	fmt.Fprintf(os.Stderr, "*** ERROR: Environment variable %s not found.", envName)
+	os.Exit(1)
+}
+
+func dieIfNotValid(envName, rawVal string) {
+	fmt.Fprintf(os.Stderr, "*** ERROR: Invalid value %q for environment variable %s", rawVal, envName)
+	os.Exit(1)
+}
+
 const (
-	DefaultZapcoreLevel                         = zapcore.InfoLevel
-	First                                       = 100
-	ThereAfter                                  = 100
-	DefaultMaxFileSize                          = 500
-	DefaultMaxFileAge                           = 7
-	DefaultMaxFileRotation                      = 3
-	DefaultLevel                                = "info"
-	DefaultDevMode                              = true
-	DefaultVerticaDBConcurrency                 = 5
-	DefaultVerticaAutoscalerDBConcurrency       = 1
-	DefaultEventTriggerDBConcurrency            = 1
-	DefaultVerticaRestorePointsQueryConcurrency = 1
-	DefaultVerticaScrutinizeConcurrency         = 1
+	// Helper consts for the mustExist parameter for the lookup*EnvVar functions.
+	envMustExist   = true  // The environment variable must exist. Manager stops if not found.
+	envCanNotExist = false // The environment variable is optional. No error is generated if not found.
 )
 
-type OperatorConfig struct {
-	MetricsAddr          string
-	EnableLeaderElection bool
-	ProbeAddr            string
-	EnableProfiler       bool
-	PrefixName           string // Prefix of the name of all objects created when the operator was deployed
-	WebhookCertSecret    string // when this is empty we will generate the webhook cert
-	DevMode              bool
-	// This is set if the webhook is enabled and its TLS is set via
-	// cert-manager. cert-manager will handle the CA bundle injection in the
-	// various k8s objects.
-	UseCertManager bool
-	// The *Currency parms control the concurrency of go routines handling each
-	// CR.  For instance, VerticaDBConcurrency is the number of go routines to
-	// handle reconciliation of VerticaDB CRs.
-	VerticaDBConcurrency                 int
-	VerticaAutoscalerConcurrency         int
-	EventTriggerConcurrency              int
-	VerticaRestorePointsQueryConcurrency int
-	VerticaScrutinizeConcurrency         int
-	Logging
+// lookupBoolEnvVar will look for an environment variable and return its value
+// as if it's a boolean. If mustExist is true and the variable isn't found, the
+// manager is stopped.
+func lookupBoolEnvVar(envName string, mustExist bool) bool {
+	valStr, found := os.LookupEnv(envName)
+	if !found {
+		if mustExist {
+			dieIfNotFound(envName)
+		}
+		return false
+	}
+	valBool, err := strconv.ParseBool(valStr)
+	if err != nil {
+		dieIfNotValid(envName, valStr)
+		return false
+	}
+	return valBool
 }
 
-type Logging struct {
-	FilePath        string
-	Level           string
-	MaxFileSize     int
-	MaxFileAge      int
-	MaxFileRotation int
+// lookupStringEnvVar will look for an environment variable and return its value
+// as a string. If mustExist is true and the variable isn't found, the manager
+// is stopped.
+func lookupStringEnvVar(envName string, mustExist bool) string {
+	valStr, found := os.LookupEnv(envName)
+	if !found {
+		if mustExist {
+			dieIfNotFound(envName)
+		}
+		return ""
+	}
+	return valStr
 }
 
-// SetFlagArgs define flags with specified names and default values
-func (o *OperatorConfig) SetFlagArgs() {
-	flag.StringVar(&o.MetricsAddr, "metrics-bind-address", "0",
-		"The address the metric endpoint binds to. Setting this to 0 will disable metric serving.")
-	flag.StringVar(&o.ProbeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&o.EnableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&o.EnableProfiler, "enable-profiler", false,
-		"Enables runtime profiling collection.  The profiling data can be inspected by connecting to port 6060 "+
-			"with the path /debug/pprof.  See https://golang.org/pkg/net/http/pprof/ for more info.")
-	flag.StringVar(&o.PrefixName, "prefix-name", "verticadb-operator",
-		"The common prefix for all objects created during the operator deployment")
-	flag.StringVar(&o.WebhookCertSecret, "webhook-cert-secret", "",
-		"Specifies the secret that contains the webhook cert. If this option is omitted, "+
-			"then the operator will generate the certificate.")
-	flag.BoolVar(&o.UseCertManager, "use-cert-manager", false,
-		"If the operator uses cert-manager to generate the TLS for the webhook.")
-	flag.BoolVar(&o.DevMode, "dev", DefaultDevMode,
-		"Enables development mode if true and production mode otherwise.")
-	flag.StringVar(&o.FilePath, "filepath", "",
-		"The path to the log file. If omitted, all logging will be written to stdout.")
-	flag.IntVar(&o.MaxFileSize, "maxfilesize", DefaultMaxFileSize,
-		"The maximum size in megabytes of the log file "+
-			"before it gets rotated.")
-	flag.IntVar(&o.MaxFileAge, "maxfileage", DefaultMaxFileAge,
-		"The maximum number of days to retain old log files based on the timestamp encoded in the file.")
-	flag.IntVar(&o.MaxFileRotation, "maxfilerotation", DefaultMaxFileRotation,
-		"The maximum number of files that are kept in rotation before the old ones are removed.")
-	flag.StringVar(&o.Level, "level", DefaultLevel,
-		"The minimum logging level.  Valid values are: debug, info, warn, and error.")
-	flag.IntVar(&o.VerticaDBConcurrency, "verticadb-concurrency", DefaultVerticaDBConcurrency,
-		"The amount of concurrency to reconcile VerticaDB CRs")
-	flag.IntVar(&o.VerticaAutoscalerConcurrency, "verticaautoscaler-concurrency",
-		DefaultVerticaAutoscalerDBConcurrency,
-		"The amount of concurrency to reconcile VerticaAutoscaler CRs")
-	flag.IntVar(&o.EventTriggerConcurrency, "eventtrigger-concurrency", DefaultEventTriggerDBConcurrency,
-		"The amount of concurrency to reconcile EventTrigger CRs")
-	flag.IntVar(&o.VerticaRestorePointsQueryConcurrency, "verticarestorepointsquery-concurrency", DefaultVerticaRestorePointsQueryConcurrency,
-		"The amount of concurrency to reconcile VerticaRestorePointsQuery CRs")
-	flag.IntVar(&o.VerticaScrutinizeConcurrency, "verticascrutinize-concurrency", DefaultVerticaScrutinizeConcurrency,
-		"The amount of concurrency to reconcile VerticaScrutinize CRs")
+// lookupIntEnvVar will look for an environment variable and return its value
+// as if it's an integer. If mustExist is true and the variable isn't found, the
+// manager is stopped.
+func lookupIntEnvVar(envName string, mustExist bool) int {
+	valStr, found := os.LookupEnv(envName)
+	if !found {
+		if mustExist {
+			dieIfNotFound(envName)
+		}
+		return 0
+	}
+	valInt, err := strconv.Atoi(valStr)
+	if err != nil {
+		dieIfNotValid(envName, valStr)
+		return 0
+	}
+	return valInt
 }
 
 // getEncoderConfig returns a concrete encoders configuration
-func (o *OperatorConfig) getEncoderConfig(devMode bool) zapcore.EncoderConfig {
+func getEncoderConfig() zapcore.EncoderConfig {
 	encoderConfig := zap.NewDevelopmentEncoderConfig()
-	if !devMode {
+	if !GetDevMode() {
 		encoderConfig = zap.NewProductionEncoderConfig()
 		encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
@@ -132,16 +291,16 @@ func (o *OperatorConfig) getEncoderConfig(devMode bool) zapcore.EncoderConfig {
 
 // getLogger is a wrapper that calls other functions
 // to build a logger.
-func (o *OperatorConfig) GetLogger() logr.Logger {
-	encoderConfig := o.getEncoderConfig(o.DevMode)
+func GetLogger() logr.Logger {
+	encoderConfig := getEncoderConfig()
 	writes := []zapcore.WriteSyncer{}
 	opts := []zap.Option{}
-	lvl := zap.NewAtomicLevelAt(o.getZapcoreLevel())
-	if o.FilePath != "" {
-		w := o.getLogWriter()
+	lvl := zap.NewAtomicLevelAt(getZapcoreLevel())
+	if GetLoggingFilePath() != "" {
+		w := getLogWriter()
 		writes = append(writes, w)
 	}
-	if o.FilePath == "" || o.DevMode {
+	if GetLoggingFilePath() == "" || GetDevMode() {
 		writes = append(writes, zapcore.AddSync(os.Stdout))
 	}
 	core := zapcore.NewCore(
@@ -149,32 +308,37 @@ func (o *OperatorConfig) GetLogger() logr.Logger {
 		zapcore.NewMultiWriteSyncer(writes...),
 		lvl,
 	)
-	opts = append(opts, o.getStackTrace())
-	if !o.DevMode {
-		// This enables sampling only in prod
-		core = zapcore.NewSamplerWithOptions(core, time.Second, First, ThereAfter)
+	opts = append(opts, getStackTrace())
+	if !GetDevMode() {
+		const first = 100
+		const thereAfter = 100
+		core = zapcore.NewSamplerWithOptions(core, time.Second, first, thereAfter)
 	}
 	return zapr.NewLogger(zap.New(core, opts...))
 }
 
 // getLogWriter returns an io.writer (setting up rolling files) converted
 // into a zapcore.WriteSyncer
-func (o *OperatorConfig) getLogWriter() zapcore.WriteSyncer {
+func getLogWriter() zapcore.WriteSyncer {
 	lumberJackLogger := &lumberjack.Logger{
-		Filename:   o.FilePath,
-		MaxSize:    o.MaxFileSize, // megabytes
-		MaxBackups: o.MaxFileRotation,
-		MaxAge:     o.MaxFileAge, // days
+		Filename:   GetLoggingFilePath(),
+		MaxSize:    getLoggingMaxFileSize(), // megabytes
+		MaxBackups: getLoggingMaxFileRotation(),
+		MaxAge:     getLoggingMaxFileAge(), // days
 	}
 	return zapcore.AddSync(lumberJackLogger)
 }
 
-// getZapcoreLevel takes the level as string and returns the corresponding
-// zapcore.Level. If the string level is invalid, it returns the default
-// level
-func (o *OperatorConfig) getZapcoreLevel() zapcore.Level {
+// getZapcoreLevel return the zapcore level to use for the logging. Levels are
+// taken from string level, via getLoggingLevel, and mapped to its corresponding
+// zapcore level. If the string level is invalid, it returns the default level.
+func getZapcoreLevel() zapcore.Level {
+	const (
+		DefaultZapcoreLevel = zapcore.InfoLevel
+		DefaultLevel        = "info"
+	)
 	var level = new(zapcore.Level)
-	err := level.UnmarshalText([]byte(o.Logging.Level))
+	err := level.UnmarshalText([]byte(getLoggingLevel()))
 	if err != nil {
 		log.Printf("unrecognized level, %s level will be used instead", DefaultLevel)
 		return DefaultZapcoreLevel
@@ -184,10 +348,10 @@ func (o *OperatorConfig) getZapcoreLevel() zapcore.Level {
 
 // getStackTrace returns an option that configures
 // the logger to record a stack strace.
-func (o *OperatorConfig) getStackTrace() zap.Option {
-	lvl := zapcore.ErrorLevel
-	if o.DevMode {
-		lvl = zapcore.WarnLevel
+func getStackTrace() zap.Option {
+	lvl := zapcore.WarnLevel
+	if GetDevMode() {
+		lvl = zapcore.ErrorLevel
 	}
 	return zap.AddStacktrace(zapcore.LevelEnabler(lvl))
 }

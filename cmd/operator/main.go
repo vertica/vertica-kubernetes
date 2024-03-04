@@ -17,11 +17,8 @@ package main
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	// Allows us to pull in things generated from `go generate`
@@ -83,33 +80,20 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-// getIsWebhookEnabled will return true if the webhook is enabled
-func getIsWebhookEnabled() bool {
-	const DefaultEnabled = true
-	const EnableWebhookEnv = "ENABLE_WEBHOOKS"
-	enableWebhook, found := os.LookupEnv(EnableWebhookEnv)
-	if !found {
-		return DefaultEnabled
-	}
-	enabled, err := strconv.ParseBool(enableWebhook)
-	setupLog.Info(fmt.Sprintf("Parsed %s env var", enableWebhook),
-		"value", enableWebhook, "enabled", enabled, "err", err)
-	if err != nil {
-		return DefaultEnabled
-	}
-	return enabled
-}
-
 // addReconcilersToManager will add a controller for each CR that this operator
 // handles.  If any failure occurs, if will exit the program.
-func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config, oc *opcfg.OperatorConfig) {
+func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
+	if !opcfg.GetIsControllersEnabled() {
+		setupLog.Info("Controllers are disabled")
+		return
+	}
+
 	if err := (&vdb.VerticaDBReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("VerticaDB"),
 		Scheme: mgr.GetScheme(),
 		Cfg:    restCfg,
 		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
-		OpCfg:  *oc,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaDB")
 		os.Exit(1)
@@ -183,30 +167,27 @@ func addWebhooksToManager(mgr manager.Manager) {
 }
 
 // setupWebhook will setup the webhook in the manager if enabled
-func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config, oc *opcfg.OperatorConfig) error {
-	if getIsWebhookEnabled() {
-		ns, err := getOperatorNamespace()
-		if err != nil {
-			return fmt.Errorf("failed to setup the webhook: %w", err)
-		}
-		if oc.WebhookCertSecret == "" {
+func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config) error {
+	if opcfg.GetIsWebhookEnabled() {
+		ns := opcfg.GetOperatorNamespace()
+		if opcfg.GetWebhookCertSecret() == "" {
 			setupLog.Info("generating webhook cert")
-			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, oc.PrefixName, ns); err != nil {
+			if err := security.GenerateWebhookCert(ctx, &setupLog, restCfg, CertDir, opcfg.GetPrefixName(), ns); err != nil {
 				return err
 			}
-		} else if val, ok := os.LookupEnv(vmeta.OperatorDeploymentMethodEnvVar); ok && val == vmeta.OLMDeploymentType {
+		} else if opcfg.GetIsOLMDeployment() {
 			// OLM will generate the cert themselves and they have their own
 			// mechanism to update the webhook configs and conversion webhook in the CRD.
 			setupLog.Info("OLM deployment detected. Skipping webhook cert update")
-		} else if !oc.UseCertManager {
-			setupLog.Info("using provided webhook cert", "secret", oc.WebhookCertSecret)
-			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, oc.WebhookCertSecret,
-				oc.PrefixName, ns); err != nil {
+		} else if !opcfg.GetUseCertManager() {
+			setupLog.Info("using provided webhook cert", "secret", opcfg.GetWebhookCertSecret())
+			if err := security.PatchWebhookCABundleFromSecret(ctx, &setupLog, restCfg, opcfg.GetWebhookCertSecret(),
+				opcfg.GetPrefixName(), ns); err != nil {
 				return err
 			}
 		} else {
 			setupLog.Info("using cert-manager for webhook cert")
-			if err := security.AddCertManagerAnnotation(ctx, &setupLog, restCfg, oc.PrefixName, ns); err != nil {
+			if err := security.AddCertManagerAnnotation(ctx, &setupLog, restCfg, opcfg.GetPrefixName(), ns); err != nil {
 				return err
 			}
 		}
@@ -217,41 +198,33 @@ func setupWebhook(ctx context.Context, mgr manager.Manager, restCfg *rest.Config
 	return nil
 }
 
-// getOperatorNamespace retrieves the namespace that the operator is running in
-func getOperatorNamespace() (string, error) {
-	const namespaceEnvVar = "OPERATOR_NAMESPACE"
-	ns, found := os.LookupEnv(namespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("the environment variable %s must be set", namespaceEnvVar)
-	}
-	return ns, nil
-}
-
 // getReadinessProbeCallack returns the check to use for the readiness probe
 func getReadinessProbeCallback(mgr ctrl.Manager) healthz.Checker {
 	// If the webhook is enabled, we use a checker that tests if the webhook is
 	// able to accept requests.
-	if getIsWebhookEnabled() {
+	if opcfg.GetIsWebhookEnabled() {
 		return mgr.GetWebhookServer().StartedChecker()
 	}
 	return healthz.Ping
 }
 
 func main() {
-	oc := &opcfg.OperatorConfig{}
-	oc.SetFlagArgs()
-	flag.Parse()
-
-	logger := oc.GetLogger()
-	if oc.FilePath != "" {
-		log.Printf("Now logging in file %s", oc.FilePath)
+	logger := opcfg.GetLogger()
+	if opcfg.GetLoggingFilePath() != "" {
+		log.Printf("Now logging in file %s", opcfg.GetLoggingFilePath())
 	}
 
 	ctrl.SetLogger(logger)
 	setupLog.Info("Build info", "gitCommit", GitCommit,
 		"buildDate", BuildDate, "vclusterVersion", VClusterVersion)
+	setupLog.Info("Operator Config",
+		"controllersScope", opcfg.GetControllersScope(),
+		"version", opcfg.GetVersion(),
+		"watchNamespace", opcfg.GetWatchNamespace(),
+		"webhooksEnabled", opcfg.GetIsWebhookEnabled(),
+		"controllersEnabled", opcfg.GetIsControllersEnabled())
 
-	if oc.EnableProfiler {
+	if opcfg.GetIsProfilerEnabled() {
 		go func() {
 			server := &http.Server{
 				Addr:              "localhost:6060",
@@ -268,20 +241,20 @@ func main() {
 
 	mgr, err := ctrl.NewManager(restCfg, ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     oc.MetricsAddr,
+		MetricsBindAddress:     opcfg.GetMetricsAddr(),
 		Port:                   9443,
-		HealthProbeBindAddress: oc.ProbeAddr,
-		LeaderElection:         oc.EnableLeaderElection,
-		LeaderElectionID:       "5c1e6227.vertica.com",
-		Namespace:              "", // Empty namespace means watch all namespaces
+		HealthProbeBindAddress: ":8081",
+		LeaderElection:         true,
+		LeaderElectionID:       opcfg.GetLeaderElectionID(),
+		Namespace:              opcfg.GetWatchNamespace(),
 		CertDir:                CertDir,
 		Controller: v1alpha1.ControllerConfigurationSpec{
 			GroupKindConcurrency: map[string]int{
-				vapiB1.GkVDB.String():  oc.VerticaDBConcurrency,
-				vapiB1.GkVAS.String():  oc.VerticaAutoscalerConcurrency,
-				vapiB1.GkET.String():   oc.EventTriggerConcurrency,
-				vapiB1.GkVRPQ.String(): oc.VerticaRestorePointsQueryConcurrency,
-				vapiB1.GkVSCR.String(): oc.VerticaScrutinizeConcurrency,
+				vapiB1.GkVDB.String():  opcfg.GetVerticaDBConcurrency(),
+				vapiB1.GkVAS.String():  opcfg.GetVerticaAutoscalerConcurrency(),
+				vapiB1.GkET.String():   opcfg.GetEventTriggerConcurrency(),
+				vapiB1.GkVRPQ.String(): opcfg.GetVerticaRestorePointsQueryConcurrency(),
+				vapiB1.GkVSCR.String(): opcfg.GetVerticaScrutinizeConcurrency(),
 			},
 		},
 	})
@@ -290,9 +263,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	addReconcilersToManager(mgr, restCfg, oc)
+	addReconcilersToManager(mgr, restCfg)
 	ctx := ctrl.SetupSignalHandler()
-	if err := setupWebhook(ctx, mgr, restCfg, oc); err != nil {
+	if err := setupWebhook(ctx, mgr, restCfg); err != nil {
 		setupLog.Error(err, "unable to setup webhook")
 		os.Exit(1)
 	}

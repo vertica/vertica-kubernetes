@@ -11,9 +11,6 @@ tests:
           path: spec.template.spec.containers
           content:
               name: kube-rbac-proxy
-      - notMatchRegex:
-          path: spec.template.spec.containers[0].args[1]
-          pattern: --metrics-bind-address
   - it: should not include proxy sidecar if expose is without auth
     set:
       prometheus:
@@ -23,9 +20,6 @@ tests:
           path: spec.template.spec.containers
           content:
               name: kube-rbac-proxy
-      - equal:
-          path: spec.template.spec.containers[0].args[1]
-          value: --metrics-bind-address=:8443
   - it: should include proxy sidecar if expose is with auth
     set:
       prometheus:
@@ -34,7 +28,3 @@ tests:
       - equal:
           path: spec.template.spec.containers[1].name
           value: kube-rbac-proxy
-      - equal:
-          path: spec.template.spec.containers[0].args[1]
-          value: --metrics-bind-address=127.0.0.1:8080
-

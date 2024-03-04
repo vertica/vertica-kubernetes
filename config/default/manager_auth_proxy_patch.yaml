@@ -30,26 +30,3 @@ spec:
             # pattern matcher in template-helm-chart.sh.  We look for this to
             # know where the end of the rbac proxy container spec is.
             memory: 64Mi
-      - name: manager
-        args:
-        - "--health-probe-bind-address=:8081"
-        - "--metrics-bind-address=127.0.0.1:8080"
-        - "--leader-elect"
-        # These are the placeholders that we patch in when applying the helm chart.
-        # The default values here will be replaced in helm templates by the values 
-        # of parameters. When creating the bundle instead for olm these flags with
-        # these default values will be put in the CSV and as filepath is not set, there
-        # will be no logging to file with olm as expected.
-        - "--filepath="
-        - "--maxfilesize=500"
-        - "--maxfileage=7"
-        - "--maxfilerotation=3"
-        - "--level=info"
-        - "--dev=false"
-        - "--prefix-name=verticadb-operator"
-        - "--webhook-cert-secret=verticadb-operator-service-cert"
-        - "--verticadb-concurrency=5"
-        - "--verticaautoscaler-concurrency=1"
-        - "--eventtrigger-concurrency=1"
-        - "--verticarestorepointsquery-concurrency=1"
-        - "--verticascrutinize-concurrency=1"

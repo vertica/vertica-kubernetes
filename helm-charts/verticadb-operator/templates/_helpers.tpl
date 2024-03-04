@@ -17,6 +17,13 @@ Choose the serviceAccount name
 {{- end }}
 
 {{/*
+Choose the prefix for objects that is related to the metrics endpoint in the operator.
+*/}}
+{{- define "vdb-op.metricsRbacPrefix" -}}
+{{- printf "%s-%s-" .Release.Namespace .Release.Name | trunc 63 }}
+{{- end }}
+
+{{/*
 Choose the webhook certificate source
 */}}
 {{- define "vdb-op.certSource" -}}
@@ -36,8 +43,30 @@ it is generated internally)
 {{- if not (empty .Values.webhook.tlsSecret) }}
 {{- .Values.webhook.tlsSecret }}
 {{- else if eq .Values.webhook.certSource "internal" }}
-{{- "" }}
+{{- cat "" | quote }}
 {{- else }}
 {{- include "vdb-op.name" . }}-service-cert
+{{- end }}
+{{- end }}
+
+{{/*
+Choose between Role or ClusterRole for the manager.
+*/}}
+{{- define "vdb-op.roleKind" -}}
+{{- if eq .Values.controllers.scope "namespace" }}
+{{- cat "Role" }}
+{{- else }}
+{{- cat "ClusterRole" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Choose between RoleBinding or ClusterRoleBinding for the manager.
+*/}}
+{{- define "vdb-op.roleBindingKind" -}}
+{{- if eq .Values.controllers.scope "namespace" }}
+{{- cat "RoleBinding" }}
+{{- else }}
+{{- cat "ClusterRoleBinding" }}
 {{- end }}
 {{- end }}

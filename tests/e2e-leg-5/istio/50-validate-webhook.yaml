@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - script: kubectl exec -i -n $NAMESPACE v-upgrade-vertica-defsc-0 -c server -- vsql -tAf /opt/vertica/packages/flextable/ddl/isinstalled.sql -w topsecret
-  - script: kubectl exec -i -n $NAMESPACE v-upgrade-vertica-defsc-0 -c server -- vsql -tAf /opt/vertica/packages/flextable/ddl/isinstalled.sql -w topsecret | grep -cq '^t$'
+  - script: kubectl -n $NAMESPACE get vdb v-istio-tproxy -o json | jq '.spec.initPolicy="BadValue"' | kubectl -n $NAMESPACE replace -f -
+    ignoreFailure: true

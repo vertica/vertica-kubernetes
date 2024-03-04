@@ -15,4 +15,4 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
   - command: sh -c "cd ../../.. && make undeploy-operator || true"
-  - command: sh -c "cd ../../.. && DEPLOY_WITH=helm HELM_OVERRIDES='--set prometheus.expose=EnableWithoutAuth --set logging.dev=true,webhook.certSource=cert-manager' make deploy-operator NAMESPACE=$NAMESPACE"
+  - command: sh -c "cd ../../.. && DEPLOY_WITH=helm HELM_OVERRIDES='--set prometheus.expose=EnableWithoutAuth --set webhook.certSource=cert-manager' make deploy-operator NAMESPACE=$NAMESPACE"

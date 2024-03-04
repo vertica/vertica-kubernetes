@@ -50,7 +50,7 @@ type VerticaDBSpec struct {
 	ImagePullSecrets []LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="vertica/vertica-k8s:23.3.0-0-minimal"
+	// +kubebuilder:default:="opentext/vertica-k8s:23.3.0-0-minimal"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// The docker image name that contains the Vertica server.  Whenever this
 	// changes, the operator treats this as an upgrade.  The upgrade can be done

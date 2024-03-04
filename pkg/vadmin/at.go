@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,11 +46,11 @@ func (a *Admintools) execAdmintools(ctx context.Context, initiatorPod types.Name
 	// Dump relevant contents of the admintools.conf before and after the
 	// admintools calls. We do this for PD purposes to see what changes occurred
 	// in the file.
-	if a.DevMode {
+	if opcfg.IsDebugLoggingEnabled() {
 		a.PRunner.DumpAdmintoolsConf(ctx, initiatorPod)
 	}
 	stdout, _, err := a.PRunner.ExecAdmintools(ctx, initiatorPod, names.ServerContainer, cmd...)
-	if a.DevMode {
+	if opcfg.IsDebugLoggingEnabled() {
 		a.PRunner.DumpAdmintoolsConf(ctx, initiatorPod)
 	}
 	return stdout, err

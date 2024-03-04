@@ -1,6 +1,6 @@
-suite: Manager ClusterRole
+suite: Webhook ClusterRole
 templates:
-  - verticadb-operator-manager-role-cr.yaml
+  - verticadb-operator-webhook-config-cr.yaml
 tests:
   - it: should have CRD update permissions by default
     asserts:
@@ -16,3 +16,10 @@ tests:
           - list
           - patch
           - update
+  - it: should not have CRD update permissions if webhook is disabled
+    set:
+      webhook:
+        enable: false
+    asserts:
+      - hasDocuments:
+          count: 0

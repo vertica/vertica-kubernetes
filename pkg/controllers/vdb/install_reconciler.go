@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/httpconf"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -155,14 +156,15 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	}
 	defer os.Remove(atConfTempFile)
 
-	if d.VRec.OpCfg.DevMode {
+	// Only dump if verbose logging is on
+	if opcfg.IsDebugLoggingEnabled() {
 		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 	}
 	if err := distributeAdmintoolsConf(ctx, d.Vdb, d.VRec, d.PFacts, d.PRunner, atConfTempFile); err != nil {
 		return err
 	}
 	installedPods = append(installedPods, pods...)
-	if d.VRec.OpCfg.DevMode {
+	if opcfg.IsDebugLoggingEnabled() {
 		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 	}
 

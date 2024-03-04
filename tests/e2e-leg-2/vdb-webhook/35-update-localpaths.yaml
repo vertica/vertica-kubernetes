@@ -16,7 +16,7 @@ kind: TestStep
 commands:
   - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.local.depotPath="/new_depot"' | kubectl -n $NAMESPACE replace -f -
     ignoreFailure: true
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator $NAMESPACE"
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE $NAMESPACE"
   - script: kubectl -n $NAMESPACE get verticadb v-webhook -o json | jq '.spec.local.catalogPath="/vertica/catalog"' | kubectl -n $NAMESPACE replace -f -
     ignoreFailure: true
-  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator $NAMESPACE"
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n $NAMESPACE $NAMESPACE"

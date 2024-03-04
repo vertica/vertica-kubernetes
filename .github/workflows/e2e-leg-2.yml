@@ -78,6 +78,8 @@ jobs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
         export E2E_TEST_DIRS=tests/e2e-leg-2
+        # All of the tests in this leg will use a namespace scoped operator
+        export CONTROLLERS_SCOPE=namespace
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }}
         if [ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then E2E_TEST_DIRS+=" tests/e2e-leg-2-at-only"; fi
         export E2E_TEST_DIRS=tests/e2e-leg-2

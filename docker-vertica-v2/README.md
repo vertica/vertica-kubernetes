@@ -13,7 +13,7 @@ Each tag follows this format: _`<major>.<minor>.<patch>-<hotfix>[-minimal]`_. Fo
 
 The `latest` tag always refers to the minimal image of the most recently released version.
 
-For a comprehensive list, see [Tags](https://hub.docker.com/r/vertica/vertica-k8s/tags).
+For a comprehensive list, see [Tags](https://hub.docker.com/r/opentext/vertica-k8s/tags).
 
 # Quick Reference
 

@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
@@ -88,6 +89,10 @@ type Dispatcher interface {
 
 	// ShowRestorePoints will list existing restore points in a database
 	ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) ([]vops.RestorePoint, error)
+
+	// InstallPackages will install all packages under /opt/vertica/packages
+	// where Autoinstall is marked true.
+	InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error)
 }
 
 const (
@@ -103,18 +108,16 @@ type Admintools struct {
 	Log      logr.Logger
 	EVWriter events.EVWriter
 	VDB      *vapi.VerticaDB
-	DevMode  bool // true to include verbose logging for some operations
 }
 
 // MakeAdmintools will create a dispatcher that uses admintools to call the
 // admin commands.
-func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter events.EVWriter, devMode bool) Dispatcher {
+func MakeAdmintools(log logr.Logger, vdb *vapi.VerticaDB, prunner cmds.PodRunner, evWriter events.EVWriter) Dispatcher {
 	return &Admintools{
 		PRunner:  prunner,
 		VDB:      vdb,
 		Log:      log,
 		EVWriter: evWriter,
-		DevMode:  devMode,
 	}
 }
 
@@ -209,4 +212,5 @@ type VClusterProvider interface {
 	VReIP(options *vops.VReIPOptions) error
 	VStartNodes(options *vops.VStartNodesOptions) error
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
+	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 }

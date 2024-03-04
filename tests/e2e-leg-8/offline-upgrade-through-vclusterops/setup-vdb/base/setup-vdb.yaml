@@ -18,14 +18,15 @@ metadata:
   annotations:
     vertica.com/vcluster-ops: "false"
 spec:
-  image: vertica/vertica-k8s:12.0.4-0-minimal
+  image: opentext/vertica-k8s:12.0.4-0-minimal
   imagePullPolicy: IfNotPresent
   passwordSecret: su-passwd
   communal: {}
   local:
     requestSize: 100Mi
   dbName: Upgrade
-  initPolicy: Create
+  # skip package install due to disk space limitation in GitHub CI
+  initPolicy: CreateSkipPackageInstall
   upgradePolicy: Offline
   encryptSpreadComm: disabled
   subclusters:

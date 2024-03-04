@@ -86,6 +86,7 @@ jobs:
       legacy_vertica_image: ${{ inputs.legacy_vertica_image }}
       run_security_scan: ${{ inputs.run_security_scan }}
     secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   unittests:
@@ -121,7 +122,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: "vertica/vertica-k8s:23.4.0-0-minimal"
+      vertica-image: "opentext/vertica-k8s:23.4.0-0-minimal"
       artifact-suffix: "-23.4.0-release"
       vertica-deployment-method: admintools
     secrets:
@@ -161,7 +162,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: "vertica/vertica-k8s:12.0.4-0-minimal"
+      vertica-image: "opentext/vertica-k8s:12.0.4-0-minimal"
       artifact-suffix: "-12.0.4-release"
       vertica-deployment-method: admintools
     secrets:
@@ -201,7 +202,7 @@ jobs:
     with:
       vlogger-image: ${{ needs.build.outputs.vlogger-image }}
       operator-image: ${{ needs.build.outputs.operator-image }}
-      vertica-image: "vertica/vertica-k8s:24.1.0-0-minimal"
+      vertica-image: "opentext/vertica-k8s:24.1.0-0-minimal"
       artifact-suffix: "-24.1.0-release"
       vertica-deployment-method: vclusterops
     secrets:
