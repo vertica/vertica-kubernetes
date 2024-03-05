@@ -114,3 +114,9 @@ func checkStatusConditionAfterReconcile(ctx context.Context, vscr *v1beta1.Verti
 		},
 	))
 }
+
+func checkStatusConditionAndStateAfterReconcile(ctx context.Context, vscr *v1beta1.VerticaScrutinize,
+	condType string, status metav1.ConditionStatus, reason, state string) {
+	checkStatusConditionAfterReconcile(ctx, vscr, condType, status, reason)
+	Expect(vscr.Status.State).Should(Equal(state))
+}

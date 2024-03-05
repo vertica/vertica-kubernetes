@@ -104,6 +104,11 @@ type VerticaScrutinizeStatus struct {
 	TarballName string `json:"tarballName"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Status message for scrutinize
+	State string `json:"state,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Set of status conditions to know how far along the scrutinize is.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
@@ -121,6 +126,9 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=verticascrutinizers,singular=verticascrutinize,categories=all;vertica,shortName=vscr
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
+// +kubebuilder:printcolumn:name="Pod",type="string",JSONPath=".status.podName"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1,""},{VerticaDB,vertica.com/v1beta1,""}}
 
 // VerticaScrutinize is the schema for verticascrutinize API

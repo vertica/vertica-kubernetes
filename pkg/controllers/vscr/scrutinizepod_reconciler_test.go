@@ -62,6 +62,8 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		Expect(k8sClient.Get(ctx, vscr.ExtractNamespacedName(), pod)).Should(Succeed())
 		Expect(vscr.Status.PodName).Should(Equal(pod.Name))
 		Expect(vscr.Status.PodUID).Should(Equal(pod.UID))
+		checkStatusConditionAndStateAfterReconcile(ctx, vscr, v1beta1.ScrutinizePodCreated, metav1.ConditionTrue,
+			"PodCreated", "PodCreated")
 	})
 
 	It("should exit early without error if ScrutinizeReady is false", func() {

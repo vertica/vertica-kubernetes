@@ -66,7 +66,8 @@ func (s *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// This will print out an event if the VerticaDB cannot be found.
 	nm := names.GenNamespacedName(s.Vscr, s.Vscr.Spec.VerticaDBName)
 	if res, err := vk8s.FetchVDB(ctx, s.VRec, s.Vscr, nm, s.Vdb); verrors.IsReconcileAborted(res, err) {
-		return ctrl.Result{}, s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VerticaDBNotFound)
+		return ctrl.Result{}, s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VerticaDBNotFound,
+			fmt.Sprintf("NotReady:%s", events.VerticaDBNotFound))
 	}
 	return ctrl.Result{}, s.checkVersionAndDeploymentType(ctx)
 }
@@ -77,7 +78,8 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 	if !vmeta.UseVClusterOps(s.Vdb.Annotations) {
 		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsDisabled,
 			"The VerticaDB named '%s' has vclusterops disabled", s.Vdb.Name)
-		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsDisabled)
+		return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsDisabled,
+			"NotReady:AdmintoolsNotSupported")
 	}
 	vinf, ok := s.Vdb.MakeVersionInfo()
 	if !ok {
@@ -85,14 +87,16 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 		// is not ready for scrutinize and exit
 		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VerticaVersionNotFound,
 			"The VerticaDB named '%s' does not have the version annotation set", s.Vdb.Name)
-		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VerticaVersionNotFound)
+		return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VerticaVersionNotFound,
+			fmt.Sprintf("NotReady:%s", events.VerticaVersionNotFound))
 	}
 
 	if vinf.IsOlder(v1.VcluseropsAsDefaultDeploymentMethodMinVersion) {
 		ver, _ := s.Vdb.GetVerticaVersionStr()
 		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeNotSupported,
 			"The server version %s does not have scrutinize support through vclusterOps", ver)
-		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported)
+		return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse, events.VclusterOpsScrutinizeNotSupported,
+			"NotReady:IncompatibleDB")
 	}
 
 	if vinf.IsOlder(v1.ScrutinizeDBPasswdInSecretMinVersion) {
@@ -100,17 +104,22 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 		s.VRec.Eventf(s.Vscr, corev1.EventTypeWarning, events.VclusterOpsScrutinizeNotSupported,
 			"The server version %s is not supported with VerticaScrutinize. The minimum server version it supports is %s.",
 			ver, v1.ScrutinizeDBPasswdInSecretMinVersion)
-		return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionFalse,
-			events.VclusterOpsScrutinizeNotSupported)
+		return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionFalse,
+			events.VclusterOpsScrutinizeNotSupported, "NotReady:IncompatibleDB")
 	}
 
 	s.Log.Info(fmt.Sprintf("The VerticaDB named '%s' is configured for scrutinize through vclusterops", s.Vdb.Name))
-	return s.updateScrutinizeReadyCondition(ctx, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize)
+	return s.updateStateAndScrutinizeReadyCondition(ctx, metav1.ConditionTrue, verticaDBSetForVclusterOpsScrutinize,
+		"Ready")
 }
 
-// updateScrutinizeReadyCondition updates ScrutinizeReady status condition
-func (s *VDBVerifyReconciler) updateScrutinizeReadyCondition(ctx context.Context,
-	status metav1.ConditionStatus, reason string) error {
+// updateStateAndScrutinizeReadyCondition updates the state status field
+// and the ScrutinizeReady status condition
+func (s *VDBVerifyReconciler) updateStateAndScrutinizeReadyCondition(ctx context.Context,
+	status metav1.ConditionStatus, reason, state string) error {
 	cond := v1.MakeCondition(v1beta1.ScrutinizeReady, status, reason)
-	return vscrstatus.UpdateCondition(ctx, s.VRec.Client, s.Vscr, cond)
+	stat := s.Vscr.Status.DeepCopy()
+	stat.State = state
+	stat.Conditions = []metav1.Condition{*cond}
+	return vscrstatus.UpdateStatus(ctx, s.VRec.Client, s.Vscr, stat)
 }

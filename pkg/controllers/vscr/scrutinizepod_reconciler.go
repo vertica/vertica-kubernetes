@@ -119,12 +119,16 @@ func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 	}
 	err = s.VRec.Client.Create(ctx, pod)
 	if err != nil {
+		// we do not check if it returns an error because we are going
+		// to return the pod creation failed error anyway
+		_ = vscrstatus.UpdateState(ctx, s.VRec.Client, s.Vscr, "PodCreationFailed")
 		return err
 	}
 	s.Log.Info("Scrutinize pod created successfully")
-	stat := &v1beta1.VerticaScrutinizeStatus{}
+	stat := s.Vscr.Status.DeepCopy()
 	stat.PodName = pod.Name
 	stat.PodUID = pod.UID
+	stat.State = "PodCreated"
 	stat.Conditions = []metav1.Condition{*v1.MakeCondition(v1beta1.ScrutinizePodCreated, metav1.ConditionTrue, "PodCreated")}
 	return vscrstatus.UpdateStatus(ctx, s.VRec.Client, s.Vscr, stat)
 }

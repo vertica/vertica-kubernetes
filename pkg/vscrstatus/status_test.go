@@ -160,6 +160,16 @@ var _ = Describe("status", func() {
 		Expect(vscr.IsStatusConditionTrue(v1beta1.ScrutinizePodCreated)).Should(BeTrue())
 	})
 
+	It("should update the state field in vscr status", func() {
+		vscr := v1beta1.MakeVscr()
+		Expect(k8sClient.Create(ctx, vscr)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vscr)).Should(Succeed()) }()
+
+		const state = "Ready"
+		Expect(UpdateState(ctx, k8sClient, vscr, state)).Should(Succeed())
+		Expect(vscr.Status.State).Should(Equal(state))
+	})
+
 	It("should update all status fields", func() {
 		vscr := v1beta1.MakeVscr()
 		Expect(k8sClient.Create(ctx, vscr)).Should(Succeed())
