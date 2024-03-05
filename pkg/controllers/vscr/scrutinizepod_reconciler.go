@@ -125,7 +125,7 @@ func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 		return err
 	}
 	s.Log.Info("Scrutinize pod created successfully")
-	stat := &v1beta1.VerticaScrutinizeStatus{}
+	stat := s.Vscr.Status.DeepCopy()
 	stat.PodName = pod.Name
 	stat.PodUID = pod.UID
 	stat.State = "PodCreated"

@@ -27,7 +27,7 @@ import (
 )
 
 func update(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize,
-	updateFunc func(*v1beta1.VerticaScrutinize) error) error {
+	updateFunc func(*v1beta1.VerticaScrutinize)) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch the latest to minimize the chance of getting a conflict error.
 		nm := vscr.ExtractNamespacedName()
@@ -40,9 +40,7 @@ func update(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScruti
 		vscrChg := vscr.DeepCopy()
 
 		// Refresh the status using the users provided function
-		if err := updateFunc(vscrChg); err != nil {
-			return err
-		}
+		updateFunc(vscrChg)
 
 		if !reflect.DeepEqual(vscr.Status, vscrChg.Status) {
 			vscrChg.Status.DeepCopyInto(&vscr.Status)
@@ -60,23 +58,14 @@ func UpdateStatus(ctx context.Context, clnt client.Client, vscr *v1beta1.Vertica
 	vscrChgStatus *v1beta1.VerticaScrutinizeStatus) error {
 	// refreshStatus will update the status in vscr.  The update
 	// will be applied in-place.
-	refreshStatus := func(vscr *v1beta1.VerticaScrutinize) error {
-		if vscr.Status.PodName != vscrChgStatus.PodName {
-			vscr.Status.PodName = vscrChgStatus.PodName
-		}
-		if vscr.Status.PodUID != vscrChgStatus.PodUID {
-			vscr.Status.PodUID = vscrChgStatus.PodUID
-		}
-		if vscr.Status.TarballName != vscrChgStatus.TarballName {
-			vscr.Status.TarballName = vscrChgStatus.TarballName
-		}
-		if vscr.Status.State != vscrChgStatus.State {
-			vscr.Status.State = vscrChgStatus.State
-		}
+	refreshStatus := func(vscr *v1beta1.VerticaScrutinize) {
+		vscr.Status.PodName = vscrChgStatus.PodName
+		vscr.Status.PodUID = vscrChgStatus.PodUID
+		vscr.Status.TarballName = vscrChgStatus.TarballName
+		vscr.Status.State = vscrChgStatus.State
 		for _, condition := range vscrChgStatus.Conditions {
 			meta.SetStatusCondition(&vscr.Status.Conditions, condition)
 		}
-		return nil
 	}
 
 	return update(ctx, clnt, vscr, refreshStatus)
@@ -88,9 +77,8 @@ func UpdateStatus(ctx context.Context, clnt client.Client, vscr *v1beta1.Vertica
 func UpdateCondition(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize, condition *metav1.Condition) error {
 	// refreshConditionInPlace will update the status condition in vscr.  The update
 	// will be applied in-place.
-	refreshConditionInPlace := func(vscr *v1beta1.VerticaScrutinize) error {
+	refreshConditionInPlace := func(vscr *v1beta1.VerticaScrutinize) {
 		meta.SetStatusCondition(&vscr.Status.Conditions, *condition)
-		return nil
 	}
 
 	return update(ctx, clnt, vscr, refreshConditionInPlace)
@@ -100,11 +88,8 @@ func UpdateCondition(ctx context.Context, clnt client.Client, vscr *v1beta1.Vert
 func UpdateState(ctx context.Context, clnt client.Client, vscr *v1beta1.VerticaScrutinize, state string) error {
 	// refreshState will update the state field in vscr.  The update
 	// will be applied in-place.
-	refreshState := func(vscr *v1beta1.VerticaScrutinize) error {
-		if vscr.Status.State != state {
-			vscr.Status.State = state
-		}
-		return nil
+	refreshState := func(vscr *v1beta1.VerticaScrutinize) {
+		vscr.Status.State = state
 	}
 
 	return update(ctx, clnt, vscr, refreshState)

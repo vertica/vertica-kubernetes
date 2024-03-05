@@ -104,6 +104,7 @@ type VerticaScrutinizeStatus struct {
 	TarballName string `json:"tarballName"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
 	// Status message for scrutinize
 	State string `json:"state,omitempty"`
 

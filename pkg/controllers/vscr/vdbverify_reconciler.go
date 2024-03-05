@@ -118,7 +118,7 @@ func (s *VDBVerifyReconciler) checkVersionAndDeploymentType(ctx context.Context)
 func (s *VDBVerifyReconciler) updateStateAndScrutinizeReadyCondition(ctx context.Context,
 	status metav1.ConditionStatus, reason, state string) error {
 	cond := v1.MakeCondition(v1beta1.ScrutinizeReady, status, reason)
-	stat := &v1beta1.VerticaScrutinizeStatus{}
+	stat := s.Vscr.Status.DeepCopy()
 	stat.State = state
 	stat.Conditions = []metav1.Condition{*cond}
 	return vscrstatus.UpdateStatus(ctx, s.VRec.Client, s.Vscr, stat)
