@@ -2138,6 +2138,9 @@ spec:
       - description: The UID of the pod name that was created.
         displayName: Pod UID
         path: podUID
+      - description: Status message for scrutinize
+        displayName: State
+        path: state
       - description: The name of the scrutinize tarball that was created.
         displayName: Tarball Name
         path: tarballName

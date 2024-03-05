@@ -858,8 +858,8 @@ type VerticaDBPodStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
 //+kubebuilder:resource:categories=all;vertica,shortName=vdb
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 //+kubebuilder:printcolumn:name="Subclusters",type="integer",JSONPath=".status.subclusterCount"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Statefulset,apps/v1,""},{Pod,v1,""},{Service,v1,""}}
 
 // VerticaDB is the CR that defines a Vertica Eon mode cluster that is managed by the verticadb-operator.

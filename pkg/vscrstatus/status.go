@@ -70,6 +70,9 @@ func UpdateStatus(ctx context.Context, clnt client.Client, vscr *v1beta1.Vertica
 		if vscr.Status.TarballName != vscrChgStatus.TarballName {
 			vscr.Status.TarballName = vscrChgStatus.TarballName
 		}
+		if vscr.Status.State != vscrChgStatus.State {
+			vscr.Status.State = vscrChgStatus.State
+		}
 		for _, condition := range vscrChgStatus.Conditions {
 			meta.SetStatusCondition(&vscr.Status.Conditions, condition)
 		}
