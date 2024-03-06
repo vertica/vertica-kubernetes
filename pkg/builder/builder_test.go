@@ -201,11 +201,21 @@ var _ = Describe("builder", func() {
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--db-name")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--db-user")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--password=")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("h1,h2,h3")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("dbadmin")))
-		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("db")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("/opt/vertica/bin/vcluster")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("scrutinize")))
+
+		vdb.Spec.PasswordSecret = "test-secret"
+		pod = BuildScrutinizePod(vscr, vdb, []string{
+			"--hosts", "h1,h2,h3",
+			"--db-name", "db",
+			"--db-user", "dbadmin",
+		})
+		cnt = pod.Spec.InitContainers[0]
+		Ω(cnt.Command).ShouldNot(ContainElement(ContainSubstring("--password=")))
 	})
 
 	It("should not set any main container resources if none are set for the init container", func() {
