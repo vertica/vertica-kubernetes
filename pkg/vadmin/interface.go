@@ -35,6 +35,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,6 +86,9 @@ type Dispatcher interface {
 	// cluster quorum. The IP given for each vnode *must* match the current IP
 	// in the vertica catalog. If they aren't a call to ReIP is necessary.
 	StartDB(ctx context.Context, opts ...startdb.Option) (ctrl.Result, error)
+
+	// ShowRestorePoints will list existing restore points in a database
+	ShowRestorePoints(ctx context.Context, opts ...showrestorepoints.Option) ([]vops.RestorePoint, error)
 
 	// InstallPackages will install all packages under /opt/vertica/packages
 	// where Autoinstall is marked true.
@@ -207,5 +211,6 @@ type VClusterProvider interface {
 	VRemoveNode(options *vops.VRemoveNodeOptions) (vops.VCoordinationDatabase, error)
 	VReIP(options *vops.VReIPOptions) error
 	VStartNodes(options *vops.VStartNodesOptions) error
+	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 }

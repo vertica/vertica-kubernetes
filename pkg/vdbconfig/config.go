@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package vdb
+package vdbconfig
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
@@ -32,13 +33,63 @@ import (
 	vtypes "github.com/vertica/vertica-kubernetes/pkg/types"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+const (
+	AWSRegionParm          = "awsregion"
+	GCloudRegionParm       = "GCSRegion"
+	S3SseCustomerAlgorithm = "S3SseCustomerAlgorithm"
+	S3ServerSideEncryption = "S3ServerSideEncryption"
+	S3SseCustomerKey       = "S3SseCustomerKey"
+	SseAlgorithmAES256     = "AES256"
+	SseAlgorithmAWSKMS     = "aws:kms"
+)
+
+type ReconcilerInterface interface {
+	Event(vdb runtime.Object, eventType string, reason string, message string)
+	Eventf(vdb runtime.Object, eventType, reason, messageFmt string, args ...interface{})
+	GetClient() client.Client
+}
+
+type VerticaReconciler struct {
+	client.Client
+	Log   logr.Logger
+	EVRec record.EventRecorder
+}
+
+// GetClient gives access to the Kubernetes client
+func (v *VerticaReconciler) GetClient() client.Client {
+	return v.Client
+}
+
+// Event a wrapper for Event() that also writes a log entry
+func (v *VerticaReconciler) Event(vdb runtime.Object, eventType, reason, message string) {
+	evWriter := events.Writer{
+		Log:   v.Log,
+		EVRec: v.EVRec,
+	}
+	evWriter.Event(vdb, eventType, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (v *VerticaReconciler) Eventf(vdb runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   v.Log,
+		EVRec: v.EVRec,
+	}
+	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
+}
+
 // ConfigParamsGenerator can fill up incoming ConfigurationParams
 type ConfigParamsGenerator struct {
-	VRec                *VerticaDBReconciler
+	VRec                ReconcilerInterface
 	Log                 logr.Logger
 	Vdb                 *vapi.VerticaDB
 	ConfigurationParams *vtypes.CiMap
@@ -48,16 +99,14 @@ type ConfigParamsGenerator struct {
 // ConstructConfigParms builds a map of all of the config parameters to use,
 // and assigns the map to ConfigurationParams of ConfigParamsGenerator
 func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.Result, error) {
-	if err := g.setup(); err != nil {
+	if err := g.Setup(); err != nil {
 		return ctrl.Result{}, err
 	}
 	var authConfigBuilder func(ctx context.Context) (ctrl.Result, error)
-
 	if g.Vdb.Spec.Communal.Path == "" {
 		g.Log.Info("Communal path is empty. Not setting up communal auth parms")
 		return ctrl.Result{}, nil
 	}
-
 	if g.Vdb.IsS3() {
 		authConfigBuilder = g.setS3AuthParms
 	} else if g.Vdb.IsHDFS() {
@@ -69,7 +118,6 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 	} else {
 		g.Log.Info("No special auth setup for communal path", "path", g.Vdb.Spec.Communal.Path)
 	}
-
 	var res ctrl.Result
 	var err error
 	if authConfigBuilder != nil {
@@ -78,7 +126,6 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 			return res, err
 		}
 	}
-
 	if g.Vdb.HasKerberosConfig() {
 		if res = g.hasCompatibleVersionForKerberos(); verrors.IsReconcileAborted(res, nil) {
 			return res, nil
@@ -88,8 +135,7 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 			return ctrl.Result{}, err
 		}
 	}
-
-	g.setEncryptSpreadCommConfigIfNecessary()
+	g.SetEncryptSpreadCommConfigIfNecessary()
 
 	// In newer release, we moved what some config settings that use to be set
 	// via SQL to config parms.
@@ -104,7 +150,7 @@ func (g *ConfigParamsGenerator) ConstructConfigParms(ctx context.Context) (ctrl.
 	// key/value pair in this map is skipped.
 	// This must be the last thing added to the config parms.
 	if !g.Vdb.IsAdditionalConfigMapEmpty() {
-		g.setAdditionalConfigParms()
+		g.SetAdditionalConfigParms()
 	}
 
 	return ctrl.Result{}, nil
@@ -117,7 +163,7 @@ func (g *ConfigParamsGenerator) GetConfigParms() *vtypes.CiMap {
 }
 
 // setup will initialize parms in the ConfigParamsGenerator struct
-func (g *ConfigParamsGenerator) setup() error {
+func (g *ConfigParamsGenerator) Setup() error {
 	if g.ConfigurationParams == nil {
 		g.ConfigurationParams = vtypes.MakeCiMap()
 	}
@@ -133,7 +179,7 @@ func (g *ConfigParamsGenerator) setAuth(ctx context.Context, parmName string) (c
 	}
 
 	// Extract the auth from the credential secret.
-	auth, res, err := g.getCommunalAuth(ctx)
+	auth, res, err := g.GetCommunalAuth(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -160,8 +206,8 @@ func (g *ConfigParamsGenerator) setS3AuthParms(ctx context.Context) (ctrl.Result
 		}
 	}
 
-	g.ConfigurationParams.Set("awsendpoint", g.getCommunalEndpoint())
-	g.ConfigurationParams.Set("awsenablehttps", g.getEnableHTTPS())
+	g.ConfigurationParams.Set("awsendpoint", g.GetCommunalEndpoint())
+	g.ConfigurationParams.Set("awsenablehttps", g.GetEnableHTTPS())
 	g.setRegion(AWSRegionParm)
 	g.setCAFile()
 	return ctrl.Result{}, nil
@@ -193,7 +239,7 @@ func (g *ConfigParamsGenerator) setKerberosAuthParms() error {
 	return nil
 }
 
-func (g *ConfigParamsGenerator) setEncryptSpreadCommConfigIfNecessary() {
+func (g *ConfigParamsGenerator) SetEncryptSpreadCommConfigIfNecessary() {
 	if g.Vdb.Spec.EncryptSpreadComm != vapi.EncryptSpreadCommDisabled && g.hasCompatibleVersion(vapi.SetEncryptSpreadCommAsConfigVersion) {
 		g.ConfigurationParams.Set("EncryptSpreadComm", g.Vdb.GetEncryptSpreadComm())
 	}
@@ -220,8 +266,8 @@ func (g *ConfigParamsGenerator) setGCloudAuthParms(ctx context.Context) (ctrl.Re
 		return res, err
 	}
 
-	g.ConfigurationParams.Set("GCSEndpoint", g.getCommunalEndpoint())
-	g.ConfigurationParams.Set("GCSEnableHttps", g.getEnableHTTPS())
+	g.ConfigurationParams.Set("GCSEndpoint", g.GetCommunalEndpoint())
+	g.ConfigurationParams.Set("GCSEnableHttps", g.GetEnableHTTPS())
 	g.setRegion(GCloudRegionParm)
 	g.setCAFile()
 	return ctrl.Result{}, nil
@@ -234,7 +280,7 @@ func (g *ConfigParamsGenerator) setAzureAuthParms(ctx context.Context) (ctrl.Res
 		return ctrl.Result{}, nil
 	}
 
-	azureCreds, azureConfig, res, err := g.getAzureAuth(ctx)
+	azureCreds, azureConfig, res, err := g.GetAzureAuth(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -283,7 +329,7 @@ func (g *ConfigParamsGenerator) setAzureAuthParms(ctx context.Context) (ctrl.Res
 
 // setAdditionalConfigParms adds additional server config parameters
 // to the config parms map.
-func (g *ConfigParamsGenerator) setAdditionalConfigParms() {
+func (g *ConfigParamsGenerator) SetAdditionalConfigParms() {
 	for k, v := range g.Vdb.Spec.Communal.AdditionalConfig {
 		_, ok := g.ConfigurationParams.Get(k)
 		if ok {
@@ -296,8 +342,8 @@ func (g *ConfigParamsGenerator) setAdditionalConfigParms() {
 
 // getCommunalAuth will return the access key and secret key.
 // Value is returned in the format: <accessKey>:<secretKey>
-func (g *ConfigParamsGenerator) getCommunalAuth(ctx context.Context) (string, ctrl.Result, error) {
-	secret, res, err := g.getCommunalCredsSecret(ctx)
+func (g *ConfigParamsGenerator) GetCommunalAuth(ctx context.Context) (string, ctrl.Result, error) {
+	secret, res, err := g.GetCommunalCredsSecret(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return "", res, err
 	}
@@ -322,9 +368,9 @@ func (g *ConfigParamsGenerator) getCommunalAuth(ctx context.Context) (string, ct
 }
 
 // getAzureAuth gets the azure credentials from the communal auth secret
-func (g *ConfigParamsGenerator) getAzureAuth(ctx context.Context) (
+func (g *ConfigParamsGenerator) GetAzureAuth(ctx context.Context) (
 	cloud.AzureCredential, cloud.AzureEndpointConfig, ctrl.Result, error) {
-	secretData, res, err := g.getCommunalCredsSecret(ctx)
+	secretData, res, err := g.GetCommunalCredsSecret(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return cloud.AzureCredential{}, cloud.AzureEndpointConfig{}, res, err
 	}
@@ -343,7 +389,7 @@ func (g *ConfigParamsGenerator) getAzureAuth(ctx context.Context) (
 	// so its just the host and port.
 	var blobEndpoint string
 	if hasBlobEndpoint {
-		blobEndpoint = getEndpointHostPort(string(blobEndpointRaw))
+		blobEndpoint = GetEndpointHostPort(string(blobEndpointRaw))
 	}
 
 	accountKey, hasAccountKey := secretData[cloud.AzureAccountKey]
@@ -365,16 +411,16 @@ func (g *ConfigParamsGenerator) getAzureAuth(ctx context.Context) (
 		cloud.AzureEndpointConfig{
 			AccountName:  string(accountName),
 			BlobEndpoint: blobEndpoint,
-			Protocol:     getEndpointProtocol(string(blobEndpointRaw)),
+			Protocol:     GetEndpointProtocol(string(blobEndpointRaw)),
 		},
 		ctrl.Result{}, nil
 }
 
 // getCommunalCredsSecret returns the contents of the communal credentials
 // secret. It handles if the secret is not found and will log an event.
-func (g *ConfigParamsGenerator) getCommunalCredsSecret(ctx context.Context) (map[string][]byte, ctrl.Result, error) {
+func (g *ConfigParamsGenerator) GetCommunalCredsSecret(ctx context.Context) (map[string][]byte, ctrl.Result, error) {
 	fetcher := cloud.VerticaDBSecretFetcher{
-		Client:   g.VRec.Client,
+		Client:   g.VRec.GetClient(),
 		Log:      g.Log,
 		VDB:      g.Vdb,
 		EVWriter: g.VRec,
@@ -384,13 +430,13 @@ func (g *ConfigParamsGenerator) getCommunalCredsSecret(ctx context.Context) (map
 
 // getS3SseCustomerKeySecret returns the content of the customer key secret
 // for server-side encryption. It handles if the secret is not found and will log an event.
-func (g *ConfigParamsGenerator) getS3SseCustomerKeySecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
+func (g *ConfigParamsGenerator) GetS3SseCustomerKeySecret(ctx context.Context) (*corev1.Secret, ctrl.Result, error) {
 	return getSecret(ctx, g.VRec, g.Vdb, names.GenS3SseCustomerKeySecretName(g.Vdb))
 }
 
 // getCommunalEndpoint get the communal endpoint for inclusion in the auth files.
 // Takes the endpoint from vdb and strips off the protocol.
-func (g *ConfigParamsGenerator) getCommunalEndpoint() string {
+func (g *ConfigParamsGenerator) GetCommunalEndpoint() string {
 	prefix := []string{"https://", "http://"}
 	for _, pref := range prefix {
 		if i := strings.Index(g.Vdb.Spec.Communal.Endpoint, pref); i == 0 {
@@ -401,7 +447,7 @@ func (g *ConfigParamsGenerator) getCommunalEndpoint() string {
 }
 
 // getEnableHTTPS will return "1" if connecting to https otherwise return "0"
-func (g *ConfigParamsGenerator) getEnableHTTPS() string {
+func (g *ConfigParamsGenerator) GetEnableHTTPS() string {
 	if strings.HasPrefix(g.Vdb.Spec.Communal.Endpoint, "https://") {
 		return "1"
 	}
@@ -420,19 +466,19 @@ func (g *ConfigParamsGenerator) setCAFile() {
 // parms, if that is setup, to the config parms map. Must have encryption type in the Vdb.
 func (g *ConfigParamsGenerator) setServerSideEncryptionParms(ctx context.Context) (reconcile.Result, error) {
 	// Extract customer key from secret
-	res, err := g.setS3SseCustomerKey(ctx)
+	res, err := g.SetS3SseCustomerKey(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
-	g.setServerSideEncryptionAlgorithm()
+	g.SetServerSideEncryptionAlgorithm()
 	g.setS3SseKmsKeyID()
 	return ctrl.Result{}, nil
 }
 
 // setServerSideEncryptionAlgorithm adds an entry to the config parms map for S3ServerSideEncryption,
 // if sse type is SSE-S3|SSE-KMS, or for S3SseCustomerAlgorithm, if sse type is SSE-C.
-func (g *ConfigParamsGenerator) setServerSideEncryptionAlgorithm() {
+func (g *ConfigParamsGenerator) SetServerSideEncryptionAlgorithm() {
 	switch {
 	case g.Vdb.IsSseC():
 		g.ConfigurationParams.Set(S3SseCustomerAlgorithm, SseAlgorithmAES256)
@@ -453,12 +499,12 @@ func (g *ConfigParamsGenerator) setS3SseKmsKeyID() {
 
 // setS3SseCustomerKey adds an entry for S3SseCustomerKey to the config parms map,
 // only when sse type is SSE-C.
-func (g *ConfigParamsGenerator) setS3SseCustomerKey(ctx context.Context) (ctrl.Result, error) {
+func (g *ConfigParamsGenerator) SetS3SseCustomerKey(ctx context.Context) (ctrl.Result, error) {
 	if !g.Vdb.IsSseC() {
 		return ctrl.Result{}, nil
 	}
 
-	secret, res, err := g.getS3SseCustomerKeySecret(ctx)
+	secret, res, err := g.GetS3SseCustomerKeySecret(ctx)
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
@@ -484,8 +530,8 @@ func (g *ConfigParamsGenerator) setRegion(parmName string) {
 	g.ConfigurationParams.Set(parmName, g.Vdb.Spec.Communal.Region)
 }
 
-// getEndpointProtocol returns the protocol (HTTPS or HTTP) for the given endpoint
-func getEndpointProtocol(blobEndpoint string) string {
+// GetEndpointProtocol returns the protocol (HTTPS or HTTP) for the given endpoint
+func GetEndpointProtocol(blobEndpoint string) string {
 	if blobEndpoint == "" {
 		return cloud.AzureDefaultProtocol
 	}
@@ -498,7 +544,7 @@ func getEndpointProtocol(blobEndpoint string) string {
 }
 
 // getEndpointHostPort returns just the host and port portion of a endpoint
-func getEndpointHostPort(blobEndpoint string) string {
+func GetEndpointHostPort(blobEndpoint string) string {
 	re := regexp.MustCompile(`([a-z]+)://(.*)`)
 	m := re.FindAllStringSubmatch(blobEndpoint, 1)
 	if len(m) == 0 || len(m[0]) < 3 {
@@ -555,4 +601,36 @@ func genUnsupportedVerticaVersionEventMsg(feature, supportedVersion string) stri
 	// The '%s' is a placeholder for the version extracted from a vdb
 	prefix := "The engine (%s) doesn't have the required change to setup"
 	return fmt.Sprintf("%s %s. You must be on version %s or greater", prefix, feature, supportedVersion)
+}
+
+func getSecret(ctx context.Context, vrec ReconcilerInterface, vdb1 *vapi.VerticaDB,
+	nm types.NamespacedName) (*corev1.Secret, ctrl.Result, error) {
+	secret := &corev1.Secret{}
+	res, err := getConfigMapOrSecret(ctx, vrec, vdb1, nm, secret)
+	return secret, res, err
+}
+
+// getConfigMapOrSecret is a generic function to fetch a ConfigMap or a Secret.
+// It will handle logging an event if the configMap or secret is missing.
+func getConfigMapOrSecret(ctx context.Context, vrec ReconcilerInterface, vdb1 *vapi.VerticaDB,
+	nm types.NamespacedName, obj client.Object) (ctrl.Result, error) {
+	if err := vrec.GetClient().Get(ctx, nm, obj); err != nil {
+		if errors.IsNotFound(err) {
+			objType := ""
+			switch v := obj.(type) {
+			default:
+				objType = fmt.Sprintf("%T", v)
+			case *corev1.Secret:
+				objType = "Secret"
+			case *corev1.ConfigMap:
+				objType = "ConfigMap"
+			}
+			vrec.Eventf(vdb1, corev1.EventTypeWarning, events.ObjectNotFound,
+				"Could not find the %s '%s'", objType, nm)
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{},
+			fmt.Errorf("could not read the secret %s: %w", nm, err)
+	}
+	return ctrl.Result{}, nil
 }

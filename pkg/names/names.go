@@ -21,19 +21,27 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	ServerContainer = "server"
-	NMAContainer    = "nma"
+	ServerContainer         = "server"
+	NMAContainer            = "nma"
+	ScrutinizeInitContainer = "scrutinize"
+	ScrutinizeMainContainer = "main"
+)
+
+const (
+	// The name of the key in the superuser password secret that holds the password
+	SuperuserPasswordKey = "password"
 )
 
 // GenNamespacedName will take any name and make it a namespace name that uses
-// the same namespace as the VerticaDB.
-func GenNamespacedName(vdb *vapi.VerticaDB, name string) types.NamespacedName {
+// the same namespace as the k8s object.
+func GenNamespacedName(obj client.Object, name string) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      name,
-		Namespace: vdb.Namespace,
+		Namespace: obj.GetNamespace(),
 	}
 }
 

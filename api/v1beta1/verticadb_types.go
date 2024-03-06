@@ -128,6 +128,11 @@ type VerticaDBSpec struct {
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:initPolicy:Revive","urn:alm:descriptor:com.tectonic.ui:advanced"}
+	// Specifies the restore point details to use with this instance of the VerticaDB.
+	RestorePoint *RestorePointPolicy `json:"restorePoint,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
 	// +kubebuilder:default:=Auto
 	// Defines how upgrade will be managed.  Available values are: Offline,
@@ -405,6 +410,8 @@ const (
 	CommunalInitPolicyCreate = "Create"
 	// The database in the communal path will be initialized in the VerticaDB
 	// through a revive_db.  The communal path must have a preexisting database.
+	// This option could also be used to initialize the database by restoring
+	// from a database archive if restorePoint field is properly specified.
 	CommunalInitPolicyRevive = "Revive"
 	// Only schedule pods to run with the vertica container.  The bootstrap of
 	// the database, either create_db or revive_db, is not handled.  Use this
@@ -417,6 +424,27 @@ const (
 	// only supported in Vertica release 12.0.1 or higher.
 	CommunalInitPolicyCreateSkipPackageInstall = "CreateSkipPackageInstall"
 )
+
+// RestorePointPolicy is used to locate the exact archive and restore point within archive
+// when a database restore is intended
+type RestorePointPolicy struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// Name of the restore archive to use for bootstrapping.
+	// This name refers to an object in the database.
+	// This must be specified if initPolicy is Revive and a restore is intended.
+	Archive string `json:"archive,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:number"
+	// +kubebuilder:validation:Optional
+	// The (1-based) index of the restore point in the restore archive to restore from.
+	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.
+	Index int `json:"index,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// The identifier of the restore point in the restore archive to restore from.
+	// Specify either index or id exclusively; one of these fields is mandatory, but both cannot be used concurrently.
+	ID string `json:"id,omitempty"`
+}
 
 // Set constant Upgrade Requeue Time
 const URTime = 30
@@ -811,27 +839,6 @@ type Subcluster struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A map of key/value pairs appended to service metadata.annotations.
 	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
-}
-
-// Affinity is used instead of corev1.Affinity and behaves the same.
-// This structure is used in subcluster to define the "Affinity".
-// corev1.Affinity is composed of 3 fields and for each of them,
-// there is a x-descriptor. However there is not a x-descriptor for corev1.Affinity itself.
-// In this structure, we have the same fields as corev1' but we also added
-// the corresponding x-descriptor to each field. That will be useful for the Openshift web console.
-type Affinity struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:nodeAffinity"
-	// Describes node affinity scheduling rules for the pod.
-	// +optional
-	NodeAffinity *corev1.NodeAffinity `json:"nodeAffinity,omitempty" protobuf:"bytes,1,opt,name=nodeAffinity"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podAffinity"
-	// Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).
-	// +optional
-	PodAffinity *corev1.PodAffinity `json:"podAffinity,omitempty" protobuf:"bytes,2,opt,name=podAffinity"`
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:podAntiAffinity"
-	// Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).
-	// +optional
-	PodAntiAffinity *corev1.PodAntiAffinity `json:"podAntiAffinity,omitempty" protobuf:"bytes,3,opt,name=podAntiAffinity"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB

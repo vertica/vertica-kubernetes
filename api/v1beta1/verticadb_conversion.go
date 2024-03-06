@@ -164,6 +164,13 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
 	}
+	if src.RestorePoint != nil {
+		dst.RestorePoint = &v1.RestorePointPolicy{
+			Archive: src.RestorePoint.Archive,
+			Index:   src.RestorePoint.Index,
+			ID:      src.RestorePoint.ID,
+		}
+	}
 	for i := range src.ReviveOrder {
 		dst.ReviveOrder[i] = v1.SubclusterPodCount(src.ReviveOrder[i])
 	}
@@ -219,6 +226,13 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
+	}
+	if srcSpec.RestorePoint != nil {
+		dst.RestorePoint = &RestorePointPolicy{
+			Archive: srcSpec.RestorePoint.Archive,
+			Index:   srcSpec.RestorePoint.Index,
+			ID:      srcSpec.RestorePoint.ID,
+		}
 	}
 	for i := range srcSpec.ReviveOrder {
 		dst.ReviveOrder[i] = SubclusterPodCount(srcSpec.ReviveOrder[i])

@@ -1,0 +1,9 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
+metadata:
+  name: archive-query-both
+spec:
+  verticaDBName: archive-query
+  filterOptions:
+    startTimestamp: $STARTTIMESTAMP
+    endTimestamp: $ENDTIMESTAMP

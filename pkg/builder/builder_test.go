@@ -16,17 +16,27 @@
 package builder
 
 import (
+	"fmt"
 	"reflect"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+const (
+	cpuLimit = 8
+	memLimit = 1
 )
 
 var _ = Describe("builder", func() {
@@ -98,6 +108,180 @@ var _ = Describe("builder", func() {
 		vdb.Spec.Local.CatalogPath = "/catalog"
 		c = makeServerContainer(vdb, &vdb.Spec.Subclusters[0])
 		Ω(makeSubPaths(&c)).Should(ContainElement(ContainSubstring("catalog")))
+	})
+
+	It("should enforce volume in vscr", func() {
+		const testVol = "custom-vol"
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Spec.Volume = &v1.Volume{
+			Name: testVol,
+		}
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		vols := pod.Spec.Volumes
+		Ω(len(vols)).Should(Equal(1))
+		Ω(vols[0].Name).Should(Equal(testVol))
+		cnts := pod.Spec.InitContainers
+		Ω(len(cnts)).Should(Equal(1))
+		volMounts := cnts[0].VolumeMounts
+		Ω(len(volMounts)).Should(Equal(1))
+		Ω(volMounts[0].Name).Should(Equal(testVol))
+
+		cnts = pod.Spec.Containers
+		Ω(len(cnts)).Should(Equal(1))
+		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeMainContainer))
+		volMounts = cnts[0].VolumeMounts
+		Ω(len(volMounts)).Should(Equal(1))
+		Ω(volMounts[0].Name).Should(Equal(testVol))
+	})
+
+	It("should add init cnts in vscr to scrutinize pod spec", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Spec.InitContainers = []v1.Container{
+			{Name: "init1"},
+			{Name: "init2"},
+		}
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		cnts := pod.Spec.InitContainers
+		Ω(len(cnts)).Should(Equal(3))
+		Ω(cnts[0].Name).Should(Equal(names.ScrutinizeInitContainer))
+		for i := range vscr.Spec.InitContainers {
+			Ω(cnts[i+1].Name).Should(Equal(vscr.Spec.InitContainers[i].Name))
+		}
+	})
+
+	It("should add annotations and labels in vscr spec to scrutinize pod", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Spec.Labels = map[string]string{
+			"label1": "val1",
+			"label2": "val2",
+		}
+		vscr.Spec.Annotations = map[string]string{
+			"ant1": "val3",
+			"ant2": "val4",
+		}
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta) {
+			Ω(objectMeta.Labels["label1"]).Should(Equal("val1"))
+			Ω(objectMeta.Labels["label2"]).Should(Equal("val2"))
+			Ω(objectMeta.Annotations["ant1"]).Should(Equal("val3"))
+			Ω(objectMeta.Annotations["ant2"]).Should(Equal("val4"))
+		}
+		verifyLabelsAnnotations(&pod.ObjectMeta)
+	})
+
+	It("should set some fields from vscr metadata annotations", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Annotations[vmeta.ScrutinizePodRestartPolicyAnnotation] = string(v1.RestartPolicyAlways)
+		vscr.Annotations[vmeta.ScrutinizePodTTLAnnotation] = "180"
+		vscr.Annotations[vmeta.ScrutinizeMainContainerImageAnnotation] = "alpine"
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+
+		Ω(pod.Spec.RestartPolicy).Should(Equal(v1.RestartPolicyAlways))
+		Ω(pod.Spec.Containers[0].Image).Should(Equal("alpine"))
+		cnt := pod.Spec.Containers[0]
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("180")))
+	})
+
+	It("should set scrutinize init container img and command from parameters", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		pod := BuildScrutinizePod(vscr, vdb, []string{
+			"--hosts", "h1,h2,h3",
+			"--db-name", "db",
+			"--db-user", "dbadmin",
+		})
+
+		cnt := pod.Spec.InitContainers[0]
+		Ω(cnt.Image).Should(Equal(vdb.Spec.Image))
+
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--db-name")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--db-user")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("h1,h2,h3")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("dbadmin")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("/opt/vertica/bin/vcluster")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("scrutinize")))
+	})
+
+	It("should not set any main container resources if none are set for the init container", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Spec.Resources = v1.ResourceRequirements{}
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		cnt := pod.Spec.Containers[0]
+		verifyNoResourcesSet(&cnt)
+	})
+
+	It("should set scrutinize main container resources if set in the init container", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsCPU)] = strconv.Itoa(cpuLimit)
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsMemory)] = fmt.Sprintf("%dGi", memLimit)
+		vscr.Spec.Resources = makeResources()
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		cnt := pod.Spec.Containers[0]
+		actual, _ := cnt.Resources.Limits.Cpu().AsInt64()
+		Ω(actual).Should(Equal(int64(cpuLimit)))
+		actual, _ = cnt.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = cnt.Resources.Limits.Memory().AsInt64()
+		Ω(actual).Should(Equal(int64(memLimit * 1024 * 1024 * 1024)))
+		actual, _ = cnt.Resources.Requests.Memory().AsInt64()
+		defQuantity = vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsMemory]
+		defVal, _ = defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+	})
+
+	It("should omit scrutinize main container resources if annotation is set without a value", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsCPU)] = ""
+		vscr.Annotations[vmeta.GenScrutinizeMainContainerResourcesAnnotationName(v1.ResourceLimitsMemory)] = ""
+		vscr.Spec.Resources = makeResources()
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		cnt := pod.Spec.Containers[0]
+		_, ok := cnt.Resources.Limits[v1.ResourceCPU]
+		Ω(ok).Should(BeFalse())
+		_, ok = cnt.Resources.Limits[v1.ResourceMemory]
+		Ω(ok).Should(BeFalse())
+		_, ok = cnt.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		_, ok = cnt.Resources.Requests[v1.ResourceCPU]
+		Ω(ok).Should(BeTrue())
+		actual, _ := cnt.Resources.Requests.Cpu().AsInt64()
+		defQuantity := vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsCPU]
+		defVal, _ := defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+		actual, _ = cnt.Resources.Requests.Memory().AsInt64()
+		defQuantity = vmeta.DefaultScrutinizeMainContainerResources[v1.ResourceRequestsMemory]
+		defVal, _ = defQuantity.AsInt64()
+		Ω(actual).Should(Equal(defVal))
+	})
+
+	It("should add passwd env var if vdb.Spec.PasswordSecret is non-empty", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		pod := BuildScrutinizePod(vscr, vdb, []string{})
+
+		cnt := pod.Spec.InitContainers[0]
+		l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
+		Ω(len(cnt.Env)).Should(Equal(l))
+		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
+
+		vdb.Spec.PasswordSecret = "passwd"
+		pod = BuildScrutinizePod(vscr, vdb, []string{})
+		cnt = pod.Spec.InitContainers[0]
+		Ω(len(cnt.Env)).Should(Equal(l + 2))
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
 	})
 
 	It("should only have separate mount paths for data, depot and catalog if they are different", func() {
@@ -404,14 +588,7 @@ var _ = Describe("builder", func() {
 		sc := &vdb.Spec.Subclusters[0]
 		sc.Resources = v1.ResourceRequirements{}
 		nma := makeNMAContainer(vdb, sc)
-		_, ok := nma.Resources.Limits[v1.ResourceCPU]
-		Ω(ok).Should(BeFalse())
-		_, ok = nma.Resources.Limits[v1.ResourceMemory]
-		Ω(ok).Should(BeFalse())
-		_, ok = nma.Resources.Requests[v1.ResourceCPU]
-		Ω(ok).Should(BeFalse())
-		_, ok = nma.Resources.Requests[v1.ResourceMemory]
-		Ω(ok).Should(BeFalse())
+		verifyNoResourcesSet(&nma)
 	})
 
 	It("should set NMA resources if forced too", func() {
@@ -441,16 +618,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = "8"
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = "1Gi"
 		sc := &vdb.Spec.Subclusters[0]
-		sc.Resources = v1.ResourceRequirements{
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("16"),
-				v1.ResourceMemory: resource.MustParse("32Gi"),
-			},
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("32"),
-				v1.ResourceMemory: resource.MustParse("64Gi"),
-			},
-		}
+		sc.Resources = makeResources()
 		nma := makeNMAContainer(vdb, sc)
 		actual, _ := nma.Resources.Limits.Cpu().AsInt64()
 		Ω(actual).Should(Equal(int64(8)))
@@ -471,16 +639,7 @@ var _ = Describe("builder", func() {
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsCPU)] = ""
 		vdb.Annotations[vmeta.GenNMAResourcesAnnotationName(v1.ResourceLimitsMemory)] = ""
 		sc := &vdb.Spec.Subclusters[0]
-		sc.Resources = v1.ResourceRequirements{
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("16"),
-				v1.ResourceMemory: resource.MustParse("32Gi"),
-			},
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("32"),
-				v1.ResourceMemory: resource.MustParse("64Gi"),
-			},
-		}
+		sc.Resources = makeResources()
 		nma := makeNMAContainer(vdb, sc)
 		_, ok := nma.Resources.Limits[v1.ResourceCPU]
 		Ω(ok).Should(BeFalse())
@@ -537,6 +696,14 @@ func makeVolumeMountNames(c *v1.Container) []string {
 		volNames = append(volNames, c.VolumeMounts[i].Name)
 	}
 	return volNames
+}
+
+func makeEnvVars(c *v1.Container) []string {
+	envVars := []string{}
+	for i := range c.Env {
+		envVars = append(envVars, c.Env[i].Name)
+	}
+	return envVars
 }
 
 func getPodInfoVolume(vols []v1.Volume) *v1.Volume {
@@ -606,4 +773,28 @@ func isPasswdIncludedInPodInfo(vdb *vapi.VerticaDB, podSpec *v1.PodSpec) bool {
 		}
 	}
 	return false
+}
+
+func makeResources() v1.ResourceRequirements {
+	return v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("16"),
+			v1.ResourceMemory: resource.MustParse("32Gi"),
+		},
+		Limits: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("32"),
+			v1.ResourceMemory: resource.MustParse("64Gi"),
+		},
+	}
+}
+
+func verifyNoResourcesSet(cnt *v1.Container) {
+	_, ok := cnt.Resources.Limits[v1.ResourceCPU]
+	Ω(ok).Should(BeFalse())
+	_, ok = cnt.Resources.Limits[v1.ResourceMemory]
+	Ω(ok).Should(BeFalse())
+	_, ok = cnt.Resources.Requests[v1.ResourceCPU]
+	Ω(ok).Should(BeFalse())
+	_, ok = cnt.Resources.Requests[v1.ResourceMemory]
+	Ω(ok).Should(BeFalse())
 }

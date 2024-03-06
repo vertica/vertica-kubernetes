@@ -64,12 +64,7 @@ var _ = Describe("annotations", func() {
 	})
 
 	It("should allow NMA sidecar resource to be overridden", func() {
-		ann := map[string]string{
-			GenNMAResourcesAnnotationName(corev1.ResourceLimitsMemory):   "800Mi",
-			GenNMAResourcesAnnotationName(corev1.ResourceRequestsMemory): "unparseable",
-			GenNMAResourcesAnnotationName(corev1.ResourceLimitsCPU):      "",
-			GenNMAResourcesAnnotationName(corev1.ResourceRequestsCPU):    "4",
-		}
+		ann := makeResourceAnnotations(GenNMAResourcesAnnotationName)
 		Ω(GetNMAResource(ann, corev1.ResourceLimitsMemory)).Should(Equal(resource.MustParse("800Mi")))
 		Ω(GetNMAResource(ann, corev1.ResourceRequestsMemory)).Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
 		Ω(GetNMAResource(ann, corev1.ResourceLimitsCPU)).Should(Equal(resource.Quantity{}))
@@ -92,4 +87,90 @@ var _ = Describe("annotations", func() {
 		_, ok = GetNMAHealthProbeOverride(ann, NMAHealthProbeStartup, NMAHealthProbeSuccessThreshold)
 		Ω(ok).Should(BeFalse())
 	})
+
+	It("should return the scrutinize pod ttl based on the annotations map", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ScrutinizePodTTLDefaultValue))
+
+		ann = map[string]string{
+			ScrutinizePodTTLAnnotation: "-1",
+		}
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ScrutinizePodTTLDefaultValue))
+
+		ann = map[string]string{
+			ScrutinizePodTTLAnnotation: "not a number",
+		}
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ScrutinizePodTTLDefaultValue))
+
+		const ttlStr = "180"
+		const ttl = 180
+		ann = map[string]string{
+			ScrutinizePodTTLAnnotation: ttlStr,
+		}
+		Ω(GetScrutinizePodTTL(ann)).Should(Equal(ttl))
+	})
+
+	It("should return the scrutinize pod restart policy based on the annotations map", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(string(corev1.RestartPolicyNever)))
+
+		ann = map[string]string{
+			ScrutinizePodRestartPolicyAnnotation: "wrong-policy",
+		}
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(string(corev1.RestartPolicyNever)))
+
+		ann = map[string]string{
+			ScrutinizePodRestartPolicyAnnotation: string(corev1.RestartPolicyAlways),
+		}
+		Ω(GetScrutinizePodRestartPolicy(ann)).Should(Equal(string(corev1.RestartPolicyAlways)))
+	})
+
+	It("should return scrutinize main container image based on the annotations map", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizeMainContainerImage(ann)).Should(Equal(ScrutinizeMainContainerImageDefaultValue))
+
+		ann = map[string]string{
+			ScrutinizeMainContainerImageAnnotation: "",
+		}
+		Ω(GetScrutinizeMainContainerImage(ann)).Should(Equal(ScrutinizeMainContainerImageDefaultValue))
+
+		const img = "busybox:latest"
+		ann = map[string]string{
+			ScrutinizeMainContainerImageAnnotation: img,
+		}
+		Ω(GetScrutinizeMainContainerImage(ann)).Should(Equal(img))
+	})
+
+	It("should return default scrutinize main container resources", func() {
+		ann := map[string]string{}
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsMemory)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceLimitsMemory]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsMemory)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceRequestsMemory]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsCPU)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceLimitsCPU]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsCPU)).
+			Should(Equal(DefaultScrutinizeMainContainerResources[corev1.ResourceRequestsCPU]))
+	})
+
+	It("should allow scrutinize main container resources to be overridden", func() {
+		ann := makeResourceAnnotations(GenScrutinizeMainContainerResourcesAnnotationName)
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsMemory)).
+			Should(Equal(resource.MustParse("800Mi")))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsMemory)).
+			Should(Equal(DefaultNMAResources[corev1.ResourceRequestsMemory]))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceLimitsCPU)).
+			Should(Equal(resource.Quantity{}))
+		Ω(GetScrutinizeMainContainerResource(ann, corev1.ResourceRequestsCPU)).
+			Should(Equal(resource.MustParse("4")))
+	})
 })
+
+func makeResourceAnnotations(fn func(resourceName corev1.ResourceName) string) map[string]string {
+	return map[string]string{
+		fn(corev1.ResourceLimitsMemory):   "800Mi",
+		fn(corev1.ResourceRequestsMemory): "unparseable",
+		fn(corev1.ResourceLimitsCPU):      "",
+		fn(corev1.ResourceRequestsCPU):    "4",
+	}
+}

@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -46,13 +47,13 @@ var _ = Describe("init_db", func() {
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec: vdbRec,
 				Log:  logger,
 				Vdb:  vdb,
 			},
 		}
-		Expect(g.getCommunalAuth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
+		Expect(g.GetCommunalAuth(ctx)).Should(Equal(fmt.Sprintf("%s:%s", testAccessKey, testSecretKey)))
 	})
 
 	It("should return s3 endpoint stripped of https/http", func() {
@@ -62,27 +63,27 @@ var _ = Describe("init_db", func() {
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec: vdbRec,
 				Log:  logger,
 				Vdb:  vdb,
 			},
 		}
 
-		Expect(g.getCommunalEndpoint()).Should(Equal("192.168.0.1"))
+		Expect(g.GetCommunalEndpoint()).Should(Equal("192.168.0.1"))
 
-		Expect(g.getEnableHTTPS()).Should(Equal("1"))
+		Expect(g.GetEnableHTTPS()).Should(Equal("1"))
 
 		vdb.Spec.Communal.Endpoint = "http://fqdn.example.com:8080"
 
-		Expect(g.getCommunalEndpoint()).Should(Equal("fqdn.example.com:8080"))
-		Expect(g.getEnableHTTPS()).Should(Equal("0"))
+		Expect(g.GetCommunalEndpoint()).Should(Equal("fqdn.example.com:8080"))
+		Expect(g.GetEnableHTTPS()).Should(Equal("0"))
 
 		vdb.Spec.Communal.Endpoint = "https://minio/"
-		Expect(g.getCommunalEndpoint()).Should(Equal("minio"))
+		Expect(g.GetCommunalEndpoint()).Should(Equal("minio"))
 
 		vdb.Spec.Communal.Endpoint = "https://minio:3000/"
-		Expect(g.getCommunalEndpoint()).Should(Equal("minio:3000"))
+		Expect(g.GetCommunalEndpoint()).Should(Equal("minio:3000"))
 	})
 
 	It("should fail to get host list if some pods not running", func() {
@@ -102,7 +103,7 @@ var _ = Describe("init_db", func() {
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
 			PFacts:  pfacts,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec: vdbRec,
 				Log:  logger,
 				Vdb:  vdb,
@@ -136,7 +137,7 @@ var _ = Describe("init_db", func() {
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Log:                 logger,
 				Vdb:                 vdb,
@@ -178,7 +179,7 @@ var _ = Describe("init_db", func() {
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Log:                 logger,
 				Vdb:                 vdb,
@@ -247,7 +248,7 @@ var _ = Describe("init_db", func() {
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Log:                 logger,
 				Vdb:                 vdb,
@@ -261,21 +262,21 @@ var _ = Describe("init_db", func() {
 	})
 
 	It("should return correct protocol when calling getEndpointProtocol", func() {
-		Expect(getEndpointProtocol("")).Should(Equal(cloud.AzureDefaultProtocol))
-		Expect(getEndpointProtocol("192.168.0.1")).Should(Equal(cloud.AzureDefaultProtocol))
-		Expect(getEndpointProtocol("accountname.mcr.net")).Should(Equal(cloud.AzureDefaultProtocol))
-		Expect(getEndpointProtocol("https://accountname.mcr.net")).Should(Equal(cloud.AzureDefaultProtocol))
-		Expect(getEndpointProtocol("http://accountname.mcr.net:300")).Should(Equal("HTTP"))
-		Expect(getEndpointProtocol("http://192.168.0.1")).Should(Equal("HTTP"))
+		Expect(config.GetEndpointProtocol("")).Should(Equal(cloud.AzureDefaultProtocol))
+		Expect(config.GetEndpointProtocol("192.168.0.1")).Should(Equal(cloud.AzureDefaultProtocol))
+		Expect(config.GetEndpointProtocol("accountname.mcr.net")).Should(Equal(cloud.AzureDefaultProtocol))
+		Expect(config.GetEndpointProtocol("https://accountname.mcr.net")).Should(Equal(cloud.AzureDefaultProtocol))
+		Expect(config.GetEndpointProtocol("http://accountname.mcr.net:300")).Should(Equal("HTTP"))
+		Expect(config.GetEndpointProtocol("http://192.168.0.1")).Should(Equal("HTTP"))
 	})
 
 	It("should return host/port without protocol when calling getEndpointHostPort", func() {
-		Expect(getEndpointHostPort("192.168.0.1")).Should(Equal("192.168.0.1"))
-		Expect(getEndpointHostPort("hostname:10000")).Should(Equal("hostname:10000"))
-		Expect(getEndpointHostPort("http://hostname")).Should(Equal("hostname"))
-		Expect(getEndpointHostPort("https://tlsHost:3000")).Should(Equal("tlsHost:3000"))
-		Expect(getEndpointHostPort("account@myhost")).Should(Equal("account@myhost"))
-		Expect(getEndpointHostPort("azb://account/container/db/")).Should(Equal("account/container/db"))
+		Expect(config.GetEndpointHostPort("192.168.0.1")).Should(Equal("192.168.0.1"))
+		Expect(config.GetEndpointHostPort("hostname:10000")).Should(Equal("hostname:10000"))
+		Expect(config.GetEndpointHostPort("http://hostname")).Should(Equal("hostname"))
+		Expect(config.GetEndpointHostPort("https://tlsHost:3000")).Should(Equal("tlsHost:3000"))
+		Expect(config.GetEndpointHostPort("account@myhost")).Should(Equal("account@myhost"))
+		Expect(config.GetEndpointHostPort("azb://account/container/db/")).Should(Equal("account/container/db"))
 
 	})
 
@@ -285,7 +286,7 @@ var _ = Describe("init_db", func() {
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption, SseAlgorithmAES256)
+		contructAuthParmsHelper(ctx, vdb, config.S3ServerSideEncryption, config.SseAlgorithmAES256)
 	})
 
 	It("should SSE-KMS server-side encryption in config parms map", func() {
@@ -294,7 +295,7 @@ var _ = Describe("init_db", func() {
 		createS3CredSecret(ctx, vdb)
 		defer deleteCommunalCredSecret(ctx, vdb)
 
-		contructAuthParmsHelper(ctx, vdb, S3ServerSideEncryption, SseAlgorithmAWSKMS)
+		contructAuthParmsHelper(ctx, vdb, config.S3ServerSideEncryption, config.SseAlgorithmAWSKMS)
 	})
 
 	It("should be able to read the sse-c clientkey from secret", func() {
@@ -307,17 +308,17 @@ var _ = Describe("init_db", func() {
 		fpr := &cmds.FakePodRunner{}
 		g := GenericDatabaseInitializer{
 			PRunner: fpr,
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Log:                 logger,
 				Vdb:                 vdb,
 				ConfigurationParams: types.MakeCiMap(),
 			},
 		}
-		res, err := g.setS3SseCustomerKey(ctx)
+		res, err := g.SetS3SseCustomerKey(ctx)
 		ExpectWithOffset(1, err).Should(Succeed())
 		ExpectWithOffset(1, res).Should(Equal(ctrl.Result{}))
-		Expect(g.ConfigurationParams.ContainKeyValuePair(S3SseCustomerKey, testClientKey)).Should(Equal(true))
+		Expect(g.ConfigurationParams.ContainKeyValuePair(config.S3SseCustomerKey, testClientKey)).Should(Equal(true))
 	})
 
 	It("should SSE-C server-side encryption in config parms map", func() {
@@ -329,7 +330,7 @@ var _ = Describe("init_db", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 		defer deleteS3SseCustomerKeySecret(ctx, vdb)
 
-		contructAuthParmsHelper(ctx, vdb, S3SseCustomerAlgorithm, SseAlgorithmAES256)
+		contructAuthParmsHelper(ctx, vdb, config.S3SseCustomerAlgorithm, config.SseAlgorithmAES256)
 	})
 
 	It("should include sseKmsKeyId when S3 server-side encryption is SSE-KMS", func() {
@@ -353,7 +354,7 @@ var _ = Describe("init_db", func() {
 		defer deleteCommunalCredSecret(ctx, vdb)
 
 		g := GenericDatabaseInitializer{
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Log:                 logger,
 				Vdb:                 vdb,
@@ -370,20 +371,20 @@ var _ = Describe("init_db", func() {
 		vdb := vapi.MakeVDB()
 
 		g := GenericDatabaseInitializer{
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				Vdb:                 vdb,
 				ConfigurationParams: types.MakeCiMap(),
 			},
 		}
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseS3
-		g.setServerSideEncryptionAlgorithm()
-		Expect(g.ConfigurationParams.ContainKeyValuePair(S3ServerSideEncryption, SseAlgorithmAES256)).Should(Equal(true))
+		g.SetServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(config.S3ServerSideEncryption, config.SseAlgorithmAES256)).Should(Equal(true))
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseKMS
-		g.setServerSideEncryptionAlgorithm()
-		Expect(g.ConfigurationParams.ContainKeyValuePair(S3ServerSideEncryption, SseAlgorithmAWSKMS)).Should(Equal(true))
+		g.SetServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(config.S3ServerSideEncryption, config.SseAlgorithmAWSKMS)).Should(Equal(true))
 		g.Vdb.Spec.Communal.S3ServerSideEncryption = vapi.SseC
-		g.setServerSideEncryptionAlgorithm()
-		Expect(g.ConfigurationParams.ContainKeyValuePair(S3SseCustomerAlgorithm, SseAlgorithmAES256)).Should(Equal(true))
+		g.SetServerSideEncryptionAlgorithm()
+		Expect(g.ConfigurationParams.ContainKeyValuePair(config.S3SseCustomerAlgorithm, config.SseAlgorithmAES256)).Should(Equal(true))
 	})
 
 	It("should add additional server config parms to config parms map", func() {
@@ -393,13 +394,13 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Vdb:                 vdb,
 				ConfigurationParams: types.MakeCiMap(),
 			},
 		}
-		g.setAdditionalConfigParms()
+		g.SetAdditionalConfigParms()
 		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "parm1")).Should(Equal(true))
 	})
 
@@ -411,7 +412,7 @@ var _ = Describe("init_db", func() {
 		}
 
 		g := GenericDatabaseInitializer{
-			ConfigParamsGenerator: ConfigParamsGenerator{
+			ConfigParamsGenerator: config.ConfigParamsGenerator{
 				VRec:                vdbRec,
 				Vdb:                 vdb,
 				Log:                 logger,
@@ -419,7 +420,7 @@ var _ = Describe("init_db", func() {
 			},
 		}
 		g.ConfigurationParams.Set("Parm1", "value")
-		g.setAdditionalConfigParms()
+		g.SetAdditionalConfigParms()
 		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm1", "value")).Should(Equal(true))
 		Expect(g.ConfigurationParams.ContainKeyValuePair("Parm2", "parm2")).Should(Equal(true))
 	})
@@ -448,7 +449,7 @@ func ContructAuthParmsMap(ctx context.Context, vdb *vapi.VerticaDB, key string) 
 
 func ConstructDBInitializer(ctx context.Context, vdb *vapi.VerticaDB) *GenericDatabaseInitializer {
 	g := &GenericDatabaseInitializer{
-		ConfigParamsGenerator: ConfigParamsGenerator{
+		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec:                vdbRec,
 			Log:                 logger,
 			Vdb:                 vdb,

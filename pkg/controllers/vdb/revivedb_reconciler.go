@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -35,8 +36,11 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -80,13 +84,20 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	// Check if restoring from a restore point is supported
+	if r.Vdb.IsRestoreEnabled() {
+		if err := r.hasCompatibleVersionForRestore(); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// The remaining revive_db logic is driven from GenericDatabaseInitializer.
 	// This exists to creation an abstraction that is common with create_db.
 	g := GenericDatabaseInitializer{
 		initializer: r,
 		PRunner:     r.PRunner,
 		PFacts:      r.PFacts,
-		ConfigParamsGenerator: ConfigParamsGenerator{
+		ConfigParamsGenerator: config.ConfigParamsGenerator{
 			VRec:                r.VRec,
 			Log:                 r.Log,
 			Vdb:                 r.Vdb,
@@ -94,6 +105,25 @@ func (r *ReviveDBReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ct
 		},
 	}
 	return g.checkAndRunInit(ctx)
+}
+
+func (r *ReviveDBReconciler) hasCompatibleVersionForRestore() error {
+	vinf, err := r.Vdb.MakeVersionInfoCheck()
+	if err != nil {
+		return err
+	}
+	if !vmeta.UseVClusterOps(r.Vdb.Annotations) || !vinf.IsEqualOrNewer(vapi.RestoreSupportedMinVersion) {
+		errMsg := fmt.Sprintf("restoring from a restore point is unsupported in ReviveDB "+
+			"given the current server version and deployment method, "+
+			"make sure that a server version equal to or above %s is used and deployment method is set to vcluster-ops",
+			vapi.RestoreSupportedMinVersion)
+		// Format the event message by capitalizing the first letter
+		caser := cases.Title(language.English)
+		eventMsg := caser.String(errMsg[:1]) + errMsg[1:]
+		r.VRec.Event(r.Vdb, corev1.EventTypeWarning, events.ReviveDBRestoreUnsupported, eventMsg)
+		return errors.New(errMsg)
+	}
+	return nil
 }
 
 // execCmd will do the actual execution of revive DB.
@@ -232,6 +262,9 @@ func (r *ReviveDBReconciler) genReviveOpts(initiatorPod types.NamespacedName,
 			revivedb.WithConfigurationParams(r.ConfigurationParams.GetMap()),
 		)
 	}
+	if r.Vdb.IsRestoreEnabled() {
+		opts = append(opts, revivedb.WithRestorePoint(r.Vdb.Spec.RestorePoint))
+	}
 	if r.Vdb.GetIgnoreClusterLease() {
 		opts = append(opts, revivedb.WithIgnoreClusterLease())
 	}
@@ -301,7 +334,7 @@ func (r *ReviveDBReconciler) runRevivePlanner(ctx context.Context, op string) (c
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		vdb := &vapi.VerticaDB{}
 		if retryErr := r.VRec.Client.Get(ctx, nm, vdb); retryErr != nil {
-			if errors.IsNotFound(retryErr) {
+			if apierrors.IsNotFound(retryErr) {
 				r.Log.Info("VerticaDB resource not found. Ignoring since object must be deleted")
 				return nil
 			}

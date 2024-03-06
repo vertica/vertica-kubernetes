@@ -114,7 +114,7 @@ function captureScrutinizeForVDB {
     then
         scrutinizeForAdmintools $ns $v $pod
     else
-        scrutinizeForVClusterOps $ns $v $pod
+        scrutinizeForVClusterOps $ns $v
     fi
 }
 
@@ -144,52 +144,44 @@ function scrutinizeForAdmintools() {
 function scrutinizeForVClusterOps() {
     ns=$1
     v=$2
-    pod=$3
+    scrut_name=collect-scrutinize
 
     logInfo "VClusterOps deployment detected"
     set -o xtrace
-    mapfile -t host_list < <(kubectl get pods -n $ns --selector app.kubernetes.io/instance=$v -o jsonpath='{range .items[*]}{.status.podIP}{"\n"}{end}')
-    hosts=$(IFS=, ; echo "${host_list[*]}")
-    superuser_op=$(kubectl get vdb -n $ns $v -o jsonpath='{.metadata.annotations.vertica\.com/superuser-name}')
-    superuser=${superuser_op:-dbadmin}
-    password_secret=$(kubectl get vdb -n $ns $v -o jsonpath='{.spec.passwordSecret}')
-    if [[ -n "$password_secret" ]]
-    then
-        password=$(kubectl get secret -n $ns $password_secret -o jsonpath='{.data.password}' | base64 -d)
-    else
-        password=""
-    fi
-    set +o xtrace
     logInfo "Running scrutinize"
-    # The output file is displayed in the output. We don't have an
-    # option to control the name of the file so we must extract it from
-    # the output and rename it.
-    set -o xtrace
-    scrut_out=$(kubectl exec -t -n $ns $pod -- bash -c "VERBOSE_OUTPUT=yes /opt/vertica/bin/vcluster \
-        scrutinize \
-        --hosts=$hosts \
-        --db-user=$superuser")
-    set +o xtrace
+    cat <<EOF | kubectl create -f -
+    apiVersion: vertica.com/v1beta1
+    kind: VerticaScrutinize
+    metadata:
+      name: $scrut_name
+      namespace: $ns
+    spec:
+      verticaDBName: $v
+EOF
+    kubectl wait --for=condition=ScrutinizeCollectionFinished=True -n $ns vscr/$scrut_name --timeout=600s
+    kubectl -n $ns get vscr $scrut_name -o jsonpath='{.status.conditions[*].reason}' | grep -q VclusterOpsScrutinizeSucceeded
     scrut_res=$?
     if [[ -n $EXIT_ON_ERROR && $scrut_res -ne 0 ]]
     then
         logError "*** Scrutinize failed"
         exit 1
     fi
-    scrutinizeTmp=/tmp/scrutinize
-    regex="Scrutinize final result at $scrutinizeTmp/(.+\.tar)"
-    if [[ $scrut_out =~ $regex ]]
-    then
-        tarFile=${BASH_REMATCH[1]}
-        logAndRunCommand kubectl cp -n $ns $pod:$scrutinizeTmp/$tarFile $HOST_OP_DIR/$tarFile
-        mv $HOST_OP_DIR/$tarFile $HOST_OP_DIR/$ns.$v.scrutinize.tar
-    else
-        logError "Could not find location of scrutinize file"
+    # we must for the scrutinize main container to be ready
+    kubectl wait --for=condition=ready=True -n $ns pod/$scrut_name --timeout=600s
+    tarFile=$(kubectl -n $ns get vscr $scrut_name -o json | jq -r '.status.tarballName')
+    if [ -z "$tarFile" ]; then
+        logError "Could not find scrutinize file name from vscr status"
         if [[ -n $EXIT_ON_ERROR ]]
         then
             exit 1
         fi
     fi
+    logAndRunCommand kubectl cp -n $ns $scrut_name:$tarFile $HOST_OP_DIR/$tarFile
+    # We don't have an option to control the name of the file so we rename it.
+    mv $HOST_OP_DIR/$tarFile $HOST_OP_DIR/$ns.$v.scrutinize.tar
+
+    # clean up
+    kubectl -n $ns delete vscr $scrut_name
 }
 
 captureK8sObjects

@@ -31,6 +31,8 @@ const (
 	ReviveDBNotFound                = "ReviveDBNotFound"
 	ReviveDBPermissionDenied        = "ReviveDBPermissionDenied"
 	ReviveDBNodeCountMismatch       = "ReviveDBNodeCountMismatch"
+	ReviveDBRestoreUnsupported      = "ReviveDBRestoreUnsupported"
+	ReviveDBRestorePointNotFound    = "ReviveDBRestorePointNotFound"
 	ReviveOrderBad                  = "ReviveOrderBad"
 	ObjectNotFound                  = "ObjectNotFound"
 	CommunalCredsWrongKey           = "CommunalCredsWrongKey" //nolint:gosec
@@ -49,6 +51,11 @@ const (
 	NodeRestartFailed               = "NodeRestartFailed"
 	ClusterRestartStarted           = "ClusterRestartStarted"
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
+	ShowRestorePointsStarted        = "ShowRestorePointsStarted"
+	ShowRestorePointsFailed         = "ShowRestorePointsFailed"
+	RestoreNotSupported             = "RestoreNotSupported"
+	AdmintoolsNotSupported          = "AdmintoolsNotSupported"
+	ShowRestorePointsSucceeded      = "ShowRestorePointsSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
 	SubclusterRemoved               = "SubclusterRemoved"
@@ -95,4 +102,13 @@ const (
 	SubclusterServiceNameNotFound = "SubclusterServiceNameNotFound"
 	VerticaDBNotFound             = "VerticaDBNotFound"
 	NoSubclusterTemplate          = "NoSubclusterTemplate"
+)
+
+// Constants for VerticaScrutinize reconciler
+const (
+	VclusterOpsDisabled               = "VclusterOpsDisabled"
+	VerticaVersionNotFound            = "VerticaVersionNotFound"
+	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
+	VclusterOpsScrutinizeSucceeded    = "VclusterOpsScrutinizeSucceeded"
+	VclusterOpsScrutinizeFailed       = "VclusterOpsScrutinizeFailed"
 )

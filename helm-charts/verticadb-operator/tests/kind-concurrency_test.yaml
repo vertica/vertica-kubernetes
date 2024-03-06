@@ -8,6 +8,8 @@ tests:
         verticadb: 8
         verticaautoscaler: 2
         eventtrigger: 3
+        verticarestorepointsquery: 7
+        verticascrutinize: 5
     asserts:
       - equal:
           path: data.CONCURRENCY_VERTICADB
@@ -18,3 +20,9 @@ tests:
       - equal:
           path: data.CONCURRENCY_EVENTTRIGGER
           value: "3"
+      - equal:
+          path: data.CONCURRENCY_VERTICARESTOREPOINTSQUERY
+          value: "7"
+      - equal:
+          path: data.CONCURRENCY_VERTICASCRUTINIZE
+          value: "5"

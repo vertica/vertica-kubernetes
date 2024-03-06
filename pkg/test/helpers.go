@@ -163,6 +163,14 @@ func SetPodStatus(ctx context.Context, c client.Client, funcOffset int, podName 
 	setPodStatusHelper(ctx, c, funcOffset, podName, scIndex, podIndex, podRunningState, false)
 }
 
+func SetPodContainerStatus(ctx context.Context, c client.Client, podName types.NamespacedName,
+	cntStatuses []corev1.ContainerStatus) {
+	pod := &corev1.Pod{}
+	ExpectWithOffset(1, c.Get(ctx, podName, pod)).Should(Succeed())
+	pod.Status.ContainerStatuses = cntStatuses
+	ExpectWithOffset(1, c.Status().Update(ctx, pod))
+}
+
 func DeletePods(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	for i := range vdb.Spec.Subclusters {
 		sc := &vdb.Spec.Subclusters[i]

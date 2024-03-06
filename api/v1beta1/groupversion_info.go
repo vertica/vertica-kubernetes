@@ -27,9 +27,11 @@ const (
 	Group   = "vertica.com"
 	Version = "v1beta1"
 
-	VerticaDBKind         = "VerticaDB"
-	VerticaAutoscalerKind = "VerticaAutoscaler"
-	EventTriggerKind      = "EventTrigger"
+	VerticaDBKind          = "VerticaDB"
+	VerticaAutoscalerKind  = "VerticaAutoscaler"
+	EventTriggerKind       = "EventTrigger"
+	RestorePointsQueryKind = "VerticaRestorePointsQuery"
+	VerticaScrutinizeKind  = "VerticaScrutinize"
 )
 
 var (
@@ -43,7 +45,9 @@ var (
 	AddToScheme = SchemeBuilder.AddToScheme
 
 	// All supported group/kind by this operator
-	GkVDB = schema.GroupKind{Group: Group, Kind: VerticaDBKind}
-	GkVAS = schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}
-	GkET  = schema.GroupKind{Group: Group, Kind: EventTriggerKind}
+	GkVDB  = schema.GroupKind{Group: Group, Kind: VerticaDBKind}
+	GkVAS  = schema.GroupKind{Group: Group, Kind: VerticaAutoscalerKind}
+	GkET   = schema.GroupKind{Group: Group, Kind: EventTriggerKind}
+	GkVRPQ = schema.GroupKind{Group: Group, Kind: RestorePointsQueryKind}
+	GkVSCR = schema.GroupKind{Group: Group, Kind: VerticaScrutinizeKind}
 )

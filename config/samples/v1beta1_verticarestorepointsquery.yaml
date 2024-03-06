@@ -1,0 +1,16 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaRestorePointsQuery
+metadata:
+  labels:
+    app.kubernetes.io/name: verticarestorepointsquery
+    app.kubernetes.io/instance: verticarestorepointsquery-sample
+    app.kubernetes.io/part-of: verticadb-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: verticadb-operator
+  name: verticarestorepointsquery-sample
+spec:
+  verticaDBName: verticadb-sample
+  filterOptions:
+    archiveName: archive-name-sample
+    startTimestamp: "2006-01-02 15:04:05"
+    endTimestamp: "2006-01-02 15:04:05"

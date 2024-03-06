@@ -21,7 +21,10 @@ import (
 	. "github.com/onsi/gomega" //nolint:revive,stylecheck
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,4 +56,28 @@ func CreateVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 
 func DeleteVDB(ctx context.Context, c client.Client, vdb *vapi.VerticaDB) {
 	ExpectWithOffset(1, c.Delete(ctx, vdb)).Should(Succeed())
+}
+
+func CreateVSCR(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize) {
+	ExpectWithOffset(1, c.Create(ctx, vscr)).Should(Succeed())
+}
+
+func DeleteVSCR(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize) {
+	ExpectWithOffset(1, c.Delete(ctx, vscr)).Should(Succeed())
+}
+
+func CreateScrutinizePod(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize) {
+	vdb := v1vapi.MakeVDB()
+	pod := builder.BuildScrutinizePod(vscr, vdb, []string{
+		"--tarball-name", "test",
+	})
+	ExpectWithOffset(1, c.Create(ctx, pod)).Should(Succeed())
+}
+
+func DeleteScrutinizePod(ctx context.Context, c client.Client, vscr *vapi.VerticaScrutinize) {
+	pod := &corev1.Pod{}
+	err := c.Get(ctx, vscr.ExtractNamespacedName(), pod)
+	if !kerrors.IsNotFound(err) {
+		ExpectWithOffset(1, c.Delete(ctx, pod)).Should(Succeed())
+	}
 }

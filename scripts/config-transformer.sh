@@ -29,9 +29,7 @@ CRD_DIR=$OPERATOR_CHART/crds
 
 rm $TEMPLATE_DIR/*yaml 2>/dev/null || true
 $KUSTOMIZE build $REPO_DIR/config/default | $KUBERNETES_SPLIT_YAML --outdir $TEMPLATE_DIR -
-mv $TEMPLATE_DIR/verticadbs.vertica.com-crd.yaml $CRD_DIR
-mv $TEMPLATE_DIR/verticaautoscalers.vertica.com-crd.yaml $CRD_DIR
-mv $TEMPLATE_DIR/eventtriggers.vertica.com-crd.yaml $CRD_DIR
+mv $TEMPLATE_DIR/*-crd.yaml $CRD_DIR
 
 # Delete openshift clusterRole and clusterRoleBinding files
 rm $TEMPLATE_DIR/verticadb-operator-openshift-cluster-role-cr.yaml 

@@ -147,6 +147,18 @@ func GetEventTriggerConcurrency() int {
 	return lookupIntEnvVar("CONCURRENCY_EVENTTRIGGER", envMustExist)
 }
 
+// GetVerticaRestorePointsQueryConcurrency returns the number of goroutines that
+// will service VerticaRestorePointsQuery CRs.
+func GetVerticaRestorePointsQueryConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_VERTICARESTOREPOINTSQUERY", envMustExist)
+}
+
+// GetVerticaScrutinizeConcurrency returns the number of goroutines that will
+// service VerticaScrutinize CRs.
+func GetVerticaScrutinizeConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_VERTICASCRUTINIZE", envMustExist)
+}
+
 // GetPrefixName returns the common prefix for all objects used to deploy the
 // operator.
 func GetPrefixName() string {

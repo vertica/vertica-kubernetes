@@ -13,9 +13,16 @@
  limitations under the License.
 */
 
-package builder
+package vadmin
 
-const (
-	// The name of the key in the superuser password secret that holds the password
-	SuperuserPasswordKey = "password"
+import (
+	"context"
+	"errors"
+
+	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 )
+
+func (a *Admintools) ShowRestorePoints(_ context.Context, _ ...showrestorepoints.Option) ([]vops.RestorePoint, error) {
+	return nil, errors.New("ShowRestorePoints is not supported for admintools deployments")
+}

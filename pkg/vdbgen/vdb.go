@@ -32,9 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 )
@@ -743,7 +743,7 @@ func (d *DBGenerator) setPasswordSecret(_ context.Context) error {
 	d.Objs.SuperuserPasswordSecret.TypeMeta.Kind = SecretKindName
 	d.Objs.SuperuserPasswordSecret.ObjectMeta.Name = fmt.Sprintf("%s-su-passwd", d.Opts.VdbName)
 	d.Objs.Vdb.Spec.PasswordSecret = d.Objs.SuperuserPasswordSecret.ObjectMeta.Name
-	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{builder.SuperuserPasswordKey: []byte(d.Opts.Password)}
+	d.Objs.SuperuserPasswordSecret.Data = map[string][]byte{names.SuperuserPasswordKey: []byte(d.Opts.Password)}
 
 	return nil
 }

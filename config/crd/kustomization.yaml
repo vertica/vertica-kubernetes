@@ -5,6 +5,8 @@ resources:
   - bases/vertica.com_verticadbs.yaml
   - bases/vertica.com_verticaautoscalers.yaml
   - bases/vertica.com_eventtriggers.yaml
+  - bases/vertica.com_verticarestorepointsqueries.yaml
+  - bases/vertica.com_verticascrutinizers.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
@@ -12,6 +14,8 @@ patchesStrategicMerge:
   - patches/webhook_in_verticadbs.yaml
   - patches/webhook_in_verticaautoscalers.yaml
   - patches/webhook_in_eventtriggers.yaml
+  - patches/webhook_in_verticarestorepointsqueries.yaml
+  - patches/webhook_in_verticascrutinizers.yaml
   #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
   # [CERTMANAGER] there was an optional patch to include an annotation that

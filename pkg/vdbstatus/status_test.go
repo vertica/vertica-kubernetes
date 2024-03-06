@@ -17,7 +17,6 @@ package vdbstatus
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -25,8 +24,8 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	gtypes "github.com/onsi/gomega/types"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -74,41 +73,6 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "vdbstatus Suite")
 }
 
-// EqualVerticaDBCondition is a custom matcher to use for VerticaDBCondition
-// that doesn't compare the LastTransitionTime
-func EqualVerticaDBCondition(expected interface{}) gtypes.GomegaMatcher {
-	return &representVerticaDBCondition{
-		expected: expected,
-	}
-}
-
-type representVerticaDBCondition struct {
-	expected interface{}
-}
-
-func (matcher *representVerticaDBCondition) Match(actual interface{}) (success bool, err error) {
-	response, ok := actual.(metav1.Condition)
-	if !ok {
-		return false, fmt.Errorf("RepresentVerticaDBCondition matcher expects a vapi.VerticaDBCondition")
-	}
-
-	expectedObj, ok := matcher.expected.(metav1.Condition)
-	if !ok {
-		return false, fmt.Errorf("RepresentVerticaDBCondition should compare with a metav1.Condition")
-	}
-
-	// Compare everything except lastTransitionTime
-	return response.Type == expectedObj.Type && response.Status == expectedObj.Status, nil
-}
-
-func (matcher *representVerticaDBCondition) FailureMessage(actual interface{}) (message string) {
-	return fmt.Sprintf("Expected\n\t%#v\nto equal\n\t%#v", actual, matcher.expected)
-}
-
-func (matcher *representVerticaDBCondition) NegatedFailureMessage(actual interface{}) (message string) {
-	return fmt.Sprintf("Expected\n\t%#v\nto not equal\n\t%#v", actual, matcher.expected)
-}
-
 var _ = Describe("status", func() {
 	ctx := context.Background()
 
@@ -124,7 +88,7 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 			Expect(len(v.Status.Conditions)).Should(Equal(1))
-			Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(*cond))
+			Expect(v.Status.Conditions[0]).Should(test.EqualMetaV1Condition(*cond))
 		}
 	})
 
@@ -145,7 +109,7 @@ var _ = Describe("status", func() {
 			Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 			for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 				Expect(len(v.Status.Conditions)).Should(Equal(1))
-				Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(conds[i]))
+				Expect(v.Status.Conditions[0]).Should(test.EqualMetaV1Condition(conds[i]))
 			}
 		}
 	})
@@ -170,8 +134,8 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
 			Expect(len(v.Status.Conditions)).Should(Equal(2))
-			Expect(v.Status.Conditions[0]).Should(EqualVerticaDBCondition(conds[0]))
-			Expect(v.Status.Conditions[1]).Should(EqualVerticaDBCondition(conds[2]))
+			Expect(v.Status.Conditions[0]).Should(test.EqualMetaV1Condition(conds[0]))
+			Expect(v.Status.Conditions[1]).Should(test.EqualMetaV1Condition(conds[2]))
 		}
 	})
 

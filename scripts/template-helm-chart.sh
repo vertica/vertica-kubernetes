@@ -186,6 +186,8 @@ do
     perl -i -0777 -pe 's/(CONCURRENCY_VERTICADB: ).*/$1\{\{ .Values.reconcileConcurrency.verticadb | quote \}\}/g' $f
     perl -i -0777 -pe 's/(CONCURRENCY_VERTICAAUTOSCALER: ).*/$1\{\{ .Values.reconcileConcurrency.verticaautoscaler | quote \}\}/g' $f
     perl -i -0777 -pe 's/(CONCURRENCY_EVENTTRIGGER: ).*/$1\{\{ .Values.reconcileConcurrency.eventtrigger | quote \}\}/g' $f
+    perl -i -0777 -pe 's/(CONCURRENCY_VERTICARESTOREPOINTSQUERY: ).*/$1\{\{ .Values.reconcileConcurrency.verticarestorepointsquery | quote \}\}/g' $f
+    perl -i -0777 -pe 's/(CONCURRENCY_VERTICASCRUTINIZE: ).*/$1\{\{ .Values.reconcileConcurrency.verticascrutinize | quote \}\}/g' $f
 done
 
 # 20. Add permissions to manager ClusterRole to allow it to patch the CRD. This

@@ -1,0 +1,31 @@
+# (c) Copyright [2021-2024] Open Text.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  # VER-91323: Known issue for one-node database where restore points are not listed after restore
+  # - script: |-
+  #     result=$(kubectl exec -n $NAMESPACE v-revive-1-node-id-sc1-0 -- vsql -w superuser -tAc "SELECT COUNT(*) FROM archive_restore_points;")
+  #     echo "$result" | grep -Pzo "^2\n$" > /dev/null
+  #     if [ $? -ne 0 ]; then
+  #       echo "Assertion failed: expected 2, got $result"
+  #       exit 1
+  #     fi
+  - script: |-
+      result=$(kubectl exec -n $NAMESPACE v-revive-1-node-id-sc1-0 -- vsql -w superuser -tAc "SELECT * FROM public.test_table ORDER BY val;")
+      echo "$result" | grep -Pzo "^99\n$" > /dev/null
+      if [ $? -ne 0 ]; then
+        echo "Assertion failed: expected 99, got $result"
+        exit 1
+      fi

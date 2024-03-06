@@ -39,6 +39,7 @@ const (
 	HTTPTLSConfFile           = "/opt/vertica/config/https_certs/httpstls.json"
 	LogPath                   = "/opt/vertica/log"
 	ScrutinizeTmp             = "/tmp/scrutinize"
+	ScrutinizeLogFile         = "/tmp/scrutinize/vcluster.log"
 	PodInfoPath               = "/etc/podinfo"
 	AdminToolsConf            = "/opt/vertica/config/admintools.conf"
 	AuthParmsFile             = "/tmp/auth_parms.conf"

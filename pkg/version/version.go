@@ -30,10 +30,36 @@ type Info struct {
 	Components        // The same version as VdbVer but broken down into individual components
 }
 
+type ComparisonResult int
+
+const (
+	compareEqual   ComparisonResult = iota // CompareEqual represents the state where versions are equal
+	compareLarger                          // CompareLarger represents the state where the first version is larger
+	compareSmaller                         // CompareSmaller represents the state where the first version is smaller
+)
+
 // MakeInfoFromStr will construct an Info struct by parsing the version string
 func MakeInfoFromStr(curVer string) (*Info, bool) {
 	ma, mi, pa, ok := parseVersion(curVer)
 	return &Info{curVer, Components{ma, mi, pa}}, ok
+}
+
+func (i *Info) compareVersion(major, minor, patch int) ComparisonResult {
+	switch {
+	case i.VdbMajor > major:
+		return compareLarger
+	case i.VdbMajor < major:
+		return compareSmaller
+	case i.VdbMinor > minor:
+		return compareLarger
+	case i.VdbMinor < minor:
+		return compareSmaller
+	case i.VdbPatch > patch:
+		return compareLarger
+	case i.VdbPatch < patch:
+		return compareSmaller
+	}
+	return compareEqual
 }
 
 // MakeInfoFromStrCheck is like MakeInfoFromStr but returns an error
@@ -53,21 +79,8 @@ func (i *Info) IsEqualOrNewer(inVer string) bool {
 	if !ok {
 		panic(fmt.Sprintf("could not parse input version: %s", inVer))
 	}
-	switch {
-	case i.VdbMajor > inVerMajor:
-		return true
-	case i.VdbMajor < inVerMajor:
-		return false
-	case i.VdbMinor > inVerMinor:
-		return true
-	case i.VdbMinor < inVerMinor:
-		return false
-	case i.VdbPatch > inVerPatch:
-		return true
-	case i.VdbPatch < inVerPatch:
-		return false
-	}
-	return true
+	res := i.compareVersion(inVerMajor, inVerMinor, inVerPatch)
+	return res != compareSmaller
 }
 
 // IsOlder returns true if the version in info is older than the given version

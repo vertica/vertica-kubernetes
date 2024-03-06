@@ -16,6 +16,7 @@
 package revivedb
 
 import (
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -29,6 +30,7 @@ type Parms struct {
 	CommunalStorageParams string
 	ConfigurationParams   map[string]string
 	IgnoreClusterLease    bool
+	RestorePoint          *vapi.RestorePointPolicy
 }
 
 type Option func(*Parms)
@@ -85,5 +87,12 @@ func WithConfigurationParams(parms map[string]string) Option {
 func WithIgnoreClusterLease() Option {
 	return func(s *Parms) {
 		s.IgnoreClusterLease = true
+	}
+}
+
+// Assume restorePoint is not nil
+func WithRestorePoint(restorePoint *vapi.RestorePointPolicy) Option {
+	return func(s *Parms) {
+		s.RestorePoint = restorePoint
 	}
 }

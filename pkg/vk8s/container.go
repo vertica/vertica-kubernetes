@@ -35,6 +35,11 @@ func GetNMAContainer(cnts []corev1.Container) *corev1.Container {
 	return getNamedContainer(cnts, names.NMAContainer)
 }
 
+// GetScrutinizeInitContainer returns a pointer to the container that runs scrutinize
+func GetScrutinizeInitContainer(cnts []corev1.Container) *corev1.Container {
+	return getNamedContainer(cnts, names.ScrutinizeInitContainer)
+}
+
 func getNamedContainer(cnts []corev1.Container, cntName string) *corev1.Container {
 	for i := range cnts {
 		if cnts[i].Name == cntName {
@@ -56,19 +61,25 @@ func GetServerImage(cnts []corev1.Container) (string, error) {
 
 // FindNMAContainerStatus will return the status of the NMA container if available.
 func FindNMAContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
-	return findContainerStatus(pod, names.NMAContainer)
+	return findContainerStatus(pod.Status.ContainerStatuses, names.NMAContainer)
 }
 
 // FindNMAContainerStatus will return the status of the server container
 func FindServerContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
-	return findContainerStatus(pod, names.ServerContainer)
+	return findContainerStatus(pod.Status.ContainerStatuses, names.ServerContainer)
+}
+
+// FindScrutinizeInitContainerStatus will return the status of the scrutinize
+// init container
+func FindScrutinizeInitContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
+	return findContainerStatus(pod.Status.InitContainerStatuses, names.ScrutinizeInitContainer)
 }
 
 // findContainerStatus is a helper to return status for a named container
-func findContainerStatus(pod *corev1.Pod, containerName string) *corev1.ContainerStatus {
-	for i := range pod.Status.ContainerStatuses {
-		if pod.Status.ContainerStatuses[i].Name == containerName {
-			return &pod.Status.ContainerStatuses[i]
+func findContainerStatus(cntStatuses []corev1.ContainerStatus, containerName string) *corev1.ContainerStatus {
+	for i := range cntStatuses {
+		if cntStatuses[i].Name == containerName {
+			return &cntStatuses[i]
 		}
 	}
 	return nil
@@ -87,4 +98,14 @@ func HasCreateContainerError(containerStatus *corev1.ContainerStatus) bool {
 // sidecar container.
 func HasNMAContainer(podSpec *corev1.PodSpec) bool {
 	return GetNMAContainer(podSpec.Containers) != nil
+}
+
+// IsNMAContainerReady returns true if the NMA container has its status
+// in the given pod status and is in ready state
+func IsNMAContainerReady(pod *corev1.Pod) bool {
+	cntStatus := FindNMAContainerStatus(pod)
+	if cntStatus == nil {
+		return false
+	}
+	return cntStatus.Ready
 }
