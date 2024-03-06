@@ -1475,7 +1475,7 @@ func buildScrutinizeCmd(args []string, vdb *vapi.VerticaDB) []string {
 	cmd = append(cmd, args...)
 	// if there is no password, we need to explicitly
 	// set the password flag with empty string as value,
-	// to still assume password as the authorization method
+	// to still assume password as the authentication method
 	if vdb.Spec.PasswordSecret == "" {
 		cmd = append(cmd, "--password=")
 	}
