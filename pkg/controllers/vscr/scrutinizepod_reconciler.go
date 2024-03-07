@@ -111,7 +111,7 @@ func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.
 // createPod creates the scrutinize pod
 func (s *ScrutinizePodReconciler) createPod(ctx context.Context) error {
 	s.ScrArgs.tarballName = generateScrutinizeID()
-	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.ScrArgs.buildScrutinizeCmdArgs())
+	pod := builder.BuildScrutinizePod(s.Vscr, s.Vdb, s.ScrArgs.buildScrutinizeCmdArgs(s.Vdb))
 	s.Log.Info("Creating scrutinize pod", "Name", s.Vscr.ExtractNamespacedName())
 	err := ctrl.SetControllerReference(s.Vscr, pod, s.VRec.Scheme)
 	if err != nil {
@@ -146,13 +146,20 @@ func (s *ScrutinizePodReconciler) getHostList(pods []corev1.Pod) []string {
 }
 
 // buildScrutinizeCmdArgs returns the arguments of vcluster scrutinize command
-func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs() []string {
-	return []string{
+func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
+	cmd := []string{
 		"--db-user", s.username,
 		"--hosts", strings.Join(s.hosts, ","),
 		"--log-path", paths.ScrutinizeLogFile,
 		"--tarball-name", s.tarballName,
 	}
+	// if there is no password, we need to explicitly
+	// set the password flag with empty string as value,
+	// to still assume password as the authentication method
+	if vdb.Spec.PasswordSecret == "" {
+		cmd = append(cmd, "--password=")
+	}
+	return cmd
 }
 
 // generateScrutinizeID returns a string, with the format VerticaScrutinize.yyyymmddhhmmss,

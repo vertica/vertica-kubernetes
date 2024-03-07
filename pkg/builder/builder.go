@@ -839,7 +839,7 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 	cnt := corev1.Container{
 		Image:        vdb.Spec.Image,
 		Name:         names.ScrutinizeInitContainer,
-		Command:      buildScrutinizeCmd(args, vdb),
+		Command:      buildScrutinizeCmd(args),
 		VolumeMounts: buildScrutinizeVolumeMounts(vscr, vdb),
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
@@ -1467,18 +1467,12 @@ func buildNMACommand() []string {
 }
 
 // buildScrutinizeCmd returns the full vcluster scrutinize command
-func buildScrutinizeCmd(args []string, vdb *vapi.VerticaDB) []string {
+func buildScrutinizeCmd(args []string) []string {
 	cmd := []string{
 		"/opt/vertica/bin/vcluster",
 		"scrutinize",
 	}
 	cmd = append(cmd, args...)
-	// if there is no password, we need to explicitly
-	// set the password flag with empty string as value,
-	// to still assume password as the authentication method
-	if vdb.Spec.PasswordSecret == "" {
-		cmd = append(cmd, "--password=")
-	}
 	return cmd
 }
 
