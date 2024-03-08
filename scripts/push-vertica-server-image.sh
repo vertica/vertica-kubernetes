@@ -56,16 +56,20 @@ fi
 
 VERSION=${@:$OPTIND:1}
 
-PRIV_REPO=vertica
+PRIV_REPO=opentext
 PRIV_K8S_IMAGE=vertica-k8s-private
 PRIV_CE_IMAGE=vertica-ce-private
-PUB_REPO=vertica
+PRIV_KAFKA_REPO=docker-registry.verticacorp.com
+PRIV_KAFKA_IMAGE=vertica/release/kafka-scheduler
+PUB_REPO=opentext
 PUB_K8S_IMAGE=vertica-k8s
 PUB_CE_IMAGE=vertica-ce
+PUB_KAFKA_IMAGE=kafka-scheduler
 logInfo "Pulling from private repo"
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal
 logAndRunCommand docker pull $PRIV_REPO/$PRIV_CE_IMAGE:$VERSION
+logAndRunCommand docker pull $PRIV_KAFKA_REPO/$PRIV_KAFKA_IMAGE:$VERSION
 logInfo "Show vertica versions in the container"
 logAndRunCommand docker run --entrypoint /opt/vertica/bin/vertica $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION --version
 logAndRunCommand docker run --entrypoint /opt/vertica/bin/vertica $PRIV_REPO/$PRIV_K8S_IMAGE:$VERSION-minimal --version
@@ -83,6 +87,8 @@ then
     logAndRunCommand docker push $PUB_REPO/$PUB_K8S_IMAGE:latest
     logAndRunCommand docker push $PUB_REPO/$PUB_CE_IMAGE:$VERSION
     logAndRunCommand docker push $PUB_REPO/$PUB_CE_IMAGE:latest
+    # The kafka-scheduler image is a multi-arch container, so we can't simply retag and push.
+    logAndRunCommand docker buildx imagetools create -t $PUB_REPO/$PUB_KAFKA_IMAGE:$VERSION $PRIV_KAFKA_REPO/$PRIV_KAFKA_IMAGE:$VERSION
 else
     logWarning "Skipping the push to the public repo due to command line argument"
 fi
