@@ -526,8 +526,9 @@ func (g *ConfigParamsGenerator) setRegion(parmName string) {
 	// always check for the empty string.
 	if g.Vdb.Spec.Communal.Region == "" {
 		g.ConfigurationParams.Set(parmName, vapi.DefaultS3Region)
+	} else {
+		g.ConfigurationParams.Set(parmName, g.Vdb.Spec.Communal.Region)
 	}
-	g.ConfigurationParams.Set(parmName, g.Vdb.Spec.Communal.Region)
 }
 
 // GetEndpointProtocol returns the protocol (HTTPS or HTTP) for the given endpoint

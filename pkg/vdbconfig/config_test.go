@@ -84,4 +84,24 @@ var _ = Describe("config", func() {
 		g.SetEncryptSpreadCommConfigIfNecessary()
 		Expect(g.ConfigurationParams.Size()).Should(Equal(0))
 	})
+
+	It("should set default region if not set", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Communal.Region = "" // Clear the region
+		g := ConfigParamsGenerator{
+			VRec:                vdbRec,
+			Log:                 logger,
+			Vdb:                 vdb,
+			ConfigurationParams: types.MakeCiMap(),
+		}
+
+		Expect(g.Setup()).Should(Succeed())
+		g.setRegion(AWSRegionParm)
+		cp := g.GetConfigParms()
+		Expect(cp).ShouldNot(BeNil())
+		Expect(cp.GetValue(AWSRegionParm)).Should(Equal(vapi.DefaultS3Region))
+		vdb.Spec.Communal.Region = "us-west-1"
+		g.setRegion(AWSRegionParm)
+		Expect(cp.GetValue(AWSRegionParm)).Should(Equal(vdb.Spec.Communal.Region))
+	})
 })
