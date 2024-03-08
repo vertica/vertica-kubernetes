@@ -1,6 +1,0 @@
-kind: Fixed
-body: Surface event message when admintools deployment is selected with a v24.2.0
-  server
-time: 2024-02-20T19:10:10.854091939-04:00
-custom:
-  Issue: "714"

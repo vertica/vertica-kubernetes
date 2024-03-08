@@ -1,5 +1,0 @@
-kind: Added
-body: Allow namespace scoped operator deployment
-time: 2024-02-27T15:05:00.67819016-04:00
-custom:
-  Issue: "719"

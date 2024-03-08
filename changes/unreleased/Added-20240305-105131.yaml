@@ -1,5 +1,0 @@
-kind: Added
-body: New CRD, VerticaScrutinize, to run and collect scrutinize data for a VerticaDB
-time: 2024-03-05T10:51:31.258593778-04:00
-custom:
-  Issue: "728"

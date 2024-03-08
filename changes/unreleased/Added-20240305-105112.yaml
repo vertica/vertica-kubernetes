@@ -1,6 +1,0 @@
-kind: Added
-body: New CRD, VerticaRestorePointsQuery, that will show the restore points that exist
-  for the database
-time: 2024-03-05T10:51:12.978296295-04:00
-custom:
-  Issue: "728"

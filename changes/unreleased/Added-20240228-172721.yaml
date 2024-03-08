@@ -1,5 +1,0 @@
-kind: Added
-body: Experimental support to run the operator on arm64
-time: 2024-02-28T17:27:21.499827278-04:00
-custom:
-  Issue: "722"

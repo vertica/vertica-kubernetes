@@ -1,5 +1,0 @@
-kind: Added
-body: Ability to specify a restore point in the VerticaDB to revive from
-time: 2024-03-05T10:50:33.499163113-04:00
-custom:
-  Issue: "728"
