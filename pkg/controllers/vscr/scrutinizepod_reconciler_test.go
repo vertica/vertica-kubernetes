@@ -93,4 +93,21 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})
+
+	It("should append --password= to args if password is empty", func() {
+		vdb := v1.MakeVDB()
+		scrArgs := &ScrutinizeCmdArgs{
+			hosts:       []string{"h1"},
+			username:    "dbadmin",
+			tarballName: "file.tar",
+		}
+		args := scrArgs.buildScrutinizeCmdArgs(vdb)
+		Expect(len(args)).Should(Equal(9))
+		Expect(args).Should(ContainElement(ContainSubstring("--password=")))
+
+		vdb.Spec.PasswordSecret = "test-secret"
+		args = scrArgs.buildScrutinizeCmdArgs(vdb)
+		Expect(len(args)).Should(Equal(8))
+		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
+	})
 })

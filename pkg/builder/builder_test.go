@@ -203,7 +203,7 @@ var _ = Describe("builder", func() {
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--db-user")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("h1,h2,h3")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("dbadmin")))
-		Ω(cnt.Command).Should(ContainElement(ContainSubstring("--hosts")))
+		Ω(cnt.Command).Should(ContainElement(ContainSubstring("db")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("/opt/vertica/bin/vcluster")))
 		Ω(cnt.Command).Should(ContainElement(ContainSubstring("scrutinize")))
 	})
