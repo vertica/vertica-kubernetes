@@ -68,7 +68,7 @@ jobs:
     - name: Upload new image
       if: ${{ inputs.action == 'upload operator image' || inputs.action == 'all' }}
       run: |
-        docker buildx imagetools create --tag opentext/verticadb-operator:$tag ghcr.io/vertica/verticadb-operator:$VERSION_SHA
+        docker buildx imagetools create --tag opentext/verticadb-operator:$VERSION ghcr.io/vertica/verticadb-operator:$VERSION_SHA
 
     - name: Create the release on GitHub
       if: ${{ inputs.action == 'create github release' || inputs.action == 'all' }}

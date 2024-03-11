@@ -33,12 +33,12 @@ jobs:
 
     - name: Build Release yaml
       run: |
-        IMG_REPO=docker.io/vertica/ make config-transformer
+        IMG_REPO=docker.io/opentext/ make config-transformer
         ls -lhrt config/release-manifests
 
     - name: Build Bundle
       run: | 
-        IMG_REPO=docker.io/vertica/ DEPLOY_WITH=olm make bundle
+        IMG_REPO=docker.io/opentext/ DEPLOY_WITH=olm make bundle
         ls -lhrt
 
     - name: Package helm charts
