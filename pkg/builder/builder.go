@@ -170,6 +170,9 @@ func buildServerVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 	}
 	if vdb.IsNMASideCarDeploymentEnabled() {
 		volMnts = append(volMnts, buildStartupConfVolumeMount())
+		// the https service needs access to the staging dir that will
+		// be created under /tmp/scrutinize by NMA
+		volMnts = append(volMnts, buildScrutinizeVolumeMountForVerticaPod(vdb)...)
 	}
 	return volMnts
 }
@@ -384,7 +387,19 @@ func buildSSHVolumeMounts() []corev1.VolumeMount {
 // buildCommonNMAVolumeMounts builds some extra volume mounts that are
 // used with NMA
 func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
-	volMnts := []corev1.VolumeMount{
+	volMnts := buildScrutinizeVolumeMountForVerticaPod(vdb)
+	if vmeta.UseNMACertsMount(vdb.Annotations) &&
+		vdb.Spec.NMATLSSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
+		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
+	}
+	return volMnts
+}
+
+// buildScrutinizeVolumeMountForVerticaPod builds the volume mount
+// that will be used by the server and nma containers, for scrutinize
+func buildScrutinizeVolumeMountForVerticaPod(vdb *vapi.VerticaDB) []corev1.VolumeMount {
+	return []corev1.VolumeMount{
 		{
 			// Include a temp directory to be used by vcluster scrutinize. We want
 			// the temp directory to be large enough to store compressed logs and
@@ -396,12 +411,6 @@ func buildCommonNMAVolumeMounts(vdb *vapi.VerticaDB) []corev1.VolumeMount {
 			MountPath: paths.ScrutinizeTmp,
 		},
 	}
-	if vmeta.UseNMACertsMount(vdb.Annotations) &&
-		vdb.Spec.NMATLSSecret != "" &&
-		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
-		volMnts = append(volMnts, buildNMACertsVolumeMount()...)
-	}
-	return volMnts
 }
 
 func buildNMACertsVolumeMount() []corev1.VolumeMount {
