@@ -853,8 +853,8 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
-	cnt.Env = append(cnt.Env, buildNMATLSCertsEnvVars(vdb)...)
-	cnt.Env = append(cnt.Env, buildScrutinizeTarballEnvVar(tarballName))
+	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(vdb),
+		buildScrutinizeTarballEnvVar(tarballName))...)
 	if vdb.Spec.PasswordSecret != "" {
 		cnt.Env = append(cnt.Env, buildScrutinizeDBPasswordEnvVars(
 			names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))...)
