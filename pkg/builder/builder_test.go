@@ -151,6 +151,34 @@ var _ = Describe("builder", func() {
 		}
 	})
 
+	It("should have the tarball env var set in all of scrutinize containers", func() {
+		vscr := v1beta1.MakeVscr()
+		vdb := vapi.MakeVDB()
+		vscr.Spec.InitContainers = []v1.Container{
+			{Name: "init1"},
+			{Name: "init2"},
+		}
+		const tarballName = "test"
+		pod := BuildScrutinizePod(vscr, vdb, []string{
+			"--hosts", "h1,h2,h3",
+			"--db-name", "db",
+			"--tarball-name", tarballName,
+			"--db-user", "dbadmin",
+		})
+		cnts := pod.Spec.InitContainers
+		cnts = append(cnts, pod.Spec.Containers...)
+		Ω(len(cnts)).Should(Equal(4))
+		for i := range cnts {
+			Ω(cnts[i].Env).Should(ContainElement(WithTransform(func(e v1.EnvVar) string {
+				if e.Name == scrutinizeTarball &&
+					e.Value == getScrutinizeTarballFullPath(fmt.Sprintf("%s.tar", tarballName)) {
+					return e.Name
+				}
+				return ""
+			}, Equal(scrutinizeTarball))))
+		}
+	})
+
 	It("should add annotations and labels in vscr spec to scrutinize pod", func() {
 		vscr := v1beta1.MakeVscr()
 		vdb := vapi.MakeVDB()
@@ -272,6 +300,8 @@ var _ = Describe("builder", func() {
 
 		cnt := pod.Spec.InitContainers[0]
 		l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
+		// l+1 to take into account the tarball env var
+		l++
 		Ω(len(cnt.Env)).Should(Equal(l))
 		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
 		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))

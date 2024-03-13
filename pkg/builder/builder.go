@@ -87,6 +87,8 @@ const (
 	// from a secret
 	passwordSecretNamespaceEnv = "PASSWORD_SECRET_NAMESPACE"
 	passwordSecretNameEnv      = "PASSWORD_SECRET_NAME"
+	// The path to the scrutinize tarball
+	scrutinizeTarball = "SCRUTINIZE_TARBALL"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -331,8 +333,8 @@ func buildScrutinizeVolumeMounts(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 	return volMnts
 }
 
-// buildScrutinizeSharedVolumeMount returns the volume mount shared by the scrutinize
-// init container and the main container
+// buildScrutinizeSharedVolumeMount returns the volume mount shared by all scrutinize
+// containers
 func buildScrutinizeSharedVolumeMount(vscr *v1beta1.VerticaScrutinize) corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      getScrutinizeVolumeMountName(vscr),
@@ -752,12 +754,13 @@ func buildPodSpec(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.PodSpec {
 // buildScrutinizePodSpec creates a PodSpec for the scrutinize pod
 func buildScrutinizePodSpec(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, args []string) corev1.PodSpec {
 	termGracePeriod := int64(scrutinizeTermGracePeriod)
+	tarballName := GetTarballName(args)
 	return corev1.PodSpec{
 		NodeSelector:                  vscr.Spec.NodeSelector,
 		Affinity:                      GetK8sAffinity(vapi.Affinity(vscr.Spec.Affinity)),
 		Tolerations:                   vscr.Spec.Tolerations,
-		InitContainers:                makeScrutinizeInitContainers(vscr, vdb, args),
-		Containers:                    []corev1.Container{makeScrutinizeMainContainer(vscr)},
+		InitContainers:                makeScrutinizeInitContainers(vscr, vdb, args, tarballName),
+		Containers:                    []corev1.Container{makeScrutinizeMainContainer(vscr, tarballName)},
 		Volumes:                       buildScrutinizeVolumes(vscr, vdb),
 		TerminationGracePeriodSeconds: &termGracePeriod,
 		RestartPolicy:                 corev1.RestartPolicy(vmeta.GetScrutinizePodRestartPolicy(vscr.Annotations)),
@@ -780,10 +783,15 @@ func makeVerticaContainers(vdb *vapi.VerticaDB, sc *vapi.Subcluster) []corev1.Co
 // makeScrutinizeInitContainers creates a list of init container specs that will be
 // part of the scrutinize pod. The first container is the one that collects
 // scrutinize command
-func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, args []string) []corev1.Container {
-	cnts := []corev1.Container{}
-	cnts = append(cnts, makeScrutinizeInitContainer(vscr, vdb, args))
-	cnts = append(cnts, vscr.Spec.InitContainers...)
+func makeScrutinizeInitContainers(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB,
+	args []string, tarballName string) []corev1.Container {
+	cnts := []corev1.Container{makeScrutinizeInitContainer(vscr, vdb, args, tarballName)}
+	for i := range vscr.Spec.InitContainers {
+		c := vscr.Spec.InitContainers[i]
+		c.Env = append(c.Env, buildScrutinizeTarballEnvVar(tarballName))
+		c.VolumeMounts = append(c.VolumeMounts, buildScrutinizeSharedVolumeMount(vscr))
+		cnts = append(cnts, c)
+	}
 	return cnts
 }
 
@@ -844,7 +852,8 @@ func makeNMAContainer(vdb *vapi.VerticaDB, sc *vapi.Subcluster) corev1.Container
 
 // makeScrutinizeInitContainer builds the spec of the init container that collects
 // scrutinize command
-func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB, args []string) corev1.Container {
+func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB,
+	args []string, tarballName string) corev1.Container {
 	cnt := corev1.Container{
 		Image:        vdb.Spec.Image,
 		Name:         names.ScrutinizeInitContainer,
@@ -853,17 +862,18 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
-	cnt.Env = append(cnt.Env, buildNMATLSCertsEnvVars(vdb)...)
+	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(vdb),
+		buildScrutinizeTarballEnvVar(tarballName))...)
 	if vdb.Spec.PasswordSecret != "" {
-		env := buildScrutinizeEnvVars(names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))
-		cnt.Env = append(cnt.Env, env...)
+		cnt.Env = append(cnt.Env, buildScrutinizeDBPasswordEnvVars(
+			names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))...)
 	}
 	return cnt
 }
 
 // makeScrutinizeMainContainer builds the spec of the container that will
 // be running after all init containers are completed
-func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Container {
+func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize, tarballName string) corev1.Container {
 	return corev1.Container{
 		Image: vmeta.GetScrutinizeMainContainerImage(vscr.Annotations),
 		Name:  names.ScrutinizeMainContainer,
@@ -872,6 +882,7 @@ func makeScrutinizeMainContainer(vscr *v1beta1.VerticaScrutinize) corev1.Contain
 			"-c",
 			fmt.Sprintf("sleep %d", vmeta.GetScrutinizePodTTL(vscr.Annotations)),
 		},
+		Env:          []corev1.EnvVar{buildScrutinizeTarballEnvVar(tarballName)},
 		Resources:    buildScrutinizeMainContainerResources(vscr),
 		WorkingDir:   paths.ScrutinizeTmp,
 		VolumeMounts: []corev1.VolumeMount{buildScrutinizeSharedVolumeMount(vscr)},
@@ -1485,9 +1496,9 @@ func buildScrutinizeCmd(args []string) []string {
 	return cmd
 }
 
-// buildScrutinizeEnvVars returns environment variables that are needed
-// by vcluster scrutinize
-func buildScrutinizeEnvVars(nm types.NamespacedName) []corev1.EnvVar {
+// buildScrutinizeDBpasswordEnvVars returns environment variables that are needed
+// by scrutinize to read password from secret
+func buildScrutinizeDBPasswordEnvVars(nm types.NamespacedName) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{Name: passwordSecretNamespaceEnv, Value: nm.Namespace},
 		{Name: passwordSecretNameEnv, Value: nm.Name},
@@ -1533,6 +1544,19 @@ func buildCommonEnvVars(vdb *vapi.VerticaDB) []corev1.EnvVar {
 	}
 }
 
+// buildScrutinizeTarballEnvVar returns the environment variable about
+// the path to the scrutinize tarball
+func buildScrutinizeTarballEnvVar(tarballName string) corev1.EnvVar {
+	return corev1.EnvVar{
+		Name:  scrutinizeTarball,
+		Value: getScrutinizeTarballFullPath(tarballName),
+	}
+}
+
+func getScrutinizeTarballFullPath(tarballName string) string {
+	return fmt.Sprintf("%s/%s", paths.ScrutinizeTmp, tarballName)
+}
+
 func getScrutinizeVolumeMountName(vscr *v1beta1.VerticaScrutinize) string {
 	if vscr.Spec.Volume == nil {
 		return scrutinizeMountName
@@ -1558,4 +1582,15 @@ func GetK8sAffinity(a vapi.Affinity) *corev1.Affinity {
 		PodAffinity:     a.PodAffinity,
 		PodAntiAffinity: a.PodAntiAffinity,
 	}
+}
+
+// GetTarballName extracts the tarball name from a slice of strings
+// containing scutinize command arguments
+func GetTarballName(cmd []string) string {
+	for i := range cmd {
+		if cmd[i] == "--tarball-name" && i < len(cmd)-1 {
+			return fmt.Sprintf("%s.tar", cmd[i+1])
+		}
+	}
+	return ""
 }
