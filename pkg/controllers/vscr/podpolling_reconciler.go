@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
@@ -121,10 +122,5 @@ func getTarballName(pod *corev1.Pod) string {
 	if cnt == nil {
 		return ""
 	}
-	for i := range cnt.Command {
-		if cnt.Command[i] == "--tarball-name" && i < len(cnt.Command)-1 {
-			return fmt.Sprintf("%s.tar", cnt.Command[i+1])
-		}
-	}
-	return ""
+	return builder.GetTarballName(cnt.Command)
 }
