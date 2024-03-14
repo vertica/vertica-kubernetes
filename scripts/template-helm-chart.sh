@@ -95,7 +95,8 @@ for f in  \
     verticadb-operator-leader-election-rolebinding-rb.yaml \
     verticadb-operator-proxy-rolebinding-crb.yaml \
     verticadb-operator-metrics-reader-crb.yaml \
-    verticadb-operator-manager-clusterrolebinding-crb.yaml
+    verticadb-operator-manager-clusterrolebinding-crb.yaml \
+    verticadb-operator-webhook-config-crb.yaml
 do
     perl -i -0777 -pe 's/kind: ServiceAccount\n.*name: .*/kind: ServiceAccount\n  name: {{ include "vdb-op.serviceAccount" . }}/g' $TEMPLATE_DIR/$f
 done
