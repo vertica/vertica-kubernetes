@@ -1,5 +1,0 @@
-kind: Fixed
-body: Ensure proper service account for webhook rolebindings
-time: 2024-03-13T22:00:15.723292524-03:00
-custom:
-  Issue: "735"
