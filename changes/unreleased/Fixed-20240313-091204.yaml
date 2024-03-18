@@ -1,5 +1,0 @@
-kind: Fixed
-body: "Collect system table information when scrutinize is run"
-time: 2024-03-13T09:12:04.39662459-03:00
-custom:
-  Issue: "733"
