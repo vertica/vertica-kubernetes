@@ -11,4 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# No event to check if expansion is skipped
+apiVersion: v1
+kind: Service
+metadata:
+  name: vdb-label-ant-cluster1
+  annotations:
+    gitRef: abcd123
+    my-custom-annotation-1: "cluster1"
+    my-custom-annotation-2: "change-for-step-60"
+    my-custom-annotation-3: "manual-add"

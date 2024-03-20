@@ -84,8 +84,6 @@ const (
 	StopDBStart                     = "StopDBStart"
 	StopDBSucceeded                 = "StopDBSucceeded"
 	StopDBFailed                    = "StopDBFailed"
-	SkipPVCExpansion                = "SkipPVCExpansion"
-	SkipDepotResize                 = "SkipDepotResize"
 	DepotResized                    = "DepotResized"
 	MgmtFailed                      = "MgmtFailed"
 	MgmtFailedDiskFull              = "MgmtFailedDiskfull"
