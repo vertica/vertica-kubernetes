@@ -1,0 +1,5 @@
+kind: Fixed
+body: Resolved Service Annotation Loop Issue in ROSA Environment
+time: 2024-03-20T10:11:34.949980958-03:00
+custom:
+  Issue: "739"

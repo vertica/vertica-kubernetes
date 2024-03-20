@@ -69,7 +69,7 @@ func genInstallPackageStatus(stdout string) *vops.InstallPackageStatus {
 			continue
 		}
 		// "Installing package {p}..." message should be ignored
-		if !strings.Contains(line, "Installing package") {
+		if currPackageStatus != nil && !strings.Contains(line, "Installing package") {
 			currPackageStatus.InstallStatus = line
 		}
 	}

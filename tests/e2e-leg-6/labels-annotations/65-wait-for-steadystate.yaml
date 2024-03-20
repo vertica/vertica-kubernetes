@@ -11,4 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# No event to check if expansion is skipped
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: bash -c "../../../scripts/wait-for-verticadb-steady-state.sh -n verticadb-operator -t 360 $NAMESPACE"

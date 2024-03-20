@@ -18,7 +18,7 @@ package v1beta1_test
 import (
 	"context"
 
-	. "github.com/onsi/gomega" //nolint:revive,stylecheck
+	. "github.com/onsi/gomega" //nolint:stylecheck
 	v1vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"

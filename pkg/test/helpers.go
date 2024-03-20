@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/gomega" //nolint:revive,stylecheck
+	. "github.com/onsi/gomega" //nolint:stylecheck
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"

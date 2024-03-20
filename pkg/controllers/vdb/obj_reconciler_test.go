@@ -833,6 +833,28 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(sts.Annotations[testAnnotationName]).ShouldNot(Equal(testAnnotationVal))
 			Expect(sts.Spec.Template.Spec.Containers).Should(HaveLen(2))
 		})
+
+		It("should not remove manual annotations to service objects", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters[0].Size = 1
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			svc := &corev1.Service{}
+			svcNm := names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0])
+			Expect(k8sClient.Get(ctx, svcNm, svc)).Should(Succeed())
+			const manualAnnotationKey = "my-manual-annotation"
+			const manualAnnotationVal = "true"
+			svc.Annotations[manualAnnotationKey] = manualAnnotationVal
+			Expect(k8sClient.Update(ctx, svc)).Should(Succeed())
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+
+			Expect(k8sClient.Get(ctx, svcNm, svc)).Should(Succeed())
+			val, ok := svc.Annotations[manualAnnotationKey]
+			Expect(ok).Should(BeTrue())
+			Expect(val).Should(Equal(manualAnnotationVal))
+		})
 	})
 })
 

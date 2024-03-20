@@ -294,6 +294,17 @@ func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service
 		return o.createService(ctx, expSvc, svcName)
 	}
 
+	// Annotations are always additive. We never remove an annotation if it's
+	// not in expSvc. Since we don't know how an annotation was added, we can't
+	// guess if it should be removed. Platforms like OpenShift may add
+	// annotations via a webhook, so removing them could lead to them being
+	// added back automatically.
+	for k, v := range curSvc.Annotations {
+		if _, ok := expSvc.Annotations[k]; !ok {
+			expSvc.Annotations[k] = v
+		}
+	}
+
 	newSvc := reconcileFieldsFunc(curSvc, expSvc, sc)
 
 	if newSvc != nil {

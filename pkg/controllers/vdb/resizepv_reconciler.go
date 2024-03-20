@@ -137,9 +137,7 @@ func (r *ResizePVReconcile) updatePVC(ctx context.Context, pvc *corev1.Persisten
 	if err != nil {
 		k8sError, ok := err.(errors.APIStatus)
 		if ok && k8sError.Status().Reason == metav1.StatusReasonForbidden {
-			r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.SkipPVCExpansion,
-				"Skipping expansion of PVC '%s' because volume expansion is forbidden",
-				pvc.Name)
+			r.Log.Info("Skipping expansion of PVC because volume expansion is forbidden", "pvc", pvc.Name)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -152,9 +150,7 @@ func (r *ResizePVReconcile) updatePVC(ctx context.Context, pvc *corev1.Persisten
 func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
 	pf *PodFact) (ctrl.Result, error) {
 	if r.Vdb.IsDepotVolumeEmptyDir() {
-		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.SkipDepotResize,
-			"Skipping depot resize for pod '%s' because its volume is an emptyDir.",
-			pf.name.Name)
+		r.Log.Info("Skipping depot resize because its volume is an emptyDir", "pod", pf.name.Name)
 		return ctrl.Result{}, nil
 	}
 	if !pf.upNode {
@@ -162,9 +158,7 @@ func (r *ResizePVReconcile) updateDepotSize(ctx context.Context, pvc *corev1.Per
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if pf.depotDiskPercentSize == "" {
-		r.VRec.Eventf(r.Vdb, corev1.EventTypeWarning, events.SkipDepotResize,
-			"Skipping depot resize for pod '%s' because its size is fixed and not a percentage of the disk space.",
-			pf.name.Name)
+		r.Log.Info("Skipping depot resize because its size is fixed and not a percentage of the disk space.", "pod", pf.name.Name)
 		return ctrl.Result{}, nil
 	}
 	if !strings.HasSuffix(pf.depotDiskPercentSize, "%") {
