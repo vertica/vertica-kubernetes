@@ -294,11 +294,11 @@ func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service
 		return o.createService(ctx, expSvc, svcName)
 	}
 
-	// We reconcile annotations to include both new and existing entries. If an
-	// annotation is removed from the spec.subclusters[].serviceAnnotations
-	// field, it cannot be automatically removed due to potential ambiguity in
-	// how it was initially added. Certain cloud platforms may employ webhooks
-	// to automatically append their annotations.
+	// Annotations are always additive. We never remove an annotation if it's
+	// not in expSvc. Since we don't know how an annotation was added, we can't
+	// guess if it should be removed. Platforms like OpenShift may add
+	// annotations via a webhook, so removing them could lead to them being
+	// added back automatically.
 	for k, v := range curSvc.Annotations {
 		if _, ok := expSvc.Annotations[k]; !ok {
 			expSvc.Annotations[k] = v
