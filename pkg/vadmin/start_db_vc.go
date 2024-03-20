@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -69,10 +68,10 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	if len(opts.RawHosts) == 0 {
 		return vops.VStartDatabaseOptions{}, fmt.Errorf("hosts should not be empty %s", opts.RawHosts)
 	}
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
+	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 	opts.DBName = &v.VDB.Spec.DBName
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	opts.IsEon = v.VDB.IsEON()
 	opts.ConfigurationParameters = s.ConfigurationParams
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		*opts.StartUpConf = paths.StartupConfFile
@@ -90,7 +89,6 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	opts.CaCert = certs.CaCert
 	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	// timeout option
 	*opts.StatePollingTimeout = v.VDB.GetRestartTimeout()

@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -62,10 +61,9 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 	opts.DBName = &v.VDB.Spec.DBName
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 	opts.SCName = &s.Subcluster
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
-	*opts.HonorUserInput = true
 	*opts.ForceRemoval = true
 	*opts.SkipRebalanceShards = true
 	if v.VDB.IsNMASideCarDeploymentEnabled() {

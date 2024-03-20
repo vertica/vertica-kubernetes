@@ -49,7 +49,7 @@ func (v *VClusterOps) DescribeDB(ctx context.Context, opts ...describedb.Option)
 		ConfigurationParams:   s.ConfigurationParams,
 	}
 	vcOpts := v.genReviveDBOptions(&reviveParms, certs)
-	*vcOpts.DisplayOnly = true // Set flag to indicate we only want to see the cluster info
+	vcOpts.DisplayOnly = true // Set flag to indicate we only want to see the cluster info
 
 	op, _, err := v.VReviveDatabase(vcOpts)
 	if err != nil {
