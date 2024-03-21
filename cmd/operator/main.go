@@ -45,7 +45,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
-	"github.com/vertica/vertica-kubernetes/pkg/controllers/vr"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrep"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrpq"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vscr"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -135,7 +135,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaScrutinize")
 		os.Exit(1)
 	}
-	if err := (&vr.VerticaReplicatorReconciler{
+	if err := (&vrep.VerticaReplicatorReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
