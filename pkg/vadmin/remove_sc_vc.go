@@ -21,7 +21,6 @@ import (
 
 	"github.com/vertica/vcluster/rfc7807"
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
 )
@@ -65,10 +64,9 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.SubclusterToRemove = &s.Subcluster
 
-	*opts.HonorUserInput = true
 	opts.RawHosts = []string{s.InitiatorIP}
 	v.Log.Info("Setup remove subcluster options", "hosts", opts.RawHosts[0])
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
 	*opts.ForceDelete = true
 

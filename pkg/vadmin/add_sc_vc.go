@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 )
@@ -51,17 +50,16 @@ func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms) vops.VAddSubcluste
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup add subcluster options", "hosts", opts.RawHosts[0])
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	opts.SCName = &s.Subcluster
 	opts.DBName = &v.VDB.Spec.DBName
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	opts.IsEon = v.VDB.IsEON()
 	opts.IsPrimary = &s.IsPrimary
 
 	// auth options
 	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	return opts
 }

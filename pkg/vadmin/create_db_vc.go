@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
@@ -78,7 +77,7 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	opts.RawHosts = s.Hosts
 	v.Log.Info("Setup create db options", "hosts", strings.Join(s.Hosts, ","))
 	if len(opts.RawHosts) > 0 {
-		opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
+		opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
 	}
 	opts.CatalogPrefix = &s.CatalogPath
 	opts.DBName = &s.DBName
