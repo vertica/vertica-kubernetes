@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 )
@@ -53,10 +52,9 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 	opts.DBName = &v.VDB.Spec.DBName
 
 	opts.RawHosts = []string{s.InitiatorIP}
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
-	*opts.HonorUserInput = true
 
 	if v.VDB.Spec.Communal.Path != "" {
 		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath

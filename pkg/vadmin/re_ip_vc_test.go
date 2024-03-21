@@ -47,7 +47,7 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 	}
 
 	// verify eon options
-	if options.IsEon.ToBool() != TestIsEon {
+	if options.IsEon != TestIsEon {
 		return fmt.Errorf("failed to retrieve eon mode")
 	}
 	return m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)

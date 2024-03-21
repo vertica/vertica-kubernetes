@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,12 +58,11 @@ func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms) vops.VFe
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
 	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	return opts
 }
