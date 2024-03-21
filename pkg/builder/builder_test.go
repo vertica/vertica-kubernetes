@@ -294,24 +294,25 @@ var _ = Describe("builder", func() {
 	})
 
 	It("should add passwd env var if vdb.Spec.PasswordSecret is non-empty", func() {
-		vscr := v1beta1.MakeVscr()
-		vdb := vapi.MakeVDB()
-		pod := BuildScrutinizePod(vscr, vdb, []string{})
+		// should not set password env vars when password
+		// is empty
+		verifyScrutinizePasswordEnvVars("", 0, false)
 
-		cnt := pod.Spec.InitContainers[0]
-		l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
-		// l+1 to take into account the tarball env var
-		l++
-		Ω(len(cnt.Env)).Should(Equal(l))
-		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
-		Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
+		// should not set password env vars when secret is on k8s
+		verifyScrutinizePasswordEnvVars("passwd", 0, false)
 
-		vdb.Spec.PasswordSecret = "passwd"
-		pod = BuildScrutinizePod(vscr, vdb, []string{})
-		cnt = pod.Spec.InitContainers[0]
-		Ω(len(cnt.Env)).Should(Equal(l + 2))
-		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNameEnv)))
-		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
+		// should set password env vars when secret is not on k8s
+		verifyScrutinizePasswordEnvVars("gsm://passwd", 2, true)
+	})
+
+	It("should add password mount if password secret is on k8s", func() {
+		// should not mount the password secret when password is empty
+		verifyScrutinizePasswordMount("", false)
+		// should not mount the password secret when the secret is
+		// not on k8s
+		verifyScrutinizePasswordMount("gsm://secret", false)
+		// should mount the password secret when the secret is on k8s
+		verifyScrutinizePasswordMount("secret", true)
 	})
 
 	It("should only have separate mount paths for data, depot and catalog if they are different", func() {
@@ -827,4 +828,40 @@ func verifyNoResourcesSet(cnt *v1.Container) {
 	Ω(ok).Should(BeFalse())
 	_, ok = cnt.Resources.Requests[v1.ResourceMemory]
 	Ω(ok).Should(BeFalse())
+}
+
+func verifyScrutinizePasswordMount(secret string, should bool) {
+	vscr := v1beta1.MakeVscr()
+	vdb := vapi.MakeVDB()
+	vdb.Spec.PasswordSecret = secret
+	pod := BuildScrutinizePod(vscr, vdb, []string{})
+	cnt := pod.Spec.InitContainers[0]
+	matcher := ContainElement(WithTransform(func(vm v1.VolumeMount) string {
+		return vm.Name
+	}, Equal(scrutinizeDBpasswordMountName)))
+	if should {
+		Ω(cnt.VolumeMounts).Should(matcher)
+		return
+	}
+	Ω(cnt.VolumeMounts).ShouldNot(matcher)
+}
+
+func verifyScrutinizePasswordEnvVars(secret string, offset int, should bool) {
+	vscr := v1beta1.MakeVscr()
+	vdb := vapi.MakeVDB()
+	vdb.Spec.PasswordSecret = secret
+	pod := BuildScrutinizePod(vscr, vdb, []string{})
+	cnt := pod.Spec.InitContainers[0]
+	l := len(buildNMATLSCertsEnvVars(vdb)) + len(buildCommonEnvVars(vdb))
+	// l+1 to take into account the tarball env var
+	l++
+	l += offset
+	Ω(len(cnt.Env)).Should(Equal(l))
+	if should {
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+		Ω(makeEnvVars(&cnt)).Should(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
+		return
+	}
+	Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNameEnv)))
+	Ω(makeEnvVars(&cnt)).ShouldNot(ContainElement(ContainSubstring(passwordSecretNamespaceEnv)))
 }

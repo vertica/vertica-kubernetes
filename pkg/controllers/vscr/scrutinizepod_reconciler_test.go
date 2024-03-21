@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	test "github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/v1beta1_test"
@@ -94,7 +95,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should append --password= to args if password is empty", func() {
+	It("should append --password= or --password-file to args based on password", func() {
 		vdb := v1.MakeVDB()
 		scrArgs := &ScrutinizeCmdArgs{
 			hosts:       []string{"h1"},
@@ -105,9 +106,19 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 		Expect(len(args)).Should(Equal(9))
 		Expect(args).Should(ContainElement(ContainSubstring("--password=")))
 
-		vdb.Spec.PasswordSecret = "test-secret"
+		// should not contain any password flag if the secret is not on k8s
+		vdb.Spec.PasswordSecret = "gsm://secret"
 		args = scrArgs.buildScrutinizeCmdArgs(vdb)
 		Expect(len(args)).Should(Equal(8))
 		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
+		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password-file")))
+
+		// should contain the password flag if secret is on k8s
+		vdb.Spec.PasswordSecret = "test-secret"
+		args = scrArgs.buildScrutinizeCmdArgs(vdb)
+		Expect(len(args)).Should(Equal(10))
+		Expect(args).ShouldNot(ContainElement(ContainSubstring("--password=")))
+		Expect(args).Should(ContainElement(ContainSubstring("--password-file")))
+		Expect(args).Should(ContainElement(ContainSubstring(builder.GetScrutinizeDBPasswordFullPath())))
 	})
 })

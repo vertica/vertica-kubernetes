@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	"github.com/vertica/vertica-kubernetes/pkg/vscrstatus"
 	corev1 "k8s.io/api/core/v1"
@@ -158,6 +159,10 @@ func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
 	// to still assume password as the authentication method
 	if vdb.Spec.PasswordSecret == "" {
 		cmd = append(cmd, "--password=")
+	} else if secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
+		// when the password secret is on k8s, we mount it into the
+		// container and have scrutinize read the password from the mounted file
+		cmd = append(cmd, "--password-file", builder.GetScrutinizeDBPasswordFullPath())
 	}
 	return cmd
 }
