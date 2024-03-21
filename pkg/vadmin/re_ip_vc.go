@@ -67,7 +67,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	v.Log.Info("Setup re-ip options", "hosts", strings.Join(opts.RawHosts, ","))
 
 	// ipv6
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
+	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
 
 	// catalog prefix
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
@@ -87,7 +87,8 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	// Provide eon options to vclusterops only after revive_db because
 	// we do not need to access communal storage in re_ip after create_db.
 	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
-		opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+		opts.IsEon = v.VDB.IsEON()
+		opts.OldIsEon = vstruct.MakeNullableBool(opts.IsEon)
 		*opts.CommunalStorageLocation = s.CommunalPath
 		opts.ConfigurationParameters = s.ConfigurationParams
 	}
@@ -98,7 +99,6 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	opts.CaCert = certs.CaCert
 	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	// other options
 	opts.TrimReIPList = true
