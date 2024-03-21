@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -72,6 +73,7 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
+	opts.OldIsEon = vstruct.MakeNullableBool(opts.IsEon)
 	opts.ConfigurationParameters = s.ConfigurationParams
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
 		*opts.StartUpConf = paths.StartupConfFile

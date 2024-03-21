@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
@@ -87,6 +88,7 @@ func (v *VClusterOps) genReIPOptions(s *reip.Parms, certs *HTTPSCerts) vops.VReI
 	// we do not need to access communal storage in re_ip after create_db.
 	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
 		opts.IsEon = v.VDB.IsEON()
+		opts.OldIsEon = vstruct.MakeNullableBool(opts.IsEon)
 		*opts.CommunalStorageLocation = s.CommunalPath
 		opts.ConfigurationParameters = s.ConfigurationParams
 	}
