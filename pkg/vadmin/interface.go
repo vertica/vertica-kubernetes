@@ -161,9 +161,11 @@ func SetupVClusterOps(log logr.Logger, apiName string) (VClusterProvider, logr.L
 	// logger for each API call.
 	apiLog := log.WithName(apiName)
 	return &vops.VClusterCommands{
-			Log: vlog.Printer{
-				Log:           apiLog,
-				LogToFileOnly: false,
+			VClusterCommandsLogger: vops.VClusterCommandsLogger{
+				Log: vlog.Printer{
+					Log:           apiLog,
+					LogToFileOnly: false,
+				},
 			},
 		},
 		apiLog
