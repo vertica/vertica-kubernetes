@@ -23,17 +23,29 @@ import (
 // VerticaReplicatorSpec defines the desired state of VerticaReplicator
 type VerticaReplicatorSpec struct {
 
-	// Foo is an example field of VerticaReplicator. Edit verticareplicator_types.go to remove/update
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Dummy placeholder field
 	Foo string `json:"foo,omitempty"`
 }
 
 // VerticaReplicatorStatus defines the observed state of VerticaReplicator
 type VerticaReplicatorStatus struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// Status message for replicator
+	State string `json:"state,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Set of status conditions of replication process
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:path=verticareplicators,singular=verticareplicator,categories=all;vertica,shortName=vr
 //+kubebuilder:subresource:status
+//+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
 
 // VerticaReplicator is the Schema for the verticareplicators API
 type VerticaReplicator struct {
