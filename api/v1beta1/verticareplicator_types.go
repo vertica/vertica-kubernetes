@@ -43,7 +43,7 @@ type VerticaReplicatorStatus struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:resource:path=verticareplicators,singular=verticareplicator,categories=all;vertica,shortName=vr
+//+kubebuilder:resource:path=verticareplicators,singular=verticareplicator,categories=all;vertica,shortName=vrep
 //+kubebuilder:subresource:status
 //+operator-sdk:csv:customresourcedefinitions:resources={{VerticaDB,vertica.com/v1beta1,""}}
 
