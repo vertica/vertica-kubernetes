@@ -6,4 +6,5 @@ resources:
 - v1_verticadb.yaml
 - v1beta1_verticarestorepointsquery.yaml
 - v1beta1_verticascrutinize.yaml
+- v1beta1_verticareplicator.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
