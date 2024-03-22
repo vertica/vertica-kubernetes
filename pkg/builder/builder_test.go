@@ -838,7 +838,7 @@ func verifyScrutinizePasswordMount(secret string, should bool) {
 	cnt := pod.Spec.InitContainers[0]
 	matcher := ContainElement(WithTransform(func(vm v1.VolumeMount) string {
 		return vm.Name
-	}, Equal(scrutinizeDBpasswordMountName)))
+	}, Equal(passwordMountName)))
 	if should {
 		Ω(cnt.VolumeMounts).Should(matcher)
 		return

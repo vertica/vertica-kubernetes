@@ -88,8 +88,8 @@ const (
 	passwordSecretNamespaceEnv = "PASSWORD_SECRET_NAMESPACE"
 	passwordSecretNameEnv      = "PASSWORD_SECRET_NAME"
 	// The path to the scrutinize tarball
-	scrutinizeTarball             = "SCRUTINIZE_TARBALL"
-	scrutinizeDBpasswordMountName = "password"
+	scrutinizeTarball = "SCRUTINIZE_TARBALL"
+	passwordMountName = "password"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -483,11 +483,7 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 	// is on k8s
 	if vdb.Spec.PasswordSecret != "" &&
 		secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
-		projSources := []corev1.VolumeProjection{
-			// If these is a superuser password, include that in the projection
-			{Secret: buildPasswordProjection(vdb)},
-		}
-		vols = append(vols, buildVolumeFromProjections(projSources, scrutinizeDBpasswordMountName))
+		vols = append(vols, buildPasswordVolume(vdb))
 	}
 	if vscr.Spec.Volume == nil {
 		vols = append(vols, buildDefaultScrutinizeVolume())
@@ -499,6 +495,23 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 
 func buildDefaultScrutinizeVolume() corev1.Volume {
 	return buildEmptyDirVolume(scrutinizeMountName)
+}
+
+// buildPasswordVolume constructs a volume that has the password
+func buildPasswordVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return buildVolumeFromSecret(passwordMountName, vdb.Spec.PasswordSecret)
+}
+
+// buildVolumeFromSecret constructs a volume from a secret
+func buildVolumeFromSecret(volName, secretName string) corev1.Volume {
+	return corev1.Volume{
+		Name: volName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretName,
+			},
+		},
+	}
 }
 
 // buildLicenseVolume returns a volume that contains any licenses
@@ -517,7 +530,7 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	projSources := []corev1.VolumeProjection{
 		{DownwardAPI: buildDownwardAPIProjection()},
-		// If these is a superuser password, include that in the projection
+		// If there is a superuser password, include that in the projection
 		{Secret: buildPasswordProjectionForVerticaPod(vdb)},
 	}
 
@@ -889,8 +902,8 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 			// we mount the password into the scrutinize init container
 			// only when the password secret in on k8s
 			cnt.VolumeMounts = append(cnt.VolumeMounts, corev1.VolumeMount{
-				Name:      scrutinizeDBpasswordMountName,
-				MountPath: paths.ScrutinizeDBpasswordPath,
+				Name:      passwordMountName,
+				MountPath: paths.ScrutinizeDBPasswordDir,
 			})
 		} else {
 			// the password secret env vars are needed only when the secret
@@ -1627,8 +1640,4 @@ func GetTarballName(cmd []string) string {
 		}
 	}
 	return ""
-}
-
-func GetScrutinizeDBPasswordFullPath() string {
-	return fmt.Sprintf("%s/%s", paths.ScrutinizeDBpasswordPath, SuperuserPasswordPath)
 }

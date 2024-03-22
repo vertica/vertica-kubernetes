@@ -162,7 +162,7 @@ func (s *ScrutinizeCmdArgs) buildScrutinizeCmdArgs(vdb *v1.VerticaDB) []string {
 	} else if secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
 		// when the password secret is on k8s, we mount it into the
 		// container and have scrutinize read the password from the mounted file
-		cmd = append(cmd, "--password-file", builder.GetScrutinizeDBPasswordFullPath())
+		cmd = append(cmd, "--password-file", paths.ScrutinizeDBPasswordFile)
 	}
 	return cmd
 }
