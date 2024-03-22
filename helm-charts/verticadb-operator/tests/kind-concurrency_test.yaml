@@ -10,6 +10,7 @@ tests:
         eventtrigger: 3
         verticarestorepointsquery: 7
         verticascrutinize: 5
+        verticareplicator: 6
     asserts:
       - equal:
           path: data.CONCURRENCY_VERTICADB
@@ -26,3 +27,6 @@ tests:
       - equal:
           path: data.CONCURRENCY_VERTICASCRUTINIZE
           value: "5"
+      - equal:
+          path: data.CONCURRENCY_VERTICAREPLICATOR
+          value: "6"

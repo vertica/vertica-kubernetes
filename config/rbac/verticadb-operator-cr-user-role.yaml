@@ -27,6 +27,7 @@ rules:
   - verticadbs
   - verticarestorepointsqueries
   - verticascrutinizers
+  - verticareplicators
   verbs:
   - create
   - delete
@@ -42,6 +43,7 @@ rules:
   - verticautoscalers/status
   - verticarestorepointsqueries/status
   - verticascrutinizers/status
+  - verticareplicators/status
   verbs:
   - get
   - list
