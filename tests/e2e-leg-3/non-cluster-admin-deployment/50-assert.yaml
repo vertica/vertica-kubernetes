@@ -1,0 +1,9 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaScrutinize
+metadata:
+  name: v-scrutinize
+spec:
+  verticaDBName: v-non-cluster-admin-deployment
+  volume:
+    name: scrutinize-vol
+    emptyDir: {}
