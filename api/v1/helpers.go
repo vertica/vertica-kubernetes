@@ -368,7 +368,7 @@ func (v *VerticaDB) IsKnownDepotVolumeType() bool {
 	return false
 }
 
-// getFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
+// GetFirstPrimarySubcluster returns the first primary subcluster defined in the vdb
 func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
@@ -378,6 +378,62 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	}
 	// We should never get here because the webhook prevents a vdb with no primary.
 	return nil
+}
+
+// HasSecondarySubclusters returns true if at least 1 secondary subcluster
+// exists in the database.
+func (v *VerticaDB) HasSecondarySubclusters() bool {
+	for i := range v.Spec.Subclusters {
+		if v.Spec.Subclusters[i].IsSecondary() {
+			return true
+		}
+	}
+	return false
+}
+
+// IsAutoUpgradePolicy returns true
+func (v *VerticaDB) IsAutoUpgradePolicy() bool {
+	return v.Spec.UpgradePolicy == "" || v.Spec.UpgradePolicy == AutoUpgrade
+}
+
+// GetUpgradePolicyToUse returns the upgrade policy that the db should use.
+// It will take into account the settings in the vdb as well as what is
+// supported in the server. This will never return the auto upgrade policy. If
+// you need the current value of that field, just refer to it by referencing
+// Spec.UpgradePolicy.
+func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
+	if v.Spec.UpgradePolicy == OfflineUpgrade {
+		return OfflineUpgrade
+	}
+
+	if v.IsKSafety0() {
+		return OfflineUpgrade
+	}
+
+	// If we cannot get the version, always default to offline. We cannot make
+	// any assumptions about what upgrade policy the server supports.
+	vinf, ok := v.MakeVersionInfo()
+	if !ok {
+		return OfflineUpgrade
+	}
+
+	// The Replicated option can only be chosen explicitly. Although eventually,
+	// the Auto option will automatically select this method, we first need to
+	// complete the implementation of this new policy.
+	if v.Spec.UpgradePolicy == ReplicatedUpgrade {
+		if v.HasSecondarySubclusters() && vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) {
+			return ReplicatedUpgrade
+		} else if vinf.IsEqualOrNewer(OnlineUpgradeVersion) {
+			return OnlineUpgrade
+		}
+	}
+
+	if (v.Spec.UpgradePolicy == OnlineUpgrade || v.IsAutoUpgradePolicy()) &&
+		vinf.IsEqualOrNewer(OnlineUpgradeVersion) {
+		return OnlineUpgrade
+	}
+
+	return OfflineUpgrade
 }
 
 // GetIgnoreClusterLease will check if the cluster lease should be ignored.

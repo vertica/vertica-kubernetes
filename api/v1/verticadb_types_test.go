@@ -101,4 +101,55 @@ var _ = Describe("verticadb_types", func() {
 		meta.SetStatusCondition(&vdb.Status.Conditions, *cond)
 		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeTrue())
 	})
+
+	It("should detect that at least one secondary subcluster exists", func() {
+		vdb := MakeVDB()
+		Ω(vdb.HasSecondarySubclusters()).Should(BeFalse())
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
+			Name: "sc2",
+			Type: SecondarySubcluster,
+		})
+		Ω(vdb.HasSecondarySubclusters()).Should(BeTrue())
+	})
+
+	It("should pick the correct upgrade policy to use", func() {
+		vdb := MakeVDB()
+
+		// Ensure replicated is selected only if there is a secondary and the version is new.
+		vdb.Annotations[vmeta.VersionAnnotation] = ReplicatedUpgradeVersion
+		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade)) // online because there are no secondaries
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
+			Name: "sc1", Type: SecondarySubcluster,
+		})
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReplicatedUpgrade))
+
+		// If older version than what we support for replicated. We should revert to online upgrade.
+		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		vdb.Annotations[vmeta.VersionAnnotation] = OnlineUpgradeVersion
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
+
+		// Removal of version should default to offline.
+		delete(vdb.Annotations, vmeta.VersionAnnotation)
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OfflineUpgrade))
+
+		// Online selection on latest version should pick online
+		vdb.Annotations[vmeta.VersionAnnotation] = ReplicatedUpgradeVersion
+		vdb.Spec.UpgradePolicy = OnlineUpgrade
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
+
+		// Similarly for offline selection with newest version
+		vdb.Spec.UpgradePolicy = OfflineUpgrade
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OfflineUpgrade))
+
+		// k-safety 0 should always default to offline
+		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OfflineUpgrade))
+
+		// An old version will pick offline
+		delete(vdb.Annotations, vmeta.KSafetyAnnotation)
+		vdb.Annotations[vmeta.VersionAnnotation] = "v11.0.0"
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OfflineUpgrade))
+	})
 })

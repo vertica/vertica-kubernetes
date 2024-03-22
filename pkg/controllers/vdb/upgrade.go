@@ -384,31 +384,18 @@ func (i *UpgradeManager) postNextStatusMsg(ctx context.Context, statusMsgs []str
 	return nil
 }
 
-// onlineUpgradeAllowed returns true if upgrade must be done online
-func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
-	if vdb.Spec.UpgradePolicy == vapi.OfflineUpgrade {
-		return false
-	}
-	// If the field value is missing, we treat it as if Auto was selected.
-	if vdb.Spec.UpgradePolicy == vapi.AutoUpgrade || vdb.Spec.UpgradePolicy == "" {
-		// Online upgrade with a transient subcluster works by scaling out new
-		// subclusters to handle the primaries as they come up with the new
-		// versions.  If we don't have a license, it isn't going to work.
-		if (vdb.RequiresTransientSubcluster() && vdb.Spec.LicenseSecret == "") || vdb.IsKSafety0() {
-			return false
-		}
-	}
-	// Online upgrade can only be done if we are already on a server version
-	// that supports it.  It we are on an older version, we will fallback to
-	// offline even though online may have been specified in the vdb.
-	vinf, ok := vdb.MakeVersionInfo()
-	if ok && vinf.IsEqualOrNewer(vapi.OnlineUpgradeVersion) {
-		return true
-	}
-	return false
-}
-
 // offlineUpgradeAllowed returns true if upgrade must be done offline
 func offlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
-	return !onlineUpgradeAllowed(vdb)
+	return vdb.GetUpgradePolicyToUse() == vapi.OfflineUpgrade
+}
+
+// onlineUpgradeAllowed returns true if upgrade must be done online
+func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
+	return vdb.GetUpgradePolicyToUse() == vapi.OnlineUpgrade
+}
+
+// replicatedUpgradeAllowed returns true if upgrade must be done with the
+// replicated upgrade strategy.
+func replicatedUpgradeAllowed(vdb *vapi.VerticaDB) bool {
+	return vdb.GetUpgradePolicyToUse() == vapi.ReplicatedUpgrade
 }

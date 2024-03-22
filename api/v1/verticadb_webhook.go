@@ -175,6 +175,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidPodSecurityContext(allErrs)
 	allErrs = v.hasValidNMAResourceLimit(allErrs)
 	allErrs = v.hasValidCreateDBTimeout(allErrs)
+	allErrs = v.hasValidUpgradePolicy(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -946,6 +947,22 @@ func (v *VerticaDB) hasValidCreateDBTimeout(allErrs field.ErrorList) field.Error
 		err := field.Invalid(field.NewPath("metadata").Child("annotations").Child(annotationName),
 			createDBTimeout, fmt.Sprintf("%s must be non-negative", annotationName))
 		allErrs = append(allErrs, err)
+	}
+	return allErrs
+}
+
+func (v *VerticaDB) hasValidUpgradePolicy(allErrs field.ErrorList) field.ErrorList {
+	switch v.Spec.UpgradePolicy {
+	case "":
+	case AutoUpgrade:
+	case OfflineUpgrade:
+	case OnlineUpgrade:
+	case ReplicatedUpgrade:
+	default:
+		err := field.Invalid(field.NewPath("spec").Child("upgradePolicy"),
+			v.Spec.UpgradePolicy, fmt.Sprintf("must be one of: %s, %s, %s or %s",
+				AutoUpgrade, OfflineUpgrade, OnlineUpgrade, ReplicatedUpgrade))
+		return append(allErrs, err)
 	}
 	return allErrs
 }
