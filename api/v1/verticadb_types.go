@@ -415,7 +415,7 @@ const (
 	// Like online upgrade, however it allows for writes. This is done by
 	// splitting the vertica cluster into two replicas, then following a
 	// replication strategy where we failover to one of the replicas while the
-	// other is upgraded.
+	// other is being upgraded.
 	ReplicatedUpgrade UpgradePolicyType = "Replicated"
 	// This automatically picks between offline and online upgrade.  Online
 	// can only be used if (a) a license secret exists since we may need to scale
