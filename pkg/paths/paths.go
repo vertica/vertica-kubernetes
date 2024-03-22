@@ -40,6 +40,8 @@ const (
 	LogPath                   = "/opt/vertica/log"
 	ScrutinizeTmp             = "/tmp/scrutinize"
 	ScrutinizeLogFile         = "/tmp/scrutinize/vcluster.log"
+	ScrutinizeDBPasswordDir   = "/etc/password"
+	ScrutinizeDBPasswordFile  = "/etc/password/password"
 	PodInfoPath               = "/etc/podinfo"
 	AdminToolsConf            = "/opt/vertica/config/admintools.conf"
 	AuthParmsFile             = "/tmp/auth_parms.conf"
