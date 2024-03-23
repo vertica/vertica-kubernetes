@@ -470,7 +470,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		echo -n 'vnodeName: '
 		cd %s/%s/v_%s_node????_catalog 2> /dev/null && basename $(pwd) | rev | cut -c9- | rev || echo ""
 		echo -n 'verticaPIDRunning: '
-		[[ $(pgrep -f "^.*vertica\s-D") ]] && echo true || echo false
+		[[ $(pgrep -f "^.*vertica\s-D" --runstates RDS) ]] && echo true || echo false
 		echo -n 'upNode: '
 		%s 2> /dev/null | grep --quiet 200 2> /dev/null && echo true || echo false
 		echo -n 'startupComplete: '

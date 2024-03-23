@@ -1,0 +1,5 @@
+kind: Fixed
+body: Update role to grant write permissions for new CRDs
+time: 2024-03-22T17:11:46.01870437-03:00
+custom:
+  Issue: "744"
