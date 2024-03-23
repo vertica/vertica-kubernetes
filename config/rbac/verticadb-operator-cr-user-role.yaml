@@ -25,6 +25,8 @@ rules:
   - eventtriggers
   - verticaautoscalers
   - verticadbs
+  - verticarestorepointsqueries
+  - verticascrutinizers
   verbs:
   - create
   - delete
@@ -38,6 +40,8 @@ rules:
   - verticadbs/status
   - eventtriggers/status
   - verticautoscalers/status
+  - verticarestorepointsqueries/status
+  - verticascrutinizers/status
   verbs:
   - get
   - list
