@@ -142,8 +142,8 @@ var _ = Describe("verticadb_types", func() {
 		vdb.Spec.UpgradePolicy = OfflineUpgrade
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OfflineUpgrade))
 
-		// k-safety 0 should always default to offline
-		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		// k-safety 0 with auto should always default to offline
+		vdb.Spec.UpgradePolicy = AutoUpgrade
 		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OfflineUpgrade))
 

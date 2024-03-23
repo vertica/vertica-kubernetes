@@ -406,7 +406,7 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 		return OfflineUpgrade
 	}
 
-	if v.IsKSafety0() {
+	if v.IsAutoUpgradePolicy() && v.IsKSafety0() {
 		return OfflineUpgrade
 	}
 
