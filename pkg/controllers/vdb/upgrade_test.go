@@ -37,49 +37,25 @@ var _ = Describe("upgrade", func() {
 
 	It("should correctly pick the upgrade type", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.TemporarySubclusterRouting = &vapi.SubclusterSelection{
-			Template: vapi.Subcluster{
-				Name: "t",
-				Size: 1,
-				Type: vapi.SecondarySubcluster,
-			},
-		}
+		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{
+			Name: "sc1", Type: vapi.SecondarySubcluster,
+		})
+		vdb.Annotations[vmeta.VersionAnnotation] = vapi.ReplicatedUpgradeVersion
 
-		// No version -- always pick offline
-		delete(vdb.ObjectMeta.Annotations, vmeta.VersionAnnotation)
 		vdb.Spec.UpgradePolicy = vapi.OfflineUpgrade
-		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(false))
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(BeTrue())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(replicatedUpgradeAllowed(vdb)).Should(BeFalse())
+
 		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(false))
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
+		Expect(offlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeTrue())
+		Expect(replicatedUpgradeAllowed(vdb)).Should(BeFalse())
 
-		// auto will pick offline because of no version
-		vdb.Spec.UpgradePolicy = vapi.AutoUpgrade
-		vdb.Spec.LicenseSecret = "license"
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Older version
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v11.0.0"
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Correct version
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.OnlineUpgradeVersion
-		Expect(onlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Missing license
-		vdb.Spec.LicenseSecret = ""
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-		vdb.Spec.LicenseSecret = "license-again"
-
-		// k-safety 0
-		vdb.Annotations[vmeta.KSafetyAnnotation] = "0"
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
-
-		// Old version and online requested
-		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v11.0.2"
-		vdb.Spec.UpgradePolicy = vapi.OnlineUpgrade
-		Expect(offlineUpgradeAllowed(vdb)).Should(Equal(true))
+		vdb.Spec.UpgradePolicy = vapi.ReplicatedUpgrade
+		Expect(offlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(onlineUpgradeAllowed(vdb)).Should(BeFalse())
+		Expect(replicatedUpgradeAllowed(vdb)).Should(BeTrue())
 	})
 
 	It("should not need an upgrade if images match in sts and vdb", func() {
