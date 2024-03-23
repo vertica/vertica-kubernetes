@@ -924,6 +924,14 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs = vdb.validateVerticaDBSpec()
 		Ω(allErrs).Should(HaveLen(0))
 	})
+
+	It("should check for upgradePolicy", func() {
+		vdb := MakeVDB()
+		vdb.Spec.UpgradePolicy = "NotValid"
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
 })
 
 func createVDBHelper() *VerticaDB {
