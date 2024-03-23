@@ -113,8 +113,10 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=Create
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Revive","urn:alm:descriptor:com.tectonic.ui:select:ScheduleOnly"}
-	// The initialization policy defines how to setup the database.  Available
-	// options are to create a new database or revive an existing one.
+	// The initialization policy specifies how the database should be
+	// configured. Options include creating a new database, reviving an existing
+	// one, or simply scheduling pods. Possible values are Create, Revive,
+	// CreateSkipPackageInstall, or ScheduleOnly.
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
 
 	// +kubebuilder:validation:Optional
@@ -125,16 +127,24 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
 	// +kubebuilder:default:=Auto
-	// Defines how upgrade will be managed.  Available values are: Offline,
-	// Online and Auto.
-	// - Offline: means we take down the entire cluster then bring it back up
+	// This setting defines how the upgrade process will be managed. The
+	// available values are Offline, Online, Replicated, and Auto.
+	//
+	// Offline: This option involves taking down the entire cluster and then
+	// bringing it back up with the new image.
+	//
+	// Online: With this option, the cluster remains operational for reads
+	// during the upgrade process. However, the data will be in read-only mode
+	// until the Vertica nodes from the primary subcluster re-form the cluster
 	// with the new image.
-	// - Online: will keep the cluster up when the upgrade occurs.  The
-	// data will go into read-only mode until the Vertica nodes from the primary
-	// subcluster reform the cluster with the new image.
-	// - Auto: will pick between Offline or Online.  Online is only chosen if a
-	// license Secret exists, the k-Safety of the database is 1 and we are
-	// running with a Vertica version that supports read-only subclusters.
+	//
+	// Replicated: Similar to Online, this option keeps the cluster operational
+	// throughout the upgrade process but allows writes. The cluster is split
+	// into two replicas, and traffic is redirected to the active replica to
+	// facilitate writes.
+	//
+	// Auto: This option selects one of the above methods automatically based on
+	// compatibility with the version of Vertica you are running.
 	UpgradePolicy UpgradePolicyType `json:"upgradePolicy"`
 
 	// +kubebuilder:validation:Optional
@@ -402,6 +412,11 @@ const (
 	// subcluster comes back up, we restart/remove all of the secondary
 	// subclusters to take them out of read-only mode.
 	OnlineUpgrade UpgradePolicyType = "Online"
+	// Like online upgrade, however it allows for writes. This is done by
+	// splitting the vertica cluster into two replicas, then following a
+	// replication strategy where we failover to one of the replicas while the
+	// other is being upgraded.
+	ReplicatedUpgrade UpgradePolicyType = "Replicated"
 	// This automatically picks between offline and online upgrade.  Online
 	// can only be used if (a) a license secret exists since we may need to scale
 	// out, (b) we are already on a minimum Vertica engine version that supports
@@ -792,11 +807,12 @@ const (
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized = "DBInitialized"
 	// UpgradeInProgress indicates if the vertica server is in the process
-	// of having its image change.  We have two additional conditions to
-	// distinguish between online and offline upgrade.
-	UpgradeInProgress        = "UpgradeInProgress"
-	OfflineUpgradeInProgress = "OfflineUpgradeInProgress"
-	OnlineUpgradeInProgress  = "OnlineUpgradeInProgress"
+	// of having its image change.  We have additional conditions to
+	// distinguish between the different types of upgrade it is.
+	UpgradeInProgress           = "UpgradeInProgress"
+	OfflineUpgradeInProgress    = "OfflineUpgradeInProgress"
+	OnlineUpgradeInProgress     = "OnlineUpgradeInProgress"
+	ReplicatedUpgradeInProgress = "ReplicatedUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"
