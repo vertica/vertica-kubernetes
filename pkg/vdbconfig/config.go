@@ -206,10 +206,14 @@ func (g *ConfigParamsGenerator) setS3AuthParms(ctx context.Context) (ctrl.Result
 		}
 	}
 
+	// If the endpoint isn't provided, we let the server pick an appropriate
+	// default by omitting that config parm.
 	ep := g.GetCommunalEndpoint()
 	if ep != "" {
 		g.ConfigurationParams.Set("awsendpoint", ep)
 	}
+	// Enabling https depends on the endpoint chosen, so this can be empty if
+	// endpoint is empty.
 	enableHTTPS := g.GetEnableHTTPS()
 	if enableHTTPS != "" {
 		g.ConfigurationParams.Set("awsenablehttps", enableHTTPS)
@@ -272,10 +276,14 @@ func (g *ConfigParamsGenerator) setGCloudAuthParms(ctx context.Context) (ctrl.Re
 		return res, err
 	}
 
+	// Let the server pick an appropriate GCS based endpoint if one wasn't
+	// provided.
 	ep := g.GetCommunalEndpoint()
 	if ep != "" {
 		g.ConfigurationParams.Set("GCSEndpoint", ep)
 	}
+	// Enabling https depends on the endpoint chosen, so this can be empty if
+	// endpoint is empty.
 	enableHTTPS := g.GetEnableHTTPS()
 	if enableHTTPS != "" {
 		g.ConfigurationParams.Set("GCSEnableHttps", enableHTTPS)
@@ -446,9 +454,14 @@ func (g *ConfigParamsGenerator) GetS3SseCustomerKeySecret(ctx context.Context) (
 	return getSecret(ctx, g.VRec, g.Vdb, names.GenS3SseCustomerKeySecretName(g.Vdb))
 }
 
-// getCommunalEndpoint get the communal endpoint for inclusion in the auth files.
+// GetCommunalEndpoint get the communal endpoint for inclusion in the auth files.
 // Takes the endpoint from vdb and strips off the protocol.
 func (g *ConfigParamsGenerator) GetCommunalEndpoint() string {
+	// Early out if the endpoint isn't set. For this case, we let the server
+	// pick the endpoint based on the communal path chosen.
+	if g.Vdb.Spec.Communal.Endpoint == "" {
+		return ""
+	}
 	prefix := []string{"https://", "http://"}
 	for _, pref := range prefix {
 		if i := strings.Index(g.Vdb.Spec.Communal.Endpoint, pref); i == 0 {
