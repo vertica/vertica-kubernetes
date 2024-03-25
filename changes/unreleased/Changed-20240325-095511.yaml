@@ -1,0 +1,5 @@
+kind: Changed
+body: Operator now defaults endpoints for S3/GCS paths
+time: 2024-03-25T09:55:11.418549503-03:00
+custom:
+  Issue: "746"
