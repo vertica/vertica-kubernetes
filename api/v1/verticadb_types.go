@@ -799,6 +799,11 @@ type VerticaDBStatus struct {
 	// Status message for the current running upgrade.   If no upgrade
 	// is occurring, this message remains blank.
 	UpgradeStatus string `json:"upgradeStatus"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// State that is maintained by the operator during an upgrade.
+	UpgradeState *UpgradeState `json:"upgradeState,omitempty"`
 }
 
 const (
@@ -868,6 +873,15 @@ type VerticaDBPodStatus struct {
 	// True means the vertica process is running on this pod and it can accept
 	// connections on port 5433.
 	UpNode bool `json:"upNode"`
+}
+
+// UpgradeState stores state for an ongoing upgrade process.
+type UpgradeState struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// During a replicated upgrade, we split the subclusters into one of two
+	// replicas. This keeps track of the names of the subclusters in each
+	// replica.
+	Replicas [][]string `json:"replicas"`
 }
 
 //+kubebuilder:object:root=true

@@ -136,6 +136,10 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
+	if err := vdbstatus.SetUpgradeState(ctx, i.VRec.Client, i.Vdb, nil); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionFalse); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -168,7 +172,7 @@ func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal met
 
 // setUpgradeStatus is a helper to set the upgradeStatus message.
 func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg string) error {
-	return vdbstatus.UpdateUpgradeStatus(ctx, i.VRec.Client, i.Vdb, msg)
+	return vdbstatus.SetUpgradeStatusMessage(ctx, i.VRec.Client, i.Vdb, msg)
 }
 
 // updateImageInStatefulSets will change the image in each of the statefulsets.
