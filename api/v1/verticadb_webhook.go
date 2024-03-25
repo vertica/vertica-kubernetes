@@ -339,6 +339,11 @@ func (v *VerticaDB) validateEndpoint(allErrs field.ErrorList) field.ErrorList {
 	if !v.IsS3() && !v.IsGCloud() {
 		return allErrs
 	}
+	// An empty endpoint is allowed. This lets the server pick a suitable
+	// default based on the SDK that is used.
+	if v.Spec.Communal.Endpoint == "" {
+		return allErrs
+	}
 	// communal.endpoint must be prefaced with http:// or https:// to know what protocol to connect with.
 	if !(strings.HasPrefix(v.Spec.Communal.Endpoint, "http://") ||
 		strings.HasPrefix(v.Spec.Communal.Endpoint, "https://")) {
