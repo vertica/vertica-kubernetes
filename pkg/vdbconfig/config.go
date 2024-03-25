@@ -206,8 +206,14 @@ func (g *ConfigParamsGenerator) setS3AuthParms(ctx context.Context) (ctrl.Result
 		}
 	}
 
-	g.ConfigurationParams.Set("awsendpoint", g.GetCommunalEndpoint())
-	g.ConfigurationParams.Set("awsenablehttps", g.GetEnableHTTPS())
+	ep := g.GetCommunalEndpoint()
+	if ep != "" {
+		g.ConfigurationParams.Set("awsendpoint", ep)
+	}
+	enableHTTPS := g.GetEnableHTTPS()
+	if enableHTTPS != "" {
+		g.ConfigurationParams.Set("awsenablehttps", enableHTTPS)
+	}
 	g.setRegion(AWSRegionParm)
 	g.setCAFile()
 	return ctrl.Result{}, nil
@@ -266,8 +272,14 @@ func (g *ConfigParamsGenerator) setGCloudAuthParms(ctx context.Context) (ctrl.Re
 		return res, err
 	}
 
-	g.ConfigurationParams.Set("GCSEndpoint", g.GetCommunalEndpoint())
-	g.ConfigurationParams.Set("GCSEnableHttps", g.GetEnableHTTPS())
+	ep := g.GetCommunalEndpoint()
+	if ep != "" {
+		g.ConfigurationParams.Set("GCSEndpoint", ep)
+	}
+	enableHTTPS := g.GetEnableHTTPS()
+	if enableHTTPS != "" {
+		g.ConfigurationParams.Set("GCSEnableHttps", enableHTTPS)
+	}
 	g.setRegion(GCloudRegionParm)
 	g.setCAFile()
 	return ctrl.Result{}, nil
@@ -448,6 +460,10 @@ func (g *ConfigParamsGenerator) GetCommunalEndpoint() string {
 
 // getEnableHTTPS will return "1" if connecting to https otherwise return "0"
 func (g *ConfigParamsGenerator) GetEnableHTTPS() string {
+	// If no endpoint, then we let the server pick the endpoint and decide if HTTPS is enabled.
+	if g.Vdb.Spec.Communal.Endpoint == "" {
+		return ""
+	}
 	if strings.HasPrefix(g.Vdb.Spec.Communal.Endpoint, "https://") {
 		return "1"
 	}
