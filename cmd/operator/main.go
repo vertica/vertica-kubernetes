@@ -45,6 +45,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/et"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vas"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers/vdb/sandbox"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vrpq"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers/vscr"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -132,6 +133,16 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 		Log:    ctrl.Log.WithName("controllers").WithName("VerticaScrutinize"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VerticaScrutinize")
+		os.Exit(1)
+	}
+	if err := (&sandbox.SandboxConfigMapReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		EVRec:       mgr.GetEventRecorderFor(vmeta.OperatorName),
+		Log:         ctrl.Log.WithName("controllers").WithName("Sandbox-ConfigMag"),
+		Concurrency: opcfg.GetSandboxConfigMapConcurrency(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Sandbox-ConfigMag")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

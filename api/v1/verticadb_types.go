@@ -302,6 +302,10 @@ type VerticaDBSpec struct {
 	// create one, using the specified name if provided, along with a Role and
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	Sandboxes []Sandbox `json:"sanboxes,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -602,6 +606,31 @@ func (l *LocalStorage) IsDepotPathUnique() bool {
 		l.DepotPath != l.GetCatalogPath()
 }
 
+type Sandbox struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This is the name of a sandbox. This is a required parameter. This cannot
+	// change after CRD creation.
+	Name string `json:"name"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	Image string `json:"image,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This is the subcluster names that are part of the sandbox.
+	// There must be at least one subcluster listed. All subclusters
+	// listed need to be secondary subclusters.
+	Subclusters []SubclusterName `json:"subclusters"`
+}
+
+type SubclusterName struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The name of a subcluster.
+	Name string `json:"name"`
+}
+
 type Subcluster struct {
 	// +kubebuilder:validation:required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -784,6 +813,24 @@ type VerticaDBStatus struct {
 	// Status message for the current running upgrade.   If no upgrade
 	// is occurring, this message remains blank.
 	UpgradeStatus string `json:"upgradeStatus"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The sandbox statuses
+	Sandboxes []SandboxStatus `json:"sandboxes"`
+}
+
+type SandboxStatus struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the sandbox, that refers back to the spec.
+	Name string `json:"name"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Names of subclusters that are currently a part of the given sandbox.
+	// This gets updated as subclusters get through sandbox_subcluster/unsandbox_subcluster commands.
+	// It is meant to show the current state, see how it differs from the state.
+	// The webhook can use this to determine when an invalid state change occurs.
+	Subclusters []string `json:"subclusters"`
 }
 
 const (

@@ -686,6 +686,22 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
+      - displayName: Sandboxes
+        path: sanboxes
+      - displayName: Image
+        path: sanboxes[0].image
+      - description: This is the name of a sandbox. This is a required parameter.
+          This cannot change after CRD creation.
+        displayName: Name
+        path: sanboxes[0].name
+      - description: This is the subcluster names that are part of the sandbox. There
+          must be at least one subcluster listed. All subclusters listed need to be
+          secondary subclusters.
+        displayName: Subclusters
+        path: sanboxes[0].subclusters
+      - description: The name of a subcluster.
+        displayName: Name
+        path: sanboxes[0].subclusters[0].name
       - description: Allows you to set any additional securityContext for the Vertica
           server container.  We merge the values with the securityContext generated
           by the operator.  The operator adds its own capabilities to this.  If you
@@ -1062,6 +1078,19 @@ spec:
       - description: Conditions for VerticaDB
         displayName: Conditions
         path: conditions
+      - description: The sandbox statuses
+        displayName: Sandboxes
+        path: sandboxes
+      - description: Name of the sandbox, that refers back to the spec.
+        displayName: Name
+        path: sandboxes[0].name
+      - description: Names of subclusters that are currently a part of the given sandbox.
+          This gets updated as subclusters get through sandbox_subcluster/unsandbox_subcluster
+          commands. It is meant to show the current state, see how it differs from
+          the state. The webhook can use this to determine when an invalid state change
+          occurs.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -1506,6 +1535,22 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
+      - displayName: Sandboxes
+        path: sanboxes
+      - displayName: Image
+        path: sanboxes[0].image
+      - description: This is the name of a sandbox. This is a required parameter.
+          This cannot change after CRD creation.
+        displayName: Name
+        path: sanboxes[0].name
+      - description: This is the subcluster names that are part of the sandbox. There
+          must be at least one subcluster listed. All subclusters listed need to be
+          secondary subclusters.
+        displayName: Subclusters
+        path: sanboxes[0].subclusters
+      - description: The name of a subcluster.
+        displayName: Name
+        path: sanboxes[0].subclusters[0].name
       - description: Allows you to set any additional securityContext for the Vertica
           server container.  We merge the values with the securityContext generated
           by the operator.  The operator adds its own capabilities to this.  If you
@@ -1927,6 +1972,19 @@ spec:
           vertica cluster.
         displayName: Install Count
         path: installCount
+      - description: The sandbox statuses
+        displayName: Sandboxes
+        path: sandboxes
+      - description: Name of the sandbox, that refers back to the spec.
+        displayName: Name
+        path: sandboxes[0].name
+      - description: Names of subclusters that are currently a part of the given sandbox.
+          This gets updated as subclusters get through sandbox_subcluster/unsandbox_subcluster
+          commands. It is meant to show the current state, see how it differs from
+          the state. The webhook can use this to determine when an invalid state change
+          occurs.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount

@@ -242,6 +242,37 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.Spec.Subclusters[0].IsTransient).Should(BeTrue())
 	})
 
+	It("should convert sandboxes", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+
+		v1beta1VDB.Spec.Sandboxes = []Sandbox{
+			{Name: "sb1", Image: "img", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sb2", Image: "img2", Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		v1beta1VDB.Status.Sandboxes = []SandboxStatus{
+			{Name: "sb1", Subclusters: []string{"sc1"}},
+			{Name: "sb2", Subclusters: []string{"sc2"}},
+		}
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		verifySandboxConversionInSpec(v1beta1VDB, &v1VDB)
+		verifySandboxConversionInStatus(v1beta1VDB, &v1VDB)
+
+		v1VDB.Spec.Sandboxes = []v1.Sandbox{
+			{Name: "sb1", Image: "img", Subclusters: []v1.SubclusterName{{Name: "sc1"}}},
+			{Name: "sb2", Image: "img2", Subclusters: []v1.SubclusterName{{Name: "sc2"}}},
+			{Name: "sb3", Image: "img3", Subclusters: []v1.SubclusterName{{Name: "sc3"}}},
+		}
+		v1VDB.Status.Sandboxes = []v1.SandboxStatus{
+			{Name: "sb1", Subclusters: []string{"sc1"}},
+			{Name: "sb2", Subclusters: []string{"sc2"}},
+			{Name: "sb3", Subclusters: []string{"sc3"}},
+		}
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		verifySandboxConversionInSpec(v1beta1VDB, &v1VDB)
+		verifySandboxConversionInStatus(v1beta1VDB, &v1VDB)
+	})
+
 	It("should convert installCount in status field", func() {
 		v1beta1VDB := MakeVDB()
 		v1VDB := v1.VerticaDB{}
@@ -302,3 +333,30 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.Status.Conditions[0].Type).Should(Equal(ImageChangeInProgress))
 	})
 })
+
+func verifySandboxConversionInSpec(v1beta1VDB *VerticaDB, v1VDB *v1.VerticaDB) {
+	Ω(len(v1beta1VDB.Spec.Sandboxes)).Should(Equal(len(v1VDB.Spec.Sandboxes)))
+	for i := range v1beta1VDB.Spec.Sandboxes {
+		Ω(v1beta1VDB.Spec.Sandboxes[i].Name).Should(Equal(v1VDB.Spec.Sandboxes[i].Name))
+		Ω(v1beta1VDB.Spec.Sandboxes[i].Image).Should(Equal(v1VDB.Spec.Sandboxes[i].Image))
+		Ω(len(v1beta1VDB.Spec.Sandboxes[i].Subclusters)).Should(Equal(len(v1VDB.Spec.Sandboxes[i].Subclusters)))
+		v1beta1Subclusters := v1beta1VDB.Spec.Sandboxes[i].Subclusters
+		v1Subclusters := v1VDB.Spec.Sandboxes[i].Subclusters
+		for j := range v1beta1Subclusters {
+			Ω(v1beta1Subclusters[j].Name).Should(Equal(v1Subclusters[j].Name))
+		}
+	}
+}
+
+func verifySandboxConversionInStatus(v1beta1VDB *VerticaDB, v1VDB *v1.VerticaDB) {
+	Ω(len(v1beta1VDB.Status.Sandboxes)).Should(Equal(len(v1VDB.Status.Sandboxes)))
+	for i := range v1beta1VDB.Status.Sandboxes {
+		Ω(v1beta1VDB.Status.Sandboxes[i].Name).Should(Equal(v1VDB.Status.Sandboxes[i].Name))
+		Ω(len(v1beta1VDB.Status.Sandboxes[i].Subclusters)).Should(Equal(len(v1VDB.Status.Sandboxes[i].Subclusters)))
+		v1beta1Subclusters := v1beta1VDB.Status.Sandboxes[i].Subclusters
+		v1Subclusters := v1VDB.Status.Sandboxes[i].Subclusters
+		for j := range v1beta1Subclusters {
+			Ω(v1beta1Subclusters[j]).Should(Equal(v1Subclusters[j]))
+		}
+	}
+}
