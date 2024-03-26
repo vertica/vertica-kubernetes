@@ -2041,6 +2041,28 @@ spec:
         displayName: Upgrade Status
         path: upgradeStatus
       version: v1beta1
+    - description: VerticaReplicator is the Schema for the verticareplicators API
+      displayName: Vertica Replicator
+      kind: VerticaReplicator
+      name: verticareplicators.vertica.com
+      resources:
+      - kind: VerticaDB
+        name: ""
+        version: vertica.com/v1beta1
+      specDescriptors:
+      - description: Dummy placeholder field
+        displayName: Foo
+        path: foo
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      statusDescriptors:
+      - description: Set of status conditions of replication process
+        displayName: Conditions
+        path: conditions
+      - description: Status message for replicator
+        displayName: State
+        path: state
+      version: v1beta1
     - description: VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries
         API
       displayName: Vertica Restore Points Query

@@ -89,6 +89,7 @@ const (
 	passwordSecretNameEnv      = "PASSWORD_SECRET_NAME"
 	// The path to the scrutinize tarball
 	scrutinizeTarball = "SCRUTINIZE_TARBALL"
+	passwordMountName = "password"
 )
 
 // BuildExtSvc creates desired spec for the external service.
@@ -478,6 +479,12 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 		secrets.IsK8sSecret(vdb.Spec.NMATLSSecret) {
 		vols = append(vols, buildNMACertsSecretVolume(vdb))
 	}
+	// we add a volume for the password when the password secret
+	// is on k8s
+	if vdb.Spec.PasswordSecret != "" &&
+		secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
+		vols = append(vols, buildPasswordVolume(vdb))
+	}
 	if vscr.Spec.Volume == nil {
 		vols = append(vols, buildDefaultScrutinizeVolume())
 		return vols
@@ -488,6 +495,23 @@ func buildScrutinizeVolumes(vscr *v1beta1.VerticaScrutinize, vdb *vapi.VerticaDB
 
 func buildDefaultScrutinizeVolume() corev1.Volume {
 	return buildEmptyDirVolume(scrutinizeMountName)
+}
+
+// buildPasswordVolume constructs a volume that has the password
+func buildPasswordVolume(vdb *vapi.VerticaDB) corev1.Volume {
+	return buildVolumeFromSecret(passwordMountName, vdb.Spec.PasswordSecret)
+}
+
+// buildVolumeFromSecret constructs a volume from a secret
+func buildVolumeFromSecret(volName, secretName string) corev1.Volume {
+	return corev1.Volume{
+		Name: volName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretName,
+			},
+		},
+	}
 }
 
 // buildLicenseVolume returns a volume that contains any licenses
@@ -506,12 +530,17 @@ func buildLicenseVolume(vdb *vapi.VerticaDB) corev1.Volume {
 func buildPodInfoVolume(vdb *vapi.VerticaDB) corev1.Volume {
 	projSources := []corev1.VolumeProjection{
 		{DownwardAPI: buildDownwardAPIProjection()},
-		// If these is a superuser password, include that in the projection
-		{Secret: buildSuperuserPasswordProjection(vdb)},
+		// If there is a superuser password, include that in the projection
+		{Secret: buildPasswordProjectionForVerticaPod(vdb)},
 	}
 
+	return buildVolumeFromProjections(projSources, vapi.PodInfoMountName)
+}
+
+// buildVolumeFromProjections constructs a volume from projections
+func buildVolumeFromProjections(projSources []corev1.VolumeProjection, volName string) corev1.Volume {
 	return corev1.Volume{
-		Name: vapi.PodInfoMountName,
+		Name: volName,
 		VolumeSource: corev1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
 				Sources: projSources,
@@ -645,17 +674,23 @@ func requiresSuperuserPasswordSecretMount(vdb *vapi.VerticaDB) bool {
 	return false
 }
 
-// buildSuperuserPasswordProjection creates a projection for inclusion in /etc/podinfo
-func buildSuperuserPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
+// buildPasswordProjectionForVerticaPod creates a projection from the password secret
+// for inclusion in /etc/podinfo
+func buildPasswordProjectionForVerticaPod(vdb *vapi.VerticaDB) *corev1.SecretProjection {
 	if requiresSuperuserPasswordSecretMount(vdb) {
-		return &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
-			Items: []corev1.KeyToPath{
-				{Key: names.SuperuserPasswordKey, Path: SuperuserPasswordPath},
-			},
-		}
+		return buildPasswordProjection(vdb)
 	}
 	return nil
+}
+
+// buildPasswordProjection creates a projection from the password secret
+func buildPasswordProjection(vdb *vapi.VerticaDB) *corev1.SecretProjection {
+	return &corev1.SecretProjection{
+		LocalObjectReference: corev1.LocalObjectReference{Name: vdb.Spec.PasswordSecret},
+		Items: []corev1.KeyToPath{
+			{Key: names.SuperuserPasswordKey, Path: SuperuserPasswordPath},
+		},
+	}
 }
 
 // buildCertSecretVolumes returns a list of volumes, one for each secret in certSecrets.
@@ -862,12 +897,24 @@ func makeScrutinizeInitContainer(vscr *v1beta1.VerticaScrutinize, vdb *vapi.Vert
 		Resources:    vscr.Spec.Resources,
 		Env:          buildCommonEnvVars(vdb),
 	}
+	if vdb.Spec.PasswordSecret != "" {
+		if secrets.IsK8sSecret(vdb.Spec.PasswordSecret) {
+			// we mount the password into the scrutinize init container
+			// only when the password secret in on k8s
+			cnt.VolumeMounts = append(cnt.VolumeMounts, corev1.VolumeMount{
+				Name:      passwordMountName,
+				MountPath: paths.ScrutinizeDBPasswordDir,
+			})
+		} else {
+			// the password secret env vars are needed only when the secret
+			// must be retrieved from secret stores like AWS Secrets
+			// Manager or GSM
+			cnt.Env = append(cnt.Env, buildScrutinizeDBPasswordEnvVars(
+				names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))...)
+		}
+	}
 	cnt.Env = append(cnt.Env, append(buildNMATLSCertsEnvVars(vdb),
 		buildScrutinizeTarballEnvVar(tarballName))...)
-	if vdb.Spec.PasswordSecret != "" {
-		cnt.Env = append(cnt.Env, buildScrutinizeDBPasswordEnvVars(
-			names.GenNamespacedName(vscr, vdb.Spec.PasswordSecret))...)
-	}
 	return cnt
 }
 

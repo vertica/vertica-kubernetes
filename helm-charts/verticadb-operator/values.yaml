@@ -99,6 +99,7 @@ reconcileConcurrency:
   verticarestorepointsquery: 1
   verticascrutinize: 1
   sandboxconfigmap: 1
+  verticareplicator: 1
 
 # The resource requirements for the operator pod.  See this for more info:
 # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/

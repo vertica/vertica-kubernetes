@@ -932,45 +932,14 @@ const (
 	// ImageChangeInProgress indicates if the vertica server is in the process
 	// of having its image change (aka upgrade).  We have two additional conditions to
 	// distinguish between online and offline upgrade.
-	ImageChangeInProgress    VerticaDBConditionType = "ImageChangeInProgress"
-	OfflineUpgradeInProgress VerticaDBConditionType = "OfflineUpgradeInProgress"
-	OnlineUpgradeInProgress  VerticaDBConditionType = "OnlineUpgradeInProgress"
+	ImageChangeInProgress       VerticaDBConditionType = "ImageChangeInProgress"
+	OfflineUpgradeInProgress    VerticaDBConditionType = "OfflineUpgradeInProgress"
+	OnlineUpgradeInProgress     VerticaDBConditionType = "OnlineUpgradeInProgress"
+	ReplicatedUpgradeInProgress VerticaDBConditionType = "ReplicatedUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded VerticaDBConditionType = "VerticaRestartNeeded"
 )
-
-// Fixed index entries for each condition.
-const (
-	AutoRestartVerticaIndex = iota
-	DBInitializedIndex
-	ImageChangeInProgressIndex
-	OfflineUpgradeInProgressIndex
-	OnlineUpgradeInProgressIndex
-	VerticaRestartNeededIndex
-)
-
-// VerticaDBConditionIndexMap is a map of the VerticaDBConditionType to its
-// index in the condition array
-var VerticaDBConditionIndexMap = map[VerticaDBConditionType]int{
-	AutoRestartVertica:       AutoRestartVerticaIndex,
-	DBInitialized:            DBInitializedIndex,
-	ImageChangeInProgress:    ImageChangeInProgressIndex,
-	OfflineUpgradeInProgress: OfflineUpgradeInProgressIndex,
-	OnlineUpgradeInProgress:  OnlineUpgradeInProgressIndex,
-	VerticaRestartNeeded:     VerticaRestartNeededIndex,
-}
-
-// VerticaDBConditionNameMap is the reverse of VerticaDBConditionIndexMap.  It
-// maps an index to the condition name.
-var VerticaDBConditionNameMap = map[int]VerticaDBConditionType{
-	AutoRestartVerticaIndex:       AutoRestartVertica,
-	DBInitializedIndex:            DBInitialized,
-	ImageChangeInProgressIndex:    ImageChangeInProgress,
-	OfflineUpgradeInProgressIndex: OfflineUpgradeInProgress,
-	OnlineUpgradeInProgressIndex:  OnlineUpgradeInProgress,
-	VerticaRestartNeededIndex:     VerticaRestartNeeded,
-}
 
 // VerticaDBCondition defines condition for VerticaDB
 type VerticaDBCondition struct {
