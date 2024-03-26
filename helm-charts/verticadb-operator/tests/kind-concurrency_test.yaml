@@ -10,6 +10,7 @@ tests:
         eventtrigger: 3
         verticarestorepointsquery: 7
         verticascrutinize: 5
+        sandboxconfigmap: 2
         verticareplicator: 6
     asserts:
       - equal:
@@ -27,6 +28,9 @@ tests:
       - equal:
           path: data.CONCURRENCY_VERTICASCRUTINIZE
           value: "5"
+      - equal:
+          path: data.CONCURRENCY_SANDBOXCONFIGMAP
+          value: "2"
       - equal:
           path: data.CONCURRENCY_VERTICAREPLICATOR
           value: "6"
