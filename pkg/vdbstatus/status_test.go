@@ -166,4 +166,42 @@ var _ = Describe("status", func() {
 		)).Should(Succeed())
 		Expect(vdb.IsStatusConditionTrue(vapi.VerticaRestartNeeded)).Should(BeTrue())
 	})
+
+	It("should set and clear the upgrade status field", func() {
+		vdb := vapi.MakeVDB()
+		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+
+		Expect(vdb.Status.UpgradeState).Should(BeNil())
+		upgradeState := vapi.UpgradeState{
+			ReplicaGroups: [][]string{
+				{"pri1", "pri2"},
+				{"sec1"},
+			},
+		}
+		Expect(SetUpgradeState(ctx, k8sClient, vdb, &upgradeState)).Should(Succeed())
+
+		fetchVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Status.UpgradeState).ShouldNot(BeNil())
+		Expect(fetchVdb.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
+		Expect(fetchVdb.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements(upgradeState.ReplicaGroups[0]))
+		Expect(fetchVdb.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements(upgradeState.ReplicaGroups[1]))
+
+		Expect(SetUpgradeState(ctx, k8sClient, vdb, nil)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Status.UpgradeState).Should(BeNil())
+	})
+
+	It("should set/clear the upgrade status message", func() {
+		vdb := vapi.MakeVDB()
+		Expect(k8sClient.Create(ctx, vdb)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vdb)).Should(Succeed()) }()
+
+		Expect(SetUpgradeStatusMessage(ctx, k8sClient, vdb, "upgrade started")).Should(Succeed())
+
+		fetchVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
+		Expect(fetchVdb.Status.UpgradeStatus).Should(Equal("upgrade started"))
+	})
 })

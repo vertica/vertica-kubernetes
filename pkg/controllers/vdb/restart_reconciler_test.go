@@ -32,6 +32,17 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	fakeListAllNodeOutputWithOneDownNode = `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db 
+
+`
+)
+
 var _ = Describe("restart_reconciler", func() {
 	ctx := context.Background()
 	const RestartProcessReadOnly = true
@@ -69,13 +80,7 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
-			},
+			{Stdout: fakeListAllNodeOutputWithOneDownNode},
 		}
 
 		downPod := &corev1.Pod{}
@@ -118,13 +123,7 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
-			},
+			{Stdout: fakeListAllNodeOutputWithOneDownNode},
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -163,14 +162,16 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 6)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0004 | 10.244.1.9 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0005 | 10.244.1.10| DOWN  | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0004 | 10.244.1.9 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0005 | 10.244.1.10| DOWN  | vertica-11.0.0.20210309 | db 
+
+`,
 			}, // check up node status via -t list_allnodes
 			{
 				Err:    errors.New("all nodes are not down"),
@@ -300,12 +301,14 @@ var _ = Describe("restart_reconciler", func() {
 
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_b_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | b \n" +
-				" v_b_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | b \n" +
-				" v_b_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | b \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+  v_b_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | b 
+  v_b_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | b 
+  v_b_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | b 
+
+`,
 			},
 		}
 
@@ -359,12 +362,14 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | DOWN  | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 
@@ -466,11 +471,13 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 3)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0002 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0002 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -694,14 +701,16 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 6)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | DOWN | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP   | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0004 | 10.244.1.9 | UP   | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0005 | 10.244.1.10| UP   | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | DOWN | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | DOWN | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP   | vertica-11.0.0.20210309 | db 
+ v_db_node0004 | 10.244.1.9 | UP   | vertica-11.0.0.20210309 | db 
+ v_db_node0005 | 10.244.1.10| UP   | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -735,12 +744,14 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | DOWN  | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
