@@ -174,7 +174,7 @@ var _ = Describe("status", func() {
 
 		Expect(vdb.Status.UpgradeState).Should(BeNil())
 		upgradeState := vapi.UpgradeState{
-			Replicas: [][]string{
+			ReplicaGroups: [][]string{
 				{"pri1", "pri2"},
 				{"sec1"},
 			},
@@ -184,9 +184,9 @@ var _ = Describe("status", func() {
 		fetchVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())
 		Expect(fetchVdb.Status.UpgradeState).ShouldNot(BeNil())
-		Expect(fetchVdb.Status.UpgradeState.Replicas).Should(HaveLen(2))
-		Expect(fetchVdb.Status.UpgradeState.Replicas[0]).Should(ContainElements(upgradeState.Replicas[0]))
-		Expect(fetchVdb.Status.UpgradeState.Replicas[1]).Should(ContainElements(upgradeState.Replicas[1]))
+		Expect(fetchVdb.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
+		Expect(fetchVdb.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements(upgradeState.ReplicaGroups[0]))
+		Expect(fetchVdb.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements(upgradeState.ReplicaGroups[1]))
 
 		Expect(SetUpgradeState(ctx, k8sClient, vdb, nil)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchVdb)).Should(Succeed())

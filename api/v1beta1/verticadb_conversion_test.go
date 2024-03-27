@@ -306,21 +306,21 @@ var _ = Describe("verticadb_conversion", func() {
 		v1beta1VDB := MakeVDB()
 		v1VDB := v1.VerticaDB{}
 		v1beta1VDB.Status.UpgradeState = &UpgradeState{
-			Replicas: [][]string{{"a", "b"}, {"c", "d"}},
+			ReplicaGroups: [][]string{{"a", "b"}, {"c", "d"}},
 		}
 
 		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
 		Ω(v1VDB.Status.UpgradeState).ShouldNot(BeNil())
-		Ω(v1VDB.Status.UpgradeState.Replicas).Should(HaveLen(2))
-		Ω(v1VDB.Status.UpgradeState.Replicas[0]).Should(ContainElements("a", "b"))
-		Ω(v1VDB.Status.UpgradeState.Replicas[1]).Should(ContainElements("c", "d"))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("a", "b"))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("c", "d"))
 
-		v1VDB.Status.UpgradeState.Replicas[0] = []string{"e", "f"}
-		v1VDB.Status.UpgradeState.Replicas[1] = []string{"g"}
+		v1VDB.Status.UpgradeState.ReplicaGroups[0] = []string{"e", "f"}
+		v1VDB.Status.UpgradeState.ReplicaGroups[1] = []string{"g"}
 		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
 		Ω(v1VDB.Status.UpgradeState).ShouldNot(BeNil())
-		Ω(v1VDB.Status.UpgradeState.Replicas).Should(HaveLen(2))
-		Ω(v1VDB.Status.UpgradeState.Replicas[0]).Should(ContainElements("e", "f"))
-		Ω(v1VDB.Status.UpgradeState.Replicas[1]).Should(ContainElements("g"))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("e", "f"))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("g"))
 	})
 })

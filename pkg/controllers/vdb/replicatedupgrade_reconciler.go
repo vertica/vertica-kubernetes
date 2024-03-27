@@ -59,8 +59,8 @@ const (
 	// Entries into the status.upgradeState.replicas array for each replica.
 	// Replica A has all of the primary subclusters and some secondary
 	// subclusters. Replica B has only secondary subclusters.
-	replicaA = 0
-	replicaB = 1
+	replicaGroupA = 0
+	replicaGroupB = 1
 )
 
 // Reconcile will automate the process of a replicated upgrade.
@@ -78,7 +78,7 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		// Initiate an upgrade by setting condition and event recording
 		r.Manager.startUpgrade,
 		// Assign subclusters to either replica A or replica B.
-		r.assignSubclustersToReplicas,
+		r.assignSubclustersToReplicaGroups,
 		// Cleanup up the condition and event recording for a completed upgrade
 		r.Manager.finishUpgrade,
 	}
@@ -96,31 +96,31 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-// assignSubclustersToReplicas will go through all of the subclusters involved
-// in the upgrade and assign them to one of two replicas. The assignment is
-// saved in the status.upgrade.replicas field.
-func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicas(ctx context.Context) (ctrl.Result, error) {
-	// Early out if we have already assigned replicas.
-	if r.VDB.Status.UpgradeState != nil && len(r.VDB.Status.UpgradeState.Replicas) > 0 {
+// assignSubclustersToReplicaGroups will go through all of the subclusters involved
+// in the upgrade and assign them to one of two replica groups. The assignment is
+// saved in the status.upgradeState.replicaGroups field.
+func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroups(ctx context.Context) (ctrl.Result, error) {
+	// Early out if we have already assigned replica groups.
+	if r.VDB.Status.UpgradeState != nil && len(r.VDB.Status.UpgradeState.ReplicaGroups) > 0 {
 		return ctrl.Result{}, nil
 	}
 
 	// The rules for subcluster assignment are as follows:
-	// - All primary subclusters must be in the first replica.
-	// - Only secondary subclusters can be in the second replica.
-	// - Some secondary subclusters can be in the first replica to balance the
-	//   replicas. Balancing is important because, at times during the upgrade,
-	//   all traffic will be directed to only one of the replicas.
+	// - All primary subclusters must be in the first replica group.
+	// - Only secondary subclusters can be in the second replica group.
+	// - Some secondary subclusters can be in the first replica group to balance
+	//   the replica groups. Balancing is important because, at times during the
+	//   upgrade, all traffic will be directed to only one of the replica groups.
 
 	upgradeStatus := vapi.UpgradeState{
-		Replicas: make([][]string, replicaB+1),
+		ReplicaGroups: make([][]string, replicaGroupB+1),
 	}
-	// Keep track of the difference in replica sizes. If > 0, replica A is
-	// larger. If < 0, replica B is larger.
-	var replicaSizeDiff int
+	// Keep track of the difference in replica group sizes. If > 0, replica
+	// group A is larger. If < 0, replica group B is larger.
+	var replicaGroupSizeDiff int
 
 	// Get the subcluster statefulsets. We sort this list so our algorithm for
-	// replica assignment is consistent.
+	// replica group assignment is consistent.
 	stss, err := r.Manager.Finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -137,8 +137,8 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicas(ctx context.Co
 		}
 
 		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster {
-			upgradeStatus.Replicas[replicaA] = append(upgradeStatus.Replicas[replicaA], scName)
-			replicaSizeDiff += int(*sts.Spec.Replicas)
+			upgradeStatus.ReplicaGroups[replicaGroupA] = append(upgradeStatus.ReplicaGroups[replicaGroupA], scName)
+			replicaGroupSizeDiff += int(*sts.Spec.Replicas)
 		}
 	}
 
@@ -153,16 +153,16 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicas(ctx context.Co
 		// By default, assign secondary subclusters to replica B, unless adding
 		// them to replica A would keep it smaller than replica B.
 		scName := sts.Labels[vmeta.SubclusterNameLabel]
-		if replicaSizeDiff > 0 || replicaSizeDiff-int(*sts.Spec.Replicas) > 0 {
-			upgradeStatus.Replicas[replicaB] = append(upgradeStatus.Replicas[replicaB], scName)
-			replicaSizeDiff -= int(*sts.Spec.Replicas)
+		if replicaGroupSizeDiff > 0 || replicaGroupSizeDiff-int(*sts.Spec.Replicas) > 0 {
+			upgradeStatus.ReplicaGroups[replicaGroupB] = append(upgradeStatus.ReplicaGroups[replicaGroupB], scName)
+			replicaGroupSizeDiff -= int(*sts.Spec.Replicas)
 		} else {
-			upgradeStatus.Replicas[replicaA] = append(upgradeStatus.Replicas[replicaA], scName)
-			replicaSizeDiff += int(*sts.Spec.Replicas)
+			upgradeStatus.ReplicaGroups[replicaGroupA] = append(upgradeStatus.ReplicaGroups[replicaGroupA], scName)
+			replicaGroupSizeDiff += int(*sts.Spec.Replicas)
 		}
 	}
 
-	// Commit the replica to the status field for subsequent steps to pick up.
+	// Commit the replica groups to the status field for subsequent steps to pick up.
 	err = vdbstatus.SetUpgradeState(ctx, r.VRec.Client, r.VDB, &upgradeStatus)
 	return ctrl.Result{}, err
 }

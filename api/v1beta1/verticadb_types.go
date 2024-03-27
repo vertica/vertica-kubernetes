@@ -972,9 +972,9 @@ type VerticaDBPodStatus struct {
 type UpgradeState struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// During a replicated upgrade, we split the subclusters into one of two
-	// replicas. This keeps track of the names of the subclusters in each
-	// replica.
-	Replicas [][]string `json:"replicas"`
+	// replica groups. This keeps track of the names of the subclusters in each
+	// replica group.
+	ReplicaGroups [][]string `json:"replicaGroups"`
 }
 
 //+kubebuilder:object:root=true
