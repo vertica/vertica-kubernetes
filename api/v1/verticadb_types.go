@@ -313,9 +313,10 @@ type VerticaDBSpec struct {
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
 	// +kubebuilder:validation:Optional
-	Sandboxes []Sandbox `json:"sanboxes,omitempty"`
+	// Identifies any sandboxes that exist for the database
+	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -625,11 +626,13 @@ type Sandbox struct {
 	// +kubebuilder:validation:required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// This is the name of a sandbox. This is a required parameter. This cannot
-	// change after CRD creation.
+	// change once the sandbox is created.
 	Name string `json:"name"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Optional
+	// The name of the image to use for the sandbox. If omitted, the image
+	// is inherited from the spec.image field.
 	Image string `json:"image,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -832,19 +835,17 @@ type VerticaDBStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
 	// The sandbox statuses
-	Sandboxes []SandboxStatus `json:"sandboxes"`
+	Sandboxes []SandboxStatus `json:"sandboxes,omitempty"`
 }
 
 type SandboxStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Name of the sandbox, that refers back to the spec.
+	// Name of the sandbox that was defined in the spec
 	Name string `json:"name"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// Names of subclusters that are currently a part of the given sandbox.
-	// This gets updated as subclusters get through sandbox_subcluster/unsandbox_subcluster commands.
-	// It is meant to show the current state, see how it differs from the state.
-	// The webhook can use this to determine when an invalid state change occurs.
+	// The names of subclusters that are currently a part of the given sandbox.
+	// This is updated as subclusters become sandboxed or unsandboxed.
 	Subclusters []string `json:"subclusters"`
 }
 

@@ -27,6 +27,7 @@ This helm chart will install the operator and an admission controller webhook.  
 | reconcileConcurrency.verticadb | Set this to control the concurrency of reconciliations of VerticaDB CRs | 5 |
 | reconcileConcurrency.verticarestorepointsquery | Set this to control the concurrency of reconciliations of VerticaRestorePointsQuery CRs | 1 |
 | reconcileConcurrency.verticascrutinize | Set this to control the concurrency of reconciliations of VerticaScrutinize CRs | 1 |
+| reconcileConcurrency.sandboxconfigmap | Set this to control the concurrency of reconciliations of ConfigMaps that contain state for a sandbox  | 1 |
 | reconcileConcurrency.verticareplicator | Set this to control the concurrency of reconciliations of VerticaReplicator CRs | 1 |
 | rbac_proxy_image.name | Image name of Kubernetes RBAC proxy. | kubebuilder/kube-rbac-proxy:v0.13.1 |
 | rbac_proxy_image.repo | Repo server hosting rbac_proxy_image.name | gcr.io |

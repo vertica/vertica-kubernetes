@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -77,7 +78,10 @@ func (r *SandboxConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("sandboxConfigMap", req.NamespacedName)
+	// Generate a unique uuid for each reconcile iteration so we can easily
+	// trace actions within a reconcile.
+	reconcileUUID := uuid.New()
+	log := r.Log.WithValues("configMap", req.NamespacedName, "reconcile-uuid", reconcileUUID)
 	log.Info("starting reconcile of sandbox configmap")
 
 	// Fetch the ConfigMap instance
@@ -100,6 +104,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if res, err = vk8s.FetchVDB(ctx, r, configMap, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
+	log.WithName(vdb.Name)
 
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log)
@@ -148,9 +153,22 @@ func (r *SandboxConfigMapReconciler) predicateFuncs() predicate.Funcs {
 // all sandbox configmap labels
 func (r *SandboxConfigMapReconciler) containsSandboxConfigMapLabels(labels map[string]string) bool {
 	for _, label := range vmeta.SandboxConfigMapLabels {
-		_, ok := labels[label]
+		val, ok := labels[label]
 		if !ok {
 			return false
+		}
+		// some labels have a constant value
+		// so we are checking if they have the expected values
+		switch label {
+		case vmeta.ManagedByLabel:
+			if val != vmeta.OperatorName {
+				return false
+			}
+		case vmeta.ComponentLabel:
+			if val != "database" {
+				return false
+			}
+		default:
 		}
 	}
 	return true
