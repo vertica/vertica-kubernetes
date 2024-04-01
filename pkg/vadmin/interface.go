@@ -204,7 +204,7 @@ type HTTPSCerts struct {
 type VClusterProvider interface {
 	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
 	VStopDatabase(options *vops.VStopDatabaseOptions) error
-	VStartDatabase(options *vops.VStartDatabaseOptions) error
+	VStartDatabase(options *vops.VStartDatabaseOptions) (*vops.VCoordinationDatabase, error)
 	VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, *vops.VCoordinationDatabase, error)
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error
