@@ -150,6 +150,20 @@ runs:
           fi
         fi
 
+        # Special setup for e2e-udx
+        if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then
+          # Setup the udx environment by compiling examples in the vertica image.
+          # This downloads packages, so to improve its reliability we retry in
+          # case any intermittent network issues arise.
+          for i in $(seq 1 5); do
+            scripts/setup-e2e-udx.sh $VERTICA_IMG rockylinux:8 && s=0 && break || s=$? && sleep 60;
+          done
+          if [[ $s != "0" ]]; then
+            echo "*** Give up trying to setup the udx env";
+            exit 1;
+          fi
+        fi
+
         # Run int test script
         if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
           scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
