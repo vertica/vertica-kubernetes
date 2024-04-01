@@ -52,7 +52,7 @@ func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	err = v.VStartDatabase(&vopts)
+	_, err = v.VStartDatabase(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to start a database")
 		return ctrl.Result{}, err

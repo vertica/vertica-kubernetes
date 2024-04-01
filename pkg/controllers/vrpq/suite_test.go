@@ -179,8 +179,8 @@ func (*MockVClusterOps) VReviveDatabase(_ *vclusterops.VReviveDatabaseOptions) (
 func (*MockVClusterOps) VShowRestorePoints(_ *vclusterops.VShowRestorePointsOptions) ([]vclusterops.RestorePoint, error) {
 	return nil, nil
 }
-func (*MockVClusterOps) VStartDatabase(_ *vclusterops.VStartDatabaseOptions) error {
-	return nil
+func (*MockVClusterOps) VStartDatabase(_ *vclusterops.VStartDatabaseOptions) (*vclusterops.VCoordinationDatabase, error) {
+	return nil, nil
 }
 func (*MockVClusterOps) VStartNodes(_ *vclusterops.VStartNodesOptions) error {
 	return nil
