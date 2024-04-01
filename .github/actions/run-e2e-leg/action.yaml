@@ -104,7 +104,7 @@ runs:
 
         # Set VERTICA_SUPERUSER_NAME
         export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }};
-        if [ -o "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then
+        if [[ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]]; then
           # Only "dbadmin" can be used when deployment type is admintools
           export VERTICA_SUPERUSER_NAME="dbadmin";
         fi
