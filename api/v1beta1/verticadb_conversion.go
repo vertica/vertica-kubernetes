@@ -258,6 +258,7 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Subclusters:     make([]v1.SubclusterStatus, len(src.Subclusters)),
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
+		UpgradeState:    (*v1.UpgradeState)(src.UpgradeState),
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubclusterStatus(src.Subclusters[i])
@@ -278,6 +279,7 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Subclusters:     make([]SubclusterStatus, len(src.Subclusters)),
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
+		UpgradeState:    (*UpgradeState)(src.UpgradeState),
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertFromSubclusterStatus(src.Subclusters[i])

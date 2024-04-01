@@ -301,4 +301,26 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.Status.Conditions).Should(HaveLen(1))
 		Ω(v1beta1VDB.Status.Conditions[0].Type).Should(Equal(ImageChangeInProgress))
 	})
+
+	It("should convert upgrade state", func() {
+		v1beta1VDB := MakeVDB()
+		v1VDB := v1.VerticaDB{}
+		v1beta1VDB.Status.UpgradeState = &UpgradeState{
+			ReplicaGroups: [][]string{{"a", "b"}, {"c", "d"}},
+		}
+
+		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Status.UpgradeState).ShouldNot(BeNil())
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("a", "b"))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("c", "d"))
+
+		v1VDB.Status.UpgradeState.ReplicaGroups[0] = []string{"e", "f"}
+		v1VDB.Status.UpgradeState.ReplicaGroups[1] = []string{"g"}
+		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
+		Ω(v1VDB.Status.UpgradeState).ShouldNot(BeNil())
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("e", "f"))
+		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("g"))
+	})
 })
