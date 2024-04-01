@@ -260,7 +260,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: "opentext/vertica-k8s:24.1.0-0-minimal"
           artifact-suffix: "-24.1.0-release"
-          vertica-deployment-method: vclusterops
+          vertica-deployment-method: admintools
           communal-storage-type: hostpath
 
   e2e-leg-3-vcluster:
@@ -385,6 +385,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
 
@@ -404,6 +405,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
           minimum-vertica-image: '24.2.0'
 
@@ -423,6 +425,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
+          vertica-deployment-method: vclusterops
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
 
@@ -502,6 +505,7 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
+          vertica-deployment-method: admintools
           communal-storage-type: s3
 
   e2e-udx-vcluster:
