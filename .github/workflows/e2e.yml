@@ -148,6 +148,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -166,6 +168,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -184,6 +188,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -203,6 +209,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -221,6 +229,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -238,6 +248,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -256,6 +268,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -273,6 +287,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -293,6 +309,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -313,6 +331,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -331,6 +351,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -352,6 +374,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -369,6 +393,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -386,6 +412,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -403,6 +431,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -420,6 +450,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -437,6 +469,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -457,6 +491,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
@@ -473,6 +509,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Test
         uses: ./.github/actions/run-e2e-leg
         with:
