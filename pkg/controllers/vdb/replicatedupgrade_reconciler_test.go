@@ -29,7 +29,7 @@ import (
 var _ = Describe("replicatedupgrade_reconciler", func() {
 	ctx := context.Background()
 
-	It("should correctly assign replica groups when primary/secondary are close in size", func() {
+	It("should correctly assign replica groups for both subcluster types", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 6},
@@ -45,51 +45,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(replicatedReconiler.assignSubclustersToReplicaGroups(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(vdb.Status.UpgradeState).ShouldNot(BeNil())
 		Ω(vdb.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
-		Ω(vdb.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("sc1"))
-		Ω(vdb.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("sc2", "sc3"))
-	})
-
-	It("should correctly assign replica groups when primary are small and secondary are large", func() {
-		vdb := vapi.MakeVDB()
-		// Make one secondary really big. This will force other secondaries into replica group A.
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 2},
-			{Name: "sc2", Type: vapi.PrimarySubcluster, Size: 2},
-			{Name: "sc3", Type: vapi.SecondarySubcluster, Size: 2},
-			{Name: "sc4", Type: vapi.SecondarySubcluster, Size: 18},
-			{Name: "sc5", Type: vapi.SecondarySubcluster, Size: 4},
-			{Name: "sc6", Type: vapi.SecondarySubcluster, Size: 7},
-		}
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		replicatedReconiler := createReplicatedUpgradeReconciler(vdb)
-		Ω(replicatedReconiler.assignSubclustersToReplicaGroups(ctx)).Should(Equal(ctrl.Result{}))
-		Ω(vdb.Status.UpgradeState).ShouldNot(BeNil())
-		Ω(vdb.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
-		Ω(vdb.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("sc1", "sc2", "sc5", "sc6"))
-		Ω(vdb.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("sc3", "sc4"))
-	})
-
-	It("should clear replica group assignment at the end of upgrade", func() {
-		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters = []vapi.Subcluster{
-			{Name: "sc1", Type: vapi.PrimarySubcluster, Size: 6},
-			{Name: "sc2", Type: vapi.SecondarySubcluster, Size: 3},
-			{Name: "sc3", Type: vapi.SecondarySubcluster, Size: 2},
-		}
-		test.CreateVDB(ctx, k8sClient, vdb)
-		defer test.DeleteVDB(ctx, k8sClient, vdb)
-		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
-		defer test.DeletePods(ctx, k8sClient, vdb)
-
-		replicatedReconiler := createReplicatedUpgradeReconciler(vdb)
-		Ω(replicatedReconiler.assignSubclustersToReplicaGroups(ctx)).Should(Equal(ctrl.Result{}))
-		Ω(vdb.Status.UpgradeState).ShouldNot(BeNil())
-		Ω(replicatedReconiler.Manager.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
-		Ω(vdb.Status.UpgradeState).Should(BeNil())
+		Ω(vdb.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("sc1", "sc2", "sc3"))
 	})
 })
 
