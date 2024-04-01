@@ -301,6 +301,7 @@ jobs:
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
           vertica-superuser-name: myadmin
+          # All helm deployments will use cert-manager to create the webhook cert
           helm-overrides: '--set webhook.certSource=cert-manager'
 
   e2e-leg-5-admintools:
