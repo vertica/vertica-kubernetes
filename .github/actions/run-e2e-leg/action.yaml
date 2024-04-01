@@ -79,16 +79,6 @@ runs:
         set -o errexit
         set -o xtrace
 
-        # Set KUSTOMIZE_CFG (groups of communal: azb, s3, hostpath)
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
-        #       "${{ inputs.leg-identifier }}" == "leg-8" ]]; then
-        #   export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg;
-        # elif [[ "${{ inputs.leg-identifier }}" != "leg-4" && \
-        #         "${{ inputs.leg-identifier }}" != "operator-upgrade" && \
-        #         "${{ inputs.leg-identifier }}" != "server-upgrade" && \
-        #         "${{ inputs.leg-identifier }}" != "udx" ]]; then
-        #   export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg;
-        # fi
         # Set KUSTOMIZE_CFG based on communal storage type
         if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
           export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg;
@@ -101,22 +91,10 @@ runs:
         export OPERATOR_IMG=${{ inputs.operator-image }}
         export VLOGGER_IMG=${{ inputs.vlogger-image }}
 
-        # Set DEPLOY_WITH (default value is helm)
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-1" ]]; then
-        #   export DEPLOY_WITH=olm;
-        # elif [[ "${{ inputs.leg-identifier }}" == "leg-5" ]]; then
-        #   export DEPLOY_WITH=helm;
-        # fi
+        # Set DEPLOY_WITH
         export DEPLOY_WITH="${{ inputs.deploy-with }}";
 
         # Set E2E_PARALLELISM
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-5" || \
-        #       "${{ inputs.leg-identifier }}" == "operator-upgrade" ]]; then
-        #   # We cannot parallelize these tests because they each deploy/undeploy
-        #   # the cluster scoped operator. You can only have a single verticadb
-        #   # operator running in the k8s cluster.
-        #   export E2E_PARALLELISM=1;
-        # fi
         if [[ "${{ inputs.e2e-parallelism }}" != "" ]]; then
           export E2E_PARALLELISM="${{ inputs.e2e-parallelism }}";
         fi
@@ -124,31 +102,17 @@ runs:
         # Set VERTICA_DEPLOYMENT_METHOD (default value is admintools)
         export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }};
 
-        # Set VERTICA_SUPERUSER_NAME (condition on inputs.vertica-superuser-name, use dbadmin as default, enforce dbadmin for admintools)
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-4" ]]; then
-        #   export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }};
-        #   if [ -z "${VERTICA_SUPERUSER_NAME}" -o "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then 
-        #     export VERTICA_SUPERUSER_NAME="dbadmin";
-        #   fi
-        # fi
+        # Set VERTICA_SUPERUSER_NAME
         export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }};
         if [ -o "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]; then
           # Only "dbadmin" can be used when deployment type is admintools
           export VERTICA_SUPERUSER_NAME="dbadmin";
         fi
 
-        # Set CONTROLLERS_SCOPE (default value is cluster)
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-2" ]]; then
-        #   # All of the tests in this leg will use a namespace scoped operator
-        #   export CONTROLLERS_SCOPE=namespace;
-        # fi
+        # Set CONTROLLERS_SCOPE
         export CONTROLLERS_SCOPE="${{ inputs.controllers-scope }}";
 
         # Set HELM_OVERRIDES
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-4" ]]; then
-        #   # All helm deployments will use cert-manager to create the webhook cert
-        #   export HELM_OVERRIDES="--set webhook.certSource=cert-manager";
-        # fi
         if [[ "${{ inputs.helm-overrides }}" != "" ]]; then
           export HELM_OVERRIDES="${{ inputs.helm-overrides }}";
         fi
@@ -171,28 +135,11 @@ runs:
         fi
 
         # Set BASE_VERTICA_IMG based on $VERTICA_IMG
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-5" || \
-        #       "${{ inputs.leg-identifier }}" == "server-upgrade" ]]; then
-        #   # Some tests in this suite do an upgrade, so set the base image to upgrade from
-        #   export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG);
-        #   echo "Upgrading server from image: $BASE_VERTICA_IMG";
-        # fi
         # Some tests in some suites do an upgrade, so set the base image to upgrade from
         # If a test suite doesn't involve an upgrade, this environment variable is left unused
         export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG);
 
         # Enforce server image version
-        # if [[ "${{ inputs.leg-identifier }}" == "leg-6" || \
-        #       "${{ inputs.leg-identifier }}" == "leg-7" || \
-        #       "${{ inputs.leg-identifier }}" == "leg-8" ]]; then
-        #   # The image must be at least a 24.2.0+.
-        #   # If it is older, we complete this leg as a no-op.
-        #   if scripts/is-image.sh -i $VERTICA_IMG older 24.2.0
-        #   then
-        #     echo "Old version detected, skipping all of the tests"
-        #     exit 0
-        #   fi
-        # fi
         if [[ "${{ inputs.minimum-vertica-image }}" != "" ]]; then
           # The image must be at least a ${{ inputs.minimum-vertica-image }}+.
           # If it is older, we complete this leg as a no-op.
@@ -203,25 +150,6 @@ runs:
           fi
         fi
 
-        # Setup operator upgrade test suite (can be removed)
-        # if [[ "${{ inputs.leg-identifier }}" == "operator-upgrade" ]]; then
-        #   scripts/setup-operator-upgrade-testsuite.sh
-        # fi
-
-        # Run int test script (server-upgrade should be s3)
-        # if [[ "${{ inputs.leg-identifier }}" == "server-upgrade" ]]; then
-        #   scripts/run-k8s-int-tests.sh -s -e tests/external-images-server-upgrade-ci.txt;
-        # elif [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
-        #         "${{ inputs.leg-identifier }}" == "leg-8" ]]; then
-        #   scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
-        # elif [[ "${{ inputs.leg-identifier }}" == "leg-4" || \
-        #         "${{ inputs.leg-identifier }}" == "operator-upgrade" || \
-        #         "${{ inputs.leg-identifier }}" == "udx" ]]; then
-        #   scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt;
-        # else
-        #   mkdir -p $GITHUB_WORKSPACE/../host-path;
-        #   scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s;
-        # fi
         # Run int test script
         if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
           scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
