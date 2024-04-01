@@ -1,12 +1,6 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaReplicator
 metadata:
-  labels:
-    app.kubernetes.io/name: verticareplicator
-    app.kubernetes.io/instance: verticareplicator-sample
-    app.kubernetes.io/part-of: verticadb-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: verticadb-operator
   name: verticareplicator-sample
 spec:
   foo: "bar"
