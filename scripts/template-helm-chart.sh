@@ -189,6 +189,7 @@ do
     perl -i -0777 -pe 's/(CONCURRENCY_EVENTTRIGGER: ).*/$1\{\{ .Values.reconcileConcurrency.eventtrigger | quote \}\}/g' $f
     perl -i -0777 -pe 's/(CONCURRENCY_VERTICARESTOREPOINTSQUERY: ).*/$1\{\{ .Values.reconcileConcurrency.verticarestorepointsquery | quote \}\}/g' $f
     perl -i -0777 -pe 's/(CONCURRENCY_VERTICASCRUTINIZE: ).*/$1\{\{ .Values.reconcileConcurrency.verticascrutinize | quote \}\}/g' $f
+    perl -i -0777 -pe 's/(CONCURRENCY_SANDBOXCONFIGMAP: ).*/$1\{\{ .Values.reconcileConcurrency.sandboxconfigmap | quote \}\}/g' $f
     perl -i -0777 -pe 's/(CONCURRENCY_VERTICAREPLICATOR: ).*/$1\{\{ .Values.reconcileConcurrency.verticareplicator | quote \}\}/g' $f
 done
 
