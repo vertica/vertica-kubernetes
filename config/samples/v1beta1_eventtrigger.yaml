@@ -1,12 +1,6 @@
 apiVersion: vertica.com/v1beta1
 kind: EventTrigger
 metadata:
-  labels:
-    app.kubernetes.io/name: eventtrigger
-    app.kubernetes.io/instance: eventtrigger-sample
-    app.kubernetes.io/part-of: verticadb-operator
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: verticadb-operator
   name: eventtrigger-sample
 spec:
   references:
