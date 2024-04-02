@@ -907,6 +907,11 @@ type VerticaDBStatus struct {
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
+	// State that is maintained by the operator during an upgrade.
+	UpgradeState *UpgradeState `json:"upgradeState,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
 	// The sandbox statuses
 	Sandboxes []SandboxStatus `json:"sandboxes,omitempty"`
 }
@@ -1009,6 +1014,15 @@ type VerticaDBPodStatus struct {
 	// +kubebuilder:validation:Optional
 	// True means the vertica process on this pod is in read-only state
 	ReadOnly bool `json:"readOnly"`
+}
+
+// UpgradeState stores state for an ongoing upgrade process.
+type UpgradeState struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// During a replicated upgrade, we split the subclusters into one of two
+	// replica groups. This keeps track of the names of the subclusters in each
+	// replica group.
+	ReplicaGroups [][]string `json:"replicaGroups"`
 }
 
 //+kubebuilder:object:root=true

@@ -322,8 +322,8 @@ github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcU
 github.com/theckman/yacspin v0.13.12 h1:CdZ57+n0U6JMuh2xqjnjRq5Haj6v1ner2djtLQRzJr4=
 github.com/theckman/yacspin v0.13.12/go.mod h1:Rd2+oG2LmQi5f3zC3yeZAOl245z8QOvrH4OPOJNZxLg=
 github.com/tonglil/buflogr v1.0.1 h1:WXFZLKxLfqcVSmckwiMCF8jJwjIgmStJmg63YKRF1p0=
-github.com/vertica/vcluster v1.2.1-0.20240321114211-15f8a0267f57 h1:VcQVxcUtVraXtSNJbQwHy/kJrh/4BZWdQ0fjhl2msz4=
-github.com/vertica/vcluster v1.2.1-0.20240321114211-15f8a0267f57/go.mod h1:zkTLy1hF6LzTeWmXiGYLFzihbi397WTQhPZ9xX4B+FY=
+github.com/vertica/vcluster v1.2.1-0.20240401123316-045acf30a006 h1:oAE7MEsNphvHIh3uhOY4P84rrOsoOV3O/YquZLuc+oQ=
+github.com/vertica/vcluster v1.2.1-0.20240401123316-045acf30a006/go.mod h1:zkTLy1hF6LzTeWmXiGYLFzihbi397WTQhPZ9xX4B+FY=
 github.com/vertica/vertica-sql-go v1.1.1 h1:sZYijzBbvdAbJcl4cYlKjR+Eh/X1hGKzukWuhh8PjvI=
 github.com/vertica/vertica-sql-go v1.1.1/go.mod h1:fGr44VWdEvL+f+Qt5LkKLOT7GoxaWdoUCnPBU9h6t04=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
