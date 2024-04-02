@@ -43,7 +43,7 @@ func MakeOperatorLabels(vdb *vapi.VerticaDB) map[string]string {
 	return map[string]string{
 		vmeta.ManagedByLabel:   vmeta.OperatorName,
 		vmeta.VDBInstanceLabel: vdb.Name,
-		vmeta.ComponentLabel:   "database",
+		vmeta.ComponentLabel:   vmeta.ComponentDatabase,
 		vmeta.DataBaseLabel:    vdb.Spec.DBName,
 	}
 }

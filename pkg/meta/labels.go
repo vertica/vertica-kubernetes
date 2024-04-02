@@ -39,6 +39,7 @@ const (
 	OperatorVersionLabel = "app.kubernetes.io/version"
 	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	ComponentLabel       = "app.kubernetes.io/component"
+	ComponentDatabase    = "database"
 	DataBaseLabel        = "vertica.com/database"
 
 	NameLabel    = "app.kubernetes.io/name"
@@ -51,6 +52,8 @@ const (
 	OperatorVersion110 = "1.1.0"
 	OperatorVersion120 = "1.2.0"
 	OperatorVersion130 = "1.3.0"
+
+	SandboxNameLabel = "vertica.com/sandbox"
 )
 
 // ProtectedLabels lists all of the internally used label.
@@ -67,4 +70,13 @@ var ProtectedLabels = []string{
 	SubclusterLegacyNameLabel,
 	SvcTypeLabel,
 	ClientRoutingLabel,
+}
+
+var SandboxConfigMapLabels = []string{
+	ManagedByLabel,
+	VDBInstanceLabel,
+	ComponentLabel,
+	DataBaseLabel,
+	NameLabel,
+	SandboxNameLabel,
 }
