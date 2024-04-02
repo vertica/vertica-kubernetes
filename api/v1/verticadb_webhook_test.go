@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -935,8 +934,8 @@ var _ = Describe("verticadb_webhook", func() {
 	It("should check subcluster immutability during upgrade", func() {
 		newVdb := MakeVDB()
 		newVdb.Spec.Subclusters = []Subcluster{
-			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: corev1.ServiceTypeClusterIP},
-			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: corev1.ServiceTypeClusterIP},
+			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		newVdb.Status.UpgradeState = &UpgradeState{
 			ReplicaGroups: [][]string{
@@ -955,15 +954,15 @@ var _ = Describe("verticadb_webhook", func() {
 
 		// Try to remove one of the subclusters
 		newVdb.Spec.Subclusters = []Subcluster{
-			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: corev1.ServiceTypeClusterIP},
+			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 
 		// Add a new primary subcluster.
 		newVdb.Spec.Subclusters = []Subcluster{
-			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: corev1.ServiceTypeClusterIP},
-			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: corev1.ServiceTypeClusterIP},
-			{Name: "c", Size: 3, Type: PrimarySubcluster, ServiceType: corev1.ServiceTypeClusterIP},
+			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "c", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
 		newVdb.Status.UpgradeState.ReplicaGroups[1] = append(newVdb.Status.UpgradeState.ReplicaGroups[1], "c")
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
