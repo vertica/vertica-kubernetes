@@ -15,9 +15,8 @@ inputs:
     required: false
     default: ''
   vertica-deployment-method:
-    description: 'Vertica deployment method'
-    required: false
-    default: admintools
+    description: 'Vertica deployment method (admintools, vclusterops)'
+    required: true
   vertica-superuser-name:
     description: 'Vertica superuser name'
     required: false

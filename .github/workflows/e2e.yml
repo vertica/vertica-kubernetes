@@ -243,8 +243,8 @@ jobs:
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
   
-  e2e-leg-3-admintools-previous-release:
-    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools leg 3' || inputs.e2e_test_suites == '' }}
+  e2e-leg-3-vclusterops-previous-release:
+    if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 3' || inputs.e2e_test_suites == '' }}
     needs: [build]
     runs-on: ubuntu-latest
     steps:
@@ -260,7 +260,7 @@ jobs:
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: "opentext/vertica-k8s:24.1.0-0-minimal"
           artifact-suffix: "-24.1.0-release"
-          vertica-deployment-method: admintools
+          vertica-deployment-method: vclusterops
           communal-storage-type: hostpath
 
   e2e-leg-3-vcluster:
@@ -425,7 +425,9 @@ jobs:
           vlogger-image: ${{ needs.build.outputs.vlogger-image }}
           operator-image: ${{ needs.build.outputs.operator-image }}
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
-          vertica-deployment-method: vclusterops
+          # The initial deployment method is admintools, and it eventually changes
+          # to vclusterops as the operator upgrades the server version
+          vertica-deployment-method: admintools
           communal-storage-type: azb
           minimum-vertica-image: '24.2.0'
 
@@ -488,6 +490,7 @@ jobs:
           # the cluster scoped operator. You can only have a single verticadb
           # operator running in the k8s cluster.
           e2e-parallelism: 1
+          vertica-deployment-method: admintools
 
   e2e-udx-admintools:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools udx' || inputs.e2e_test_suites == '' }}
