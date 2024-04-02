@@ -1139,6 +1139,14 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
+      - description: State that is maintained by the operator during an upgrade.
+        displayName: Upgrade State
+        path: upgradeState
+      - description: During a replicated upgrade, we split the subclusters into one
+          of two replica groups. This keeps track of the names of the subclusters
+          in each replica group.
+        displayName: Replica Groups
+        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status
@@ -2046,6 +2054,14 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
+      - description: State that is maintained by the operator during an upgrade.
+        displayName: Upgrade State
+        path: upgradeState
+      - description: During a replicated upgrade, we split the subclusters into one
+          of two replica groups. This keeps track of the names of the subclusters
+          in each replica group.
+        displayName: Replica Groups
+        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status

@@ -104,7 +104,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if res, err = vk8s.FetchVDB(ctx, r, configMap, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	log.WithName(vdb.Name)
+	log = log.WithValues("verticadb", vdb.Name)
 
 	// Iterate over each actor
 	actors := r.constructActors(vdb, log)
@@ -165,7 +165,7 @@ func (r *SandboxConfigMapReconciler) containsSandboxConfigMapLabels(labels map[s
 				return false
 			}
 		case vmeta.ComponentLabel:
-			if val != "database" {
+			if val != vmeta.ComponentDatabase {
 				return false
 			}
 		default:

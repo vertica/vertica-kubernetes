@@ -39,6 +39,7 @@ const (
 	OperatorVersionLabel = "app.kubernetes.io/version"
 	ManagedByLabel       = "app.kubernetes.io/managed-by"
 	ComponentLabel       = "app.kubernetes.io/component"
+	ComponentDatabase    = "database"
 	DataBaseLabel        = "vertica.com/database"
 
 	NameLabel    = "app.kubernetes.io/name"
