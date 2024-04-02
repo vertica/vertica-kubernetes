@@ -366,6 +366,11 @@ type VerticaDBSpec struct {
 	// create one, using the specified name if provided, along with a Role and
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +kubebuilder:validation:Optional
+	// Identifies any sandboxes that exist for the database
+	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -704,6 +709,33 @@ func (l *LocalStorage) IsDepotPathUnique() bool {
 		l.DepotPath != l.GetCatalogPath()
 }
 
+type Sandbox struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This is the name of a sandbox. This is a required parameter. This cannot
+	// change once the sandbox is created.
+	Name string `json:"name"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// The name of the image to use for the sandbox. If omitted, the image
+	// is inherited from the spec.image field.
+	Image string `json:"image,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This is the subcluster names that are part of the sandbox.
+	// There must be at least one subcluster listed. All subclusters
+	// listed need to be secondary subclusters.
+	Subclusters []SubclusterName `json:"subclusters"`
+}
+
+type SubclusterName struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The name of a subcluster.
+	Name string `json:"name"`
+}
+
 type Subcluster struct {
 	// +kubebuilder:validation:required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -877,6 +909,22 @@ type VerticaDBStatus struct {
 	// +optional
 	// State that is maintained by the operator during an upgrade.
 	UpgradeState *UpgradeState `json:"upgradeState,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The sandbox statuses
+	Sandboxes []SandboxStatus `json:"sandboxes,omitempty"`
+}
+
+type SandboxStatus struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the sandbox that was defined in the spec
+	Name string `json:"name"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The names of subclusters that are currently a part of the given sandbox.
+	// This is updated as subclusters become sandboxed or unsandboxed.
+	Subclusters []string `json:"subclusters"`
 }
 
 // VerticaDBConditionType defines type for VerticaDBCondition
