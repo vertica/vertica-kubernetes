@@ -24,6 +24,7 @@ import (
 )
 
 type NodeInfoFetcher interface {
+	// FetchNodeState will return information about a specific node
 	FetchNodeState(ctx context.Context) (*NodeInfo, error)
 }
 
