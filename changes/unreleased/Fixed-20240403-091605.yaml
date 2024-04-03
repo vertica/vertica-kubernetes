@@ -1,0 +1,5 @@
+kind: Fixed
+body: Fix restart logic for ScheduleOnly init policy
+time: 2024-04-03T09:16:05.542018459-03:00
+custom:
+  Issue: "756"
