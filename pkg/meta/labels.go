@@ -51,6 +51,8 @@ const (
 	OperatorVersion110 = "1.1.0"
 	OperatorVersion120 = "1.2.0"
 	OperatorVersion130 = "1.3.0"
+
+	SandboxNameLabel = "vertica.com/sandbox"
 )
 
 // ProtectedLabels lists all of the internally used label.

@@ -186,29 +186,6 @@ var _ = Describe("podfacts", func() {
 		Expect(pf.readOnly).Should(BeTrue())
 	})
 
-	It("should parse read-only state from node query", func() {
-		readOnly1, oid1, err := parseNodeStateAndReadOnly("v_db_node0001|UP|123456|t\n")
-		Expect(err).Should(Succeed())
-		Expect(readOnly1).Should(BeTrue())
-		Expect(oid1).Should(Equal("123456"))
-
-		readOnly2, oid2, err := parseNodeStateAndReadOnly("v_db_node0001|UP|7890123|f\n")
-		Expect(err).Should(Succeed())
-		Expect(readOnly2).Should(BeFalse())
-		Expect(oid2).Should(Equal("7890123"))
-
-		readOnly3, oid3, err := parseNodeStateAndReadOnly("v_db_node0001|UP|456789\n")
-		Expect(err).Should(Succeed())
-		Expect(readOnly3).Should(BeFalse())
-		Expect(oid3).Should(Equal("456789"))
-
-		_, _, err = parseNodeStateAndReadOnly("")
-		Expect(err).Should(Succeed())
-
-		_, _, err = parseNodeStateAndReadOnly("v_db_node0001|UP|123|t|garbage")
-		Expect(err).Should(Succeed())
-	})
-
 	It("should parse node subscriptions output", func() {
 		pf := &PodFact{}
 		Expect(setShardSubscription("3\n", pf)).Should(Succeed())
