@@ -1,0 +1,5 @@
+kind: Security
+body: Resolved security vulnerabilities in vertica-logger image
+time: 2024-04-03T17:39:10.785221143-03:00
+custom:
+  Issue: "758"
