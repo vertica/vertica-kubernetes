@@ -1,0 +1,186 @@
+name: 'Run an e2e leg'
+description: 'Will run all tests under one e2e leg with specific configurations'
+inputs:
+  vlogger-image:
+    description: 'Name of the vertica logger image'
+    required: true
+  operator-image:
+    description: 'Name of the operator image'
+    required: true
+  vertica-image:
+    description: 'Name of the vertica server image'
+    required: true
+  artifact-suffix:
+    description: 'Version of the suffix artifact file'
+    required: false
+    default: ''
+  vertica-deployment-method:
+    description: 'Vertica deployment method (admintools, vclusterops)'
+    required: true
+  vertica-superuser-name:
+    description: 'Vertica superuser name'
+    required: false
+    default: dbadmin
+  # secret not supported in GitHub action, treat this as input here
+  dockerhub-username:
+    description: 'Docker Hub username'
+    required: true
+  # secret not supported in GitHub action, treat this as input here
+  dockerhub-token:
+    description: 'Docker Hub token'
+    required: true
+  leg-identifier:
+    description: 'Testing leg identifier'
+    required: true
+  communal-storage-type:
+    description: 'The type of communal storage used (hostpath, s3, azb)'
+    required: false
+    default: 'hostpath'
+  deploy-with:
+    description: 'Operator deployment method (helm, olm)'
+    required: false
+    default: 'helm'
+  e2e-parallelism:
+    description: 'Value of E2E_PARALLELISM'
+    required: false
+    default: ''
+  controllers-scope:
+    description: 'Controllers deployment scope (cluster, namespace)'
+    required: false
+    default: 'cluster'
+  helm-overrides:
+    description: 'Value of HELM_OVERRIDES (to be used in helm install command)'
+    required: false
+    default: ''
+  minimum-vertica-image:
+    description: 'The minimum version of the vertica server image allowed'
+    required: false
+    default: ''
+  need-base-vertica-image:
+    description: 'Whether BASE_VERTICA_IMG is required'
+    required: false
+    default: 'false'
+runs:
+  using: "composite"
+  steps:
+
+    - uses: actions/checkout@v4
+
+    - name: Set up e2e environment
+      uses: ./.github/actions/setup-e2e
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      if: ${{ startsWith(inputs.vertica-image, 'docker.io') }}
+      with:
+        username: ${{ inputs.dockerhub-username }}
+        password: ${{ inputs.dockerhub-token }}
+
+    - name: Run e2e tests
+      shell: bash
+      run: |
+        set -o errexit
+        set -o xtrace
+
+        # Set KUSTOMIZE_CFG based on communal storage type
+        if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
+          export KUSTOMIZE_CFG=tests/kustomize-defaults-azb-ci.cfg;
+        elif [[ "${{ inputs.communal-storage-type }}" == "hostpath" ]]; then
+          export KUSTOMIZE_CFG=tests/kustomize-defaults-hostpath-ci.cfg;
+        fi
+        # No need to set KUSTOMIZE_CFG if communal storage is s3
+
+        export VERTICA_IMG=${{ inputs.vertica-image }}
+        export OPERATOR_IMG=${{ inputs.operator-image }}
+        export VLOGGER_IMG=${{ inputs.vlogger-image }}
+
+        # Set DEPLOY_WITH
+        export DEPLOY_WITH="${{ inputs.deploy-with }}";
+
+        # Set E2E_PARALLELISM
+        if [[ "${{ inputs.e2e-parallelism }}" != "" ]]; then
+          export E2E_PARALLELISM="${{ inputs.e2e-parallelism }}";
+        fi
+
+        # Set VERTICA_DEPLOYMENT_METHOD (default value is admintools)
+        export VERTICA_DEPLOYMENT_METHOD=${{ inputs.vertica-deployment-method }};
+
+        # Set VERTICA_SUPERUSER_NAME
+        export VERTICA_SUPERUSER_NAME=${{ inputs.vertica-superuser-name }};
+        if [[ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]]; then
+          # Only "dbadmin" can be used when deployment type is admintools
+          export VERTICA_SUPERUSER_NAME="dbadmin";
+        fi
+
+        # Set CONTROLLERS_SCOPE
+        export CONTROLLERS_SCOPE="${{ inputs.controllers-scope }}";
+
+        # Set HELM_OVERRIDES
+        if [[ "${{ inputs.helm-overrides }}" != "" ]]; then
+          export HELM_OVERRIDES="${{ inputs.helm-overrides }}";
+        fi
+
+        # Set E2E_TEST_DIRS
+        if [[ "${{ inputs.leg-identifier }}" == "operator-upgrade" ]]; then
+          export E2E_TEST_DIRS="tests/e2e-operator-upgrade-overlays";
+        else
+          export E2E_TEST_DIRS="tests/e2e-${{ inputs.leg-identifier }}"
+          if [[ "${{ inputs.leg-identifier }}" == "leg-1" || \
+                "${{ inputs.leg-identifier }}" == "leg-2" || \
+                "${{ inputs.leg-identifier }}" == "leg-3" || \
+                "${{ inputs.leg-identifier }}" == "leg-5" || \
+                "${{ inputs.leg-identifier }}" == "server-upgrade" ]]; then
+            # These legs have some tests that only run with admintools deployment
+            if [[ "${VERTICA_DEPLOYMENT_METHOD}" != "vclusterops" ]]; then
+              E2E_TEST_DIRS+=" tests/e2e-${{ inputs.leg-identifier }}-at-only";
+            fi
+          fi
+        fi
+
+        # Set BASE_VERTICA_IMG based on $VERTICA_IMG
+        # Some tests in some suites do an upgrade, so set the base image to upgrade from
+        if [[ "${{ inputs.need-base-vertica-image }}" == "true" ]]; then
+          export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG);
+        fi
+
+        # Enforce server image version
+        if [[ "${{ inputs.minimum-vertica-image }}" != "" ]]; then
+          # The image must be at least a ${{ inputs.minimum-vertica-image }}+.
+          # If it is older, we complete this leg as a no-op.
+          if scripts/is-image.sh -i $VERTICA_IMG older ${{ inputs.minimum-vertica-image }}
+          then
+            echo "Old version detected, skipping all of the tests"
+            exit 0
+          fi
+        fi
+
+        # Special setup for e2e-udx
+        if [[ "${{ inputs.leg-identifier }}" == "udx" ]]; then
+          # Setup the udx environment by compiling examples in the vertica image.
+          # This downloads packages, so to improve its reliability we retry in
+          # case any intermittent network issues arise.
+          for i in $(seq 1 5); do
+            scripts/setup-e2e-udx.sh $VERTICA_IMG rockylinux:8 && s=0 && break || s=$? && sleep 60;
+          done
+          if [[ $s != "0" ]]; then
+            echo "*** Give up trying to setup the udx env";
+            exit 1;
+          fi
+        fi
+
+        # Run int test script
+        if [[ "${{ inputs.communal-storage-type }}" == "azb" ]]; then
+          scripts/run-k8s-int-tests.sh -s -e tests/external-images-azb-ci.txt;
+        elif [[ "${{ inputs.communal-storage-type }}" == "hostpath" ]]; then
+          mkdir -p $GITHUB_WORKSPACE/../host-path;
+          scripts/run-k8s-int-tests.sh -m $GITHUB_WORKSPACE/../host-path -s;
+        else
+          scripts/run-k8s-int-tests.sh -s -e tests/external-images-s3-ci.txt;
+        fi
+
+
+    - uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: logs-e2e-${{ inputs.leg-identifier }}-${{ inputs.vertica-deployment-method }}${{ inputs.artifact-suffix }}
+        path: ${{ github.workspace }}/int-tests-output/*
