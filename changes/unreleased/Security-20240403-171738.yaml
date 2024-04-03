@@ -1,0 +1,5 @@
+kind: Security
+body: Fix for CVE-2024-24786
+time: 2024-04-03T17:17:38.557860824-03:00
+custom:
+  Issue: "757"
