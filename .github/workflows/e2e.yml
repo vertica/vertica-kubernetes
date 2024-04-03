@@ -344,7 +344,11 @@ jobs:
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
           vertica-deployment-method: admintools
           communal-storage-type: hostpath
+          # We cannot parallelize these tests because they each deploy/undeploy
+          # the cluster scoped operator. You can only have a single verticadb
+          # operator running in the k8s cluster.
           e2e-parallelism: 1
+          need-base-vertica-image: 'true'
 
   e2e-leg-5-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 5' || inputs.e2e_test_suites == '')}}
@@ -368,6 +372,7 @@ jobs:
           # the cluster scoped operator. You can only have a single verticadb
           # operator running in the k8s cluster.
           e2e-parallelism: 1
+          need-base-vertica-image: 'true'
 
   e2e-leg-6-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster leg 6' || inputs.e2e_test_suites == '')}}
@@ -449,6 +454,7 @@ jobs:
           vertica-image: ${{ needs.build.outputs.legacy-vertica-image }}
           vertica-deployment-method: admintools
           communal-storage-type: s3
+          need-base-vertica-image: 'true'
 
   e2e-server-upgrade-vcluster:
     if: ${{ ! github.event.pull_request.head.repo.fork  && (inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'vcluster server upgrade' || inputs.e2e_test_suites == '')}}
@@ -468,6 +474,7 @@ jobs:
           vertica-image: ${{ needs.build.outputs.full-vertica-image }}
           vertica-deployment-method: vclusterops
           communal-storage-type: s3
+          need-base-vertica-image: 'true'
 
   e2e-operator-upgrade:
     if: ${{ inputs.e2e_test_suites == 'all' || inputs.e2e_test_suites == 'admintools operator upgrade' || inputs.e2e_test_suites == '' }}

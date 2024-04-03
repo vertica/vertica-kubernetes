@@ -56,6 +56,10 @@ inputs:
     description: 'The minimum version of the vertica server image allowed'
     required: false
     default: ''
+  need-base-vertica-image:
+    description: 'Whether BASE_VERTICA_IMG is required'
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
@@ -135,8 +139,9 @@ runs:
 
         # Set BASE_VERTICA_IMG based on $VERTICA_IMG
         # Some tests in some suites do an upgrade, so set the base image to upgrade from
-        # If a test suite doesn't involve an upgrade, this environment variable is left unused
-        export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG);
+        if [[ "${{ inputs.need-base-vertica-image }}" == "true" ]]; then
+          export BASE_VERTICA_IMG=$(scripts/guess-server-upgrade-base-image.sh $VERTICA_IMG);
+        fi
 
         # Enforce server image version
         if [[ "${{ inputs.minimum-vertica-image }}" != "" ]]; then
