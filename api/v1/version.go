@@ -36,6 +36,8 @@ const (
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2
 	CGroupV2UnsupportedVersion = "v12.0.0"
+	// The version that added sandbox state
+	NodesHaveSandboxStateVersion = "v12.0.0"
 	// The minimum version that can start Vertica's http server
 	HTTPServerMinVersion = "v12.0.3"
 	// When httpServerMode is Auto, this is the minimum server version that will start Vertica's http server
@@ -71,8 +73,6 @@ const (
 	// Starting in v24.2.0, vcluster scrutinize command can read the
 	// database password from secret(k8s, aws, gsm)
 	ScrutinizeDBPasswdInSecretMinVersion = "v24.2.0"
-	// The version that added sandbox state
-	NodesHaveSandboxStateVersion = "v24.2.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
