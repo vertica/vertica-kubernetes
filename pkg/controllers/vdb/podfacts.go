@@ -30,11 +30,11 @@ import (
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/catalog"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
-	"github.com/vertica/vertica-kubernetes/pkg/nodeinfo"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
@@ -368,12 +368,6 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 			return err
 		}
 		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
-		val, found := pod.Labels[vmeta.SandboxNameLabel]
-		if found {
-			// if the node is up we will later retrieve the sandbox name from
-			// the database
-			pf.sandbox = val
-		}
 	}
 
 	fns := []CheckerFunc{
@@ -794,8 +788,8 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 
 // makeNodeInfoFetcher will create a NodeInfoFetcher object based on the feature flags set
 // and the server version
-func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) nodeinfo.NodeInfoFetcher {
-	return nodeinfo.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName)
+func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.NodeInfoFetcher {
+	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName)
 }
 
 // checkNodeStatus will query node state

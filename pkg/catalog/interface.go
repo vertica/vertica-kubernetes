@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package nodeinfo
+package catalog
 
 import (
 	"context"

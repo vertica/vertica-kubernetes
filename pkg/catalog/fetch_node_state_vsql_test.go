@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package nodeinfo
+package catalog
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -38,6 +38,7 @@ var _ = Describe("nodestatevsql", func() {
 		Expect(err).Should(Succeed())
 		Expect(ninf.ReadOnly).Should(BeFalse())
 		Expect(ninf.SubclusterOid).Should(Equal("456789"))
+		Expect(ninf.SandboxName).Should(Equal(""))
 
 		_, err = parseNodeState("")
 		Expect(err).Should(Succeed())

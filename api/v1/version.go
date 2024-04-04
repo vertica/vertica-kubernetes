@@ -38,8 +38,6 @@ const (
 	ReIPAllowedWithUpNodesVersion = "v11.1.0"
 	// The version of the server that doesn't support cgroup v2
 	CGroupV2UnsupportedVersion = "v12.0.0"
-	// The version that added sandbox state
-	NodesHaveSandboxStateVersion = "v12.0.0"
 	// The minimum version that can start Vertica's http server
 	HTTPServerMinVersion = "v12.0.3"
 	// When httpServerMode is Auto, this is the minimum server version that will start Vertica's http server
@@ -47,6 +45,8 @@ const (
 	// The minimum version that we can use the option with create DB to skip the
 	// package install.
 	CreateDBSkipPackageInstallVersion = "v12.0.1"
+	// The version that added sandbox state
+	NodesHaveSandboxStateVersion = "v12.0.4"
 	// Starting in v23.4.0, we added some new config parameters for settings
 	// that were typically done post create using SQL -- setting the default
 	// subcluster name and preferred k-safety.

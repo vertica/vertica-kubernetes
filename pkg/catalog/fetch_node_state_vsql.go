@@ -13,7 +13,7 @@
  limitations under the License.
 */
 
-package nodeinfo
+package catalog
 
 import (
 	"context"
@@ -28,7 +28,7 @@ func (v *VSQL) FetchNodeState(ctx context.Context) (*NodeInfo, error) {
 	stdout, err := v.queryNodeStatus(ctx, sql)
 	if err != nil {
 		// Skip parsing that happens next
-		return nil, nil
+		return nil, err
 	}
 	return parseNodeState(stdout)
 }
@@ -87,7 +87,7 @@ func parseNodeState(stdout string) (*NodeInfo, error) {
 	// The stdout comes in the form like this:
 	// v_vertdb_node0001|UP|41231232423|t|sandbox1
 	// This means upNode is true, subcluster oid is 41231232423 readOnly is
-	// true and the node is part of sanbox1. The node name is included in the output for debug purposes, but
+	// true and the node is part of sandbox1. The node name is included in the output for debug purposes, but
 	// otherwise not used.
 	//
 	// The 2nd column for node state is ignored in here. It is just for
