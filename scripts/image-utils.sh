@@ -15,11 +15,6 @@
 
 # Image utilities to be sourced into various bash scripts
 
-LAST_RELEASED_IMAGE="24.1.0"
-# Next two variables define the version that is built nightly from the server
-# master branch. Update this as the server repo changes the version.
-NIGHTLY_MAJOR=24
-NIGHTLY_MINOR=2
 PUBLIC_REPO=vertica
 PRIVATE_REPO=opentext
 PRIVATE_IMAGE=vertica-k8s-private
@@ -64,36 +59,6 @@ function get_vertica_image_version
 function determine_image_version() {
     local TARGET_IMAGE=$1
 
-    # Extract out the tag from the image.
-    IFS=':' read image tag <<< "$TARGET_IMAGE"
-
-    if [[ -z "$tag" ]]
-    then
-       # No tag found. Assume latest, so pick the last released image
-       echo ${LAST_RELEASED_IMAGE}
-       return
-    fi
-
-    IFS='.' read major minor patch <<< "$tag"
-
-    # If we were able to extract only digits for major/minor, then the tag was
-    # in fact a version.
-    if [[ $major =~ ^[0-9]+$ && $minor =~ ^[0-9]+$ ]]
-    then
-        echo "$major.$minor.0"
-        return
-    fi
-
-    # No able to figure out the version from the tag.  If the image repo is
-    # dockerhub, then we assume we are running with the nightly build. So, we
-    # return an image based on the nightly version. This must come from the private
-    # repo in case the base version isn't released yet.
-    if [[ $TARGET_IMAGE == docker.io/* ]]
-    then
-        echo "$NIGHTLY_MAJOR.$NIGHTLY_MINOR.0"
-        return
-    fi
-
     # If the image is something that actually exists already, we can simply
     # read from the labels what vertica version was used.
     if docker inspect $TARGET_IMAGE > /dev/null 2>&1 || \
@@ -101,6 +66,18 @@ function determine_image_version() {
     then
         IFS='.' read major minor patch <<< "$(get_vertica_image_version $TARGET_IMAGE)"
         echo "$major.$minor.$patch"
+        return
+    fi
+
+    # Extract out the tag from the image.
+    IFS=':' read image tag <<< "$TARGET_IMAGE"
+    IFS='.' read major minor patch <<< "$tag"
+
+    # If we were able to extract only digits for major/minor, then the tag was
+    # in fact a version.
+    if [[ $major =~ ^[0-9]+$ && $minor =~ ^[0-9]+$ ]]
+    then
+        echo "$major.$minor.0"
         return
     fi
 
