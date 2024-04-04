@@ -1,5 +1,0 @@
-kind: Changed
-body: Change VerticaScrutinize to read password from file
-time: 2024-03-22T08:34:07.322608874-03:00
-custom:
-  Issue: "742"
