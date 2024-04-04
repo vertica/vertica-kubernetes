@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type NodeInfoFetcher interface {
+type Fetcher interface {
 	// FetchNodeState will return information about a specific node
 	FetchNodeState(ctx context.Context) (*NodeInfo, error)
 }

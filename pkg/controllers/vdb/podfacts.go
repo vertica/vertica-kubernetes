@@ -788,7 +788,7 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 
 // makeNodeInfoFetcher will create a NodeInfoFetcher object based on the feature flags set
 // and the server version
-func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.NodeInfoFetcher {
+func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.Fetcher {
 	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName)
 }
 
@@ -800,15 +800,15 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf 
 
 	nodeInfoFetcher := p.makeNodeInfoFetcher(vdb, pf)
 	ninf, err := nodeInfoFetcher.FetchNodeState(ctx)
-	if err != nil || ninf == nil {
-		return err
+	if err != nil {
+		p.VRec.Log.Info(err.Error())
+		return nil
 	}
-	pf.readOnly = ninf.ReadOnly
-	pf.subclusterOid = ninf.SubclusterOid
-	if pf.sandbox != "" && pf.sandbox != ninf.SandboxName {
-		p.VRec.Log.Info(fmt.Sprintf("sandbox name %q is different from %q in the pod labels", ninf.SandboxName, pf.sandbox))
+	if ninf != nil {
+		pf.readOnly = ninf.ReadOnly
+		pf.subclusterOid = ninf.SubclusterOid
+		pf.sandbox = ninf.SandboxName
 	}
-	pf.sandbox = ninf.SandboxName
 	return nil
 }
 
