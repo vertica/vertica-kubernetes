@@ -126,6 +126,12 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.Spec.Communal.Endpoint = "s3://minio"
 		validateSpecValuesHaveErr(vdb, true)
 	})
+	It("should allow an empty communal endpoint", func() {
+		vdb := createVDBHelper()
+		vdb.Spec.Communal.Endpoint = ""
+		vdb.Spec.Communal.Path = "s3://my-bucket"
+		validateSpecValuesHaveErr(vdb, false)
+	})
 	It("should not have invalid server-side encryption type", func() {
 		vdb := createVDBHelper()
 		vdb.Spec.Communal.S3ServerSideEncryption = "fakessetype"

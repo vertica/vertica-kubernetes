@@ -283,9 +283,13 @@ func (r *RestartReconciler) restartPods(ctx context.Context, pods []*PodFact) (c
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	// If cluster does not have quorum, we requeue to
-	// restart the entire cluster
-	if !r.doesDBHaveQuorum(clusterState) {
+	// If cluster does not have quorum, we requeue to restart the entire cluster.
+	// We can only check for quorum when we have a full view of the cluster.
+	// When using the schedule-only option, we only gather information about
+	// Vertica nodes within k8s. We don't have details about nodes outside k8s.
+	// So, in these cases, we always skip the check and take our chances that
+	// the restart will work.
+	if r.Vdb.Spec.InitPolicy != vapi.CommunalInitPolicyScheduleOnly && !r.doesDBHaveQuorum(clusterState) {
 		r.Log.Info("Cluster does not have quorum, restart of entire cluster is needed. Requeue reconciliation.")
 		return ctrl.Result{
 			Requeue:      true,

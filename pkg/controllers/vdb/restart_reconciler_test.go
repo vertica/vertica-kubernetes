@@ -765,4 +765,44 @@ var _ = Describe("restart_reconciler", func() {
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
 	})
+
+	It("should requeue if we don't have cluster quorum according to podfacts", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 3
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
+			podNm := names.GenPodName(vdb, sc, podIndex)
+			// Only 1 of the 3 is up, which means we don't have quorum
+			if podIndex == 0 {
+				pfacts.Detail[podNm].upNode = true
+			} else {
+				pfacts.Detail[podNm].upNode = false
+			}
+			pfacts.Detail[podNm].isInstalled = true
+			pfacts.Detail[podNm].isPodRunning = true
+		}
+
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		r := act.(*RestartReconciler)
+		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{Requeue: true, RequeueAfter: time.Second * RequeueWaitTimeInSeconds}))
+
+		// But if we are using schedule-only, then we skip the quorum check and proceed with restart.
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyScheduleOnly
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{}))
+		listCmd := fpr.FindCommands("restart_node")
+		Expect(len(listCmd)).Should(Equal(1))
+	})
 })

@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 2.1.1
+VERSION ?= 2.1.2
 export VERSION
 
 # VLOGGER_VERSION defines the version to use for the Vertica logger image
@@ -11,7 +11,7 @@ export VERSION
 # order to have a different release cadence.
 #
 # When changing this, be sure to update the tags in docker-vlogger/README.md
-VLOGGER_VERSION ?= 1.0.0
+VLOGGER_VERSION ?= 1.0.1
 
 REPO_DIR:=$(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
@@ -99,6 +99,8 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
+# What version of alpine does the vlogger image use
+VLOGGER_ALPINE_VERSION?=3.19
 # The port number for the local registry
 REG_PORT ?= 5000
 # Image URL to use for the bundle.  We special case kind because to use it with
@@ -388,9 +390,15 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
 
+
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
-	docker buildx build -t ${VLOGGER_IMG} --load -f docker-vlogger/Dockerfile .
+	docker pull alpine:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
+	docker buildx build \
+		-t ${VLOGGER_IMG} \
+		--load \
+		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
+		-f docker-vlogger/Dockerfile .
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.

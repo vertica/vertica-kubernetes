@@ -199,6 +199,9 @@ type GatherState struct {
 	FileExists             map[string]bool `json:"fileExists"`
 	DBExists               bool            `json:"dbExists"`
 	VerticaPIDRunning      bool            `json:"verticaPIDRunning"`
+	VerticaProcess         string          `json:"verticaProcess"`
+	SpreadPIDRunning       bool            `json:"spreadPIDRunning"`
+	SpreadProcess          string          `json:"spreadProcess"`
 	UpNode                 bool            `json:"upNode"`
 	StartupComplete        bool            `json:"startupComplete"`
 	Compat21NodeName       string          `json:"compat21NodeName"`
@@ -433,11 +436,18 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 	// The output of the script is yaml. We use a yaml package to unmarshal the
 	// output directly into a GatherState struct. And changes to this script
 	// must have a corresponding change in GatherState.
-	// Note: we replaced ^vertica with ^.*vertica\s-D as pattern to get vertica process
-	// because we need it when vertica and NMA are in separate containers. We plan to
-	// remove it and use vertica process only for admintools after VER-91286
+	script := strings.Builder{}
+	script.WriteString(p.genGatherScriptBase(vdb, pf))
+	if pf.execContainerName == names.ServerContainer {
+		script.WriteString(p.genGatherScriptForVerticaPIDCollection())
+	}
+	return script.String()
+}
+
+func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string {
 	return dedent.Dedent(fmt.Sprintf(`
 		set -o errexit
+		set -o pipefail
 		echo -n 'installIndicatorExists: '
 		test -f %s && echo true || echo false
 		echo -n 'eulaAccepted: '
@@ -469,8 +479,6 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
 		echo -n 'vnodeName: '
 		cd %s/%s/v_%s_node????_catalog 2> /dev/null && basename $(pwd) | rev | cut -c9- | rev || echo ""
-		echo -n 'verticaPIDRunning: '
-		[[ $(pgrep -f "^.*vertica\s-D" --runstates RDS) ]] && echo true || echo false
 		echo -n 'upNode: '
 		%s 2> /dev/null | grep --quiet 200 2> /dev/null && echo true || echo false
 		echo -n 'startupComplete: '
@@ -502,6 +510,22 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 		pf.catalogPath,
 		pf.catalogPath,
 	))
+}
+
+func (p *PodFacts) genGatherScriptForVerticaPIDCollection() string {
+	// This is only be run when vertica process is running in the container we
+	// are doing the gather. And this is only true if we aren't running the nma
+	// in a separate container.
+	return dedent.Dedent(`
+		echo -n 'verticaPIDRunning: '
+		[[ $(pgrep -f "^.*vertica\s-D") ]] && echo true || echo false
+		echo -n 'verticaProcess: '
+		pgrep -f "^.*vertica\s-D" -a | tail -1 || echo error
+		echo -n 'spreadPIDRunning: '
+		[[ $(pgrep spread) ]] && echo true || echo false
+		echo -n 'spreadProcess: '
+		pgrep spread -a | tail -1 || echo error
+ 	`)
 }
 
 // getPathToVerifyCatalogExists will return a suffix of a path that we can check
@@ -689,7 +713,7 @@ func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
 	// At one point, we ran a query against the nodes table. But it became
 	// tricker to decipher what query failure meant -- is vertica down or is it
 	// a problem with the query?
-	p.upNode = p.dbExists && gs.VerticaPIDRunning
+	p.upNode = p.dbExists && gs.VerticaPIDRunning && gs.SpreadPIDRunning
 }
 
 // checkDCTableAnnotations will check if the pod has the necessary annotations
