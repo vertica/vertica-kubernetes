@@ -32,6 +32,17 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	fakeListAllNodeOutputWithOneDownNode = `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db 
+
+`
+)
+
 var _ = Describe("restart_reconciler", func() {
 	ctx := context.Background()
 	const RestartProcessReadOnly = true
@@ -69,13 +80,7 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
-			},
+			{Stdout: fakeListAllNodeOutputWithOneDownNode},
 		}
 
 		downPod := &corev1.Pod{}
@@ -118,13 +123,7 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
-			},
+			{Stdout: fakeListAllNodeOutputWithOneDownNode},
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -163,14 +162,16 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 6)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0004 | 10.244.1.9 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0005 | 10.244.1.10| DOWN  | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | DOWN  | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0004 | 10.244.1.9 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0005 | 10.244.1.10| DOWN  | vertica-11.0.0.20210309 | db 
+
+`,
 			}, // check up node status via -t list_allnodes
 			{
 				Err:    errors.New("all nodes are not down"),
@@ -300,12 +301,14 @@ var _ = Describe("restart_reconciler", func() {
 
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_b_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | b \n" +
-				" v_b_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | b \n" +
-				" v_b_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | b \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+  v_b_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | b 
+  v_b_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | b 
+  v_b_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | b 
+
+`,
 			},
 		}
 
@@ -359,12 +362,14 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | DOWN  | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP    | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 
@@ -466,11 +471,13 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 3)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0002 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0002 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -694,14 +701,16 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 6)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | DOWN | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | DOWN | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | UP   | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0004 | 10.244.1.9 | UP   | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0005 | 10.244.1.10| UP   | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | DOWN | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | DOWN | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | UP   | vertica-11.0.0.20210309 | db 
+ v_db_node0004 | 10.244.1.9 | UP   | vertica-11.0.0.20210309 | db 
+ v_db_node0005 | 10.244.1.10| UP   | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -735,12 +744,14 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 4)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		fpr.Results[initiatorPod] = []cmds.CmdResult{
-			{Stdout: " Node          | Host       | State | Version                 | DB \n" +
-				"---------------+------------+-------+-------------------------+----\n" +
-				" v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db \n" +
-				" v_db_node0003 | 10.244.1.8 | DOWN  | vertica-11.0.0.20210309 | db \n" +
-				"\n",
+			{Stdout: `
+ Node          | Host       | State | Version                 | DB 
+---------------+------------+-------+-------------------------+----
+ v_db_node0001 | 10.244.1.6 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0002 | 10.244.1.7 | UP    | vertica-11.0.0.20210309 | db 
+ v_db_node0003 | 10.244.1.8 | DOWN  | vertica-11.0.0.20210309 | db 
+
+`,
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
@@ -753,5 +764,45 @@ var _ = Describe("restart_reconciler", func() {
 		// Verify that we did not restart any node
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
+	})
+
+	It("should requeue if we don't have cluster quorum according to podfacts", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters[0].Size = 3
+		createS3CredSecret(ctx, vdb)
+		defer deleteCommunalCredSecret(ctx, vdb)
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		sc := &vdb.Spec.Subclusters[0]
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
+		pfacts := createPodFactsDefault(fpr)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		for podIndex := int32(0); podIndex < vdb.Spec.Subclusters[0].Size; podIndex++ {
+			podNm := names.GenPodName(vdb, sc, podIndex)
+			// Only 1 of the 3 is up, which means we don't have quorum
+			if podIndex == 0 {
+				pfacts.Detail[podNm].upNode = true
+			} else {
+				pfacts.Detail[podNm].upNode = false
+			}
+			pfacts.Detail[podNm].isInstalled = true
+			pfacts.Detail[podNm].isPodRunning = true
+		}
+
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
+		r := act.(*RestartReconciler)
+		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{Requeue: true, RequeueAfter: time.Second * RequeueWaitTimeInSeconds}))
+
+		// But if we are using schedule-only, then we skip the quorum check and proceed with restart.
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyScheduleOnly
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{}))
+		listCmd := fpr.FindCommands("restart_node")
+		Expect(len(listCmd)).Should(Equal(1))
 	})
 })

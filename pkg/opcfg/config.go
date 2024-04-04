@@ -159,6 +159,18 @@ func GetVerticaScrutinizeConcurrency() int {
 	return lookupIntEnvVar("CONCURRENCY_VERTICASCRUTINIZE", envMustExist)
 }
 
+// GetSandboxConfigMapConcurrency returns the number of goroutines that will
+// service sandbox ConfigMaps
+func GetSandboxConfigMapConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_SANDBOXCONFIGMAP", envMustExist)
+}
+
+// GetVerticaReplicatorConcurrency returns the number of goroutines that will
+// service VerticaReplicator CRs.
+func GetVerticaReplicatorConcurrency() int {
+	return lookupIntEnvVar("CONCURRENCY_VERTICAREPLICATOR", envMustExist)
+}
+
 // GetPrefixName returns the common prefix for all objects used to deploy the
 // operator.
 func GetPrefixName() string {

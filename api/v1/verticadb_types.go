@@ -113,8 +113,10 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=Create
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Create","urn:alm:descriptor:com.tectonic.ui:select:Revive","urn:alm:descriptor:com.tectonic.ui:select:ScheduleOnly"}
-	// The initialization policy defines how to setup the database.  Available
-	// options are to create a new database or revive an existing one.
+	// The initialization policy specifies how the database should be
+	// configured. Options include creating a new database, reviving an existing
+	// one, or simply scheduling pods. Possible values are Create, Revive,
+	// CreateSkipPackageInstall, or ScheduleOnly.
 	InitPolicy CommunalInitPolicy `json:"initPolicy"`
 
 	// +kubebuilder:validation:Optional
@@ -125,16 +127,24 @@ type VerticaDBSpec struct {
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:Auto","urn:alm:descriptor:com.tectonic.ui:select:Online","urn:alm:descriptor:com.tectonic.ui:select:Offline"}
 	// +kubebuilder:default:=Auto
-	// Defines how upgrade will be managed.  Available values are: Offline,
-	// Online and Auto.
-	// - Offline: means we take down the entire cluster then bring it back up
+	// This setting defines how the upgrade process will be managed. The
+	// available values are Offline, Online, Replicated, and Auto.
+	//
+	// Offline: This option involves taking down the entire cluster and then
+	// bringing it back up with the new image.
+	//
+	// Online: With this option, the cluster remains operational for reads
+	// during the upgrade process. However, the data will be in read-only mode
+	// until the Vertica nodes from the primary subcluster re-form the cluster
 	// with the new image.
-	// - Online: will keep the cluster up when the upgrade occurs.  The
-	// data will go into read-only mode until the Vertica nodes from the primary
-	// subcluster reform the cluster with the new image.
-	// - Auto: will pick between Offline or Online.  Online is only chosen if a
-	// license Secret exists, the k-Safety of the database is 1 and we are
-	// running with a Vertica version that supports read-only subclusters.
+	//
+	// Replicated: Similar to Online, this option keeps the cluster operational
+	// throughout the upgrade process but allows writes. The cluster is split
+	// into two replicas, and traffic is redirected to the active replica to
+	// facilitate writes.
+	//
+	// Auto: This option selects one of the above methods automatically based on
+	// compatibility with the version of Vertica you are running.
 	UpgradePolicy UpgradePolicyType `json:"upgradePolicy"`
 
 	// +kubebuilder:validation:Optional
@@ -302,6 +312,11 @@ type VerticaDBSpec struct {
 	// create one, using the specified name if provided, along with a Role and
 	// RoleBinding.
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// +kubebuilder:validation:Optional
+	// Identifies any sandboxes that exist for the database
+	Sandboxes []Sandbox `json:"sandboxes,omitempty"`
 }
 
 // LocalObjectReference is used instead of corev1.LocalObjectReference and behaves the same.
@@ -402,6 +417,11 @@ const (
 	// subcluster comes back up, we restart/remove all of the secondary
 	// subclusters to take them out of read-only mode.
 	OnlineUpgrade UpgradePolicyType = "Online"
+	// Like online upgrade, however it allows for writes. This is done by
+	// splitting the vertica cluster into two replicas, then following a
+	// replication strategy where we failover to one of the replicas while the
+	// other is being upgraded.
+	ReplicatedUpgrade UpgradePolicyType = "Replicated"
 	// This automatically picks between offline and online upgrade.  Online
 	// can only be used if (a) a license secret exists since we may need to scale
 	// out, (b) we are already on a minimum Vertica engine version that supports
@@ -602,6 +622,33 @@ func (l *LocalStorage) IsDepotPathUnique() bool {
 		l.DepotPath != l.GetCatalogPath()
 }
 
+type Sandbox struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This is the name of a sandbox. This is a required parameter. This cannot
+	// change once the sandbox is created.
+	Name string `json:"name"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Optional
+	// The name of the image to use for the sandbox. If omitted, the image
+	// is inherited from the spec.image field.
+	Image string `json:"image,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// This is the subcluster names that are part of the sandbox.
+	// There must be at least one subcluster listed. All subclusters
+	// listed need to be secondary subclusters.
+	Subclusters []SubclusterName `json:"subclusters"`
+}
+
+type SubclusterName struct {
+	// +kubebuilder:validation:required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// The name of a subcluster.
+	Name string `json:"name"`
+}
+
 type Subcluster struct {
 	// +kubebuilder:validation:required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -784,6 +831,27 @@ type VerticaDBStatus struct {
 	// Status message for the current running upgrade.   If no upgrade
 	// is occurring, this message remains blank.
 	UpgradeStatus string `json:"upgradeStatus"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// State that is maintained by the operator during an upgrade.
+	UpgradeState *UpgradeState `json:"upgradeState,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
+	// The sandbox statuses
+	Sandboxes []SandboxStatus `json:"sandboxes,omitempty"`
+}
+
+type SandboxStatus struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Name of the sandbox that was defined in the spec
+	Name string `json:"name"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// The names of subclusters that are currently a part of the given sandbox.
+	// This is updated as subclusters become sandboxed or unsandboxed.
+	Subclusters []string `json:"subclusters"`
 }
 
 const (
@@ -792,11 +860,12 @@ const (
 	// DBInitialized indicates the database has been created or revived
 	DBInitialized = "DBInitialized"
 	// UpgradeInProgress indicates if the vertica server is in the process
-	// of having its image change.  We have two additional conditions to
-	// distinguish between online and offline upgrade.
-	UpgradeInProgress        = "UpgradeInProgress"
-	OfflineUpgradeInProgress = "OfflineUpgradeInProgress"
-	OnlineUpgradeInProgress  = "OnlineUpgradeInProgress"
+	// of having its image change.  We have additional conditions to
+	// distinguish between the different types of upgrade it is.
+	UpgradeInProgress           = "UpgradeInProgress"
+	OfflineUpgradeInProgress    = "OfflineUpgradeInProgress"
+	OnlineUpgradeInProgress     = "OnlineUpgradeInProgress"
+	ReplicatedUpgradeInProgress = "ReplicatedUpgradeInProgress"
 	// VerticaRestartNeeded is a condition that when set to true will force the
 	// operator to stop/start the vertica pods.
 	VerticaRestartNeeded = "VerticaRestartNeeded"
@@ -852,6 +921,15 @@ type VerticaDBPodStatus struct {
 	// True means the vertica process is running on this pod and it can accept
 	// connections on port 5433.
 	UpNode bool `json:"upNode"`
+}
+
+// UpgradeState stores state for an ongoing upgrade process.
+type UpgradeState struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// During a replicated upgrade, we split the subclusters into one of two
+	// replica groups. This keeps track of the names of the subclusters in each
+	// replica group.
+	ReplicaGroups [][]string `json:"replicaGroups"`
 }
 
 //+kubebuilder:object:root=true

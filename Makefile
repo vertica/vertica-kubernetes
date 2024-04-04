@@ -11,7 +11,7 @@ export VERSION
 # order to have a different release cadence.
 #
 # When changing this, be sure to update the tags in docker-vlogger/README.md
-VLOGGER_VERSION ?= 1.0.0
+VLOGGER_VERSION ?= 1.0.1
 
 REPO_DIR:=$(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 
@@ -99,6 +99,8 @@ export BASE_VERTICA_IMG
 # Image URL to use for the logger sidecar
 VLOGGER_IMG ?= $(IMG_REPO)vertica-logger:$(VLOGGER_VERSION)
 export VLOGGER_IMG
+# What version of alpine does the vlogger image use
+VLOGGER_ALPINE_VERSION?=3.19
 # The port number for the local registry
 REG_PORT ?= 5000
 # Image URL to use for the bundle.  We special case kind because to use it with
@@ -211,11 +213,15 @@ CONCURRENCY_VERTICAAUTOSCALER?=1
 CONCURRENCY_EVENTTRIGGER?=1
 CONCURRENCY_VERTICARESTOREPOINTSQUERY?=1
 CONCURRENCY_VERTICASCRUTINIZE?=1
+CONCURRENCY_SANDBOXCONFIGMAP?=1
+CONCURRENCY_VERTICAREPLICATOR?=1
 export CONCURRENCY_VERTICADB \
   CONCURRENCY_VERTICAAUTOSCALER \
   CONCURRENCY_EVENTTRIGGER \
   CONCURRENCY_VERTICARESTOREPOINTSQUERY \
-  CONCURRENCY_VERTICASCRUTINIZE
+  CONCURRENCY_VERTICASCRUTINIZE \
+  CONCURRENCY_SANDBOXCONFIGMAP \
+  CONCURRENCY_VERTICAREPLICATOR
 
 # Clear this variable if you don't want to wait for the helm deployment to
 # finish before returning control. This exists to allow tests to attempt deploy
@@ -384,9 +390,15 @@ docker-build-operator: manifests generate fmt vet ## Build operator docker image
 		--build-arg GO_VERSION=${GO_VERSION} \
 		-f docker-operator/Dockerfile .
 
+
 .PHONY: docker-build-vlogger
 docker-build-vlogger:  ## Build vertica logger docker image
-	docker buildx build -t ${VLOGGER_IMG} --load -f docker-vlogger/Dockerfile .
+	docker pull alpine:${VLOGGER_ALPINE_VERSION} # Ensure we have the latest alpine version
+	docker buildx build \
+		-t ${VLOGGER_IMG} \
+		--load \
+		--build-arg ALPINE_VERSION=${VLOGGER_ALPINE_VERSION} \
+		-f docker-vlogger/Dockerfile .
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker buildx build --platform=linux/arm64 ). However, you must enable docker buildKit for it.

@@ -514,8 +514,10 @@ spec:
         path: imagePullSecrets[0].name
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
-      - description: The initialization policy defines how to setup the database.  Available
-          options are to create a new database or revive an existing one.
+      - description: The initialization policy specifies how the database should be
+          configured. Options include creating a new database, reviving an existing
+          one, or simply scheduling pods. Possible values are Create, Revive, CreateSkipPackageInstall,
+          or ScheduleOnly.
         displayName: Init Policy
         path: initPolicy
         x-descriptors:
@@ -686,6 +688,27 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
+      - description: Identifies any sandboxes that exist for the database
+        displayName: Sandboxes
+        path: sandboxes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The name of the image to use for the sandbox. If omitted, the
+          image is inherited from the spec.image field.
+        displayName: Image
+        path: sandboxes[0].image
+      - description: This is the name of a sandbox. This is a required parameter.
+          This cannot change once the sandbox is created.
+        displayName: Name
+        path: sandboxes[0].name
+      - description: This is the subcluster names that are part of the sandbox. There
+          must be at least one subcluster listed. All subclusters listed need to be
+          secondary subclusters.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
+      - description: The name of a subcluster.
+        displayName: Name
+        path: sandboxes[0].subclusters[0].name
       - description: Allows you to set any additional securityContext for the Vertica
           server container.  We merge the values with the securityContext generated
           by the operator.  The operator adds its own capabilities to this.  If you
@@ -1024,14 +1047,18 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: 'Defines how upgrade will be managed.  Available values are:
-          Offline, Online and Auto. - Offline: means we take down the entire cluster
-          then bring it back up with the new image. - Online: will keep the cluster
-          up when the upgrade occurs.  The data will go into read-only mode until
-          the Vertica nodes from the primary subcluster reform the cluster with the
-          new image. - Auto: will pick between Offline or Online.  Online is only
-          chosen if a license Secret exists, the k-Safety of the database is 1 and
-          we are running with a Vertica version that supports read-only subclusters.'
+      - description: "This setting defines how the upgrade process will be managed.
+          The available values are Offline, Online, Replicated, and Auto. \n Offline:
+          This option involves taking down the entire cluster and then bringing it
+          back up with the new image. \n Online: With this option, the cluster remains
+          operational for reads during the upgrade process. However, the data will
+          be in read-only mode until the Vertica nodes from the primary subcluster
+          re-form the cluster with the new image. \n Replicated: Similar to Online,
+          this option keeps the cluster operational throughout the upgrade process
+          but allows writes. The cluster is split into two replicas, and traffic is
+          redirected to the active replica to facilitate writes. \n Auto: This option
+          selects one of the above methods automatically based on compatibility with
+          the version of Vertica you are running."
         displayName: Upgrade Policy
         path: upgradePolicy
         x-descriptors:
@@ -1062,6 +1089,16 @@ spec:
       - description: Conditions for VerticaDB
         displayName: Conditions
         path: conditions
+      - description: The sandbox statuses
+        displayName: Sandboxes
+        path: sandboxes
+      - description: Name of the sandbox that was defined in the spec
+        displayName: Name
+        path: sandboxes[0].name
+      - description: The names of subclusters that are currently a part of the given
+          sandbox. This is updated as subclusters become sandboxed or unsandboxed.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -1102,6 +1139,14 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
+      - description: State that is maintained by the operator during an upgrade.
+        displayName: Upgrade State
+        path: upgradeState
+      - description: During a replicated upgrade, we split the subclusters into one
+          of two replica groups. This keeps track of the names of the subclusters
+          in each replica group.
+        displayName: Replica Groups
+        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status
@@ -1506,6 +1551,27 @@ spec:
       - description: The index of the subcluster.  This is an index into Subclusters[]
         displayName: Subcluster Index
         path: reviveOrder[0].subclusterIndex
+      - description: Identifies any sandboxes that exist for the database
+        displayName: Sandboxes
+        path: sandboxes
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: The name of the image to use for the sandbox. If omitted, the
+          image is inherited from the spec.image field.
+        displayName: Image
+        path: sandboxes[0].image
+      - description: This is the name of a sandbox. This is a required parameter.
+          This cannot change once the sandbox is created.
+        displayName: Name
+        path: sandboxes[0].name
+      - description: This is the subcluster names that are part of the sandbox. There
+          must be at least one subcluster listed. All subclusters listed need to be
+          secondary subclusters.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
+      - description: The name of a subcluster.
+        displayName: Name
+        path: sandboxes[0].subclusters[0].name
       - description: Allows you to set any additional securityContext for the Vertica
           server container.  We merge the values with the securityContext generated
           by the operator.  The operator adds its own capabilities to this.  If you
@@ -1927,6 +1993,16 @@ spec:
           vertica cluster.
         displayName: Install Count
         path: installCount
+      - description: The sandbox statuses
+        displayName: Sandboxes
+        path: sandboxes
+      - description: Name of the sandbox that was defined in the spec
+        displayName: Name
+        path: sandboxes[0].name
+      - description: The names of subclusters that are currently a part of the given
+          sandbox. This is updated as subclusters become sandboxed or unsandboxed.
+        displayName: Subclusters
+        path: sandboxes[0].subclusters
       - description: The number of subclusters in the database
         displayName: Subcluster Count
         path: subclusterCount
@@ -1978,10 +2054,40 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
+      - description: State that is maintained by the operator during an upgrade.
+        displayName: Upgrade State
+        path: upgradeState
+      - description: During a replicated upgrade, we split the subclusters into one
+          of two replica groups. This keeps track of the names of the subclusters
+          in each replica group.
+        displayName: Replica Groups
+        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status
         path: upgradeStatus
+      version: v1beta1
+    - description: VerticaReplicator is the Schema for the verticareplicators API
+      displayName: Vertica Replicator
+      kind: VerticaReplicator
+      name: verticareplicators.vertica.com
+      resources:
+      - kind: VerticaDB
+        name: ""
+        version: vertica.com/v1beta1
+      specDescriptors:
+      - description: Dummy placeholder field
+        displayName: Foo
+        path: foo
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      statusDescriptors:
+      - description: Set of status conditions of replication process
+        displayName: Conditions
+        path: conditions
+      - description: Status message for replicator
+        displayName: State
+        path: state
       version: v1beta1
     - description: VerticaRestorePointsQuery is the Schema for the verticarestorepointsqueries
         API

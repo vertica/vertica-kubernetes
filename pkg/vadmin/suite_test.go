@@ -116,7 +116,7 @@ var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsco
 
 // VerifyDBNameAndIPv6 is used in vcluster-ops unit test for verifying db name and ipv6
 func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) error {
-	if options.Ipv6.ToBool() != TestIPv6 {
+	if options.IPv6 != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
 	}
 	if *options.DBName != TestDBName {
@@ -154,7 +154,7 @@ func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOpti
 	}
 
 	// verify eon mode
-	if options.IsEon.ToBool() != TestIsEon {
+	if options.IsEon != TestIsEon {
 		return fmt.Errorf("failed to retrieve eon mode")
 	}
 

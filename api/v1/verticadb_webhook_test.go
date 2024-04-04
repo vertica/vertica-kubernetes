@@ -915,6 +915,68 @@ var _ = Describe("verticadb_webhook", func() {
 		allErrs = vdb.validateVerticaDBSpec()
 		Ω(allErrs).Should(HaveLen(0))
 	})
+
+	It("should check for upgradePolicy", func() {
+		vdb := MakeVDB()
+		vdb.Spec.UpgradePolicy = "NotValid"
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
+
+	It("should check the validity of the replicaGroups", func() {
+		vdb := MakeVDB()
+		vdb.Status.UpgradeState = &UpgradeState{
+			ReplicaGroups: [][]string{
+				{"a", "b", "c"},
+				{"d", "e", "a"},
+			},
+		}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.Status.UpgradeState.ReplicaGroups[1] = []string{"d", "e"}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+	})
+
+	It("should check subcluster immutability during upgrade", func() {
+		newVdb := MakeVDB()
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Status.UpgradeState = &UpgradeState{
+			ReplicaGroups: [][]string{
+				{"a", "b"},
+				{},
+			},
+		}
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+
+		oldVdb := newVdb.DeepCopy()
+
+		// Try to change the size
+		newVdb.Spec.Subclusters[0].Size = 33
+		newVdb.Spec.Subclusters[1].Size = 1
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(2))
+
+		// Try to remove one of the subclusters
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+
+		// Add a new primary subcluster.
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "c", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Status.UpgradeState.ReplicaGroups[1] = append(newVdb.Status.UpgradeState.ReplicaGroups[1], "c")
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+
+		// Add a new secondary subcluster. This should be allowed.
+		newVdb.Spec.Subclusters[2].Type = SecondarySubcluster
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+	})
 })
 
 func createVDBHelper() *VerticaDB {

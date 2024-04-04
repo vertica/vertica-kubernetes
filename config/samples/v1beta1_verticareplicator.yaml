@@ -1,0 +1,6 @@
+apiVersion: vertica.com/v1beta1
+kind: VerticaReplicator
+metadata:
+  name: verticareplicator-sample
+spec:
+  foo: "bar"

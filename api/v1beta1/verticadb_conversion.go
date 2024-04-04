@@ -163,6 +163,7 @@ func convertToSpec(src *VerticaDBSpec) v1.VerticaDBSpec {
 		LivenessProbeOverride:  src.LivenessProbeOverride,
 		StartupProbeOverride:   src.StartupProbeOverride,
 		ServiceAccountName:     src.ServiceAccountName,
+		Sandboxes:              convertToSandboxSlice(src.Sandboxes),
 	}
 	if src.RestorePoint != nil {
 		dst.RestorePoint = &v1.RestorePointPolicy{
@@ -226,6 +227,7 @@ func convertFromSpec(src *v1.VerticaDB) VerticaDBSpec {
 		LivenessProbeOverride:   srcSpec.LivenessProbeOverride,
 		StartupProbeOverride:    srcSpec.StartupProbeOverride,
 		ServiceAccountName:      srcSpec.ServiceAccountName,
+		Sandboxes:               convertFromSandboxSlice(srcSpec.Sandboxes),
 	}
 	if srcSpec.RestorePoint != nil {
 		dst.RestorePoint = &RestorePointPolicy{
@@ -258,12 +260,17 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Subclusters:     make([]v1.SubclusterStatus, len(src.Subclusters)),
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
+		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
+		UpgradeState:    (*v1.UpgradeState)(src.UpgradeState),
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubclusterStatus(src.Subclusters[i])
 	}
 	for i := range src.Conditions {
 		meta.SetStatusCondition(&dst.Conditions, convertToStatusCondition(src.Conditions[i]))
+	}
+	for i := range src.Sandboxes {
+		dst.Sandboxes[i] = convertToSandboxStatus(src.Sandboxes[i])
 	}
 	return dst
 }
@@ -278,12 +285,17 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Subclusters:     make([]SubclusterStatus, len(src.Subclusters)),
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
+		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
+		UpgradeState:    (*UpgradeState)(src.UpgradeState),
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertFromSubclusterStatus(src.Subclusters[i])
 	}
 	for i := range src.Conditions {
 		dst.Conditions[i] = convertFromStatusCondition(&src.Conditions[i])
+	}
+	for i := range src.Sandboxes {
+		dst.Sandboxes[i] = convertFromSandboxStatus(src.Sandboxes[i])
 	}
 	return dst
 }
@@ -333,7 +345,7 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 	}
 }
 
-// convertToCommunal will convert to a v1 VerticaDBCondition from a v1beta1 version
+// convertToCommunal will convert to a v1 CommunalStorage from a v1beta1 version
 func convertToCommunal(src *CommunalStorage) v1.CommunalStorage {
 	cs := v1.CommunalStorage{
 		Path:                   src.Path,
@@ -417,6 +429,54 @@ func convertFromLocalReferenceSlice(src []v1.LocalObjectReference) []LocalObject
 	return dst
 }
 
+// convertToSandboxSlice will convert a []Sandbox from v1beta1
+// to v1 versions
+func convertToSandboxSlice(src []Sandbox) []v1.Sandbox {
+	dst := make([]v1.Sandbox, len(src))
+	for i := range src {
+		dst[i] = v1.Sandbox{
+			Name:        src[i].Name,
+			Image:       src[i].Image,
+			Subclusters: convertToSubclusterNameSlice(src[i].Subclusters),
+		}
+	}
+	return dst
+}
+
+// convertFromSandboxSlice will convert a []Sandbox from v1
+// to v1beta1 versions
+func convertFromSandboxSlice(src []v1.Sandbox) []Sandbox {
+	dst := make([]Sandbox, len(src))
+	for i := range src {
+		dst[i] = Sandbox{
+			Name:        src[i].Name,
+			Image:       src[i].Image,
+			Subclusters: convertFromSubclusterNameSlice(src[i].Subclusters),
+		}
+	}
+	return dst
+}
+
+// convertToSubclusterNameSlice will convert a []SubclusterName from v1beta1
+// to v1 versions
+func convertToSubclusterNameSlice(src []SubclusterName) []v1.SubclusterName {
+	dst := make([]v1.SubclusterName, len(src))
+	for i := range src {
+		dst[i] = v1.SubclusterName(src[i])
+	}
+	return dst
+}
+
+// convertFromSubclusterNameSlice will convert a []SubclusterName from v1
+// to v1beta1 versions
+func convertFromSubclusterNameSlice(src []v1.SubclusterName) []SubclusterName {
+	dst := make([]SubclusterName, len(src))
+	for i := range src {
+		dst[i] = SubclusterName(src[i])
+	}
+	return dst
+}
+
 // convetToSubcluterStatus will convert to a v1 SubcluterStatus from a v1beta1 version
 func convertToSubclusterStatus(src SubclusterStatus) v1.SubclusterStatus {
 	return v1.SubclusterStatus{
@@ -437,6 +497,22 @@ func convertFromSubclusterStatus(src v1.SubclusterStatus) SubclusterStatus {
 		AddedToDBCount: src.AddedToDBCount,
 		UpNodeCount:    src.UpNodeCount,
 		Detail:         convertFromPodStatus(src.Detail),
+	}
+}
+
+// convertToSandboxStatus will convert to a v1 SubcluterStatus from a v1beta1 version
+func convertToSandboxStatus(src SandboxStatus) v1.SandboxStatus {
+	return v1.SandboxStatus{
+		Name:        src.Name,
+		Subclusters: src.Subclusters,
+	}
+}
+
+// convertFromSandboxStatus will convert from a v1 SubcluterStatus to a v1beta1 version
+func convertFromSandboxStatus(src v1.SandboxStatus) SandboxStatus {
+	return SandboxStatus{
+		Name:        src.Name,
+		Subclusters: src.Subclusters,
 	}
 }
 
