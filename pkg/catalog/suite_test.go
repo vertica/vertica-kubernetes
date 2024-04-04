@@ -25,5 +25,5 @@ import (
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "builder Suite")
+	RunSpecs(t, "catalog Suite")
 }
