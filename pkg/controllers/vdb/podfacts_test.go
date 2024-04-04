@@ -161,7 +161,7 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs := &GatherState{VerticaPIDRunning: true, SpreadPIDRunning: true}
+		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
 	})
@@ -179,7 +179,7 @@ var _ = Describe("podfacts", func() {
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs := &GatherState{VerticaPIDRunning: true, SpreadPIDRunning: true}
+		gs := &GatherState{VerticaPIDRunning: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.upNode).Should(BeTrue())
@@ -237,17 +237,17 @@ var _ = Describe("podfacts", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfs := MakePodFacts(vdbRec, fpr)
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs := &GatherState{VerticaPIDRunning: true, SpreadPIDRunning: true, StartupComplete: false}
+		gs := &GatherState{VerticaPIDRunning: true, StartupComplete: false}
 		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.startupInProgress).Should(BeTrue())
 
 		pf = &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs = &GatherState{VerticaPIDRunning: false, SpreadPIDRunning: false, StartupComplete: true}
+		gs = &GatherState{VerticaPIDRunning: false, StartupComplete: true}
 		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.startupInProgress).Should(BeFalse())
 
 		pf = &PodFact{name: pn, isPodRunning: true, dbExists: true}
-		gs = &GatherState{VerticaPIDRunning: true, SpreadPIDRunning: true, StartupComplete: true}
+		gs = &GatherState{VerticaPIDRunning: true, StartupComplete: true}
 		Expect(pfs.checkIfNodeIsDoingStartup(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pf.startupInProgress).Should(BeFalse())
 	})
@@ -266,7 +266,7 @@ var _ = Describe("podfacts", func() {
 			},
 		}
 		pfs := MakePodFacts(vdbRec, fpr)
-		gs := &GatherState{VerticaPIDRunning: true, SpreadPIDRunning: true}
+		gs := &GatherState{VerticaPIDRunning: true}
 		pf := &PodFact{name: pn, isPodRunning: true, dbExists: true}
 		Expect(pfs.checkForSimpleGatherStateMapping(ctx, vdb, pf, gs)).Should(Succeed())
 		Expect(pfs.checkNodeStatus(ctx, vdb, pf, gs)).Should(Succeed())
