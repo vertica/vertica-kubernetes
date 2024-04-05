@@ -200,8 +200,6 @@ type GatherState struct {
 	DBExists               bool            `json:"dbExists"`
 	VerticaPIDRunning      bool            `json:"verticaPIDRunning"`
 	VerticaProcess         string          `json:"verticaProcess"`
-	SpreadPIDRunning       bool            `json:"spreadPIDRunning"`
-	SpreadProcess          string          `json:"spreadProcess"`
 	UpNode                 bool            `json:"upNode"`
 	StartupComplete        bool            `json:"startupComplete"`
 	Compat21NodeName       string          `json:"compat21NodeName"`
@@ -439,7 +437,7 @@ func (p *PodFacts) genGatherScript(vdb *vapi.VerticaDB, pf *PodFact) string {
 	script := strings.Builder{}
 	script.WriteString(p.genGatherScriptBase(vdb, pf))
 	if pf.execContainerName == names.ServerContainer {
-		script.WriteString(p.genGatherScriptForVerticaPIDCollection())
+		script.WriteString(p.genGatherScriptForVerticaPIDCollection(pf))
 	}
 	return script.String()
 }
@@ -512,20 +510,24 @@ func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string 
 	))
 }
 
-func (p *PodFacts) genGatherScriptForVerticaPIDCollection() string {
+func (p *PodFacts) genGatherScriptForVerticaPIDCollection(pf *PodFact) string {
 	// This is only be run when vertica process is running in the container we
 	// are doing the gather. And this is only true if we aren't running the nma
 	// in a separate container.
-	return dedent.Dedent(`
+	//
+	// The pgrep command is used to search for the Vertica process with the '-h
+	// <podIP>' parameter set. This is necessary because in some cases, when a
+	// pod is recreated, it may temporarily show the Vertica process from its
+	// previous incarnation. Since the pod's IP changes in such scenarios, using
+	// the '-h <podIP>' parameter ensures that we identify the Vertica process
+	// that started after the pod was created, adding an extra layer of
+	// fail-safe.
+	return dedent.Dedent(fmt.Sprintf(`
 		echo -n 'verticaPIDRunning: '
-		[[ $(pgrep -f "^.*vertica\s-D") ]] && echo true || echo false
+		[[ $(pgrep -f "/opt/vertica/bin/vertica.*-h %s") ]] && echo true || echo false
 		echo -n 'verticaProcess: '
 		pgrep -f "^.*vertica\s-D" -a | tail -1 || echo error
-		echo -n 'spreadPIDRunning: '
-		[[ $(pgrep spread) ]] && echo true || echo false
-		echo -n 'spreadProcess: '
-		pgrep spread -a | tail -1 || echo error
- 	`)
+ 	`, pf.podIP))
 }
 
 // getPathToVerifyCatalogExists will return a suffix of a path that we can check
@@ -713,7 +715,7 @@ func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
 	// At one point, we ran a query against the nodes table. But it became
 	// tricker to decipher what query failure meant -- is vertica down or is it
 	// a problem with the query?
-	p.upNode = p.dbExists && gs.VerticaPIDRunning && gs.SpreadPIDRunning
+	p.upNode = p.dbExists && gs.VerticaPIDRunning
 }
 
 // checkDCTableAnnotations will check if the pod has the necessary annotations
