@@ -30,6 +30,7 @@ import (
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	"github.com/vertica/vertica-kubernetes/pkg/catalog"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -61,6 +62,9 @@ type PodFact struct {
 
 	// The oid of the subcluster the pod is part of
 	subclusterOid string
+
+	// The sandbox a pod is part of
+	sandbox string
 
 	// true if this node is part of a primary subcluster
 	isPrimary bool
@@ -784,41 +788,30 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 	return nil
 }
 
+// makeNodeInfoFetcher will create a NodeInfoFetcher object based on the feature flags set
+// and the server version
+func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.Fetcher {
+	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName)
+}
+
 // checkNodeStatus will query node state
 func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
 	if !pf.upNode {
 		return nil
 	}
 
-	// The first two columns are just for informational purposes.
-	cols := "n.node_name, node_state"
-	if vdb.IsEON() {
-		cols = fmt.Sprintf("%s, subcluster_oid", cols)
-	} else {
-		cols = fmt.Sprintf("%s, ''", cols)
+	nodeInfoFetcher := p.makeNodeInfoFetcher(vdb, pf)
+	ninf, err := nodeInfoFetcher.FetchNodeState(ctx)
+	if err != nil {
+		p.VRec.Log.Info(err.Error())
+		return nil
 	}
-	// The read-only state is a new state added in 11.0.2.  So we can only query
-	// for it on levels 11.0.2+.  Otherwise, we always treat read-only as being
-	// disabled.
-	vinf, ok := vdb.MakeVersionInfo()
-	if ok && vinf.IsEqualOrNewer(vapi.NodesHaveReadOnlyStateVersion) {
-		cols = fmt.Sprintf("%s, is_readonly", cols)
+	if ninf != nil {
+		pf.readOnly = ninf.ReadOnly
+		pf.subclusterOid = ninf.SubclusterOid
+		pf.sandbox = ninf.SandboxName
 	}
-	var sql string
-	if vdb.IsEON() {
-		sql = fmt.Sprintf(
-			"select %s "+
-				"from nodes as n, subclusters as s "+
-				"where s.node_oid = n.node_id and n.node_name in (select node_name from current_session)",
-			cols)
-	} else {
-		sql = fmt.Sprintf(
-			"select %s "+
-				"from nodes as n "+
-				"where n.node_name in (select node_name from current_session)",
-			cols)
-	}
-	return p.queryNodeStatus(ctx, pf, sql)
+	return nil
 }
 
 // checkIfNodeIsDoingStartup will determine if the pod has vertica process
@@ -830,55 +823,6 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaD
 	}
 	pf.startupInProgress = !gs.StartupComplete
 	return nil
-}
-
-// queryNodeStatus will query the nodes system table for the following info:
-// node name, node is up, read-only state, and subcluster oid. It assumes the
-// database exists and the pod is running.
-func (p *PodFacts) queryNodeStatus(ctx context.Context, pf *PodFact, sql string) error {
-	cmd := []string{"-tAc", sql}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
-	if err != nil {
-		// Skip parsing that happens next. But otherwise continue collecting facts.
-		return nil
-	}
-	if pf.readOnly, pf.subclusterOid, err = parseNodeStateAndReadOnly(stdout); err != nil {
-		return err
-	}
-	return nil
-}
-
-// parseNodeStateAndReadOnly will parse query output from node state
-func parseNodeStateAndReadOnly(stdout string) (readOnly bool, scOid string, err error) {
-	// For testing purposes we early out with no error if there is no output
-	if stdout == "" {
-		return
-	}
-	// The stdout comes in the form like this:
-	// v_vertdb_node0001|UP|41231232423|t
-	// This means upNode is true, subcluster oid is 41231232423 and readOnly is
-	// true. The node name is included in the output for debug purposes, but
-	// otherwise not used.
-	//
-	// The 2nd column for node state is ignored in here. It is just for
-	// informational purposes. The fact that we got something implies the node
-	// was up.
-	lines := strings.Split(stdout, "\n")
-	cols := strings.Split(lines[0], "|")
-	const MinExpectedCols = 3
-	if len(cols) < MinExpectedCols {
-		err = fmt.Errorf("expected at least %d columns from node query but only got %d", MinExpectedCols, len(cols))
-		return
-	}
-	scOid = cols[2]
-	// Read-only can be missing on versions that don't support that state.
-	// Return false in those cases.
-	if len(cols) > MinExpectedCols {
-		readOnly = cols[3] == "t"
-	} else {
-		readOnly = false
-	}
-	return
 }
 
 // parseVerticaNodeName extract the vertica node name from the directory list
