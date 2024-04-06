@@ -333,26 +333,31 @@ var _ = Describe("verticadb_conversion", func() {
 		Ω(v1beta1VDB.Status.Conditions[0].Type).Should(Equal(ImageChangeInProgress))
 	})
 
-	It("should convert upgrade state", func() {
+	It("should convert subcluster annotations", func() {
 		v1beta1VDB := MakeVDB()
 		v1VDB := v1.VerticaDB{}
-		v1beta1VDB.Status.UpgradeState = &UpgradeState{
-			ReplicaGroups: [][]string{{"a", "b"}, {"c", "d"}},
+		v1beta1VDB.Spec.Subclusters = []Subcluster{
+			{Name: "sc1", Size: 2, Annotations: map[string]string{
+				"ann1": "v1",
+				"ann2": "another value",
+			}},
 		}
 
 		Ω(v1beta1VDB.ConvertTo(&v1VDB)).Should(Succeed())
-		Ω(v1VDB.Status.UpgradeState).ShouldNot(BeNil())
-		Ω(v1VDB.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
-		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("a", "b"))
-		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("c", "d"))
+		Ω(v1VDB.Spec.Subclusters[0].Annotations).ShouldNot(BeNil())
+		Ω(v1VDB.Spec.Subclusters[0].Annotations).Should(HaveKeyWithValue("ann1", "v1"))
+		Ω(v1VDB.Spec.Subclusters[0].Annotations).Should(HaveKeyWithValue("ann2", "another value"))
 
-		v1VDB.Status.UpgradeState.ReplicaGroups[0] = []string{"e", "f"}
-		v1VDB.Status.UpgradeState.ReplicaGroups[1] = []string{"g"}
+		v1VDB.Spec.Subclusters = []v1.Subcluster{
+			{Name: "sc1", Size: 2, Annotations: map[string]string{
+				"ann3": "flow-back-to-v1beta1",
+				"ann4": "zzz",
+			}},
+		}
 		Ω(v1beta1VDB.ConvertFrom(&v1VDB)).Should(Succeed())
-		Ω(v1VDB.Status.UpgradeState).ShouldNot(BeNil())
-		Ω(v1VDB.Status.UpgradeState.ReplicaGroups).Should(HaveLen(2))
-		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[0]).Should(ContainElements("e", "f"))
-		Ω(v1VDB.Status.UpgradeState.ReplicaGroups[1]).Should(ContainElements("g"))
+		Ω(v1beta1VDB.Spec.Subclusters[0].Annotations).ShouldNot(BeNil())
+		Ω(v1beta1VDB.Spec.Subclusters[0].Annotations).Should(HaveKeyWithValue("ann3", "flow-back-to-v1beta1"))
+		Ω(v1beta1VDB.Spec.Subclusters[0].Annotations).Should(HaveKeyWithValue("ann4", "zzz"))
 	})
 })
 

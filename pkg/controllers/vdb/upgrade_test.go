@@ -254,4 +254,32 @@ var _ = Describe("upgrade", func() {
 		// Verify the sts is deleted
 		Expect(k8sClient.Get(ctx, stsnm, sts)).ShouldNot(Succeed())
 	})
+
+	It("should clear annotations set for replicated upgrade", func() {
+		vdb := vapi.MakeVDB()
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+
+		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OfflineUpgradeInProgress,
+			func(vdb *vapi.VerticaDB) bool { return true })
+		Expect(mgr.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		vdb.Spec.Subclusters[0].Annotations = map[string]string{
+			vmeta.ReplicaGroupAnnotation:     vmeta.ReplicaGroupAValue,
+			vmeta.ParentSubclusterAnnotation: "main",
+			vmeta.ChildSubclusterAnnotation:  "child",
+		}
+		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		fetchedVdb := &vapi.VerticaDB{}
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ReplicaGroupAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ParentSubclusterAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).Should(HaveKey(vmeta.ChildSubclusterAnnotation))
+
+		Expect(mgr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), fetchedVdb)).Should(Succeed())
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ReplicaGroupAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ParentSubclusterAnnotation))
+		Expect(fetchedVdb.Spec.Subclusters[0].Annotations).ShouldNot(HaveKey(vmeta.ChildSubclusterAnnotation))
+	})
 })

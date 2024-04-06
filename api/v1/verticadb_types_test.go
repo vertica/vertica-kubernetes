@@ -102,26 +102,12 @@ var _ = Describe("verticadb_types", func() {
 		Ω(vdb.IsHTTPSTLSConfGenerationEnabled()).Should(BeTrue())
 	})
 
-	It("should detect that at least one secondary subcluster exists", func() {
-		vdb := MakeVDB()
-		Ω(vdb.HasSecondarySubclusters()).Should(BeFalse())
-		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
-			Name: "sc2",
-			Type: SecondarySubcluster,
-		})
-		Ω(vdb.HasSecondarySubclusters()).Should(BeTrue())
-	})
-
 	It("should pick the correct upgrade policy to use", func() {
 		vdb := MakeVDB()
 
-		// Ensure replicated is selected only if there is a secondary and the version is new.
+		// Ensure replicated is selected only if the version is new.
 		vdb.Annotations[vmeta.VersionAnnotation] = ReplicatedUpgradeVersion
 		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
-		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade)) // online because there are no secondaries
-		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, Subcluster{
-			Name: "sc1", Type: SecondarySubcluster,
-		})
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReplicatedUpgrade))
 
 		// If older version than what we support for replicated. We should revert to online upgrade.

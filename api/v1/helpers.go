@@ -380,17 +380,6 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	return nil
 }
 
-// HasSecondarySubclusters returns true if at least 1 secondary subcluster
-// exists in the database.
-func (v *VerticaDB) HasSecondarySubclusters() bool {
-	for i := range v.Spec.Subclusters {
-		if v.Spec.Subclusters[i].IsSecondary() {
-			return true
-		}
-	}
-	return false
-}
-
 // IsAutoUpgradePolicy returns true
 func (v *VerticaDB) IsAutoUpgradePolicy() bool {
 	return v.Spec.UpgradePolicy == "" || v.Spec.UpgradePolicy == AutoUpgrade
@@ -421,7 +410,7 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 	// the Auto option will automatically select this method, we first need to
 	// complete the implementation of this new policy.
 	if v.Spec.UpgradePolicy == ReplicatedUpgrade {
-		if v.HasSecondarySubclusters() && vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) {
+		if vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) {
 			return ReplicatedUpgrade
 		} else if vinf.IsEqualOrNewer(OnlineUpgradeVersion) {
 			return OnlineUpgrade
