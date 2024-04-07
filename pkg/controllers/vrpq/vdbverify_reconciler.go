@@ -36,24 +36,24 @@ import (
 
 const stateIncompatibleDB = "Incompatible"
 
-type VDBVerifyReconciler struct {
+type VdbVerifyReconciler struct {
 	VRec *VerticaRestorePointsQueryReconciler
 	Vrpq *v1beta1.VerticaRestorePointsQuery
 	Log  logr.Logger
 }
 
-func MakeVDBVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1beta1.VerticaRestorePointsQuery,
+func MakeVdbVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1beta1.VerticaRestorePointsQuery,
 	log logr.Logger) controllers.ReconcileActor {
-	return &VDBVerifyReconciler{
+	return &VdbVerifyReconciler{
 		VRec: r,
 		Vrpq: vrpq,
-		Log:  log.WithName("VDBVerifyReconciler"),
+		Log:  log.WithName("VdbVerifyReconciler"),
 	}
 }
 
 // Reconcile will verify the VerticaDB in the Vrpq CR exists, vclusterops is enabled and
 // the vertica version supports vclusterops deployment
-func (q *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	// no-op if the check has already been done once
 	isSet := q.Vrpq.IsStatusConditionTrue(v1beta1.QueryReady)
 	if isSet {

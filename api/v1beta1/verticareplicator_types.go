@@ -22,12 +22,62 @@ import (
 
 // VerticaReplicatorSpec defines the desired state of VerticaReplicator
 type VerticaReplicatorSpec struct {
+	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Information of the source Vertica database to replicate from
+	Source VerticaReplicatorDatabaseInfo `json:"source"`
+
+	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:advanced"
+	// Information of the target Vertica database to replicate to
+	Target VerticaReplicatorDatabaseInfo `json:"target"`
 
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
-	// Dummy placeholder field
-	Foo string `json:"foo,omitempty"`
+	// Optional TLS configuration to use when connecting from the source database to the target database;
+	// it refers to an existing TLS config that already exists in the source
+	TLSConfig string `json:"tlsConfig,omitempty"`
+}
+
+// VerticaReplicatorDatabaseInfo defines the information related to either the source or target Vertica database
+// involved in a replication
+type VerticaReplicatorDatabaseInfo struct {
+	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Name of either source or target Vertica database
+	VerticaDB string `json:"verticaDB"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Optional name of the sandbox in either source or target Vertica database;
+	// if omitted or empty the main cluster of the database is assumed
+	SandboxName string `json:"sandboxName,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Optional username with which to connect to either source or target Vertica database;
+	// if omitted the superuser of the database is assumed
+	UserName string `json:"userName,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Optional name of the secret which contains password for the specified username with which to
+	// connect to either source or target Vertica database;
+	// if omitted or empty no password is provided;
+	// the secret is assumed to be a k8s secret;
+	// if it has the secret path reference (i.e. gsm://), it reads the secret
+	// from the external secret storage manager
+	PasswordSecret string `json:"passwordSecret,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// Optional name of the service that will be connected to in either source or target Vertica database;
+	// if omitted or empty the service object for the first primary subcluster is assumed
+	ServiceName string `json:"serviceName,omitempty"`
 }
 
 // VerticaReplicatorStatus defines the observed state of VerticaReplicator
@@ -41,6 +91,15 @@ type VerticaReplicatorStatus struct {
 	// Set of status conditions of replication process
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
+
+const (
+	// Replicating indicates whether the operator is currently conducting the database replication
+	Replicating = "Replicating"
+	// ReplicationComplete indicates the database replication has been completed
+	ReplicationComplete = "ReplicationComplete"
+	// ReplicationReady indicates whether the operator is ready to start the database replication
+	ReplicationReady = "ReplicationReady"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:path=verticareplicators,singular=verticareplicator,categories=all;vertica,shortName=vrep

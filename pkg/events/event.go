@@ -54,6 +54,7 @@ const (
 	ShowRestorePointsStarted        = "ShowRestorePointsStarted"
 	ShowRestorePointsFailed         = "ShowRestorePointsFailed"
 	RestoreNotSupported             = "RestoreNotSupported"
+	ReplicationNotSupported         = "ReplicationNotSupported"
 	AdmintoolsNotSupported          = "AdmintoolsNotSupported"
 	ShowRestorePointsSucceeded      = "ShowRestorePointsSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
