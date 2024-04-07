@@ -2076,9 +2076,87 @@ spec:
         name: ""
         version: vertica.com/v1beta1
       specDescriptors:
-      - description: Dummy placeholder field
-        displayName: Foo
-        path: foo
+      - description: Information of the source Vertica database to replicate from
+        displayName: Source
+        path: source
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Optional name of the secret which contains password for the specified
+          username with which to connect to either source or target Vertica database;
+          if omitted or empty no password is provided; the secret is assumed to be
+          a k8s secret; if it has the secret path reference (i.e. gsm://), it reads
+          the secret from the external secret storage manager
+        displayName: Password Secret
+        path: source.passwordSecret
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional name of the sandbox in either source or target Vertica
+          database; if omitted or empty the main cluster of the database is assumed
+        displayName: Sandbox Name
+        path: source.sandboxName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional name of the service that will be connected to in either
+          source or target Vertica database; if omitted or empty the service object
+          for the first primary subcluster is assumed
+        displayName: Service Name
+        path: source.serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional username with which to connect to either source or target
+          Vertica database; if omitted the superuser of the database is assumed
+        displayName: User Name
+        path: source.userName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of either source or target Vertica database
+        displayName: Vertica DB
+        path: source.verticaDB
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Information of the target Vertica database to replicate to
+        displayName: Target
+        path: target
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Optional name of the secret which contains password for the specified
+          username with which to connect to either source or target Vertica database;
+          if omitted or empty no password is provided; the secret is assumed to be
+          a k8s secret; if it has the secret path reference (i.e. gsm://), it reads
+          the secret from the external secret storage manager
+        displayName: Password Secret
+        path: target.passwordSecret
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional name of the sandbox in either source or target Vertica
+          database; if omitted or empty the main cluster of the database is assumed
+        displayName: Sandbox Name
+        path: target.sandboxName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional name of the service that will be connected to in either
+          source or target Vertica database; if omitted or empty the service object
+          for the first primary subcluster is assumed
+        displayName: Service Name
+        path: target.serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional username with which to connect to either source or target
+          Vertica database; if omitted the superuser of the database is assumed
+        displayName: User Name
+        path: target.userName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of either source or target Vertica database
+        displayName: Vertica DB
+        path: target.verticaDB
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional TLS configuration to use when connecting from the source
+          database to the target database; it refers to an existing TLS config that
+          already exists in the source
+        displayName: TLSConfig
+        path: tlsConfig
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       statusDescriptors:
