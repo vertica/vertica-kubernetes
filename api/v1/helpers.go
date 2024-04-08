@@ -410,7 +410,13 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 	// the Auto option will automatically select this method, we first need to
 	// complete the implementation of this new policy.
 	if v.Spec.UpgradePolicy == ReplicatedUpgrade {
-		if vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) {
+		// Replicated upgrade requires that we scale out the cluster. See if
+		// there is evidence that we have already scaled past 3 nodes (CE
+		// license limit), or we have a license defined.
+		const ceLicenseLimit = 3
+		if vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) &&
+			!v.IsKSafety0() &&
+			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") {
 			return ReplicatedUpgrade
 		} else if vinf.IsEqualOrNewer(OnlineUpgradeVersion) {
 			return OnlineUpgrade
@@ -706,4 +712,13 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 		return false, err
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
+}
+
+// getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
+func (v *VerticaDB) getNumberOfNodes() int {
+	count := 0
+	for i := range v.Spec.Subclusters {
+		count += int(v.Spec.Subclusters[i].Size)
+	}
+	return count
 }

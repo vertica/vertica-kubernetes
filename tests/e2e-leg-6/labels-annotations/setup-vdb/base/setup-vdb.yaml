@@ -32,6 +32,8 @@ spec:
   subclusters:
     - name: cluster1
       size: 3
+      annotations:
+        sc-annotation: "main"
   certSecrets: []
   imagePullSecrets: []
   volumes: []

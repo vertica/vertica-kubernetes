@@ -105,9 +105,23 @@ var _ = Describe("verticadb_types", func() {
 	It("should pick the correct upgrade policy to use", func() {
 		vdb := MakeVDB()
 
-		// Ensure replicated is selected only if the version is new.
+		// Ensure we don't pick replicated, if there is no evidence we can scale
+		// past 3 nodes.
 		vdb.Annotations[vmeta.VersionAnnotation] = ReplicatedUpgradeVersion
 		vdb.Spec.UpgradePolicy = ReplicatedUpgrade
+		vdb.Spec.LicenseSecret = ""
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "pri1", Size: 3},
+		}
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(OnlineUpgrade))
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "pri1", Size: 4},
+		}
+		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReplicatedUpgrade))
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "pri1", Size: 3},
+		}
+		vdb.Spec.LicenseSecret = "v-license"
 		Ω(vdb.GetUpgradePolicyToUse()).Should(Equal(ReplicatedUpgrade))
 
 		// If older version than what we support for replicated. We should revert to online upgrade.

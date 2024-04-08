@@ -38,7 +38,7 @@ var _ = Describe("upgrade", func() {
 	It("should correctly pick the upgrade type", func() {
 		vdb := vapi.MakeVDB()
 		vdb.Spec.Subclusters = append(vdb.Spec.Subclusters, vapi.Subcluster{
-			Name: "sc1", Type: vapi.SecondarySubcluster,
+			Name: "sc1", Type: vapi.SecondarySubcluster, Size: 3,
 		})
 		vdb.Annotations[vmeta.VersionAnnotation] = vapi.ReplicatedUpgradeVersion
 
