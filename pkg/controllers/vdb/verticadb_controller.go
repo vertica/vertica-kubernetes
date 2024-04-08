@@ -124,7 +124,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := MakePodFacts(r, prunner)
+	pfacts := MakePodFacts(r, prunner, log)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
@@ -205,7 +205,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// to properly pick the correct NMA deployment (monolithic vs sidecar).
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
 		// Handles restart + re_ip of vertica
-		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher, ""),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.

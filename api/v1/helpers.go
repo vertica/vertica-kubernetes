@@ -718,3 +718,16 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
 }
+
+// GetSubclusterSandboxName returns the sandbox the given subcluster belongs to,
+// or an empty string if it does not belong to any
+func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
+	for i := range v.Spec.Sandboxes {
+		for j := range v.Spec.Sandboxes[i].Subclusters {
+			if scName == v.Spec.Sandboxes[i].Subclusters[j].Name {
+				return v.Spec.Sandboxes[i].Name
+			}
+		}
+	}
+	return ""
+}

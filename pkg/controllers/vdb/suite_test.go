@@ -122,13 +122,13 @@ func defaultPodFactOverrider(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, 
 
 // createPodFactsDefault will generate the PodFacts for test using the default settings for all.
 func createPodFactsDefault(fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr, logger)
 	pfacts.OverrideFunc = defaultPodFactOverrider
 	return &pfacts
 }
 
 func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner, numPodsToChange int) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr, logger)
 	// Change a number of pods to indicate db doesn't exist.  Due to the map that
 	// stores the pod facts, the specific pods we change are non-deterministic.
 	podsChanged := 0
@@ -149,7 +149,7 @@ func createPodFactsWithNoDB(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.
 }
 
 func createPodFactsWithInstallNeeded(ctx context.Context, vdb *vapi.VerticaDB, fpr *cmds.FakePodRunner) *PodFacts {
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr, logger)
 	pfacts.OverrideFunc = func(ctx context.Context, vdb *vapi.VerticaDB, pfact *PodFact, gs *GatherState) error {
 		pfact.isPodRunning = true
 		pfact.isInstalled = false

@@ -92,8 +92,12 @@ func MakeLabelsForPodObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string
 }
 
 // MakeLabelsForStsObject constructs the labels that are common for all statefulsets.
-func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
-	return makeLabelsForObject(vdb, sc, false)
+func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, sandbox string) map[string]string {
+	labels := makeLabelsForObject(vdb, sc, false)
+	if sandbox != "" {
+		labels[vmeta.SandboxNameLabel] = sandbox
+	}
+	return labels
 }
 
 // MakeLabelsForSvcObject will create the set of labels for use with service objects
