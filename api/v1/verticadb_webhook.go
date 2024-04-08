@@ -1303,9 +1303,10 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 		return allErrs
 	}
 
-	// The subclusters that are taking part in the upgrade must constant during
-	// the upgrade. The upgrade itself may add new subclusters, but it has to be
-	// annotated a certain way. Regular users should not adding new subclusters.
+	// The subclusters that are taking part in the upgrade must stay constant
+	// during the upgrade. The upgrade itself may add new subclusters, but it
+	// has to be annotated a certain way. Regular users should not adding new
+	// subclusters.
 
 	// Come up with a combined list of all of the subclusters. This will include
 	// all subclusters that being removed and added.
