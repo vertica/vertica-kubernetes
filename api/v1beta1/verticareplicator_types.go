@@ -46,7 +46,6 @@ type VerticaReplicatorSpec struct {
 // involved in a replication
 type VerticaReplicatorDatabaseInfo struct {
 	// +kubebuilder:validation:Required
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Name of either source or target Vertica database
 	VerticaDB string `json:"verticaDB"`
@@ -64,7 +63,7 @@ type VerticaReplicatorDatabaseInfo struct {
 	UserName string `json:"userName,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// Optional name of the secret which contains password for the specified username with which to
 	// connect to either source or target Vertica database;
 	// if omitted or empty no password is provided;
