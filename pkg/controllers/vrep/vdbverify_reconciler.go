@@ -55,7 +55,7 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return res, err
 	}
 
-	// check version for both Vdbs, the minimim version should be 24.3.0
+	// check version for both vdbs, the minimim version should be 24.3.0
 	vinfSource, err := vdbSource.MakeVersionInfoCheck()
 	if err != nil {
 		return ctrl.Result{}, err
