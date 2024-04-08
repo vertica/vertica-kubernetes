@@ -106,7 +106,7 @@ func (r *VerticaReplicatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // earlier ones.
 func (r *VerticaReplicatorReconciler) constructActors(vrep *vapi.VerticaReplicator,
 	log logr.Logger) []controllers.ReconcileActor {
-	// The actors that will be applied, in sequence, to reconcile a vrpq.
+	// The actors that will be applied, in sequence, to reconcile a vrep.
 	actors := []controllers.ReconcileActor{
 		// Verify some checks before starting a replication
 		MakeVdbVerifyReconciler(r, vrep, log),
