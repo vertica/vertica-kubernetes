@@ -50,19 +50,16 @@ type VerticaReplicatorDatabaseInfo struct {
 	// Name of either source or target Vertica database
 	VerticaDB string `json:"verticaDB"`
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Optional name of the sandbox in either source or target Vertica database;
 	// if omitted or empty the main cluster of the database is assumed
 	SandboxName string `json:"sandboxName,omitempty"`
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Optional username with which to connect to either source or target Vertica database;
 	// if omitted the superuser of the database is assumed
 	UserName string `json:"userName,omitempty"`
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
 	// Optional name of the secret which contains password for the specified username with which to
 	// connect to either source or target Vertica database;
@@ -72,7 +69,6 @@ type VerticaReplicatorDatabaseInfo struct {
 	// from the external secret storage manager
 	PasswordSecret string `json:"passwordSecret,omitempty"`
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Optional name of the service that will be connected to in either source or target Vertica database;
 	// if omitted or empty the service object for the first primary subcluster is assumed
