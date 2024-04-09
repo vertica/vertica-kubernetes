@@ -935,14 +935,14 @@ var _ = Describe("verticadb_webhook", func() {
 
 	It("should check the validity of the replicaGroups", func() {
 		vdb := MakeVDB()
-		vdb.Status.UpgradeState = &UpgradeState{
-			ReplicaGroups: [][]string{
-				{"a", "b", "c"},
-				{"d", "e", "a"},
-			},
+		vdb.Spec.Subclusters[0].Annotations = map[string]string{
+			vmeta.ReplicaGroupAnnotation: "invalid-value",
 		}
+		setReplicatedUpgradeInProgress(vdb)
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
-		vdb.Status.UpgradeState.ReplicaGroups[1] = []string{"d", "e"}
+		vdb.Spec.Subclusters[0].Annotations = map[string]string{
+			vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupAValue,
+		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 	})
 
@@ -952,12 +952,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "a", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
-		newVdb.Status.UpgradeState = &UpgradeState{
-			ReplicaGroups: [][]string{
-				{"a", "b"},
-				{},
-			},
-		}
+		setReplicatedUpgradeInProgress(newVdb)
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 
 		oldVdb := newVdb.DeepCopy()
@@ -979,11 +974,13 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "b", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 			{Name: "c", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
 		}
-		newVdb.Status.UpgradeState.ReplicaGroups[1] = append(newVdb.Status.UpgradeState.ReplicaGroups[1], "c")
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
 
 		// Add a new secondary subcluster. This should be allowed.
 		newVdb.Spec.Subclusters[2].Type = SecondarySubcluster
+		newVdb.Spec.Subclusters[2].Annotations = map[string]string{
+			vmeta.ReplicaGroupAnnotation: vmeta.ReplicaGroupAValue,
+		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 })
@@ -1035,4 +1032,8 @@ func resetStatusConditionsForCondition(v *VerticaDB, conditionType string) {
 	v.Status.Conditions = make([]metav1.Condition, 0)
 	cond := MakeCondition(conditionType, metav1.ConditionTrue, "")
 	meta.SetStatusCondition(&v.Status.Conditions, *cond)
+}
+
+func setReplicatedUpgradeInProgress(v *VerticaDB) {
+	v.Status.Conditions = append(v.Status.Conditions, *MakeCondition(ReplicatedUpgradeInProgress, metav1.ConditionTrue, "started"))
 }

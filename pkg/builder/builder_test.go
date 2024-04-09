@@ -700,6 +700,19 @@ var _ = Describe("builder", func() {
 		Ω(nma.ReadinessProbe.SuccessThreshold).Should(Equal(int32(0)))
 		Ω(nma.LivenessProbe.FailureThreshold).Should(Equal(int32(8)))
 	})
+
+	It("allow separate annotations to be set for subclusters", func() {
+		vdb := vapi.MakeVDB()
+		sc := &vdb.Spec.Subclusters[0]
+		sc.Annotations = map[string]string{
+			"ann1": "v1",
+			"ann2": "another-value",
+		}
+
+		sts := BuildStsSpec(names.GenStsName(vdb, sc), vdb, sc)
+		Ω(sts.Annotations).Should(HaveKeyWithValue("ann1", "v1"))
+		Ω(sts.Annotations).Should(HaveKeyWithValue("ann2", "another-value"))
+	})
 })
 
 func getFirstSSHSecretVolumeMountIndex(c *v1.Container) (int, bool) {

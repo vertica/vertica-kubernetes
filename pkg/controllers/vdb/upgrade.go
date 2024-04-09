@@ -45,6 +45,7 @@ type UpgradeManager struct {
 	StatusCondition   string
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
 	IsAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool
+	PrimaryImages                 []string // Known images in the primaries.  Should be of length 1 or 2.
 }
 
 // MakeUpgradeManager will construct a UpgradeManager object
@@ -136,7 +137,7 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
-	if err := vdbstatus.SetUpgradeState(ctx, i.VRec.Client, i.Vdb, nil); err != nil {
+	if err := i.clearReplicatedUpgradeAnnotations(ctx); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -173,6 +174,28 @@ func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal met
 // setUpgradeStatus is a helper to set the upgradeStatus message.
 func (i *UpgradeManager) setUpgradeStatus(ctx context.Context, msg string) error {
 	return vdbstatus.SetUpgradeStatusMessage(ctx, i.VRec.Client, i.Vdb, msg)
+}
+
+// clearReplicatedUpgradeAnnotations will clear the annotation we set for replicated upgrade
+func (i *UpgradeManager) clearReplicatedUpgradeAnnotations(ctx context.Context) error {
+	_, err := i.updateVDBWithRetry(ctx, i.clearReplicatedUpgradeAnnotationCallback)
+	return err
+}
+
+// clearReplicatedUpgradeAnnotationCallback is a callback function to perform
+// the actual update to the VDB. It will remove all annotations used by
+// replicated upgrade.
+func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated bool, err error) {
+	for inx := range i.Vdb.Spec.Subclusters {
+		sc := &i.Vdb.Spec.Subclusters[inx]
+		for _, a := range []string{vmeta.ReplicaGroupAnnotation, vmeta.ChildSubclusterAnnotation, vmeta.ParentSubclusterAnnotation} {
+			if _, annotationFound := sc.Annotations[a]; annotationFound {
+				delete(sc.Annotations, a)
+				updated = true
+			}
+		}
+	}
+	return
 }
 
 // updateImageInStatefulSets will change the image in each of the statefulsets.
@@ -360,6 +383,32 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	return ctrl.Result{Requeue: true}, nil
 }
 
+// updateVDBWithRetry will update the VDB by way of a callback. This is done in a retry
+// loop in case there is a write conflict.
+func (i *UpgradeManager) updateVDBWithRetry(ctx context.Context, callbackFn func() (bool, error)) (updated bool, err error) {
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		err := i.VRec.Get(ctx, i.Vdb.ExtractNamespacedName(), i.Vdb)
+		if err != nil {
+			return err
+		}
+
+		needToUpdate, err := callbackFn()
+		if err != nil {
+			return err
+		}
+
+		if !needToUpdate {
+			return nil
+		}
+		err = i.VRec.Update(ctx, i.Vdb)
+		if err != nil {
+			updated = true
+		}
+		return err
+	})
+	return
+}
+
 // postNextStatusMsg will set the next status message.  This will only
 // transition to a message, defined by msgIndex, if the current status equals
 // the previous one.
@@ -402,4 +451,44 @@ func onlineUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 // replicated upgrade strategy.
 func replicatedUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 	return vdb.GetUpgradePolicyToUse() == vapi.ReplicatedUpgrade
+}
+
+// cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
+func (i *UpgradeManager) cachePrimaryImages(ctx context.Context) error {
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting)
+	if err != nil {
+		return err
+	}
+	for inx := range stss.Items {
+		sts := &stss.Items[inx]
+		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster {
+			img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
+			if err != nil {
+				return err
+			}
+			imageFound := false
+			for j := range i.PrimaryImages {
+				imageFound = i.PrimaryImages[j] == img
+				if imageFound {
+					break
+				}
+			}
+			if !imageFound {
+				i.PrimaryImages = append(i.PrimaryImages, img)
+			}
+		}
+	}
+	return nil
+}
+
+// fetchOldImage will return the old image that existed prior to the image
+// change process.  If we cannot determine the old image, then the bool return
+// value returns false.
+func (i *UpgradeManager) fetchOldImage() (string, bool) {
+	for inx := range i.PrimaryImages {
+		if i.PrimaryImages[inx] != i.Vdb.Spec.Image {
+			return i.PrimaryImages[inx], true
+		}
+	}
+	return "", false
 }
