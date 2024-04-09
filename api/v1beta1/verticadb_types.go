@@ -1087,6 +1087,16 @@ func MakeVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-sample", Namespace: "default"}
 }
 
+// MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
+func MakeSourceVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-source-sample", Namespace: "default"}
+}
+
+// MakeTargetVDBName is a helper that creates a sample name for the target VerticaDB for test purposes
+func MakeTargetVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-target-sample", Namespace: "default"}
+}
+
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.
 // This is intended for test purposes.
 func MakeVDB() *VerticaDB {
