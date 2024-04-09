@@ -54,7 +54,7 @@ func MakeVdbVerifyReconciler(r *VerticaReplicatorReconciler, vrep *v1beta1.Verti
 // Reconcile will verify the verticaDBs in the vrep CR source and target exist and
 // both vertica versions support the replication feature
 func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op if the check has already been done once
+	// no-op if the check has already been done once and was successful
 	isSet := r.Vrep.IsStatusConditionTrue(v1beta1.ReplicationReady)
 	if isSet {
 		return ctrl.Result{}, nil
