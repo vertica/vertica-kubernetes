@@ -1305,11 +1305,11 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 
 	// The subclusters that are taking part in the upgrade must stay constant
 	// during the upgrade. The upgrade itself may add new subclusters, but it
-	// has to be annotated a certain way. Regular users should not adding new
+	// has to be annotated a certain way. Regular users should not add new
 	// subclusters.
 
 	// Come up with a combined list of all of the subclusters. This will include
-	// all subclusters that being removed and added.
+	// all subclusters that are being removed and added.
 	oldScMap := oldObj.GenSubclusterMap()
 	newScMap := v.GenSubclusterMap()
 	allSubclusters := map[string]bool{}
