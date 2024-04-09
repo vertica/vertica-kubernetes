@@ -203,6 +203,10 @@ spec:
         path: template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: template.annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -774,6 +778,10 @@ spec:
         path: subclusters[0].affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: subclusters[0].annotations
       - description: When setting serviceType to NodePort, this parameter allows you
           to define the port that is opened at each node for Vertica client connections.
           If using NodePort and this is omitted, Kubernetes will choose the port automatically.
@@ -932,6 +940,10 @@ spec:
         path: temporarySubclusterRouting.template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: temporarySubclusterRouting.template.annotations
       - description: When setting serviceType to NodePort, this parameter allows you
           to define the port that is opened at each node for Vertica client connections.
           If using NodePort and this is omitted, Kubernetes will choose the port automatically.
@@ -1139,14 +1151,6 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
-      - description: State that is maintained by the operator during an upgrade.
-        displayName: Upgrade State
-        path: upgradeState
-      - description: During a replicated upgrade, we split the subclusters into one
-          of two replica groups. This keeps track of the names of the subclusters
-          in each replica group.
-        displayName: Replica Groups
-        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status
@@ -1647,6 +1651,10 @@ spec:
         path: subclusters[0].affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: subclusters[0].annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -1815,6 +1823,10 @@ spec:
         path: temporarySubclusterRouting.template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: temporarySubclusterRouting.template.annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -2054,14 +2066,6 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
-      - description: State that is maintained by the operator during an upgrade.
-        displayName: Upgrade State
-        path: upgradeState
-      - description: During a replicated upgrade, we split the subclusters into one
-          of two replica groups. This keeps track of the names of the subclusters
-          in each replica group.
-        displayName: Replica Groups
-        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status

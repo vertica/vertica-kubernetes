@@ -11,19 +11,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: v1
-kind: Service
+apiVersion: vertica.com/v1
+kind: VerticaDB
 metadata:
-  name: vdb-label-ant-cluster1
+  name: v-base-upgrade
   annotations:
-    gitRef: abcd123
-    my-custom-annotation-1: "cluster1"
-    my-custom-annotation-2: "nlb"
-    my-custom-annotation-3: "manual-add"
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: vdb-label-ant-cluster1
-  annotations:
-    sc-annotation: "main-with-nlb"
+    vertica.com/include-uid-in-path: true
+spec:
+  image: kustomize-vertica-image
+  dbName: repUP
+  initPolicy: CreateSkipPackageInstall
+  upgradePolicy: Replicated
+  communal: {}
+  local:
+    requestSize: 250Mi
+  # We pick a cluster size that is too big for the CE license. This relies on
+  # having a license, which will be added by kustomize.
+  subclusters:
+    - name: pri1
+      size: 3
+      type: primary
+  certSecrets: []
+  imagePullSecrets: []
+  volumes: []
+  volumeMounts: []
