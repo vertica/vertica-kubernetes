@@ -3,4 +3,7 @@ kind: VerticaReplicator
 metadata:
   name: verticareplicator-sample
 spec:
-  foo: "bar"
+  source:
+    verticaDB: "sourceDBName"
+  target:
+    verticaDB: "targetDBName"
