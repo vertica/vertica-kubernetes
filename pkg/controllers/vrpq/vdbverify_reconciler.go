@@ -54,7 +54,7 @@ func MakeVdbVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1bet
 // Reconcile will verify the VerticaDB in the Vrpq CR exists, vclusterops is enabled and
 // the vertica version supports vclusterops deployment
 func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op if the check has already been done once
+	// no-op if the check has already been done once and was successful
 	isSet := q.Vrpq.IsStatusConditionTrue(v1beta1.QueryReady)
 	if isSet {
 		return ctrl.Result{}, nil
