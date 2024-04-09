@@ -28,11 +28,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func testIncompatibleDB(ctx context.Context, sourceVersion, targetVersion, expectedReason string) {
+func testIncompatibleDB(ctx context.Context, sourceVersion, targetVersion string,
+	sourceUsingVclusteropsDeployment bool, expectedReason string,
+	expectedStatusConditionValue bool, expectedState string) {
 	sourceVDBName := v1beta1.MakeSourceVDBName()
 	sourceVDB := vapi.MakeVDB()
 	sourceVDB.Name = sourceVDBName.Name
 	sourceVDB.Namespace = sourceVDBName.Namespace
+	if sourceUsingVclusteropsDeployment {
+		sourceVDB.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+	}
 	sourceVDB.Annotations[vmeta.VersionAnnotation] = sourceVersion
 	test.CreateVDB(ctx, k8sClient, sourceVDB)
 	defer test.DeleteVDB(ctx, k8sClient, sourceVDB)
@@ -41,6 +46,7 @@ func testIncompatibleDB(ctx context.Context, sourceVersion, targetVersion, expec
 	targetVDB := vapi.MakeVDB()
 	targetVDB.Name = targetVDBName.Name
 	targetVDB.Namespace = targetVDBName.Namespace
+	targetVDB.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 	targetVDB.Annotations[vmeta.VersionAnnotation] = targetVersion
 	test.CreateVDB(ctx, k8sClient, targetVDB)
 	defer test.DeleteVDB(ctx, k8sClient, targetVDB)
@@ -54,9 +60,10 @@ func testIncompatibleDB(ctx context.Context, sourceVersion, targetVersion, expec
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(vrep.Status.Conditions[0].Reason).Should(Equal(expectedReason))
 
-	// ReplicationReady condition is updated to False
-	Expect(vrep.IsStatusConditionFalse(v1beta1.ReplicationReady)).Should(BeTrue())
-	Expect(vrep.Status.State).Should(Equal(stateIncompatibleDB))
+	// ReplicationReady condition is updated to expectedStatusConditionValue
+	Expect(vrep.IsStatusConditionTrue(v1beta1.ReplicationReady)).
+		Should(Equal(expectedStatusConditionValue))
+	Expect(vrep.Status.State).Should(Equal(expectedState))
 }
 
 var _ = Describe("vdbverify_reconcile", func() {
@@ -71,11 +78,19 @@ var _ = Describe("vdbverify_reconcile", func() {
 		Expect(vrepRec.Reconcile(ctx, req)).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
-	It("should update the ReplicationReady condition and state to false for incompatible source database", func() {
-		testIncompatibleDB(ctx, "v24.2.0", "v24.3.0", "IncompatibleSourceDB")
+	It("should update the ReplicationReady condition and state to false for incompatible source database version", func() {
+		testIncompatibleDB(ctx, "v24.2.0", "v23.3.0", true, "IncompatibleSourceDB", false, stateIncompatibleDB)
 	})
 
-	It("should update the ReplicationReady condition and state to false for incompatible target database", func() {
-		testIncompatibleDB(ctx, "v24.3.0", "v24.2.0", "IncompatibleTargetDB")
+	It("should update the ReplicationReady condition and state to false for incompatible target database version", func() {
+		testIncompatibleDB(ctx, "v24.3.0", "v23.2.0", true, "IncompatibleTargetDB", false, stateIncompatibleDB)
+	})
+
+	It("should update the ReplicationReady condition and state to false for incompatible source database deployment type", func() {
+		testIncompatibleDB(ctx, "v24.3.0", "v23.3.0", false, "AdmintoolsNotSupported", false, stateIncompatibleDB)
+	})
+
+	It("should update the ReplicationReady condition and state to true for compatible source and target databases", func() {
+		testIncompatibleDB(ctx, "v24.3.0", "v23.3.0", true, "Ready", true, "Ready")
 	})
 })

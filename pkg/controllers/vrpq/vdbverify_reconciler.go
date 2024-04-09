@@ -66,14 +66,14 @@ func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return res, err
 	}
 
-	// check version for Vdb, the minimim version should be 24.2.0
+	// check version for vdb, the minimim version should be 24.2.0
 	vinf, err := vdb.MakeVersionInfoCheck()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !vinf.IsEqualOrNewer(vapi.RestoreSupportedMinVersion) {
 		q.VRec.Eventf(q.Vrpq, corev1.EventTypeWarning, events.RestoreNotSupported,
-			"The Vertica version '%s' doesn't support in-database restore points", vinf.VdbVer)
+			"The Vertica version %q doesn't support in-database restore points", vinf.VdbVer)
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionFalse, "IncompatibleDB")}, stateIncompatibleDB, nil)
 		if err != nil {

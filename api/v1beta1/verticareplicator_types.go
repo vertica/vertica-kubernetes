@@ -33,7 +33,6 @@ type VerticaReplicatorSpec struct {
 	Target VerticaReplicatorDatabaseInfo `json:"target"`
 
 	// +kubebuilder:validation:Optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:com.tectonic.ui:text"
 	// Optional TLS configuration to use when connecting from the source database to the target database;
 	// it refers to an existing TLS config that already exists in the source
@@ -59,11 +58,11 @@ type VerticaReplicatorDatabaseInfo struct {
 	UserName string `json:"userName,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors="urn:alm:descriptor:io.kubernetes:Secret"
-        // The password secret for the given Username is stored in this field. If
-	// this field and Username are omitted, the default is set to the superuser
+	// The password secret for the given UserName is stored in this field. If
+	// this field and UserName are omitted, the default is set to the superuser
 	// password secret found in the VerticaDB. An empty value indicates the
 	// absence of a password.
-        //
+	//
 	// The secret is assumed to be a Kubernetes (k8s) secret unless a secret
 	// path reference is specified. In the latter case, the secret is retrieved
 	// from an external secret storage manager.
