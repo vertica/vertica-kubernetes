@@ -36,25 +36,25 @@ import (
 
 const stateIncompatibleDB = "Incompatible"
 
-type VDBVerifyReconciler struct {
+type VdbVerifyReconciler struct {
 	VRec *VerticaRestorePointsQueryReconciler
 	Vrpq *v1beta1.VerticaRestorePointsQuery
 	Log  logr.Logger
 }
 
-func MakeVDBVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1beta1.VerticaRestorePointsQuery,
+func MakeVdbVerifyReconciler(r *VerticaRestorePointsQueryReconciler, vrpq *v1beta1.VerticaRestorePointsQuery,
 	log logr.Logger) controllers.ReconcileActor {
-	return &VDBVerifyReconciler{
+	return &VdbVerifyReconciler{
 		VRec: r,
 		Vrpq: vrpq,
-		Log:  log.WithName("VDBVerifyReconciler"),
+		Log:  log.WithName("VdbVerifyReconciler"),
 	}
 }
 
 // Reconcile will verify the VerticaDB in the Vrpq CR exists, vclusterops is enabled and
 // the vertica version supports vclusterops deployment
-func (q *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op if the check has already been done once
+func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	// no-op if the check has already been done once and was successful
 	isSet := q.Vrpq.IsStatusConditionTrue(v1beta1.QueryReady)
 	if isSet {
 		return ctrl.Result{}, nil
@@ -66,14 +66,14 @@ func (q *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 		return res, err
 	}
 
-	// check version for Vdb, the minimim version should be 24.2.0
+	// check version for vdb, the minimim version should be 24.2.0
 	vinf, err := vdb.MakeVersionInfoCheck()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if !vinf.IsEqualOrNewer(vapi.RestoreSupportedMinVersion) {
 		q.VRec.Eventf(q.Vrpq, corev1.EventTypeWarning, events.RestoreNotSupported,
-			"The Vertica version '%s' doesn't support in-database restore points", vinf.VdbVer)
+			"The Vertica version %q doesn't support in-database restore points", vinf.VdbVer)
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionFalse, "IncompatibleDB")}, stateIncompatibleDB, nil)
 		if err != nil {
@@ -84,7 +84,7 @@ func (q *VDBVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	// Should be deployed with vclusterops, not supported for admintools deployments
 	if !vmeta.UseVClusterOps(vdb.Annotations) {
-		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.AdmintoolsNotSupported,
+		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.VrpqAdmintoolsNotSupported,
 			"ShowRestorePoints is not supported for admintools deployments")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionFalse, "AdmintoolsNotSupported")}, stateIncompatibleDB, nil)
