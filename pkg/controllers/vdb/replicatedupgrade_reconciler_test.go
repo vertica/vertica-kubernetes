@@ -68,7 +68,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createReplicatedUpgradeReconciler(ctx, vdb)
-		Ω(rr.generatePrimariesForReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vdb.Spec.Subclusters).Should(HaveLen(5))
@@ -103,7 +103,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		rr := createReplicatedUpgradeReconciler(ctx, vdb)
-		Ω(rr.generatePrimariesForReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.assignSubclustersToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vdb.Spec.Subclusters).Should(HaveLen(3))

@@ -77,7 +77,7 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		r.runObjReconciler,
 		// Create secondary subclusters for each of the primaries. These will be
 		// added to replica group B and ready to be sandboxed.
-		r.generatePrimariesForReplicaGroupB,
+		r.assignSubclustersToReplicaGroupB,
 		r.runObjReconciler,
 		r.runAddSubclusterReconciler,
 		r.runAddNodesReconciler,
@@ -143,10 +143,11 @@ func (r *ReplicatedUpgradeReconciler) runAddNodesReconciler(ctx context.Context)
 	return rec.Reconcile(ctx, &ctrl.Request{})
 }
 
-// generatePrimariesForReplicaGroupB will create new secondary subclusters for each of the
-// primaries that exist. This is a pre-step to setting up replica group B, which
-// will eventually exist in its own sandbox.
-func (r *ReplicatedUpgradeReconciler) generatePrimariesForReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
+// assignSubclustersToReplicaGroupB will figure out the subclusters that make up
+// replica group B. We will add a secondary for each of the primaries that
+// exist. This is a pre-step to setting up replica group B, which will
+// eventually exist in its own sandbox.
+func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	// Early out if subclusters have already been assigned to replica group B.
 	if r.countSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue) != 0 {
 		return ctrl.Result{}, nil
@@ -184,48 +185,14 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, err
 			continue
 		}
 
-		newsc := sc.DeepCopy()
 		newSCName, err := r.genNewSubclusterName(sc.Name, scMap)
 		if err != nil {
 			return false, err
 		}
-		newsc.Name = newSCName
-		// The subcluster will be sandboxed. And only secondaries can be
-		// sandbox.
-		newsc.Type = vapi.SecondarySubcluster
-		// We don't want to duplicate the service object settings. These new
-		// subclusters will eventually reuse the service object of the primaries
-		// they are mimicing. But not until they are ready to accept
-		// connections. In the meantime, we will setup a simple ClusterIP style
-		// service object. No one should really be connecting to them.
-		newsc.ServiceType = corev1.ServiceTypeClusterIP
-		newsc.ClientNodePort = 0
-		newsc.ExternalIPs = nil
-		newsc.LoadBalancerIP = ""
-		newsc.ServiceAnnotations = nil
-		newsc.ServiceName = ""
-		newsc.VerticaHTTPNodePort = 0
-		// The image in the vdb has already changed to the new one. We need to
-		// set the image override so that the new subclusters come up with the
-		// old image.
-		newsc.ImageOverride = oldImage
 
-		// Include annotations to indicate what replica group it is assigned to
-		// and provide a link back to the subcluster it is defined from.
-		if newsc.Annotations == nil {
-			newsc.Annotations = make(map[string]string)
-		}
-		newsc.Annotations[vmeta.ReplicaGroupAnnotation] = vmeta.ReplicaGroupBValue
-		newsc.Annotations[vmeta.ParentSubclusterAnnotation] = sc.Name
-
-		// Create a linkage in the parent-child
-		if sc.Annotations == nil {
-			sc.Annotations = make(map[string]string)
-		}
-		sc.Annotations[vmeta.ChildSubclusterAnnotation] = newsc.Name
-
-		scMap[newSCName] = newsc
+		newsc := r.duplicateSubcluster(sc, newSCName, oldImage)
 		newSubclusters = append(newSubclusters, *newsc)
+		scMap[newSCName] = newsc
 	}
 
 	if len(newSubclusters) == 0 {
@@ -289,4 +256,45 @@ func (r *ReplicatedUpgradeReconciler) genNewSubclusterName(baseName string, scMa
 		}
 	}
 	return "", errors.New("failed to generate a unique subcluster name")
+}
+
+// duplicateSubcluster will return a new vapi.Subcluster that is based on
+// baseSc. This is used to mimic the primaries in replica group B.
+func (r *ReplicatedUpgradeReconciler) duplicateSubcluster(baseSc *vapi.Subcluster, newSCName, oldImage string) *vapi.Subcluster {
+	newSc := baseSc.DeepCopy()
+	newSc.Name = newSCName
+	// The subcluster will be sandboxed. And only secondaries can be
+	// sandbox.
+	newSc.Type = vapi.SecondarySubcluster
+	// We don't want to duplicate the service object settings. These new
+	// subclusters will eventually reuse the service object of the primaries
+	// they are mimicing. But not until they are ready to accept
+	// connections. In the meantime, we will setup a simple ClusterIP style
+	// service object. No one should really be connecting to them.
+	newSc.ServiceType = corev1.ServiceTypeClusterIP
+	newSc.ClientNodePort = 0
+	newSc.ExternalIPs = nil
+	newSc.LoadBalancerIP = ""
+	newSc.ServiceAnnotations = nil
+	newSc.ServiceName = ""
+	newSc.VerticaHTTPNodePort = 0
+	// The image in the vdb has already changed to the new one. We need to
+	// set the image override so that the new subclusters come up with the
+	// old image.
+	newSc.ImageOverride = oldImage
+
+	// Include annotations to indicate what replica group it is assigned to
+	// and provide a link back to the subcluster it is defined from.
+	if newSc.Annotations == nil {
+		newSc.Annotations = make(map[string]string)
+	}
+	newSc.Annotations[vmeta.ReplicaGroupAnnotation] = vmeta.ReplicaGroupBValue
+	newSc.Annotations[vmeta.ParentSubclusterAnnotation] = baseSc.Name
+
+	// Create a linkage in the parent-child
+	if baseSc.Annotations == nil {
+		baseSc.Annotations = make(map[string]string)
+	}
+	baseSc.Annotations[vmeta.ChildSubclusterAnnotation] = newSc.Name
+	return newSc
 }
