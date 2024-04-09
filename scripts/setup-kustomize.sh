@@ -121,9 +121,8 @@ fi
 echo "Vertica server image name: $VERTICA_IMG"
 echo "Base vertica server image name for upgrade tests: $BASE_VERTICA_IMG"
 echo "Vertica logger image name: $VLOGGER_IMG"
-if [ -n "$LICENSE_SECRET" ]; then
-    echo "License name: $LICENSE_SECRET"
-fi
+echo -n "License file: "
+if [ -n "$LICENSE_FILE" ]; then echo "YES ($LICENSE_FILE)"; else echo "NO"; fi
 echo "Endpoint: $ENDPOINT"
 echo "Protocol: $PATH_PROTOCOL"
 echo "Communal Path Prefix: $COMMUNAL_PATH_PREFIX"
@@ -324,16 +323,15 @@ EOF
         $KUSTOMIZE edit add patch --path $PRIVATE_REG_SECRET_PATCH --kind VerticaDB
     fi
 
-    # If license was specified we create a patch file to set that.
-    if [[ -n "$LICENSE_SECRET" ]]
+    if [[ -n "$LICENSE_FILE" ]]
     then
         LICENSE_PATCH_FILE="license-patch.yaml"
         cat <<EOF > $LICENSE_PATCH_FILE
         - op: add
           path: /spec/licenseSecret
-          value: $LICENSE_SECRET
+          value: license
 EOF
-        $KUSTOMIZE edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB --version v1beta1 --group vertica.com
+        $KUSTOMIZE edit add patch --path $LICENSE_PATCH_FILE --kind VerticaDB
     fi
 
 }
@@ -547,6 +545,36 @@ function copy_communal_ep_cert {
         | jq ".metadata += {name: \"$COMMUNAL_EP_CERT_SECRET_NS_COPY\"}" > communal-ep-cert.json
     fi
     popd > /dev/null
+}
+
+function create_license_secret {
+    if [ -n "$LICENSE_FILE" ]
+    then
+        pushd manifests/vertica-license > /dev/null
+
+        mkdir -p overlay
+        pushd overlay > /dev/null
+
+        cat <<EOF > license.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: license
+type: Opaque
+data:
+  license.dat: $(cat $LICENSE_FILE | base64 -w 0)
+EOF
+
+        cat <<EOF > kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base
+- license.yaml
+EOF
+        popd > /dev/null
+        popd > /dev/null
+    fi
 }
 
 function create_communal_creds {
@@ -776,6 +804,8 @@ create_communal_creds
 setup_creds_for_create_s3_bucket
 # Setup credential secret to access a private container registry
 setup_creds_for_private_repo
+# Setup an overlay so that we can inject a vertica license in each test
+create_license_secret
 
 # Descend into each test and create the overlay kustomization.
 # The overlay is created in a directory like: overlay/<tc-name>
