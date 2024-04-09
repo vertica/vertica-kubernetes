@@ -51,12 +51,6 @@ const (
 	NodeRestartFailed               = "NodeRestartFailed"
 	ClusterRestartStarted           = "ClusterRestartStarted"
 	ClusterRestartSucceeded         = "ClusterRestartSucceeded"
-	ShowRestorePointsStarted        = "ShowRestorePointsStarted"
-	ShowRestorePointsFailed         = "ShowRestorePointsFailed"
-	RestoreNotSupported             = "RestoreNotSupported"
-	ReplicationNotSupported         = "ReplicationNotSupported"
-	AdmintoolsNotSupported          = "AdmintoolsNotSupported"
-	ShowRestorePointsSucceeded      = "ShowRestorePointsSucceeded"
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
 	SubclusterRemoved               = "SubclusterRemoved"
@@ -110,4 +104,19 @@ const (
 	VclusterOpsScrutinizeNotSupported = "VclusterOpsScrutinizeNotSupported"
 	VclusterOpsScrutinizeSucceeded    = "VclusterOpsScrutinizeSucceeded"
 	VclusterOpsScrutinizeFailed       = "VclusterOpsScrutinizeFailed"
+)
+
+// Constants for VerticaReplicator reconciler
+const (
+	ReplicationNotSupported    = "ReplicationNotSupported"
+	VrepAdmintoolsNotSupported = "AdmintoolsNotSupported"
+)
+
+// Constants for VerticaRestorePointsQuery reconciler
+const (
+	RestoreNotSupported        = "RestoreNotSupported"
+	VrpqAdmintoolsNotSupported = "AdmintoolsNotSupported"
+	ShowRestorePointsStarted   = "ShowRestorePointsStarted"
+	ShowRestorePointsFailed    = "ShowRestorePointsFailed"
+	ShowRestorePointsSucceeded = "ShowRestorePointsSucceeded"
 )

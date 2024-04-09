@@ -84,7 +84,7 @@ func (q *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	// Should be deployed with vclusterops, not supported for admintools deployments
 	if !vmeta.UseVClusterOps(vdb.Annotations) {
-		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.AdmintoolsNotSupported,
+		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.VrpqAdmintoolsNotSupported,
 			"ShowRestorePoints is not supported for admintools deployments")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.QueryReady, metav1.ConditionFalse, "AdmintoolsNotSupported")}, stateIncompatibleDB, nil)

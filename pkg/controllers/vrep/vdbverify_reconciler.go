@@ -105,7 +105,7 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	// source vdb should be deployed with vclusterops, not supported for admintools deployments
 	if !vmeta.UseVClusterOps(vdbSource.Annotations) {
-		r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.AdmintoolsNotSupported,
+		r.VRec.Event(r.Vrep, corev1.EventTypeWarning, events.VrepAdmintoolsNotSupported,
 			"replication is not supported for admintools deployments in in the source")
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "AdmintoolsNotSupported")}, stateIncompatibleDB)
