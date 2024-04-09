@@ -66,10 +66,14 @@ then
         # because in 24.2.0 we support the NMA sidecar only. This git ref
         # refers to a 24.1.0 build.
         print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "36ee8c3de77d43c6ad7bbef252302977952ac9d6-minimal"
-    else
-        # For versions 24.2.0+, we need to pick a corresponding image to
+    elif [ "$(determine_image_version $TARGET_IMG)" == "24.2.0" ]
+    then
+        # For versions 24.2.0, we need to pick a corresponding image to
         # upgrade from. We will pick a random 24.2.0 image.
         print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "1f759615f0f723080b398edcf096a0bc8bc03aef-minimal"
+    else
+        # For all newer versions, we pick a random 24.3.0 image.
+        print_vertica_k8s_img_with_tag $PRIVATE_REPO $PRIVATE_IMAGE "20240403-minimal"
     fi
 else
     print_vertica_k8s_img $PUBLIC_REPO $PUBLIC_IMAGE 12 0 2

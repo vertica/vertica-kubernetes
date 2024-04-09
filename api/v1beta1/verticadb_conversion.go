@@ -261,7 +261,6 @@ func convertToStatus(src *VerticaDBStatus) v1.VerticaDBStatus {
 		Conditions:      make([]metav1.Condition, 0),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]v1.SandboxStatus, len(src.Sandboxes)),
-		UpgradeState:    (*v1.UpgradeState)(src.UpgradeState),
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertToSubclusterStatus(src.Subclusters[i])
@@ -286,7 +285,6 @@ func convertFromStatus(src *v1.VerticaDBStatus) VerticaDBStatus {
 		Conditions:      make([]VerticaDBCondition, len(src.Conditions)),
 		UpgradeStatus:   src.UpgradeStatus,
 		Sandboxes:       make([]SandboxStatus, len(src.Sandboxes)),
-		UpgradeState:    (*UpgradeState)(src.UpgradeState),
 	}
 	for i := range src.Subclusters {
 		dst.Subclusters[i] = convertFromSubclusterStatus(src.Subclusters[i])
@@ -319,6 +317,7 @@ func convertToSubcluster(src *Subcluster) v1.Subcluster {
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
+		Annotations:         src.Annotations,
 	}
 }
 
@@ -342,6 +341,7 @@ func convertFromSubcluster(src *v1.Subcluster) Subcluster {
 		ExternalIPs:         src.ExternalIPs,
 		LoadBalancerIP:      src.LoadBalancerIP,
 		ServiceAnnotations:  src.ServiceAnnotations,
+		Annotations:         src.Annotations,
 	}
 }
 

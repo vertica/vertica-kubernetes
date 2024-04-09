@@ -12,18 +12,10 @@
 # limitations under the License.
 
 apiVersion: v1
-kind: Service
+kind: Pod
 metadata:
-  name: vdb-label-ant-cluster1
-  annotations:
-    gitRef: abcd123
-    my-custom-annotation-1: "cluster1"
-    my-custom-annotation-2: "nlb"
-    my-custom-annotation-3: "manual-add"
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: vdb-label-ant-cluster1
-  annotations:
-    sc-annotation: "main-with-nlb"
+  namespace: verticadb-operator
+  labels:
+    control-plane: verticadb-operator
+status:
+  phase: Running

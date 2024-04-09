@@ -43,18 +43,17 @@ import (
 // OnlineUpgradeReconciler will handle the process when the vertica image
 // changes.  It does this while keeping the database online.
 type OnlineUpgradeReconciler struct {
-	VRec          *VerticaDBReconciler
-	Log           logr.Logger
-	Vdb           *vapi.VerticaDB  // Vdb is the CRD we are acting on.
-	TransientSc   *vapi.Subcluster // Set to the transient subcluster if applicable
-	PRunner       cmds.PodRunner
-	PFacts        *PodFacts
-	Finder        iter.SubclusterFinder
-	Manager       UpgradeManager
-	Dispatcher    vadmin.Dispatcher
-	PrimaryImages []string // Known images in the primaries.  Should be of length 1 or 2.
-	StatusMsgs    []string // Precomputed status messages
-	MsgIndex      int      // Current index in StatusMsgs
+	VRec        *VerticaDBReconciler
+	Log         logr.Logger
+	Vdb         *vapi.VerticaDB  // Vdb is the CRD we are acting on.
+	TransientSc *vapi.Subcluster // Set to the transient subcluster if applicable
+	PRunner     cmds.PodRunner
+	PFacts      *PodFacts
+	Finder      iter.SubclusterFinder
+	Manager     UpgradeManager
+	Dispatcher  vadmin.Dispatcher
+	StatusMsgs  []string // Precomputed status messages
+	MsgIndex    int      // Current index in StatusMsgs
 }
 
 // MakeOnlineUpgradeReconciler will build an OnlineUpgradeReconciler object
@@ -139,7 +138,7 @@ func (o *OnlineUpgradeReconciler) loadSubclusterState(ctx context.Context) (ctrl
 
 	o.TransientSc = o.Vdb.FindTransientSubcluster()
 
-	err = o.cachePrimaryImages(ctx)
+	err = o.Manager.cachePrimaryImages(ctx)
 	return ctrl.Result{}, err
 }
 
@@ -205,7 +204,7 @@ func (o *OnlineUpgradeReconciler) addTransientToVdb(ctx context.Context) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	oldImage, ok := o.fetchOldImage()
+	oldImage, ok := o.Manager.fetchOldImage()
 	if !ok {
 		return ctrl.Result{}, fmt.Errorf("could not determine the old image name.  "+
 			"Only available image is %s", o.Vdb.Spec.Image)
@@ -672,53 +671,13 @@ func (o *OnlineUpgradeReconciler) deleteTransientSts(ctx context.Context) (ctrl.
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
-// cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
-func (o *OnlineUpgradeReconciler) cachePrimaryImages(ctx context.Context) error {
-	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting)
-	if err != nil {
-		return err
-	}
-	for i := range stss.Items {
-		sts := &stss.Items[i]
-		if sts.Labels[vmeta.SubclusterTypeLabel] == vapi.PrimarySubcluster {
-			img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
-			if err != nil {
-				return err
-			}
-			imageFound := false
-			for j := range o.PrimaryImages {
-				imageFound = o.PrimaryImages[j] == img
-				if imageFound {
-					break
-				}
-			}
-			if !imageFound {
-				o.PrimaryImages = append(o.PrimaryImages, img)
-			}
-		}
-	}
-	return nil
-}
-
-// fetchOldImage will return the old image that existed prior to the image
-// change process.  If we cannot determine the old image, then the bool return
-// value returns false.
-func (o *OnlineUpgradeReconciler) fetchOldImage() (string, bool) {
-	for i := range o.PrimaryImages {
-		if o.PrimaryImages[i] != o.Vdb.Spec.Image {
-			return o.PrimaryImages[i], true
-		}
-	}
-	return "", false
-}
-
 // skipTransientSetup will return true if we can skip creation, install and
 // scale-out of the transient subcluster
 func (o *OnlineUpgradeReconciler) skipTransientSetup() bool {
 	// We can skip this entirely if all of the primary subclusters already have
 	// the new image.  This is an indication that we have already created the
 	// transient and did the image change.
-	if !o.Vdb.RequiresTransientSubcluster() || (len(o.PrimaryImages) == 1 && o.PrimaryImages[0] == o.Vdb.Spec.Image) {
+	if !o.Vdb.RequiresTransientSubcluster() || (len(o.Manager.PrimaryImages) == 1 && o.Manager.PrimaryImages[0] == o.Vdb.Spec.Image) {
 		return true
 	}
 
