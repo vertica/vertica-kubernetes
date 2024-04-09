@@ -79,13 +79,3 @@ func SetUpgradeStatusMessage(ctx context.Context, clnt client.Client, vdb *vapi.
 		return nil
 	})
 }
-
-// SetUpgradeState will copy the given UpgradeState struct into
-// vdb.status.upgradeState. If the value passed in is nil, then the struct will be
-// cleared.
-func SetUpgradeState(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, upgradeState *vapi.UpgradeState) error {
-	return Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
-		vdb.Status.UpgradeState = upgradeState
-		return nil
-	})
-}

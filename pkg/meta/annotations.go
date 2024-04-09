@@ -242,6 +242,19 @@ const (
 	// used. If a value is specified, but isn't able to be parsed, we use the
 	// default.
 	ScrutinizeMainContainerResourcesPrefixAnnotation = "vertica.com/scrutinize-main-container-resources"
+
+	// This is applied to the statefulset to identify what replica group it is
+	// in. Replica groups are assigned during replicated upgrade. Valid values
+	// are defined under the annotation name.
+	ReplicaGroupAnnotation = "vertica.com/replica-group"
+	ReplicaGroupAValue     = "a"
+	ReplicaGroupBValue     = "b"
+
+	// For each subcluster that is included in either replica group, there is a
+	// subcluster in the other replica group. This annotation is used to
+	// establish the relationship.
+	ParentSubclusterAnnotation = "vertica.com/parent-subcluster"
+	ChildSubclusterAnnotation  = "vertica.com/child-subcluster"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

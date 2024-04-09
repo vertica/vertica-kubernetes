@@ -514,6 +514,7 @@ func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.St
 	curSts.DeepCopyInto(origSts)
 	expSts.Spec.DeepCopyInto(&curSts.Spec)
 	curSts.Labels = expSts.Labels
+	curSts.Annotations = expSts.Annotations
 	if err := o.VRec.Client.Patch(ctx, curSts, patch); err != nil {
 		return err
 	}
