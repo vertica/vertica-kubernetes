@@ -21,8 +21,10 @@ import (
 	"reflect"
 	"strings"
 
+	vutil "github.com/vertica/vcluster/vclusterops/util"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -141,6 +143,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableDepotVolume(oldObj, allErrs)
 	allErrs = v.checkImmutablePodSecurityContext(oldObj, allErrs)
 	allErrs = v.checkImmutableSubclusterDuringUpgrade(oldObj, allErrs)
+	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
 	return allErrs
 }
 
@@ -178,6 +181,7 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidCreateDBTimeout(allErrs)
 	allErrs = v.hasValidUpgradePolicy(allErrs)
 	allErrs = v.hasValidReplicaGroups(allErrs)
+	allErrs = v.validateSandboxes(allErrs)
 	if len(allErrs) == 0 {
 		return nil
 	}
@@ -1021,12 +1025,124 @@ func (v *VerticaDB) hasValidProbeOverride(allErrs field.ErrorList, fieldPath *fi
 	return allErrs
 }
 
+// validateSandboxes validates if provided sandboxes info is correct
+func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
+	// if vdb does not have any sandboxes, skip this check
+	if len(v.Spec.Sandboxes) == 0 {
+		return allErrs
+	}
+
+	sandboxes := v.Spec.Sandboxes
+	seenSandbox := make(map[string]any)
+	mainClusterImage := v.Spec.Image
+	path := field.NewPath("spec").Child("sandboxes")
+	for _, sandbox := range sandboxes {
+		// check if we have duplicate sandboxes
+		if _, ok := seenSandbox[sandbox.Name]; ok {
+			err := field.Invalid(path,
+				v.Spec.Sandboxes,
+				fmt.Sprintf("sandbox %s already exists", sandbox.Name))
+			allErrs = append(allErrs, err)
+		}
+		seenSandbox[sandbox.Name] = struct{}{}
+		// check if sandbox image is different than main cluster's before sandbox has been setup
+		if sandbox.Image != mainClusterImage && !v.isSandboxInitialized(sandbox.Name) {
+			err := field.Invalid(path,
+				v.Spec.Sandboxes,
+				fmt.Sprintf("sandbox %s cannot have a different image than the main cluster before its creation", sandbox.Name))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// check if we are using a vertica version older than v24.3.0
+	vdbVer, ok := v.GetVerticaVersionStr()
+	if ok {
+		verInfo, err := vversion.MakeInfoFromStrCheck(vdbVer)
+		prefix := field.NewPath("metadata").Child("annotations")
+		if err != nil {
+			err := field.Invalid(prefix.Key(vmeta.VersionAnnotation),
+				v.Annotations[vmeta.VersionAnnotation],
+				err.Error())
+			allErrs = append(allErrs, err)
+		}
+		if verInfo.IsOlder(SandboxSupportedMinVersion) {
+			err := field.Invalid(prefix.Key(vmeta.VersionAnnotation),
+				v.Annotations[vmeta.VersionAnnotation],
+				fmt.Sprintf("sandbox is unsupported in a version older than %s", vdbVer))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	// check if any sandboxes are provided before the database has been initialized
+	if !v.isDBInitialized() && len(sandboxes) > 0 {
+		err := field.Invalid(path,
+			v.Spec.Sandboxes,
+			"sandbox can only be specified after database is created or revived")
+		allErrs = append(allErrs, err)
+	}
+
+	return v.validateSubclustersInSandboxes(allErrs)
+}
+
+// validateSandboxes validates if subclusters in sandboxes is correct
+func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) field.ErrorList {
+	sandboxes := v.Spec.Sandboxes
+	seenSc := make(map[string]any)
+	path := field.NewPath("spec").Child("sandboxes")
+	for _, sandbox := range sandboxes {
+		scInSandbox := make(map[string]any)
+		for _, sc := range sandbox.Subclusters {
+			// check if we have duplicate subclusters in a sandbox
+			if _, ok := scInSandbox[sc.Name]; ok {
+				err := field.Invalid(path,
+					v.Spec.Sandboxes,
+					fmt.Sprintf("found duplicate subcluster %s in sandbox %s", sc.Name, sandbox.Name))
+				allErrs = append(allErrs, err)
+			}
+			// check if a subcluster is defined in multiple sandboxes
+			if _, ok := seenSc[sc.Name]; ok {
+				err := field.Invalid(path,
+					v.Spec.Sandboxes,
+					fmt.Sprintf("subcluster %s already exists in another sandbox", sc.Name))
+				allErrs = append(allErrs, err)
+			}
+			scInSandbox[sc.Name] = struct{}{}
+		}
+		for sc := range scInSandbox {
+			seenSc[sc] = struct{}{}
+		}
+	}
+
+	// check if a non-existing subcluster is defined in a sandbox
+	scMap := v.GenSubclusterMap()
+	for sc := range seenSc {
+		if _, ok := scMap[sc]; !ok {
+			err := field.Invalid(path,
+				v.Spec.Sandboxes,
+				fmt.Sprintf("subcluster %s does not exist", sc))
+			allErrs = append(allErrs, err)
+		}
+	}
+
+	return allErrs
+}
+
 func (v *VerticaDB) isUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
 }
 
 func (v *VerticaDB) isDBInitialized() bool {
 	return v.IsStatusConditionTrue(DBInitialized)
+}
+
+// isSandboxInitialized returns ture when the sandbox has been created in the database
+func (v *VerticaDB) isSandboxInitialized(targetSc string) bool {
+	for _, sc := range v.Status.Sandboxes {
+		if sc.Name == targetSc {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *VerticaDB) checkImmutableBasic(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
@@ -1335,6 +1451,85 @@ func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, all
 				allErrs = append(allErrs, err)
 				continue
 			}
+		}
+	}
+
+	return allErrs
+}
+
+// findPersistScsInSandbox returns the sandboxed subclusters that exist in both old and new vdb
+func (v *VerticaDB) findPersistScsInSandbox(oldObj *VerticaDB) []string {
+	oldSandboxes := oldObj.Spec.Sandboxes
+	newSandboxes := v.Spec.Sandboxes
+	sandboxScMap := make(map[string][]SubclusterName)
+	for _, sandbox := range oldSandboxes {
+		sandboxScMap[sandbox.Name] = sandbox.Subclusters
+	}
+	persistScs := []string{}
+	for _, sandbox := range newSandboxes {
+		if oldScs, ok := sandboxScMap[sandbox.Name]; ok {
+			oldScMap := make(map[string]any)
+			for _, oldSc := range oldScs {
+				oldScMap[oldSc.Name] = struct{}{}
+			}
+			for _, newSc := range sandbox.Subclusters {
+				if _, ok := oldScMap[newSc.Name]; ok {
+					persistScs = append(persistScs, newSc.Name)
+				}
+			}
+		}
+	}
+	return persistScs
+}
+
+// checkImmutableSubclusterInSandbox ensures we do not scale and remove any subcluster that is in a sandbox
+func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// if either old vdb or new vdb does not have any sandboxes, skip this check
+	if len(oldObj.Spec.Sandboxes) == 0 || len(v.Spec.Sandboxes) == 0 {
+		return allErrs
+	}
+
+	persistScs := v.findPersistScsInSandbox(oldObj)
+	oldScMap := oldObj.GenSubclusterMap()
+	newScMap := v.GenSubclusterMap()
+	path := field.NewPath("spec").Child("subclusters")
+
+	// check if the sizes of subclusters in a sandbox get changed
+	for _, sc := range persistScs {
+		oldSc, hasOldSc := oldScMap[sc]
+		newSc, hasNewSc := newScMap[sc]
+		if !hasOldSc || !hasNewSc {
+			err := field.Invalid(path,
+				v.Spec.Subclusters,
+				fmt.Sprintf("Subcluster %s in vdb.spec.sandboxes cannot be found in vdb.spec.subclusters", sc))
+			allErrs = append(allErrs, err)
+			continue
+		}
+		if oldSc.Size != newSc.Size {
+			err := field.Invalid(path,
+				v.Spec.Subclusters,
+				fmt.Sprintf("Cannot change the size of subcluster %q when it is in a sandbox", sc))
+			allErrs = append(allErrs, err)
+			continue
+		}
+	}
+
+	// find subclusters that are sandboxed in old vdb but removed in new vdb
+	oldSandboxes := oldObj.Spec.Sandboxes
+	scInSandbox := make(map[string]any)
+	for _, sandbox := range oldSandboxes {
+		for _, sc := range sandbox.Subclusters {
+			scInSandbox[sc.Name] = struct{}{}
+		}
+	}
+	removedScs := vutil.MapKeyDiff(oldScMap, newScMap)
+	for _, sc := range removedScs {
+		if _, ok := scInSandbox[sc]; ok {
+			err := field.Invalid(path,
+				v.Spec.Subclusters,
+				fmt.Sprintf("Cannot remove subcluster %q when it is in a sandbox", sc))
+			allErrs = append(allErrs, err)
+			continue
 		}
 	}
 
