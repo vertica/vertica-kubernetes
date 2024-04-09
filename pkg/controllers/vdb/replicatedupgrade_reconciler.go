@@ -190,7 +190,7 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, err
 			return false, err
 		}
 
-		newsc := r.duplicateSubcluster(sc, newSCName, oldImage)
+		newsc := r.duplicateSubclusterForReplicaGroupB(sc, newSCName, oldImage)
 		newSubclusters = append(newSubclusters, *newsc)
 		scMap[newSCName] = newsc
 	}
@@ -258,9 +258,10 @@ func (r *ReplicatedUpgradeReconciler) genNewSubclusterName(baseName string, scMa
 	return "", errors.New("failed to generate a unique subcluster name")
 }
 
-// duplicateSubcluster will return a new vapi.Subcluster that is based on
+// duplicateSubclusterForReplicaGroupB will return a new vapi.Subcluster that is based on
 // baseSc. This is used to mimic the primaries in replica group B.
-func (r *ReplicatedUpgradeReconciler) duplicateSubcluster(baseSc *vapi.Subcluster, newSCName, oldImage string) *vapi.Subcluster {
+func (r *ReplicatedUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
+	baseSc *vapi.Subcluster, newSCName, oldImage string) *vapi.Subcluster {
 	newSc := baseSc.DeepCopy()
 	newSc.Name = newSCName
 	// The subcluster will be sandboxed. And only secondaries can be
