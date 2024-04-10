@@ -978,6 +978,16 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
 
+	It("should not allow malformed vertica version", func() {
+		vdb := MakeVDB()
+		vdb.Annotations[vmeta.VersionAnnotation] = "24.3.0"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.X.X"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.3.0-0"
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
 	It("should check subcluster immutability in sandbox", func() {
 		newVdb := MakeVDB()
 		mainClusterImageVer := "vertica-k8s:latest"
@@ -1055,10 +1065,19 @@ var _ = Describe("verticadb_webhook", func() {
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.Spec.Sandboxes[0].Name = "sandbox1"
 
-		// cannot have the image of a sandbox be different than the main cluster before the sandbox has been setup
+		// cannot have the image of a sandbox be different than the main cluster
+		// when vertica is not in an upgrade and the sandbox has not been setup
 		vdb.Spec.Sandboxes[1].Image = "vertica-k8s:v1"
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		// with empty string, sandbox will use the same image as main cluster
+		vdb.Spec.Sandboxes[1].Image = ""
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		// when vertica is in an upgrade, we should not see an error
+		vdb.Spec.Sandboxes[1].Image = "vertica-k8s:v1"
+		resetStatusConditionsForUpgradeInProgress(vdb)
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
 		// after sandbox is setup, we should not see an error
+		unsetStatusConditionsForUpgradeInProgress(vdb)
 		vdb.Status.Sandboxes = []SandboxStatus{
 			{Name: "sandbox2", Subclusters: []string{"sc2", "sc3"}},
 		}
@@ -1068,11 +1087,6 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v23.0.0"
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
-
-		// cannot use before the database has been initialized
-		unsetStatusConditionsForDBInitialized(vdb)
-		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
-		resetStatusConditionsForDBInitialized(vdb)
 
 		// cannot have duplicate subclusters defined in a sandbox
 		vdb.Spec.Sandboxes = []Sandbox{
@@ -1136,12 +1150,12 @@ func resetStatusConditionsForUpgradeInProgress(v *VerticaDB) {
 	resetStatusConditionsForCondition(v, UpgradeInProgress, metav1.ConditionTrue)
 }
 
-func resetStatusConditionsForDBInitialized(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, DBInitialized, metav1.ConditionTrue)
+func unsetStatusConditionsForUpgradeInProgress(v *VerticaDB) {
+	resetStatusConditionsForCondition(v, UpgradeInProgress, metav1.ConditionFalse)
 }
 
-func unsetStatusConditionsForDBInitialized(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, DBInitialized, metav1.ConditionFalse)
+func resetStatusConditionsForDBInitialized(v *VerticaDB) {
+	resetStatusConditionsForCondition(v, DBInitialized, metav1.ConditionTrue)
 }
 
 func resetStatusConditionsForCondition(v *VerticaDB, conditionType string, status metav1.ConditionStatus) {
