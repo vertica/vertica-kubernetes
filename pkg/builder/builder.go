@@ -1247,12 +1247,11 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 // BuildStsSpec builds manifest for a subclusters statefulset
 func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
 	isControllerRef := true
-	sandbox := vdb.GetSubclusterSandboxName(sc.Name)
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForStsObject(vdb, sc, sandbox),
+			Labels:      MakeLabelsForStsObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: appsv1.StatefulSetSpec{

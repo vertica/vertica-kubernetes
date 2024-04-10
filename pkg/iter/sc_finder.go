@@ -109,16 +109,17 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*core
 // FindSubclusters will return a list of subclusters.
 // It accepts a flags field to indicate whether to return subclusters in the vdb,
 // not in the vdb or both.
-func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags) ([]*vapi.Subcluster, error) {
+func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags, sandbox string) ([]*vapi.Subcluster, error) {
 	subclusters := []*vapi.Subcluster{}
+	isMainCluster := sandbox == vapi.MainCluster
 
 	if flags&FindInVdb != 0 {
-		for i := range m.Vdb.Spec.Subclusters {
-			subclusters = append(subclusters, &m.Vdb.Spec.Subclusters[i])
-		}
+		subclusters = append(subclusters, m.getVdbSubclusters(sandbox)...)
 	}
 
-	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
+	// a sanboxed subcluster can only be one of those in the vdb so we skip this part if
+	// we are looking for sandboxed subclusters
+	if isMainCluster && (flags&FindNotInVdb != 0 || flags&FindExisting != 0) {
 		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb)
 		if err != nil {
 			return nil, err
@@ -215,4 +216,54 @@ func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 		return pod.Labels, true
 	}
 	return nil, false
+}
+
+// getSubclusterSandboxStatusMap returns a map that contains sandboxed
+// subclusters
+func (m *SubclusterFinder) getSubclusterSandboxStatusMap() map[string]bool {
+	scMap := map[string]bool{}
+	for i := range m.Vdb.Status.Sandboxes {
+		for _, sc := range m.Vdb.Status.Sandboxes[i].Subclusters {
+			scMap[sc] = true
+		}
+	}
+	return scMap
+}
+
+// getVdbSubclusters returns the subclusters that are in the vdb
+func (m *SubclusterFinder) getVdbSubclusters(sandbox string) []*vapi.Subcluster {
+	if sandbox != vapi.MainCluster {
+		return m.getSandboxedSubclusters(sandbox)
+	}
+	return m.getMainSubclusters()
+}
+
+// getMainSubclusters returns the subclusters that are not part
+// of any sandboxes
+func (m *SubclusterFinder) getMainSubclusters() []*vapi.Subcluster {
+	subclusters := []*vapi.Subcluster{}
+	scMap := m.getSubclusterSandboxStatusMap()
+	for i := range m.Vdb.Spec.Subclusters {
+		sc := &m.Vdb.Spec.Subclusters[i]
+		if _, ok := scMap[sc.Name]; !ok {
+			subclusters = append(subclusters, sc)
+		}
+	}
+	return subclusters
+}
+
+// getSandboxedSubclusters returns the subclusters that belong to the given
+// sandbox
+func (m *SubclusterFinder) getSandboxedSubclusters(sandbox string) []*vapi.Subcluster {
+	subclusters := []*vapi.Subcluster{}
+	for i := range m.Vdb.Status.Sandboxes {
+		sb := &m.Vdb.Status.Sandboxes[i]
+		if sb.Name != sandbox {
+			continue
+		}
+		for _, scName := range sb.Subclusters {
+			subclusters = append(subclusters, m.Subclusters[scName])
+		}
+	}
+	return subclusters
 }

@@ -194,6 +194,7 @@ type PodFacts struct {
 	Detail             PodFactDetail
 	VDBResourceVersion string // The resourceVersion of the VerticaDB at the time the pod facts were gathered
 	NeedCollection     bool
+	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
 }
 
@@ -228,7 +229,15 @@ const (
 
 // MakePodFacts will create a PodFacts object and return it
 func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger) PodFacts {
-	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail)}
+	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
+		SandboxName: vapi.MainCluster}
+}
+
+// MakePodFactsForSandbox will create a PodFacts object for a sandbox
+func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, sandbox string) PodFacts {
+	pf := MakePodFacts(vrec, prunner, log)
+	pf.SandboxName = sandbox
+	return pf
 }
 
 // Collect will gather up the for facts if a collection is needed
@@ -248,7 +257,7 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	// subclusters, even ones that are scheduled to be deleted -- we keep
 	// collecting facts for those until the statefulsets are gone.
 	finder := iter.MakeSubclusterFinder(p.VRec.GetClient(), vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll, p.SandboxName)
 	if err != nil {
 		return nil
 	}
@@ -372,11 +381,8 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// we get the sandbox name from the sts labels if the subcluster
 		// belongs to a sanbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
-		val, ok := sts.Labels[vmeta.SandboxNameLabel]
-		if ok {
-			pf.sandbox = val
-			pf.isPrimary = true
-		}
+		pf.sandbox = p.SandboxName
+		setSandboxNodeType(&pf)
 	}
 
 	fns := []CheckerFunc{
@@ -868,34 +874,18 @@ func setShardSubscription(op string, pf *PodFact) error {
 // exist anywhere.
 func (p *PodFacts) doesDBExist() bool {
 	for _, v := range p.Detail {
-		ok := v.doesDBExist("" /*sandbox name*/)
-		if ok {
+		// dbExists check is based off the existence of the catalog. So, we only
+		// check pods from primary subclusters, as the check is only accurate
+		// for them. Pods for secondary may not have pulled down the catalog yet
+		// (e.g. revive before a restart).
+		if !v.isPrimary {
+			continue
+		}
+		if v.dbExists {
 			return true
 		}
 	}
 	return false
-}
-
-// doesDBExistWithSandbox will check if the database exists anywhere
-// in the main cluster or in the sanboxed subcluster if a non-empty sandbox name
-// is given
-func (p *PodFacts) doesDBExistWithSandbox(sandbox string) bool {
-	for _, v := range p.Detail {
-		ok := v.doesDBExist(sandbox)
-		if ok {
-			return true
-		}
-	}
-	return false
-}
-
-func (p *PodFact) doesDBExist(sandbox string) bool {
-	skipNode := shouldSkipPodBasedOnSandboxState(p, sandbox)
-	// dbExists check is based off the existence of the catalog. So, we only
-	// check pods from primary subclusters, as the check is only accurate
-	// for them. Pods for secondary may not have pulled down the catalog yet
-	// (e.g. revive before a restart).
-	return !skipNode && p.isPrimary && p.dbExists
 }
 
 // findPodToRunVsql returns the name of the pod we will exec into in
@@ -917,50 +907,35 @@ func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact
 // order to run admintools.
 // Will return false for second parameter if no pod could be found.
 func (p *PodFacts) findPodToRunAdminCmdAny() (*PodFact, bool) {
-	return p.findPodToRunAdminCmdAnyFunc("")
-}
-
-func (p *PodFacts) findPodToRunAdminCmdAnyWithSandbox(sandbox string) (*PodFact, bool) {
-	return p.findPodToRunAdminCmdAnyFunc(sandbox)
-}
-
-func (p *PodFacts) findPodToRunAdminCmdAnyFunc(sandbox string) (*PodFact, bool) {
 	// Our preference for the pod is as follows:
 	// - up, not read-only and not pending delete
 	// - up and not read-only
 	// - up and read-only
 	// - has vertica installation
 	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
-		skipNode := shouldSkipPodBasedOnSandboxState(v, sandbox)
-		return !skipNode && v.upNode && !v.readOnly && !v.isPendingDelete
+		return v.upNode && !v.readOnly && !v.isPendingDelete
 	}); ok {
 		return pod, ok
 	}
 	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
-		skipNode := shouldSkipPodBasedOnSandboxState(v, sandbox)
-		return !skipNode && v.upNode && !v.readOnly
+		return v.upNode && !v.readOnly
 	}); ok {
 		return pod, ok
 	}
 	if pod, ok := p.findFirstPodSorted(func(v *PodFact) bool {
-		skipNode := shouldSkipPodBasedOnSandboxState(v, sandbox)
-		return !skipNode && v.upNode
+		return v.upNode
 	}); ok {
 		return pod, ok
 	}
 	return p.findFirstPodSorted(func(v *PodFact) bool {
-		skipNode := shouldSkipPodBasedOnSandboxState(v, sandbox)
-		return !skipNode && v.isInstalled && v.isPodRunning
+		return v.isInstalled && v.isPodRunning
 	})
 }
 
 // findPodToRunAdminCmdOffline will return a pod to run an offline admintools
 // command.  If nothing is found, the second parameter returned will be false.
-func (p *PodFacts) findPodToRunAdminCmdOffline(sandbox string) (*PodFact, bool) {
+func (p *PodFacts) findPodToRunAdminCmdOffline() (*PodFact, bool) {
 	for _, v := range p.Detail {
-		if shouldSkipPodBasedOnSandboxState(v, sandbox) {
-			continue
-		}
 		if v.isInstalled && v.isPodRunning && !v.upNode {
 			return v, true
 		}
@@ -992,12 +967,8 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 // anymore. Plus, we are going to be removing them, so it makes little sense to
 // restart them. For start_db those pending delete pods may be needed for
 // quorum.
-func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient, restartPendingDelete bool,
-	sandbox string) []*PodFact {
+func (p *PodFacts) findRestartablePods(restartReadOnly, restartTransient, restartPendingDelete bool) []*PodFact {
 	return p.filterPods(func(v *PodFact) bool {
-		if shouldSkipPodBasedOnSandboxState(v, sandbox) {
-			return false
-		}
 		if !restartTransient && v.isTransient {
 			return false
 		}
@@ -1018,11 +989,8 @@ func (p *PodFacts) findInstalledPods() []*PodFact {
 
 // findReIPPods returns a list of pod facts that may need their IPs to be refreshed with re-ip.
 // An empty list implies there are no pods that match the criteria.
-func (p *PodFacts) findReIPPods(chk dBCheckType, sandbox string) []*PodFact {
+func (p *PodFacts) findReIPPods(chk dBCheckType) []*PodFact {
 	return p.filterPods(func(pod *PodFact) bool {
-		if shouldSkipPodBasedOnSandboxState(pod, sandbox) {
-			return false
-		}
 		// Only consider running pods that exist and have an installation
 		if !pod.exists || !pod.isPodRunning || !pod.isInstalled {
 			return false
@@ -1082,11 +1050,8 @@ func (p *PodFacts) findFirstPodSorted(filterFunc func(p *PodFact) bool) (*PodFac
 
 // areAllPodsRunningAndZeroInstalled returns true if all of the pods are running
 // and none of the pods have an installation.
-func (p *PodFacts) areAllPodsRunningAndZeroInstalled(sandbox string) bool {
+func (p *PodFacts) areAllPodsRunningAndZeroInstalled() bool {
 	for _, v := range p.Detail {
-		if shouldSkipPodBasedOnSandboxState(v, sandbox) {
-			continue
-		}
 		if ((!v.exists || !v.isPodRunning) && v.managedByParent) || v.isInstalled {
 			return false
 		}
@@ -1104,11 +1069,8 @@ func (p *PodFacts) countPods(countFunc func(p *PodFact) int) int {
 }
 
 // countRunningAndInstalled returns number of pods that are running and have an install
-func (p *PodFacts) countRunningAndInstalled(sandbox string) int {
+func (p *PodFacts) countRunningAndInstalled() int {
 	return p.countPods(func(v *PodFact) int {
-		if shouldSkipPodBasedOnSandboxState(v, sandbox) {
-			return 0
-		}
 		if v.isPodRunning && v.isInstalled {
 			return 1
 		}
@@ -1118,11 +1080,8 @@ func (p *PodFacts) countRunningAndInstalled(sandbox string) int {
 
 // countNotRestartablePods returns number of pods that aren't yet
 // running but the restart reconciler needs to handle them.
-func (p *PodFacts) countNotRestartablePods(vclusterOps bool, sandbox string) int {
+func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {
 	return p.countPods(func(v *PodFact) int {
-		if shouldSkipPodBasedOnSandboxState(v, sandbox) {
-			return 0
-		}
 		// Non-restartable pods are pods that aren't yet running, or don't have
 		// the necessary DC table annotations, but need to be handled by the
 		// restart reconciler. A couple of notes about certain edge cases:
@@ -1178,11 +1137,8 @@ func (p *PodFacts) getUpNodeCount() int {
 // getUpNodeAndNotReadOnlyCount returns the number of nodes that are up and
 // writable.  Starting in 11.0SP2, nodes can be up but only in read-only state.
 // This function filters out those *up* nodes that are in read-only state.
-func (p *PodFacts) getUpNodeAndNotReadOnlyCount(sandbox string) int {
+func (p *PodFacts) getUpNodeAndNotReadOnlyCount() int {
 	return p.countPods(func(v *PodFact) int {
-		if shouldSkipPodBasedOnSandboxState(v, sandbox) {
-			return 0
-		}
 		if v.upNode && !v.readOnly {
 			return 1
 		}
@@ -1246,6 +1202,19 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	return expectedNodeNames
 }
 
+// setSandboxNodeType sets the isPrimary state for a sanboxed
+// subcluster's node
+func setSandboxNodeType(pf *PodFact) {
+	// For nodes that belong to a sandboxed subcluster, we cannot rely
+	// on the VDB subcluster state. There is still some work needed in
+	// order to figure out how to get the subcluster type for a sandboxed
+	// node. In the meantime, we are going to limit a sandbox size to
+	// one subcluster and default its type to primary
+	if pf.sandbox != vapi.MainCluster {
+		pf.isPrimary = true
+	}
+}
+
 // checkIfNodeUpCmd builds and returns the command to check
 // if a node is up using an HTTPS endpoint
 func checkIfNodeUpCmd(podIP string) string {
@@ -1253,11 +1222,4 @@ func checkIfNodeUpCmd(podIP string) string {
 		podIP, builder.VerticaHTTPPort, builder.HTTPServerVersionPath)
 	curlCmd := "curl -k -s -o /dev/null -w '%{http_code}'"
 	return fmt.Sprintf("%s %s", curlCmd, url)
-}
-
-func shouldSkipPodBasedOnSandboxState(p *PodFact, sandbox string) bool {
-	if sandbox != "" {
-		return p.sandbox != sandbox
-	}
-	return p.sandbox != ""
 }

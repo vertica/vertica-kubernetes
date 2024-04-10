@@ -458,7 +458,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).Should(Succeed())
 
-		scs, err := r.Finder.FindSubclusters(ctx, iter.FindAll|iter.FindSorted)
+		scs, err := r.Finder.FindSubclusters(ctx, iter.FindAll|iter.FindSorted, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0].Name).Should(Equal(TransientScName))

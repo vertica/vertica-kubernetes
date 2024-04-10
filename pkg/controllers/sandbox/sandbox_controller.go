@@ -30,7 +30,6 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -113,16 +112,6 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	sandboxName := configMap.Data[sandboxNameKey]
-	// we check that sandbox name in configmap.Data is the same as
-	// the one in the labels
-	if sandboxName != configMap.Labels[vmeta.SandboxNameLabel] {
-		err = fmt.Errorf("sandbox name %q in configmap data does not match sandbox label value %q",
-			sandboxName, configMap.Labels[vmeta.SandboxNameLabel])
-		log.Error(err, "configmap contains two different sandbox names")
-		return ctrl.Result{}, err
-	}
-
 	// Fetch the VDB found in the configmap
 	vdb := &v1.VerticaDB{}
 	nm := names.GenNamespacedName(configMap, configMap.Data[verticaDBNameKey])
@@ -130,22 +119,19 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if res, err = vk8s.FetchVDB(ctx, r, configMap, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
-	err = checkDeployment(configMap, vmeta.UseVClusterOps(vdb.Annotations))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	log = log.WithValues("verticadb", vdb.Name)
 
-	passwd, err := r.GetSuperuserPassword(ctx, log, vdb)
+	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
-	pfacts := vdbcontroller.MakePodFacts(r, prunner, log)
+	sandboxName := configMap.Data[sandboxNameKey]
+	pfacts := vdbcontroller.MakePodFactsForSandbox(r, prunner, log, sandboxName)
 	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 
 	// Iterate over each actor
-	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher, sandboxName)
+	actors := r.constructActors(configMap, vdb, log, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
@@ -162,11 +148,12 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
-func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr.Logger, prunner *cmds.ClusterPodRunner,
-	pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher, sandbox string) []controllers.ReconcileActor {
+func (r *SandboxConfigMapReconciler) constructActors(configmap *corev1.ConfigMap, vdb *v1.VerticaDB, log logr.Logger,
+	prunner *cmds.ClusterPodRunner, pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a sandbox configmap.
 	return []controllers.ReconcileActor{
-		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher, sandbox),
+		MakeVerifyDeploymentReconciler(r, configmap, vdb, log),
+		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 	}
 }
 
@@ -269,21 +256,4 @@ func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object
 // GetSuperuserPassword returns the superuser password if it has been provided
 func (r *SandboxConfigMapReconciler) GetSuperuserPassword(ctx context.Context, log logr.Logger, vdb *v1.VerticaDB) (string, error) {
 	return vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
-}
-
-// checkDeployment checks if version supports sandboxing with vclusterops
-func checkDeployment(cm *corev1.ConfigMap, isVclusterOps bool) error {
-	if !isVclusterOps {
-		return fmt.Errorf("the VerticaDB named %q has vclusterops disabled", cm.Data[verticaDBNameKey])
-	}
-	vdbVer := cm.Annotations[vmeta.VersionAnnotation]
-	vinf, err := version.MakeInfoFromStrCheck(vdbVer)
-	if err != nil {
-		return err
-	}
-	if !vinf.IsEqualOrNewer(v1.SandboxSupportedMinVersion) {
-		return fmt.Errorf("version %q does not support sandboxing with vclusterops",
-			vdbVer)
-	}
-	return nil
 }

@@ -53,7 +53,8 @@ const (
 	OperatorVersion120 = "1.2.0"
 	OperatorVersion130 = "1.3.0"
 
-	SandboxNameLabel = "vertica.com/sandbox"
+	IsSandboxConfigLabel = "vertica.com/is-sandbox-config"
+	IsSandboxConfigTrue  = "true"
 )
 
 // ProtectedLabels lists all of the internally used label.
@@ -78,5 +79,5 @@ var SandboxConfigMapLabels = []string{
 	ComponentLabel,
 	DataBaseLabel,
 	NameLabel,
-	SandboxNameLabel,
+	IsSandboxConfigLabel,
 }

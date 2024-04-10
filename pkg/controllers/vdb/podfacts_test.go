@@ -30,8 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const sbName = "sb"
-
 var _ = Describe("podfacts", func() {
 	ctx := context.Background()
 	It("should not fail when collecting facts on an non-existent pod", func() {
@@ -357,13 +355,17 @@ var _ = Describe("podfacts", func() {
 	})
 
 	It("should correctly return re-ip pods", func() {
-		// check main cluster
-		pf := makePodFactsForReIP(false)
-		verifyReIP(&pf, "")
-
-		// check sandboxed cluster
-		pf = makePodFactsForReIP(true)
-		verifyReIP(&pf, sbName)
+		pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger)
+		pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
+			dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
+			dnsName: "p2", vnodeName: "node2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
+		}
+		pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
+			dnsName: "p3", vnodeName: "node3", dbExists: false, exists: true, isPodRunning: true, isInstalled: false,
+		}
+		verifyReIP(&pf)
 	})
 
 	It("should detect when the vdb has changed since collection", func() {
@@ -384,47 +386,20 @@ var _ = Describe("podfacts", func() {
 	})
 })
 
-func verifyReIP(pf *PodFacts, sandbox string) {
+func verifyReIP(pf *PodFacts) {
 	By("finding any installed pod")
-	pods := pf.findReIPPods(dBCheckAny, sandbox)
+	pods := pf.findReIPPods(dBCheckAny)
 	Ω(pods).Should(HaveLen(2))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 	Ω(pods[1].dnsName).Should(Equal("p2"))
 
 	By("finding pods with a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithDBs, sandbox)
+	pods = pf.findReIPPods(dBCheckOnlyWithDBs)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p1"))
 
 	By("finding pods without a db")
-	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs, sandbox)
+	pods = pf.findReIPPods(dBCheckOnlyWithoutDBs)
 	Ω(pods).Should(HaveLen(1))
 	Ω(pods[0].dnsName).Should(Equal("p2"))
-}
-
-func makePodFactsForReIP(isSandbox bool) PodFacts {
-	sb1 := ""
-	sb2 := sbName
-	if isSandbox {
-		sb1 = sb2
-		sb2 = ""
-	}
-	pf := MakePodFacts(vdbRec, &cmds.FakePodRunner{}, logger)
-	pf.Detail[types.NamespacedName{Name: "p1"}] = &PodFact{
-		dnsName: "p1", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
-		sandbox: sb1,
-	}
-	pf.Detail[types.NamespacedName{Name: "p2"}] = &PodFact{
-		dnsName: "p2", vnodeName: "node2", dbExists: false, exists: true, isPodRunning: true, isInstalled: true,
-		sandbox: sb1,
-	}
-	pf.Detail[types.NamespacedName{Name: "p3"}] = &PodFact{
-		dnsName: "p3", vnodeName: "node3", dbExists: false, exists: true, isPodRunning: true, isInstalled: false,
-		sandbox: sb1,
-	}
-	pf.Detail[types.NamespacedName{Name: "p4"}] = &PodFact{
-		dnsName: "p4", vnodeName: "node1", dbExists: true, exists: true, isPodRunning: true, isInstalled: true,
-		sandbox: sb2,
-	}
-	return pf
 }
