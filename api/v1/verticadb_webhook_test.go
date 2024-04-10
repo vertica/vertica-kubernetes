@@ -974,6 +974,138 @@ var _ = Describe("verticadb_webhook", func() {
 		}
 		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
 	})
+
+	It("should not allow malformed vertica version", func() {
+		vdb := MakeVDB()
+		vdb.Annotations[vmeta.VersionAnnotation] = "24.3.0"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.X.X"
+		validateSpecValuesHaveErr(vdb, true)
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.3.0-0"
+		validateSpecValuesHaveErr(vdb, false)
+	})
+
+	It("should check subcluster immutability in sandbox", func() {
+		newVdb := MakeVDB()
+		mainClusterImageVer := "vertica-k8s:latest"
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		newVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+		resetStatusConditionsForDBInitialized(newVdb)
+		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
+
+		oldVdb := newVdb.DeepCopy()
+
+		// cannot scale (up or down) any subcluster that is in a sandbox
+		newVdb.Spec.Subclusters[1].Size = 2
+		newVdb.Spec.Subclusters[3].Size = 4
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(2))
+
+		// cannot remove a subcluster that is sandboxed
+		// remove sc3 which is in a sandbox of oldVdb
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+
+		// can remove an unsandboxed subcluster
+		// remove sc4 which is not in a sandbox of oldVdb
+		newVdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		newVdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+	})
+
+	It("should validate sandboxes", func() {
+		vdb := MakeVDB()
+		mainClusterImageVer := "vertica-k8s:latest"
+		vdb.Spec.Subclusters = []Subcluster{
+			{Name: "main", Size: 3, Type: PrimarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc1", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc2", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc3", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+			{Name: "sc4", Size: 3, Type: SecondarySubcluster, ServiceType: v1.ServiceTypeClusterIP},
+		}
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+		resetStatusConditionsForDBInitialized(vdb)
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+
+		// cannot have multiple sandboxes with the same name
+		vdb.Spec.Sandboxes[0].Name = "sandbox2"
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.Spec.Sandboxes[0].Name = "sandbox1"
+
+		// cannot have the image of a sandbox be different than the main cluster
+		// when vertica is not in an upgrade and the sandbox has not been setup
+		vdb.Spec.Sandboxes[1].Image = "vertica-k8s:v1"
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		// with empty string, sandbox will use the same image as main cluster
+		vdb.Spec.Sandboxes[1].Image = ""
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		// when vertica is in an upgrade, we should not see an error
+		vdb.Spec.Sandboxes[1].Image = "vertica-k8s:v1"
+		resetStatusConditionsForUpgradeInProgress(vdb)
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+		// after sandbox is setup, we should not see an error
+		unsetStatusConditionsForUpgradeInProgress(vdb)
+		vdb.Status.Sandboxes = []SandboxStatus{
+			{Name: "sandbox2", Subclusters: []string{"sc2", "sc3"}},
+		}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+
+		// cannot use on versions older than 24.3.0
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v23.0.0"
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+
+		// cannot have duplicate subclusters defined in a sandbox
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc2"}}},
+		}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+
+		// cannot have a subcluster defined in multiple sandboxes
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}, {Name: "sc2"}}},
+		}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+
+		// cannot have a non-existing subcluster defined in a sandbox
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}, {Name: "fake-sc"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+	})
 })
 
 func createVDBHelper() *VerticaDB {
@@ -1012,16 +1144,20 @@ func checkErrorsForImmutableFields(vdbOrig, vdbUpdate *VerticaDB, expectError bo
 }
 
 func resetStatusConditionsForUpgradeInProgress(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, UpgradeInProgress)
+	resetStatusConditionsForCondition(v, UpgradeInProgress, metav1.ConditionTrue)
+}
+
+func unsetStatusConditionsForUpgradeInProgress(v *VerticaDB) {
+	resetStatusConditionsForCondition(v, UpgradeInProgress, metav1.ConditionFalse)
 }
 
 func resetStatusConditionsForDBInitialized(v *VerticaDB) {
-	resetStatusConditionsForCondition(v, DBInitialized)
+	resetStatusConditionsForCondition(v, DBInitialized, metav1.ConditionTrue)
 }
 
-func resetStatusConditionsForCondition(v *VerticaDB, conditionType string) {
+func resetStatusConditionsForCondition(v *VerticaDB, conditionType string, status metav1.ConditionStatus) {
 	v.Status.Conditions = make([]metav1.Condition, 0)
-	cond := MakeCondition(conditionType, metav1.ConditionTrue, "")
+	cond := MakeCondition(conditionType, status, "")
 	meta.SetStatusCondition(&v.Status.Conditions, *cond)
 }
 
