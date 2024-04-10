@@ -115,6 +115,8 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
+	// temporary check added here to make testing easier
+	allErrs = v.validateSandboxSize(allErrs)
 	if allErrs == nil {
 		return nil
 	}
@@ -143,7 +145,6 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutableDepotVolume(oldObj, allErrs)
 	allErrs = v.checkImmutablePodSecurityContext(oldObj, allErrs)
 	allErrs = v.checkImmutableSubclusterDuringUpgrade(oldObj, allErrs)
-	allErrs = v.validateSandboxSize(allErrs)
 	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
 	return allErrs
 }
@@ -182,7 +183,6 @@ func (v *VerticaDB) validateVerticaDBSpec() field.ErrorList {
 	allErrs = v.hasValidCreateDBTimeout(allErrs)
 	allErrs = v.hasValidUpgradePolicy(allErrs)
 	allErrs = v.hasValidReplicaGroups(allErrs)
-	allErrs = v.validateSandboxSize(allErrs)
 	allErrs = v.validateVersionAnnotation(allErrs)
 	allErrs = v.validateSandboxes(allErrs)
 	if len(allErrs) == 0 {
@@ -1152,7 +1152,7 @@ func (v *VerticaDB) validateSubclustersInSandboxes(allErrs field.ErrorList) fiel
 		}
 	}
 
-	return v.validateSandboxSize(allErrs)
+	return allErrs
 }
 
 func (v *VerticaDB) isUpgradeInProgress() bool {
