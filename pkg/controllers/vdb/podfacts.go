@@ -379,7 +379,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		}
 		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
 		// we get the sandbox name from the sts labels if the subcluster
-		// belongs to a sanbox. If the node is up, we will later retrieve
+		// belongs to a sandbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
 		pf.sandbox = p.SandboxName
 		setSandboxNodeType(&pf)
@@ -1202,7 +1202,7 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	return expectedNodeNames
 }
 
-// setSandboxNodeType sets the isPrimary state for a sanboxed
+// setSandboxNodeType sets the isPrimary state for a sandboxed
 // subcluster's node
 func setSandboxNodeType(pf *PodFact) {
 	// For nodes that belong to a sandboxed subcluster, we cannot rely

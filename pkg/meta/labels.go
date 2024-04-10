@@ -53,8 +53,17 @@ const (
 	OperatorVersion120 = "1.2.0"
 	OperatorVersion130 = "1.3.0"
 
-	IsSandboxConfigLabel = "vertica.com/is-sandbox-config"
-	IsSandboxConfigTrue  = "true"
+	// This indicates that the object is watched by the sandbox controller.
+	// It must be set in configmaps that carry the a sandbox state or statefulsets
+	// that represent sandboxed subclusters
+	WatchedBySandboxLabel = "vertica.com/watched-by-sandbox-controller"
+	WatchedBySandboxTrue  = "true"
+
+	// This label is added is added to a statefulset to indicate the sandbox
+	// it belongs to. The sandbox controller will be watching statefulsets
+	// with this label and will trigger a reconcile loop if it finds a configmap
+	// with a sandbox name equal to this label's value
+	SandboxNameLabel = "vertica.com/sandbox"
 )
 
 // ProtectedLabels lists all of the internally used label.
@@ -79,5 +88,5 @@ var SandboxConfigMapLabels = []string{
 	ComponentLabel,
 	DataBaseLabel,
 	NameLabel,
-	IsSandboxConfigLabel,
+	WatchedBySandboxLabel,
 }

@@ -93,10 +93,15 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
-func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*corev1.PodList, error) {
+func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags, sandbox string) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 	if err := m.buildObjList(ctx, pods, flags); err != nil {
 		return nil, err
+	}
+	// we can skip the filtering if all of the pods we are
+	// looking for are not part of a subcluster in vdb
+	if flags&FindInVdb != 0 || flags&FindExisting != 0 {
+		pods = m.filterPods(pods, sandbox)
 	}
 	if flags&FindSorted != 0 {
 		sort.Slice(pods.Items, func(i, j int) bool {
@@ -117,7 +122,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 		subclusters = append(subclusters, m.getVdbSubclusters(sandbox)...)
 	}
 
-	// a sanboxed subcluster can only be one of those in the vdb so we skip this part if
+	// a sandboxed subcluster can only be one of those in the vdb so we skip this part if
 	// we are looking for sandboxed subclusters
 	if isMainCluster && (flags&FindNotInVdb != 0 || flags&FindExisting != 0) {
 		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb)
@@ -220,11 +225,12 @@ func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 
 // getSubclusterSandboxStatusMap returns a map that contains sandboxed
 // subclusters
-func (m *SubclusterFinder) getSubclusterSandboxStatusMap() map[string]bool {
-	scMap := map[string]bool{}
+func (m *SubclusterFinder) getSubclusterSandboxStatusMap() map[string]string {
+	scMap := map[string]string{}
 	for i := range m.Vdb.Status.Sandboxes {
-		for _, sc := range m.Vdb.Status.Sandboxes[i].Subclusters {
-			scMap[sc] = true
+		sb := &m.Vdb.Status.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scMap[sc] = sb.Name
 		}
 	}
 	return scMap
@@ -266,4 +272,31 @@ func (m *SubclusterFinder) getSandboxedSubclusters(sandbox string) []*vapi.Subcl
 		}
 	}
 	return subclusters
+}
+
+// filterPods returns a pod list without main cluster pods if a non-empty sandbox named is
+// passed in, or pod list with only main cluster pods if no sandbox name is passed
+func (m *SubclusterFinder) filterPods(oldPods *corev1.PodList, sandbox string) *corev1.PodList {
+	newPods := []corev1.Pod{}
+	scMap := m.getSubclusterSandboxStatusMap()
+	for i := range oldPods.Items {
+		pod := oldPods.Items[i]
+		isSandbox := false
+		sbName := vapi.MainCluster
+		sc, isSCNode := pod.Labels[vmeta.SubclusterNameLabel]
+		if isSCNode {
+			sbName, isSandbox = scMap[sc]
+		}
+		if sandbox == vapi.MainCluster {
+			if !isSCNode || !isSandbox {
+				newPods = append(newPods, pod)
+			}
+		} else {
+			if isSCNode && sbName == sandbox {
+				newPods = append(newPods, pod)
+			}
+		}
+	}
+	oldPods.Items = newPods
+	return oldPods
 }

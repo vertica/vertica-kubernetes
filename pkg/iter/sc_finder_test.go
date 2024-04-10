@@ -52,7 +52,7 @@ var _ = Describe("sc_finder", func() {
 		// sandbox
 		verifySubclustersInVdb(ctx, vdb, scNames[:2], scSizes[:2], sbName)
 		// FindSubclusters should only return subclusters that are not part of
-		// any sanboxes
+		// any sandboxes
 		verifySubclustersInVdb(ctx, vdb, scNames[2:], scSizes[2:], vapi.MainCluster)
 	})
 
@@ -149,16 +149,20 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[0], Size: scSizes[0]},
 			{Name: scNames[1], Size: scSizes[1]},
 		}
+		const sbName = "sand"
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: scNames[:1]},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		// When use the finder, pass in a Vdb that is entirely different then
 		// the one we used above.  It will be ignored anyway when using
 		// FindExisting.
-		finder := MakeSubclusterFinder(k8sClient, vapi.MakeVDB())
-		pods, err := finder.FindPods(ctx, FindExisting)
-		Expect(err).Should(Succeed())
-		Expect(len(pods.Items)).Should(Equal(int(scSizes[0] + scSizes[1])))
+		findPods(ctx, vapi.MakeVDB(), int(scSizes[0]+scSizes[1]), vapi.MainCluster)
+		// Only the pods belonging to the sandboxed subcluster
+		// will be collected
+		findPods(ctx, vdb, int(scSizes[0]), sbName)
 	})
 
 	It("should find service objects that exist in the vdb", func() {
@@ -242,7 +246,7 @@ var _ = Describe("sc_finder", func() {
 		Expect(stss.Items[0].Name).Should(ContainSubstring(scNames[1]))
 		Expect(stss.Items[1].Name).Should(ContainSubstring(scNames[0]))
 
-		pods, err := finder.FindPods(ctx, FindExisting|FindSorted)
+		pods, err := finder.FindPods(ctx, FindExisting|FindSorted, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(pods.Items[0].Name).Should(ContainSubstring(scNames[1]))
 		Expect(pods.Items[1].Name).Should(ContainSubstring(fmt.Sprintf("%s-0", scNames[0])))
@@ -276,4 +280,12 @@ func verifySubclustersInVdb(ctx context.Context, vdb *vapi.VerticaDB, scNames []
 		Expect(scs[i].Name).Should(Equal(scNames[i]))
 		Expect(scs[i].Size).Should(Equal(scSizes[i]))
 	}
+}
+
+func findPods(ctx context.Context, vdb *vapi.VerticaDB, size int,
+	sandbox string) {
+	finder := MakeSubclusterFinder(k8sClient, vdb)
+	pods, err := finder.FindPods(ctx, FindExisting, sandbox)
+	Expect(err).Should(Succeed())
+	Expect(len(pods.Items)).Should(Equal(size))
 }

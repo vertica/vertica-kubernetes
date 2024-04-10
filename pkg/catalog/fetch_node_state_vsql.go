@@ -70,7 +70,7 @@ func (v *VSQL) buildFetchNodeStateQuery() string {
 }
 
 // queryNodeStatus will query the nodes system table for the following info:
-// node name, node is up, read-only state, subcluster oid and sanbox name.
+// node name, node is up, read-only state, subcluster oid and sandbox name.
 // It assumes the database exists and the pod is running.
 func (v *VSQL) queryNodeStatus(ctx context.Context, sql string) (string, error) {
 	cmd := []string{"-tAc", sql}

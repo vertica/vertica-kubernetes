@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -31,27 +30,24 @@ var _ = Describe("verifydeployment_reconciler", func() {
 
 	It("should reconcile based on the deployment and version", func() {
 		vdb := v1.MakeVDBForVclusterOps()
-		cm := &corev1.ConfigMap{}
-		cm.Annotations = make(map[string]string, 1)
-		cm.Annotations[vmeta.VersionAnnotation] = v1.SandboxSupportedMinVersion
+		vdb.Annotations[vmeta.VersionAnnotation] = v1.SandboxSupportedMinVersion
 
-		r := MakeVerifyDeploymentReconciler(sbRec, cm, vdb, logger)
+		r := MakeVerifyDeploymentReconciler(sbRec, vdb, logger)
 		res, err := r.Reconcile(ctx, &ctrl.Request{})
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
 
-		cm.Annotations[vmeta.VersionAnnotation] = "v24.2.0"
-		r = MakeVerifyDeploymentReconciler(sbRec, cm, vdb, logger)
+		vdb.Annotations[vmeta.VersionAnnotation] = "v24.2.0"
+		r = MakeVerifyDeploymentReconciler(sbRec, vdb, logger)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).ShouldNot(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
 
-		cm.Annotations[vmeta.VersionAnnotation] = v1.SandboxSupportedMinVersion
+		vdb.Annotations[vmeta.VersionAnnotation] = v1.SandboxSupportedMinVersion
 		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
-		r = MakeVerifyDeploymentReconciler(sbRec, cm, vdb, logger)
+		r = MakeVerifyDeploymentReconciler(sbRec, vdb, logger)
 		res, err = r.Reconcile(ctx, &ctrl.Request{})
-		Expect(err).ShouldNot(Succeed())
-		Expect(res).Should(Equal(ctrl.Result{}))
-
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 })

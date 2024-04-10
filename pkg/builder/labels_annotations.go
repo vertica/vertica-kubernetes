@@ -96,7 +96,8 @@ func MakeLabelsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string
 	labels := makeLabelsForObject(vdb, sc, false)
 	sandbox := vdb.GetSubclusterSandboxName(sc.Name)
 	if sandbox != vapi.MainCluster {
-		labels[vmeta.IsSandboxConfigLabel] = vmeta.IsSandboxConfigTrue
+		labels[vmeta.WatchedBySandboxLabel] = vmeta.WatchedBySandboxTrue
+		labels[vmeta.SandboxNameLabel] = sandbox
 	}
 	return labels
 }

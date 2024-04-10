@@ -17,14 +17,13 @@ package sandbox
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
-	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -32,48 +31,43 @@ import (
 // VerifyDeploymentReconciler will verify the current deployment supports
 // sandboxing with vclusterops
 type VerifyDeploymentReconciler struct {
-	SRec      *SandboxConfigMapReconciler
-	ConfigMap *corev1.ConfigMap
-	Vdb       *v1.VerticaDB
-	Log       logr.Logger
+	SRec *SandboxConfigMapReconciler
+	Vdb  *v1.VerticaDB
+	Log  logr.Logger
 }
 
-func MakeVerifyDeploymentReconciler(r *SandboxConfigMapReconciler, cm *corev1.ConfigMap,
+func MakeVerifyDeploymentReconciler(r *SandboxConfigMapReconciler,
 	vdb *v1.VerticaDB, log logr.Logger) controllers.ReconcileActor {
 	return &VerifyDeploymentReconciler{
-		SRec:      r,
-		ConfigMap: cm,
-		Log:       log.WithName("VerifyDeploymentReconciler"),
-		Vdb:       vdb,
+		SRec: r,
+		Log:  log.WithName("VerifyDeploymentReconciler"),
+		Vdb:  vdb,
 	}
 }
 
 // Reconcile will verify the current deployment supports
 // sandboxing with vclusterops
 func (s *VerifyDeploymentReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	return ctrl.Result{}, s.checkDeployment()
+	return s.checkDeployment()
 }
 
 // checkDeployment checks if version supports sandboxing with vclusterops
-func (s *VerifyDeploymentReconciler) checkDeployment() error {
-	var msg string
+func (s *VerifyDeploymentReconciler) checkDeployment() (ctrl.Result, error) {
 	if !vmeta.UseVClusterOps(s.Vdb.Annotations) {
-		msg = fmt.Sprintf("the VerticaDB named %q has vclusterops disabled", s.ConfigMap.Data[verticaDBNameKey])
-		s.Log.Info(msg)
-		return errors.New(msg)
+		s.SRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.VclusterOpsDisabled,
+			"The VerticaDB named '%s' has vclusterops disabled", s.Vdb.Name)
+		return ctrl.Result{Requeue: true}, nil
 	}
-	// we want the sandboxed cluster version that is why we get the version
-	// the sandbox configmap
-	vdbVer := s.ConfigMap.Annotations[vmeta.VersionAnnotation]
-	vinf, err := version.MakeInfoFromStrCheck(vdbVer)
+	vinf, err := s.Vdb.MakeVersionInfoCheck()
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
 	if !vinf.IsEqualOrNewer(v1.SandboxSupportedMinVersion) {
-		msg = fmt.Sprintf("version %q does not support sandboxing with vclusterops",
-			vdbVer)
-		s.Log.Info(msg)
-		return errors.New(msg)
+		s.SRec.Eventf(s.Vdb, corev1.EventTypeWarning, events.SandboxNotSupported,
+			"The Vertica version %q does not support sandboxing with vclusterops",
+			vinf.VdbVer)
+		return ctrl.Result{Requeue: true}, nil
 	}
-	return nil
+	s.Log.Info(fmt.Sprintf("The VerticaDB named '%s' is configured for sandboxing with vclusterops", s.Vdb.Name))
+	return ctrl.Result{}, nil
 }

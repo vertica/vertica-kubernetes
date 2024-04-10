@@ -365,6 +365,9 @@ func (r *RestartReconciler) doesDBHaveQuorum(clusterState map[string]string) boo
 	totalPrimaryCount := 0
 	upPrimaryCount := 0
 	for _, pod := range r.PFacts.Detail {
+		if !pod.isPrimary {
+			continue
+		}
 		_, ok := clusterState[pod.vnodeName]
 		if ok {
 			totalPrimaryCount++
