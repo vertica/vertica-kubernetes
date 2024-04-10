@@ -79,6 +79,8 @@ const (
 	// Starting in v24.2.0, vcluster scrutinize command can read the
 	// database password from secret(k8s, aws, gsm)
 	ScrutinizeDBPasswdInSecretMinVersion = "v24.2.0"
+	// Starting in v24.3.0, sandboxing a subcluster is supported
+	SandboxSupportedMinVersion = "v24.3.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored
