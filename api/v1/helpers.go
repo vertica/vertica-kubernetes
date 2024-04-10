@@ -390,17 +390,6 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	return nil
 }
 
-// HasSecondarySubclusters returns true if at least 1 secondary subcluster
-// exists in the database.
-func (v *VerticaDB) HasSecondarySubclusters() bool {
-	for i := range v.Spec.Subclusters {
-		if v.Spec.Subclusters[i].IsSecondary() {
-			return true
-		}
-	}
-	return false
-}
-
 // IsAutoUpgradePolicy returns true
 func (v *VerticaDB) IsAutoUpgradePolicy() bool {
 	return v.Spec.UpgradePolicy == "" || v.Spec.UpgradePolicy == AutoUpgrade
@@ -431,7 +420,13 @@ func (v *VerticaDB) GetUpgradePolicyToUse() UpgradePolicyType {
 	// the Auto option will automatically select this method, we first need to
 	// complete the implementation of this new policy.
 	if v.Spec.UpgradePolicy == ReplicatedUpgrade {
-		if v.HasSecondarySubclusters() && vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) {
+		// Replicated upgrade requires that we scale out the cluster. See if
+		// there is evidence that we have already scaled past 3 nodes (CE
+		// license limit), or we have a license defined.
+		const ceLicenseLimit = 3
+		if vinf.IsEqualOrNewer(ReplicatedUpgradeVersion) &&
+			!v.IsKSafety0() &&
+			(v.getNumberOfNodes() > ceLicenseLimit || v.Spec.LicenseSecret != "") {
 			return ReplicatedUpgrade
 		} else if vinf.IsEqualOrNewer(OnlineUpgradeVersion) {
 			return OnlineUpgrade
@@ -740,4 +735,13 @@ func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 		}
 	}
 	return MainCluster
+}
+
+// getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
+func (v *VerticaDB) getNumberOfNodes() int {
+	count := 0
+	for i := range v.Spec.Subclusters {
+		count += int(v.Spec.Subclusters[i].Size)
+	}
+	return count
 }

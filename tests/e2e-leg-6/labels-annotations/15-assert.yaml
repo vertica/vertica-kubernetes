@@ -11,6 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vdb-label-ant-cluster1
+  annotations:
+    sc-annotation: "main"
+---
 apiVersion: v1
 kind: Pod
 metadata:

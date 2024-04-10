@@ -999,22 +999,23 @@ func (v *VerticaDB) hasValidUpgradePolicy(allErrs field.ErrorList) field.ErrorLi
 }
 
 func (v *VerticaDB) hasValidReplicaGroups(allErrs field.ErrorList) field.ErrorList {
-	if v.Status.UpgradeState == nil || len(v.Status.UpgradeState.ReplicaGroups) == 0 {
+	// Can be skipped if replicated upgrade is not in progress
+	if !v.isReplicatedUpgradeInProgress() {
 		return allErrs
 	}
 
-	// We verify that the same subcluster cannot be repeated more than once
-	// across all replicaGroups.
-	subclustersInReplicaGroups := map[string]bool{}
-	for i := range v.Status.UpgradeState.ReplicaGroups {
-		for j, scName := range v.Status.UpgradeState.ReplicaGroups[i] {
-			if _, found := subclustersInReplicaGroups[scName]; found {
-				err := field.Invalid(field.NewPath("status").Child("upgradeState").Child("replicaGroups").Index(i).Index(j),
-					v.Status.UpgradeState.ReplicaGroups[i][j],
-					fmt.Sprintf("subcluster %q is already included in the replica groups", scName))
+	// We verify that the replica group for each subcluster is valid
+	for i := range v.Spec.Subclusters {
+		sc := &v.Spec.Subclusters[i]
+		if val, found := sc.Annotations[vmeta.ReplicaGroupAnnotation]; found {
+			if val != vmeta.ReplicaGroupAValue && val != vmeta.ReplicaGroupBValue && val != "" {
+				err := field.Invalid(
+					field.NewPath("spec").Child("subclusters").Index(i).Child("annotations").Key(vmeta.ReplicaGroupAnnotation),
+					val,
+					fmt.Sprintf("subcluster %q has an invalid value %q for the annotation %q",
+						sc.Name, val, vmeta.ReplicaGroupAnnotation))
 				allErrs = append(allErrs, err)
 			}
-			subclustersInReplicaGroups[scName] = true
 		}
 	}
 	return allErrs
@@ -1047,6 +1048,10 @@ func (v *VerticaDB) hasValidProbeOverride(allErrs field.ErrorList, fieldPath *fi
 
 func (v *VerticaDB) isUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(UpgradeInProgress)
+}
+
+func (v *VerticaDB) isReplicatedUpgradeInProgress() bool {
+	return v.IsStatusConditionTrue(ReplicatedUpgradeInProgress)
 }
 
 func (v *VerticaDB) isDBInitialized() bool {
@@ -1318,47 +1323,64 @@ func checkInt64PtrChange(prefix *field.Path, fieldName string,
 // remove subclusters during a replicated upgrade.
 func (v *VerticaDB) checkImmutableSubclusterDuringUpgrade(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
 	// This entire check can be skipped if we aren't doing replicated upgrade.
-	if oldObj.Status.UpgradeState == nil || len(oldObj.Status.UpgradeState.ReplicaGroups) == 0 {
+	if !v.isReplicatedUpgradeInProgress() {
 		return allErrs
 	}
 
-	// The subclusters defined in status.upgradeState.replicaGroups must stay
-	// the same. We do it this way to allow the operator to add subclusters
-	// during replicated upgrade, but keep all of the other subclusters the
-	// same.
+	// The subclusters that are taking part in the upgrade must stay constant
+	// during the upgrade. The upgrade itself may add new subclusters, but it
+	// has to be annotated a certain way. Regular users should not add new
+	// subclusters.
+
+	// Come up with a combined list of all of the subclusters. This will include
+	// all subclusters that are being removed and added.
 	oldScMap := oldObj.GenSubclusterMap()
 	newScMap := v.GenSubclusterMap()
+	allSubclusters := map[string]bool{}
+	for scName := range oldScMap {
+		allSubclusters[scName] = true
+	}
+	for scName := range newScMap {
+		allSubclusters[scName] = true
+	}
+
 	path := field.NewPath("spec").Child("subclusters")
-	for i := range v.Status.UpgradeState.ReplicaGroups {
-		for _, scName := range v.Status.UpgradeState.ReplicaGroups[i] {
-			oldSc, oldScFound := oldScMap[scName]
-			newSc, newScFound := newScMap[scName]
-			// Cannot remove a subcluster that is in the replica group
-			if !newScFound {
-				err := field.Invalid(path,
-					v.Spec.Subclusters,
-					fmt.Sprintf("Cannot remove subcluster %q while database is being upgraded", scName))
-				allErrs = append(allErrs, err)
-				continue
-			}
-			// The operator can create new subclusters that are used for the
-			// upgrade process. These must be secondary subclusters.
-			if !oldScFound {
-				if newSc.Type != SecondarySubcluster {
-					err := field.Invalid(path,
-						v.Spec.Subclusters,
-						fmt.Sprintf("New subclusters must be secondary not %q when added during upgrade", newSc.Type))
-					allErrs = append(allErrs, err)
-				}
-				continue
-			}
-			if newSc.Size != oldSc.Size {
+	for scName := range allSubclusters {
+		oldSc, oldScFound := oldScMap[scName]
+		newSc, newScFound := newScMap[scName]
+		// Cannot remove a subcluster during upgrade
+		if !newScFound {
+			err := field.Invalid(path,
+				v.Spec.Subclusters,
+				fmt.Sprintf("Cannot remove subcluster %q during replicated upgrade", scName))
+			allErrs = append(allErrs, err)
+			continue
+		}
+		// The operator can create new subclusters that are used for the
+		// upgrade process. But these must be secondary subclusters and have the
+		// replica group annotation.
+		if !oldScFound {
+			annotationVal, annotationFound := newSc.Annotations[vmeta.ReplicaGroupAnnotation]
+			if !annotationFound ||
+				(annotationVal != vmeta.ReplicaGroupAValue && annotationVal != vmeta.ReplicaGroupBValue) {
 				err := field.Invalid(path,
 					newSc,
-					fmt.Sprintf("Cannot change size of subcluster %q while database is being upgraded", scName))
+					"New subclusters cannot be added during replicated upgrade")
 				allErrs = append(allErrs, err)
-				continue
+			} else if newSc.Type != SecondarySubcluster {
+				err := field.Invalid(path,
+					newSc,
+					fmt.Sprintf("New subclusters must be secondary not %q when added during replicated upgrade", newSc.Type))
+				allErrs = append(allErrs, err)
 			}
+			continue
+		}
+		if newSc.Size != oldSc.Size {
+			err := field.Invalid(path,
+				newSc,
+				fmt.Sprintf("Cannot change size of subcluster %q while database is being upgraded", scName))
+			allErrs = append(allErrs, err)
+			continue
 		}
 	}
 

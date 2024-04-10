@@ -30,6 +30,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
+	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/meta"
 )
 
@@ -55,7 +56,7 @@ type VerticaReplicatorReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.4/pkg/reconcile
 func (r *VerticaReplicatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("vr", req.NamespacedName)
+	log := r.Log.WithValues("vrep", req.NamespacedName)
 	log.Info("starting reconcile of VerticaReplicator")
 
 	vr := &vapi.VerticaReplicator{}
@@ -103,9 +104,35 @@ func (r *VerticaReplicatorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
-func (r *VerticaReplicatorReconciler) constructActors(_ *vapi.VerticaReplicator,
-	_ logr.Logger) []controllers.ReconcileActor {
-	// The actors that will be applied, in sequence, to reconcile a vr.
-	// Temporarily, we set nil value for constructActors
-	return nil
+func (r *VerticaReplicatorReconciler) constructActors(vrep *vapi.VerticaReplicator,
+	log logr.Logger) []controllers.ReconcileActor {
+	// The actors that will be applied, in sequence, to reconcile a vrep.
+	actors := []controllers.ReconcileActor{
+		// Verify some checks before starting a replication
+		MakeVdbVerifyReconciler(r, vrep, log),
+	}
+	return actors
+}
+
+// Event a wrapper for Event() that also writes a log entry
+func (r *VerticaReplicatorReconciler) Event(vrep runtime.Object, eventtype, reason, message string) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Event(vrep, eventtype, reason, message)
+}
+
+// Eventf is a wrapper for Eventf() that also writes a log entry
+func (r *VerticaReplicatorReconciler) Eventf(vrep runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	evWriter := events.Writer{
+		Log:   r.Log,
+		EVRec: r.EVRec,
+	}
+	evWriter.Eventf(vrep, eventtype, reason, messageFmt, args...)
+}
+
+// GetClient gives access to the Kubernetes client
+func (r *VerticaReplicatorReconciler) GetClient() client.Client {
+	return r.Client
 }

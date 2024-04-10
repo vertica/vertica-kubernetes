@@ -123,6 +123,16 @@ func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
 	return annotations
 }
 
+// MakeAnnotationsForStsObject builds the list of annotations that are include
+// in the statefulset for a subcluster.
+func MakeAnnotationsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	annotations := MakeAnnotationsForObject(vdb)
+	for k, v := range sc.Annotations {
+		annotations[k] = v
+	}
+	return annotations
+}
+
 // MakeSvcSelectorLabels returns the labels that are used for selectors in service objects.
 func MakeBaseSvcSelectorLabels(vdb *vapi.VerticaDB) map[string]string {
 	// We intentionally don't use the common labels because that includes things

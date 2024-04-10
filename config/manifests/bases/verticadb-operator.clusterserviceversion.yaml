@@ -203,6 +203,10 @@ spec:
         path: template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: template.annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -774,6 +778,10 @@ spec:
         path: subclusters[0].affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: subclusters[0].annotations
       - description: When setting serviceType to NodePort, this parameter allows you
           to define the port that is opened at each node for Vertica client connections.
           If using NodePort and this is omitted, Kubernetes will choose the port automatically.
@@ -932,6 +940,10 @@ spec:
         path: temporarySubclusterRouting.template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: temporarySubclusterRouting.template.annotations
       - description: When setting serviceType to NodePort, this parameter allows you
           to define the port that is opened at each node for Vertica client connections.
           If using NodePort and this is omitted, Kubernetes will choose the port automatically.
@@ -1139,14 +1151,6 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
-      - description: State that is maintained by the operator during an upgrade.
-        displayName: Upgrade State
-        path: upgradeState
-      - description: During a replicated upgrade, we split the subclusters into one
-          of two replica groups. This keeps track of the names of the subclusters
-          in each replica group.
-        displayName: Replica Groups
-        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status
@@ -1647,6 +1651,10 @@ spec:
         path: subclusters[0].affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: subclusters[0].annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -1815,6 +1823,10 @@ spec:
         path: temporarySubclusterRouting.template.affinity.podAntiAffinity
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: A map of key/value pairs appended to the stateful metadata.annotations
+          of the subcluster.
+        displayName: Annotations
+        path: temporarySubclusterRouting.template.annotations
       - description: 'Allows the service object to be attached to a list of external
           IPs that you specify. If not set, the external IP list is left empty in
           the service object. More info: https://kubernetes.io/docs/concepts/services-networking/service/#external-ips'
@@ -2054,14 +2066,6 @@ spec:
       - description: A count of the number of pods that have a running vertica process.
         displayName: Up Node Count
         path: upNodeCount
-      - description: State that is maintained by the operator during an upgrade.
-        displayName: Upgrade State
-        path: upgradeState
-      - description: During a replicated upgrade, we split the subclusters into one
-          of two replica groups. This keeps track of the names of the subclusters
-          in each replica group.
-        displayName: Replica Groups
-        path: upgradeState.replicaGroups
       - description: Status message for the current running upgrade.   If no upgrade
           is occurring, this message remains blank.
         displayName: Upgrade Status
@@ -2076,9 +2080,85 @@ spec:
         name: ""
         version: vertica.com/v1beta1
       specDescriptors:
-      - description: Dummy placeholder field
-        displayName: Foo
-        path: foo
+      - description: Information of the source Vertica database to replicate from
+        displayName: Source
+        path: source
+      - description: "The password secret for the given UserName is stored in this
+          field. If this field and UserName are omitted, the default is set to the
+          superuser password secret found in the VerticaDB. An empty value indicates
+          the absence of a password. \n The secret is assumed to be a Kubernetes (k8s)
+          secret unless a secret path reference is specified. In the latter case,
+          the secret is retrieved from an external secret storage manager."
+        displayName: Password Secret
+        path: source.passwordSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Specify the sandbox name to establish a connection. If no sandbox
+          name is provided, the system assumes the main cluster of the database.
+        displayName: Sandbox Name
+        path: source.sandboxName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: This field allows you to specify the name of the service object
+          that will be used to connect to the database. If you do not specify a name,
+          the service object for the first primary subcluster will be used.
+        displayName: Service Name
+        path: source.serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: The username to connect to Vertica with. If no username is specified,
+          the database's superuser will be assumed.
+        displayName: User Name
+        path: source.userName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of an existing VerticaDB
+        displayName: Vertica DB
+        path: source.verticaDB
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Information of the target Vertica database to replicate to
+        displayName: Target
+        path: target
+      - description: "The password secret for the given UserName is stored in this
+          field. If this field and UserName are omitted, the default is set to the
+          superuser password secret found in the VerticaDB. An empty value indicates
+          the absence of a password. \n The secret is assumed to be a Kubernetes (k8s)
+          secret unless a secret path reference is specified. In the latter case,
+          the secret is retrieved from an external secret storage manager."
+        displayName: Password Secret
+        path: target.passwordSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Specify the sandbox name to establish a connection. If no sandbox
+          name is provided, the system assumes the main cluster of the database.
+        displayName: Sandbox Name
+        path: target.sandboxName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: This field allows you to specify the name of the service object
+          that will be used to connect to the database. If you do not specify a name,
+          the service object for the first primary subcluster will be used.
+        displayName: Service Name
+        path: target.serviceName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: The username to connect to Vertica with. If no username is specified,
+          the database's superuser will be assumed.
+        displayName: User Name
+        path: target.userName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of an existing VerticaDB
+        displayName: Vertica DB
+        path: target.verticaDB
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Optional TLS configuration to use when connecting from the source
+          database to the target database; it refers to an existing TLS config that
+          already exists in the source
+        displayName: TLSConfig
+        path: tlsConfig
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       statusDescriptors:

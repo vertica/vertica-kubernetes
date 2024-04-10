@@ -116,7 +116,7 @@ func (r *VerticaRestorePointsQueryReconciler) constructActors(vrpq *vapi.Vertica
 	// The actors that will be applied, in sequence, to reconcile a vrpq.
 	actors := []controllers.ReconcileActor{
 		// Verify some checks before performing a query
-		MakeVDBVerifyReconciler(r, vrpq, log),
+		MakeVdbVerifyReconciler(r, vrpq, log),
 		// Handle calls to show restore points
 		MakeRestorePointsQueryReconciler(r, vrpq, log),
 	}

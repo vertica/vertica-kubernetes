@@ -871,6 +871,12 @@ type Subcluster struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// A map of key/value pairs appended to service metadata.annotations.
 	ServiceAnnotations map[string]string `json:"serviceAnnotations,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// A map of key/value pairs appended to the stateful metadata.annotations of
+	// the subcluster.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // VerticaDBStatus defines the observed state of VerticaDB
@@ -904,11 +910,6 @@ type VerticaDBStatus struct {
 	// Status message for the current running upgrade.   If no upgrade
 	// is occurring, this message remains blank.
 	UpgradeStatus string `json:"upgradeStatus"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// +optional
-	// State that is maintained by the operator during an upgrade.
-	UpgradeState *UpgradeState `json:"upgradeState,omitempty"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +optional
@@ -1016,15 +1017,6 @@ type VerticaDBPodStatus struct {
 	ReadOnly bool `json:"readOnly"`
 }
 
-// UpgradeState stores state for an ongoing upgrade process.
-type UpgradeState struct {
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// During a replicated upgrade, we split the subclusters into one of two
-	// replica groups. This keeps track of the names of the subclusters in each
-	// replica group.
-	ReplicaGroups [][]string `json:"replicaGroups"`
-}
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:categories=all;vertica,shortName=vdb
@@ -1085,6 +1077,16 @@ func (v *VerticaDB) ExtractNamespacedName() types.NamespacedName {
 // MakeVDBName is a helper that creates a sample name for test purposes
 func MakeVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-sample", Namespace: "default"}
+}
+
+// MakeSourceVDBName is a helper that creates a sample name for the source VerticaDB for test purposes
+func MakeSourceVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-source-sample", Namespace: "default"}
+}
+
+// MakeTargetVDBName is a helper that creates a sample name for the target VerticaDB for test purposes
+func MakeTargetVDBName() types.NamespacedName {
+	return types.NamespacedName{Name: "vertica-target-sample", Namespace: "default"}
 }
 
 // MakeVDB is a helper that constructs a fully formed VerticaDB struct using the sample name.

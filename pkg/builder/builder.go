@@ -1252,7 +1252,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
 			Labels:      MakeLabelsForStsObject(vdb, sc),
-			Annotations: MakeAnnotationsForObject(vdb),
+			Annotations: MakeAnnotationsForStsObject(vdb, sc),
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{

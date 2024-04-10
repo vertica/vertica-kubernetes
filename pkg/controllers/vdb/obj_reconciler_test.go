@@ -855,6 +855,31 @@ var _ = Describe("obj_reconcile", func() {
 			Expect(ok).Should(BeTrue())
 			Expect(val).Should(Equal(manualAnnotationVal))
 		})
+
+		It("should add annotations to statefulsets", func() {
+			vdb := vapi.MakeVDB()
+			vdb.Spec.Subclusters[0].Annotations = map[string]string{
+				"sts": "0",
+			}
+			createCrd(vdb, true)
+			defer deleteCrd(vdb)
+
+			sts := &appsv1.StatefulSet{}
+			stsNm := names.GenStsName(vdb, &vdb.Spec.Subclusters[0])
+			Expect(k8sClient.Get(ctx, stsNm, sts)).Should(Succeed())
+			Expect(sts.Annotations).Should(HaveKeyWithValue("sts", "0"))
+
+			vdb.Spec.Subclusters[0].Annotations = map[string]string{
+				"stream": "false",
+			}
+			Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+			runReconciler(vdb, ctrl.Result{}, ObjReconcileModeAll)
+
+			Expect(k8sClient.Get(ctx, stsNm, sts)).Should(Succeed())
+			Expect(sts.Annotations).ShouldNot(HaveKeyWithValue("sts", "0"))
+			Expect(sts.Annotations).Should(HaveKeyWithValue("stream", "false"))
+		})
 	})
 })
 
