@@ -205,7 +205,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// to properly pick the correct NMA deployment (monolithic vs sidecar).
 		MakeImageVersionReconciler(r, log, vdb, prunner, pfacts, false /* enforceUpgradePath */),
 		// Handles restart + re_ip of vertica
-		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher, ""),
+		MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 		MakeMetricReconciler(r, log, vdb, prunner, pfacts),
 		MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		// Ensure we add labels to any pod rescheduled so that Service objects route traffic to it.

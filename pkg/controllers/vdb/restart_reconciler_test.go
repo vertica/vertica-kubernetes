@@ -60,7 +60,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		recon := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly, dispatcher, "")
+		recon := MakeRestartReconciler(vdbRec, logger, vdb, fpr, &pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(recon.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
@@ -88,7 +88,7 @@ var _ = Describe("restart_reconciler", func() {
 		Expect(k8sClient.Get(ctx, downPodNm, downPod)).Should(Succeed())
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -127,7 +127,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(k8sClient.Get(ctx, nm, vdb)).Should(Succeed())
@@ -180,7 +180,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{
@@ -210,7 +210,7 @@ var _ = Describe("restart_reconciler", func() {
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{0, 1}, PodNotReadOnly)
 		setVerticaNodeNameInPodFacts(vdb, sc, pfacts)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
@@ -239,7 +239,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -276,7 +276,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		listCmd := fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(1))
@@ -313,7 +313,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: false, RequeueAfter: 22000000000}))
@@ -337,7 +337,7 @@ var _ = Describe("restart_reconciler", func() {
 		initiatorPod := names.GenPodName(vdb, sc, 0)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.restartCluster(ctx, []*PodFact{})).Should(Equal(ctrl.Result{}))
@@ -374,7 +374,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{}))
@@ -414,7 +414,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -450,7 +450,7 @@ var _ = Describe("restart_reconciler", func() {
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, sc, fpr, []int32{downPodIndex}, PodNotReadOnly)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
@@ -482,14 +482,14 @@ var _ = Describe("restart_reconciler", func() {
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartSkipReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartSkipReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
 
-		act = MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act = MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r = act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -522,7 +522,7 @@ var _ = Describe("restart_reconciler", func() {
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, transientSc, fpr, []int32{DownPodIndex}, PodReadOnly)
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 		restart := fpr.FindCommands("/opt/vertica/bin/admintools", "-t", "restart_node")
 		Expect(len(restart)).Should(Equal(0))
@@ -553,7 +553,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 		listCmd := fpr.FindCommands("start_db")
 		Expect(len(listCmd)).Should(Equal(0))
@@ -583,7 +583,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsDefault(fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 
 		pn := names.GenPodName(vdb, sc, 0)
@@ -625,7 +625,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsDefault(fpr)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 
 		const expectedRequeueTime int = 112 // 45 * 10 * 0.25
@@ -663,7 +663,7 @@ var _ = Describe("restart_reconciler", func() {
 		fpr := &cmds.FakePodRunner{Results: make(cmds.CmdResults)}
 		pfacts := createPodFactsWithRestartNeeded(ctx, vdb, &vdb.Spec.Subclusters[0], fpr, []int32{0, 1}, PodNotReadOnly)
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		r := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
 			PctOfLivenessProbeWait)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{RequeueAfter: time.Second * time.Duration(expectedRequeueTime)}))
@@ -714,7 +714,7 @@ var _ = Describe("restart_reconciler", func() {
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
@@ -755,7 +755,7 @@ var _ = Describe("restart_reconciler", func() {
 			},
 		}
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		r.InitiatorPod = initiatorPod
 		expectedRequeueTime := int(float64(vdb.Spec.LivenessProbeOverride.PeriodSeconds*vdb.Spec.LivenessProbeOverride.FailureThreshold) *
@@ -793,7 +793,7 @@ var _ = Describe("restart_reconciler", func() {
 		}
 
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher, "")
+		act := MakeRestartReconciler(vdbRec, logger, vdb, fpr, pfacts, RestartProcessReadOnly, dispatcher)
 		r := act.(*RestartReconciler)
 		Expect(r.reconcileNodes(ctx)).Should(Equal(ctrl.Result{Requeue: true, RequeueAfter: time.Second * RequeueWaitTimeInSeconds}))
 

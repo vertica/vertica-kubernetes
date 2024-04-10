@@ -320,7 +320,7 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
-	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true, o.Dispatcher, "")
+	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true, o.Dispatcher)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
