@@ -21,7 +21,7 @@ import (
 )
 
 var _ = Describe("nodestatevsql", func() {
-	It("should parse read-only and sanbox states from node query", func() {
+	It("should parse read-only and sandbox states from node query", func() {
 		ninf, err := parseNodeState("v_db_node0001|UP|123456|t|sb1\n")
 		Expect(err).Should(Succeed())
 		Expect(ninf.ReadOnly).Should(BeTrue())

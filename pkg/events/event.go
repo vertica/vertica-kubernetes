@@ -120,3 +120,8 @@ const (
 	ShowRestorePointsFailed    = "ShowRestorePointsFailed"
 	ShowRestorePointsSucceeded = "ShowRestorePointsSucceeded"
 )
+
+// Constants for sandbox ConfigMap reconciler
+const (
+	SandboxNotSupported = "SandboxNotSupported"
+)

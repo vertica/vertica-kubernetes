@@ -36,7 +36,7 @@ var _ = Describe("scrutinizepod_reconciler", func() {
 	ctx := context.Background()
 
 	It("should create scrutinize pod", func() {
-		vdb := v1.MakeVDBForVclusterOps()
+		vdb := v1.MakeVDBForScrutinize()
 		sc := &vdb.Spec.Subclusters[0]
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)

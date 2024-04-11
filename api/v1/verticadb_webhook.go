@@ -104,6 +104,8 @@ func (v *VerticaDB) ValidateCreate() error {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
+	// temporary check added here to make testing easier
+	allErrs = v.validateSandboxSize(allErrs)
 	if allErrs == nil {
 		return nil
 	}
@@ -115,6 +117,8 @@ func (v *VerticaDB) ValidateUpdate(old runtime.Object) error {
 	verticadblog.Info("validate update", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := append(v.validateImmutableFields(old), v.validateVerticaDBSpec()...)
+	// temporary check added here to make testing easier
+	allErrs = v.validateSandboxSize(allErrs)
 	if allErrs == nil {
 		return nil
 	}
@@ -499,6 +503,28 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 			err := field.Invalid(fieldPrefix.Child("serviceName"),
 				sc.GetServiceName(),
 				errMsg)
+			allErrs = append(allErrs, err)
+		}
+	}
+	return allErrs
+}
+
+// validateSandboxSize is a temporary check that makes sure each sandbox
+// contains only one subcluster. This is needed until we figure out how to get
+// a sandboxed subcluster's type and how to set it in the podfacts
+func (v *VerticaDB) validateSandboxSize(allErrs field.ErrorList) field.ErrorList {
+	// if vdb does not have any sandboxes, skip this check
+	if len(v.Spec.Sandboxes) == 0 {
+		return allErrs
+	}
+	for i := range v.Spec.Sandboxes {
+		if len(v.Spec.Sandboxes[i].Subclusters) > 1 {
+			fieldPrefix := field.NewPath("spec").Child("sandboxes").Index(i)
+			err := field.Invalid(
+				fieldPrefix.Child("subclusters"),
+				v.Spec.Sandboxes[i].Subclusters,
+				"there can only be one subcluster in a sandbox",
+			)
 			allErrs = append(allErrs, err)
 		}
 	}

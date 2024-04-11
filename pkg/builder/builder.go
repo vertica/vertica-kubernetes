@@ -1251,7 +1251,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      makeLabelsForObject(vdb, sc, false),
+			Labels:      MakeLabelsForStsObject(vdb, sc),
 			Annotations: MakeAnnotationsForStsObject(vdb, sc),
 		},
 		Spec: appsv1.StatefulSetSpec{
