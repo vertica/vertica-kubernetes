@@ -104,6 +104,8 @@ func (v *VerticaDB) ValidateCreate() error {
 	verticadblog.Info("validate create", "name", v.Name, "GroupVersion", GroupVersion)
 
 	allErrs := v.validateVerticaDBSpec()
+	// temporary check added here to make testing easier
+	allErrs = v.validateSandboxSize(allErrs)
 	if allErrs == nil {
 		return nil
 	}
