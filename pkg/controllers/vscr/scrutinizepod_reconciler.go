@@ -92,7 +92,7 @@ func (s *ScrutinizePodReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 // to the vcluster scrutinize CLI
 func (s *ScrutinizePodReconciler) collectInfoFromVdb(ctx context.Context) (ctrl.Result, error) {
 	finder := iter.MakeSubclusterFinder(s.VRec.Client, s.Vdb)
-	pods, err := finder.FindPods(ctx, iter.FindExisting)
+	pods, err := finder.FindPods(ctx, iter.FindExisting, v1.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

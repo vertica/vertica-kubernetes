@@ -76,7 +76,7 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 	// Use all subclusters, even ones that are scheduled for removal.  We keep
 	// reporting status on the deleted ones until the statefulsets are gone.
 	finder := iter.MakeSubclusterFinder(s.Client, s.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll, vapi.MainCluster)
 	if err != nil {
 		return err
 	}
