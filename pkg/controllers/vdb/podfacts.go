@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
 	"github.com/lithammer/dedent"
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -36,6 +37,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -186,11 +188,13 @@ type CheckerFunc func(context.Context, *vapi.VerticaDB, *PodFact, *GatherState) 
 
 // A collection of facts for many pods.
 type PodFacts struct {
-	VRec               *VerticaDBReconciler
+	VRec               config.ReconcilerInterface
 	PRunner            cmds.PodRunner
+	Log                logr.Logger
 	Detail             PodFactDetail
 	VDBResourceVersion string // The resourceVersion of the VerticaDB at the time the pod facts were gathered
 	NeedCollection     bool
+	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
 }
 
@@ -224,8 +228,16 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFacts(vrec *VerticaDBReconciler, prunner cmds.PodRunner) PodFacts {
-	return PodFacts{VRec: vrec, PRunner: prunner, NeedCollection: true, Detail: make(PodFactDetail)}
+func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger) PodFacts {
+	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
+		SandboxName: vapi.MainCluster}
+}
+
+// MakePodFactsForSandbox will create a PodFacts object for a sandbox
+func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, sandbox string) PodFacts {
+	pf := MakePodFacts(vrec, prunner, log)
+	pf.SandboxName = sandbox
+	return pf
 }
 
 // Collect will gather up the for facts if a collection is needed
@@ -244,8 +256,8 @@ func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
 	// Find all of the subclusters to collect facts for.  We want to include all
 	// subclusters, even ones that are scheduled to be deleted -- we keep
 	// collecting facts for those until the statefulsets are gone.
-	finder := iter.MakeSubclusterFinder(p.VRec.Client, vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
+	finder := iter.MakeSubclusterFinder(p.VRec.GetClient(), vdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll, p.SandboxName)
 	if err != nil {
 		return nil
 	}
@@ -290,7 +302,7 @@ func (p *PodFacts) HasVerticaDBChangedSinceCollection(ctx context.Context, vdb *
 	}
 	// We always need to refetch the vdb to get the latest resource version
 	nm := vdb.ExtractNamespacedName()
-	if err := p.VRec.Client.Get(ctx, nm, vdb); err != nil {
+	if err := p.VRec.GetClient().Get(ctx, nm, vdb); err != nil {
 		return false, fmt.Errorf("failed to fetch vdb: %w", err)
 	}
 	return p.VDBResourceVersion != vdb.ResourceVersion, nil
@@ -302,7 +314,7 @@ func (p *PodFacts) collectSubcluster(ctx context.Context, vdb *vapi.VerticaDB, s
 	maxStsSize := sc.Size
 	// Attempt to fetch the sts.  We continue even for 'not found' errors
 	// because we want to populate the missing pods into the pod facts.
-	if err := p.VRec.Client.Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !k8sErrors.IsNotFound(err) {
+	if err := p.VRec.GetClient().Get(ctx, names.GenStsName(vdb, sc), sts); err != nil && !k8sErrors.IsNotFound(err) {
 		return fmt.Errorf("could not fetch statefulset for pod fact collection %s %w", sc.Name, err)
 	} else if sts.Spec.Replicas != nil && *sts.Spec.Replicas > maxStsSize {
 		maxStsSize = *sts.Spec.Replicas
@@ -333,7 +345,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 	}
 
 	pod := &corev1.Pod{}
-	if err := p.VRec.Client.Get(ctx, pf.name, pod); err != nil && !k8sErrors.IsNotFound(err) {
+	if err := p.VRec.GetClient().Get(ctx, pf.name, pod); err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	} else if err == nil {
 		// Treat not found errors as if the pod is not running.  We continue
@@ -366,6 +378,11 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 			return err
 		}
 		pf.hasNMASidecar = vk8s.HasNMAContainer(&pod.Spec)
+		// we get the sandbox name from the sts labels if the subcluster
+		// belongs to a sandbox. If the node is up, we will later retrieve
+		// the sandbox state from the catalog
+		pf.sandbox = p.SandboxName
+		setSandboxNodeType(&pf)
 	}
 
 	fns := []CheckerFunc{
@@ -392,7 +409,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		}
 	}
 
-	p.VRec.Log.Info("pod fact", "name", pf.name, "details", fmt.Sprintf("%+v", pf))
+	p.Log.Info("pod fact", "name", pf.name, "details", fmt.Sprintf("%+v", pf))
 	p.Detail[pf.name] = &pf
 	return nil
 }
@@ -803,7 +820,7 @@ func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf 
 	nodeInfoFetcher := p.makeNodeInfoFetcher(vdb, pf)
 	ninf, err := nodeInfoFetcher.FetchNodeState(ctx)
 	if err != nil {
-		p.VRec.Log.Info(err.Error())
+		p.Log.Info(err.Error())
 		return nil
 	}
 	if ninf != nil {
@@ -1183,6 +1200,19 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	}
 
 	return expectedNodeNames
+}
+
+// setSandboxNodeType sets the isPrimary state for a sandboxed
+// subcluster's node
+func setSandboxNodeType(pf *PodFact) {
+	// For nodes that belong to a sandboxed subcluster, we cannot rely
+	// on the VDB subcluster state. There is still some work needed in
+	// order to figure out how to get the subcluster type for a sandboxed
+	// node. In the meantime, we are going to limit a sandbox size to
+	// one subcluster and default its type to primary
+	if pf.sandbox != vapi.MainCluster {
+		pf.isPrimary = true
+	}
 }
 
 // checkIfNodeUpCmd builds and returns the command to check

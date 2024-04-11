@@ -102,7 +102,7 @@ func (s *UninstallReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	// in the vdb.  We need to call uninstall for each pod that is part of a
 	// deleted subcluster.
 	finder := iter.MakeSubclusterFinder(s.VRec.Client, s.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindAll, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -35,7 +35,7 @@ var _ = Describe("vdbverifypod_reconciler", func() {
 	ctx := context.Background()
 
 	It("should reconcile successfully", func() {
-		vdb := v1.MakeVDBForVclusterOps()
+		vdb := v1.MakeVDBForScrutinize()
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vscr := v1beta1.MakeVscr()
@@ -63,7 +63,7 @@ var _ = Describe("vdbverifypod_reconciler", func() {
 	})
 
 	It("should update status if server version does not have scrutinize support through vclusterOps", func() {
-		vdb := v1.MakeVDBForVclusterOps()
+		vdb := v1.MakeVDBForScrutinize()
 		vdb.Annotations[vmeta.VersionAnnotation] = "v23.4.0"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -78,7 +78,7 @@ var _ = Describe("vdbverifypod_reconciler", func() {
 	})
 
 	It("should update status if server version does not support vclusterOps scrutinize reading db password from secret", func() {
-		vdb := v1.MakeVDBForVclusterOps()
+		vdb := v1.MakeVDBForScrutinize()
 		vdb.Annotations[vmeta.VersionAnnotation] = "v24.1.0"
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
@@ -93,7 +93,7 @@ var _ = Describe("vdbverifypod_reconciler", func() {
 	})
 
 	It("should update status if vdb does not have server version info", func() {
-		vdb := v1.MakeVDBForVclusterOps()
+		vdb := v1.MakeVDBForScrutinize()
 		delete(vdb.Annotations, vmeta.VersionAnnotation)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
