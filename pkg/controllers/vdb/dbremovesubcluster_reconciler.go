@@ -93,7 +93,7 @@ func (d *DBRemoveSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Re
 func (d *DBRemoveSubclusterReconciler) removeExtraSubclusters(ctx context.Context) (ctrl.Result, error) {
 	finder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
 	// Find all subclusters not in the vdb.  These are the ones we want to remove.
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindNotInVdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindNotInVdb, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 var _ = Describe("verticadb_webhook", func() {
@@ -1114,6 +1115,26 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+	})
+
+	It("should validate the number of subclusters in each sandbox", func() {
+		vdb := MakeVDB()
+		// no sandboxes -> should be empty
+		Ω(vdb.validateSandboxSize(field.ErrorList{})).Should(HaveLen(0))
+
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Subclusters: []SubclusterName{{Name: "sc2"}}},
+		}
+		// only one subcluster in each sandbox -> should be empty
+		Ω(vdb.validateSandboxSize(field.ErrorList{})).Should(HaveLen(0))
+
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		// cannot have a sandbox with more than one subcluster
+		Ω(vdb.validateSandboxSize(field.ErrorList{})).Should(HaveLen(1))
 	})
 })
 

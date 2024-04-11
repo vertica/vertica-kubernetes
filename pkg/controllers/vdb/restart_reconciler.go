@@ -58,7 +58,7 @@ const (
 
 // RestartReconciler will ensure each pod has a running vertica process
 type RestartReconciler struct {
-	VRec            *VerticaDBReconciler
+	VRec            config.ReconcilerInterface
 	Log             logr.Logger
 	Vdb             *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner         cmds.PodRunner
@@ -71,11 +71,11 @@ type RestartReconciler struct {
 }
 
 // MakeRestartReconciler will build a RestartReconciler object
-func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeRestartReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, restartReadOnly bool,
 	dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &RestartReconciler{
-		VRec:            vdbrecon,
+		VRec:            recon,
 		Log:             log.WithName("RestartReconciler"),
 		Vdb:             vdb,
 		PRunner:         prunner,
@@ -83,7 +83,7 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 		RestartReadOnly: restartReadOnly,
 		Dispatcher:      dispatcher,
 		ConfigParamsGenerator: config.ConfigParamsGenerator{
-			VRec: vdbrecon,
+			VRec: recon,
 			Log:  log.WithName("RestartReconciler"),
 			Vdb:  vdb,
 		},
@@ -94,13 +94,13 @@ func MakeRestartReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 // On success, each node will have a running vertica process.
 func (r *RestartReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
 	if !r.Vdb.Spec.AutoRestartVertica {
-		err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
+		err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb,
 			vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionFalse, "Detected"),
 		)
 		return ctrl.Result{}, err
 	}
 
-	err := vdbstatus.UpdateCondition(ctx, r.VRec.Client, r.Vdb,
+	err := vdbstatus.UpdateCondition(ctx, r.VRec.GetClient(), r.Vdb,
 		vapi.MakeCondition(vapi.AutoRestartVertica, metav1.ConditionTrue, "Detected"),
 	)
 	if err != nil {
@@ -586,7 +586,7 @@ func (r *RestartReconciler) filterSlowStartup(pods []*PodFact) (newPodList []*Po
 	return
 }
 
-// getRequeueTimeoutForLivenessProbeWait will return the time to requeue if
+// makeResultForLivenessProbeWait will return the time to requeue if
 // waiting for a livenessProbe to reschedule a pod.
 func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) (ctrl.Result, error) {
 	// If the restart reconciler is going to requeue because it has to wait for
@@ -595,7 +595,7 @@ func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) 
 	// to use a percentage of the total livenessProbe timeout.
 	pn := names.GenPodName(r.Vdb, &r.Vdb.Spec.Subclusters[0], 0)
 	pod := corev1.Pod{}
-	if err := r.VRec.Client.Get(ctx, pn, &pod); err != nil {
+	if err := r.VRec.GetClient().Get(ctx, pn, &pod); err != nil {
 		if k8sErrors.IsNotFound(err) {
 			r.Log.Info("Could not read sample pod for livenessProbe timeout. Default to exponential backoff",
 				"podName", pn)
@@ -624,7 +624,7 @@ func (r *RestartReconciler) makeResultForLivenessProbeWait(ctx context.Context) 
 // startupProbe.
 func (r *RestartReconciler) isStartupProbeActive(ctx context.Context, nm types.NamespacedName) (bool, error) {
 	pod := &corev1.Pod{}
-	if err := r.VRec.Client.Get(ctx, nm, pod); err != nil {
+	if err := r.VRec.GetClient().Get(ctx, nm, pod); err != nil {
 		r.Log.Info("Failed to fetch the pod", "pod", nm, "err", err)
 		return false, err
 	}
