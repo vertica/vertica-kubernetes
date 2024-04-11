@@ -17,7 +17,6 @@ package sandbox
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
@@ -68,6 +67,6 @@ func (s *VerifyDeploymentReconciler) checkDeployment() (ctrl.Result, error) {
 			vinf.VdbVer)
 		return ctrl.Result{Requeue: true}, nil
 	}
-	s.Log.Info(fmt.Sprintf("The VerticaDB named '%s' is configured for sandboxing with vclusterops", s.Vdb.Name))
+	s.Log.Info("The VerticaDB is configured for sandboxing with vclusterops", "vdbName", s.Vdb.Name)
 	return ctrl.Result{}, nil
 }

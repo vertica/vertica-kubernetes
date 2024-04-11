@@ -101,7 +101,7 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags, sandbo
 	// we can skip the filtering if all of the pods we are
 	// looking for are not part of a subcluster in vdb
 	if flags&FindInVdb != 0 || flags&FindExisting != 0 {
-		pods = m.filterPods(pods, sandbox)
+		pods = m.filterPodsBySandbox(pods, sandbox)
 	}
 	if flags&FindSorted != 0 {
 		sort.Slice(pods.Items, func(i, j int) bool {
@@ -274,25 +274,21 @@ func (m *SubclusterFinder) getSandboxedSubclusters(sandbox string) []*vapi.Subcl
 	return subclusters
 }
 
-// filterPods returns a pod list without main cluster pods if a non-empty sandbox named is
+// filterPodsBySandbox returns a pod list without main cluster pods if a non-empty sandbox named is
 // passed in, or pod list with only main cluster pods if no sandbox name is passed
-func (m *SubclusterFinder) filterPods(oldPods *corev1.PodList, sandbox string) *corev1.PodList {
+func (m *SubclusterFinder) filterPodsBySandbox(oldPods *corev1.PodList, sandbox string) *corev1.PodList {
 	newPods := []corev1.Pod{}
 	scMap := m.getSubclusterSandboxStatusMap()
 	for i := range oldPods.Items {
 		pod := oldPods.Items[i]
-		isSandbox := false
-		sbName := vapi.MainCluster
-		sc, isSCNode := pod.Labels[vmeta.SubclusterNameLabel]
-		if isSCNode {
-			sbName, isSandbox = scMap[sc]
-		}
+		sc := pod.Labels[vmeta.SubclusterNameLabel]
+		sbName, isSandbox := scMap[sc]
 		if sandbox == vapi.MainCluster {
-			if !isSCNode || !isSandbox {
+			if !isSandbox {
 				newPods = append(newPods, pod)
 			}
 		} else {
-			if isSCNode && sbName == sandbox {
+			if sbName == sandbox {
 				newPods = append(newPods, pod)
 			}
 		}
