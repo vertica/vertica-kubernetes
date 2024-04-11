@@ -255,6 +255,13 @@ const (
 	// establish the relationship.
 	ParentSubclusterAnnotation = "vertica.com/parent-subcluster"
 	ChildSubclusterAnnotation  = "vertica.com/child-subcluster"
+
+	// During replicated upgrade, we store an annotation in the VerticaDB that
+	// is the name of the sandbox for all subclusters part of replica group B.
+	ReplicatedUpgradeSandboxAnnotation = "vertica.com/replicated-upgrade-sandbox"
+
+	// This is the name of the VerticaReplicator that is generated during a replicated upgrade
+	ReplicatedUpgradeReplicatorAnnotation = "vertica.com/replicated-upgrade-replicator-name"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -480,6 +487,17 @@ func GetScrutinizeMainContainerResource(annotations map[string]string, resourceN
 func GenScrutinizeMainContainerResourcesAnnotationName(resourceName corev1.ResourceName) string {
 	return genResourcesAnnotationName(ScrutinizeMainContainerResourcesPrefixAnnotation,
 		resourceName)
+}
+
+// GetReplicatedUpgradeSandbox returns the name of the sandbox used for replicated upgrade.
+func GetReplicatedUpgradeSandbox(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ReplicatedUpgradeSandboxAnnotation, "")
+}
+
+// GetReplicatedUpgradeReplicator returns the name of the VerticaReplicator
+// object used during replicated upgrade.
+func GetReplicatedUpgradeReplicator(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, ReplicatedUpgradeReplicatorAnnotation, "")
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

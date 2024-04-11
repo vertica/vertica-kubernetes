@@ -1246,7 +1246,6 @@ func getStorageClassName(vdb *vapi.VerticaDB) *string {
 
 // BuildStsSpec builds manifest for a subclusters statefulset
 func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subcluster) *appsv1.StatefulSet {
-	isControllerRef := true
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
@@ -1274,15 +1273,7 @@ func BuildStsSpec(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclus
 					ObjectMeta: metav1.ObjectMeta{
 						Name: vapi.LocalDataPVC,
 						// Set the ownerReference so that we get auto-deletion
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion: vapi.GroupVersion.String(),
-								Kind:       vapi.VerticaDBKind,
-								Name:       vdb.Name,
-								UID:        vdb.UID,
-								Controller: &isControllerRef,
-							},
-						},
+						OwnerReferences: []metav1.OwnerReference{vdb.GenerateOwnerReference()},
 					},
 					Spec: corev1.PersistentVolumeClaimSpec{
 						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},

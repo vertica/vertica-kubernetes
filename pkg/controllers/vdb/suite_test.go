@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -63,6 +64,9 @@ var _ = BeforeSuite(func() {
 	restCfg = cfg
 
 	err = vapi.AddToScheme(scheme.Scheme)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	err = v1beta1.AddToScheme(scheme.Scheme)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(restCfg, client.Options{Scheme: scheme.Scheme})
