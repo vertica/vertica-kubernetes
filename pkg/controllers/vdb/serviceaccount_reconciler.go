@@ -90,23 +90,12 @@ func (s *ServiceAccountReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 
 // createServiceAccount will create a new service account to be used for the vertica pods
 func (s *ServiceAccountReconciler) createServiceAccount(ctx context.Context) (*corev1.ServiceAccount, error) {
-	isController := true
-	blockOwnerDeletion := false
 	sa := corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   s.Vdb.Namespace,
-			Annotations: builder.MakeAnnotationsForObject(s.Vdb),
-			Labels:      builder.MakeCommonLabels(s.Vdb, nil, false),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         vapi.GroupVersion.String(),
-					Kind:               vapi.VerticaDBKind,
-					Name:               s.Vdb.Name,
-					UID:                s.Vdb.GetUID(),
-					Controller:         &isController,
-					BlockOwnerDeletion: &blockOwnerDeletion,
-				},
-			},
+			Namespace:       s.Vdb.Namespace,
+			Annotations:     builder.MakeAnnotationsForObject(s.Vdb),
+			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false),
+			OwnerReferences: []metav1.OwnerReference{s.Vdb.GenerateOwnerReference()},
 		},
 	}
 	// Only generate a name if one wasn't already specified in the vdb
@@ -154,24 +143,13 @@ func (s *ServiceAccountReconciler) createRoleAndRoleBindingIfNeeded(ctx context.
 
 // createRole will create a Role suitable for running vertica pods. The created role is returned.
 func (s *ServiceAccountReconciler) createRole(ctx context.Context) (*rbacv1.Role, error) {
-	isController := true
-	blockOwnerDeletion := false
 	role := rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-role-", s.Vdb.Name),
-			Namespace:    s.Vdb.Namespace,
-			Annotations:  builder.MakeAnnotationsForObject(s.Vdb),
-			Labels:       builder.MakeCommonLabels(s.Vdb, nil, false),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         vapi.GroupVersion.String(),
-					Kind:               vapi.VerticaDBKind,
-					Name:               s.Vdb.Name,
-					UID:                s.Vdb.GetUID(),
-					Controller:         &isController,
-					BlockOwnerDeletion: &blockOwnerDeletion,
-				},
-			},
+			GenerateName:    fmt.Sprintf("%s-role-", s.Vdb.Name),
+			Namespace:       s.Vdb.Namespace,
+			Annotations:     builder.MakeAnnotationsForObject(s.Vdb),
+			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false),
+			OwnerReferences: []metav1.OwnerReference{s.Vdb.GenerateOwnerReference()},
 		},
 		Rules: []rbacv1.PolicyRule{
 			// Any policy changes here must be kept insync with:
@@ -201,24 +179,13 @@ func (s *ServiceAccountReconciler) createRole(ctx context.Context) (*rbacv1.Role
 // createRoleBinding will create a new RoleBinding that is owned by the
 // operator. It will bind the given Role and ServiceAccount together.
 func (s *ServiceAccountReconciler) createRoleBinding(ctx context.Context, sa *corev1.ServiceAccount, role *rbacv1.Role) error {
-	isController := true
-	blockOwnerDeletion := false
 	rolebinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-rolebinding-", s.Vdb.Name),
-			Namespace:    s.Vdb.Namespace,
-			Annotations:  builder.MakeAnnotationsForObject(s.Vdb),
-			Labels:       builder.MakeCommonLabels(s.Vdb, nil, false),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         vapi.GroupVersion.String(),
-					Kind:               vapi.VerticaDBKind,
-					Name:               s.Vdb.Name,
-					UID:                s.Vdb.GetUID(),
-					Controller:         &isController,
-					BlockOwnerDeletion: &blockOwnerDeletion,
-				},
-			},
+			GenerateName:    fmt.Sprintf("%s-rolebinding-", s.Vdb.Name),
+			Namespace:       s.Vdb.Namespace,
+			Annotations:     builder.MakeAnnotationsForObject(s.Vdb),
+			Labels:          builder.MakeCommonLabels(s.Vdb, nil, false),
+			OwnerReferences: []metav1.OwnerReference{s.Vdb.GenerateOwnerReference()},
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: rbacv1.GroupName,
