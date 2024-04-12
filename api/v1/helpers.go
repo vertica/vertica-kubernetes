@@ -771,19 +771,6 @@ func (v *VerticaDB) getNumberOfNodes() int {
 	return count
 }
 
-// GetSubclusterSandboxName returns the sandbox the given subcluster belongs to,
-// or an empty string if it does not belong to any
-func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
-	for i := range v.Spec.Sandboxes {
-		for j := range v.Spec.Sandboxes[i].Subclusters {
-			if scName == v.Spec.Sandboxes[i].Subclusters[j].Name {
-				return v.Spec.Sandboxes[i].Name
-			}
-		}
-	}
-	return ""
-}
-
 // GetSandbox returns the sandbox given by name. A nil pointer is returned if
 // not found.
 func (v *VerticaDB) GetSandbox(sbName string) *Sandbox {

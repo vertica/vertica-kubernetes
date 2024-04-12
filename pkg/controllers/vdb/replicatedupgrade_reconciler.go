@@ -437,7 +437,7 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, err
 // assignSubclustersToReplicaGroupACallback is a callback method to update the
 // VDB. It will assign each subcluster to replica group A by setting an
 // annotation. This is a callback function for updatedVDBWithRetry to prepare
-// the update for an update.
+// the vdb for an update.
 func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupACallback() (bool, error) {
 	annotatedAtLeastOnce := false
 	for inx := range r.VDB.Spec.Subclusters {
