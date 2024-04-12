@@ -216,7 +216,7 @@ func (r *ReplicatedUpgradeReconciler) sandboxReplicaGroupB(ctx context.Context) 
 	return ctrl.Result{}, nil
 }
 
-// waitForSandboToFinish will block the upgrade until the sandbox controller has
+// waitForSandboxToFinish will block the upgrade until the sandbox controller has
 // sandboxed the subclusters that are part of replica group B.
 func (r *ReplicatedUpgradeReconciler) waitForSandboxToFinish(ctx context.Context) (ctrl.Result, error) {
 	sb := r.VDB.GetSandbox(r.sandboxName)
@@ -224,7 +224,7 @@ func (r *ReplicatedUpgradeReconciler) waitForSandboxToFinish(ctx context.Context
 		return ctrl.Result{}, fmt.Errorf("could not find sandbox %q", r.sandboxName)
 	}
 	// If the image in the sandbox matches the image in the spec. We have
-	// already attempted to upgrade the sandbox. So, this implies they have been
+	// already attempted to upgrade the sandbox. So, this implies it has been
 	// created already.
 	if sb.Image == r.VDB.Spec.Image {
 		return ctrl.Result{}, nil
@@ -256,7 +256,7 @@ func (r *ReplicatedUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.
 	}
 
 	// We can skip if the image in the sandbox matches the image in the vdb.
-	// This is the new version that we are upgrading too.
+	// This is the new version that we are upgrading to.
 	if sb.Image == r.VDB.Spec.Image {
 		return ctrl.Result{}, nil
 	}
@@ -341,7 +341,7 @@ func (r *ReplicatedUpgradeReconciler) startReplicationToReplicaGroupB(ctx contex
 func (r *ReplicatedUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
 	vrepName := vmeta.GetReplicatedUpgradeReplicator(r.VDB.Annotations)
 	if vrepName == "" {
-		r.Log.Info("skipping wait for VerticaReplicator because name cannot be found")
+		r.Log.Info("skipping wait for VerticaReplicator because name cannot be found in vdb annotations")
 		return ctrl.Result{}, nil
 	}
 
@@ -358,7 +358,7 @@ func (r *ReplicatedUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx contex
 			r.Log.Info("VerticaReplicator is not found. Skipping wait", "name", vrepName)
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, fmt.Errorf("failed trying to fetche VerticaReplicator: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed trying to fetch VerticaReplicator: %w", err)
 	}
 
 	if !vrep.IsStatusConditionTrue(v1beta1.ReplicationComplete) {
@@ -401,7 +401,8 @@ func (r *ReplicatedUpgradeReconciler) scaleOutSecondariesInReplicaGroupB(ctx con
 
 // addNewSubclustersForPrimaries will come up with a list of subclusters we
 // need to add to the VerticaDB to mimic the primaries. The new subclusters will
-// be added directly to r.VDB.
+// be added directly to r.VDB. This is a callback function for
+// updateVDBWithRetry to prepare the vdb for update.
 func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, error) {
 	oldImage, found := r.Manager.fetchOldImage()
 	if !found {
@@ -435,7 +436,8 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, err
 
 // assignSubclustersToReplicaGroupACallback is a callback method to update the
 // VDB. It will assign each subcluster to replica group A by setting an
-// annotation.
+// annotation. This is a callback function for updatedVDBWithRetry to prepare
+// the update for an update.
 func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupACallback() (bool, error) {
 	annotatedAtLeastOnce := false
 	for inx := range r.VDB.Spec.Subclusters {
@@ -453,7 +455,8 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupACallback()
 }
 
 // moveReplicaGroupBSubclusterToSandbox will move all subclusters attached to
-// replica group B into the sandbox.
+// replica group B into the sandbox. This is a callback function for
+// updateVDBWithRetry to prepare the vdb for an update.
 func (r *ReplicatedUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, error) {
 	oldImage, found := r.Manager.fetchOldImage()
 	if !found {
@@ -481,7 +484,9 @@ func (r *ReplicatedUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bo
 	return true, nil
 }
 
-// setImageInSandbox will set the new image in the sandbox to initiate an upgrade
+// setImageInSandbox will set the new image in the sandbox to initiate an
+// upgrade. This is a callback function for updateVDBWithRetry to prepare the
+// vdb for update.
 func (r *ReplicatedUpgradeReconciler) setImageInSandbox() (bool, error) {
 	sb := r.VDB.GetSandbox(r.sandboxName)
 	if sb == nil {
