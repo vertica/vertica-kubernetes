@@ -59,7 +59,7 @@ var _ = Describe("status_reconcile", func() {
 		// We intentionally don't create the pods or sts
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
 		r := MakeStatusReconciler(k8sClient, scheme.Scheme, logger, vdb, &pfacts)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 

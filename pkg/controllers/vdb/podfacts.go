@@ -38,6 +38,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
+	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -196,6 +197,7 @@ type PodFacts struct {
 	NeedCollection     bool
 	SandboxName        string
 	OverrideFunc       CheckerFunc // Set this if you want to be able to control the PodFact
+	VerticaSUPassword  string
 }
 
 // GatherState is the data exchanged with the gather pod facts script. We
@@ -228,9 +230,9 @@ const (
 )
 
 // MakePodFacts will create a PodFacts object and return it
-func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger) PodFacts {
+func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password string) PodFacts {
 	return PodFacts{VRec: vrec, PRunner: prunner, Log: log, NeedCollection: true, Detail: make(PodFactDetail),
-		SandboxName: vapi.MainCluster}
+		VerticaSUPassword: password, SandboxName: vapi.MainCluster}
 }
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
@@ -390,10 +392,8 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		p.checkIsInstalled,
 		p.checkIsDBCreated,
 		p.checkForSimpleGatherStateMapping,
-		p.checkNodeStatus,
+		p.checkNodeDetails,
 		p.checkIfNodeIsDoingStartup,
-		p.checkShardSubscriptions,
-		p.queryDepotDetails,
 		// Override function must be last one as we can use it to override any
 		// of the facts set earlier.
 		p.OverrideFunc,
@@ -659,67 +659,6 @@ func (p *PodFacts) checkForSimpleGatherStateMapping(_ context.Context, vdb *vapi
 	return nil
 }
 
-// checkShardSubscriptions will count the number of shards that are subscribed
-// to the current node
-func (p *PodFacts) checkShardSubscriptions(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
-	// This check depends on the vnode, which is only present if the pod is
-	// running and the database exists at the node.
-	if !pf.isPodRunning || !pf.upNode {
-		return nil
-	}
-	cmd := []string{
-		"-tAc",
-		fmt.Sprintf("select count(*) from v_catalog.node_subscriptions where node_name = '%s' and shard_name != 'replica'",
-			pf.vnodeName),
-	}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
-	if err != nil {
-		// An error implies the server is down, so skipping this check.
-		return nil
-	}
-	return setShardSubscription(stdout, pf)
-}
-
-// queryDepotDetails will query the database to get info about the depot for the node
-func (p *PodFacts) queryDepotDetails(ctx context.Context, _ *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
-	// This check depends on the database being up
-	if !pf.isPodRunning || !pf.upNode {
-		return nil
-	}
-	cmd := []string{
-		"-tAc",
-		fmt.Sprintf("select max_size, disk_percent from storage_locations "+
-			"where location_usage = 'DEPOT' and node_name = '%s'", pf.vnodeName),
-	}
-	stdout, _, err := p.PRunner.ExecVSQL(ctx, pf.name, pf.execContainerName, cmd...)
-	if err != nil {
-		// An error implies the server is down, so skipping this check.
-		return nil
-	}
-	return pf.setDepotDetails(stdout)
-}
-
-// setDepotDetails will set depot details in the PodFacts based on the query output
-func (p *PodFact) setDepotDetails(op string) error {
-	// For testing purposes, return without error if there is no output
-	if op == "" {
-		return nil
-	}
-	lines := strings.Split(op, "\n")
-	cols := strings.Split(lines[0], "|")
-	const ExpectedCols = 2
-	if len(cols) != ExpectedCols {
-		return fmt.Errorf("expected %d columns from storage_locations query but only got %d", ExpectedCols, len(cols))
-	}
-	var err error
-	p.maxDepotSize, err = strconv.Atoi(cols[0])
-	if err != nil {
-		return err
-	}
-	p.depotDiskPercentSize = cols[1]
-	return nil
-}
-
 // setNodeState set the node state in the PodFact based on
 // vertica deployment method
 func (p *PodFact) setNodeState(gs *GatherState, useVclusterOps bool) {
@@ -805,29 +744,45 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 	return nil
 }
 
-// makeNodeInfoFetcher will create a NodeInfoFetcher object based on the feature flags set
-// and the server version
+// makeNodeInfoFetcher will create a node-info Fetcher object based on the vclusterOps annotation
+// and the server version. If we are using vclusterops and server version is not older than v24.3.0,
+// the operator will call vclusterOps API to collect the node info. Otherwise, the operator will
+// execute vsql inside the pod to collect the node info.
 func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.Fetcher {
-	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName)
+	const vclusterAPISupportedMinVersion = "v24.3.0"
+	vdbVer, ok := vdb.GetVerticaVersionStr()
+	if ok {
+		verInfo, _ := vversion.MakeInfoFromStr(vdbVer)
+		if verInfo.IsOlder(vclusterAPISupportedMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
+			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.VRec.Log, p.VRec.Client, p.VRec.EVRec)
+		}
+	}
+	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName, pf.vnodeName)
 }
 
-// checkNodeStatus will query node state
-func (p *PodFacts) checkNodeStatus(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
-	if !pf.upNode {
+// checkNodeDetails will query node details and record them in the pod fact
+func (p *PodFacts) checkNodeDetails(ctx context.Context, vdb *vapi.VerticaDB, pf *PodFact, _ *GatherState) error {
+	// This check depends on the vnode, which is only present if the pod is
+	// running and the database exists at the node.
+	if !pf.isPodRunning || !pf.upNode {
 		return nil
 	}
 
 	nodeInfoFetcher := p.makeNodeInfoFetcher(vdb, pf)
-	ninf, err := nodeInfoFetcher.FetchNodeState(ctx)
+	nodeDetails, err := nodeInfoFetcher.FetchNodeDetails(ctx)
 	if err != nil {
 		p.Log.Info(err.Error())
 		return nil
 	}
-	if ninf != nil {
-		pf.readOnly = ninf.ReadOnly
-		pf.subclusterOid = ninf.SubclusterOid
-		pf.sandbox = ninf.SandboxName
+	if nodeDetails != nil {
+		pf.readOnly = nodeDetails.ReadOnly
+		pf.subclusterOid = nodeDetails.SubclusterOid
+		pf.sandbox = nodeDetails.SandboxName
+		pf.shardSubscriptions = nodeDetails.ShardSubscriptions
+		pf.maxDepotSize = nodeDetails.MaxDepotSize
+		pf.depotDiskPercentSize = nodeDetails.DepotDiskPercentSize
 	}
+
 	return nil
 }
 
@@ -850,23 +805,6 @@ func parseVerticaNodeName(stdout string) string {
 		return match[0][1]
 	}
 	return ""
-}
-
-// setShardSubscription will set the pf.shardSubscriptions based on the query
-// output
-func setShardSubscription(op string, pf *PodFact) error {
-	// For testing purposes we early out with no error if there is no output
-	if op == "" {
-		return nil
-	}
-
-	lines := strings.Split(op, "\n")
-	subs, err := strconv.Atoi(lines[0])
-	if err != nil {
-		return err
-	}
-	pf.shardSubscriptions = subs
-	return nil
 }
 
 // doesDBExist will check if the database exists anywhere.

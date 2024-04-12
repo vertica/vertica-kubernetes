@@ -93,7 +93,7 @@ var _ = Describe("createdb_reconciler", func() {
 		vdb.Spec.InitPolicy = vapi.CommunalInitPolicyRevive
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeCreateDBReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))

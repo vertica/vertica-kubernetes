@@ -42,7 +42,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfn1 := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pfn1].upNode = true
@@ -73,7 +73,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfn1 := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pfn1].upNode = true
@@ -103,7 +103,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		sc := &vdb.Spec.Subclusters[0]
 		for i := int32(0); i < sc.Size; i++ {
@@ -137,7 +137,7 @@ var _ = Describe("clientroutinglabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger)
+		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pn := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 		pfacts.Detail[pn].upNode = true
