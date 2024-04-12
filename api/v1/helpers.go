@@ -59,6 +59,20 @@ func MakeVDBName() types.NamespacedName {
 	return types.NamespacedName{Name: "vertica-sample", Namespace: "default"}
 }
 
+// GenerateOwnerReference creates an owner reference for the current VerticaDB
+func (v *VerticaDB) GenerateOwnerReference() metav1.OwnerReference {
+	isController := true
+	blockOwnerDeletion := false
+	return metav1.OwnerReference{
+		APIVersion:         GroupVersion.String(),
+		Kind:               VerticaDBKind,
+		Name:               v.Name,
+		UID:                v.GetUID(),
+		Controller:         &isController,
+		BlockOwnerDeletion: &blockOwnerDeletion,
+	}
+}
+
 // FindTransientSubcluster will return a pointer to the transient subcluster if one exists
 func (v *VerticaDB) FindTransientSubcluster() *Subcluster {
 	for i := range v.Spec.Subclusters {
@@ -388,6 +402,17 @@ func (v *VerticaDB) GetFirstPrimarySubcluster() *Subcluster {
 	}
 	// We should never get here because the webhook prevents a vdb with no primary.
 	return nil
+}
+
+// HasSecondarySubclusters returns true if at least 1 secondary subcluster
+// exists in the database.
+func (v *VerticaDB) HasSecondarySubclusters() bool {
+	for i := range v.Spec.Subclusters {
+		if v.Spec.Subclusters[i].IsSecondary() {
+			return true
+		}
+	}
+	return false
 }
 
 // IsAutoUpgradePolicy returns true
@@ -744,4 +769,15 @@ func (v *VerticaDB) getNumberOfNodes() int {
 		count += int(v.Spec.Subclusters[i].Size)
 	}
 	return count
+}
+
+// GetSandbox returns the sandbox given by name. A nil pointer is returned if
+// not found.
+func (v *VerticaDB) GetSandbox(sbName string) *Sandbox {
+	for i := range v.Spec.Sandboxes {
+		if v.Spec.Sandboxes[i].Name == sbName {
+			return &v.Spec.Sandboxes[i]
+		}
+	}
+	return nil
 }
