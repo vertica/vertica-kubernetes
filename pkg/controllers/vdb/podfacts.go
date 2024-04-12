@@ -753,7 +753,7 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	vdbVer, ok := vdb.GetVerticaVersionStr()
 	if ok {
 		verInfo, _ := vversion.MakeInfoFromStr(vdbVer)
-		if verInfo.IsOlder(vclusterAPISupportedMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
+		if !verInfo.IsOlder(vclusterAPISupportedMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
 			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())
 		}
 	}
