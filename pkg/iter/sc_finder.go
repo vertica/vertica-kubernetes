@@ -93,10 +93,15 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
-func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*corev1.PodList, error) {
+func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags, sandbox string) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 	if err := m.buildObjList(ctx, pods, flags); err != nil {
 		return nil, err
+	}
+	// we can skip the filtering if all of the pods we are
+	// looking for are not part of a subcluster in vdb
+	if flags&FindInVdb != 0 || flags&FindExisting != 0 {
+		pods = m.filterPodsBySandbox(pods, sandbox)
 	}
 	if flags&FindSorted != 0 {
 		sort.Slice(pods.Items, func(i, j int) bool {
@@ -109,16 +114,17 @@ func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags) (*core
 // FindSubclusters will return a list of subclusters.
 // It accepts a flags field to indicate whether to return subclusters in the vdb,
 // not in the vdb or both.
-func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags) ([]*vapi.Subcluster, error) {
+func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags, sandbox string) ([]*vapi.Subcluster, error) {
 	subclusters := []*vapi.Subcluster{}
+	isMainCluster := sandbox == vapi.MainCluster
 
 	if flags&FindInVdb != 0 {
-		for i := range m.Vdb.Spec.Subclusters {
-			subclusters = append(subclusters, &m.Vdb.Spec.Subclusters[i])
-		}
+		subclusters = append(subclusters, m.getVdbSubclusters(sandbox)...)
 	}
 
-	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
+	// a sandboxed subcluster can only be one of those in the vdb so we skip this part if
+	// we are looking for sandboxed subclusters
+	if isMainCluster && (flags&FindNotInVdb != 0 || flags&FindExisting != 0) {
 		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb)
 		if err != nil {
 			return nil, err
@@ -215,4 +221,78 @@ func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 		return pod.Labels, true
 	}
 	return nil, false
+}
+
+// getSubclusterSandboxStatusMap returns a map that contains sandboxed
+// subclusters
+func (m *SubclusterFinder) getSubclusterSandboxStatusMap() map[string]string {
+	scMap := map[string]string{}
+	for i := range m.Vdb.Status.Sandboxes {
+		sb := &m.Vdb.Status.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scMap[sc] = sb.Name
+		}
+	}
+	return scMap
+}
+
+// getVdbSubclusters returns the subclusters that are in the vdb
+func (m *SubclusterFinder) getVdbSubclusters(sandbox string) []*vapi.Subcluster {
+	if sandbox != vapi.MainCluster {
+		return m.getSandboxedSubclusters(sandbox)
+	}
+	return m.getMainSubclusters()
+}
+
+// getMainSubclusters returns the subclusters that are not part
+// of any sandboxes
+func (m *SubclusterFinder) getMainSubclusters() []*vapi.Subcluster {
+	subclusters := []*vapi.Subcluster{}
+	scMap := m.getSubclusterSandboxStatusMap()
+	for i := range m.Vdb.Spec.Subclusters {
+		sc := &m.Vdb.Spec.Subclusters[i]
+		if _, ok := scMap[sc.Name]; !ok {
+			subclusters = append(subclusters, sc)
+		}
+	}
+	return subclusters
+}
+
+// getSandboxedSubclusters returns the subclusters that belong to the given
+// sandbox
+func (m *SubclusterFinder) getSandboxedSubclusters(sandbox string) []*vapi.Subcluster {
+	subclusters := []*vapi.Subcluster{}
+	for i := range m.Vdb.Status.Sandboxes {
+		sb := &m.Vdb.Status.Sandboxes[i]
+		if sb.Name != sandbox {
+			continue
+		}
+		for _, scName := range sb.Subclusters {
+			subclusters = append(subclusters, m.Subclusters[scName])
+		}
+	}
+	return subclusters
+}
+
+// filterPodsBySandbox returns a pod list without main cluster pods if a non-empty sandbox named is
+// passed in, or pod list with only main cluster pods if no sandbox name is passed
+func (m *SubclusterFinder) filterPodsBySandbox(oldPods *corev1.PodList, sandbox string) *corev1.PodList {
+	newPods := []corev1.Pod{}
+	scMap := m.getSubclusterSandboxStatusMap()
+	for i := range oldPods.Items {
+		pod := oldPods.Items[i]
+		sc := pod.Labels[vmeta.SubclusterNameLabel]
+		sbName, isSandbox := scMap[sc]
+		if sandbox == vapi.MainCluster {
+			if !isSandbox {
+				newPods = append(newPods, pod)
+			}
+		} else {
+			if sbName == sandbox {
+				newPods = append(newPods, pod)
+			}
+		}
+	}
+	oldPods.Items = newPods
+	return oldPods
 }

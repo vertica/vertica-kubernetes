@@ -458,7 +458,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, transientSc), sts)).Should(Succeed())
 
-		scs, err := r.Finder.FindSubclusters(ctx, iter.FindAll|iter.FindSorted)
+		scs, err := r.Finder.FindSubclusters(ctx, iter.FindAll|iter.FindSorted, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0].Name).Should(Equal(TransientScName))
@@ -542,7 +542,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 // createOnlineUpgradeReconciler is a helper to run the OnlineUpgradeReconciler.
 func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := MakePodFacts(vdbRec, fpr)
+	pfacts := MakePodFacts(vdbRec, fpr, logger)
 	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 	r := actor.(*OnlineUpgradeReconciler)

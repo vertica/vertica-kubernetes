@@ -101,7 +101,7 @@ func (d *DBRemoveNodeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	// Any nodes that are in subclusters that we are removing are handled by the
 	// DBRemoveSubcusterReconciler.
 	finder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
-	subclusters, err := finder.FindSubclusters(ctx, iter.FindInVdb)
+	subclusters, err := finder.FindSubclusters(ctx, iter.FindInVdb, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

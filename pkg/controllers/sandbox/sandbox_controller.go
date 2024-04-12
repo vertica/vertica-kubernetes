@@ -22,15 +22,21 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	vdbcontroller "github.com/vertica/vertica-kubernetes/pkg/controllers/vdb"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,11 +44,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
 	verticaDBNameKey = "verticaDBName"
+	sandboxNameKey   = "sandboxName"
 )
 
 // SandboxConfigMapReconciler reconciles a ConfigMap for sandboxing
@@ -62,6 +72,11 @@ func (r *SandboxConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(
 			&corev1.ConfigMap{},
+			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
+		).
+		Watches(
+			&source.Kind{Type: &appsv1.StatefulSet{}},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForStatesulSet),
 			builder.WithPredicates(r.predicateFuncs(), predicate.ResourceVersionChangedPredicate{}),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: r.Concurrency}).
@@ -97,6 +112,13 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// validate the configmap data field
+	err = validateConfigMapData(configMap)
+	if err != nil {
+		log.Error(err, "invalid ConfigMap")
+		return ctrl.Result{}, err
+	}
+
 	// Fetch the VDB found in the configmap
 	vdb := &v1.VerticaDB{}
 	nm := names.GenNamespacedName(configMap, configMap.Data[verticaDBNameKey])
@@ -106,8 +128,17 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	log = log.WithValues("verticadb", vdb.Name)
 
+	passwd, err := vk8s.GetSuperuserPassword(ctx, r.Client, log, r, vdb)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
+	sandboxName := configMap.Data[sandboxNameKey]
+	pfacts := vdbcontroller.MakePodFactsForSandbox(r, prunner, log, sandboxName)
+	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
+
 	// Iterate over each actor
-	actors := r.constructActors(vdb, log)
+	actors := r.constructActors(vdb, log, prunner, &pfacts, dispatcher)
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
 		res, err = act.Reconcile(ctx, &req)
@@ -124,10 +155,13 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // constructActors will a list of actors that should be run for the reconcile.
 // Order matters in that some actors depend on the successeful execution of
 // earlier ones.
-func (r *SandboxConfigMapReconciler) constructActors(_ *v1.VerticaDB,
-	_ logr.Logger) []controllers.ReconcileActor {
+func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr.Logger,
+	prunner *cmds.ClusterPodRunner, pfacts *vdbcontroller.PodFacts, dispatcher vadmin.Dispatcher) []controllers.ReconcileActor {
 	// The actors that will be applied, in sequence, to reconcile a sandbox configmap.
-	return nil
+	return []controllers.ReconcileActor{
+		MakeVerifyDeploymentReconciler(r, vdb, log),
+		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
+	}
 }
 
 // predicateFuncs returns a predicate that will be used to filter
@@ -151,9 +185,9 @@ func (r *SandboxConfigMapReconciler) predicateFuncs() predicate.Funcs {
 
 // containsSandboxConfigMapLabels returns true if the labels map contains
 // all sandbox configmap labels
-func (r *SandboxConfigMapReconciler) containsSandboxConfigMapLabels(labels map[string]string) bool {
+func (r *SandboxConfigMapReconciler) containsSandboxConfigMapLabels(labs map[string]string) bool {
 	for _, label := range vmeta.SandboxConfigMapLabels {
-		val, ok := labels[label]
+		val, ok := labs[label]
 		if !ok {
 			return false
 		}
@@ -195,4 +229,60 @@ func (r *SandboxConfigMapReconciler) Eventf(obj runtime.Object, eventtype, reaso
 		EVRec: r.EVRec,
 	}
 	evWriter.Eventf(obj, eventtype, reason, messageFmt, args...)
+}
+
+// findObjectsForStatesulSet will generate requests to reconcile sandbox ConfigMaps
+// based on watched Statefulset
+func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object) []reconcile.Request {
+	configMaps := corev1.ConfigMapList{}
+	stsLabels := sts.GetLabels()
+	sbLabels := make(map[string]string, len(vmeta.SandboxConfigMapLabels))
+	for _, label := range vmeta.SandboxConfigMapLabels {
+		sbLabels[label] = stsLabels[label]
+	}
+	listOps := &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(labels.Set(sbLabels)),
+		Namespace:     sts.GetNamespace(),
+	}
+	err := r.List(context.Background(), &configMaps, listOps)
+	if err != nil {
+		return []reconcile.Request{}
+	}
+
+	vdbName := stsLabels[vmeta.VDBInstanceLabel]
+	sandbox := stsLabels[vmeta.SandboxNameLabel]
+	requests := []reconcile.Request{}
+	for i := range configMaps.Items {
+		// data within a ConfigMap is a map[string]string, and you typically
+		// can't index it directly with the Kubernetes client-go FieldIndexer interface.
+		// That's why we filter the configmaps to keep only the one that has the same
+		// sandbox name and vdb name as the statefulset
+		cm := &configMaps.Items[i]
+		cmVdbName, vdbExists := cm.Data[verticaDBNameKey]
+		cmSbName, sbExists := cm.Data[sandboxNameKey]
+		if (!vdbExists || !sbExists) ||
+			cmVdbName != vdbName ||
+			cmSbName != sandbox {
+			continue
+		}
+		request := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      configMaps.Items[i].GetName(),
+				Namespace: configMaps.Items[i].GetNamespace(),
+			},
+		}
+		requests = append(requests, request)
+	}
+	return requests
+}
+
+// validateConfigMapData verifies that sandbox configmap contains
+// a sandbox and a verticaDB
+func validateConfigMapData(cm *corev1.ConfigMap) error {
+	_, hasVDBName := cm.Data[verticaDBNameKey]
+	_, hasSandbox := cm.Data[sandboxNameKey]
+	if !hasVDBName || !hasSandbox {
+		return fmt.Errorf("configmap data must contain '%q' and '%q'", verticaDBNameKey, sandboxNameKey)
+	}
+	return nil
 }
