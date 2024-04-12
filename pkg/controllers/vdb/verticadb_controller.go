@@ -319,3 +319,8 @@ func (r *VerticaDBReconciler) Eventf(vdb runtime.Object, eventtype, reason, mess
 func (r *VerticaDBReconciler) GetClient() client.Client {
 	return r.Client
 }
+
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
+}

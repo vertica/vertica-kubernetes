@@ -236,8 +236,8 @@ func MakePodFacts(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log l
 }
 
 // MakePodFactsForSandbox will create a PodFacts object for a sandbox
-func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, sandbox string) PodFacts {
-	pf := MakePodFacts(vrec, prunner, log)
+func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRunner, log logr.Logger, password, sandbox string) PodFacts {
+	pf := MakePodFacts(vrec, prunner, log, password)
 	pf.SandboxName = sandbox
 	return pf
 }
@@ -754,7 +754,7 @@ func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog
 	if ok {
 		verInfo, _ := vversion.MakeInfoFromStr(vdbVer)
 		if verInfo.IsOlder(vclusterAPISupportedMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
-			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.VRec.Log, p.VRec.Client, p.VRec.EVRec)
+			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())
 		}
 	}
 	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName, pf.vnodeName)

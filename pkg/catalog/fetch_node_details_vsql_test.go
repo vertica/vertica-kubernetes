@@ -21,7 +21,7 @@ import (
 )
 
 var _ = Describe("nodedetailsvsql", func() {
-	It("should parse read-only and sanbox states from node query", func() {
+	It("should parse read-only and sandbox states from node query", func() {
 		nodeDetails := &NodeDetails{}
 		Expect(nodeDetails.parseNodeState("v_db_node0001|UP|123456|t|sb1\n")).Should(Succeed())
 		Expect(nodeDetails.ReadOnly).Should(BeTrue())

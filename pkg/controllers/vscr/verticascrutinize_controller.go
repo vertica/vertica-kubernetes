@@ -187,6 +187,11 @@ func (r *VerticaScrutinizeReconciler) GetClient() client.Client {
 	return r.Client
 }
 
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaScrutinizeReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
+}
+
 // abortReconcile returns true if it is not the first reconciliation iteration and VerticaDB is not
 // configured for vclusterops scrutinize
 func (r *VerticaScrutinizeReconciler) abortReconcile(vscr *v1beta1.VerticaScrutinize) (ok bool, reason string) {
