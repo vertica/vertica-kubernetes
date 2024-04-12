@@ -195,6 +195,14 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 			}
 		}
 	}
+
+	// Clear annotations set in the VerticaDB's metadata.annotations.
+	for _, a := range []string{vmeta.ReplicatedUpgradeReplicatorAnnotation, vmeta.ReplicatedUpgradeSandboxAnnotation} {
+		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
+			delete(i.Vdb.Annotations, a)
+			updated = true
+		}
+	}
 	return
 }
 

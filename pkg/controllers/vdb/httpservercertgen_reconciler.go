@@ -99,23 +99,12 @@ func (h *HTTPServerCertGenReconciler) getDNSNames() []string {
 }
 
 func (h *HTTPServerCertGenReconciler) createSecret(ctx context.Context, cert, caCert security.Certificate) (*corev1.Secret, error) {
-	isController := true
-	blockOwnerDeletion := false
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   h.Vdb.Namespace,
-			Annotations: builder.MakeAnnotationsForObject(h.Vdb),
-			Labels:      builder.MakeCommonLabels(h.Vdb, nil, false),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         vapi.GroupVersion.String(),
-					Kind:               vapi.VerticaDBKind,
-					Name:               h.Vdb.Name,
-					UID:                h.Vdb.GetUID(),
-					Controller:         &isController,
-					BlockOwnerDeletion: &blockOwnerDeletion,
-				},
-			},
+			Namespace:       h.Vdb.Namespace,
+			Annotations:     builder.MakeAnnotationsForObject(h.Vdb),
+			Labels:          builder.MakeCommonLabels(h.Vdb, nil, false),
+			OwnerReferences: []metav1.OwnerReference{h.Vdb.GenerateOwnerReference()},
 		},
 		Type: corev1.SecretTypeTLS,
 		Data: map[string][]byte{
