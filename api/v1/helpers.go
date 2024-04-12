@@ -42,6 +42,8 @@ const (
 
 	RFC1123DNSSubdomainNameRegex = `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 	RFC1035DNSLabelNameRegex     = `^[a-z]([a-z0-9\-]{0,61}[a-z0-9])?$`
+
+	MainCluster = ""
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -139,8 +141,16 @@ func MakeVDBForHTTP(httpServerTLSSecretName string) *VerticaDB {
 // vclusterops. This is intended for test purposes.
 func MakeVDBForVclusterOps() *VerticaDB {
 	vdb := MakeVDB()
-	vdb.Annotations[vmeta.VersionAnnotation] = ScrutinizeDBPasswdInSecretMinVersion
+	vdb.Annotations[vmeta.VersionAnnotation] = VcluseropsAsDefaultDeploymentMethodMinVersion
 	vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+	return vdb
+}
+
+// MakeVDBForScrutinize is a helper that constructs a VerticaDB struct for
+// scrutinize. This is intended for test purposes.
+func MakeVDBForScrutinize() *VerticaDB {
+	vdb := MakeVDBForVclusterOps()
+	vdb.Annotations[vmeta.VersionAnnotation] = ScrutinizeDBPasswdInSecretMinVersion
 	return vdb
 }
 
@@ -737,6 +747,19 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 		return false, err
 	}
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
+}
+
+// GetSubclusterSandboxName returns the sandbox the given subcluster belongs to,
+// or an empty string if it does not belong to any
+func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
+	for i := range v.Spec.Sandboxes {
+		for j := range v.Spec.Sandboxes[i].Subclusters {
+			if scName == v.Spec.Sandboxes[i].Subclusters[j].Name {
+				return v.Spec.Sandboxes[i].Name
+			}
+		}
+	}
+	return MainCluster
 }
 
 // getNumberOfNodes returns the number of nodes defined in the database, as per the CR.

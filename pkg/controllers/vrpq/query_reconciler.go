@@ -93,7 +93,7 @@ func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.
 	}
 
 	finder := iter.MakeSubclusterFinder(q.VRec.Client, q.Vdb)
-	pods, err := finder.FindPods(ctx, iter.FindExisting)
+	pods, err := finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

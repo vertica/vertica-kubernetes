@@ -251,7 +251,7 @@ func (o *OfflineUpgradeReconciler) checkNMADeploymentChange(ctx context.Context)
 // only occur if there is at least one pod that exists.
 func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Result, error) {
 	foundPodWithNewImage := false
-	pods, err := o.Finder.FindPods(ctx, iter.FindExisting)
+	pods, err := o.Finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

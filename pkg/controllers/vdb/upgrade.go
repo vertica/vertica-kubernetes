@@ -277,7 +277,7 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 	// that already exist.  This is necessary in case the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
 	// doesn't take affect until after the upgrade.
-	pods, err := i.Finder.FindPods(ctx, iter.FindExisting)
+	pods, err := i.Finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
 	if err != nil {
 		return numPodsDeleted, err
 	}

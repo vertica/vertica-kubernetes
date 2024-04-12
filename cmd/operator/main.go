@@ -139,6 +139,7 @@ func addReconcilersToManager(mgr manager.Manager, restCfg *rest.Config) {
 	if err := (&sandbox.SandboxConfigMapReconciler{
 		Client:      mgr.GetClient(),
 		Scheme:      mgr.GetScheme(),
+		Cfg:         restCfg,
 		EVRec:       mgr.GetEventRecorderFor(vmeta.OperatorName),
 		Log:         ctrl.Log.WithName("controllers").WithName("sandbox"),
 		Concurrency: opcfg.GetSandboxConfigMapConcurrency(),
