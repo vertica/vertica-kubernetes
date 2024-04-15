@@ -490,7 +490,7 @@ func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string 
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
-		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_cata	log/%s 2> /dev/null \
+		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_catalog/%s 2> /dev/null \
 			| grep --quiet . && echo true || echo false
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
