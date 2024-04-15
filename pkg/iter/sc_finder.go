@@ -64,10 +64,17 @@ func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFind
 // FindStatefulSets returns the statefulsets that were created by the operator.
 // You can limit it so that it only returns statefulsets that match subclusters
 // in Vdb, ones that don't match or all.
-func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags) (*appsv1.StatefulSetList, error) {
+//
+//nolint:dupl
+func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags, sandbox string) (*appsv1.StatefulSetList, error) {
 	sts := &appsv1.StatefulSetList{}
 	if err := m.buildObjList(ctx, sts, flags); err != nil {
 		return nil, err
+	}
+	// we can skip the filtering if all of the sts we are
+	// looking for are not for a subcluster in vdb
+	if flags&FindInVdb != 0 || flags&FindExisting != 0 {
+		sts = m.filterStatefulsetsBySandbox(sts, sandbox)
 	}
 	if flags&FindSorted != 0 {
 		sort.Slice(sts.Items, func(i, j int) bool {
@@ -93,6 +100,8 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
+//
+//nolint:dupl
 func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags, sandbox string) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
 	if err := m.buildObjList(ctx, pods, flags); err != nil {
@@ -125,7 +134,7 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 	// a sandboxed subcluster can only be one of those in the vdb so we skip this part if
 	// we are looking for sandboxed subclusters
 	if isMainCluster && (flags&FindNotInVdb != 0 || flags&FindExisting != 0) {
-		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb)
+		missingSts, err := m.FindStatefulSets(ctx, flags & ^FindInVdb, vapi.MainCluster)
 		if err != nil {
 			return nil, err
 		}
@@ -208,6 +217,18 @@ func hasSubclusterNameLabel(l map[string]string) bool {
 	return ok
 }
 
+// getSubclusterName returns the subcluster name from the labels
+func getSubclusterName(l map[string]string) string {
+	sc, ok := l[vmeta.SubclusterNameLabel]
+	if ok {
+		return sc
+	}
+	// Prior to 1.3.0, we had a different name for the subcluster name.  We
+	// renamed it as we added additional subcluster attributes to the label.
+	// Check for this one too.
+	return l[vmeta.SubclusterLegacyNameLabel]
+}
+
 // getLabelsFromObject will extract the labels from a k8s object.
 // If labels were not found then false is return for bool output.
 //
@@ -281,7 +302,7 @@ func (m *SubclusterFinder) filterPodsBySandbox(oldPods *corev1.PodList, sandbox 
 	scMap := m.getSubclusterSandboxStatusMap()
 	for i := range oldPods.Items {
 		pod := oldPods.Items[i]
-		sc := pod.Labels[vmeta.SubclusterNameLabel]
+		sc := getSubclusterName(pod.Labels)
 		sbName, isSandbox := scMap[sc]
 		if sandbox == vapi.MainCluster {
 			if !isSandbox {
@@ -295,4 +316,27 @@ func (m *SubclusterFinder) filterPodsBySandbox(oldPods *corev1.PodList, sandbox 
 	}
 	oldPods.Items = newPods
 	return oldPods
+}
+
+// filterStatefulsetsBySandbox returns a sts list containing sts part of a specific sandbox if a non-empty sandbox named is
+// passed in, or a sts list with only main cluster sts if no sandbox name is passed
+func (m *SubclusterFinder) filterStatefulsetsBySandbox(oldSts *appsv1.StatefulSetList, sandbox string) *appsv1.StatefulSetList {
+	newSts := []appsv1.StatefulSet{}
+	scMap := m.getSubclusterSandboxStatusMap()
+	for i := range oldSts.Items {
+		sts := &oldSts.Items[i]
+		sc := getSubclusterName(sts.Labels)
+		sbName, isSandbox := scMap[sc]
+		if sandbox == vapi.MainCluster {
+			if !isSandbox {
+				newSts = append(newSts, *sts)
+			}
+		} else {
+			if sbName == sandbox {
+				newSts = append(newSts, *sts)
+			}
+		}
+	}
+	oldSts.Items = newSts
+	return oldSts
 }

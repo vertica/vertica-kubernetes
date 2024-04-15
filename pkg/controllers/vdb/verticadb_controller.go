@@ -196,7 +196,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Add annotations/labels to each pod about the host running them
 		MakeAnnotateAndLabelPodReconciler(r, log, vdb, pfacts),
 		// Handles vertica server upgrade (i.e., when spec.image changes)
-		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
+		MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher, vapi.MainCluster),
 		MakeOnlineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		MakeReplicatedUpgradeReconciler(r, log, vdb, pfacts, dispatcher),
 		// Stop vertica if the status condition indicates

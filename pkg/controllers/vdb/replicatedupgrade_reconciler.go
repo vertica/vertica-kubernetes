@@ -56,11 +56,12 @@ type ReplicatedUpgradeReconciler struct {
 func MakeReplicatedUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &ReplicatedUpgradeReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("ReplicatedUpgradeReconciler"),
-		VDB:        vdb,
-		PFacts:     pfacts,
-		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReplicatedUpgradeInProgress, replicatedUpgradeAllowed),
+		VRec:   vdbrecon,
+		Log:    log.WithName("ReplicatedUpgradeReconciler"),
+		VDB:    vdb,
+		PFacts: pfacts,
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReplicatedUpgradeInProgress, vapi.MainCluster,
+			replicatedUpgradeAllowed),
 		Dispatcher: dispatcher,
 	}
 }

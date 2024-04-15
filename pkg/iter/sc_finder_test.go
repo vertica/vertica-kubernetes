@@ -98,7 +98,7 @@ var _ = Describe("sc_finder", func() {
 		lookupVdb.Spec.Subclusters[0] = vapi.Subcluster{Name: scNames[1], Size: scSizes[1]}
 
 		finder := MakeSubclusterFinder(k8sClient, lookupVdb)
-		sts, err := finder.FindStatefulSets(ctx, FindNotInVdb)
+		sts, err := finder.FindStatefulSets(ctx, FindNotInVdb, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(len(sts.Items)).Should(Equal(1))
 		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
@@ -128,7 +128,7 @@ var _ = Describe("sc_finder", func() {
 		vdb.Spec.Image = "should-not-report-this-image"
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
-		sts, err := finder.FindStatefulSets(ctx, FindExisting)
+		sts, err := finder.FindStatefulSets(ctx, FindExisting, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(len(sts.Items)).Should(Equal(2))
 		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
@@ -139,6 +139,17 @@ var _ = Describe("sc_finder", func() {
 		Expect(len(scs)).Should(Equal(2))
 		Expect(scs[0].Name).Should(Equal(vdb.Spec.Subclusters[0].Name))
 		Expect(scs[1].Name).Should(Equal(vdb.Spec.Subclusters[1].Name))
+
+		// only the sandboxed sts should be returned
+		const sbName = "sand"
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: scNames[:1]},
+		}
+		finder = MakeSubclusterFinder(k8sClient, vdb)
+		sts, err = finder.FindStatefulSets(ctx, FindExisting, sbName)
+		Expect(err).Should(Succeed())
+		Expect(len(sts.Items)).Should(Equal(1))
+		Expect(sts.Items[0].Name).Should(Equal(names.GenStsName(vdb, &vdb.Spec.Subclusters[0]).Name))
 	})
 
 	It("should find all pods that exist in k8s for the VerticaDB", func() {
@@ -241,7 +252,7 @@ var _ = Describe("sc_finder", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
-		stss, err := finder.FindStatefulSets(ctx, FindExisting|FindSorted)
+		stss, err := finder.FindStatefulSets(ctx, FindExisting|FindSorted, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(stss.Items[0].Name).Should(ContainSubstring(scNames[1]))
 		Expect(stss.Items[1].Name).Should(ContainSubstring(scNames[0]))

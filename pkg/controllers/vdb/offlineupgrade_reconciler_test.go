@@ -173,6 +173,6 @@ func createOfflineUpgradeReconciler(vdb *vapi.VerticaDB) (*OfflineUpgradeReconci
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
 	pfacts := createPodFactsDefault(fpr)
 	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
-	actor := MakeOfflineUpgradeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher)
+	actor := MakeOfflineUpgradeReconciler(vdbRec, logger, vdb, fpr, pfacts, dispatcher, vapi.MainCluster)
 	return actor.(*OfflineUpgradeReconciler), fpr, pfacts
 }

@@ -38,14 +38,15 @@ import (
 // OfflineUpgradeReconciler will handle the process of doing an offline upgrade
 // of the Vertica server.
 type OfflineUpgradeReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
-	PRunner    cmds.PodRunner
-	PFacts     *PodFacts
-	Finder     iter.SubclusterFinder
-	Manager    UpgradeManager
-	Dispatcher vadmin.Dispatcher
+	VRec        *VerticaDBReconciler
+	Log         logr.Logger
+	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on.
+	PRunner     cmds.PodRunner
+	PFacts      *PodFacts
+	Finder      iter.SubclusterFinder
+	Manager     UpgradeManager
+	Dispatcher  vadmin.Dispatcher
+	SandboxName string // sandbox we want to upgrade
 }
 
 const (
@@ -63,17 +64,18 @@ var OfflineUpgradeStatusMsgs = []string{
 }
 
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
-func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher, sandbox string) controllers.ReconcileActor {
 	return &OfflineUpgradeReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("OfflineUpgradeReconciler"),
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
-		Dispatcher: dispatcher,
+		VRec:        vdbrecon,
+		Log:         log.WithName("OfflineUpgradeReconciler"),
+		Vdb:         vdb,
+		PRunner:     prunner,
+		PFacts:      pfacts,
+		Finder:      iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Manager:     *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, sandbox, offlineUpgradeAllowed),
+		Dispatcher:  dispatcher,
+		SandboxName: sandbox,
 	}
 }
 
@@ -228,7 +230,7 @@ func (o *OfflineUpgradeReconciler) checkNMADeploymentChange(ctx context.Context)
 		return ctrl.Result{}, nil
 	}
 
-	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting)
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting, o.SandboxName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -251,7 +253,11 @@ func (o *OfflineUpgradeReconciler) checkNMADeploymentChange(ctx context.Context)
 // only occur if there is at least one pod that exists.
 func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Result, error) {
 	foundPodWithNewImage := false
-	pods, err := o.Finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
+	pods, err := o.Finder.FindPods(ctx, iter.FindExisting, o.SandboxName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	targetImage, err := o.Manager.getTargetImage()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -261,7 +267,7 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if cntImage == o.Vdb.Spec.Image {
+		if cntImage == targetImage {
 			foundPodWithNewImage = true
 			break
 		}
@@ -342,6 +348,10 @@ func (o *OfflineUpgradeReconciler) addClientRoutingLabel(ctx context.Context) (c
 
 // anyPodsRunningWithOldImage will check if any upNode pods are running with the old image.
 func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Context) (bool, error) {
+	targetImage, err := o.Manager.getTargetImage()
+	if err != nil {
+		return false, err
+	}
 	for pn, pf := range o.PFacts.Detail {
 		if !pf.upNode {
 			continue
@@ -359,7 +369,7 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 		if err != nil {
 			return false, err
 		}
-		if cntImage != o.Vdb.Spec.Image {
+		if cntImage != targetImage {
 			return true, nil
 		}
 	}

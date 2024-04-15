@@ -54,20 +54,23 @@ type OnlineUpgradeReconciler struct {
 	Dispatcher  vadmin.Dispatcher
 	StatusMsgs  []string // Precomputed status messages
 	MsgIndex    int      // Current index in StatusMsgs
+	SandboxName string   // sandbox we want to upgrade
 }
 
 // MakeOnlineUpgradeReconciler will build an OnlineUpgradeReconciler object
 func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OnlineUpgradeReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("OnlineUpgradeReconciler"),
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
-		Dispatcher: dispatcher,
+		VRec:    vdbrecon,
+		Log:     log.WithName("OnlineUpgradeReconciler"),
+		Vdb:     vdb,
+		PRunner: prunner,
+		PFacts:  pfacts,
+		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, vapi.MainCluster,
+			onlineUpgradeAllowed),
+		Dispatcher:  dispatcher,
+		SandboxName: vapi.MainCluster,
 	}
 }
 
@@ -329,7 +332,7 @@ func (o *OnlineUpgradeReconciler) addClientRoutingLabelToTransientNodes(ctx cont
 // processFunc for each one that matches the given type.
 func (o *OnlineUpgradeReconciler) iterateSubclusterType(ctx context.Context, scType string,
 	processFunc func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error)) (ctrl.Result, error) {
-	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted)
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted, o.SandboxName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
