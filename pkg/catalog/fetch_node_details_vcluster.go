@@ -47,6 +47,9 @@ func (nodeDetails *NodeDetails) parseVNodeDetails(vnodeDetails *vclusterops.Node
 	nodeDetails.ReadOnly = vnodeDetails.IsReadOnly
 	nodeDetails.SandboxName = vnodeDetails.SandboxName
 	nodeDetails.ShardSubscriptions = int(vnodeDetails.NumberShardSubscriptions)
+	// The shard subscriptions we get from vcluster includes the replica shard.
+	// We decrement that by one to account for that. We want to know when there
+	// are 0 shard subscriptions in order to drive a shard rebalance.
 	if nodeDetails.ShardSubscriptions > 0 {
 		nodeDetails.ShardSubscriptions--
 	}
