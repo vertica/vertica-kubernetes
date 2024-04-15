@@ -121,6 +121,7 @@ func defaultPodFactOverrider(_ context.Context, _ *vapi.VerticaDB, pf *PodFact, 
 	pf.startupInProgress = false
 	pf.upNode = true
 	pf.subclusterOid = "123456"
+	pf.shardSubscriptions = 1
 	return nil
 }
 

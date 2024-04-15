@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -46,7 +47,7 @@ type ReplicatedUpgradeReconciler struct {
 	VRec        *VerticaDBReconciler
 	Log         logr.Logger
 	VDB         *vapi.VerticaDB
-	PFacts      *PodFacts
+	PFacts      map[string]*PodFacts // We have podfacts for main cluster and replica sandbox
 	Manager     UpgradeManager
 	Dispatcher  vadmin.Dispatcher
 	sandboxName string // name of the sandbox created for replica group B
@@ -59,7 +60,7 @@ func MakeReplicatedUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 		VRec:       vdbrecon,
 		Log:        log.WithName("ReplicatedUpgradeReconciler"),
 		VDB:        vdb,
-		PFacts:     pfacts,
+		PFacts:     map[string]*PodFacts{vapi.MainCluster: pfacts},
 		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.ReplicatedUpgradeInProgress, replicatedUpgradeAllowed),
 		Dispatcher: dispatcher,
 	}
@@ -71,7 +72,7 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if err := r.PFacts.Collect(ctx, r.VDB); err != nil {
+	if err := r.PFacts[vapi.MainCluster].Collect(ctx, r.VDB); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -83,11 +84,10 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		r.loadUpgradeState,
 		// Assign subclusters to upgrade to replica group A
 		r.assignSubclustersToReplicaGroupA,
-		r.runObjReconciler,
 		// Create secondary subclusters for each of the primaries. These will be
 		// added to replica group B and ready to be sandboxed.
 		r.assignSubclustersToReplicaGroupB,
-		r.runObjReconciler,
+		r.runObjReconcilerForMainCluster,
 		r.runAddSubclusterReconciler,
 		r.runAddNodesReconciler,
 		// Sandbox all of the secondary subclusters that are destined for
@@ -158,23 +158,35 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupA(ctx conte
 	return ctrl.Result{}, err
 }
 
-// runObjReconciler will run the object reconciler. This is used to build or
-// update any necessary objects the upgrade depends on.
-func (r *ReplicatedUpgradeReconciler) runObjReconciler(ctx context.Context) (ctrl.Result, error) {
-	rec := MakeObjReconciler(r.VRec, r.Log, r.VDB, r.PFacts, ObjReconcileModeAll)
-	return rec.Reconcile(ctx, &ctrl.Request{})
+// runObjReconcilerForMainCluster will run the object reconciler for all objects
+// that are part of the main cluster. This is used to build or update any
+// necessary objects the upgrade depends on.
+func (r *ReplicatedUpgradeReconciler) runObjReconcilerForMainCluster(ctx context.Context) (ctrl.Result, error) {
+	rec := MakeObjReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], ObjReconcileModeAll)
+	r.Manager.traceActorReconcile(rec)
+	res, err := rec.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	return res, err
 }
 
 // runAddSubclusterReconciler will run the reconciler to create any necessary subclusters
 func (r *ReplicatedUpgradeReconciler) runAddSubclusterReconciler(ctx context.Context) (ctrl.Result, error) {
-	rec := MakeDBAddSubclusterReconciler(r.VRec, r.Log, r.VDB, r.PFacts.PRunner, r.PFacts, r.Dispatcher)
-	return rec.Reconcile(ctx, &ctrl.Request{})
+	pf := r.PFacts[vapi.MainCluster]
+	rec := MakeDBAddSubclusterReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, r.Dispatcher)
+	r.Manager.traceActorReconcile(rec)
+	res, err := rec.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	return res, err
 }
 
 // runAddNodesReconciler will run the reconciler to scale out any subclusters.
 func (r *ReplicatedUpgradeReconciler) runAddNodesReconciler(ctx context.Context) (ctrl.Result, error) {
-	rec := MakeDBAddNodeReconciler(r.VRec, r.Log, r.VDB, r.PFacts.PRunner, r.PFacts, r.Dispatcher)
-	return rec.Reconcile(ctx, &ctrl.Request{})
+	pf := r.PFacts[vapi.MainCluster]
+	rec := MakeDBAddNodeReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, r.Dispatcher)
+	r.Manager.traceActorReconcile(rec)
+	res, err := rec.Reconcile(ctx, &ctrl.Request{})
+	r.PFacts[vapi.MainCluster].Invalidate()
+	return res, err
 }
 
 // assignSubclustersToReplicaGroupB will figure out the subclusters that make up
@@ -284,7 +296,38 @@ func (r *ReplicatedUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context)
 // is to prepare for the replication at the next step. We need to stop writes
 // (momentarily) so that the two replica groups have the same data.
 func (r *ReplicatedUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("pause connections at replica group A is not yet implemented")
+	// In lieu of actual pause semantics, which will come later, we are going to
+	// repurpose this step to do an old style drain. We need all connections to
+	// disconnect as we want to prevent writes from happening. Continuing to
+	// allow writes could potentially lead to data loss. We are about to
+	// replicate the data, if writes can happen after the replication to replica
+	// group B, they are going to be lost.
+	//
+	// We first need to route all traffic away from all subclusters in replica
+	// group A. There is no target they will get routed too. Clients just won't
+	// be able to connect until we finish the fail-over to replica group B. We
+	// want do this for all pods that are in replica group A. The pod facts that
+	// we pass in are for the main cluster, so that covers the pods we want to
+	// do this for.
+	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[vapi.MainCluster], DrainNodeApplyMethod, "")
+	r.Manager.traceActorReconcile(actor)
+	res, err := actor.Reconcile(ctx, &ctrl.Request{})
+	if verrors.IsReconcileAborted(res, err) {
+		return res, err
+	}
+
+	// Iterate through the subclusters in replica group A. We check if there are
+	// any active connections for each. Once they are all idle we can advance to
+	// the next action in the upgrade.
+	scNames := r.getSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+	for _, scName := range scNames {
+		res, err := r.Manager.isSubclusterIdle(ctx, r.PFacts[vapi.MainCluster], scName)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // startReplicationToReplicaGroupB will copy any new data that was added since
@@ -380,7 +423,53 @@ func (r *ReplicatedUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx contex
 // redirectConnectionsToReplicaGroupB will redirect all of the connections
 // established at replica group A to go to replica group B.
 func (r *ReplicatedUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("redirect connections to replica group B is not yet implemented")
+	// In lieu of the redirect, we are simply going to update the service object
+	// to map to nodes in replica group B. There is no state to check to avoid
+	// this function. The updates themselves are idempotent and will simply be
+	// no-op if already done.
+	//
+	// Routing is easy for any primary subcluster since there is a duplicate
+	// subcluster in replica group B. For secondaries, it is trickier. We need
+	// to choose one of the subclusters created from replica group A's primary.
+	// We will do a simple round robin for those ones.
+	repAScNames := r.getSubclustersForReplicaGroup(vmeta.ReplicaGroupAValue)
+	repBScNames := r.getSubclustersForReplicaGroup(vmeta.ReplicaGroupBValue)
+	secondaryRoundRobinInx := 0
+
+	scMap := r.VDB.GenSubclusterMap()
+	for _, scName := range repAScNames {
+		sourceSc, found := scMap[scName]
+		if !found {
+			return ctrl.Result{}, fmt.Errorf("could not find subcluster %q in vdb", scName)
+		}
+
+		var targetScName string
+		if sourceSc.Type == vapi.PrimarySubcluster {
+			// Easy for primary since there is a child subcluster created.
+			targetScName, found = sourceSc.Annotations[vmeta.ChildSubclusterAnnotation]
+			if !found {
+				return ctrl.Result{}, fmt.Errorf("could not find the %q annotation for the subcluster %q",
+					vmeta.ChildSubclusterAnnotation, scName)
+			}
+		} else {
+			// For secondary, we will round robin among the subclusters defined in replica group B.
+			targetScName = repBScNames[secondaryRoundRobinInx]
+			secondaryRoundRobinInx++
+			if secondaryRoundRobinInx >= len(repBScNames) {
+				secondaryRoundRobinInx = 0
+			}
+		}
+		targetSc, found := scMap[targetScName]
+		if !found {
+			return ctrl.Result{}, fmt.Errorf("could not find subcluster %q in vdb", targetScName)
+		}
+
+		res, err := r.redirectConnectionsForSubcluster(ctx, sourceSc, targetSc)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 // promoteSandboxToMainCluster will promote the sandbox to the main cluster and
@@ -641,4 +730,41 @@ func (r *ReplicatedUpgradeReconciler) isReplicatedUpgradeSandboxCreated() (bool,
 		}
 	}
 	return foundSandbox, nil
+}
+
+// redirectConnectionsForSubcluster will update the service object so that
+// connections for one subcluster get routed to another one. This will also set
+// the client-routing label in the pod so that it can accept traffic.
+func (r *ReplicatedUpgradeReconciler) redirectConnectionsForSubcluster(ctx context.Context, sourceSc, targetSc *vapi.Subcluster) (
+	ctrl.Result, error) {
+	if r.sandboxName == "" {
+		return ctrl.Result{}, errors.New("sandbox name not cached")
+	}
+
+	selectorLabels := builder.MakeSvcSelectorLabelsForSubclusterNameRouting(r.VDB, targetSc)
+	// The service object that we manipulate will always be from the main
+	// cluster (ie. non-sandboxed).
+	err := r.Manager.routeClientTraffic(ctx, r.PFacts[vapi.MainCluster], sourceSc, selectorLabels)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update client routing for subcluster %q", sourceSc.Name)
+	}
+
+	// Collect the podfacts for the sandbox if not already done. We are going to
+	// use the sandbox podfacts when we update the client routing label.
+	if _, found := r.PFacts[r.sandboxName]; !found {
+		sbPfacts := r.PFacts[vapi.MainCluster].Clone(r.sandboxName)
+		r.PFacts[r.sandboxName] = &sbPfacts
+	}
+	err = r.PFacts[r.sandboxName].Collect(ctx, r.VDB)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to collect podfacts for sandbox: %w", err)
+	}
+
+	// Add the client routing labels to pods in the target subcluster. This
+	// ensures the service object can reach them.  We use the podfacts for the
+	// sandbox as we will always route to pods in the sandbox.
+	actor := MakeClientRoutingLabelReconciler(r.VRec, r.Log, r.VDB, r.PFacts[r.sandboxName],
+		AddNodeApplyMethod, targetSc.Name)
+	r.Manager.traceActorReconcile(actor)
+	return actor.Reconcile(ctx, &ctrl.Request{})
 }

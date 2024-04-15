@@ -390,11 +390,11 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		fpr.Results[pn] = []cmds.CmdResult{
 			{Stdout: "  5\n"},
 		}
-		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(r.Manager.isSubclusterIdle(ctx, r.PFacts, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: true}))
 		fpr.Results[pn] = []cmds.CmdResult{
 			{Stdout: "  0\n"},
 		}
-		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
+		Expect(r.Manager.isSubclusterIdle(ctx, r.PFacts, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
 	})
 
 	It("should requeue after a specified UpgradeRequeueAfter time", func() {
