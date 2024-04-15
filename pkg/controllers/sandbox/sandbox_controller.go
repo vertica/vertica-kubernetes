@@ -134,7 +134,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
 	sandboxName := configMap.Data[sandboxNameKey]
-	pfacts := vdbcontroller.MakePodFactsForSandbox(r, prunner, log, sandboxName)
+	pfacts := vdbcontroller.MakePodFactsForSandbox(r, prunner, log, passwd, sandboxName)
 	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 
 	// Iterate over each actor
@@ -220,6 +220,11 @@ func (r *SandboxConfigMapReconciler) Event(obj runtime.Object, eventtype, reason
 // GetClient gives access to the Kubernetes client
 func (r *SandboxConfigMapReconciler) GetClient() client.Client {
 	return r.Client
+}
+
+// GetEventRecorder gives access to the event recorder
+func (r *SandboxConfigMapReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
 }
 
 // Eventf is a wrapper for Eventf() that also writes a log entry

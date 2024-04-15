@@ -56,6 +56,7 @@ type ReconcilerInterface interface {
 	Event(vdb runtime.Object, eventType string, reason string, message string)
 	Eventf(vdb runtime.Object, eventType, reason, messageFmt string, args ...interface{})
 	GetClient() client.Client
+	GetEventRecorder() record.EventRecorder
 }
 
 type VerticaReconciler struct {
@@ -67,6 +68,11 @@ type VerticaReconciler struct {
 // GetClient gives access to the Kubernetes client
 func (v *VerticaReconciler) GetClient() client.Client {
 	return v.Client
+}
+
+// GetEventRecorder gives access to the event recorder
+func (v *VerticaReconciler) GetEventRecorder() record.EventRecorder {
+	return v.EVRec
 }
 
 // Event a wrapper for Event() that also writes a log entry
