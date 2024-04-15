@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,7 +37,6 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
-	vversion "github.com/vertica/vertica-kubernetes/pkg/version"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -492,7 +490,7 @@ func (p *PodFacts) genGatherScriptBase(vdb *vapi.VerticaDB, pf *PodFact) string 
 		echo -n '  %s: '
 		test -f %s && echo true || echo false
 		echo -n 'dbExists: '
-		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_catalog/%s 2> /dev/null \
+		ls --almost-all --hide-control-chars -1 %s/%s/v_%s_node????_cata	log/%s 2> /dev/null \
 			| grep --quiet . && echo true || echo false
 		echo -n 'compat21NodeName: '
 		test -f %s && echo -n '"' && echo -n $(cat %s) && echo '"' || echo '""'
@@ -749,13 +747,14 @@ func (p *PodFacts) checkIsDBCreated(_ context.Context, vdb *vapi.VerticaDB, pf *
 // the operator will call vclusterOps API to collect the node info. Otherwise, the operator will
 // execute vsql inside the pod to collect the node info.
 func (p *PodFacts) makeNodeInfoFetcher(vdb *vapi.VerticaDB, pf *PodFact) catalog.Fetcher {
-	const vclusterAPISupportedMinVersion = "v24.3.0"
-	vdbVer, ok := vdb.GetVerticaVersionStr()
-	if ok {
-		verInfo, _ := vversion.MakeInfoFromStr(vdbVer)
-		if !verInfo.IsOlder(vclusterAPISupportedMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
+	verInfo, ok := vdb.MakeVersionInfo()
+	if verInfo != nil && ok {
+		if !verInfo.IsOlder(vapi.FetchNodeDetailsWithVclusterOpsMinVersion) && vmeta.UseVClusterOps(vdb.Annotations) {
 			return catalog.MakeVCluster(vdb, p.VerticaSUPassword, pf.podIP, p.Log, p.VRec.GetClient(), p.VRec.GetEventRecorder())
 		}
+	} else {
+		p.Log.Info("Cannot get a correct vertica version from the annotation",
+			"vertica version annotation", vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation])
 	}
 	return catalog.MakeVSQL(vdb, p.PRunner, pf.name, pf.execContainerName, pf.vnodeName)
 }
@@ -795,16 +794,6 @@ func (p *PodFacts) checkIfNodeIsDoingStartup(_ context.Context, _ *vapi.VerticaD
 	}
 	pf.startupInProgress = !gs.StartupComplete
 	return nil
-}
-
-// parseVerticaNodeName extract the vertica node name from the directory list
-func parseVerticaNodeName(stdout string) string {
-	re := regexp.MustCompile(`(v_.+_node\d+)_data`)
-	match := re.FindAllStringSubmatch(stdout, 1)
-	if len(match) > 0 && len(match[0]) > 0 {
-		return match[0][1]
-	}
-	return ""
 }
 
 // doesDBExist will check if the database exists anywhere.

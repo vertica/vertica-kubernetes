@@ -47,6 +47,9 @@ func (nodeDetails *NodeDetails) parseVNodeDetails(vnodeDetails *vclusterops.Node
 	nodeDetails.ReadOnly = vnodeDetails.IsReadOnly
 	nodeDetails.SandboxName = vnodeDetails.SandboxName
 	nodeDetails.ShardSubscriptions = int(vnodeDetails.NumberShardSubscriptions)
+	if nodeDetails.ShardSubscriptions > 0 {
+		nodeDetails.ShardSubscriptions--
+	}
 	for _, storageLoc := range vnodeDetails.StorageLocList {
 		if storageLoc.UsageType == "DEPOT" {
 			nodeDetails.MaxDepotSize = int(storageLoc.MaxSize)

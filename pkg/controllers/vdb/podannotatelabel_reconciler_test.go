@@ -38,7 +38,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		act := MakeAnnotateAndLabelPodReconciler(vdbRec, logger, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
@@ -66,7 +66,7 @@ var _ = Describe("podannotatelabel_reconcile", func() {
 		Expect(k8sClient.Update(ctx, pod)).Should(Succeed())
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, "")
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		act := MakeAnnotateAndLabelPodReconciler(vdbRec, logger, vdb, &pfacts)
 		Expect(act.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
