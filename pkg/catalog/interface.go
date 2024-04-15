@@ -18,14 +18,28 @@ package catalog
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type NodeDetails struct {
+	Name                 string
+	State                string
+	SubclusterOid        string
+	ReadOnly             bool
+	SandboxName          string
+	ShardSubscriptions   int
+	MaxDepotSize         int
+	DepotDiskPercentSize string
+}
+
 type Fetcher interface {
-	// FetchNodeState will return information about a specific node
-	FetchNodeState(ctx context.Context) (*NodeInfo, error)
+	// FetchNodeDetails will return information about a specific node
+	FetchNodeDetails(ctx context.Context) (*NodeDetails, error)
 }
 
 type VSQL struct {
@@ -33,22 +47,38 @@ type VSQL struct {
 	VDB               *vapi.VerticaDB
 	PodName           types.NamespacedName
 	ExecContainerName string
+	VNodeName         string
 }
 
-// MakeVSQL will create a nodeInfoFetcher that uses vsql to get a node state
-func MakeVSQL(vdb *vapi.VerticaDB, prunner cmds.PodRunner, pn types.NamespacedName, cnt string) *VSQL {
+// MakeVSQL will create a Fetcher that uses vsql to get a node's details
+func MakeVSQL(vdb *vapi.VerticaDB, prunner cmds.PodRunner, pn types.NamespacedName, cnt, vnodeName string) *VSQL {
 	return &VSQL{
 		PRunner:           prunner,
 		VDB:               vdb,
 		PodName:           pn,
 		ExecContainerName: cnt,
+		VNodeName:         vnodeName,
 	}
 }
 
-type NodeInfo struct {
-	Name          string
-	State         string
-	SubclusterOid string
-	ReadOnly      bool
-	SandboxName   string
+type VCluster struct {
+	VDB      *vapi.VerticaDB
+	Password string
+	PodIP    string
+	Log      logr.Logger
+	client.Client
+	EVRec record.EventRecorder
+}
+
+// MakeVCluster will create a Fetcher that uses vclusterops API to get a node's details
+func MakeVCluster(vdb *vapi.VerticaDB, password, podIP string, log logr.Logger,
+	cli client.Client, evRec record.EventRecorder) *VCluster {
+	return &VCluster{
+		VDB:      vdb,
+		Password: password,
+		PodIP:    podIP,
+		Log:      log,
+		Client:   cli,
+		EVRec:    evRec,
+	}
 }

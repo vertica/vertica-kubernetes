@@ -81,6 +81,8 @@ const (
 	ScrutinizeDBPasswdInSecretMinVersion = "v24.2.0"
 	// Starting in v24.3.0, sandboxing a subcluster with the operator is supported
 	SandboxSupportedMinVersion = "v24.3.0"
+	// Starting in v24.3.0, we call vclusterops API to get node details instead of executing vsql within the pod
+	FetchNodeDetailsWithVclusterOpsMinVersion = "v24.3.0"
 )
 
 // GetVerticaVersionStr returns the vertica version, in string form, that is stored

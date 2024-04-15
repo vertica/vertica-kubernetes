@@ -191,3 +191,6 @@ func (*MockVClusterOps) VStopDatabase(_ *vclusterops.VStopDatabaseOptions) error
 func (*MockVClusterOps) VInstallPackages(_ *vclusterops.VInstallPackagesOptions) (*vclusterops.InstallPackageStatus, error) {
 	return nil, nil
 }
+func (*MockVClusterOps) VFetchNodesDetails(_ *vclusterops.VFetchNodesDetailsOptions) (vclusterops.NodesDetails, error) {
+	return nil, nil
+}

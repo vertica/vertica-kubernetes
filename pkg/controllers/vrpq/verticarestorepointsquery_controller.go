@@ -145,3 +145,8 @@ func (r *VerticaRestorePointsQueryReconciler) Eventf(vrpq runtime.Object, eventt
 func (r *VerticaRestorePointsQueryReconciler) GetClient() client.Client {
 	return r.Client
 }
+
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaRestorePointsQueryReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
+}

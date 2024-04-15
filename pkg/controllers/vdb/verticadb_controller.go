@@ -124,7 +124,7 @@ func (r *VerticaDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// We use the same pod facts for all reconcilers. This allows to reuse as
 	// much as we can. Some reconcilers will purposely invalidate the facts if
 	// it is known they did something to make them stale.
-	pfacts := MakePodFacts(r, prunner, log)
+	pfacts := MakePodFacts(r, prunner, log, passwd)
 	dispatcher := r.makeDispatcher(log, vdb, prunner, passwd)
 	var res ctrl.Result
 
@@ -318,4 +318,9 @@ func (r *VerticaDBReconciler) Eventf(vdb runtime.Object, eventtype, reason, mess
 // GetClient gives access to the Kubernetes client
 func (r *VerticaDBReconciler) GetClient() client.Client {
 	return r.Client
+}
+
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
 }
