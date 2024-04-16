@@ -509,7 +509,7 @@ func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {
 
 // isSubclusterIdle will run a query to see the number of connections
 // that are active for a given subcluster.  It returns a requeue error if there
-// are active connections still.
+// are still active connections.
 func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts, scName string) (ctrl.Result, error) {
 	pf, ok := pfacts.findPodToRunVsql(true, scName)
 	if !ok {

@@ -170,7 +170,7 @@ func (r *ReplicatedUpgradeReconciler) runObjReconcilerForMainCluster(ctx context
 }
 
 // runAddSubclusterReconciler will run the reconciler to create any necessary subclusters
-func (r *ReplicatedUpgradeReconciler) runAddSubclusterReconciler(ctx context.Context) (ctrl.Result, error) {
+func (r *ReplicatedUpgradeReconciler) runAddSubclusterReconcilerForMainCluster(ctx context.Context) (ctrl.Result, error) {
 	pf := r.PFacts[vapi.MainCluster]
 	rec := MakeDBAddSubclusterReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, r.Dispatcher)
 	r.Manager.traceActorReconcile(rec)
