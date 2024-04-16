@@ -113,7 +113,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 
 		r := createOnlineUpgradeReconciler(ctx, vdb)
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
-		oldImage, ok := r.Manager.fetchOldImage()
+		oldImage, ok := r.Manager.fetchOldImage(vapi.MainCluster)
 		Expect(ok).Should(BeTrue())
 		Expect(oldImage).Should(Equal(OldImage))
 	})

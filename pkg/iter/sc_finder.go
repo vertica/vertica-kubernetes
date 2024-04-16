@@ -64,17 +64,10 @@ func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFind
 // FindStatefulSets returns the statefulsets that were created by the operator.
 // You can limit it so that it only returns statefulsets that match subclusters
 // in Vdb, ones that don't match or all.
-//
-//nolint:dupl
 func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags, sandbox string) (*appsv1.StatefulSetList, error) {
 	sts := &appsv1.StatefulSetList{}
-	if err := m.buildObjList(ctx, sts, flags); err != nil {
+	if err := m.buildObjList(ctx, sts, flags, sandbox); err != nil {
 		return nil, err
-	}
-	// we can skip the filtering if all of the sts we are
-	// looking for are not for a subcluster in vdb
-	if flags&FindInVdb != 0 || flags&FindExisting != 0 {
-		sts = m.filterStatefulsetsBySandbox(sts, sandbox)
 	}
 	if flags&FindSorted != 0 {
 		sort.Slice(sts.Items, func(i, j int) bool {
@@ -87,7 +80,7 @@ func (m *SubclusterFinder) FindStatefulSets(ctx context.Context, flags FindFlags
 // FindServices returns service objects that are in use for subclusters
 func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*corev1.ServiceList, error) {
 	svcs := &corev1.ServiceList{}
-	if err := m.buildObjList(ctx, svcs, flags); err != nil {
+	if err := m.buildObjList(ctx, svcs, flags, vapi.MainCluster); err != nil {
 		return nil, err
 	}
 	if flags&FindSorted != 0 {
@@ -100,17 +93,10 @@ func (m *SubclusterFinder) FindServices(ctx context.Context, flags FindFlags) (*
 
 // FindPods returns pod objects that are are used to run Vertica.  It limits the
 // pods that were created by the VerticaDB object.
-//
-//nolint:dupl
 func (m *SubclusterFinder) FindPods(ctx context.Context, flags FindFlags, sandbox string) (*corev1.PodList, error) {
 	pods := &corev1.PodList{}
-	if err := m.buildObjList(ctx, pods, flags); err != nil {
+	if err := m.buildObjList(ctx, pods, flags, sandbox); err != nil {
 		return nil, err
-	}
-	// we can skip the filtering if all of the pods we are
-	// looking for are not part of a subcluster in vdb
-	if flags&FindInVdb != 0 || flags&FindExisting != 0 {
-		pods = m.filterPodsBySandbox(pods, sandbox)
 	}
 	if flags&FindSorted != 0 {
 		sort.Slice(pods.Items, func(i, j int) bool {
@@ -166,7 +152,7 @@ func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string
 // buildObjList will populate list with an object type owned by the operator.
 // Caller can use flags to return a list of all objects, only those in the vdb,
 // or only those not in the vdb.
-func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectList, flags FindFlags) error {
+func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectList, flags FindFlags, sandbox string) error {
 	if err := listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list); err != nil {
 		return err
 	}
@@ -184,6 +170,12 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		if !hasSubclusterNameLabel(l) {
 			return nil
 		}
+
+		// Skip if the object does not belong to the given sandbox
+		if shouldSkipBasedOnSandboxState(l, sandbox) {
+			return nil
+		}
+
 		if flags&FindExisting != 0 {
 			rawObjs = append(rawObjs, obj)
 			return nil
@@ -203,6 +195,15 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	return meta.SetList(list, rawObjs)
 }
 
+// shouldSkipBasedOnSandboxState returns true if the object whose labels
+// is passed does not belong to the given sandbox or main cluster
+func shouldSkipBasedOnSandboxState(l map[string]string, sandbox string) bool {
+	if sandbox == vapi.MainCluster {
+		return l[vmeta.SandboxNameLabel] != vapi.MainCluster
+	}
+	return l[vmeta.SandboxNameLabel] != sandbox
+}
+
 // hasSubclusterNameLabel returns true if there exists a label that indicates
 // the object is for a subcluster
 func hasSubclusterNameLabel(l map[string]string) bool {
@@ -215,18 +216,6 @@ func hasSubclusterNameLabel(l map[string]string) bool {
 	// Check for this one too.
 	_, ok = l[vmeta.SubclusterLegacyNameLabel]
 	return ok
-}
-
-// getSubclusterName returns the subcluster name from the labels
-func getSubclusterName(l map[string]string) string {
-	sc, ok := l[vmeta.SubclusterNameLabel]
-	if ok {
-		return sc
-	}
-	// Prior to 1.3.0, we had a different name for the subcluster name.  We
-	// renamed it as we added additional subcluster attributes to the label.
-	// Check for this one too.
-	return l[vmeta.SubclusterLegacyNameLabel]
 }
 
 // getLabelsFromObject will extract the labels from a k8s object.
@@ -293,50 +282,4 @@ func (m *SubclusterFinder) getSandboxedSubclusters(sandbox string) []*vapi.Subcl
 		}
 	}
 	return subclusters
-}
-
-// filterPodsBySandbox returns a pod list without main cluster pods if a non-empty sandbox named is
-// passed in, or pod list with only main cluster pods if no sandbox name is passed
-func (m *SubclusterFinder) filterPodsBySandbox(oldPods *corev1.PodList, sandbox string) *corev1.PodList {
-	newPods := []corev1.Pod{}
-	scMap := m.getSubclusterSandboxStatusMap()
-	for i := range oldPods.Items {
-		pod := oldPods.Items[i]
-		sc := getSubclusterName(pod.Labels)
-		sbName, isSandbox := scMap[sc]
-		if sandbox == vapi.MainCluster {
-			if !isSandbox {
-				newPods = append(newPods, pod)
-			}
-		} else {
-			if sbName == sandbox {
-				newPods = append(newPods, pod)
-			}
-		}
-	}
-	oldPods.Items = newPods
-	return oldPods
-}
-
-// filterStatefulsetsBySandbox returns a sts list containing sts part of a specific sandbox if a non-empty sandbox named is
-// passed in, or a sts list with only main cluster sts if no sandbox name is passed
-func (m *SubclusterFinder) filterStatefulsetsBySandbox(oldSts *appsv1.StatefulSetList, sandbox string) *appsv1.StatefulSetList {
-	newSts := []appsv1.StatefulSet{}
-	scMap := m.getSubclusterSandboxStatusMap()
-	for i := range oldSts.Items {
-		sts := &oldSts.Items[i]
-		sc := getSubclusterName(sts.Labels)
-		sbName, isSandbox := scMap[sc]
-		if sandbox == vapi.MainCluster {
-			if !isSandbox {
-				newSts = append(newSts, *sts)
-			}
-		} else {
-			if sbName == sandbox {
-				newSts = append(newSts, *sts)
-			}
-		}
-	}
-	oldSts.Items = newSts
-	return oldSts
 }

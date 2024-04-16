@@ -232,8 +232,9 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 
 	finder := iter.MakeSubclusterFinder(o.VRec.Client, o.Vdb)
 
+	sandbox := o.PFacts.getSandboxName()
 	// Find any statefulsets that need to be deleted
-	stss, err := finder.FindStatefulSets(ctx, iter.FindNotInVdb, vapi.MainCluster)
+	stss, err := finder.FindStatefulSets(ctx, iter.FindNotInVdb, sandbox)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

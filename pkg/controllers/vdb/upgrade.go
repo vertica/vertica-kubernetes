@@ -46,12 +46,11 @@ type UpgradeManager struct {
 	// Function that will check if the image policy allows for a type of upgrade (offline or online)
 	IsAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool
 	PrimaryImages                 []string // Known images in the primaries.  Should be of length 1 or 2.
-	SandboxName                   string   // sandbox we want to upgrade
 }
 
 // MakeUpgradeManager will construct a UpgradeManager object
 func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
-	statusCondition, sandbox string,
+	statusCondition string,
 	isAllowedForUpgradePolicyFunc func(vdb *vapi.VerticaDB) bool) *UpgradeManager {
 	return &UpgradeManager{
 		VRec:                          vdbrecon,
@@ -59,7 +58,6 @@ func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vap
 		Log:                           log,
 		Finder:                        iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
 		StatusCondition:               statusCondition,
-		SandboxName:                   sandbox,
 		IsAllowedForUpgradePolicyFunc: isAllowedForUpgradePolicyFunc,
 	}
 }
@@ -67,7 +65,7 @@ func MakeUpgradeManager(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vap
 // IsUpgradeNeeded checks whether an upgrade is needed and/or in
 // progress.  It will return true for the first parm if an upgrade should
 // proceed.
-func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
+func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context, sandbox string) (bool, error) {
 	// no-op for ScheduleOnly init policy
 	if i.Vdb.Spec.InitPolicy == vapi.CommunalInitPolicyScheduleOnly {
 		return false, nil
@@ -81,7 +79,7 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context) (bool, error) {
 		return ok, nil
 	}
 
-	return i.isVDBImageDifferent(ctx)
+	return i.isVDBImageDifferent(ctx, sandbox)
 }
 
 // isUpgradeInProgress returns true if state indicates that an upgrade
@@ -98,12 +96,12 @@ func (i *UpgradeManager) isUpgradeInProgress() bool {
 // isVDBImageDifferent will check if an upgrade is needed based on the
 // image being different between the Vdb and any of the statefulset's or
 // between a sandbox and any of its statefulsets if the sandbox name is non-empty.
-func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) {
-	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindInVdb, i.SandboxName)
+func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context, sandbox string) (bool, error) {
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindInVdb, sandbox)
 	if err != nil {
 		return false, err
 	}
-	targetImage, err := i.getTargetImage()
+	targetImage, err := i.getTargetImage(sandbox)
 	if err != nil {
 		return false, err
 	}
@@ -121,14 +119,19 @@ func (i *UpgradeManager) isVDBImageDifferent(ctx context.Context) (bool, error) 
 	return false, nil
 }
 
-// startUpgrade handles condition status and event recording for start of an upgrade
-func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) {
-	targetImage, err := i.getTargetImage()
+// logUpgradeStarted logs an event msg when upgrade is sstarting
+func (i *UpgradeManager) logUpgradeStarted(sandbox string) error {
+	targetImage, err := i.getTargetImage(sandbox)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	i.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", i.ContinuingUpgrade,
 		"New Image", targetImage)
+	return nil
+}
+
+// startUpgrade handles condition status and event recording for start of an upgrade
+func (i *UpgradeManager) startUpgrade(ctx context.Context) (ctrl.Result, error) {
 	if err := i.toggleUpgradeInProgress(ctx, metav1.ConditionTrue); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -156,15 +159,19 @@ func (i *UpgradeManager) finishUpgrade(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, err
 	}
 
-	targetImage, err := i.getTargetImage()
+	return ctrl.Result{}, nil
+}
+
+// logUpgradeSucceeded logs an event msg when upgrade is successful
+func (i *UpgradeManager) logUpgradeSucceeded(sandbox string) error {
+	targetImage, err := i.getTargetImage(sandbox)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	i.Log.Info("The upgrade has completed successfully")
 	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
 		"Vertica server upgrade has completed successfully.  New image is '%s'", targetImage)
-
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // toggleUpgradeInProgress is a helper for updating the
@@ -223,14 +230,14 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 
 // updateImageInStatefulSets will change the image in each of the statefulsets.
 // This changes the images in all subclusters except any transient ones.
-func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context) (int, error) {
+func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context, sandbox string) (int, error) {
 	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
 
 	// We use FindExisting for the finder because we only want to work with sts
 	// that already exist.  This is necessary incase the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
 	// doesn't take affect until after the upgrade.
-	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting, i.SandboxName)
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting, sandbox)
 	if err != nil {
 		return numStsChanged, err
 	}
@@ -263,7 +270,7 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 	if svrCnt == nil {
 		return false, fmt.Errorf("could not find the server container in the sts %s", sts.Name)
 	}
-	targetImage, err := i.getTargetImage()
+	targetImage, err := i.getTargetImage(sts.Labels[vmeta.SandboxNameLabel])
 	if err != nil {
 		return false, err
 	}
@@ -289,18 +296,18 @@ func (i *UpgradeManager) updateImageInStatefulSet(ctx context.Context, sts *apps
 // deletePodsRunningOldImage will delete pods that have the old image.  It will return the
 // number of pods that were deleted.  Callers can control whether to delete pods
 // for a specific subcluster or all -- passing an empty string for scName will delete all.
-func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName string) (int, error) {
+func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName, sandbox string) (int, error) {
 	numPodsDeleted := 0 // Tracks the number of pods that were deleted
 
 	// We use FindExisting for the finder because we only want to work with pods
 	// that already exist.  This is necessary in case the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
 	// doesn't take affect until after the upgrade.
-	pods, err := i.Finder.FindPods(ctx, iter.FindExisting, i.SandboxName)
+	pods, err := i.Finder.FindPods(ctx, iter.FindExisting, sandbox)
 	if err != nil {
 		return numPodsDeleted, err
 	}
-	targetImage, err := i.getTargetImage()
+	targetImage, err := i.getTargetImage(sandbox)
 	if err != nil {
 		return numPodsDeleted, err
 	}
@@ -333,12 +340,12 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName s
 }
 
 // deleteStsRunningOldImage will delete statefulsets that have the old image.
-func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context) error {
-	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting, i.SandboxName)
+func (i *UpgradeManager) deleteStsRunningOldImage(ctx context.Context, sandbox string) error {
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting, sandbox)
 	if err != nil {
 		return err
 	}
-	targetImage, err := i.getTargetImage()
+	targetImage, err := i.getTargetImage(sandbox)
 	if err != nil {
 		return err
 	}
@@ -392,7 +399,7 @@ func (i *UpgradeManager) changeNMASidecarDeploymentIfNeeded(ctx context.Context,
 	// the version in the VerticaDB. Since this is a CR wide value, it applies to
 	// all subclusters.
 	i.Log.Info("Detected that we need to switch to NMA sidecar. Deleting all sts")
-	err = i.deleteStsRunningOldImage(ctx)
+	err = i.deleteStsRunningOldImage(ctx, sts.Labels[vmeta.SandboxNameLabel])
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -489,14 +496,14 @@ func replicatedUpgradeAllowed(vdb *vapi.VerticaDB) bool {
 }
 
 // cachePrimaryImages will update o.PrimaryImages with the names of all of the primary images
-func (i *UpgradeManager) cachePrimaryImages(ctx context.Context) error {
-	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting, i.SandboxName)
+func (i *UpgradeManager) cachePrimaryImages(ctx context.Context, sandbox string) error {
+	stss, err := i.Finder.FindStatefulSets(ctx, iter.FindExisting, sandbox)
 	if err != nil {
 		return err
 	}
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
-		if i.isPrimary(sts.Labels) {
+		if i.isPrimary(sts.Labels, sandbox) {
 			img, err := vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)
 			if err != nil {
 				return err
@@ -519,8 +526,8 @@ func (i *UpgradeManager) cachePrimaryImages(ctx context.Context) error {
 // fetchOldImage will return the old image that existed prior to the image
 // change process.  If we cannot determine the old image, then the bool return
 // value returns false.
-func (i *UpgradeManager) fetchOldImage() (string, bool) {
-	targetImage, err := i.getTargetImage()
+func (i *UpgradeManager) fetchOldImage(sandbox string) (string, bool) {
+	targetImage, err := i.getTargetImage(sandbox)
 	if err != nil {
 		return "", false
 	}
@@ -534,13 +541,13 @@ func (i *UpgradeManager) fetchOldImage() (string, bool) {
 
 // getTargetImage returns the image that must be running
 // in the main cluster or in a specific sandbox
-func (i *UpgradeManager) getTargetImage() (string, error) {
-	if i.SandboxName == vapi.MainCluster {
+func (i *UpgradeManager) getTargetImage(sandbox string) (string, error) {
+	if sandbox == vapi.MainCluster {
 		return i.Vdb.Spec.Image, nil
 	}
-	sb := i.Vdb.GetSandbox(i.SandboxName)
+	sb := i.Vdb.GetSandbox(sandbox)
 	if sb == nil {
-		return "", fmt.Errorf("could not find sandbox %q", i.SandboxName)
+		return "", fmt.Errorf("could not find sandbox %q", sandbox)
 	}
 	// if the target cluster is a sandbox, the target image
 	// is the one set for that specific sandbox
@@ -548,8 +555,8 @@ func (i *UpgradeManager) getTargetImage() (string, error) {
 }
 
 // isPrimary returns true if the subcluster is primary
-func (i *UpgradeManager) isPrimary(l map[string]string) bool {
-	if i.SandboxName != vapi.MainCluster {
+func (i *UpgradeManager) isPrimary(l map[string]string, sandbox string) bool {
+	if sandbox != vapi.MainCluster {
 		// For now, there can be only one subcluster
 		// in a sandbox and so it is primary
 		return true
