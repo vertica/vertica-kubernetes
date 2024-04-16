@@ -88,8 +88,8 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		// added to replica group B and ready to be sandboxed.
 		r.assignSubclustersToReplicaGroupB,
 		r.runObjReconcilerForMainCluster,
-		r.runAddSubclusterReconciler,
-		r.runAddNodesReconciler,
+		r.runAddSubclusterReconcilerForMainCluster,
+		r.runAddNodesReconcilerForMainCluster,
 		// Sandbox all of the secondary subclusters that are destined for
 		// replica group B.
 		r.sandboxReplicaGroupB,
@@ -169,7 +169,7 @@ func (r *ReplicatedUpgradeReconciler) runObjReconcilerForMainCluster(ctx context
 	return res, err
 }
 
-// runAddSubclusterReconciler will run the reconciler to create any necessary subclusters
+// runAddSubclusterReconcilerForMainCluster will run the reconciler to create any necessary subclusters
 func (r *ReplicatedUpgradeReconciler) runAddSubclusterReconcilerForMainCluster(ctx context.Context) (ctrl.Result, error) {
 	pf := r.PFacts[vapi.MainCluster]
 	rec := MakeDBAddSubclusterReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, r.Dispatcher)
@@ -179,8 +179,8 @@ func (r *ReplicatedUpgradeReconciler) runAddSubclusterReconcilerForMainCluster(c
 	return res, err
 }
 
-// runAddNodesReconciler will run the reconciler to scale out any subclusters.
-func (r *ReplicatedUpgradeReconciler) runAddNodesReconciler(ctx context.Context) (ctrl.Result, error) {
+// runAddNodesReconcilerForMainCluster will run the reconciler to scale out any subclusters.
+func (r *ReplicatedUpgradeReconciler) runAddNodesReconcilerForMainCluster(ctx context.Context) (ctrl.Result, error) {
 	pf := r.PFacts[vapi.MainCluster]
 	rec := MakeDBAddNodeReconciler(r.VRec, r.Log, r.VDB, pf.PRunner, pf, r.Dispatcher)
 	r.Manager.traceActorReconcile(rec)
@@ -752,7 +752,7 @@ func (r *ReplicatedUpgradeReconciler) redirectConnectionsForSubcluster(ctx conte
 	// Collect the podfacts for the sandbox if not already done. We are going to
 	// use the sandbox podfacts when we update the client routing label.
 	if _, found := r.PFacts[r.sandboxName]; !found {
-		sbPfacts := r.PFacts[vapi.MainCluster].Clone(r.sandboxName)
+		sbPfacts := r.PFacts[vapi.MainCluster].Copy(r.sandboxName)
 		r.PFacts[r.sandboxName] = &sbPfacts
 	}
 	err = r.PFacts[r.sandboxName].Collect(ctx, r.VDB)

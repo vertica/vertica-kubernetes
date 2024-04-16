@@ -240,8 +240,8 @@ func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRun
 	return pf
 }
 
-// Clone will make a new copy of the podfacts, but setup for the given sandbox name.
-func (p *PodFacts) Clone(sandbox string) PodFacts {
+// Copy will make a new copy of the podfacts, but setup for the given sandbox name.
+func (p *PodFacts) Copy(sandbox string) PodFacts {
 	ret := *p
 	// Clear out fields we don't want to copy to the new copy.
 	ret.NeedCollection = true
