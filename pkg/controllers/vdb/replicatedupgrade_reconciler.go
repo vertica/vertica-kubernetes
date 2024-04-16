@@ -134,7 +134,6 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 
 	return ctrl.Result{}, r.Manager.logUpgradeSucceeded(sandbox)
-
 }
 
 // loadUpgradeState will load state into the reconciler that

@@ -137,7 +137,6 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	}
 
 	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
-
 }
 
 // logEventIfOnlineUpgradeRequested will log an event if the vdb has

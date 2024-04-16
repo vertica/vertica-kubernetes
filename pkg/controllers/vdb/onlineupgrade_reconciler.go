@@ -130,7 +130,6 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	}
 
 	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
-
 }
 
 // loadSubclusterState will load state into the OnlineUpgradeReconciler that
