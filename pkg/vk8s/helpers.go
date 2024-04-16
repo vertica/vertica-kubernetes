@@ -27,6 +27,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// GetPasswordFromSecret retrieves the password from the secret using the provided key
+func GetPasswordFromSecret(secret map[string][]byte, key string) (string, error) {
+	pwd, ok := secret[key]
+	if !ok {
+		return "", fmt.Errorf("password not found, secret must have a key with name %q", key)
+	}
+	return string(pwd), nil
+}
+
 // GetSuperuserPassword returns the superuser password if it has been provided
 func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB) (string, error) {
@@ -45,9 +54,32 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 		return "", err
 	}
 
-	pwd, ok := secret[names.SuperuserPasswordKey]
-	if !ok {
-		return "", fmt.Errorf("password not found, secret must have a key with name '%s'", names.SuperuserPasswordKey)
+	return GetPasswordFromSecret(secret, names.SuperuserPasswordKey)
+}
+
+// GetCustomSuperuserPassword returns the superuser password stored in a custom secret
+func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
+	e events.EVWriter, vdb *vapi.VerticaDB,
+	customPasswordNamespace, customPasswordSecret,
+	customPasswordSecretKey string) (string, error) {
+	fetcher := cloud.VerticaDBSecretFetcher{
+		Client:   cl,
+		Log:      log,
+		VDB:      vdb,
+		EVWriter: e,
 	}
-	return string(pwd), nil
+	if customPasswordNamespace == "" {
+		// default namespace is the namespace of the vdb
+		customPasswordNamespace = client.Object(vdb).GetNamespace()
+	}
+	secret, err := fetcher.Fetch(ctx, names.GenCustomSUPasswdSecretName(
+		customPasswordNamespace, customPasswordSecret))
+	if err != nil {
+		return "", err
+	}
+	if customPasswordSecretKey == "" {
+		customPasswordSecretKey = names.SuperuserPasswordKey
+	}
+
+	return GetPasswordFromSecret(secret, customPasswordSecretKey)
 }

@@ -954,6 +954,17 @@ func (p *PodFacts) findRunningPod() (*PodFact, bool) {
 	return &PodFact{}, false
 }
 
+// FindFirstUpPod returns the first pod where the db is up
+func (p *PodFacts) FindFirstUpPod() (string, bool) {
+	podFact, ok := p.findFirstPodSorted(func(v *PodFact) bool {
+		return v.upNode
+	})
+	if !ok {
+		return "", false
+	}
+	return podFact.podIP, true
+}
+
 // findRestartablePods returns a list of pod facts that can be restarted.
 // An empty list implies there are no pods that need to be restarted.
 //

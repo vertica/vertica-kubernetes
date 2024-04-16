@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +40,7 @@ type VerticaReplicatorReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Log    logr.Logger
+	Cfg    *rest.Config
 	EVRec  record.EventRecorder
 }
 
@@ -59,8 +61,8 @@ func (r *VerticaReplicatorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	log := r.Log.WithValues("vrep", req.NamespacedName)
 	log.Info("starting reconcile of VerticaReplicator")
 
-	vr := &vapi.VerticaReplicator{}
-	err := r.Get(ctx, req.NamespacedName, vr)
+	vrep := &vapi.VerticaReplicator{}
+	err := r.Get(ctx, req.NamespacedName, vrep)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, cound have been deleted after reconcile request.
@@ -71,14 +73,14 @@ func (r *VerticaReplicatorReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if meta.IsPauseAnnotationSet(vr.Annotations) {
+	if meta.IsPauseAnnotationSet(vrep.Annotations) {
 		log.Info(fmt.Sprintf("The pause annotation %s is set. Suspending the iteration", meta.PauseOperatorAnnotation),
 			"result", ctrl.Result{}, "err", nil)
 		return ctrl.Result{}, nil
 	}
 
 	// Iterate over each actor
-	actors := r.constructActors(vr, log)
+	actors := r.constructActors(vrep, log)
 	var res ctrl.Result
 	for _, act := range actors {
 		log.Info("starting actor", "name", fmt.Sprintf("%T", act))
@@ -110,6 +112,7 @@ func (r *VerticaReplicatorReconciler) constructActors(vrep *vapi.VerticaReplicat
 	actors := []controllers.ReconcileActor{
 		// Verify some checks before starting a replication
 		MakeVdbVerifyReconciler(r, vrep, log),
+		MakeReplicationReconciler(r.Client, r, vrep, log),
 	}
 	return actors
 }
