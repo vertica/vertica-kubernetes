@@ -38,6 +38,7 @@ const (
 	AddNodeApplyMethod       ApplyMethodType = "Add"           // Called after a db_add_node
 	PodRescheduleApplyMethod ApplyMethodType = "PodReschedule" // Called after pod was rescheduled and vertica restarted
 	DelNodeApplyMethod       ApplyMethodType = "RemoveNode"    // Called before a db_remove_node
+	DrainNodeApplyMethod     ApplyMethodType = "DrainNode"     // Called as part of a drain operation. We want no traffic at the node.
 )
 
 type ClientRoutingLabelReconciler struct {
@@ -146,8 +147,8 @@ func (c *ClientRoutingLabelReconciler) manipulateRoutingLabelInPod(pod *corev1.P
 			c.Log.Info("Adding client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
 		}
-	case DelNodeApplyMethod:
-		if labelExists && pf.isPendingDelete {
+	case DelNodeApplyMethod, DrainNodeApplyMethod:
+		if labelExists && (c.ApplyMethod == DrainNodeApplyMethod || pf.isPendingDelete) {
 			delete(pod.Labels, vmeta.ClientRoutingLabel)
 			c.Log.Info("Removing client routing label", "pod",
 				pod.Name, "label", fmt.Sprintf("%s=%s", vmeta.ClientRoutingLabel, vmeta.ClientRoutingVal))
