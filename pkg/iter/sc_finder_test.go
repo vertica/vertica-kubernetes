@@ -186,7 +186,7 @@ var _ = Describe("sc_finder", func() {
 		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
-		svcs, err := finder.FindServices(ctx, FindInVdb)
+		svcs, err := finder.FindServices(ctx, FindInVdb, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		const SvcsPerSubcluster = 1
 		Expect(len(svcs.Items)).Should(Equal(SvcsPerSubcluster))
@@ -215,7 +215,7 @@ var _ = Describe("sc_finder", func() {
 		lookupVdb.Spec.Subclusters[0] = vapi.Subcluster{Name: scNames[0]}
 
 		finder := MakeSubclusterFinder(k8sClient, lookupVdb)
-		svcs, err := finder.FindServices(ctx, FindNotInVdb)
+		svcs, err := finder.FindServices(ctx, FindNotInVdb, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		const SvcsPerSubcluster = 1
 		Expect(len(svcs.Items)).Should(Equal(SvcsPerSubcluster))
@@ -238,7 +238,7 @@ var _ = Describe("sc_finder", func() {
 		defer test.DeleteSvcs(ctx, k8sClient, vdb)
 
 		finder := MakeSubclusterFinder(k8sClient, vdb)
-		svcs, err := finder.FindServices(ctx, FindExisting|FindSorted)
+		svcs, err := finder.FindServices(ctx, FindExisting|FindSorted, vapi.MainCluster)
 		Expect(err).Should(Succeed())
 		Expect(svcs.Items[0].Name).Should(ContainSubstring(scNames[1]))
 		Expect(svcs.Items[1].Name).Should(ContainSubstring(scNames[0]))

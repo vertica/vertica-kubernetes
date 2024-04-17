@@ -128,7 +128,7 @@ func (i *UpgradeManager) logUpgradeStarted(sandbox string) error {
 		return err
 	}
 	i.Log.Info("Starting upgrade for reconciliation iteration", "ContinuingUpgrade", i.ContinuingUpgrade,
-		"New Image", targetImage)
+		"New Image", targetImage, "Sandbox", sandbox)
 	return nil
 }
 
@@ -170,7 +170,7 @@ func (i *UpgradeManager) logUpgradeSucceeded(sandbox string) error {
 	if err != nil {
 		return err
 	}
-	i.Log.Info("The upgrade has completed successfully")
+	i.Log.Info("The upgrade has completed successfully", "Sandbox", sandbox)
 	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.UpgradeSucceeded,
 		"Vertica server upgrade has completed successfully.  New image is '%s'", targetImage)
 	return nil

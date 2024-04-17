@@ -1141,9 +1141,9 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	return expectedNodeNames
 }
 
-// getSandboxName returns the name of the sandbox, or empty string
+// GetSandboxName returns the name of the sandbox, or empty string
 // for main cluster, the pods belong to
-func (p *PodFacts) getSandboxName() string {
+func (p *PodFacts) GetSandboxName() string {
 	for _, v := range p.Detail {
 		// all pods in the podfacts belong to either
 		// the same sandbox or the main cluster
