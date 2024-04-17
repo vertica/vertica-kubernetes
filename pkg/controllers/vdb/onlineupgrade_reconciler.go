@@ -27,14 +27,12 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
-	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -251,7 +249,7 @@ func (o *OnlineUpgradeReconciler) createTransientSts(ctx context.Context) (ctrl.
 	}
 
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	or := actor.(*ObjReconciler)
 
 	return or.reconcileSts(ctx, o.TransientSc)
@@ -265,7 +263,7 @@ func (o *OnlineUpgradeReconciler) installTransientNodes(ctx context.Context) (ct
 	}
 
 	actor := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -276,7 +274,7 @@ func (o *OnlineUpgradeReconciler) addTransientSubcluster(ctx context.Context) (c
 	}
 
 	actor := MakeDBAddSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -292,7 +290,7 @@ func (o *OnlineUpgradeReconciler) addTransientNodes(ctx context.Context) (ctrl.R
 	}
 
 	actor := MakeDBAddNodeReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -307,7 +305,7 @@ func (o *OnlineUpgradeReconciler) rebalanceTransientNodes(ctx context.Context) (
 	}
 
 	actor := MakeRebalanceShardsReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.TransientSc.Name)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -319,7 +317,7 @@ func (o *OnlineUpgradeReconciler) addClientRoutingLabelToTransientNodes(ctx cont
 	}
 
 	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, AddNodeApplyMethod, o.TransientSc.Name)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	// Add the labels.  If there is a node that still has missing subscriptions
 	// that will fail with requeue error.
 	return actor.Reconcile(ctx, &ctrl.Request{})
@@ -437,7 +435,7 @@ func (o *OnlineUpgradeReconciler) drainSubcluster(ctx context.Context, sts *apps
 		}
 
 		o.Log.Info("starting check for active connections in subcluster", "name", scName)
-		return o.isSubclusterIdle(ctx, scName)
+		return o.Manager.isSubclusterIdle(ctx, o.PFacts, scName)
 	}
 	return ctrl.Result{}, nil
 }
@@ -575,7 +573,7 @@ func (o *OnlineUpgradeReconciler) waitForReadOnly(_ context.Context, sts *appsv1
 func (o *OnlineUpgradeReconciler) bringSubclusterOnline(ctx context.Context, sts *appsv1.StatefulSet) (ctrl.Result, error) {
 	const DoNotRestartReadOnly = false
 	actor := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, DoNotRestartReadOnly, o.Dispatcher)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	res, err := actor.Reconcile(ctx, &ctrl.Request{})
 	if verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -635,7 +633,7 @@ func (o *OnlineUpgradeReconciler) removeClientRoutingLabelFromTransientNodes(ctx
 	}
 
 	actor := MakeClientRoutingLabelReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, DelNodeApplyMethod, "")
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -646,7 +644,7 @@ func (o *OnlineUpgradeReconciler) removeTransientSubclusters(ctx context.Context
 	}
 
 	actor := MakeDBRemoveSubclusterReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -656,7 +654,7 @@ func (o *OnlineUpgradeReconciler) uninstallTransientNodes(ctx context.Context) (
 		return ctrl.Result{}, nil
 	}
 	actor := MakeUninstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -667,7 +665,7 @@ func (o *OnlineUpgradeReconciler) deleteTransientSts(ctx context.Context) (ctrl.
 	}
 
 	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
-	o.traceActorReconcile(actor)
+	o.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -688,54 +686,33 @@ func (o *OnlineUpgradeReconciler) skipTransientSetup() bool {
 	return !found
 }
 
-func (o *OnlineUpgradeReconciler) traceActorReconcile(actor controllers.ReconcileActor) {
-	o.Log.Info("starting actor for online upgrade", "name", fmt.Sprintf("%T", actor))
-}
-
 // routeClientTraffic will update service objects to route to either the primary
-// or transient.  The subcluster picked is determined by the scCheckFunc the
-// caller provides.  If it returns true for a given subcluster, traffic will be
-// routed to that.
+// or transient.
 func (o *OnlineUpgradeReconciler) routeClientTraffic(ctx context.Context,
 	scName string, setTemporaryRouting bool) error {
-	actor := MakeObjReconciler(o.VRec, o.Log, o.Vdb, o.PFacts, ObjReconcileModeAll)
-	objRec := actor.(*ObjReconciler)
-
 	scMap := o.Vdb.GenSubclusterMap()
-	sc, ok := scMap[scName]
+	sourceSc, ok := scMap[scName]
 	if !ok {
 		return fmt.Errorf("we are routing for a subcluster that isn't in the vdb: %s", scName)
-	}
-
-	// We update the external service object to route traffic to transient or
-	// primary/secondary.  We are only concerned with changing the labels.  So
-	// we will fetch the current service object, then update the labels so that
-	// traffic diverted to the correct statefulset.  Other things, such as
-	// service type, stay the same.
-	svcName := names.GenExtSvcName(o.Vdb, sc)
-	svc := &corev1.Service{}
-	if err := o.VRec.Client.Get(ctx, svcName, svc); err != nil {
-		if errors.IsNotFound(err) {
-			o.Log.Info("Skipping client traffic routing because service object for subcluster not found",
-				"scName", scName, "svc", svcName)
-			return nil
-		}
-		return err
 	}
 
 	// If we are to set temporary routing, we are going to route traffic
 	// to a transient subcluster (if one exists) or to a subcluster
 	// defined in the vdb.
+	var targetSc *vapi.Subcluster
+	var selectorLabels map[string]string
 	if setTemporaryRouting {
-		routingSc := o.getSubclusterForTemporaryRouting(ctx, sc, scMap)
-		if routingSc != nil {
-			svc.Spec.Selector = builder.MakeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, routingSc)
+		targetSc = o.getSubclusterForTemporaryRouting(ctx, sourceSc, scMap)
+		if targetSc == nil {
+			return nil
 		}
+		selectorLabels = builder.MakeSvcSelectorLabelsForSubclusterNameRouting(o.Vdb, targetSc)
 	} else {
-		svc.Spec.Selector = builder.MakeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sc)
+		// Revert earlier routing and have the svc object route back to the source as before.
+		selectorLabels = builder.MakeSvcSelectorLabelsForServiceNameRouting(o.Vdb, sourceSc)
 	}
-	o.Log.Info("Updating svc", "selector", svc.Spec.Selector)
-	return objRec.reconcileExtSvc(ctx, svc, sc)
+
+	return o.Manager.routeClientTraffic(ctx, o.PFacts, sourceSc, selectorLabels)
 }
 
 // getSubclusterForTemporaryRouting returns a pointer to a subcluster to use for
@@ -817,38 +794,6 @@ func (o *OnlineUpgradeReconciler) pickDefaultSubclusterForTemporaryRouting(offli
 		}
 	}
 	return nil
-}
-
-// isSubclusterIdle will run a query to see the number of connections
-// that are active for a given subcluster.  It returns a requeue error if there
-// are active connections still.
-func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName string) (ctrl.Result, error) {
-	pf, ok := o.PFacts.findUpPod(true, scName)
-	if !ok {
-		o.Log.Info("No pod found to run vsql.  Skipping active connection check")
-		return ctrl.Result{}, nil
-	}
-
-	sql := fmt.Sprintf(
-		"select count(session_id) sessions"+
-			" from v_monitor.sessions join v_catalog.subclusters using (node_name)"+
-			" where session_id not in (select session_id from current_session)"+
-			"       and subcluster_name = '%s';", scName)
-
-	cmd := []string{"-tAc", sql}
-	stdout, _, err := o.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Parse the output.  We requeue if there is an active connection.  This
-	// will rely on the UpgradeRequeueTime that is set to default
-	res := ctrl.Result{Requeue: anyActiveConnections(stdout)}
-	if res.Requeue {
-		o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.DrainSubclusterRetry,
-			"Subcluster '%s' has active connections preventing the drain from succeeding", scName)
-	}
-	return res, nil
 }
 
 // anyActiveConnections will parse the output from vsql to see if there

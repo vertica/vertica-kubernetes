@@ -259,7 +259,7 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 		return nil, err
 	}
 	prunner := cmds.MakeClusterPodRunner(r.Log, r.VRec.Cfg, username, password)
-	pFacts := vdbcontroller.MakePodFactsForSandbox(r.VRec, prunner, r.Log, sandboxName)
+	pFacts := vdbcontroller.MakePodFactsForSandbox(r.VRec, prunner, r.Log, password, sandboxName)
 	return &pFacts, nil
 }
 

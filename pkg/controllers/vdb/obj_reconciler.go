@@ -23,6 +23,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
@@ -36,7 +37,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,6 +86,10 @@ func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi
 // Reconcile is the main driver for reconciliation of Kubernetes objects.
 // This will ensure the desired svc and sts objects exist and are in the correct state.
 func (o *ObjReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
+	if o.PFacts == nil {
+		return ctrl.Result{}, errors.New("no podfacts provided")
+	}
+
 	if err := o.PFacts.Collect(ctx, o.Vdb); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -290,7 +295,7 @@ func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service
 
 	curSvc := &corev1.Service{}
 	err := o.VRec.Client.Get(ctx, svcName, curSvc)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && kerrors.IsNotFound(err) {
 		return o.createService(ctx, expSvc, svcName)
 	}
 
@@ -422,7 +427,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	curSts := &appsv1.StatefulSet{}
 	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
 	err := o.VRec.Client.Get(ctx, nm, curSts)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		return ctrl.Result{}, o.createSts(ctx, expSts)
 	}

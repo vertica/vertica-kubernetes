@@ -139,3 +139,8 @@ func (r *VerticaReplicatorReconciler) Eventf(vrep runtime.Object, eventtype, rea
 func (r *VerticaReplicatorReconciler) GetClient() client.Client {
 	return r.Client
 }
+
+// GetEventRecorder gives access to the event recorder
+func (r *VerticaReplicatorReconciler) GetEventRecorder() record.EventRecorder {
+	return r.EVRec
+}

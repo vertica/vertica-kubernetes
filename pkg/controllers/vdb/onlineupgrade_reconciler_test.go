@@ -390,11 +390,11 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		fpr.Results[pn] = []cmds.CmdResult{
 			{Stdout: "  5\n"},
 		}
-		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: true}))
+		Expect(r.Manager.isSubclusterIdle(ctx, r.PFacts, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: true}))
 		fpr.Results[pn] = []cmds.CmdResult{
 			{Stdout: "  0\n"},
 		}
-		Expect(r.isSubclusterIdle(ctx, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
+		Expect(r.Manager.isSubclusterIdle(ctx, r.PFacts, vdb.Spec.Subclusters[0].Name)).Should(Equal(ctrl.Result{Requeue: false}))
 	})
 
 	It("should requeue after a specified UpgradeRequeueAfter time", func() {
@@ -542,7 +542,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 // createOnlineUpgradeReconciler is a helper to run the OnlineUpgradeReconciler.
 func createOnlineUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *OnlineUpgradeReconciler {
 	fpr := &cmds.FakePodRunner{Results: cmds.CmdResults{}}
-	pfacts := MakePodFacts(vdbRec, fpr, logger)
+	pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 	dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 	actor := MakeOnlineUpgradeReconciler(vdbRec, logger, vdb, fpr, &pfacts, dispatcher)
 	r := actor.(*OnlineUpgradeReconciler)

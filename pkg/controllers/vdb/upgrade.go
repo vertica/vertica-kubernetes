@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -31,6 +32,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -193,6 +195,14 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 				delete(sc.Annotations, a)
 				updated = true
 			}
+		}
+	}
+
+	// Clear annotations set in the VerticaDB's metadata.annotations.
+	for _, a := range []string{vmeta.ReplicatedUpgradeReplicatorAnnotation, vmeta.ReplicatedUpgradeSandboxAnnotation} {
+		if _, annotationFound := i.Vdb.Annotations[a]; annotationFound {
+			delete(i.Vdb.Annotations, a)
+			updated = true
 		}
 	}
 	return
@@ -401,7 +411,7 @@ func (i *UpgradeManager) updateVDBWithRetry(ctx context.Context, callbackFn func
 			return nil
 		}
 		err = i.VRec.Update(ctx, i.Vdb)
-		if err != nil {
+		if err == nil {
 			updated = true
 		}
 		return err
@@ -491,4 +501,70 @@ func (i *UpgradeManager) fetchOldImage() (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {
+	i.Log.Info("starting actor for upgrade", "name", fmt.Sprintf("%T", actor))
+}
+
+// isSubclusterIdle will run a query to see the number of connections
+// that are active for a given subcluster.  It returns a requeue error if there
+// are still active connections.
+func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts, scName string) (ctrl.Result, error) {
+	pf, ok := pfacts.findUpPod(true, scName)
+	if !ok {
+		i.Log.Info("No pod found to run vsql.  Skipping active connection check")
+		return ctrl.Result{}, nil
+	}
+
+	sql := fmt.Sprintf(
+		"select count(session_id) sessions"+
+			" from v_monitor.sessions join v_catalog.subclusters using (node_name)"+
+			" where session_id not in (select session_id from current_session)"+
+			"       and subcluster_name = '%s';", scName)
+
+	cmd := []string{"-tAc", sql}
+	stdout, _, err := pfacts.PRunner.ExecVSQL(ctx, pf.name, names.ServerContainer, cmd...)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Parse the output.  We requeue if there is an active connection.  This
+	// will rely on the UpgradeRequeueTime that is set to default
+	res := ctrl.Result{Requeue: anyActiveConnections(stdout)}
+	if res.Requeue {
+		i.VRec.Eventf(i.Vdb, corev1.EventTypeWarning, events.DrainSubclusterRetry,
+			"Subcluster '%s' has active connections preventing the drain from succeeding", scName)
+	}
+	return res, nil
+}
+
+// routeClientTraffic will update service objects for the source subcluster to
+// route to the target subcluster
+func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFacts, sc *vapi.Subcluster, selectors map[string]string) error {
+	actor := MakeObjReconciler(i.VRec, i.Log, i.Vdb, pfacts, ObjReconcileModeAll)
+	objRec := actor.(*ObjReconciler)
+
+	// We update the external service object to route traffic to the target
+	// subcluster. If sourceSc is the same as targetSc, this will update the
+	// service object so it routes to the source. Kind of like undoing a
+	// temporary routing decision.
+	//
+	// We are only concerned with changing the labels.  So we will fetch the
+	// current service object, then update the labels so that traffic diverted
+	// to the correct statefulset.  Other things, such as service type, stay the same.
+	svcName := names.GenExtSvcName(i.Vdb, sc)
+	svc := &corev1.Service{}
+	if err := i.VRec.Client.Get(ctx, svcName, svc); err != nil {
+		if errors.IsNotFound(err) {
+			i.Log.Info("Skipping client traffic routing because service object for subcluster not found",
+				"scName", sc.Name, "svc", svcName)
+			return nil
+		}
+		return err
+	}
+
+	svc.Spec.Selector = selectors
+	i.Log.Info("Updating svc", "selector", svc.Spec.Selector)
+	return objRec.reconcileExtSvc(ctx, svc, sc)
 }

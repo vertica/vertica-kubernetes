@@ -1106,6 +1106,15 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+
+		// cannot have a primary subcluster defined in a sandbox
+		// change sc1 from a secondary subcluster to a primary subcluster
+		vdb.Spec.Subclusters[1].Type = PrimarySubcluster
+		vdb.Spec.Sandboxes = []Sandbox{
+			{Name: "sandbox1", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc1"}}},
+			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
+		}
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 	})
 
 	It("should validate the number of subclusters in each sandbox", func() {

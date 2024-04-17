@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/addsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/createdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/describedb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodedetails"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
@@ -97,6 +98,9 @@ type Dispatcher interface {
 
 	// ReplicateDB will start replicating data and metadata of an Eon cluster to another
 	ReplicateDB(ctx context.Context, opts ...replicationstart.Option) (ctrl.Result, error)
+
+	// FetchNodeDetails will return details for a node, including its state, sandbox, and storage locations
+	FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error)
 }
 
 const (
@@ -220,4 +224,5 @@ type VClusterProvider interface {
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
+	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 }
