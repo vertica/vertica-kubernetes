@@ -31,25 +31,26 @@ import (
 func testIncompatibleDB(ctx context.Context, sourceVersion, targetVersion string,
 	sourceUsingVclusteropsDeployment bool, expectedReason string,
 	expectedStatusConditionValue bool, expectedState string) {
-	sourceVDBName := v1beta1.MakeSourceVDBName()
-	sourceVDB := vapi.MakeVDB()
-	sourceVDB.Name = sourceVDBName.Name
-	sourceVDB.Namespace = sourceVDBName.Namespace
+	sourceVdbName := v1beta1.MakeSourceVDBName()
+	sourceVdb := vapi.MakeVDB()
+	sourceVdb.Name = sourceVdbName.Name
+	sourceVdb.Namespace = sourceVdbName.Namespace
 	if sourceUsingVclusteropsDeployment {
-		sourceVDB.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		sourceVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 	}
-	sourceVDB.Annotations[vmeta.VersionAnnotation] = sourceVersion
-	test.CreateVDB(ctx, k8sClient, sourceVDB)
-	defer test.DeleteVDB(ctx, k8sClient, sourceVDB)
+	sourceVdb.Annotations[vmeta.VersionAnnotation] = sourceVersion
+	test.CreateVDB(ctx, k8sClient, sourceVdb)
+	defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 
-	targetVDBName := v1beta1.MakeTargetVDBName()
-	targetVDB := vapi.MakeVDB()
-	targetVDB.Name = targetVDBName.Name
-	targetVDB.Namespace = targetVDBName.Namespace
-	targetVDB.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
-	targetVDB.Annotations[vmeta.VersionAnnotation] = targetVersion
-	test.CreateVDB(ctx, k8sClient, targetVDB)
-	defer test.DeleteVDB(ctx, k8sClient, targetVDB)
+	targetVdbName := v1beta1.MakeTargetVDBName()
+	targetVdb := vapi.MakeVDB()
+	targetVdb.Name = targetVdbName.Name
+	targetVdb.Namespace = targetVdbName.Namespace
+	targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+	targetVdb.Annotations[vmeta.VersionAnnotation] = targetVersion
+	targetVdb.UID = testTargetVdbUID
+	test.CreateVDB(ctx, k8sClient, targetVdb)
+	defer test.DeleteVDB(ctx, k8sClient, targetVdb)
 
 	vrep := v1beta1.MakeVrep()
 	Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())

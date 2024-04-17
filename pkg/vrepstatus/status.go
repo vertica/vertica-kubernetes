@@ -78,3 +78,14 @@ func Update(ctx context.Context, clnt client.Client, log logr.Logger,
 	}
 	return updateImpl(ctx, clnt, log, vrep, refreshConditionInPlace)
 }
+
+// Reset will clear the status state and conditions of a vrep
+func Reset(ctx context.Context, clnt client.Client, log logr.Logger,
+	vrep *vapi.VerticaReplicator) error {
+	resetStateAndConditionInPlace := func(vrep *vapi.VerticaReplicator) error {
+		vrep.Status.State = ""
+		vrep.Status.Conditions = []metav1.Condition{}
+		return nil
+	}
+	return updateImpl(ctx, clnt, log, vrep, resetStateAndConditionInPlace)
+}

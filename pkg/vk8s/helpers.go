@@ -60,7 +60,7 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 // GetCustomSuperuserPassword returns the superuser password stored in a custom secret
 func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger,
 	e events.EVWriter, vdb *vapi.VerticaDB,
-	customPasswordNamespace, customPasswordSecret,
+	customPasswordSecret,
 	customPasswordSecretKey string) (string, error) {
 	fetcher := cloud.VerticaDBSecretFetcher{
 		Client:   cl,
@@ -68,12 +68,10 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 		VDB:      vdb,
 		EVWriter: e,
 	}
-	if customPasswordNamespace == "" {
-		// default namespace is the namespace of the vdb
-		customPasswordNamespace = client.Object(vdb).GetNamespace()
-	}
+	// assume the custom secret is in the same namespace as the vdb
+	namespace := client.Object(vdb).GetNamespace()
 	secret, err := fetcher.Fetch(ctx, names.GenCustomSUPasswdSecretName(
-		customPasswordNamespace, customPasswordSecret))
+		namespace, customPasswordSecret))
 	if err != nil {
 		return "", err
 	}

@@ -78,14 +78,14 @@ func MakeReplicationReconciler(cli client.Client, r *VerticaReplicatorReconciler
 
 func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (res ctrl.Result, err error) {
 	// no-op if ReplicationComplete is present (either true or false)
-	isSet := r.Vrep.IsStatusConditionPresent(v1beta1.ReplicationComplete)
-	if isSet {
+	isPresent := r.Vrep.IsStatusConditionPresent(v1beta1.ReplicationComplete)
+	if isPresent {
 		return ctrl.Result{}, nil
 	}
 
 	// no-op if ReplicationReady is false
-	isSet = r.Vrep.IsStatusConditionFalse(v1beta1.ReplicationReady)
-	if isSet {
+	isFalse := r.Vrep.IsStatusConditionFalse(v1beta1.ReplicationReady)
+	if isFalse {
 		return ctrl.Result{}, nil
 	}
 
@@ -199,8 +199,9 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 			return username, "", nil
 		} else {
 			// fetch custom password
+			// assuming the password secret key is default
 			password, err := vk8s.GetCustomSuperuserPassword(ctx, cli, log,
-				vRec, vdb, "", dbInfo.PasswordSecret, "")
+				vRec, vdb, dbInfo.PasswordSecret, "")
 			if err != nil {
 				return "", "", err
 			}
@@ -231,14 +232,16 @@ func (r *ReplicationReconciler) collectPodFacts(ctx context.Context) (err error)
 }
 
 func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
-	upPodIP, ok := r.SourcePFacts.FindFirstUpPod()
+	// assume source must not be read-only, no subcluster constraints
+	upPodIP, ok := r.SourcePFacts.FindFirstUpPodIP(false, "")
 	if !ok {
 		err = fmt.Errorf("cannot find any up hosts in source database cluster")
 		return
 	} else {
 		r.SourceIP = upPodIP
 	}
-	upPodIP, ok = r.TargetPFacts.FindFirstUpPod()
+	// assume target must not be read-only, no subcluster constraints
+	upPodIP, ok = r.TargetPFacts.FindFirstUpPodIP(false, "")
 	if !ok {
 		err = fmt.Errorf("cannot find any up hosts in target database cluster")
 		return

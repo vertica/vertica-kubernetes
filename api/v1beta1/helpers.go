@@ -200,7 +200,7 @@ func MakeVrep() *VerticaReplicator {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nm.Name,
 			Namespace: nm.Namespace,
-			UID:       "zxcvbn-ghi-lkm",
+			UID:       "zxcvbn-ghi-lkm-xyz",
 		},
 		Spec: VerticaReplicatorSpec{
 			Source: VerticaReplicatorDatabaseInfo{

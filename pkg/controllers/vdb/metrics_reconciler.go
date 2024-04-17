@@ -125,7 +125,7 @@ func (p *MetricReconciler) captureRawMetrics() map[string]*subclusterGaugeDetail
 // so its up to the caller to check that the annotaiton was set and act
 // accordingly.
 func (p *MetricReconciler) setReviveInstanceIDAnnotation(ctx context.Context) error {
-	pf, ok := p.PFacts.findPodToRunVsql(true, "")
+	pf, ok := p.PFacts.findUpPod(true, "")
 	if !ok {
 		return nil
 	}

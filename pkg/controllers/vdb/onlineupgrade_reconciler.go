@@ -684,7 +684,7 @@ func (o *OnlineUpgradeReconciler) skipTransientSetup() bool {
 	// We skip creating the transient if the cluster is down.  We cannot add the
 	// transient if everything is down.  And there is nothing "online" with this
 	// upgrade if we start with everything down.
-	_, found := o.PFacts.findPodToRunVsql(false, "")
+	_, found := o.PFacts.findUpPod(false, "")
 	return !found
 }
 
@@ -823,7 +823,7 @@ func (o *OnlineUpgradeReconciler) pickDefaultSubclusterForTemporaryRouting(offli
 // that are active for a given subcluster.  It returns a requeue error if there
 // are active connections still.
 func (o *OnlineUpgradeReconciler) isSubclusterIdle(ctx context.Context, scName string) (ctrl.Result, error) {
-	pf, ok := o.PFacts.findPodToRunVsql(true, scName)
+	pf, ok := o.PFacts.findUpPod(true, scName)
 	if !ok {
 		o.Log.Info("No pod found to run vsql.  Skipping active connection check")
 		return ctrl.Result{}, nil
