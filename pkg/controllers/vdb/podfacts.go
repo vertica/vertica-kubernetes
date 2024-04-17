@@ -240,6 +240,18 @@ func MakePodFactsForSandbox(vrec config.ReconcilerInterface, prunner cmds.PodRun
 	return pf
 }
 
+// Copy will make a new copy of the podfacts, but setup for the given sandbox name.
+func (p *PodFacts) Copy(sandbox string) PodFacts {
+	ret := *p
+	// Clear out fields we don't want to copy to the new copy.
+	ret.NeedCollection = true
+	ret.Detail = make(PodFactDetail)
+	// This function is intended to get a PodFacts for a different sandbox, so
+	// use the sandbox name that is passed in.
+	ret.SandboxName = sandbox
+	return ret
+}
+
 // Collect will gather up the for facts if a collection is needed
 // If the facts are already up to date, this function does nothing.
 func (p *PodFacts) Collect(ctx context.Context, vdb *vapi.VerticaDB) error {
