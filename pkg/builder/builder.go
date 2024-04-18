@@ -1312,7 +1312,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForPodObject(vdb, sc),
+			Labels:      MakeLabelsForSandboxPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc),

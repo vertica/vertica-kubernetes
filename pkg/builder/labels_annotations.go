@@ -88,6 +88,12 @@ func makeLabelsForObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, forPod bool) 
 
 // MakeLabelsForPodObject constructs the labels that are common for all pods
 func MakeLabelsForPodObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
+	return makeLabelsForObject(vdb, sc, true)
+}
+
+// MakeLabelsForSandboxPodObject constructs the labels that are common for all pods plus
+// the sandbox name label. It is for testing purposes.
+func MakeLabelsForSandboxPodObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[string]string {
 	labels := makeLabelsForObject(vdb, sc, true)
 	sandbox := vdb.GetSubclusterSandboxName(sc.Name)
 	if sandbox != vapi.MainCluster {
