@@ -60,7 +60,7 @@ set -o xtrace
 kubectl krew update
 kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/d1817869b86fd040a923682b1392bdb232947bf5/plugins/minio.yaml
 # If these images ever change, they must be updated in tests/external-images-s3-ci.txt
-kubectl minio init --console-image minio/console:v0.22.5 --image minio/operator:v4.5.7
+kubectl minio init --image minio/operator:v4.5.7
 
 # The above command will create the CRD.  But there is a timing hole where the
 # CRD is not yet registered with k8s, causing the tenant creation below to
