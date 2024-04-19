@@ -104,26 +104,11 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-// const testAccessKey = "dummy"
-// const testSecretKey = "dummy"
 const testTargetVdbUID = "jklmno-pqr"
 const testCustomPasswordSecretName = "custom-su-pwd" // #nosec G101 -- This is a false positive for hardcoded credentials in test file
 const testPassword = "topsecret"
 const testCustomUserName = "custom-username"
 const testTLSSecretName = "tls-1"
-
-// func createS3CredSecret(ctx context.Context, vdb *v1.VerticaDB) {
-// 	createK8sCredSecret(ctx, vdb)
-// }
-
-// func createK8sCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
-// 	secret := builder.BuildCommunalCredSecret(vdb, testAccessKey, testSecretKey)
-// 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-// }
-
-// func deleteCommunalCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
-// 	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
-// }
 
 func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 	nm := names.GenNamespacedName(vdb, secretName)
