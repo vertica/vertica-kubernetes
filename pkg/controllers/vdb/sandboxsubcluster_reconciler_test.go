@@ -235,6 +235,6 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		}
 		newVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
-		Expect(newVdb.Status.Sandboxes).Should(Equal(targetSandboxStatus))
+		Expect(newVdb.Status.Sandboxes).Should(ConsistOf(targetSandboxStatus))
 	})
 })
