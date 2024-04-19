@@ -26,11 +26,6 @@ kind: VerticaDB
 metadata:
   name: v-sandbox
 status:
-  subclusters:
-    - addedToDBCount: 3
-      upNodeCount: 3
-    - addedToDBCount: 3
-      upNodeCount: 3
   sandboxes:
     - name: sandbox1
       subclusters:
