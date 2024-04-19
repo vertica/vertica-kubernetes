@@ -827,20 +827,6 @@ func (p *PodFacts) doesDBExist() bool {
 	return false
 }
 
-// findUpPod returns the first (sorted) pod that has an up vertica node
-// Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {
-	for _, v := range p.Detail {
-		if scName != "" && v.subclusterName != scName {
-			continue
-		}
-		if v.upNode && (allowReadOnly || !v.readOnly) {
-			return v, true
-		}
-	}
-	return &PodFact{}, false
-}
-
 // findFirstUpPod returns the first (sorted) pod that has an up vertica node
 // Will return false for second parameter if no pod could be found.
 func (p *PodFacts) findFirstUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {

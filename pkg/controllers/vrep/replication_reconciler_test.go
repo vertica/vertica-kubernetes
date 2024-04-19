@@ -45,21 +45,17 @@ var _ = Describe("query_reconcile", func() {
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		sourceSecretName := "tls-1"
-		sourceVdb.Spec.NMATLSSecret = sourceSecretName
+		sourceVdb.Spec.NMATLSSecret = testTLSSecretName
 		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
 			return &MockVClusterOps{}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(sourceVdb, setupAPIFunc)
-		// s3 cred secret can be reused by the target vdb
-		createS3CredSecret(ctx, sourceVdb)
-		defer deleteCommunalCredSecret(ctx, sourceVdb)
 		test.CreateVDB(ctx, k8sClient, sourceVdb)
 		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, sourceVdb)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, sourceSecretName)
-		defer test.DeleteSecret(ctx, k8sClient, sourceSecretName)
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, testTLSSecretName)
+		defer test.DeleteSecret(ctx, k8sClient, testTLSSecretName)
 
 		targetVdbName := v1beta1.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
@@ -99,21 +95,11 @@ var _ = Describe("query_reconcile", func() {
 		sourceVdb.Name = sourceVdbName.Name
 		sourceVdb.Namespace = sourceVdbName.Namespace
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
-		sourceSecretName := "tls-1"
-		sourceVdb.Spec.NMATLSSecret = sourceSecretName
-		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
-			return &MockVClusterOps{}, logr.Logger{}
-		}
-		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(sourceVdb, setupAPIFunc)
-		// s3 cred secret can be reused by the target vdb
-		createS3CredSecret(ctx, sourceVdb)
-		defer deleteCommunalCredSecret(ctx, sourceVdb)
+		sourceVdb.Spec.NMATLSSecret = testTLSSecretName
 		test.CreateVDB(ctx, k8sClient, sourceVdb)
 		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
 		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, sourceVdb)
-		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, k8sClient, sourceSecretName)
-		defer test.DeleteSecret(ctx, k8sClient, sourceSecretName)
 
 		targetVdbName := v1beta1.MakeTargetVDBName()
 		targetVdb := vapi.MakeVDB()
@@ -146,15 +132,18 @@ var _ = Describe("query_reconcile", func() {
 		}
 		original, ok := recon.(*ReplicationReconciler)
 		Expect(ok).Should(BeTrue())
+		// make sure ReplicationReconciler fields are untouched
 		Expect(reflect.DeepEqual(expected, original)).Should(BeTrue())
 
 		Expect(result).Should(Equal(ctrl.Result{}))
 		Expect(err).ShouldNot(HaveOccurred())
+		// make sure status conditions and state are retained
 		Expect(vrep.IsStatusConditionTrue(v1beta1.ReplicationComplete)).Should(BeTrue())
 		Expect(vrep.Status.State).Should(Equal(stateSucceededReplication))
 
 		err = vrepstatus.Reset(ctx, vrepRec.Client, vrepRec.Log, vrep)
 		Expect(err).ShouldNot(HaveOccurred())
+		// make sure status conditions and state are cleared
 		Expect(vrep.IsStatusConditionPresent(v1beta1.ReplicationComplete)).Should(BeFalse())
 		Expect(vrep.Status.State).Should(Equal(""))
 
@@ -166,10 +155,70 @@ var _ = Describe("query_reconcile", func() {
 
 		original, ok = recon.(*ReplicationReconciler)
 		Expect(ok).Should(BeTrue())
+		// make sure ReplicationReconciler fields are untouched
 		Expect(reflect.DeepEqual(expected, original)).Should(BeTrue())
 		Expect(result).Should(Equal(ctrl.Result{}))
 		Expect(err).ShouldNot(HaveOccurred())
+		// make sure status conditions and state are retained
 		Expect(vrep.IsStatusConditionFalse(v1beta1.ReplicationReady)).Should(BeTrue())
 		Expect(vrep.Status.State).Should(Equal(stateIncompatibleDB))
+	})
+
+	It("should set correct username and password", func() {
+		sourceVdbName := v1beta1.MakeSourceVDBName()
+		sourceVdb := vapi.MakeVDB()
+		sourceVdb.Name = sourceVdbName.Name
+		sourceVdb.Namespace = sourceVdbName.Namespace
+		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		sourceVdb.Spec.NMATLSSecret = testTLSSecretName
+		test.CreateVDB(ctx, k8sClient, sourceVdb)
+		defer test.DeleteVDB(ctx, k8sClient, sourceVdb)
+		test.CreatePods(ctx, k8sClient, sourceVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, sourceVdb)
+
+		targetVdbName := v1beta1.MakeTargetVDBName()
+		targetVdb := vapi.MakeVDB()
+		targetVdb.Name = targetVdbName.Name
+		targetVdb.Namespace = targetVdbName.Namespace
+		targetVdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		targetVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
+		targetVdb.UID = testTargetVdbUID
+		test.CreateVDB(ctx, k8sClient, targetVdb)
+		defer test.DeleteVDB(ctx, k8sClient, targetVdb)
+		test.CreatePods(ctx, k8sClient, targetVdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, targetVdb)
+
+		vrep := v1beta1.MakeVrep()
+		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
+
+		// create custom superuser password secret for source vdb
+		test.CreateSuperuserPasswordSecret(ctx, sourceVdb, k8sClient, testCustomPasswordSecretName, testPassword)
+		defer deleteSecret(ctx, sourceVdb, testCustomPasswordSecretName)
+
+		// no username provided
+		username, password, err := setUsernameAndPassword(ctx, k8sClient, logger, vrepRec, sourceVdb, &vrep.Spec.Source)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(username).Should(Equal(vapi.SuperUser))
+		Expect(password).Should(Equal(""))
+
+		vrep.Spec.Source.UserName = testCustomUserName
+		Expect(k8sClient.Update(ctx, vrep)).Should(Succeed())
+
+		// username provided, password secret not provided
+		username, password, err = setUsernameAndPassword(ctx, k8sClient, logger, vrepRec, sourceVdb, &vrep.Spec.Source)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(username).Should(Equal(testCustomUserName))
+		Expect(password).Should(Equal(""))
+
+		vrep.Spec.Source.PasswordSecret = testCustomPasswordSecretName
+		Expect(k8sClient.Update(ctx, vrep)).Should(Succeed())
+
+		// username and password secret provided
+		username, password, err = setUsernameAndPassword(ctx, k8sClient, logger, vrepRec, sourceVdb, &vrep.Spec.Source)
+		Expect(err).ShouldNot(HaveOccurred())
+		Expect(username).Should(Equal(testCustomUserName))
+		Expect(password).Should(Equal(testPassword))
+
 	})
 })

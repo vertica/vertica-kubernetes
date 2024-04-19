@@ -27,10 +27,10 @@ import (
 
 	"github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
-	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -41,7 +41,6 @@ import (
 
 	v1 "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
-	corev1 "k8s.io/api/core/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -105,22 +104,26 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-const testAccessKey = "dummy"
-const testSecretKey = "dummy"
+// const testAccessKey = "dummy"
+// const testSecretKey = "dummy"
 const testTargetVdbUID = "jklmno-pqr"
+const testCustomPasswordSecretName = "custom-su-pwd" // #nosec G101 -- This is a false positive for hardcoded credentials in test file
+const testPassword = "topsecret"
+const testCustomUserName = "custom-username"
+const testTLSSecretName = "tls-1"
 
-func createS3CredSecret(ctx context.Context, vdb *v1.VerticaDB) {
-	createK8sCredSecret(ctx, vdb)
-}
+// func createS3CredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+// 	createK8sCredSecret(ctx, vdb)
+// }
 
-func createK8sCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
-	secret := builder.BuildCommunalCredSecret(vdb, testAccessKey, testSecretKey)
-	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
-}
+// func createK8sCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+// 	secret := builder.BuildCommunalCredSecret(vdb, testAccessKey, testSecretKey)
+// 	Expect(k8sClient.Create(ctx, secret)).Should(Succeed())
+// }
 
-func deleteCommunalCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
-	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
-}
+// func deleteCommunalCredSecret(ctx context.Context, vdb *v1.VerticaDB) {
+// 	deleteSecret(ctx, vdb, vdb.Spec.Communal.CredentialSecret)
+// }
 
 func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 	nm := names.GenNamespacedName(vdb, secretName)
@@ -128,13 +131,6 @@ func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
 	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
 }
-
-// createPodFactsDefault will generate the PodFacts for test using the default settings for all.
-// func createPodFactsDefault(fpr *cmds.FakePodRunner) *vdbcontroller.PodFacts {
-// 	pfacts := vdbcontroller.MakePodFacts(vrepRec, fpr, logger)
-// 	pfacts.OverrideFunc = vdbcontroller.DefaultPodFactOverrider
-// 	return &pfacts
-// }
 
 // mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
 // except you provide your own setup API function.

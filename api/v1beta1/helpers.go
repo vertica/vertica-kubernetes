@@ -151,8 +151,7 @@ func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bo
 }
 
 func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
-	return meta.IsStatusConditionTrue(vrep.Status.Conditions, statusCondition) ||
-		meta.IsStatusConditionFalse(vrep.Status.Conditions, statusCondition)
+	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
 }
 
 func MakeSampleVrpqName() types.NamespacedName {

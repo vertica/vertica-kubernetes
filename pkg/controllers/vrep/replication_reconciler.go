@@ -59,7 +59,6 @@ type ReplicationReconciler struct {
 	SourceIP       string
 	TargetVdb      *vapi.VerticaDB
 	TargetIP       string
-	TargetDBName   string
 	SourceUsername string
 	SourcePassword string
 	TargetUsername string
@@ -94,10 +93,7 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 		return res, fetchErr
 	}
 
-	// determine db names
-	r.determineDBNames()
-
-	// determine usernames and passwords
+	// determine usernames and passwords for both source and target VerticaDBs
 	err = r.determineUsernameAndPassword(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -132,20 +128,13 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 
 // fetch the source and target VerticaDBs
 func (r *ReplicationReconciler) fetchVdbs(ctx context.Context) (res ctrl.Result, err error) {
-	// fetch source vdb
-	sourceVdb := &vapi.VerticaDB{}
-	sourceName := names.GenNamespacedName(r.Vrep, r.Vrep.Spec.Source.VerticaDB)
-	if res, err = vk8s.FetchVDB(ctx, r.VRec, r.Vrep, sourceName, sourceVdb); verrors.IsReconcileAborted(res, err) {
+	vdbSource, vdbTarget, res, err := fetchSourceAndTargetVDBs(ctx, r.VRec, r.Vrep)
+	if vdbSource == nil || vdbTarget == nil {
 		return res, err
 	}
-	r.SourceVdb = sourceVdb
-	// fetch target vdb
-	targetVdb := &vapi.VerticaDB{}
-	targetName := names.GenNamespacedName(r.Vrep, r.Vrep.Spec.Target.VerticaDB)
-	if res, err = vk8s.FetchVDB(ctx, r.VRec, r.Vrep, targetName, targetVdb); verrors.IsReconcileAborted(res, err) {
-		return res, err
-	}
-	r.TargetVdb = targetVdb
+
+	r.SourceVdb = vdbSource
+	r.TargetVdb = vdbTarget
 
 	return
 }
@@ -157,11 +146,7 @@ func (r *ReplicationReconciler) makeDispatcher() error {
 			r.VRec.GetClient(), r.SourcePassword, r.VRec, vadmin.SetupVClusterOps)
 		return nil
 	}
-	return fmt.Errorf("replication is not supported for source VerticaDB with admintools deployment")
-}
-
-func (r *ReplicationReconciler) determineDBNames() {
-	r.TargetDBName = r.TargetVdb.Spec.DBName
+	return fmt.Errorf("replication is not supported when the source uses admintools deployments")
 }
 
 func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context) (err error) {
@@ -201,7 +186,7 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 			// fetch custom password
 			// assuming the password secret key is default
 			password, err := vk8s.GetCustomSuperuserPassword(ctx, cli, log,
-				vRec, vdb, dbInfo.PasswordSecret, "")
+				vRec, vdb, dbInfo.PasswordSecret, names.SuperuserPasswordKey)
 			if err != nil {
 				return "", "", err
 			}
@@ -232,8 +217,8 @@ func (r *ReplicationReconciler) collectPodFacts(ctx context.Context) (err error)
 }
 
 func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
-	// assume source must not be read-only, no subcluster constraints
-	upPodIP, ok := r.SourcePFacts.FindFirstUpPodIP(false, "")
+	// assume source could be read-only, no subcluster constraints
+	upPodIP, ok := r.SourcePFacts.FindFirstUpPodIP(true, "")
 	if !ok {
 		err = fmt.Errorf("cannot find any up hosts in source database cluster")
 		return
@@ -268,7 +253,7 @@ func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 		replicationstart.WithSourceIP(r.SourceIP),
 		replicationstart.WithSourceUsername(r.SourceUsername),
 		replicationstart.WithTargetIP(r.TargetIP),
-		replicationstart.WithTargetDBName(r.TargetDBName),
+		replicationstart.WithTargetDBName(r.TargetVdb.Spec.DBName),
 		replicationstart.WithTargetUserName(r.TargetUsername),
 		replicationstart.WithTargetPassword(r.TargetPassword),
 		replicationstart.WithSourceTLSConfig(r.Vrep.Spec.TLSConfig),
@@ -285,7 +270,7 @@ func (r *ReplicationReconciler) runReplicateDB(ctx context.Context, dispatcher v
 		return err
 	}
 
-	// call showRestorePoints vcluster API
+	// call vcluster API
 	r.VRec.Eventf(r.Vrep, corev1.EventTypeNormal, events.ReplicationStarted,
 		"Starting replication")
 	start := time.Now()

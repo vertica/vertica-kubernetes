@@ -682,7 +682,7 @@ func (o *OnlineUpgradeReconciler) skipTransientSetup() bool {
 	// We skip creating the transient if the cluster is down.  We cannot add the
 	// transient if everything is down.  And there is nothing "online" with this
 	// upgrade if we start with everything down.
-	_, found := o.PFacts.findUpPod(false, "")
+	_, found := o.PFacts.findFirstUpPod(false, "")
 	return !found
 }
 

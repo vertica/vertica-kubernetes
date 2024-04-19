@@ -81,14 +81,6 @@ func GenSUPasswdSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.PasswordSecret)
 }
 
-// GenCustomSUPasswdSecretName returns the name of the custom secret that has the superuser password
-func GenCustomSUPasswdSecretName(customPasswordNamespace, customPasswordSecret string) types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: customPasswordNamespace,
-		Name:      customPasswordSecret,
-	}
-}
-
 // GenPodName returns the name of a specific pod in a subcluster
 // The name of the pod is generated, this function is just a helper for when we need
 // to lookup a pod by its generated name.

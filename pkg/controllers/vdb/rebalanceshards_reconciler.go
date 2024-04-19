@@ -68,7 +68,7 @@ func (s *RebalanceShardsReconciler) Reconcile(ctx context.Context, _ *ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	atPod, ok := s.PFacts.findUpPod(false, "")
+	atPod, ok := s.PFacts.findFirstUpPod(false, "")
 	if !ok {
 		s.Log.Info("No pod found to run vsql from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil

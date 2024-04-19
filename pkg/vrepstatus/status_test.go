@@ -156,7 +156,7 @@ var _ = Describe("status", func() {
 		Expect(vrep.Status.Conditions[0].LastTransitionTime).ShouldNot(Equal(origTime))
 	})
 
-	It("should update the message status", func() {
+	It("should update the state message", func() {
 		vrep := v1beta1.MakeVrep()
 		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
 		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
@@ -175,5 +175,25 @@ var _ = Describe("status", func() {
 			[]*metav1.Condition{cond}, msg1)).Should(Succeed())
 		Expect(k8sClient.Get(ctx, nm, vrep)).Should(Succeed())
 		Expect(vrep.Status.State).Should(Equal(msg1))
+	})
+
+	It("should reset the status condition and state message", func() {
+		vrep := v1beta1.MakeVrep()
+		Expect(k8sClient.Create(ctx, vrep)).Should(Succeed())
+		defer func() { Expect(k8sClient.Delete(ctx, vrep)).Should(Succeed()) }()
+
+		msg := "Replicating"
+		cond := v1.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionTrue, "")
+		Expect(Update(ctx, k8sClient, logger, vrep,
+			[]*metav1.Condition{cond}, msg)).Should(Succeed())
+		nm := types.NamespacedName{Namespace: vrep.Namespace, Name: vrep.Name}
+		Expect(k8sClient.Get(ctx, nm, vrep)).Should(Succeed())
+		Expect(vrep.Status.State).Should(Equal(msg))
+		Expect(len(vrep.Status.Conditions)).Should(Equal(1))
+
+		Expect(Reset(ctx, k8sClient, logger, vrep)).Should(Succeed())
+		Expect(k8sClient.Get(ctx, nm, vrep)).Should(Succeed())
+		Expect(vrep.Status.State).Should(Equal(""))
+		Expect(len(vrep.Status.Conditions)).Should(Equal(0))
 	})
 })

@@ -24,5 +24,5 @@ import (
 )
 
 func (a *Admintools) ReplicateDB(_ context.Context, _ ...replicationstart.Option) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("replication is not supported for admintools deployments in in the source")
+	return ctrl.Result{}, errors.New("replication is not supported when the source uses admintools deployments")
 }

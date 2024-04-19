@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// GetPasswordFromSecret retrieves the password from the secret using the provided key
-func GetPasswordFromSecret(secret map[string][]byte, key string) (string, error) {
+// getPasswordFromSecret retrieves the password from the secret using the provided key
+func getPasswordFromSecret(secret map[string][]byte, key string) (string, error) {
 	pwd, ok := secret[key]
 	if !ok {
 		return "", fmt.Errorf("password not found, secret must have a key with name %q", key)
@@ -54,7 +54,7 @@ func GetSuperuserPassword(ctx context.Context, cl client.Client, log logr.Logger
 		return "", err
 	}
 
-	return GetPasswordFromSecret(secret, names.SuperuserPasswordKey)
+	return getPasswordFromSecret(secret, names.SuperuserPasswordKey)
 }
 
 // GetCustomSuperuserPassword returns the superuser password stored in a custom secret
@@ -68,16 +68,10 @@ func GetCustomSuperuserPassword(ctx context.Context, cl client.Client, log logr.
 		VDB:      vdb,
 		EVWriter: e,
 	}
-	// assume the custom secret is in the same namespace as the vdb
-	namespace := client.Object(vdb).GetNamespace()
-	secret, err := fetcher.Fetch(ctx, names.GenCustomSUPasswdSecretName(
-		namespace, customPasswordSecret))
+	secret, err := fetcher.Fetch(ctx,
+		names.GenNamespacedName(vdb, customPasswordSecret))
 	if err != nil {
 		return "", err
 	}
-	if customPasswordSecretKey == "" {
-		customPasswordSecretKey = names.SuperuserPasswordKey
-	}
-
-	return GetPasswordFromSecret(secret, customPasswordSecretKey)
+	return getPasswordFromSecret(secret, customPasswordSecretKey)
 }

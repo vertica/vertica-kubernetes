@@ -112,6 +112,7 @@ func (r *VerticaReplicatorReconciler) constructActors(vrep *vapi.VerticaReplicat
 	actors := []controllers.ReconcileActor{
 		// Verify some checks before starting a replication
 		MakeVdbVerifyReconciler(r, vrep, log),
+		// Start a replication and update status accordingly upon its completion
 		MakeReplicationReconciler(r.Client, r, vrep, log),
 	}
 	return actors

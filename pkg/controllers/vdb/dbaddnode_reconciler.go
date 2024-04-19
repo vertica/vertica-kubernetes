@@ -136,7 +136,7 @@ func (d *DBAddNodeReconciler) reconcileSubcluster(ctx context.Context, sc *vapi.
 
 // runAddNode will add nodes to the given subcluster
 func (d *DBAddNodeReconciler) runAddNode(ctx context.Context, podsToAdd []*PodFact) (ctrl.Result, error) {
-	initiatorPod, ok := d.PFacts.findUpPod(false, "")
+	initiatorPod, ok := d.PFacts.findFirstUpPod(false, "")
 	if !ok {
 		d.Log.Info("No pod found to run vsql and admintools from. Requeue reconciliation.")
 		return ctrl.Result{Requeue: true}, nil
