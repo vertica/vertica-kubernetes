@@ -59,8 +59,10 @@ const (
 	WatchedBySandboxLabel = "vertica.com/watched-by-sandbox-controller"
 	WatchedBySandboxTrue  = "true"
 
-	// This label is added is added to a statefulset to indicate the sandbox
-	// it belongs to. The sandbox controller will be watching statefulsets
+	// This label is added to a statefulset or a pod to indicate the sandbox
+	// it belongs to. This will allow the operator to filter these objects based on
+	// the cluster(main cluster or sandbox) they belong to.
+	// Moreover, the sandbox controller will be watching statefulsets
 	// with this label and will trigger a reconcile loop if it finds a configmap
 	// with a sandbox name equal to this label's value
 	SandboxNameLabel = "vertica.com/sandbox"
