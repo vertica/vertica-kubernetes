@@ -67,7 +67,7 @@ func (c *CrashLoopReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 func (c *CrashLoopReconciler) reconcileStatefulSets(ctx context.Context) {
 	finder := iter.MakeSubclusterFinder(c.VRec.Client, c.VDB)
-	stss, err := finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted)
+	stss, err := finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted, vapi.MainCluster)
 	if err != nil {
 		// This reconciler is a best effort. It only tries to surface meaningful
 		// error messages based on the events it see. For this reason, no errors

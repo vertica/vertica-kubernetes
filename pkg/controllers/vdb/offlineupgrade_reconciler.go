@@ -63,8 +63,8 @@ var OfflineUpgradeStatusMsgs = []string{
 }
 
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
-func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
-	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
+func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OfflineUpgradeReconciler{
 		VRec:       vdbrecon,
 		Log:        log.WithName("OfflineUpgradeReconciler"),
@@ -80,7 +80,12 @@ func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
 func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if ok, err := o.Manager.IsUpgradeNeeded(ctx); !ok || err != nil {
+	sandbox := o.PFacts.GetSandboxName()
+	if ok, err := o.Manager.IsUpgradeNeeded(ctx, sandbox); !ok || err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := o.Manager.logUpgradeStarted(sandbox); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -131,7 +136,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
 }
 
 // logEventIfOnlineUpgradeRequested will log an event if the vdb has
@@ -203,7 +208,8 @@ func (o *OfflineUpgradeReconciler) postReschedulePodsMsg(ctx context.Context) (c
 // Since there will be processing after to delete the pods so that they come up
 // with the new image.
 func (o *OfflineUpgradeReconciler) updateImageInStatefulSets(ctx context.Context) (ctrl.Result, error) {
-	numStsChanged, err := o.Manager.updateImageInStatefulSets(ctx)
+	sandbox := o.PFacts.GetSandboxName()
+	numStsChanged, err := o.Manager.updateImageInStatefulSets(ctx, sandbox)
 	if numStsChanged > 0 {
 		o.PFacts.Invalidate()
 	}
@@ -215,7 +221,8 @@ func (o *OfflineUpgradeReconciler) updateImageInStatefulSets(ctx context.Context
 // the sts is OnDelete.  Deleting the pods ensures they get rescheduled with the
 // new image.
 func (o *OfflineUpgradeReconciler) deletePods(ctx context.Context) (ctrl.Result, error) {
-	numPodsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, "")
+	sandbox := o.PFacts.GetSandboxName()
+	numPodsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, "", sandbox)
 	if numPodsDeleted > 0 {
 		o.PFacts.Invalidate()
 	}
@@ -228,7 +235,8 @@ func (o *OfflineUpgradeReconciler) checkNMADeploymentChange(ctx context.Context)
 		return ctrl.Result{}, nil
 	}
 
-	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting)
+	sandbox := o.PFacts.GetSandboxName()
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting, sandbox)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -251,7 +259,12 @@ func (o *OfflineUpgradeReconciler) checkNMADeploymentChange(ctx context.Context)
 // only occur if there is at least one pod that exists.
 func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Result, error) {
 	foundPodWithNewImage := false
-	pods, err := o.Finder.FindPods(ctx, iter.FindExisting, vapi.MainCluster)
+	sandbox := o.PFacts.GetSandboxName()
+	pods, err := o.Finder.FindPods(ctx, iter.FindExisting, sandbox)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	targetImage, err := o.Manager.getTargetImage(sandbox)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -261,7 +274,7 @@ func (o *OfflineUpgradeReconciler) checkForNewPods(ctx context.Context) (ctrl.Re
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if cntImage == o.Vdb.Spec.Image {
+		if cntImage == targetImage {
 			foundPodWithNewImage = true
 			break
 		}
@@ -342,6 +355,11 @@ func (o *OfflineUpgradeReconciler) addClientRoutingLabel(ctx context.Context) (c
 
 // anyPodsRunningWithOldImage will check if any upNode pods are running with the old image.
 func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Context) (bool, error) {
+	sandbox := o.PFacts.GetSandboxName()
+	targetImage, err := o.Manager.getTargetImage(sandbox)
+	if err != nil {
+		return false, err
+	}
 	for pn, pf := range o.PFacts.Detail {
 		if !pf.upNode {
 			continue
@@ -359,7 +377,7 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 		if err != nil {
 			return false, err
 		}
-		if cntImage != o.Vdb.Spec.Image {
+		if cntImage != targetImage {
 			return true, nil
 		}
 	}

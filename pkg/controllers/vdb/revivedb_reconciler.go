@@ -286,7 +286,7 @@ func (r *ReviveDBReconciler) genDescribeOpts(initiatorPod types.NamespacedName, 
 func (r *ReviveDBReconciler) deleteRevisionPendingSts(ctx context.Context) (ctrl.Result, error) {
 	numStsDeleted := 0
 	finder := iter.MakeSubclusterFinder(r.VRec.Client, r.Vdb)
-	stss, err := finder.FindStatefulSets(ctx, iter.FindInVdb)
+	stss, err := finder.FindStatefulSets(ctx, iter.FindInVdb, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
