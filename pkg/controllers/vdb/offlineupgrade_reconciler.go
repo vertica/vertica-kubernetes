@@ -97,7 +97,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
 		o.Manager.startUpgrade,
-		o.logEventIfOnlineUpgradeRequested,
+		o.logEventIfThisUpgradeWasNotChosen,
 		// Do a clean shutdown of the cluster
 		o.postStoppingClusterMsg,
 		o.stopCluster,
@@ -139,14 +139,11 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
 }
 
-// logEventIfOnlineUpgradeRequested will log an event if the vdb has
-// OnlineUpgrade requested.  We can fall into this codepath if we are running a
-// version of Vertica that doesn't support online upgrade.
-func (o *OfflineUpgradeReconciler) logEventIfOnlineUpgradeRequested(_ context.Context) (ctrl.Result, error) {
-	if !o.Manager.ContinuingUpgrade && o.Vdb.Spec.UpgradePolicy == vapi.OnlineUpgrade {
-		o.VRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.IncompatibleOnlineUpgrade,
-			"Online upgrade was requested but it is incompatible with the Vertica server.  Falling back to offline upgrade.")
-	}
+// logEventIfThisUpgradeWasNotChosen will log an event if the vdb had requested
+// a method other than offline or auto.  We can fall into this codepath if we
+// are running a version of Vertica that doesn't support online upgrade.
+func (o *OfflineUpgradeReconciler) logEventIfThisUpgradeWasNotChosen(_ context.Context) (ctrl.Result, error) {
+	o.Manager.logEventIfRequestedUpgradeIsDifferent(vapi.OfflineUpgrade)
 	return ctrl.Result{}, nil
 }
 

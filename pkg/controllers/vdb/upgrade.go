@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -630,4 +631,15 @@ func (i *UpgradeManager) routeClientTraffic(ctx context.Context, pfacts *PodFact
 	svc.Spec.Selector = selectors
 	i.Log.Info("Updating svc", "selector", svc.Spec.Selector)
 	return objRec.reconcileExtSvc(ctx, svc, sc)
+}
+
+// logEventIfRequestedUpgradeIsDifferent will log an event if the requested
+// upgrade, as per the upgrade policy, is different than the actual upgrade
+// chosen.
+func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vapi.UpgradePolicyType) {
+	if !i.ContinuingUpgrade && i.Vdb.Spec.UpgradePolicy != actualUpgrade && i.Vdb.Spec.UpgradePolicy != vapi.AutoUpgrade {
+		actualUpgradeAsText := strings.ToLower(string(actualUpgrade))
+		i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.IncompatibleUpgradeRequested,
+			"Requested upgrade is incompatible with the Vertica deployment. Falling back to %s upgrade.", actualUpgradeAsText)
+	}
 }
