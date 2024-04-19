@@ -256,6 +256,8 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		// Update the label in pods so that Service routing uses them if they
 		// have finished being rebalanced.
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
+		// Handle calls to add subclusters to sandboxes
+		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent
