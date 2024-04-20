@@ -68,11 +68,15 @@ func MakeReplicatedUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Log
 
 // Reconcile will automate the process of a replicated upgrade.
 func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if ok, err := r.Manager.IsUpgradeNeeded(ctx); !ok || err != nil {
+	if ok, err := r.Manager.IsUpgradeNeeded(ctx, vapi.MainCluster); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if err := r.PFacts[vapi.MainCluster].Collect(ctx, r.VDB); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Manager.logUpgradeStarted(vapi.MainCluster); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -127,13 +131,13 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.Manager.logUpgradeSucceeded(vapi.MainCluster)
 }
 
 // loadUpgradeState will load state into the reconciler that
 // is used in subsequent steps.
 func (r *ReplicatedUpgradeReconciler) loadUpgradeState(ctx context.Context) (ctrl.Result, error) {
-	err := r.Manager.cachePrimaryImages(ctx)
+	err := r.Manager.cachePrimaryImages(ctx, vapi.MainCluster)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -493,7 +497,7 @@ func (r *ReplicatedUpgradeReconciler) scaleOutSecondariesInReplicaGroupB(ctx con
 // be added directly to r.VDB. This is a callback function for
 // updateVDBWithRetry to prepare the vdb for update.
 func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, error) {
-	oldImage, found := r.Manager.fetchOldImage()
+	oldImage, found := r.Manager.fetchOldImage(vapi.MainCluster)
 	if !found {
 		return false, errors.New("Could not find old image needed for new subclusters")
 	}
@@ -547,7 +551,7 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupACallback()
 // replica group B into the sandbox. This is a callback function for
 // updateVDBWithRetry to prepare the vdb for an update.
 func (r *ReplicatedUpgradeReconciler) moveReplicaGroupBSubclusterToSandbox() (bool, error) {
-	oldImage, found := r.Manager.fetchOldImage()
+	oldImage, found := r.Manager.fetchOldImage(vapi.MainCluster)
 	if !found {
 		return false, errors.New("Could not find old image")
 	}

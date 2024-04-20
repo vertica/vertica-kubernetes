@@ -1142,6 +1142,17 @@ func (p *PodFacts) findExpectedNodeNames() []string {
 	return expectedNodeNames
 }
 
+// GetSandboxName returns the name of the sandbox, or empty string
+// for main cluster, the pods belong to
+func (p *PodFacts) GetSandboxName() string {
+	for _, v := range p.Detail {
+		// all pods in the podfacts belong to either
+		// the same sandbox or the main cluster
+		return v.sandbox
+	}
+	return ""
+}
+
 // setSandboxNodeType sets the isPrimary state for a sandboxed
 // subcluster's node
 func setSandboxNodeType(pf *PodFact) {

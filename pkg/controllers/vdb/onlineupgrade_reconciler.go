@@ -58,13 +58,14 @@ type OnlineUpgradeReconciler struct {
 func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OnlineUpgradeReconciler{
-		VRec:       vdbrecon,
-		Log:        log.WithName("OnlineUpgradeReconciler"),
-		Vdb:        vdb,
-		PRunner:    prunner,
-		PFacts:     pfacts,
-		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress, onlineUpgradeAllowed),
+		VRec:    vdbrecon,
+		Log:     log.WithName("OnlineUpgradeReconciler"),
+		Vdb:     vdb,
+		PRunner: prunner,
+		PFacts:  pfacts,
+		Finder:  iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
+		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OnlineUpgradeInProgress,
+			onlineUpgradeAllowed),
 		Dispatcher: dispatcher,
 	}
 }
@@ -72,10 +73,14 @@ func MakeOnlineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
 // Reconcile will handle the process of the vertica image changing.  For
 // example, this can automate the process for an upgrade.
 func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	if ok, err := o.Manager.IsUpgradeNeeded(ctx); !ok || err != nil {
+	sandbox := o.PFacts.GetSandboxName()
+	if ok, err := o.Manager.IsUpgradeNeeded(ctx, sandbox); !ok || err != nil {
 		return ctrl.Result{}, err
 	}
 
+	if err := o.Manager.logUpgradeStarted(sandbox); err != nil {
+		return ctrl.Result{}, err
+	}
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
@@ -122,7 +127,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
 }
 
 // loadSubclusterState will load state into the OnlineUpgradeReconciler that
@@ -135,8 +140,8 @@ func (o *OnlineUpgradeReconciler) loadSubclusterState(ctx context.Context) (ctrl
 	}
 
 	o.TransientSc = o.Vdb.FindTransientSubcluster()
-
-	err = o.Manager.cachePrimaryImages(ctx)
+	sandbox := o.PFacts.GetSandboxName()
+	err = o.Manager.cachePrimaryImages(ctx, sandbox)
 	return ctrl.Result{}, err
 }
 
@@ -202,7 +207,8 @@ func (o *OnlineUpgradeReconciler) addTransientToVdb(ctx context.Context) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	oldImage, ok := o.Manager.fetchOldImage()
+	sandbox := o.PFacts.GetSandboxName()
+	oldImage, ok := o.Manager.fetchOldImage(sandbox)
 	if !ok {
 		return ctrl.Result{}, fmt.Errorf("could not determine the old image name.  "+
 			"Only available image is %s", o.Vdb.Spec.Image)
@@ -327,7 +333,8 @@ func (o *OnlineUpgradeReconciler) addClientRoutingLabelToTransientNodes(ctx cont
 // processFunc for each one that matches the given type.
 func (o *OnlineUpgradeReconciler) iterateSubclusterType(ctx context.Context, scType string,
 	processFunc func(context.Context, *appsv1.StatefulSet) (ctrl.Result, error)) (ctrl.Result, error) {
-	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted)
+	sandbox := o.PFacts.GetSandboxName()
+	stss, err := o.Finder.FindStatefulSets(ctx, iter.FindExisting|iter.FindSorted, sandbox)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -454,7 +461,8 @@ func (o *OnlineUpgradeReconciler) recreateSubclusterWithNewImage(ctx context.Con
 	}
 
 	scName := sts.Labels[vmeta.SubclusterNameLabel]
-	podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, scName)
+	sandbox := o.PFacts.GetSandboxName()
+	podsDeleted, err := o.Manager.deletePodsRunningOldImage(ctx, scName, sandbox)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -498,6 +506,7 @@ func (o *OnlineUpgradeReconciler) checkVersion(ctx context.Context, sts *appsv1.
 }
 
 func (o *OnlineUpgradeReconciler) handleDeploymentChange(ctx context.Context, _ *appsv1.StatefulSet) (ctrl.Result, error) {
+	sandbox := o.PFacts.GetSandboxName()
 	// We need to check if we are changing deployment types. This isn't allowed
 	// for online upgrade because the vclusterops library won't know how to talk
 	// to the pods that are still running the old admintools deployment since it
@@ -508,7 +517,7 @@ func (o *OnlineUpgradeReconciler) handleDeploymentChange(ctx context.Context, _ 
 	if primaryRunningVClusterOps > 0 && secondaryRunningAdmintools > 0 {
 		o.Log.Info("online upgrade isn't supported when changing deployment types from admintools to vclusterops",
 			"primaryRunningVClusterOps", primaryRunningVClusterOps, "secondaryRunningAdmintools", secondaryRunningAdmintools)
-		if err := o.Manager.deleteStsRunningOldImage(ctx); err != nil {
+		if err := o.Manager.deleteStsRunningOldImage(ctx, sandbox); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
