@@ -80,18 +80,22 @@ var _ = Describe("vdbverify_reconcile", func() {
 	})
 
 	It("should update the ReplicationReady condition and state to false for incompatible source database version", func() {
-		testIncompatibleDB(ctx, "v24.2.0", "v23.3.0", true, "IncompatibleSourceDB", false, stateIncompatibleDB)
+		testIncompatibleDB(ctx, "v24.2.0", "v24.3.0", true, "IncompatibleSourceDB", false, stateIncompatibleDB)
 	})
 
 	It("should update the ReplicationReady condition and state to false for incompatible target database version", func() {
-		testIncompatibleDB(ctx, "v24.3.0", "v23.2.0", true, "IncompatibleTargetDB", false, stateIncompatibleDB)
+		testIncompatibleDB(ctx, "v24.4.0", "v24.3.0", true, "IncompatibleTargetDB", false, stateIncompatibleDB)
 	})
 
 	It("should update the ReplicationReady condition and state to false for incompatible source database deployment type", func() {
-		testIncompatibleDB(ctx, "v24.3.0", "v23.3.0", false, "AdmintoolsNotSupported", false, stateIncompatibleDB)
+		testIncompatibleDB(ctx, "v24.3.0", "v24.3.0", false, "AdmintoolsNotSupported", false, stateIncompatibleDB)
 	})
 
 	It("should update the ReplicationReady condition and state to true for compatible source and target databases", func() {
-		testIncompatibleDB(ctx, "v24.3.0", "v23.3.0", true, "Ready", true, "Ready")
+		testIncompatibleDB(ctx, "v24.3.0", "v24.3.0", true, "Ready", true, "Ready")
+	})
+
+	It("should update the ReplicationReady condition and state to true for compatible source and target databases", func() {
+		testIncompatibleDB(ctx, "v24.3.0", "v24.4.0", true, "Ready", true, "Ready")
 	})
 })
