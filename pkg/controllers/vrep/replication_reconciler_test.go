@@ -125,10 +125,12 @@ var _ = Describe("query_reconcile", func() {
 		result, err := recon.Reconcile(ctx, &ctrl.Request{})
 
 		expected := &ReplicationReconciler{
-			Client: k8sClient,
-			VRec:   vrepRec,
-			Vrep:   vrep,
-			Log:    logger.WithName("ReplicationReconciler"),
+			Client:     k8sClient,
+			VRec:       vrepRec,
+			Vrep:       vrep,
+			Log:        logger.WithName("ReplicationReconciler"),
+			SourceInfo: &ReplicationInfo{},
+			TargetInfo: &ReplicationInfo{},
 		}
 		original, ok := recon.(*ReplicationReconciler)
 		Expect(ok).Should(BeTrue())

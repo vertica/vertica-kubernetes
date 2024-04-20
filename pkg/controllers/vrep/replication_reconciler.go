@@ -47,31 +47,34 @@ const (
 	stateFailedReplication    = "Replication failed"
 )
 
+type ReplicationInfo struct {
+	Vdb      *vapi.VerticaDB
+	IP       string
+	Username string
+	Password string
+}
+
 type ReplicationReconciler struct {
 	client.Client
-	VRec           *VerticaReplicatorReconciler
-	Vrep           *v1beta1.VerticaReplicator
-	dispatcher     vadmin.Dispatcher
-	SourcePFacts   *vdbcontroller.PodFacts
-	TargetPFacts   *vdbcontroller.PodFacts
-	Log            logr.Logger
-	SourceVdb      *vapi.VerticaDB
-	SourceIP       string
-	TargetVdb      *vapi.VerticaDB
-	TargetIP       string
-	SourceUsername string
-	SourcePassword string
-	TargetUsername string
-	TargetPassword string
+	VRec         *VerticaReplicatorReconciler
+	Vrep         *v1beta1.VerticaReplicator
+	dispatcher   vadmin.Dispatcher
+	SourcePFacts *vdbcontroller.PodFacts
+	TargetPFacts *vdbcontroller.PodFacts
+	Log          logr.Logger
+	SourceInfo   *ReplicationInfo
+	TargetInfo   *ReplicationInfo
 }
 
 func MakeReplicationReconciler(cli client.Client, r *VerticaReplicatorReconciler, vrep *v1beta1.VerticaReplicator,
 	log logr.Logger) controllers.ReconcileActor {
 	return &ReplicationReconciler{
-		Client: cli,
-		VRec:   r,
-		Vrep:   vrep,
-		Log:    log.WithName("ReplicationReconciler"),
+		Client:     cli,
+		VRec:       r,
+		Vrep:       vrep,
+		Log:        log.WithName("ReplicationReconciler"),
+		SourceInfo: &ReplicationInfo{},
+		TargetInfo: &ReplicationInfo{},
 	}
 }
 
@@ -129,35 +132,36 @@ func (r *ReplicationReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) 
 // fetch the source and target VerticaDBs
 func (r *ReplicationReconciler) fetchVdbs(ctx context.Context) (res ctrl.Result, err error) {
 	vdbSource, vdbTarget, res, err := fetchSourceAndTargetVDBs(ctx, r.VRec, r.Vrep)
-	if vdbSource == nil || vdbTarget == nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 
-	r.SourceVdb = vdbSource
-	r.TargetVdb = vdbTarget
+	r.SourceInfo.Vdb = vdbSource
+	r.TargetInfo.Vdb = vdbTarget
 
 	return
 }
 
 // makeDispatcher will create a Dispatcher object based on the feature flags set.
 func (r *ReplicationReconciler) makeDispatcher() error {
-	if vmeta.UseVClusterOps(r.SourceVdb.Annotations) {
-		r.dispatcher = vadmin.MakeVClusterOps(r.Log, r.SourceVdb,
-			r.VRec.GetClient(), r.SourcePassword, r.VRec, vadmin.SetupVClusterOps)
+	if vmeta.UseVClusterOps(r.SourceInfo.Vdb.Annotations) {
+		r.dispatcher = vadmin.MakeVClusterOps(r.Log, r.SourceInfo.Vdb,
+			r.VRec.GetClient(), r.SourceInfo.Password, r.VRec, vadmin.SetupVClusterOps)
 		return nil
 	}
 	return fmt.Errorf("replication is not supported when the source uses admintools deployments")
 }
 
+// determine usernames and passwords for both source and target VerticaDBs
 func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context) (err error) {
-	r.SourceUsername, r.SourcePassword, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.SourceVdb, &r.Vrep.Spec.Source)
+	r.SourceInfo.Username, r.SourceInfo.Password, err = setUsernameAndPassword(ctx,
+		r.Client, r.Log, r.VRec, r.SourceInfo.Vdb, &r.Vrep.Spec.Source)
 	if err != nil {
 		return err
 	}
 
-	r.TargetUsername, r.TargetPassword, err = setUsernameAndPassword(ctx,
-		r.Client, r.Log, r.VRec, r.TargetVdb, &r.Vrep.Spec.Target)
+	r.TargetInfo.Username, r.TargetInfo.Password, err = setUsernameAndPassword(ctx,
+		r.Client, r.Log, r.VRec, r.TargetInfo.Vdb, &r.Vrep.Spec.Target)
 	if err != nil {
 		return err
 	}
@@ -165,6 +169,7 @@ func (r *ReplicationReconciler) determineUsernameAndPassword(ctx context.Context
 	return
 }
 
+// determine username and password to use for a vdb depending on certain fields of vrep spec
 func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Logger,
 	vRec *VerticaReplicatorReconciler, vdb *vapi.VerticaDB,
 	dbInfo *v1beta1.VerticaReplicatorDatabaseInfo) (username, password string, err error) {
@@ -195,27 +200,30 @@ func setUsernameAndPassword(ctx context.Context, cli client.Client, log logr.Log
 	}
 }
 
+// collect pod facts for source and target sandboxes (or main clusters)
 func (r *ReplicationReconciler) collectPodFacts(ctx context.Context) (err error) {
-	r.SourcePFacts, err = r.makePodFacts(ctx, r.SourceVdb,
+	r.SourcePFacts, err = r.makePodFacts(ctx, r.SourceInfo.Vdb,
 		r.Vrep.Spec.Source.SandboxName)
 	if err != nil {
 		return
 	}
-	if err = r.SourcePFacts.Collect(ctx, r.SourceVdb); err != nil {
+	if err = r.SourcePFacts.Collect(ctx, r.SourceInfo.Vdb); err != nil {
 		return
 	}
 
-	r.TargetPFacts, err = r.makePodFacts(ctx, r.TargetVdb,
+	r.TargetPFacts, err = r.makePodFacts(ctx, r.TargetInfo.Vdb,
 		r.Vrep.Spec.Target.SandboxName)
 	if err != nil {
 		return
 	}
-	if err = r.TargetPFacts.Collect(ctx, r.TargetVdb); err != nil {
+	if err = r.TargetPFacts.Collect(ctx, r.TargetInfo.Vdb); err != nil {
 		return
 	}
 	return
 }
 
+// choose the source host and target host
+// (first host where db is up in the specified cluster)
 func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 	// assume source could be read-only, no subcluster constraints
 	upPodIP, ok := r.SourcePFacts.FindFirstUpPodIP(true, "")
@@ -223,7 +231,7 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 		err = fmt.Errorf("cannot find any up hosts in source database cluster")
 		return
 	} else {
-		r.SourceIP = upPodIP
+		r.SourceInfo.IP = upPodIP
 	}
 	// assume target must not be read-only, no subcluster constraints
 	upPodIP, ok = r.TargetPFacts.FindFirstUpPodIP(false, "")
@@ -231,11 +239,12 @@ func (r *ReplicationReconciler) determineSourceAndTargetHosts() (err error) {
 		err = fmt.Errorf("cannot find any up hosts in target database cluster")
 		return
 	} else {
-		r.TargetIP = upPodIP
+		r.TargetInfo.IP = upPodIP
 	}
 	return
 }
 
+// make podfacts for a cluster (either main or a sandbox) of a vdb
 func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.VerticaDB,
 	sandboxName string) (*vdbcontroller.PodFacts, error) {
 	username := vdb.GetVerticaUser()
@@ -248,14 +257,15 @@ func (r *ReplicationReconciler) makePodFacts(ctx context.Context, vdb *vapi.Vert
 	return &pFacts, nil
 }
 
+// build all the opts from the cached values in reconciler
 func (r *ReplicationReconciler) buildOpts() []replicationstart.Option {
 	opts := []replicationstart.Option{
-		replicationstart.WithSourceIP(r.SourceIP),
-		replicationstart.WithSourceUsername(r.SourceUsername),
-		replicationstart.WithTargetIP(r.TargetIP),
-		replicationstart.WithTargetDBName(r.TargetVdb.Spec.DBName),
-		replicationstart.WithTargetUserName(r.TargetUsername),
-		replicationstart.WithTargetPassword(r.TargetPassword),
+		replicationstart.WithSourceIP(r.SourceInfo.IP),
+		replicationstart.WithSourceUsername(r.SourceInfo.Username),
+		replicationstart.WithTargetIP(r.TargetInfo.IP),
+		replicationstart.WithTargetDBName(r.TargetInfo.Vdb.Spec.DBName),
+		replicationstart.WithTargetUserName(r.TargetInfo.Username),
+		replicationstart.WithTargetPassword(r.TargetInfo.Password),
 		replicationstart.WithSourceTLSConfig(r.Vrep.Spec.TLSConfig),
 	}
 	return opts

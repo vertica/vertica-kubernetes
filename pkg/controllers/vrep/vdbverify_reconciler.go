@@ -22,6 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	vrepstatus "github.com/vertica/vertica-kubernetes/pkg/vrepstatus"
@@ -58,7 +59,7 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 
 	vdbSource, vdbTarget, res, err := fetchSourceAndTargetVDBs(ctx, r.VRec, r.Vrep)
-	if vdbSource == nil || vdbTarget == nil {
+	if verrors.IsReconcileAborted(res, err) {
 		return res, err
 	}
 

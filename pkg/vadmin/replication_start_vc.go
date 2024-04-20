@@ -49,7 +49,6 @@ func (v *VClusterOps) ReplicateDB(ctx context.Context, opts ...replicationstart.
 		return ctrl.Result{}, err
 	}
 
-	// TODO: log source and target sandbox names after VER-93450
 	v.Log.Info("Successfully replicated a database", "sourceDBName", *vopts.DBName,
 		"targetDBName", vopts.TargetDB)
 	return ctrl.Result{}, nil
