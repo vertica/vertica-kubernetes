@@ -574,7 +574,7 @@ func (i *UpgradeManager) traceActorReconcile(actor controllers.ReconcileActor) {
 // that are active for a given subcluster.  It returns a requeue error if there
 // are still active connections.
 func (i *UpgradeManager) isSubclusterIdle(ctx context.Context, pfacts *PodFacts, scName string) (ctrl.Result, error) {
-	pf, ok := pfacts.findPodToRunVsql(true, scName)
+	pf, ok := pfacts.findFirstUpPod(true, scName)
 	if !ok {
 		i.Log.Info("No pod found to run vsql.  Skipping active connection check")
 		return ctrl.Result{}, nil
