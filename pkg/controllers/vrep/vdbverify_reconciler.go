@@ -76,8 +76,9 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 
 	if !vinfSource.IsEqualOrNewer(vapi.ReplicationViaVclusteropsSupportedMinVersion) {
 		r.VRec.Eventf(r.Vrep, corev1.EventTypeWarning, events.ReplicationNotSupported,
-			"The source Vertica version %q doesn't support replication with the vcluster library,"+
-				" has to be at least %q", vinfSource.VdbVer, vapi.ReplicationViaVclusteropsSupportedMinVersion)
+			"The source Vertica version %q lacks support for replication using the vcluster library; "+
+				"an upgrade to at least version %q is required.",
+			vinfSource.VdbVer, vapi.ReplicationViaVclusteropsSupportedMinVersion)
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "IncompatibleSourceDB")}, stateIncompatibleDB)
 		if err != nil {
@@ -87,8 +88,8 @@ func (r *VdbVerifyReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (c
 	}
 	if !vinfTarget.IsEqualOrNewer(vinfSource.VdbVer) {
 		r.VRec.Eventf(r.Vrep, corev1.EventTypeWarning, events.ReplicationNotSupported,
-			"The target Vertica version %q doesn't support replication, has to be the same or higher than"+
-				"the source Vertica version %q", vinfTarget.VdbVer, vinfSource.VdbVer)
+			"The target Vertica version, %q, must be equal to or higher than "+
+				"the source Vertica version, %q", vinfTarget.VdbVer, vinfSource.VdbVer)
 		err = vrepstatus.Update(ctx, r.VRec.Client, r.VRec.Log, r.Vrep,
 			[]*metav1.Condition{vapi.MakeCondition(v1beta1.ReplicationReady, metav1.ConditionFalse, "IncompatibleTargetDB")}, stateIncompatibleDB)
 		if err != nil {
