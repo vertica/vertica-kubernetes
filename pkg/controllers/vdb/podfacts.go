@@ -827,19 +827,20 @@ func (p *PodFacts) doesDBExist() bool {
 	return false
 }
 
-// findPodToRunVsql returns the name of the pod we will exec into in
-// order to run vsql
+// findFirstUpPod returns the first (sorted) pod that has an up vertica node
 // Will return false for second parameter if no pod could be found.
-func (p *PodFacts) findPodToRunVsql(allowReadOnly bool, scName string) (*PodFact, bool) {
-	for _, v := range p.Detail {
-		if scName != "" && v.subclusterName != scName {
-			continue
-		}
-		if v.upNode && (allowReadOnly || !v.readOnly) {
-			return v, true
-		}
+func (p *PodFacts) findFirstUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {
+	return p.findFirstPodSorted(func(v *PodFact) bool {
+		return (scName == "" || v.subclusterName == scName) &&
+			v.upNode && (allowReadOnly || !v.readOnly)
+	})
+}
+
+func (p *PodFacts) FindFirstUpPodIP(allowReadOnly bool, scName string) (string, bool) {
+	if pod, ok := p.findFirstUpPod(allowReadOnly, scName); ok {
+		return pod.podIP, true
 	}
-	return &PodFact{}, false
+	return "", false
 }
 
 // findPodToRunAdminCmdAny returns the name of the pod we will exec into into

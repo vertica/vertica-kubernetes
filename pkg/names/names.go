@@ -76,7 +76,7 @@ func GenKrb5SecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.KerberosSecret)
 }
 
-// GenSUPasswdSecretName returns the name of the secret that has the superuser password
+// GenSUPasswdSecretName returns the name of the secret specified in vdb that has the superuser password
 func GenSUPasswdSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 	return GenNamespacedName(vdb, vdb.Spec.PasswordSecret)
 }

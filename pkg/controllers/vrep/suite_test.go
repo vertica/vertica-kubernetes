@@ -17,6 +17,7 @@ limitations under the License.
 package vrep
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -24,7 +25,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -97,3 +102,25 @@ var _ = AfterSuite(func() {
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
+
+const testTargetVdbUID = "jklmno-pqr"
+const testCustomPasswordSecretName = "custom-su-pwd" // #nosec G101 -- This is a false positive for hardcoded credentials in test file
+const testPassword = "topsecret"
+const testCustomUserName = "custom-username"
+const testTLSSecretName = "tls-1"
+
+func deleteSecret(ctx context.Context, vdb *v1.VerticaDB, secretName string) {
+	nm := names.GenNamespacedName(vdb, secretName)
+	secret := &corev1.Secret{}
+	Expect(k8sClient.Get(ctx, nm, secret)).Should(Succeed())
+	Expect(k8sClient.Delete(ctx, secret)).Should(Succeed())
+}
+
+// mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
+// except you provide your own setup API function.
+func mockVClusterOpsDispatcherWithCustomSetup(vdb *v1.VerticaDB,
+	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
+	evWriter := aterrors.TestEVWriter{}
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
+	return dispatcher.(*vadmin.VClusterOps)
+}
