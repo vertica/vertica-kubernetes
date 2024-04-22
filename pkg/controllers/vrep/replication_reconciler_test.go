@@ -25,6 +25,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	vrepstatus "github.com/vertica/vertica-kubernetes/pkg/vrepstatus"
@@ -47,7 +48,7 @@ var _ = Describe("query_reconcile", func() {
 		sourceVdb.Annotations[vmeta.VersionAnnotation] = minimumVer
 		sourceVdb.Spec.NMATLSSecret = testTLSSecretName
 		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
-			return &MockVClusterOps{}, logr.Logger{}
+			return &mockvops.MockVClusterOps{}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(sourceVdb, setupAPIFunc)
 		test.CreateVDB(ctx, k8sClient, sourceVdb)

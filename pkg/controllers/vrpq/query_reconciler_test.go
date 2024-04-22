@@ -24,6 +24,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	v1beta1 "github.com/vertica/vertica-kubernetes/api/v1beta1"
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
+	"github.com/vertica/vertica-kubernetes/pkg/mockvops"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 
@@ -60,7 +61,7 @@ var _ = Describe("query_reconcile", func() {
 		secretName := "tls-1"
 		vdb.Spec.NMATLSSecret = secretName
 		setupAPIFunc := func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger) {
-			return &MockVClusterOps{}, logr.Logger{}
+			return &mockvops.MockVClusterOps{}, logr.Logger{}
 		}
 		dispatcher := mockVClusterOpsDispatcherWithCustomSetup(vdb, setupAPIFunc)
 		createS3CredSecret(ctx, dispatcher.VDB)
