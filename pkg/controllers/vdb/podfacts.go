@@ -974,13 +974,6 @@ func (p *PodFacts) filterPods(filterFunc func(p *PodFact) bool) []*PodFact {
 	return pods
 }
 
-func (p *PodFacts) findFirstUpPod(allowReadOnly bool, scName string) (*PodFact, bool) {
-	return p.findFirstPodSorted(func(v *PodFact) bool {
-		return (scName == "" || v.subclusterName == scName) &&
-			v.upNode && (allowReadOnly || !v.readOnly)
-	})
-}
-
 // findFirstPodSorted returns one pod that matches the filter function. All
 // matching pods are sorted by pod name and the first one is returned.
 func (p *PodFacts) findFirstPodSorted(filterFunc func(p *PodFact) bool) (*PodFact, bool) {

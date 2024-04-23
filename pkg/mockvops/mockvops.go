@@ -71,3 +71,6 @@ func (*MockVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOp
 func (*MockVClusterOps) VFetchNodesDetails(_ *vclusterops.VFetchNodesDetailsOptions) (vclusterops.NodesDetails, error) {
 	return nil, nil
 }
+func (*MockVClusterOps) VStopSubcluster(_ *vclusterops.VStopSubclusterOptions) error {
+	return nil
+}

@@ -85,11 +85,7 @@ func (s *StopSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 // getFirstUpSCPodIP finds and return the first up node in the given
 // subcluster
 func (s *StopSubclusterReconciler) getFirstUpSCPodIP() (string, bool) {
-	pf, found := s.PFacts.findFirstUpPod(true, s.SCName)
-	if !found {
-		return "", false
-	}
-	return pf.podIP, true
+	return s.PFacts.FindFirstUpPodIP(true, s.SCName)
 }
 
 // stopSubcluster calls the API that will perform stop subcluster

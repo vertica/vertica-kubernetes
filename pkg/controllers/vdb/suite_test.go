@@ -27,11 +27,13 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/api/v1beta1"
+	"github.com/vertica/vertica-kubernetes/pkg/aterrors"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -252,4 +254,13 @@ func deleteConfigMap(ctx context.Context, vdb *vapi.VerticaDB, cmName string) {
 	cm := &corev1.ConfigMap{}
 	Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
 	Expect(k8sClient.Delete(ctx, cm)).Should(Succeed())
+}
+
+// mockVClusterOpsDispatchWithCustomSetup is like mockVClusterOpsDispatcher,
+// except you provide your own setup API function.
+func mockVClusterOpsDispatcherWithCustomSetup(vdb *vapi.VerticaDB,
+	setupAPIFunc func(logr.Logger, string) (vadmin.VClusterProvider, logr.Logger)) *vadmin.VClusterOps {
+	evWriter := aterrors.TestEVWriter{}
+	dispatcher := vadmin.MakeVClusterOps(logger, vdb, k8sClient, "pwd", &evWriter, setupAPIFunc)
+	return dispatcher.(*vadmin.VClusterOps)
 }
