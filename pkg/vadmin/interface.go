@@ -39,6 +39,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/startdb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopsc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -97,6 +98,8 @@ type Dispatcher interface {
 
 	// FetchNodeDetails will return details for a node, including its state, sandbox, and storage locations
 	FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error)
+
+	StopSubcluster(ctx context.Context, opts ...stopsc.Option) error
 }
 
 const (
@@ -220,4 +223,5 @@ type VClusterProvider interface {
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
+	VStopSubcluster(options *vops.VStopSubclusterOptions) error
 }

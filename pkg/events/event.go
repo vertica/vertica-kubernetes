@@ -54,6 +54,8 @@ const (
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
 	SubclusterRemoved               = "SubclusterRemoved"
+	StopSubclusterSucceeded         = "StopSubclusterSucceeded"
+	StopSubclusterFailed            = "StopSubclusterFailed"
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"
 	UnsupportedVerticaVersion       = "UnsupportedVerticaVersion"
 	ATConfPartiallyCopied           = "ATConfPartiallyCopied"
