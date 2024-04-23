@@ -34,6 +34,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/reip"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removenode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/removesc"
+	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/replicationstart"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/restartnode"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/revivedb"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
@@ -95,6 +96,9 @@ type Dispatcher interface {
 	// InstallPackages will install all packages under /opt/vertica/packages
 	// where Autoinstall is marked true.
 	InstallPackages(ctx context.Context, opts ...installpackages.Option) (*vops.InstallPackageStatus, error)
+
+	// ReplicateDB will start replicating data and metadata of an Eon cluster to another
+	ReplicateDB(ctx context.Context, opts ...replicationstart.Option) (ctrl.Result, error)
 
 	// FetchNodeDetails will return details for a node, including its state, sandbox, and storage locations
 	FetchNodeDetails(ctx context.Context, opts ...fetchnodedetails.Option) (vops.NodeDetails, error)
@@ -222,6 +226,7 @@ type VClusterProvider interface {
 	VStartNodes(options *vops.VStartNodesOptions) error
 	VShowRestorePoints(options *vops.VShowRestorePointsOptions) ([]vops.RestorePoint, error)
 	VInstallPackages(options *vops.VInstallPackagesOptions) (*vops.InstallPackageStatus, error)
+	VReplicateDatabase(options *vops.VReplicationDatabaseOptions) error
 	VFetchNodesDetails(options *vops.VFetchNodesDetailsOptions) (vops.NodesDetails, error)
 	VStopSubcluster(options *vops.VStopSubclusterOptions) error
 }

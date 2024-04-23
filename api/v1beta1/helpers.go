@@ -150,6 +150,10 @@ func (vrep *VerticaReplicator) IsStatusConditionFalse(statusCondition string) bo
 	return meta.IsStatusConditionFalse(vrep.Status.Conditions, statusCondition)
 }
 
+func (vrep *VerticaReplicator) IsStatusConditionPresent(statusCondition string) bool {
+	return meta.FindStatusCondition(vrep.Status.Conditions, statusCondition) != nil
+}
+
 func MakeSampleVrpqName() types.NamespacedName {
 	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
 }
@@ -195,7 +199,7 @@ func MakeVrep() *VerticaReplicator {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nm.Name,
 			Namespace: nm.Namespace,
-			UID:       "zxcvbn-ghi-lkm",
+			UID:       "zxcvbn-ghi-lkm-xyz",
 		},
 		Spec: VerticaReplicatorSpec{
 			Source: VerticaReplicatorDatabaseInfo{

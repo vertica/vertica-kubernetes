@@ -112,6 +112,9 @@ const (
 const (
 	ReplicationNotSupported    = "ReplicationNotSupported"
 	VrepAdmintoolsNotSupported = "AdmintoolsNotSupported"
+	ReplicationStarted         = "ReplicationStarted"
+	ReplicationFailed          = "ReplicationFailed"
+	ReplicationSucceeded       = "ReplicationSucceeded"
 )
 
 // Constants for VerticaRestorePointsQuery reconciler
