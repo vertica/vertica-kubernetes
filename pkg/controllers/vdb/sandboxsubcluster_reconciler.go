@@ -134,13 +134,6 @@ func (s *SandboxSubclusterReconciler) fetchSubclustersWithSandboxes() (map[strin
 		if sb == v.sandbox {
 			continue
 		}
-		// skip the pod in the subcluster that is in another sandbox,
-		// the subcluster should be unsandboxed first by unsandbox reconciler
-		if v.sandbox != "" {
-			s.Log.Info("Skip sandboxing a pod that is in another sandbox",
-				"pod", v.name.Name, "currentSandbox", v.sandbox, "targetSandbox", sb)
-			continue
-		}
 		// the pod to be added in a sandbox should have a running node
 		if !v.upNode {
 			return targetScSbMap, fmt.Errorf("cannot add pod %q to sandbox %q because the pod does not contain an UP Vertica node",
