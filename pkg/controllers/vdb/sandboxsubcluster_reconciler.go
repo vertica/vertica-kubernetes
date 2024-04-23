@@ -85,30 +85,39 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 	}
 
 	// find an initiator to call vclusterOps
-	foundInitiator := false
-	for _, v := range s.PFacts.Detail {
-		// use an UP primary node in main cluster as the initiator
-		if !foundInitiator && v.sandbox == "" && v.isPrimary && v.upNode {
-			s.InitiatorIP = v.podIP
-			foundInitiator = true
-		}
-	}
-	if !foundInitiator {
+	initiator, ok := s.PFacts.findFirstPodSorted(func(v *PodFact) bool {
+		return v.sandbox == "" && v.isPrimary && v.upNode
+	})
+	if ok {
+		s.InitiatorIP = initiator.podIP
+	} else {
 		return ctrl.Result{}, fmt.Errorf("cannot find an UP node in main cluster to execute sandbox operation")
 	}
 
-	// call sandbox API in vclusterOps, then update sandbox status in vdb
+	succeedSbScMap, err := s.executeSandboxCommand(ctx, scSbMap)
+	if len(succeedSbScMap) > 0 {
+		s.PFacts.Invalidate()
+	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// executeSandboxCommand will call sandbox API in vclusterOps, then update sandbox status in vdb
+func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (map[string][]string, error) {
 	succeedSbScMap := make(map[string][]string)
 	for sc, sb := range scSbMap {
 		err := s.sandboxSubcluster(ctx, sc, sb)
 		if err != nil {
 			// when one subcluster failed to be sandboxed, update sandbox status and return error
-			return ctrl.Result{}, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+			return succeedSbScMap, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
 		} else {
 			succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
 		}
 	}
-	return ctrl.Result{}, s.updateSandboxStatus(ctx, succeedSbScMap)
+	return succeedSbScMap, s.updateSandboxStatus(ctx, succeedSbScMap)
 }
 
 // fetchSubclustersWithSandboxes will return the qualified subclusters with their sandboxes
