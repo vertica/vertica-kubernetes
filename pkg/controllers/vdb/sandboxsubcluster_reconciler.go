@@ -76,8 +76,11 @@ func (s *SandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (ctrl.Result, error) {
 	// find qualified subclusters with their sandboxes
 	scSbMap, err := s.fetchSubclustersWithSandboxes()
+	// the error indicates we have down nodes in a subcluster that will be sandboxed.
+	// we simply requeue the iteration for waiting the nodes to be up.
 	if err != nil {
-		return ctrl.Result{}, err
+		s.Log.Info("Requeue because a pod is not ready", "details", err.Error())
+		return ctrl.Result{}, nil
 	}
 	if len(scSbMap) == 0 {
 		s.Log.Info("No subclusters need to be sandboxed")
@@ -91,33 +94,32 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 	if ok {
 		s.InitiatorIP = initiator.podIP
 	} else {
-		return ctrl.Result{}, fmt.Errorf("cannot find an UP node in main cluster to execute sandbox operation")
+		s.Log.Info("Requeue because there are no UP nodes in main cluster to execute sandbox operation")
+		return ctrl.Result{}, nil
 	}
 
-	succeedSbScMap, err := s.executeSandboxCommand(ctx, scSbMap)
-	if len(succeedSbScMap) > 0 {
-		s.PFacts.Invalidate()
-	}
+	err = s.executeSandboxCommand(ctx, scSbMap)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	s.PFacts.Invalidate()
 
 	return ctrl.Result{}, nil
 }
 
 // executeSandboxCommand will call sandbox API in vclusterOps, then update sandbox status in vdb
-func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) (map[string][]string, error) {
+func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) error {
 	succeedSbScMap := make(map[string][]string)
 	for sc, sb := range scSbMap {
 		err := s.sandboxSubcluster(ctx, sc, sb)
 		if err != nil {
 			// when one subcluster failed to be sandboxed, update sandbox status and return error
-			return succeedSbScMap, errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+			return errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
 		} else {
 			succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
 		}
 	}
-	return succeedSbScMap, s.updateSandboxStatus(ctx, succeedSbScMap)
+	return s.updateSandboxStatus(ctx, succeedSbScMap)
 }
 
 // fetchSubclustersWithSandboxes will return the qualified subclusters with their sandboxes
@@ -136,7 +138,7 @@ func (s *SandboxSubclusterReconciler) fetchSubclustersWithSandboxes() (map[strin
 		}
 		// the pod to be added in a sandbox should have a running node
 		if !v.upNode {
-			return targetScSbMap, fmt.Errorf("cannot add pod %q to sandbox %q because the pod does not contain an UP Vertica node",
+			return targetScSbMap, fmt.Errorf("pod %q does not contain an UP Vertica node so it cannot be added to sandbox %q yet",
 				v.name.Name, sb)
 		}
 		targetScSbMap[v.subclusterName] = sb
@@ -164,8 +166,16 @@ func (s *SandboxSubclusterReconciler) sandboxSubcluster(ctx context.Context, sub
 }
 
 // updateSandboxStatus will update sandbox status in vdb
-func (s *SandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, sbScMap map[string][]string) error {
+func (s *SandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, originalSbScMap map[string][]string) error {
 	updateStatus := func(vdbChg *vapi.VerticaDB) error {
+		// make a copy of originalSbScMap since we will modify the map, and
+		// we want to have a good map in next retry
+		sbScMap := make(map[string][]string, len(originalSbScMap))
+		for sb, scs := range originalSbScMap {
+			sbScMap[sb] = make([]string, len(scs))
+			copy(sbScMap[sb], scs)
+		}
+
 		// for existing sandboxes, update their subclusters in sandbox status
 		for i, sbStatus := range vdbChg.Status.Sandboxes {
 			scs, ok := sbScMap[sbStatus.Name]
@@ -174,6 +184,7 @@ func (s *SandboxSubclusterReconciler) updateSandboxStatus(ctx context.Context, s
 				delete(sbScMap, sbStatus.Name)
 			}
 		}
+
 		// for new sandboxes, append them in sandbox status
 		for sb, scs := range sbScMap {
 			newStatus := vapi.SandboxStatus{Name: sb, Subclusters: scs}

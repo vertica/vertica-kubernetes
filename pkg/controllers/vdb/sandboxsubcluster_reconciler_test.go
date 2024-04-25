@@ -137,7 +137,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should exit with error if the nodes in main cluster or subclusters are not UP", func() {
+	It("should exit without error if the nodes in main cluster or subclusters are not UP", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
@@ -156,19 +156,17 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
 		pfmain, pfsc1, _ := initPFacts(&pfacts, vdb, subcluster1, subcluster2)
 		// let subcluster1 down
+		// should requeue the iteration without any error
 		pfacts.Detail[pfsc1].upNode = false
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
-		res, err := r.Reconcile(ctx, &ctrl.Request{})
-		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(err.Error()).Should(ContainSubstring("the pod does not contain an UP Vertica node"))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		// let subcluster1 up and main cluster down
+		// should requeue the iteration without any error
 		pfacts.Detail[pfsc1].upNode = true
 		pfacts.Detail[pfmain].upNode = false
-		res, err = r.Reconcile(ctx, &ctrl.Request{})
-		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(err.Error()).Should(ContainSubstring("cannot find an UP node in main cluster"))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
 	It("should sandbox the correct subclusters", func() {
