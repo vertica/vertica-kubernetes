@@ -1095,6 +1095,13 @@ func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
 	mainClusterImage := v.Spec.Image
 	path := field.NewPath("spec").Child("sandboxes")
 	for i, sandbox := range sandboxes {
+		// check if we have empty sandbox names
+		if sandbox.Name == "" {
+			err := field.Invalid(path.Index(i),
+				sandboxes[i],
+				"sandbox name cannot be empty")
+			allErrs = append(allErrs, err)
+		}
 		// check if we have duplicate sandboxes
 		if _, ok := seenSandbox[sandbox.Name]; ok {
 			err := field.Invalid(path.Index(i),
@@ -1114,15 +1121,23 @@ func (v *VerticaDB) validateSandboxes(allErrs field.ErrorList) field.ErrorList {
 
 	// check if we are using a vertica version older than v24.3.0
 	vdbVer, ok := v.GetVerticaVersionStr()
+	prefix := field.NewPath("metadata").Child("annotations")
 	if ok {
 		verInfo, err := vversion.MakeInfoFromStrCheck(vdbVer)
-		prefix := field.NewPath("metadata").Child("annotations")
 		if err == nil && verInfo.IsOlder(SandboxSupportedMinVersion) {
 			err := field.Invalid(prefix.Key(vmeta.VersionAnnotation),
 				v.Annotations[vmeta.VersionAnnotation],
 				fmt.Sprintf("sandbox is unsupported in version %s. A minimum version of %s is required", vdbVer, SandboxSupportedMinVersion))
 			allErrs = append(allErrs, err)
 		}
+	}
+
+	// check if we are using vclusterOps deployments
+	if !vmeta.UseVClusterOps(v.Annotations) {
+		err := field.Invalid(prefix.Key(vmeta.VClusterOpsAnnotation),
+			v.Annotations[vmeta.VClusterOpsAnnotation],
+			"sandbox is unsupported for admintools deployments")
+		allErrs = append(allErrs, err)
 	}
 
 	return v.validateSubclustersInSandboxes(allErrs)

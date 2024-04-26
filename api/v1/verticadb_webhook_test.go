@@ -1010,6 +1010,7 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		newVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+		newVdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		resetStatusConditionsForDBInitialized(newVdb)
 		Ω(newVdb.validateVerticaDBSpec()).Should(HaveLen(0))
 
@@ -1064,8 +1065,14 @@ var _ = Describe("verticadb_webhook", func() {
 			{Name: "sandbox2", Image: mainClusterImageVer, Subclusters: []SubclusterName{{Name: "sc2"}, {Name: "sc3"}}},
 		}
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 		resetStatusConditionsForDBInitialized(vdb)
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(0))
+
+		// cannot have empty sandbox name
+		vdb.Spec.Sandboxes[0].Name = ""
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.Spec.Sandboxes[0].Name = "sandbox1"
 
 		// cannot have multiple sandboxes with the same name
 		vdb.Spec.Sandboxes[0].Name = "sandbox2"
@@ -1094,6 +1101,11 @@ var _ = Describe("verticadb_webhook", func() {
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = "v23.0.0"
 		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
 		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = SandboxSupportedMinVersion
+
+		// cannot use admintools deployments
+		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationFalse
+		Ω(vdb.validateVerticaDBSpec()).Should(HaveLen(1))
+		vdb.ObjectMeta.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
 
 		// cannot have duplicate subclusters defined in a sandbox
 		vdb.Spec.Sandboxes = []Sandbox{
