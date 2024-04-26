@@ -71,3 +71,6 @@ func (*MockVClusterOps) VReplicateDatabase(_ *vclusterops.VReplicationDatabaseOp
 func (*MockVClusterOps) VFetchNodesDetails(_ *vclusterops.VFetchNodesDetailsOptions) (vclusterops.NodesDetails, error) {
 	return nil, nil
 }
+func (*MockVClusterOps) VSandbox(_ *vclusterops.VSandboxOptions) error {
+	return nil
+}
