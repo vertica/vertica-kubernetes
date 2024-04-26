@@ -40,6 +40,33 @@ import (
 // When we generate a sandbox for the upgrade, this is preferred name of that sandbox.
 const preferredSandboxName = "replica-group-b"
 
+// List of status messages for replicated upgrade. When adding a new entry here,
+// be sure to add a *StatusMsgInx const below.
+var replicatedUpgradeStatusMsgs = []string{
+	"Starting replicated upgrade",
+	"Create new subclusters to mimic the primaries",
+	"Sandbox subclusters",
+	"Upgrade sandbox to new version",
+	"Pause connections to main cluster",
+	"Replicate new data from main cluster to sandbox",
+	"Redirect connections to sandbox",
+	"Promote sandbox to main cluster",
+	"Recreate secondaries in new main cluster",
+}
+
+// Constants for each entry in replicatedUpgradeStatusMsgs
+const (
+	startReplicatedUpgradeStatusMsgInx = iota
+	createNewSubclustersStatusMsgInx
+	sandboxSubclustersMsgInx
+	upgradeSandboxMsgInx
+	pauseConnectionsMsgInx
+	startReplicationMsgInx
+	redirectToSandboxMsgInx
+	promoteSandboxMsgInx
+	recreateSecondariesMsgInx
+)
+
 // ReplicatedUpgradeReconciler will coordinate an online upgrade that allows
 // write. This is done by splitting the cluster into two separate replicas and
 // using failover strategies to keep the database online.
@@ -84,38 +111,47 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
 		r.Manager.startUpgrade,
+		r.postStartReplicatedUpgradeMsg,
 		// Load up state that is used for the subsequent steps
 		r.loadUpgradeState,
 		// Assign subclusters to upgrade to replica group A
 		r.assignSubclustersToReplicaGroupA,
 		// Create secondary subclusters for each of the primaries. These will be
 		// added to replica group B and ready to be sandboxed.
+		r.postCreateNewSubclustersMsg,
 		r.assignSubclustersToReplicaGroupB,
 		r.runObjReconcilerForMainCluster,
 		r.runAddSubclusterReconcilerForMainCluster,
 		r.runAddNodesReconcilerForMainCluster,
 		// Sandbox all of the secondary subclusters that are destined for
 		// replica group B.
+		r.postSandboxSubclustersMsg,
 		r.sandboxReplicaGroupB,
 		r.waitForSandboxToFinish,
 		// Upgrade the version in the sandbox to the new version.
+		r.postUpgradeSandboxMsg,
 		r.upgradeSandbox,
 		r.waitForSandboxUpgrade,
 		// Pause all connections to replica A. This is to prepare for the
 		// replication below.
+		r.postPauseConnectionsMsg,
 		r.pauseConnectionsAtReplicaGroupA,
 		// Copy any new data that was added since the sandbox from replica group
 		// A to replica group B.
+		r.postStartReplicationMsg,
 		r.startReplicationToReplicaGroupB,
 		r.waitForReplicateToReplicaGroupB,
 		// Redirect all of the connections to replica group A to replica group B.
+		r.postRedirectToSandboxMsg,
 		r.redirectConnectionsToReplicaGroupB,
 		// Promote the sandbox to the main cluster and discard the pods for the
 		// old main.
+		r.postPromoteSandboxMsg,
 		r.promoteSandboxToMainCluster,
 		// Scale-out secondary subcluster in main cluster. We will recreate the
 		// secondary subcluster in replica group B that existed at the start of
 		// the upgrade.
+		r.postRecreateSecondariesMsg,
 		r.scaleOutSecondariesInReplicaGroupB,
 		// Cleanup up the condition and event recording for a completed upgrade
 		r.Manager.finishUpgrade,
@@ -132,6 +168,12 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 
 	return ctrl.Result{}, r.Manager.logUpgradeSucceeded(vapi.MainCluster)
+}
+
+// postStartReplicatedUpgradeMsg will update the status message to indicate that
+// we are starting replicated upgrade.
+func (r *ReplicatedUpgradeReconciler) postStartReplicatedUpgradeMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, startReplicatedUpgradeStatusMsgInx)
 }
 
 // loadUpgradeState will load state into the reconciler that
@@ -193,6 +235,12 @@ func (r *ReplicatedUpgradeReconciler) runAddNodesReconcilerForMainCluster(ctx co
 	return res, err
 }
 
+// postCreateNewSubclustersMsg will update the status message to indicate that
+// we are about to create new subclusters to mimic the primaries.
+func (r *ReplicatedUpgradeReconciler) postCreateNewSubclustersMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, createNewSubclustersStatusMsgInx)
+}
+
 // assignSubclustersToReplicaGroupB will figure out the subclusters that make up
 // replica group B. We will add a secondary for each of the primaries that
 // exist. This is a pre-step to setting up replica group B, which will
@@ -211,6 +259,12 @@ func (r *ReplicatedUpgradeReconciler) assignSubclustersToReplicaGroupB(ctx conte
 		r.Log.Info("new secondary subclusters added to mimic the primaries", "len(subclusters)", len(r.VDB.Spec.Subclusters))
 	}
 	return ctrl.Result{}, nil
+}
+
+// postSandboxSubclustersMsg will update the status message to indicate that
+// we are going to sandbox subclusters for replica group b.
+func (r *ReplicatedUpgradeReconciler) postSandboxSubclustersMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, sandboxSubclustersMsgInx)
 }
 
 // sandboxReplicaGroupB will move all of the subclusters in replica B to a new sandbox
@@ -264,6 +318,12 @@ func (r *ReplicatedUpgradeReconciler) waitForSandboxToFinish(ctx context.Context
 	return ctrl.Result{Requeue: true}, nil
 }
 
+// postUpgradeSandboxMsg will update the status message to indicate that
+// we are going to upgrade the vertica version in the sandbox.
+func (r *ReplicatedUpgradeReconciler) postUpgradeSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, upgradeSandboxMsgInx)
+}
+
 // upgradeSandbox will upgrade the nodes in replica group B (sandbox) to the new version.
 func (r *ReplicatedUpgradeReconciler) upgradeSandbox(ctx context.Context) (ctrl.Result, error) {
 	sb := r.VDB.GetSandbox(r.sandboxName)
@@ -294,6 +354,12 @@ func (r *ReplicatedUpgradeReconciler) waitForSandboxUpgrade(ctx context.Context)
 	// Then wait for the nodes to be up. Each time we find the nodes aren't up
 	// we should requeue using the upgrade requeue time (see GetUpgradeRequeueTimeDuration).
 	return ctrl.Result{}, errors.New("wait for sandbox upgrade is not yet implemented")
+}
+
+// postPauseConnectionsMsg will update the status message to indicate that
+// client connections are being paused at the main cluster.
+func (r *ReplicatedUpgradeReconciler) postPauseConnectionsMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, pauseConnectionsMsgInx)
 }
 
 // pauseConnectionsAtReplicaGroupA will pause all connections to replica A. This
@@ -332,6 +398,12 @@ func (r *ReplicatedUpgradeReconciler) pauseConnectionsAtReplicaGroupA(ctx contex
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// postStartReplicationMsg will update the status message to indicate that
+// replication from the main to the sandbox is starting.
+func (r *ReplicatedUpgradeReconciler) postStartReplicationMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, startReplicationMsgInx)
 }
 
 // startReplicationToReplicaGroupB will copy any new data that was added since
@@ -424,6 +496,12 @@ func (r *ReplicatedUpgradeReconciler) waitForReplicateToReplicaGroupB(ctx contex
 	return ctrl.Result{}, nil
 }
 
+// postRedirectToSandboxMsg will update the status message to indicate that
+// we are diverting client connections to the sandbox now.
+func (r *ReplicatedUpgradeReconciler) postRedirectToSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, redirectToSandboxMsgInx)
+}
+
 // redirectConnectionsToReplicaGroupB will redirect all of the connections
 // established at replica group A to go to replica group B.
 func (r *ReplicatedUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx context.Context) (ctrl.Result, error) {
@@ -476,10 +554,22 @@ func (r *ReplicatedUpgradeReconciler) redirectConnectionsToReplicaGroupB(ctx con
 	return ctrl.Result{}, nil
 }
 
+// postPromoteSandboxMsg will update the status message to indicate that
+// we are going to promote the sandbox to the main cluster now.
+func (r *ReplicatedUpgradeReconciler) postPromoteSandboxMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, promoteSandboxMsgInx)
+}
+
 // promoteSandboxToMainCluster will promote the sandbox to the main cluster and
 // discard the pods for the old main.
 func (r *ReplicatedUpgradeReconciler) promoteSandboxToMainCluster(ctx context.Context) (ctrl.Result, error) {
 	return ctrl.Result{}, errors.New("promote sandbox to main cluster is not yet implemented")
+}
+
+// postRecreateSecondariesMsg will update the status message to indicate that
+// we are going to start recreating the secondaries in replica group b.
+func (r *ReplicatedUpgradeReconciler) postRecreateSecondariesMsg(ctx context.Context) (ctrl.Result, error) {
+	return r.postNextStatusMsg(ctx, recreateSecondariesMsgInx)
 }
 
 // Scale-out secondary subcluster in main cluster. We will recreate the
@@ -771,4 +861,10 @@ func (r *ReplicatedUpgradeReconciler) redirectConnectionsForSubcluster(ctx conte
 		AddNodeApplyMethod, targetSc.Name)
 	r.Manager.traceActorReconcile(actor)
 	return actor.Reconcile(ctx, &ctrl.Request{})
+}
+
+// postNextStatusMsg will set the next status message for a replicated upgrade
+// according to msgIndex
+func (r *ReplicatedUpgradeReconciler) postNextStatusMsg(ctx context.Context, msgIndex int) (ctrl.Result, error) {
+	return ctrl.Result{}, r.Manager.postNextStatusMsg(ctx, replicatedUpgradeStatusMsgs, msgIndex)
 }
