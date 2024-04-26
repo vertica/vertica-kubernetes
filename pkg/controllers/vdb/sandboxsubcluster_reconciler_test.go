@@ -137,7 +137,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 	})
 
-	It("should exit without error if the nodes in main cluster or subclusters are not UP", func() {
+	It("should requeue if the nodes in main cluster or subclusters are not UP", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
@@ -160,13 +160,13 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		pfacts.Detail[pfsc1].upNode = false
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 
 		// let subcluster1 up and main cluster down
 		// should requeue the iteration without any error
 		pfacts.Detail[pfsc1].upNode = true
 		pfacts.Detail[pfmain].upNode = false
-		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{Requeue: true}))
 	})
 
 	It("should sandbox the correct subclusters", func() {
@@ -195,10 +195,10 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
 		r := rec.(*SandboxSubclusterReconciler)
-		scSbMap, err := r.fetchSubclustersWithSandboxes()
+		scSbMap, allNodesUp := r.fetchSubclustersWithSandboxes()
 		targetScSbMap := map[string]string{subcluster1: sandbox1, subcluster2: sandbox2}
 		Expect(scSbMap).Should(Equal(targetScSbMap))
-		Expect(err).Should(BeNil())
+		Expect(allNodesUp).Should(BeTrue())
 	})
 
 	It("should update the sandbox status correctly", func() {

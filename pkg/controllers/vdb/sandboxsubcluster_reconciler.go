@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
@@ -75,12 +74,10 @@ func (s *SandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 // sandboxSubclusters will add subclusters to their sandboxes defined in the vdb
 func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (ctrl.Result, error) {
 	// find qualified subclusters with their sandboxes
-	scSbMap, err := s.fetchSubclustersWithSandboxes()
-	// the error indicates we have down nodes in a subcluster that will be sandboxed.
-	// we simply requeue the iteration for waiting the nodes to be up.
-	if err != nil {
-		s.Log.Info("Requeue because a pod is not ready", "details", err.Error())
-		return ctrl.Result{}, nil
+	scSbMap, allNodesUp := s.fetchSubclustersWithSandboxes()
+	if !allNodesUp {
+		s.Log.Info("Requeue because we need all nodes in target subclusters are UP")
+		return ctrl.Result{Requeue: true}, nil
 	}
 	if len(scSbMap) == 0 {
 		s.Log.Info("No subclusters need to be sandboxed")
@@ -95,10 +92,10 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 		s.InitiatorIP = initiator.podIP
 	} else {
 		s.Log.Info("Requeue because there are no UP nodes in main cluster to execute sandbox operation")
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
-	err = s.executeSandboxCommand(ctx, scSbMap)
+	err := s.executeSandboxCommand(ctx, scSbMap)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -123,7 +120,7 @@ func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context,
 }
 
 // fetchSubclustersWithSandboxes will return the qualified subclusters with their sandboxes
-func (s *SandboxSubclusterReconciler) fetchSubclustersWithSandboxes() (map[string]string, error) {
+func (s *SandboxSubclusterReconciler) fetchSubclustersWithSandboxes() (map[string]string, bool) {
 	vdbScSbMap := s.Vdb.GenSubclusterSandboxMap()
 	targetScSbMap := make(map[string]string)
 	for _, v := range s.PFacts.Detail {
@@ -138,12 +135,11 @@ func (s *SandboxSubclusterReconciler) fetchSubclustersWithSandboxes() (map[strin
 		}
 		// the pod to be added in a sandbox should have a running node
 		if !v.upNode {
-			return targetScSbMap, fmt.Errorf("pod %q does not contain an UP Vertica node so it cannot be added to sandbox %q yet",
-				v.name.Name, sb)
+			return targetScSbMap, false
 		}
 		targetScSbMap[v.subclusterName] = sb
 	}
-	return targetScSbMap, nil
+	return targetScSbMap, true
 }
 
 // sandboxSubcluster will add a subcluster to a sandbox by calling vclusterOps
