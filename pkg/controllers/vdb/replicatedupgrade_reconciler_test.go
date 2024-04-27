@@ -436,6 +436,42 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 			Ω(svc.Spec.Selector).ShouldNot(HaveKey(vmeta.SubclusterSvcNameLabel), "svc name is %v", svcNm)
 		}
 	})
+
+	It("should maintain upgrade status messages", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.UpgradePolicy = vapi.ReplicatedUpgrade
+		vdb.ObjectMeta.Annotations[vmeta.VersionAnnotation] = vapi.ReplicatedUpgradeVersion
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "sec1", Type: vapi.SecondarySubcluster, Size: 2},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		defer test.DeleteSvcs(ctx, k8sClient, vdb)
+		vdb.Spec.Image = NewImageName // Trigger an upgrade
+		Ω(k8sClient.Update(ctx, vdb)).Should(Succeed())
+
+		rr := createReplicatedUpgradeReconciler(ctx, vdb)
+		// Drive the upgrade, but we can only get so far.
+		Ω(rr.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{
+			Requeue: false, RequeueAfter: vdb.GetUpgradeRequeueTimeDuration(),
+		}))
+
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Status.UpgradeStatus).Should(Equal(replicatedUpgradeStatusMsgs[createNewSubclustersStatusMsgInx]))
+
+		// Try to update message to earlier one. But status message will stay the same.
+		Ω(rr.postStartReplicatedUpgradeMsg(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Status.UpgradeStatus).Should(Equal(replicatedUpgradeStatusMsgs[createNewSubclustersStatusMsgInx]))
+
+		// Updating to a later message will work though.
+		Ω(rr.postSandboxSubclustersMsg(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
+		Ω(vdb.Status.UpgradeStatus).Should(Equal(replicatedUpgradeStatusMsgs[sandboxSubclustersMsgInx]))
+	})
 })
 
 func createReplicatedUpgradeReconciler(ctx context.Context, vdb *vapi.VerticaDB) *ReplicatedUpgradeReconciler {
