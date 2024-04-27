@@ -381,7 +381,7 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 	return false, nil
 }
 
-// postNextStatusMsg will set the next status message for an online upgrade
+// postNextStatusMsg will set the next status message for an offline upgrade
 // according to msgIndex
 func (o *OfflineUpgradeReconciler) postNextStatusMsg(ctx context.Context, msgIndex int) (ctrl.Result, error) {
 	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, OfflineUpgradeStatusMsgs, msgIndex)
