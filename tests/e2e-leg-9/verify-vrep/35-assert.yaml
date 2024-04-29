@@ -11,32 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: v1
+kind: Pod
 metadata:
-  name: v-target
-  annotations:
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/k-safety: "0"
-spec:
-  image: kustomize-vertica-image
-  dbName: targetdb
-  initPolicy: CreateSkipPackageInstall
-  communal: {}
-  local:
-    requestSize: 250Mi
-  subclusters:
-    - name: sc1
-      size: 1
-      type: primary
-    - name: sc2
-      size: 1
-      type: secondary
-  sandboxes:
-    - name: sandbox1
-      subclusters:
-        - name: sc2
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  name: test-verify-target-data
+status:
+  containerStatuses:
+    - name: test
+      state:
+        terminated:
+          exitCode: 0 

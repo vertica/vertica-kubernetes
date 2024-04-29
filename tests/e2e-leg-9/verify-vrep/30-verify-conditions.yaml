@@ -11,32 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
-metadata:
-  name: v-target
-  annotations:
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/k-safety: "0"
-spec:
-  image: kustomize-vertica-image
-  dbName: targetdb
-  initPolicy: CreateSkipPackageInstall
-  communal: {}
-  local:
-    requestSize: 250Mi
-  subclusters:
-    - name: sc1
-      size: 1
-      type: primary
-    - name: sc2
-      size: 1
-      type: secondary
-  sandboxes:
-    - name: sandbox1
-      subclusters:
-        - name: sc2
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+    # verifying type:"ReplicationReady" and "ReplicationComplete", and status:"True"
+    - script: kubectl wait --for=condition=ReplicationReady=True -n $NAMESPACE vrep/vrep-test-sandbox --timeout=600s
+    - script: kubectl wait --for=condition=ReplicationComplete=True -n $NAMESPACE vrep/vrep-test-sandbox --timeout=600s
