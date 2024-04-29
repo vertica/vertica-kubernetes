@@ -164,6 +164,19 @@ func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	return scMap
 }
 
+// GenSubclusterSandboxMap will scan all sandboxes and return a map
+// with subcluster name as the key and sandbox name as the value
+func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
+	scSbMap := make(map[string]string)
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scSbMap[sc.Name] = sb.Name
+		}
+	}
+	return scSbMap
+}
+
 func isValidRFC1123DNSSubdomainName(name string) bool {
 	if len(name) < 1 || len(name) > 253 {
 		return false
