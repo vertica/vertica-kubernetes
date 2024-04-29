@@ -258,7 +258,7 @@ func (m *SubclusterFinder) getVdbSubclusters(sandbox string) []*vapi.Subcluster 
 // of any sandboxes
 func (m *SubclusterFinder) getMainSubclusters() []*vapi.Subcluster {
 	subclusters := []*vapi.Subcluster{}
-	scMap := m.getSubclusterSandboxStatusMap()
+	scMap := m.Vdb.GetSubclusterSandboxStatusMap()
 	for i := range m.Vdb.Spec.Subclusters {
 		sc := &m.Vdb.Spec.Subclusters[i]
 		if _, ok := scMap[sc.Name]; !ok {

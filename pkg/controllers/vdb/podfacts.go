@@ -1018,6 +1018,16 @@ func (p *PodFacts) countRunningAndInstalled() int {
 	})
 }
 
+func (p *PodFacts) CountRunningAndInstalled(scName string) int {
+	return p.countPods(func(v *PodFact) int {
+		if (scName == "" || v.subclusterName == scName) &&
+			v.isPodRunning && v.isInstalled {
+			return 1
+		}
+		return 0
+	})
+}
+
 // countNotRestartablePods returns number of pods that aren't yet
 // running but the restart reconciler needs to handle them.
 func (p *PodFacts) countNotRestartablePods(vclusterOps bool) int {

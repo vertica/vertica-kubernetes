@@ -54,6 +54,7 @@ const (
 	SlowRestartDetected             = "SlowRestartDetected"
 	SubclusterAdded                 = "SubclusterAdded"
 	SubclusterRemoved               = "SubclusterRemoved"
+	StopSubclusterStarted           = "StopSubclusterStarted"
 	StopSubclusterSucceeded         = "StopSubclusterSucceeded"
 	StopSubclusterFailed            = "StopSubclusterFailed"
 	SuperuserPasswordSecretNotFound = "SuperuserPasswordSecretNotFound"

@@ -190,6 +190,7 @@ func createPodFactsWithUpNodeStateSet(ctx context.Context, vdb *vapi.VerticaDB, 
 		podNm := names.GenPodName(vdb, sc, podIndex)
 		pfacts.Detail[podNm].upNode = upNode
 		pfacts.Detail[podNm].podIP = fmt.Sprintf("10.0.0.%d", podIndex)
+		pfacts.Detail[podNm].isPodRunning = upNode
 	}
 	return pfacts
 }

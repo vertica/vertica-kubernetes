@@ -62,6 +62,55 @@ var _ = Describe("stopsc_reconciler", func() {
 		Expect(err.Error()).Should(ContainSubstring("no subcluster provided"))
 	})
 
+	It("Should find subclusters that need to be shutdown", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"sc1", "sc2"}
+		scSizes := []int32{3, 3}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: scSizes[0]},
+			{Name: scNames[1], Size: scSizes[1]},
+		}
+		vdb.Annotations[vmeta.VClusterOpsAnnotation] = vmeta.VClusterOpsAnnotationTrue
+		const sbName = "test-sb"
+		const sbName2 = "test-sb2"
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: scNames[0]}}},
+			{Name: sbName2, Subclusters: []vapi.SubclusterName{{Name: scNames[1]}}},
+		}
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName2, Subclusters: []string{scNames[1]}},
+		}
+
+		pfacts := &PodFacts{NeedCollection: false, SandboxName: sbName}
+		fpr := &cmds.FakePodRunner{}
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		act := MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
+		r := act.(*StopSubclusterReconciler)
+		scs := r.findSubclustersWithShutdownNeeded()
+		Expect(len(scs)).Should(Equal(1))
+		Expect(scs[0].Name).Should(Equal(scNames[0]))
+
+		vdb.Status.Sandboxes = append(vdb.Status.Sandboxes, vapi.SandboxStatus{
+			Name: sbName,
+			Subclusters: []string{scNames[0]},
+		})
+		act = MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
+		r = act.(*StopSubclusterReconciler)
+		scs = r.findSubclustersWithShutdownNeeded()
+		Expect(len(scs)).Should(Equal(0))
+
+		vdb.Spec.Sandboxes = []vapi.Sandbox{}
+		act = MakeStopSubclusterReconciler(vdbRec, logger, vdb, pfacts, dispatcher)
+		r = act.(*StopSubclusterReconciler)
+		scs = r.findSubclustersWithShutdownNeeded()
+		Expect(len(scs)).Should(Equal(1))
+		Expect(scs[0].Name).Should(Equal(scNames[0]))
+	})
+
+	It("", func() {
+		
+	})
+
 	It("Should successfully stop a subcluster", func() {
 		vdb := vapi.MakeVDB()
 		scNames := []string{"sc1", "sc2"}

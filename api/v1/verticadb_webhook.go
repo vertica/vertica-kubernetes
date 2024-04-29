@@ -1174,7 +1174,7 @@ func (v *VerticaDB) isDBInitialized() bool {
 	return v.IsStatusConditionTrue(DBInitialized)
 }
 
-// isSandboxInitialized returns ture when the sandbox has been created in the database
+// isSandboxInitialized returns true when the sandbox has been created in the database
 func (v *VerticaDB) isSandboxInitialized(targetSb string) bool {
 	for _, sb := range v.Status.Sandboxes {
 		if sb.Name == targetSb {

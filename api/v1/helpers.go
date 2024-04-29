@@ -762,6 +762,32 @@ func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 	return MainCluster
 }
 
+// GetSubclusterSandboxStatusMap returns a map that contains sandboxed
+// subclusters from the status standpoint
+func (v *VerticaDB) GetSubclusterSandboxStatusMap() map[string]string {
+	scMap := map[string]string{}
+	for i := range v.Status.Sandboxes {
+		sb := &v.Status.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scMap[sc] = sb.Name
+		}
+	}
+	return scMap
+}
+
+// GetSubclusterSandboxSpecMap returns a map that contains sandboxed
+// subclusters from the spec standpoint
+func (v *VerticaDB) GetSubclusterSandboxSpecMap() map[string]string {
+	scMap := map[string]string{}
+	for i := range v.Spec.Sandboxes {
+		sb := &v.Spec.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scMap[sc.Name] = sb.Name
+		}
+	}
+	return scMap
+}
+
 // getNumberOfNodes returns the number of nodes defined in the database, as per the CR.
 func (v *VerticaDB) getNumberOfNodes() int {
 	count := 0
