@@ -26,7 +26,7 @@ spec:
   selector:
     app.kubernetes.io/instance: v-base-upgrade
     vertica.com/client-routing: "true"
-    vertica.com/subcluster-name: transient
+    vertica.com/subcluster-selector-name: v-base-upgrade-transient
 ---
 apiVersion: v1
 kind: Service

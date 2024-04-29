@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -236,6 +235,8 @@ func (i *UpgradeManager) clearReplicatedUpgradeAnnotationCallback() (updated boo
 func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context, sandbox string) (int, error) {
 	numStsChanged := 0 // Count to keep track of the nubmer of statefulsets updated
 
+	transientName, hasTransient := i.Vdb.GetTransientSubclusterName()
+
 	// We use FindExisting for the finder because we only want to work with sts
 	// that already exist.  This is necessary incase the upgrade was paired
 	// with a scaling operation.  The pod change due to the scaling operation
@@ -247,11 +248,7 @@ func (i *UpgradeManager) updateImageInStatefulSets(ctx context.Context, sandbox 
 	for inx := range stss.Items {
 		sts := &stss.Items[inx]
 
-		isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
-		if err != nil {
-			return numStsChanged, err
-		}
-		if isTransient {
+		if hasTransient && transientName == sts.Labels[vmeta.SubclusterNameLabel] {
 			continue
 		}
 
@@ -319,8 +316,16 @@ func (i *UpgradeManager) deletePodsRunningOldImage(ctx context.Context, scName, 
 
 		// If scName was passed in, we only delete for a specific subcluster
 		if scName != "" {
-			scNameFromLabel, ok := pod.Labels[vmeta.SubclusterNameLabel]
-			if ok && scNameFromLabel != scName {
+			stsName, found := pod.Labels[vmeta.SubclusterSelectorLabel]
+			if !found {
+				return 0, fmt.Errorf("could not derive the statefulset name from the pod %q", pod.Name)
+			}
+			scNameFromLabel, err := i.getSubclusterNameFromSts(ctx, stsName)
+			if err != nil {
+				return 0, err
+			}
+
+			if scNameFromLabel != scName {
 				continue
 			}
 		}
@@ -642,4 +647,20 @@ func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vap
 		i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.IncompatibleUpgradeRequested,
 			"Requested upgrade is incompatible with the Vertica deployment. Falling back to %s upgrade.", actualUpgradeAsText)
 	}
+}
+
+// getSubclusterNameFromSts returns the name of the subcluster from the given statefulset name
+func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName string) (string, error) {
+	sts := appsv1.StatefulSet{}
+	nm := names.GenNamespacedName(i.Vdb, stsName)
+	err := i.VRec.GetClient().Get(ctx, nm, &sts)
+	if err != nil {
+		return "", fmt.Errorf("could not find statefulset %q: %w", stsName, err)
+	}
+
+	scNameFromLabel, ok := sts.Labels[vmeta.SubclusterNameLabel]
+	if !ok {
+		return "", fmt.Errorf("could not find subcluster name label %q in %q", vmeta.SubclusterNameLabel, stsName)
+	}
+	return scNameFromLabel, nil
 }

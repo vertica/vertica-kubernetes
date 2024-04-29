@@ -191,12 +191,12 @@ var _ = Describe("obj_reconcile", func() {
 			vdb.Spec.Labels["vertica.com/second-label"] = "r2"
 			vdb.Spec.Annotations["gitRef"] = "1234abc"
 
-			verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta, isScSpecific bool) {
+			verifyLabelsAnnotations := func(objectMeta *metav1.ObjectMeta, isSts bool) {
 				Expect(objectMeta.Labels["my-label"]).Should(Equal("r1"))
 				Expect(objectMeta.Labels["vertica.com/second-label"]).Should(Equal("r2"))
 				Expect(objectMeta.Annotations["gitRef"]).Should(Equal("1234abc"))
 				Expect(objectMeta.Labels["vertica.com/database"]).Should(Equal(vdb.Spec.DBName))
-				if isScSpecific {
+				if isSts {
 					Expect(objectMeta.Labels[vmeta.SubclusterNameLabel]).Should(Equal(vdb.Spec.Subclusters[0].Name))
 				}
 			}
@@ -206,13 +206,13 @@ var _ = Describe("obj_reconcile", func() {
 
 			svc := &corev1.Service{}
 			Expect(k8sClient.Get(ctx, names.GenExtSvcName(vdb, &vdb.Spec.Subclusters[0]), svc)).Should(Succeed())
-			verifyLabelsAnnotations(&svc.ObjectMeta, true /* subcluster specific */)
+			verifyLabelsAnnotations(&svc.ObjectMeta, false /* not a sts */)
 			Expect(k8sClient.Get(ctx, names.GenHlSvcName(vdb), svc)).Should(Succeed())
 			verifyLabelsAnnotations(&svc.ObjectMeta, false /* not subcluster specific */)
 
 			sts := &appsv1.StatefulSet{}
 			Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[0]), sts)).Should(Succeed())
-			verifyLabelsAnnotations(&sts.ObjectMeta, true /* subcluster specific */)
+			verifyLabelsAnnotations(&sts.ObjectMeta, true /* is a sts */)
 		})
 
 		It("should update version in svc objects", func() {

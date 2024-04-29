@@ -99,7 +99,7 @@ func BuildExtSvc(nm types.NamespacedName, vdb *vapi.VerticaDB, sc *vapi.Subclust
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSvcObject(vdb, sc, "external"),
+			Labels:      MakeLabelsForSvcObject(vdb, sc, vmeta.SvcTypeExternal),
 			Annotations: MakeAnnotationsForSubclusterService(vdb, sc),
 		},
 		Spec: corev1.ServiceSpec{
@@ -121,7 +121,7 @@ func BuildHlSvc(nm types.NamespacedName, vdb *vapi.VerticaDB) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSvcObject(vdb, nil, "headless"),
+			Labels:      MakeLabelsForSvcObject(vdb, nil, vmeta.SvcTypeHeadless),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: corev1.ServiceSpec{
@@ -1312,7 +1312,7 @@ func BuildPod(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) *corev1.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        nm.Name,
 			Namespace:   nm.Namespace,
-			Labels:      MakeLabelsForSandboxPodObject(vdb, sc),
+			Labels:      MakeLabelsForPodObject(vdb, sc),
 			Annotations: MakeAnnotationsForObject(vdb),
 		},
 		Spec: buildPodSpec(vdb, sc),
