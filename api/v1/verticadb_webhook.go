@@ -1646,8 +1646,8 @@ func (v *VerticaDB) checkImmutableStsName(oldObj *VerticaDB, allErrs field.Error
 				Child("annotations").Key(vmeta.StsNameOverrideAnnotation)
 			err := field.Invalid(path,
 				newStsName,
-				fmt.Sprintf("Unable to rename the statefulset of subcluster %q to %q after creation of the subcluster.",
-					scName, newStsName))
+				fmt.Sprintf("Renaming the statefulset of subcluster %q after creation of the subcluster is not allowed",
+					scName))
 			allErrs = append(allErrs, err)
 		}
 	}
