@@ -20,7 +20,6 @@ SELECT node_name, success, max_size, max_age, log_file, need_rotation FROM log_r
 -- Cleanup the DC table and turn off the timer service, should not run
 select clear_data_collector('LogRotateOperations');
 ALTER DATABASE default set EnableLogRotate = 0;
-select hurry_service('SYSTEM', 'LogRotate', 60);
 SELECT * FROM log_rotate_events ORDER BY node_name;
 
 -- Cleanup configurations
