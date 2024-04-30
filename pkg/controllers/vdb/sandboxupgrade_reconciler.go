@@ -89,7 +89,10 @@ func (s *SandboxUpgradeReconciler) reconcileSandboxImage(ctx context.Context, sb
 // proceed.
 func (s *SandboxUpgradeReconciler) isSandboxUpgradeNeeded(ctx context.Context, sbName string) (bool, error) {
 	if ok := s.Manager.isUpgradeInProgress(sbName); ok {
-		return !ok, nil
+		// If upgrade is in progress, we return false
+		// because the sandbox controller has already been
+		// triggered. The caller is going to skip this sandbox
+		return false, nil
 	}
 	return s.Manager.isVDBImageDifferent(ctx, sbName)
 }
