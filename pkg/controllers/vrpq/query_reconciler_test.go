@@ -26,6 +26,8 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/cloud"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/showrestorepoints"
+	vrpqtatus "github.com/vertica/vertica-kubernetes/pkg/vrpqstatus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/types"
@@ -84,6 +86,22 @@ var _ = Describe("query_reconcile", func() {
 		Expect(vrpq.IsStatusConditionFalse(v1beta1.Querying)).Should(BeTrue())
 		Expect(vrpq.IsStatusConditionTrue(v1beta1.QueryComplete)).Should(BeTrue())
 		Expect(vrpq.Status.State).Should(Equal(stateSuccessQuery))
+
+		// Manually update the status to match the failed call of the showRestorePoints vcluster API.
+		// QueryComplete condition is updated to True, reason is updated to Failed
+		// message is updated to "Query failed"
+		cond := []metav1.Condition{
+			{Type: v1beta1.QueryComplete, Status: metav1.ConditionTrue, Reason: "Failed"},
+		}
+
+		Expect(vrpqtatus.Update(ctx, k8sClient, logger, vrpq, []*metav1.Condition{&cond[0]}, stateFailedQuery, nil)).Should(Succeed())
+		Expect(vrpq.IsStatusConditionTrue(v1beta1.QueryComplete)).Should(BeTrue())
+		Expect(vrpq.Status.State).Should(Equal(stateFailedQuery))
+
+		// QueryComplete is present in vrpq status
+		// If isPresent is true, then `vrpq` will not retry the query when a previous query failed.
+		isPresent := vrpq.IsStatusConditionPresent(v1beta1.QueryComplete)
+		Expect(isPresent).Should(BeTrue())
 	})
 
 	It("should set azure parms in config parms map when using azb:// scheme and accountKey", func() {

@@ -142,6 +142,10 @@ func (vrpq *VerticaRestorePointsQuery) IsStatusConditionFalse(statusCondition st
 	return meta.IsStatusConditionFalse(vrpq.Status.Conditions, statusCondition)
 }
 
+func (vrpq *VerticaRestorePointsQuery) IsStatusConditionPresent(statusCondition string) bool {
+	return meta.FindStatusCondition(vrpq.Status.Conditions, statusCondition) != nil
+}
+
 func MakeSampleVrpqName() types.NamespacedName {
 	return types.NamespacedName{Name: "vrpq-sample", Namespace: "default"}
 }
