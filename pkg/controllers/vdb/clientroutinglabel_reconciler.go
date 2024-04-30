@@ -24,6 +24,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,7 +43,7 @@ const (
 )
 
 type ClientRoutingLabelReconciler struct {
-	VRec        *VerticaDBReconciler
+	Rec         config.ReconcilerInterface
 	Vdb         *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	Log         logr.Logger
 	PFacts      *PodFacts
@@ -50,10 +51,10 @@ type ClientRoutingLabelReconciler struct {
 	ScName      string // Subcluster we are going to reconcile.  Blank if all subclusters.
 }
 
-func MakeClientRoutingLabelReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeClientRoutingLabelReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts, applyMethod ApplyMethodType, scName string) controllers.ReconcileActor {
 	return &ClientRoutingLabelReconciler{
-		VRec:        vdbrecon,
+		Rec:         recon,
 		Vdb:         vdb,
 		Log:         log.WithName("ClientRoutingLabelReconciler"),
 		PFacts:      pfacts,
@@ -96,7 +97,7 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 	// We retry if case someone else updated the pod since we last fetched it
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		pod := &corev1.Pod{}
-		if e := c.VRec.Client.Get(ctx, pn, pod); e != nil {
+		if e := c.Rec.GetClient().Get(ctx, pn, pod); e != nil {
 			// Not found errors are okay to ignore since there is no pod to
 			// add/remove a label.
 			if errors.IsNotFound(e) {
@@ -107,7 +108,7 @@ func (c *ClientRoutingLabelReconciler) reconcilePod(ctx context.Context, pn type
 
 		patch := client.MergeFrom(pod.DeepCopy())
 		c.manipulateRoutingLabelInPod(pod, pf)
-		err := c.VRec.Client.Patch(ctx, pod, patch)
+		err := c.Rec.GetClient().Patch(ctx, pod, patch)
 		if err != nil {
 			return err
 		}

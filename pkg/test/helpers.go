@@ -90,6 +90,21 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	ExpectWithOffset(offset, c.Status().Update(ctx, sts))
 }
 
+func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sbName string) {
+	nm := names.GenConfigMapName(vdb, sbName)
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nm.Name,
+			Namespace: vdb.Namespace,
+		},
+		Data: map[string]string{
+			vapi.VerticaDBNameKey: vdb.Name,
+			vapi.SandboxNameKey:   sbName,
+		},
+	}
+	Expect(c.Create(ctx, cm)).Should(Succeed())
+}
+
 func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {
 	ExpectWithOffset(1, sc.Size).Should(BeNumerically(">=", newSize))
 	for i := newSize; i < sc.Size; i++ {
@@ -184,6 +199,15 @@ func DeleteStorageClass(ctx context.Context, c client.Client) {
 	err := c.Get(ctx, types.NamespacedName{Name: builder.TestStorageClassName}, stoclass)
 	if !kerrors.IsNotFound(err) {
 		Expect(c.Delete(ctx, stoclass)).Should(Succeed())
+	}
+}
+
+func DeleteConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sbName string) {
+	cm := &corev1.ConfigMap{}
+	nm := names.GenConfigMapName(vdb, sbName)
+	err := c.Get(ctx, nm, cm)
+	if !kerrors.IsNotFound(err) {
+		Expect(c.Delete(ctx, cm)).Should(Succeed())
 	}
 }
 

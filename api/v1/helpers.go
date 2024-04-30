@@ -44,6 +44,9 @@ const (
 	RFC1035DNSLabelNameRegex     = `^[a-z]([a-z0-9\-]{0,61}[a-z0-9])?$`
 
 	MainCluster = ""
+
+	VerticaDBNameKey = "verticaDBName"
+	SandboxNameKey   = "sandboxName"
 )
 
 // ExtractNamespacedName gets the name and returns it as a NamespacedName
@@ -337,6 +340,27 @@ func (v *VerticaDB) IsStatusConditionFalse(statusCondition string) bool {
 // FindStatusCondition finds the conditionType in conditions.
 func (v *VerticaDB) FindStatusCondition(conditionType string) *metav1.Condition {
 	return meta.FindStatusCondition(v.Status.Conditions, conditionType)
+}
+
+// IsSandBoxUpgradeInProgress returns true if is an upgrade
+// is already occurring in the given sandbox
+func (v *VerticaDB) IsSandBoxUpgradeInProgress(statusCondition, sbName string) bool {
+	if statusCondition == OfflineUpgradeInProgress {
+		sb := v.GetSandboxStatus(sbName)
+		return sb != nil && sb.UpgradeState.OfflineUpgradeInProgress
+	}
+	return false
+}
+
+func (v *VerticaDB) GetUpgradeStatus(sbName string) (string, error) {
+	if sbName == MainCluster {
+		return v.Status.UpgradeStatus, nil
+	}
+	sb, err := v.GetSandboxStatusCheck(sbName)
+	if err != nil {
+		return "", err
+	}
+	return sb.UpgradeState.UpgradeStatus, nil
 }
 
 // buildTransientSubcluster creates a temporary read-only sc based on an existing subcluster
@@ -793,4 +817,26 @@ func (v *VerticaDB) GetSandbox(sbName string) *Sandbox {
 		}
 	}
 	return nil
+}
+
+// GetSandboxStatus returns the status of the sandbox given by name. A nil pointer is returned if
+// not found.
+func (v *VerticaDB) GetSandboxStatus(sbName string) *SandboxStatus {
+	for i := range v.Status.Sandboxes {
+		if v.Status.Sandboxes[i].Name == sbName {
+			return &v.Status.Sandboxes[i]
+		}
+	}
+	return nil
+}
+
+// GetSandboxStatusCheck is like GetSandboxStatus but returns an error if the sandbox
+// is missing in the status. Use this in places where it is a failure if the sandbox
+// is not in the status
+func (v *VerticaDB) GetSandboxStatusCheck(sbName string) (*SandboxStatus, error) {
+	sb := v.GetSandboxStatus(sbName)
+	if sb == nil {
+		return nil, fmt.Errorf("could not find sandbox %q in status", sbName)
+	}
+	return sb, nil
 }

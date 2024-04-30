@@ -79,3 +79,18 @@ func SetUpgradeStatusMessage(ctx context.Context, clnt client.Client, vdb *vapi.
 		return nil
 	})
 }
+
+// SetSandboxUpgradeState will set the sandbox upgrade state and update the input vdb
+func SetSandboxUpgradeState(ctx context.Context, clnt client.Client, vdb *vapi.VerticaDB, sbName string,
+	state *vapi.SandboxUpgradeState) error {
+	return Update(ctx, clnt, vdb, func(vdb *vapi.VerticaDB) error {
+		sb, err := vdb.GetSandboxStatusCheck(sbName)
+		if err != nil {
+			return err
+		}
+		sb.UpgradeState.UpgradeStatus = state.UpgradeStatus
+		sb.UpgradeState.UpgradeInProgress = state.UpgradeInProgress
+		sb.UpgradeState.OfflineUpgradeInProgress = state.OfflineUpgradeInProgress
+		return nil
+	})
+}

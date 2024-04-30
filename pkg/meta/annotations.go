@@ -262,6 +262,10 @@ const (
 
 	// This is the name of the VerticaReplicator that is generated during a replicated upgrade
 	ReplicatedUpgradeReplicatorAnnotation = "vertica.com/replicated-upgrade-replicator-name"
+
+	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
+	// controller
+	VDBResourceVersion = "vertica.com/vdb-resource-version"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will

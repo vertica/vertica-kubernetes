@@ -28,6 +28,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
@@ -36,7 +37,7 @@ import (
 
 // ImageVersionReconciler will verify type of image deployment and set the version as annotations in the vdb.
 type ImageVersionReconciler struct {
-	VRec               *VerticaDBReconciler
+	Rec                config.ReconcilerInterface
 	Log                logr.Logger
 	Vdb                *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner            cmds.PodRunner
@@ -46,11 +47,11 @@ type ImageVersionReconciler struct {
 }
 
 // MakeImageVersionReconciler will build a VersionReconciler object
-func MakeImageVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	enforceUpgradePath bool) controllers.ReconcileActor {
 	return &ImageVersionReconciler{
-		VRec:               vdbrecon,
+		Rec:                recon,
 		Log:                log.WithName("ImageVersionReconciler"),
 		Vdb:                vdb,
 		PRunner:            prunner,
@@ -91,7 +92,7 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	}
 
 	if vinf.IsUnsupported(vapi.MinimumVersion) {
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version %s is unsupported with this operator.  The minimum version supported is %s.",
 			vinf.VdbVer, vapi.MinimumVersion)
 		return ctrl.Result{Requeue: true}, nil
@@ -148,7 +149,7 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 	if _, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err == nil {
 		// Log a warning but we will continue on.  We may have a hotfix that
 		// addresses the bug so don't want to block any attempts to start vertica.
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version is unsupported with cgroups v2. Try using a version other than %s.", vinf.VdbVer)
 	}
 }
@@ -164,13 +165,13 @@ func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) c
 		return ctrl.Result{}
 	} else if secrets.IsGSMSecret(v.Vdb.Spec.NMATLSSecret) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInGSMMinVersion) {
-			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from Google Secret Manager")
 			return ctrl.Result{Requeue: true}
 		}
 	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.Spec.NMATLSSecret) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInAWSSecretsManagerMinVersion) {
-			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from AWS Secrets Manager")
 			return ctrl.Result{Requeue: true}
 		}
@@ -206,7 +207,7 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {
 		ok, failureReason := v.Vdb.IsUpgradePathSupported(versionAnnotations)
 		if !ok {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
+			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
 				"Invalid upgrade path detected.  %s", failureReason)
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -214,12 +215,12 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 
 	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch to get latest Vdb incase this is a retry
-		err := v.VRec.Client.Get(ctx, v.Vdb.ExtractNamespacedName(), v.Vdb)
+		err := v.Rec.GetClient().Get(ctx, v.Vdb.ExtractNamespacedName(), v.Vdb)
 		if err != nil {
 			return err
 		}
 		if v.Vdb.MergeAnnotations(versionAnnotations) {
-			err = v.VRec.Client.Update(ctx, v.Vdb)
+			err = v.Rec.GetClient().Update(ctx, v.Vdb)
 			if err != nil {
 				return err
 			}
@@ -238,7 +239,7 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 
 	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		if pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for vclusterops deployments. Change the deployment by changing the %s annotation",
 				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for admintools style of deployments and cannot be used for vclusterops",
@@ -246,7 +247,7 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 		}
 	} else {
 		if !pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for admintools deployments. Change the deployment by changing the %s annotation",
 				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for vclusterops style of deployments and cannot be used for admintools",

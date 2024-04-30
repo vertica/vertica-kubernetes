@@ -917,6 +917,23 @@ type VerticaDBStatus struct {
 	Sandboxes []SandboxStatus `json:"sandboxes,omitempty"`
 }
 
+type SandboxUpgradeState struct {
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// UpgradeInProgress indicates if the sandbox is in the process
+	// of having its image change
+	UpgradeInProgress bool `json:"upgradeInProgress"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// OfflineUpgradeInProgress indicates if the sandbox is in the middle
+	// of an offline upgrade
+	OfflineUpgradeInProgress bool `json:"offlineUpgradeInProgress"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// Status message for the current running upgrade. If no upgrade
+	// is occurring, this message remains blank.
+	UpgradeStatus string `json:"upgradeStatus"`
+}
+
 type SandboxStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// Name of the sandbox that was defined in the spec
@@ -926,6 +943,10 @@ type SandboxStatus struct {
 	// The names of subclusters that are currently a part of the given sandbox.
 	// This is updated as subclusters become sandboxed or unsandboxed.
 	Subclusters []string `json:"subclusters"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// State of the current running upgrade in the sandbox
+	UpgradeState SandboxUpgradeState `json:"upgradeState"`
 }
 
 // VerticaDBConditionType defines type for VerticaDBCondition

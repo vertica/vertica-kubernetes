@@ -151,7 +151,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(sbScs).Should(HaveKey(pri2.Annotations[vmeta.ChildSubclusterAnnotation]))
 
 		// Should clear annotation at end of upgrade
-		Ω(rr.Manager.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vmeta.GetReplicatedUpgradeSandbox(vdb.Annotations)).Should(Equal(""))
 	})
@@ -287,7 +287,7 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(rr.waitForReplicateToReplicaGroupB(ctx)).Should(Equal(ctrl.Result{}))
 
 		// Annotations should be cleared when we finish the upgrade
-		Ω(rr.Manager.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Ω(rr.finishUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vmeta.GetReplicatedUpgradeReplicator(vdb.Annotations)).Should(Equal(""))
 	})

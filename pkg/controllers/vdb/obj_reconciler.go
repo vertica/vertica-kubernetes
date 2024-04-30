@@ -34,6 +34,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -57,7 +58,7 @@ const (
 // ObjReconciler will reconcile for all dependent Kubernetes objects. This is
 // used for a single reconcile iteration.
 type ObjReconciler struct {
-	VRec          *VerticaDBReconciler
+	Rec           config.ReconcilerInterface
 	Log           logr.Logger
 	Vdb           *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PFacts        *PodFacts
@@ -66,19 +67,19 @@ type ObjReconciler struct {
 }
 
 // MakeObjReconciler will build an ObjReconciler object
-func MakeObjReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB, pfacts *PodFacts,
+func MakeObjReconciler(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB, pfacts *PodFacts,
 	mode ObjReconcileModeType) controllers.ReconcileActor {
 	return &ObjReconciler{
-		VRec:   vdbrecon,
+		Rec:    recon,
 		Log:    log.WithName("ObjReconciler"),
 		Vdb:    vdb,
 		PFacts: pfacts,
 		Mode:   mode,
 		SecretFetcher: cloud.VerticaDBSecretFetcher{
-			Client:   vdbrecon.Client,
+			Client:   recon.GetClient(),
 			Log:      log.WithName("ObjReconciler"),
 			VDB:      vdb,
-			EVWriter: vdbrecon,
+			EVWriter: recon,
 		},
 	}
 }
@@ -133,7 +134,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 	}
 
 	if o.Vdb.Spec.HadoopConfig != "" {
-		_, res, err := getConfigMap(ctx, o.VRec, o.Vdb,
+		_, res, err := getConfigMap(ctx, o.Rec, o.Vdb,
 			names.GenNamespacedName(o.Vdb, o.Vdb.Spec.HadoopConfig))
 		if verrors.IsReconcileAborted(res, err) {
 			return res, err
@@ -146,7 +147,7 @@ func (o *ObjReconciler) checkMountedObjs(ctx context.Context) (ctrl.Result, erro
 		// before this that will create the secret.  We will requeue if we find
 		// the Vdb doesn't have the secret set.
 		if o.Vdb.Spec.NMATLSSecret == "" {
-			o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
+			o.Rec.Event(o.Vdb, corev1.EventTypeWarning, events.HTTPServerNotSetup,
 				"The nmaTLSSecret must be set when running with vclusterops deployment")
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -191,7 +192,7 @@ func (o *ObjReconciler) checkSecretHasKeys(ctx context.Context, secretType, secr
 
 	for _, key := range keyNames {
 		if _, ok := secretData[key]; !ok {
-			o.VRec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
+			o.Rec.Eventf(o.Vdb, corev1.EventTypeWarning, events.MissingSecretKeys,
 				"%s secret '%s' has missing key '%s'", secretType, secretName, key)
 			return ctrl.Result{Requeue: true}, nil
 		}
@@ -235,7 +236,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 		return ctrl.Result{}, nil
 	}
 
-	finder := iter.MakeSubclusterFinder(o.VRec.Client, o.Vdb)
+	finder := iter.MakeSubclusterFinder(o.Rec.GetClient(), o.Vdb)
 
 	sandbox := o.PFacts.GetSandboxName()
 	// Find any statefulsets that need to be deleted
@@ -252,7 +253,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 			return r, e
 		}
 
-		err = o.VRec.Client.Delete(ctx, &stss.Items[i])
+		err = o.Rec.GetClient().Delete(ctx, &stss.Items[i])
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -265,7 +266,7 @@ func (o *ObjReconciler) checkForDeletedSubcluster(ctx context.Context) (ctrl.Res
 	}
 
 	for i := range svcs.Items {
-		err = o.VRec.Client.Delete(ctx, &svcs.Items[i])
+		err = o.Rec.GetClient().Delete(ctx, &svcs.Items[i])
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -295,7 +296,7 @@ func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service
 	}
 
 	curSvc := &corev1.Service{}
-	err := o.VRec.Client.Get(ctx, svcName, curSvc)
+	err := o.Rec.GetClient().Get(ctx, svcName, curSvc)
 	if err != nil && kerrors.IsNotFound(err) {
 		return o.createService(ctx, expSvc, svcName)
 	}
@@ -315,7 +316,7 @@ func (o *ObjReconciler) reconcileSvc(ctx context.Context, expSvc *corev1.Service
 
 	if newSvc != nil {
 		o.Log.Info("updating svc", "Name", svcName)
-		return o.VRec.Client.Update(ctx, newSvc)
+		return o.Rec.GetClient().Update(ctx, newSvc)
 	}
 	return nil
 }
@@ -414,11 +415,11 @@ func (o *ObjReconciler) reconcileHlSvcFields(curSvc, expSvc *corev1.Service, _ *
 // createService creates a service.
 func (o *ObjReconciler) createService(ctx context.Context, svc *corev1.Service, svcName types.NamespacedName) error {
 	o.Log.Info("Creating service object", "Name", svcName)
-	err := ctrl.SetControllerReference(o.Vdb, svc, o.VRec.Scheme)
+	err := ctrl.SetControllerReference(o.Vdb, svc, o.Rec.GetClient().Scheme())
 	if err != nil {
 		return err
 	}
-	return o.VRec.Client.Create(ctx, svc)
+	return o.Rec.GetClient().Create(ctx, svc)
 }
 
 // reconcileSts reconciles the statefulset for a particular subcluster.  Returns
@@ -427,7 +428,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 	nm := names.GenStsName(o.Vdb, sc)
 	curSts := &appsv1.StatefulSet{}
 	expSts := builder.BuildStsSpec(nm, o.Vdb, sc)
-	err := o.VRec.Client.Get(ctx, nm, curSts)
+	err := o.Rec.GetClient().Get(ctx, nm, curSts)
 	if err != nil && kerrors.IsNotFound(err) {
 		o.Log.Info("Creating statefulset", "Name", nm, "Size", expSts.Spec.Replicas, "Image", expSts.Spec.Template.Spec.Containers[0].Image)
 		return ctrl.Result{}, o.createSts(ctx, expSts)
@@ -492,7 +493,7 @@ func (o *ObjReconciler) reconcileSts(ctx context.Context, sc *vapi.Subcluster) (
 
 // recreateSts will drop then create the statefulset
 func (o *ObjReconciler) recreateSts(ctx context.Context, curSts, expSts *appsv1.StatefulSet) error {
-	if err := o.VRec.Client.Delete(ctx, curSts); err != nil {
+	if err := o.Rec.GetClient().Delete(ctx, curSts); err != nil {
 		return err
 	}
 	return o.createSts(ctx, expSts)
@@ -500,13 +501,13 @@ func (o *ObjReconciler) recreateSts(ctx context.Context, curSts, expSts *appsv1.
 
 // createSts will create a new sts. It assumes the statefulset doesn't already exist.
 func (o *ObjReconciler) createSts(ctx context.Context, expSts *appsv1.StatefulSet) error {
-	err := ctrl.SetControllerReference(o.Vdb, expSts, o.VRec.Scheme)
+	err := ctrl.SetControllerReference(o.Vdb, expSts, o.Rec.GetClient().Scheme())
 	if err != nil {
 		return err
 	}
 	// Invalidate the pod facts cache since we are creating a new sts
 	o.PFacts.Invalidate()
-	return o.VRec.Client.Create(ctx, expSts)
+	return o.Rec.GetClient().Create(ctx, expSts)
 }
 
 // updateSts will patch an existing statefulset.
@@ -521,7 +522,7 @@ func (o *ObjReconciler) updateSts(ctx context.Context, curSts, expSts *appsv1.St
 	expSts.Spec.DeepCopyInto(&curSts.Spec)
 	curSts.Labels = expSts.Labels
 	curSts.Annotations = expSts.Annotations
-	if err := o.VRec.Client.Patch(ctx, curSts, patch); err != nil {
+	if err := o.Rec.GetClient().Patch(ctx, curSts, patch); err != nil {
 		return err
 	}
 	if !reflect.DeepEqual(curSts.Spec, origSts.Spec) {

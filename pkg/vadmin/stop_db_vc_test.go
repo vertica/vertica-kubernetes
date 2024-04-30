@@ -17,12 +17,15 @@ package vadmin
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
+
+const sbName = "sb1"
 
 // mock version of VStopDatabase() that is invoked inside VClusterOps.StopDB()
 func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) error {
@@ -38,6 +41,10 @@ func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) erro
 		return err
 	}
 
+	if *options.Sandbox != sbName {
+		return fmt.Errorf("failed to retrieve sandbox name")
+	}
+
 	return nil
 }
 
@@ -47,6 +54,10 @@ var _ = Describe("stop_db_vc", func() {
 	It("should call vcluster-ops library with stop_db task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
 		dispatcher.VDB.Spec.DBName = TestDBName
-		Ω(dispatcher.StopDB(ctx, stopdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP))).Should(Succeed())
+		opts := []stopdb.Option{
+			stopdb.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), TestInitiatorIP),
+			stopdb.WithSandbox(sbName),
+		}
+		Ω(dispatcher.StopDB(ctx, opts...)).Should(Succeed())
 	})
 })

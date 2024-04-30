@@ -55,6 +55,8 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 
+	*opts.Sandbox = s.Sandbox
+
 	// auth options
 	*opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password

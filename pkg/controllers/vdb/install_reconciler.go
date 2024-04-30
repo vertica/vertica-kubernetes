@@ -32,13 +32,14 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/opcfg"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // InstallReconciler will handle reconcile for install of vertica
 type InstallReconciler struct {
-	VRec     *VerticaDBReconciler
+	Rec      config.ReconcilerInterface
 	Log      logr.Logger
 	Vdb      *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner  cmds.PodRunner
@@ -47,10 +48,10 @@ type InstallReconciler struct {
 }
 
 // MakeInstallReconciler will build and return the InstallReconciler object.
-func MakeInstallReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeInstallReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts) controllers.ReconcileActor {
 	return &InstallReconciler{
-		VRec:     vdbrecon,
+		Rec:      recon,
 		Log:      log.WithName("InstallReconciler"),
 		Vdb:      vdb,
 		PRunner:  prunner,
@@ -160,7 +161,7 @@ func (d *InstallReconciler) addHostsToATConf(ctx context.Context) error {
 	if opcfg.IsDebugLoggingEnabled() {
 		debugDumpAdmintoolsConfForPods(ctx, d.PRunner, installedPods)
 	}
-	if err := distributeAdmintoolsConf(ctx, d.Vdb, d.VRec, d.PFacts, d.PRunner, atConfTempFile); err != nil {
+	if err := distributeAdmintoolsConf(ctx, d.Vdb, d.Rec, d.PFacts, d.PRunner, atConfTempFile); err != nil {
 		return err
 	}
 	installedPods = append(installedPods, pods...)
@@ -201,7 +202,7 @@ func (d *InstallReconciler) generateHTTPCerts(ctx context.Context) error {
 		if !p.fileExists[paths.HTTPTLSConfFile] {
 			frwt := httpconf.FileWriter{}
 			secretName := names.GenNamespacedName(d.Vdb, d.Vdb.Spec.NMATLSSecret)
-			fname, err := frwt.GenConf(ctx, d.VRec.Client, secretName)
+			fname, err := frwt.GenConf(ctx, d.Rec.GetClient(), secretName)
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("failed generating the %s file", paths.HTTPTLSConfFileName))
 			}
