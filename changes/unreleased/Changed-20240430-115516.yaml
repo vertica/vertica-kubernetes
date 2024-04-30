@@ -1,0 +1,5 @@
+kind: Changed
+body: VerticaRestorePointsQuery will minimize the number of retry attempts
+time: 2024-04-30T11:55:16.622684237-03:00
+custom:
+  Issue: "781"

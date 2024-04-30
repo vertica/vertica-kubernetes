@@ -37,11 +37,6 @@ ALTER DATABASE
 (1 row)
 
 ALTER DATABASE
-        hurry_service         
-------------------------------
- Service hurried and finished
-(1 row)
-
  node_name | success | max_size | max_age | log_file | need_rotation | message 
 -----------+---------+----------+---------+----------+---------------+---------
 (0 rows)
