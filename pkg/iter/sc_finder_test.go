@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 )
@@ -78,6 +79,28 @@ var _ = Describe("sc_finder", func() {
 		Expect(len(scs)).Should(Equal(len(scNames)))
 		for i := 0; i < len(scNames); i++ {
 			Expect(scs[i].Name).Should(Equal(scNames[i]))
+		}
+	})
+
+	It("should find subclusters if the name has been overridden", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"sc1", "sc2"}
+		stsNames := []string{"first", "second"}
+		scSizes := []int32{10, 5}
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: scSizes[0], Annotations: map[string]string{vmeta.StsNameOverrideAnnotation: stsNames[0]}},
+			{Name: scNames[1], Size: scSizes[1], Annotations: map[string]string{vmeta.StsNameOverrideAnnotation: stsNames[1]}},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		finder := MakeSubclusterFinder(k8sClient, vdb)
+		scs, err := finder.FindSubclusters(ctx, FindExisting, vapi.MainCluster)
+		Expect(err).Should(Succeed())
+		Expect(len(scs)).Should(Equal(len(scNames)))
+		for i := 0; i < len(scNames); i++ {
+			Expect(scs[i].Name).Should(Equal(scNames[i]))
+			Expect(scs[i].Annotations).Should(HaveKeyWithValue(vmeta.StsNameOverrideAnnotation, stsNames[i]))
 		}
 	})
 

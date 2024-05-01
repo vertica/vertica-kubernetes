@@ -1157,6 +1157,24 @@ var _ = Describe("verticadb_webhook", func() {
 		// cannot have a sandbox with more than one subcluster
 		Ω(vdb.validateSandboxSize(field.ErrorList{})).Should(HaveLen(1))
 	})
+
+	It("should prevent the statefulset name from changing for existing subclusters", func() {
+		newVdb := MakeVDB()
+		oldVdb := newVdb.DeepCopy()
+		newVdb.Spec.Subclusters[0].Annotations = map[string]string{
+			vmeta.StsNameOverrideAnnotation: "change-sts-name",
+		}
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(1))
+
+		// should allow it for new subclusters though
+		newVdb.Spec.Subclusters[0].Annotations = oldVdb.Spec.Subclusters[0].Annotations
+		newVdb.Spec.Subclusters = append(newVdb.Spec.Subclusters,
+			Subcluster{
+				Name: "new-name", Size: 1, Annotations: map[string]string{vmeta.StsNameOverrideAnnotation: "override-name"},
+			},
+		)
+		Ω(newVdb.validateImmutableFields(oldVdb)).Should(HaveLen(0))
+	})
 })
 
 func createVDBHelper() *VerticaDB {
