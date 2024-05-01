@@ -14,5 +14,5 @@
 apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
-  - command: kubectl delete sts v-restart-kill-sts-pri1
+  - command: kubectl delete sts subcluster-pri1
     namespaced: true

@@ -148,6 +148,7 @@ func (v *VerticaDB) validateImmutableFields(old runtime.Object) field.ErrorList 
 	allErrs = v.checkImmutablePodSecurityContext(oldObj, allErrs)
 	allErrs = v.checkImmutableSubclusterDuringUpgrade(oldObj, allErrs)
 	allErrs = v.checkImmutableSubclusterInSandbox(oldObj, allErrs)
+	allErrs = v.checkImmutableStsName(oldObj, allErrs)
 	return allErrs
 }
 
@@ -463,10 +464,11 @@ func (v *VerticaDB) hasValidSvcAndScName(allErrs field.ErrorList) field.ErrorLis
 	for i := range v.Spec.Subclusters {
 		sc := &v.Spec.Subclusters[i]
 		fieldPrefix := field.NewPath("spec").Child("subclusters").Index(i)
+		stsName := sc.GetStatefulSetName(v)
 		// check subcluster name
-		if !IsValidSubclusterName(sc.GenCompatibleFQDN()) {
+		if !IsValidSubclusterName(stsName) {
 			err := field.Invalid(fieldPrefix.Child("name"),
-				sc.GenCompatibleFQDN(),
+				stsName,
 				fmt.Sprintf("subcluster name is not valid, change it so that 1. its length is greater than 0 and smaller than 254,"+
 					" 2. it matches regex '%s'", RFC1123DNSSubdomainNameRegex))
 			allErrs = append(allErrs, err)
@@ -591,6 +593,14 @@ func (v *VerticaDB) hasDuplicateScName(allErrs field.ErrorList) field.ErrorList 
 				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(j).Child("name"),
 					v.Spec.Subclusters[j].Name,
 					fmt.Sprintf("duplicates the name of subcluster[%d]", i))
+				allErrs = append(allErrs, err)
+			}
+			// check the statefulset name override annotation for each subcluster.
+			if sc1.GetStatefulSetName(v) == sc2.GetStatefulSetName(v) {
+				err := field.Invalid(field.NewPath("spec").Child("subclusters").Index(j).
+					Child("annotations").Key(vmeta.StsNameOverrideAnnotation),
+					v.Spec.Subclusters[j].Annotations[vmeta.StsNameOverrideAnnotation],
+					fmt.Sprintf("duplicates the %s annotation of subcluster[%d]", vmeta.StsNameOverrideAnnotation, i))
 				allErrs = append(allErrs, err)
 			}
 		}
@@ -1561,14 +1571,8 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 	}
 
 	persistScsWithSbIndex := v.findPersistScsInSandbox(oldObj)
-	oldScIndexMap := make(map[string]int)
-	for i := range oldObj.Spec.Subclusters {
-		oldScIndexMap[oldObj.Spec.Subclusters[i].Name] = i
-	}
-	newScIndexMap := make(map[string]int)
-	for i := range v.Spec.Subclusters {
-		newScIndexMap[v.Spec.Subclusters[i].Name] = i
-	}
+	oldScIndexMap := oldObj.GenSubclusterIndexMap()
+	newScIndexMap := v.GenSubclusterIndexMap()
 	oldScMap := oldObj.GenSubclusterMap()
 	newScMap := v.GenSubclusterMap()
 	path := field.NewPath("spec").Child("subclusters")
@@ -1614,6 +1618,39 @@ func (v *VerticaDB) checkImmutableSubclusterInSandbox(oldObj *VerticaDB, allErrs
 		}
 	}
 
+	return allErrs
+}
+
+// checkImmutableStsName ensures the statefulset name of the subcluster stays constant
+func (v *VerticaDB) checkImmutableStsName(oldObj *VerticaDB, allErrs field.ErrorList) field.ErrorList {
+	// We have an annotation to control the sts name. We are not going to allow
+	// this annotation to be added to existing subclusters. Otherwise, it will
+	// regenerate a new statefulset and keep the old one around. The statefulset
+	// name can only be set for new subclusters.
+	oldScMap := oldObj.GenSubclusterMap()
+	newScMap := v.GenSubclusterMap()
+	scIndexMap := v.GenSubclusterIndexMap()
+	for scName, oldSc := range oldScMap {
+		// Find the subcluster in the new map.
+		newSc, found := newScMap[scName]
+		// Only concerned with changes of existing subclusters. So, we can skip if
+		// its not found.
+		if !found {
+			continue
+		}
+		oldStsName := oldSc.GetStatefulSetName(oldObj)
+		newStsName := newSc.GetStatefulSetName(v)
+		if oldStsName != newStsName {
+			scInx := scIndexMap[scName]
+			path := field.NewPath("spec").Child("subclusters").Index(scInx).
+				Child("annotations").Key(vmeta.StsNameOverrideAnnotation)
+			err := field.Invalid(path,
+				newStsName,
+				fmt.Sprintf("Renaming the statefulset of subcluster %q after creation of the subcluster is not allowed",
+					scName))
+			allErrs = append(allErrs, err)
+		}
+	}
 	return allErrs
 }
 

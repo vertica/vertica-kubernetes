@@ -69,14 +69,14 @@ func MakeRestorePointsQueryReconciler(r *VerticaRestorePointsQueryReconciler, vr
 }
 
 func (q *QueryReconciler) Reconcile(ctx context.Context, _ *ctrl.Request) (ctrl.Result, error) {
-	// no-op if QueryComplete is true
-	isSet := q.Vrpq.IsStatusConditionTrue(v1beta1.QueryComplete)
-	if isSet {
+	// no-op if QueryComplete is present (either true or false)
+	isPresent := q.Vrpq.IsStatusConditionPresent(v1beta1.QueryComplete)
+	if isPresent {
 		return ctrl.Result{}, nil
 	}
 
 	// no-op if QueryReady is false
-	isSet = q.Vrpq.IsStatusConditionFalse(v1beta1.QueryReady)
+	isSet := q.Vrpq.IsStatusConditionFalse(v1beta1.QueryReady)
 	if isSet {
 		return ctrl.Result{}, nil
 	}
@@ -159,7 +159,8 @@ func (q *QueryReconciler) runShowRestorePoints(ctx context.Context, dispatcher v
 	if errRun != nil {
 		q.VRec.Event(q.Vrpq, corev1.EventTypeWarning, events.ShowRestorePointsFailed, "Failed when calling show restore points")
 		err = vrpqstatus.Update(ctx, q.VRec.Client, q.VRec.Log, q.Vrpq,
-			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Querying, metav1.ConditionFalse, "Failed")}, stateFailedQuery, nil)
+			[]*metav1.Condition{vapi.MakeCondition(v1beta1.Querying, metav1.ConditionFalse, "Failed"),
+				vapi.MakeCondition(v1beta1.QueryComplete, metav1.ConditionTrue, "Failed")}, stateFailedQuery, nil)
 		if err != nil {
 			errRun = errors.Join(errRun, err)
 		}
