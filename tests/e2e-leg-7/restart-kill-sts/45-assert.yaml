@@ -21,3 +21,17 @@ status:
       upNodeCount: 1
     - addedToDBCount: 2
       upNodeCount: 2
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: subcluster-pri1
+status:
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: subcluster-sec1
+status:
+  readyReplicas: 2

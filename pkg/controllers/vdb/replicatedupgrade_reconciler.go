@@ -605,7 +605,12 @@ func (r *ReplicatedUpgradeReconciler) addNewSubclustersForPrimaries() (bool, err
 			return false, err
 		}
 
-		newsc := r.duplicateSubclusterForReplicaGroupB(sc, newSCName, oldImage)
+		newStsName, err := r.genNewSubclusterStsName(newSCName, sc)
+		if err != nil {
+			return false, err
+		}
+
+		newsc := r.duplicateSubclusterForReplicaGroupB(sc, newSCName, newStsName, oldImage)
 		newSubclusters = append(newSubclusters, *newsc)
 		scMap[newSCName] = newsc
 	}
@@ -714,6 +719,35 @@ func (r *ReplicatedUpgradeReconciler) genNewSubclusterName(baseName string, scMa
 	return r.genNameWithUUID(baseName, func(nm string) bool { _, found := scMap[nm]; return found })
 }
 
+// genNewSubclusterStsName is a helper to generate the statefulset name of a new
+// subcluster. It will return a unique name as determined by looking at all of
+// the subclusters defined in the CR.
+func (r *ReplicatedUpgradeReconciler) genNewSubclusterStsName(newSCName string, scToMimic *vapi.Subcluster) (string, error) {
+	// Build up a map of all of the statefulset names defined for this database
+	stsNameMap := make(map[string]bool)
+	for i := range r.VDB.Spec.Subclusters {
+		stsNameMap[r.VDB.Spec.Subclusters[i].GetStatefulSetName(r.VDB)] = true
+	}
+
+	// Preference is to match the name of the new subcluster.
+	nm := fmt.Sprintf("%s-%s", r.VDB.Name, newSCName)
+	if _, found := stsNameMap[nm]; !found {
+		return nm, nil
+	}
+
+	// Then try using the original name of the subcluster. This may be available
+	// if this the 2nd, 4th, etc. replicated upgrade. The sandbox will oscilate
+	// between the name of the subcluster in the sandbox and its original name.
+	nm = fmt.Sprintf("%s-%s", r.VDB.Name, scToMimic.Name)
+	if _, found := stsNameMap[nm]; !found {
+		return nm, nil
+	}
+
+	// Otherwise, generate a name using a uuid suffix
+	return r.genNameWithUUID(fmt.Sprintf("%s-%s", r.VDB.Name, newSCName),
+		func(nm string) bool { _, found := stsNameMap[nm]; return found })
+}
+
 // getNewSandboxName returns a unique name to be used for a sandbox. A preferred
 // name can be passed in. If that name is already in use, then we will generate
 // a unique one using a UUID.
@@ -753,7 +787,7 @@ func (r *ReplicatedUpgradeReconciler) genNameWithUUID(baseName string, lookupFun
 // duplicateSubclusterForReplicaGroupB will return a new vapi.Subcluster that is based on
 // baseSc. This is used to mimic the primaries in replica group B.
 func (r *ReplicatedUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
-	baseSc *vapi.Subcluster, newSCName, oldImage string) *vapi.Subcluster {
+	baseSc *vapi.Subcluster, newSCName, newStsName, oldImage string) *vapi.Subcluster {
 	newSc := baseSc.DeepCopy()
 	newSc.Name = newSCName
 	// The subcluster will be sandboxed. And only secondaries can be
@@ -776,13 +810,18 @@ func (r *ReplicatedUpgradeReconciler) duplicateSubclusterForReplicaGroupB(
 	// old image.
 	newSc.ImageOverride = oldImage
 
-	// Include annotations to indicate what replica group it is assigned to
-	// and provide a link back to the subcluster it is defined from.
+	// Include annotations to indicate what replica group it is assigned to,
+	// provide a link back to the subcluster it is defined from, and the desired
+	// name of the subclusters statefulset.
 	if newSc.Annotations == nil {
 		newSc.Annotations = make(map[string]string)
 	}
 	newSc.Annotations[vmeta.ReplicaGroupAnnotation] = vmeta.ReplicaGroupBValue
 	newSc.Annotations[vmeta.ParentSubclusterAnnotation] = baseSc.Name
+	// Picking a statefulset name is important because this subcluster will get
+	// renamed later but we want a consistent object name to avoid having to
+	// rebuild it.
+	newSc.Annotations[vmeta.StsNameOverrideAnnotation] = newStsName
 
 	// Create a linkage in the parent-child
 	if baseSc.Annotations == nil {
