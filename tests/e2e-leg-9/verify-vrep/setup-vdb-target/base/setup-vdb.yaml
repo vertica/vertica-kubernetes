@@ -32,10 +32,22 @@ spec:
     - name: sc2
       size: 1
       type: secondary
+    - name: sc3
+      size: 1
+      type: secondary
+    - name: sc4
+      size: 1
+      type: secondary
   sandboxes:
     - name: sandbox1
       subclusters:
         - name: sc2
+    - name: sandbox2
+      subclusters:
+        - name: sc3
+    - name: sandbox3
+      subclusters:
+        - name: sc4
   certSecrets: []
   imagePullSecrets: []
   volumes: []
