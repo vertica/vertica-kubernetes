@@ -43,12 +43,12 @@ func (m *MockVClusterOps) VShowRestorePoints(options *vops.VShowRestorePointsOpt
 		return restorePoints, fmt.Errorf("failed to retrieve hosts")
 	}
 
-	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	err = m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
 		return restorePoints, err
 	}
 
-	err = m.VerifyFilterOptions(options.FilterOptions)
+	err = m.VerifyFilterOptions(&options.FilterOptions)
 	if err != nil {
 		return restorePoints, err
 	}

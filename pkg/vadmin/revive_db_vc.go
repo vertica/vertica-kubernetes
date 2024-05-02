@@ -52,11 +52,11 @@ func (v *VClusterOps) ReviveDB(ctx context.Context, opts ...revivedb.Option) (ct
 func (v *VClusterOps) genReviveDBOptions(s *revivedb.Parms, certs *HTTPSCerts) *vops.VReviveDatabaseOptions {
 	opts := vops.VReviveDBOptionsFactory()
 
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 	opts.RawHosts = s.Hosts
 	v.Log.Info("Setup revive database options", "hosts", opts.RawHosts)
 	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
-	opts.CommunalStorageLocation = &s.CommunalPath
+	opts.CommunalStorageLocation = s.CommunalPath
 	opts.ConfigurationParameters = s.ConfigurationParams
 	opts.IgnoreClusterLease = s.IgnoreClusterLease
 
