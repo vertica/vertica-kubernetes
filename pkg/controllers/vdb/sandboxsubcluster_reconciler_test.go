@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,7 +30,7 @@ import (
 )
 
 // initPFacts is a helper function to initialize pod facts with some test information
-func initPFacts(pfacts *PodFacts, vdb *vapi.VerticaDB, sc1, sc2 string) (pfmain, pfsc1, pfsc2 types.NamespacedName) {
+func initPFacts(pfacts *PodFacts, vdb *vapi.VerticaDB, sc1, sc2 string) (pfmain, pfsc1 types.NamespacedName) {
 	pfmain = names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
 	pfacts.Detail[pfmain] = &PodFact{}
 	pfacts.Detail[pfmain].upNode = true
@@ -39,11 +40,11 @@ func initPFacts(pfacts *PodFacts, vdb *vapi.VerticaDB, sc1, sc2 string) (pfmain,
 	pfacts.Detail[pfsc1] = &PodFact{}
 	pfacts.Detail[pfsc1].upNode = true
 	pfacts.Detail[pfsc1].subclusterName = sc1
-	pfsc2 = names.GenPodName(vdb, &vdb.Spec.Subclusters[2], 0)
+	pfsc2 := names.GenPodName(vdb, &vdb.Spec.Subclusters[2], 0)
 	pfacts.Detail[pfsc2] = &PodFact{}
 	pfacts.Detail[pfsc2].upNode = true
 	pfacts.Detail[pfsc2].subclusterName = sc2
-	return pfmain, pfsc1, pfsc2
+	return pfmain, pfsc1
 }
 
 var _ = Describe("sandboxsubcluster_reconcile", func() {
@@ -126,12 +127,13 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		defer test.DeletePods(ctx, k8sClient, vdb)
 
 		fpr := &cmds.FakePodRunner{}
-		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
-		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		_, pfsc1, pfsc2 := initPFacts(&pfacts, vdb, subcluster1, subcluster2)
-		// subcluster1 and subcluster2 are sandboxed
-		pfacts.Detail[pfsc1].sandbox = sandbox1
-		pfacts.Detail[pfsc2].sandbox = sandbox2
+		pfacts := PodFacts{}
+		pfacts.Detail = make(PodFactDetail)
+		pfmain := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		pfacts.Detail[pfmain] = &PodFact{}
+		pfacts.Detail[pfmain].upNode = true
+		pfacts.Detail[pfmain].subclusterName = ""
+		pfacts.Detail[pfmain].isPrimary = true
 		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
 		r := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
@@ -154,7 +156,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		pfmain, pfsc1, _ := initPFacts(&pfacts, vdb, subcluster1, subcluster2)
+		pfmain, pfsc1 := initPFacts(&pfacts, vdb, subcluster1, subcluster2)
 		// let subcluster1 down
 		// should requeue the iteration without any error
 		pfacts.Detail[pfsc1].upNode = false
@@ -187,7 +189,7 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		fpr := &cmds.FakePodRunner{}
 		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
 		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
-		_, _, _ = initPFacts(&pfacts, vdb, subcluster1, subcluster2)
+		_, _ = initPFacts(&pfacts, vdb, subcluster1, subcluster2)
 		pfsc3 := names.GenPodName(vdb, &vdb.Spec.Subclusters[3], 0)
 		pfacts.Detail[pfsc3] = &PodFact{}
 		pfacts.Detail[pfsc3].upNode = true
@@ -234,5 +236,53 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		newVdb := &vapi.VerticaDB{}
 		Expect(k8sClient.Get(ctx, vapi.MakeVDBName(), newVdb)).Should(Succeed())
 		Expect(newVdb.Status.Sandboxes).Should(ConsistOf(targetSandboxStatus))
+	})
+
+	It("should create and update a sandbox config map correctly", func() {
+		vdb := vapi.MakeVDBForVclusterOps()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
+			{Name: subcluster1, Size: 1, Type: vapi.SecondarySubcluster},
+		}
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sandbox1, Subclusters: []vapi.SubclusterName{{Name: subcluster1}}},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFacts(vdbRec, fpr, logger, TestPassword)
+		dispatcher := vdbRec.makeDispatcher(logger, vdb, fpr, TestPassword)
+		rec := MakeSandboxSubclusterReconciler(vdbRec, logger, vdb, &pfacts, dispatcher, k8sClient)
+		r := rec.(*SandboxSubclusterReconciler)
+		// should create config map for sandbox1
+		err := r.checkSandboxConfigMap(ctx, sandbox1)
+		Expect(err).Should(BeNil())
+		nm := names.GenSandboxConfigMapName(r.Vdb, sandbox1)
+		defer deleteConfigMap(ctx, r.Vdb, nm.Name)
+
+		// verify the content of the config map
+		cm, res, err := getConfigMap(ctx, r.VRec, r.Vdb, nm)
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(cm.Data["sandboxName"]).Should(Equal(sandbox1))
+		Expect(cm.Data["verticaDBName"]).Should(Equal(r.Vdb.Spec.DBName))
+		Expect(cm.Annotations[vmeta.VersionAnnotation]).Should(Equal(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion))
+
+		newVersion := "v24.3.0"
+		r.Vdb.Annotations[vmeta.VersionAnnotation] = newVersion
+		// should update config map for sandbox1
+		err = r.checkSandboxConfigMap(ctx, sandbox1)
+		Expect(err).Should(BeNil())
+
+		// verify the content of the config map
+		cm, res, err = getConfigMap(ctx, r.VRec, r.Vdb, nm)
+		Expect(err).Should(Succeed())
+		Expect(res).Should(Equal(ctrl.Result{}))
+		Expect(cm.Data["sandboxName"]).Should(Equal(sandbox1))
+		Expect(cm.Data["verticaDBName"]).Should(Equal(r.Vdb.Spec.DBName))
+		Expect(cm.Annotations[vmeta.VersionAnnotation]).Should(Equal(newVersion))
 	})
 })

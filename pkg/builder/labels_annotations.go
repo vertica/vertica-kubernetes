@@ -110,6 +110,13 @@ func MakeLabelsForSvcObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster, svcType st
 	return labels
 }
 
+// MakeLabelsForSandboxConfigMap constructs the labels of the sandbox config map
+func MakeLabelsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
+	labels := makeLabelsForObject(vdb, nil, false)
+	labels[vmeta.WatchedBySandboxLabel] = vmeta.WatchedBySandboxTrue
+	return labels
+}
+
 // MakeAnnotationsForObjects builds the list of annotations that are to be
 // included on new objects.
 func MakeAnnotationsForObject(vdb *vapi.VerticaDB) map[string]string {
@@ -131,6 +138,16 @@ func MakeAnnotationsForStsObject(vdb *vapi.VerticaDB, sc *vapi.Subcluster) map[s
 	annotations := MakeAnnotationsForObject(vdb)
 	for k, v := range sc.Annotations {
 		annotations[k] = v
+	}
+	return annotations
+}
+
+// MakeAnnotationsForSandboxConfigMap builds the list of annotations that are included
+// in the sandbox config map.
+func MakeAnnotationsForSandboxConfigMap(vdb *vapi.VerticaDB) map[string]string {
+	annotations := MakeAnnotationsForObject(vdb)
+	if ver, ok := vdb.Annotations[vmeta.VersionAnnotation]; ok {
+		annotations[vmeta.VersionAnnotation] = ver
 	}
 	return annotations
 }

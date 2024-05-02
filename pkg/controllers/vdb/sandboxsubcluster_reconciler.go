@@ -18,15 +18,19 @@ package vdb
 import (
 	"context"
 	"errors"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
+	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
 	"github.com/vertica/vertica-kubernetes/pkg/vdbstatus"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -68,7 +72,49 @@ func (s *SandboxSubclusterReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// reconcile sandbox status for the subclusters that are already sandboxed
+	if err := s.reconcileSandboxStatus(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// reconcile sandbox config maps for the existing sandboxes
+	if err := s.reconcileSandboxConfigMaps(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return s.sandboxSubclusters(ctx)
+}
+
+// reconcileSandboxStatus will update sandbox status for the subclusters that are already sandboxed
+func (s *SandboxSubclusterReconciler) reconcileSandboxStatus(ctx context.Context) error {
+	sbScMap := make(map[string][]string)
+	seenScs := make(map[string]any)
+	for _, v := range s.PFacts.Detail {
+		if _, ok := seenScs[v.subclusterName]; ok {
+			continue
+		}
+		if v.sandbox != vapi.MainCluster {
+			sbScMap[v.sandbox] = append(sbScMap[v.sandbox], v.subclusterName)
+		}
+		seenScs[v.subclusterName] = struct{}{}
+	}
+	if len(sbScMap) > 0 {
+		return s.updateSandboxStatus(ctx, sbScMap)
+	}
+
+	return nil
+}
+
+// reconcileSandboxConfigMaps will create/update sandbox config maps for the existing sandboxes
+func (s *SandboxSubclusterReconciler) reconcileSandboxConfigMaps(ctx context.Context) error {
+	for _, sb := range s.Vdb.Status.Sandboxes {
+		err := s.checkSandboxConfigMap(ctx, sb.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // sandboxSubclusters will add subclusters to their sandboxes defined in the vdb
@@ -86,7 +132,7 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 
 	// find an initiator to call vclusterOps
 	initiator, ok := s.PFacts.findFirstPodSorted(func(v *PodFact) bool {
-		return v.sandbox == "" && v.isPrimary && v.upNode
+		return v.sandbox == vapi.MainCluster && v.isPrimary && v.upNode
 	})
 	if ok {
 		s.InitiatorIP = initiator.podIP
@@ -104,19 +150,79 @@ func (s *SandboxSubclusterReconciler) sandboxSubclusters(ctx context.Context) (c
 	return ctrl.Result{}, nil
 }
 
-// executeSandboxCommand will call sandbox API in vclusterOps, then update sandbox status in vdb
+// executeSandboxCommand will call sandbox API in vclusterOps, create/update sandbox config maps,
+// and update sandbox status in vdb
 func (s *SandboxSubclusterReconciler) executeSandboxCommand(ctx context.Context, scSbMap map[string]string) error {
 	succeedSbScMap := make(map[string][]string)
+	seenSandboxes := make(map[string]any)
 	for sc, sb := range scSbMap {
 		err := s.sandboxSubcluster(ctx, sc, sb)
 		if err != nil {
 			// when one subcluster failed to be sandboxed, update sandbox status and return error
 			return errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
-		} else {
-			succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
 		}
+		succeedSbScMap[sb] = append(succeedSbScMap[sb], sc)
+		// create/update a sandbox config map
+		if _, ok := seenSandboxes[sb]; !ok {
+			err = s.checkSandboxConfigMap(ctx, sb)
+			if err != nil {
+				// when creating/updating sandbox config map failed, update sandbox status and return error
+				return errors.Join(err, s.updateSandboxStatus(ctx, succeedSbScMap))
+			}
+		}
+		seenSandboxes[sb] = struct{}{}
 	}
 	return s.updateSandboxStatus(ctx, succeedSbScMap)
+}
+
+// checkSandboxConfigMap will create or update a sandbox config map if needed
+func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context, sandbox string) error {
+	nm := names.GenSandboxConfigMapName(s.Vdb, sandbox)
+	curCM := &corev1.ConfigMap{}
+	newCM := builder.BuildSandboxConfigMap(nm, s.Vdb, sandbox)
+	err := s.Client.Get(ctx, nm, curCM)
+	if err != nil && kerrors.IsNotFound(err) {
+		s.Log.Info("Creating sandbox config map", "Name", nm)
+		return s.Client.Create(ctx, newCM)
+	}
+	if s.updateSandboxConfigMapFields(curCM, newCM) {
+		s.Log.Info("Updating sandbox config map", "Name", nm)
+		return s.Client.Update(ctx, newCM)
+	}
+	s.Log.Info("Found an existing sandbox config map with correct content, skip updating it", "Name", nm)
+	return nil
+}
+
+// updateSandboxConfigMapFields checks if we need to update the content of a config map,
+// if so, we will update the content of that config map and return true
+func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM *corev1.ConfigMap) bool {
+	updated := false
+	if stringMapDiffer(curCM.ObjectMeta.Annotations, newCM.ObjectMeta.Annotations) {
+		updated = true
+		curCM.ObjectMeta.Annotations = newCM.ObjectMeta.Annotations
+	}
+	if stringMapDiffer(curCM.ObjectMeta.Labels, newCM.ObjectMeta.Labels) {
+		updated = true
+		curCM.ObjectMeta.Labels = newCM.ObjectMeta.Labels
+	}
+	if !reflect.DeepEqual(curCM.ObjectMeta.OwnerReferences, newCM.ObjectMeta.OwnerReferences) {
+		updated = true
+		curCM.ObjectMeta.OwnerReferences = newCM.ObjectMeta.OwnerReferences
+	}
+	if !reflect.DeepEqual(curCM.TypeMeta, newCM.TypeMeta) {
+		updated = true
+		curCM.TypeMeta = newCM.TypeMeta
+	}
+	if !*curCM.Immutable && stringMapDiffer(curCM.Data, newCM.Data) {
+		updated = true
+		curCM.Data = newCM.Data
+	}
+	if *curCM.Immutable != *newCM.Immutable {
+		updated = true
+		curCM.Immutable = newCM.Immutable
+	}
+
+	return updated
 }
 
 // fetchSubclustersWithSandboxes will return the qualified subclusters with their sandboxes
