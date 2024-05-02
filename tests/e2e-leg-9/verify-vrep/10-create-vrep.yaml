@@ -12,30 +12,11 @@
 # limitations under the License.
 
 apiVersion: vertica.com/v1beta1
-kind: VerticaDB
+kind: VerticaReplicator
 metadata:
-  name: v-restart-kill-sts
+  name: vrep-test
 spec:
-  image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vertica1
-  initPolicy: CreateSkipPackageInstall
-  requeueTime: 5
-  subclusters:
-    - name: pri1
-      size: 1
-      isPrimary: true
-      annotations:
-        vertica.com/statefulset-name-override: "subcluster-pri1"
-    - name: sec1
-      size: 2
-      isPrimary: false
-      annotations:
-        vertica.com/statefulset-name-override: "subcluster-sec1"
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  source:
+    verticaDB: "v-source"
+  target:
+    verticaDB: "v-target"

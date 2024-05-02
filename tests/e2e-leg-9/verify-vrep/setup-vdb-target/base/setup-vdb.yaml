@@ -11,30 +11,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1beta1
+apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
-  name: v-restart-kill-sts
+  name: v-target
+  annotations:
+    vertica.com/include-uid-in-path: "true"
+    vertica.com/k-safety: "0"
 spec:
   image: kustomize-vertica-image
-  communal:
-    includeUIDInPath: true
-  local:
-    requestSize: 100Mi
-  dbName: vertica1
+  dbName: targetdb
   initPolicy: CreateSkipPackageInstall
-  requeueTime: 5
+  communal: {}
+  local:
+    requestSize: 250Mi
   subclusters:
-    - name: pri1
+    - name: sc1
       size: 1
-      isPrimary: true
-      annotations:
-        vertica.com/statefulset-name-override: "subcluster-pri1"
-    - name: sec1
-      size: 2
-      isPrimary: false
-      annotations:
-        vertica.com/statefulset-name-override: "subcluster-sec1"
+      type: primary
+    - name: sc2
+      size: 1
+      type: secondary
+  sandboxes:
+    - name: sandbox1
+      subclusters:
+        - name: sc2
   certSecrets: []
   imagePullSecrets: []
   volumes: []

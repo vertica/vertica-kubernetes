@@ -157,7 +157,8 @@ func MakeVDBForScrutinize() *VerticaDB {
 	return vdb
 }
 
-// GenSubclusterMap will organize all of the subclusters into a map for quicker lookup
+// GenSubclusterMap will organize all of the subclusters into a map for quicker lookup.
+// The key is the subcluster name and the value is a pointer to its Subcluster struct.
 func (v *VerticaDB) GenSubclusterMap() map[string]*Subcluster {
 	scMap := map[string]*Subcluster{}
 	for i := range v.Spec.Subclusters {
@@ -178,6 +179,16 @@ func (v *VerticaDB) GenSubclusterSandboxMap() map[string]string {
 		}
 	}
 	return scSbMap
+}
+
+// GenSubclusterIndexMap will organize all of the subclusters into a map so we
+// can quickly find its index in the spec.subclusters[] array.
+func (v *VerticaDB) GenSubclusterIndexMap() map[string]int {
+	m := make(map[string]int)
+	for i := range v.Spec.Subclusters {
+		m[v.Spec.Subclusters[i].Name] = i
+	}
+	return m
 }
 
 func isValidRFC1123DNSSubdomainName(name string) bool {
@@ -287,6 +298,15 @@ func (v *VerticaDB) GetCommunalPath() string {
 func (s *Subcluster) GenCompatibleFQDN() string {
 	m := regexp.MustCompile(`_`)
 	return m.ReplaceAllString(s.Name, "-")
+}
+
+// GetStatefulSetName returns the name of the statefulset for this subcluster
+func (s *Subcluster) GetStatefulSetName(vdb *VerticaDB) string {
+	stsOverrideName := vmeta.GetStsNameOverride(s.Annotations)
+	if stsOverrideName != "" {
+		return stsOverrideName
+	}
+	return fmt.Sprintf("%s-%s", vdb.Name, s.GenCompatibleFQDN())
 }
 
 // GetServiceName returns the name of the service object that route traffic to

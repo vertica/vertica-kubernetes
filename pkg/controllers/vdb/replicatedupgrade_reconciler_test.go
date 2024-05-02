@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -471,6 +472,39 @@ var _ = Describe("replicatedupgrade_reconciler", func() {
 		Ω(rr.postSandboxSubclustersMsg(ctx)).Should(Equal(ctrl.Result{}))
 		Ω(k8sClient.Get(ctx, vdb.ExtractNamespacedName(), vdb)).Should(Succeed())
 		Ω(vdb.Status.UpgradeStatus).Should(Equal(replicatedUpgradeStatusMsgs[sandboxSubclustersMsgInx]))
+	})
+
+	It("should handle collisions with the sts name", func() {
+		vdb := vapi.MakeVDB()
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "pri1", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri2", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.StsNameOverrideAnnotation: fmt.Sprintf("%s-pri2-sb", vdb.Name),
+			}},
+			{Name: "pri3", Type: vapi.PrimarySubcluster, Size: 2},
+			{Name: "pri3-sb-dummy", Type: vapi.PrimarySubcluster, Size: 2, Annotations: map[string]string{
+				vmeta.StsNameOverrideAnnotation: fmt.Sprintf("%s-pri3-sb", vdb.Name),
+			}},
+		}
+
+		rr := createReplicatedUpgradeReconciler(ctx, vdb)
+
+		// Test using the sts name with the '-sb' suffix
+		stsName, err := rr.genNewSubclusterStsName("pri1-sb", &vdb.Spec.Subclusters[0])
+		Ω(err).Should(Succeed())
+		Ω(stsName).Should(Equal(fmt.Sprintf("%s-pri1-sb", vdb.Name)))
+
+		// Test oscillating back to the original name
+		stsName, err = rr.genNewSubclusterStsName("pri2-sb", &vdb.Spec.Subclusters[1])
+		Ω(err).Should(Succeed())
+		Ω(stsName).Should(Equal(fmt.Sprintf("%s-pri2", vdb.Name)))
+
+		// Test using a uuid for the sts name
+		stsName, err = rr.genNewSubclusterStsName("pri3-sb", &vdb.Spec.Subclusters[2])
+		Ω(err).Should(Succeed())
+		Ω(stsName).ShouldNot(Equal(fmt.Sprintf("%s-pri3", vdb.Name)))
+		Ω(stsName).ShouldNot(Equal(fmt.Sprintf("%s-pri3-sb", vdb.Name)))
+		Ω(stsName).Should(HavePrefix(fmt.Sprintf("%s-pri3-sb", vdb.Name)))
 	})
 })
 

@@ -266,6 +266,11 @@ const (
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller
 	VDBResourceVersion = "vertica.com/vdb-resource-version"
+	// Use this to override the name of the statefulset and its pods. This needs
+	// to be set in the spec.subclusters[].annotations field to take effect. If
+	// omitted, then the name of the subclusters' statefulset will be
+	// `<vdb-name>-<subcluster-name>'
+	StsNameOverrideAnnotation = "vertica.com/statefulset-name-override"
 )
 
 // IsPauseAnnotationSet will check the annotations for a special value that will
@@ -502,6 +507,12 @@ func GetReplicatedUpgradeSandbox(annotations map[string]string) string {
 // object used during replicated upgrade.
 func GetReplicatedUpgradeReplicator(annotations map[string]string) string {
 	return lookupStringAnnotation(annotations, ReplicatedUpgradeReplicatorAnnotation, "")
+}
+
+// GetStsNameOverride returns the override for the statefulset name. If one is
+// not provided, an empty string is returned.
+func GetStsNameOverride(annotations map[string]string) string {
+	return lookupStringAnnotation(annotations, StsNameOverrideAnnotation, "")
 }
 
 // lookupBoolAnnotation is a helper function to lookup a specific annotation and

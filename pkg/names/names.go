@@ -57,7 +57,7 @@ func GenHlSvcName(vdb *vapi.VerticaDB) types.NamespacedName {
 
 // GenStsName returns the name of the statefulset object
 func GenStsName(vdb *vapi.VerticaDB, sc *vapi.Subcluster) types.NamespacedName {
-	return GenNamespacedName(vdb, vdb.Name+"-"+sc.GenCompatibleFQDN())
+	return GenNamespacedName(vdb, sc.GetStatefulSetName(vdb))
 }
 
 // GenCommunalCredSecretName returns the name of the secret that has the credentials to access s3
@@ -85,7 +85,8 @@ func GenSUPasswdSecretName(vdb *vapi.VerticaDB) types.NamespacedName {
 // The name of the pod is generated, this function is just a helper for when we need
 // to lookup a pod by its generated name.
 func GenPodName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
-	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s-%d", vdb.Name, sc.GenCompatibleFQDN(), podIndex))
+	stsName := sc.GetStatefulSetName(vdb)
+	return GenNamespacedName(vdb, fmt.Sprintf("%s-%d", stsName, podIndex))
 }
 
 // GenPodNameFromSts returns the name of a specific pod in a statefulset
@@ -98,13 +99,13 @@ func GenPodNameFromSts(vdb *vapi.VerticaDB, sts *appsv1.StatefulSet, podIndex in
 
 // GenPVCName returns the name of a specific pod's PVC.  This is for test purposes only.
 func GenPVCName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
-	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s-%s-%d", vapi.LocalDataPVC, vdb.Name, sc.GenCompatibleFQDN(), podIndex))
+	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s-%d", vapi.LocalDataPVC, sc.GetStatefulSetName(vdb), podIndex))
 }
 
 // GenPVName returns the name of a dummy PV for test purposes
 func GenPVName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.NamespacedName {
 	return types.NamespacedName{
-		Name: fmt.Sprintf("pv-%s-%s-%s-%d", vapi.LocalDataPVC, vdb.Name, sc.GenCompatibleFQDN(), podIndex),
+		Name: fmt.Sprintf("pv-%s-%s-%d", vapi.LocalDataPVC, sc.GetStatefulSetName(vdb), podIndex),
 	}
 }
 

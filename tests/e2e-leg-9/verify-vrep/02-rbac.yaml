@@ -11,19 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: subcluster-pri1
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: subcluster-pri1-0
-status:
-  containerStatuses:
-  - ready: true
-    name: nma
-  - ready: false
-    name: server
-
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl apply --namespace $NAMESPACE -f ../../manifests/rbac/base/rbac.yaml
+    ignoreFailure: true

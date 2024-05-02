@@ -11,19 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: subcluster-pri1
----
 apiVersion: v1
-kind: Pod
+kind: Secret
 metadata:
-  name: subcluster-pri1-0
-status:
-  containerStatuses:
-  - ready: true
-    name: nma
-  - ready: false
-    name: server
-
+  name: su-passwd
+type: Opaque
+data:
+  password: c3VwZXJ1c2Vy
