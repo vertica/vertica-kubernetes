@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -52,13 +51,13 @@ func (v *VClusterOps) StartDB(ctx context.Context, opts ...startdb.Option) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	err = v.VStartDatabase(&vopts)
+	_, err = v.VStartDatabase(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to start a database")
 		return ctrl.Result{}, err
 	}
 
-	v.Log.Info("Successfully start a database", "dbName", *vopts.DBName)
+	v.Log.Info("Successfully start a database", "dbName", vopts.DBName)
 	return ctrl.Result{}, nil
 }
 
@@ -69,34 +68,33 @@ func (v *VClusterOps) genStartDBOptions(s *startdb.Parms, certs *HTTPSCerts) (vo
 	if len(opts.RawHosts) == 0 {
 		return vops.VStartDatabaseOptions{}, fmt.Errorf("hosts should not be empty %s", opts.RawHosts)
 	}
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(opts.RawHosts[0]))
-	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
+	opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
+	opts.DBName = v.VDB.Spec.DBName
+	opts.IsEon = v.VDB.IsEON()
 	opts.ConfigurationParameters = s.ConfigurationParams
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
-		*opts.StartUpConf = paths.StartupConfFile
+		opts.StartUpConf = paths.StartupConfFile
 	}
 
 	// Provide communal storage location to vclusterops only after revive_db because
 	// we do not need to access communal storage in start_db after create_db.
 	if v.VDB.Spec.InitPolicy == vapi.CommunalInitPolicyRevive {
-		*opts.CommunalStorageLocation = s.CommunalPath
+		opts.CommunalStorageLocation = s.CommunalPath
 	}
 
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	// timeout option
-	*opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
+	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
 
 	// other options
-	*opts.TrimHostList = true
+	opts.TrimHostList = true
 
 	return opts, nil
 }

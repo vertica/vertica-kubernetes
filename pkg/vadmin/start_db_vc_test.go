@@ -33,34 +33,36 @@ const TestCatalogPrefix = "/data"
 const TestTimeout = 10
 
 // mock version of VStartDatabase() that is invoked inside VClusterOps.StartDB()
-func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) error {
+func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) (*vops.VCoordinationDatabase, error) {
+	vdb := &vops.VCoordinationDatabase{}
+
 	// verify basic options
 	err := m.VerifyCommonOptions(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return vdb, err
 	}
 
 	// verify eon options
 	err = m.VerifyInitiatorIPAndEonMode(&options.DatabaseOptions)
 	if err != nil {
-		return err
+		return vdb, err
 	}
-	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	err = m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
-		return err
+		return vdb, err
 	}
 
 	// verify catalog prefix
-	if *options.CatalogPrefix != TestCatalogPrefix {
-		return fmt.Errorf("failed to retrieve catalog prefix")
+	if options.CatalogPrefix != TestCatalogPrefix {
+		return vdb, fmt.Errorf("failed to retrieve catalog prefix")
 	}
 
 	// verify timeout
-	if *options.StatePollingTimeout != TestTimeout {
-		return fmt.Errorf("failed to retrieve timeout")
+	if options.StatePollingTimeout != TestTimeout {
+		return vdb, fmt.Errorf("failed to retrieve timeout")
 	}
 
-	return nil
+	return vdb, nil
 }
 
 var _ = Describe("start_db_vc", func() {

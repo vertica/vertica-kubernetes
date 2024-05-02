@@ -116,10 +116,10 @@ var TestCommunalStorageParams = map[string]string{"awsauth": "test-auth", "awsco
 
 // VerifyDBNameAndIPv6 is used in vcluster-ops unit test for verifying db name and ipv6
 func (m *MockVClusterOps) VerifyDBNameAndIPv6(options *vops.DatabaseOptions) error {
-	if options.Ipv6.ToBool() != TestIPv6 {
+	if options.IPv6 != TestIPv6 {
 		return fmt.Errorf("failed to retrieve IPv6")
 	}
-	if *options.DBName != TestDBName {
+	if options.DBName != TestDBName {
 		return fmt.Errorf("failed to retrieve database name")
 	}
 
@@ -135,7 +135,7 @@ func (m *MockVClusterOps) VerifyCommonOptions(options *vops.DatabaseOptions) err
 	}
 
 	// verify auth options
-	if *options.UserName != vapi.SuperUser {
+	if options.UserName != vapi.SuperUser {
 		return fmt.Errorf("failed to retrieve Vertica username")
 	}
 	if *options.Password != TestPassword {
@@ -154,7 +154,7 @@ func (m *MockVClusterOps) VerifyInitiatorIPAndEonMode(options *vops.DatabaseOpti
 	}
 
 	// verify eon mode
-	if options.IsEon.ToBool() != TestIsEon {
+	if options.IsEon != TestIsEon {
 		return fmt.Errorf("failed to retrieve eon mode")
 	}
 
@@ -187,13 +187,13 @@ func (m *MockVClusterOps) VerifyFilterOptions(options *vops.ShowRestorePointFilt
 	if options == nil {
 		return fmt.Errorf("failed to retrieve filter options")
 	}
-	if options.ArchiveName == nil || *options.ArchiveName != TestArchiveName {
+	if options.ArchiveName == "" || options.ArchiveName != TestArchiveName {
 		return fmt.Errorf("failed to retrieve archive name filter")
 	}
-	if options.StartTimestamp == nil || *options.StartTimestamp != TestStartTimestamp {
+	if options.StartTimestamp == "" || options.StartTimestamp != TestStartTimestamp {
 		return fmt.Errorf("failed to retrieve start timestamp filter")
 	}
-	if options.EndTimestamp == nil || *options.EndTimestamp != TestEndTimestamp {
+	if options.EndTimestamp == "" || options.EndTimestamp != TestEndTimestamp {
 		return fmt.Errorf("failed to retrieve end timestamp filter")
 	}
 	return nil

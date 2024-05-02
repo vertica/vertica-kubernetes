@@ -37,7 +37,7 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 	}
 
 	// verify catalog path
-	if *options.CatalogPrefix != TestCatalogPrefix {
+	if options.CatalogPrefix != TestCatalogPrefix {
 		return fmt.Errorf("failed to retrieve catalog prefix")
 	}
 
@@ -47,10 +47,10 @@ func (m *MockVClusterOps) VReIP(options *vops.VReIPOptions) error {
 	}
 
 	// verify eon options
-	if options.IsEon.ToBool() != TestIsEon {
+	if options.IsEon != TestIsEon {
 		return fmt.Errorf("failed to retrieve eon mode")
 	}
-	return m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	return m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 }
 
 var _ = Describe("re_ip_vc", func() {

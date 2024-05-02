@@ -45,10 +45,10 @@ func (m *MockVClusterOps) VAddSubcluster(options *vops.VAddSubclusterOptions) er
 	}
 
 	// verify basic options
-	if *options.SCName != TestSCName {
+	if options.SCName != TestSCName {
 		return fmt.Errorf("failed to retrieve subcluster name")
 	}
-	if *options.IsPrimary != TestIsPrimary {
+	if options.IsPrimary != TestIsPrimary {
 		return fmt.Errorf("failed to retrieve subcluster type")
 	}
 

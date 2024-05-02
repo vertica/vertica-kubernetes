@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/paths"
@@ -53,21 +52,19 @@ func (v *VClusterOps) RestartNode(ctx context.Context, opts ...restartnode.Optio
 
 func (v *VClusterOps) genStartNodeOptions(s *restartnode.Parms, certs *HTTPSCerts) *vops.VStartNodesOptions {
 	su := v.VDB.GetVerticaUser()
-	honorUserInput := true
 	opts := vops.VStartNodesOptionsFactory()
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 	opts.RawHosts = []string{s.InitiatorIP}
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	opts.UserName = &su
+	opts.UserName = su
 	opts.Password = &v.Password
-	opts.HonorUserInput = &honorUserInput
 	opts.Nodes = s.RestartHosts
 	opts.StatePollingTimeout = v.VDB.GetRestartTimeout()
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
-		*opts.StartUpConf = paths.StartupConfFile
+		opts.StartUpConf = paths.StartupConfFile
 	}
 	return &opts
 }

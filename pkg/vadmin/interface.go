@@ -161,9 +161,11 @@ func SetupVClusterOps(log logr.Logger, apiName string) (VClusterProvider, logr.L
 	// logger for each API call.
 	apiLog := log.WithName(apiName)
 	return &vops.VClusterCommands{
-			Log: vlog.Printer{
-				Log:           apiLog,
-				LogToFileOnly: false,
+			VClusterCommandsLogger: vops.VClusterCommandsLogger{
+				Log: vlog.Printer{
+					Log:           apiLog,
+					LogToFileOnly: false,
+				},
 			},
 		},
 		apiLog
@@ -202,7 +204,7 @@ type HTTPSCerts struct {
 type VClusterProvider interface {
 	VCreateDatabase(options *vops.VCreateDatabaseOptions) (vops.VCoordinationDatabase, error)
 	VStopDatabase(options *vops.VStopDatabaseOptions) error
-	VStartDatabase(options *vops.VStartDatabaseOptions) error
+	VStartDatabase(options *vops.VStartDatabaseOptions) (*vops.VCoordinationDatabase, error)
 	VReviveDatabase(options *vops.VReviveDatabaseOptions) (string, *vops.VCoordinationDatabase, error)
 	VFetchNodeState(options *vops.VFetchNodeStateOptions) ([]vops.NodeInfo, error)
 	VAddSubcluster(options *vops.VAddSubclusterOptions) error

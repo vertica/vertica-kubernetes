@@ -19,7 +19,6 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
-	"github.com/vertica/vcluster/vclusterops/vstruct"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
@@ -42,7 +41,7 @@ func (v *VClusterOps) StopDB(_ context.Context, opts ...stopdb.Option) error {
 		return err
 	}
 
-	v.Log.Info("Successfully stopped a database", "dbName", *vopts.DBName)
+	v.Log.Info("Successfully stopped a database", "dbName", vopts.DBName)
 	return nil
 }
 
@@ -51,15 +50,14 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup stop db options", "hosts", opts.RawHosts[0])
-	opts.Ipv6 = vstruct.MakeNullableBool(net.IsIPv6(s.InitiatorIP))
+	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.IsEon = vstruct.MakeNullableBool(v.VDB.IsEON())
+	opts.DBName = v.VDB.Spec.DBName
+	opts.IsEon = v.VDB.IsEON()
 
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
-	*opts.HonorUserInput = true
 
 	return opts
 }
