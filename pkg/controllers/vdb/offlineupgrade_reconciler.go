@@ -194,16 +194,16 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 	}
 	start := time.Now()
 	o.Rec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
-		"Starting stop database on %s", o.PFacts.ClusterExtendedName())
+		"Starting stop database on %s", o.PFacts.GetClusterExtendedName())
 	err := o.Dispatcher.StopDB(ctx, opts...)
 	if err != nil {
 		o.Rec.Eventf(o.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
-			"Failed to shutdown the %s", o.PFacts.ClusterExtendedName())
+			"Failed to shutdown the %s", o.PFacts.GetClusterExtendedName())
 		return ctrl.Result{}, err
 	}
 
 	o.Rec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
-		"Successfully shutdown the database on %s and it took %s", o.PFacts.ClusterExtendedName(), time.Since(start).Truncate(time.Second))
+		"Successfully shutdown the database on %s and it took %s", o.PFacts.GetClusterExtendedName(), time.Since(start).Truncate(time.Second))
 	return ctrl.Result{}, nil
 }
 

@@ -846,16 +846,13 @@ type VerticaDBStatus struct {
 
 type SandboxUpgradeState struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
 	// UpgradeInProgress indicates if the sandbox is in the process
 	// of having its image change
 	UpgradeInProgress bool `json:"upgradeInProgress"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	// OfflineUpgradeInProgress indicates if the sandbox is in the middle
-	// of an offline upgrade
-	OfflineUpgradeInProgress bool `json:"offlineUpgradeInProgress"`
-
-	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
 	// Status message for the current running upgrade. If no upgrade
 	// is occurring, this message remains blank.
 	UpgradeStatus string `json:"upgradeStatus"`

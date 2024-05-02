@@ -127,7 +127,7 @@ var _ = Describe("status", func() {
 		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 
 		state := vdb.Status.Sandboxes[0].UpgradeState.DeepCopy()
-		state.OfflineUpgradeInProgress = true
+		state.UpgradeInProgress = true
 		const msg = "test"
 		state.UpgradeStatus = msg
 		Expect(SetSandboxUpgradeState(ctx, k8sClient, vdb, sbName, state)).Should(Succeed())
@@ -135,7 +135,7 @@ var _ = Describe("status", func() {
 		nm := types.NamespacedName{Namespace: vdb.Namespace, Name: vdb.Name}
 		Expect(k8sClient.Get(ctx, nm, fetchVdb)).Should(Succeed())
 		for _, v := range []*vapi.VerticaDB{vdb, fetchVdb} {
-			Expect(v.Status.Sandboxes[0].UpgradeState.OfflineUpgradeInProgress).Should(BeTrue())
+			Expect(v.Status.Sandboxes[0].UpgradeState.UpgradeInProgress).Should(BeTrue())
 			Expect(v.Status.Sandboxes[0].UpgradeState.UpgradeStatus).Should(Equal(msg))
 		}
 	})

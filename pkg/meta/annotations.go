@@ -265,7 +265,7 @@ const (
 
 	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
 	// controller
-	VDBResourceVersion = "vertica.com/vdb-resource-version"
+	SandboxControllerTriggerID = "vertica.com/sandbox-controller-trigger-id"
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
 	// omitted, then the name of the subclusters' statefulset will be

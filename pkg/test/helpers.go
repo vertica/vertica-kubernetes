@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega" //nolint:stylecheck
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -90,10 +91,13 @@ func CreateSts(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *va
 	ExpectWithOffset(offset, c.Status().Update(ctx, sts))
 }
 
-func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sbName string) {
+func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, id, sbName string) {
 	nm := names.GenConfigMapName(vdb, sbName)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				vmeta.SandboxControllerTriggerID: id,
+			},
 			Name:      nm.Name,
 			Namespace: vdb.Namespace,
 		},
@@ -103,6 +107,7 @@ func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 		},
 	}
 	Expect(c.Create(ctx, cm)).Should(Succeed())
+	Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).Should(Equal(id))
 }
 
 func ScaleDownSubcluster(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, sc *vapi.Subcluster, newSize int32) {

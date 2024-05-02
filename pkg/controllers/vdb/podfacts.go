@@ -1154,9 +1154,9 @@ func (p *PodFacts) GetSandboxName() string {
 	return p.SandboxName
 }
 
-// ClusterExtendedName returns the extended name of the cluster
+// GetClusterExtendedName returns the extended name of the cluster
 // handled by the podfacts
-func (p *PodFacts) ClusterExtendedName() string {
+func (p *PodFacts) GetClusterExtendedName() string {
 	sbName := p.GetSandboxName()
 	if sbName == vapi.MainCluster {
 		return "main cluster"

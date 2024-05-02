@@ -21,23 +21,17 @@ import (
 	"github.com/go-logr/logr"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
-	"github.com/vertica/vertica-kubernetes/pkg/iter"
-	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
+	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // SandboxUpgradeReconciler will handle the process when a sandbox
 // image changes
 type SandboxUpgradeReconciler struct {
-	VRec       *VerticaDBReconciler
-	Log        logr.Logger
-	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on
-	PFacts     *PodFacts
-	Finder     iter.SubclusterFinder
-	Manager    UpgradeManager
-	Dispatcher vadmin.Dispatcher
-	client.Client
+	VRec    *VerticaDBReconciler
+	Log     logr.Logger
+	Vdb     *vapi.VerticaDB // Vdb is the CRD we are acting on
+	Manager UpgradeManager
 }
 
 // MakeSandboxUpgradeReconciler will build a SandboxUpgradeReconciler object
@@ -48,7 +42,6 @@ func MakeSandboxUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger
 		VRec:    vdbrecon,
 		Log:     log.WithName("SandboxUpgradeReconciler"),
 		Vdb:     vdb,
-		Finder:  iter.MakeSubclusterFinder(vdbrecon.GetClient(), vdb),
 		Manager: *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, fn),
 	}
 }
@@ -60,28 +53,32 @@ func (s *SandboxUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	}
 	for i := range s.Vdb.Spec.Sandboxes {
 		sb := &s.Vdb.Spec.Sandboxes[i]
-		err := s.reconcileSandboxImage(ctx, sb.Name)
-		if err != nil {
-			return ctrl.Result{}, err
+		res, err := s.reconcileSandboxImage(ctx, sb.Name)
+		if verrors.IsReconcileAborted(res, err) {
+			return res, err
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
 // reconcileSandboxImage will handle sandbox configmap update based on the sandbox image change
-func (s *SandboxUpgradeReconciler) reconcileSandboxImage(ctx context.Context, sbName string) error {
+func (s *SandboxUpgradeReconciler) reconcileSandboxImage(ctx context.Context, sbName string) (ctrl.Result, error) {
 	if !s.doesSandboxExist(sbName) {
-		return nil
+		s.Log.Info("Requeue because the sandbox does not exist yet", "sandbox", sbName)
+		return ctrl.Result{Requeue: true}, nil
 	}
 	if ok, err := s.isSandboxUpgradeNeeded(ctx, sbName); !ok || err != nil {
-		return err
+		return ctrl.Result{}, err
 	}
+	// Once we find out that a sandbox upgrade is needed, we need to wake up
+	// the sandbox controller to drive it. We will use a SandboxTrigger object
+	// that will update that sandbox's configmap watched by the sandbox controller
 	sbTrigger := MakeSandboxTrigger(s.VRec, s.Vdb, sbName)
 	triggered, err := sbTrigger.triggerSandboxController(ctx)
 	if triggered {
 		s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the upgrade", "Sandbox", sbName)
 	}
-	return err
+	return ctrl.Result{}, err
 }
 
 // isSandboxUpgradeNeeded checks whether an upgrade is needed and/or in progress

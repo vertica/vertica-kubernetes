@@ -36,6 +36,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 	const subcluster1 = "sc1"
 	const sandbox1 = "sandbox1"
 	const newImage = "vertica-k8s:newimage"
+	const tID = "12345"
 	It("should update configmap", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 		vdb.Spec.Subclusters = []vapi.Subcluster{
@@ -49,29 +50,28 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sandbox1, Subclusters: []string{subcluster1}},
 		}
-		const rv = "12345"
-		vdb.ResourceVersion = rv
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateConfigMap(ctx, k8sClient, vdb, sandbox1)
+		test.CreateConfigMap(ctx, k8sClient, vdb, tID, sandbox1)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 
 		sts := &appsv1.StatefulSet{}
 		Expect(k8sClient.Get(ctx, names.GenStsName(vdb, &vdb.Spec.Subclusters[1]), sts)).Should(Succeed())
 		Expect(vk8s.GetServerImage(sts.Spec.Template.Spec.Containers)).ShouldNot(Equal(newImage))
 
-		validateReconcile(ctx, vdb)
+		validateReconcile(ctx, vdb, false)
 		cm := &corev1.ConfigMap{}
 		nm := names.GenConfigMapName(vdb, sandbox1)
 		Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
-		Expect(cm.Annotations[vmeta.VDBResourceVersion]).Should(Equal(rv))
+		Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).ShouldNot(Equal(""))
+		Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).ShouldNot(Equal(tID))
 	})
 
 	It("should exit without error", func() {
 		vdb := vapi.MakeVDBForVclusterOps()
 
 		// there is no sandbox in spec
-		validateReconcile(ctx, vdb)
+		validateReconcile(ctx, vdb, false)
 
 		vdb.Spec.Subclusters = []vapi.Subcluster{
 			{Name: maincluster, Size: 3, Type: vapi.PrimarySubcluster},
@@ -83,11 +83,11 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		}
 
 		// no sandbox in status
-		validateReconcile(ctx, vdb)
+		validateReconcile(ctx, vdb, true)
 
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
-		test.CreateConfigMap(ctx, k8sClient, vdb, sandbox1)
+		test.CreateConfigMap(ctx, k8sClient, vdb, tID, sandbox1)
 		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sandbox1)
 		vdb.Spec.Sandboxes[0].Image = vdb.Spec.Image
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
@@ -95,7 +95,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 		}
 
 		// image has not changed
-		validateReconcile(ctx, vdb)
+		validateReconcile(ctx, vdb, false)
 
 	})
 
@@ -122,9 +122,9 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 	})
 })
 
-func validateReconcile(ctx context.Context, vdb *vapi.VerticaDB) {
+func validateReconcile(ctx context.Context, vdb *vapi.VerticaDB, requeue bool) {
 	r := MakeSandboxUpgradeReconciler(vdbRec, logger, vdb)
 	res, err := r.Reconcile(ctx, &ctrl.Request{})
 	Expect(err).Should(Succeed())
-	Expect(res).Should(Equal(ctrl.Result{}))
+	Expect(res).Should(Equal(ctrl.Result{Requeue: requeue}))
 }

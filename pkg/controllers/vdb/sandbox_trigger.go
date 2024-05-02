@@ -18,6 +18,7 @@ package vdb
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
@@ -51,8 +52,12 @@ func (s *SandboxTrigger) triggerSandboxController(ctx context.Context) (bool, er
 	if err := s.fetchConfigMap(ctx); err != nil {
 		return false, err
 	}
+	triggerID := uuid.NewString()
 	anns := map[string]string{
-		vmeta.VDBResourceVersion: s.vdb.ResourceVersion,
+		// This will ensure that we always set a new value
+		// for this annotation which will wake up the sandbox
+		// controller
+		vmeta.SandboxControllerTriggerID: triggerID,
 	}
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: anns,
@@ -70,7 +75,7 @@ func (s *SandboxTrigger) fetchConfigMap(ctx context.Context) error {
 	}
 	ok := s.validateConfigMapDataValues()
 	if !ok {
-		return errors.New("invalid configMap")
+		return errors.Errorf("invalid configMap %s", nm.Name)
 	}
 	return nil
 }

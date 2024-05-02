@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
 
@@ -45,6 +46,10 @@ func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) erro
 		return fmt.Errorf("failed to retrieve sandbox name")
 	}
 
+	mainCluster := sbName == vapi.MainCluster
+	if *options.MainCluster != mainCluster {
+		return fmt.Errorf("wrong value for MainCluster option")
+	}
 	return nil
 }
 

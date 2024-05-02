@@ -92,14 +92,14 @@ func (i *UpgradeManager) IsUpgradeNeeded(ctx context.Context, sandbox string) (b
 // is already occurring.
 func (i *UpgradeManager) isUpgradeInProgress(sbName string) bool {
 	// We first check if the status condition indicates the upgrade is in progress
-	isSet := i.IsUpgradeStatusTrue(sbName)
+	isSet := i.isUpgradeStatusTrue(sbName)
 	if isSet {
 		i.ContinuingUpgrade = true
 	}
 	return isSet
 }
 
-func (i *UpgradeManager) IsUpgradeStatusTrue(sbName string) bool {
+func (i *UpgradeManager) isUpgradeStatusTrue(sbName string) bool {
 	if sbName == vapi.MainCluster {
 		return i.Vdb.IsStatusConditionTrue(i.StatusCondition)
 	}
@@ -195,19 +195,21 @@ func (i *UpgradeManager) toggleUpgradeInProgress(ctx context.Context, newVal met
 	if newVal == metav1.ConditionFalse {
 		reason = "UpgradeFinished"
 	}
-	err := i.updateUpgradeStatus(ctx, newVal, vapi.UpgradeInProgress, reason, sbName)
-	if err != nil {
-		return err
-	}
-	return i.updateUpgradeStatus(ctx, newVal, i.StatusCondition, reason, sbName)
+	return i.updateUpgradeStatus(ctx, newVal, reason, sbName)
 }
 
 // updateUpgradeStatus sets the upgrade status
-func (i *UpgradeManager) updateUpgradeStatus(ctx context.Context, newVal metav1.ConditionStatus, statusCondition,
+func (i *UpgradeManager) updateUpgradeStatus(ctx context.Context, newVal metav1.ConditionStatus,
 	reason, sbName string) error {
 	if sbName == vapi.MainCluster {
+		err := vdbstatus.UpdateCondition(ctx, i.Rec.GetClient(), i.Vdb,
+			vapi.MakeCondition(vapi.UpgradeInProgress, newVal, reason),
+		)
+		if err != nil {
+			return err
+		}
 		return vdbstatus.UpdateCondition(ctx, i.Rec.GetClient(), i.Vdb,
-			vapi.MakeCondition(statusCondition, newVal, reason),
+			vapi.MakeCondition(i.StatusCondition, newVal, reason),
 		)
 	}
 	sb, err := i.Vdb.GetSandboxStatusCheck(sbName)
@@ -215,12 +217,7 @@ func (i *UpgradeManager) updateUpgradeStatus(ctx context.Context, newVal metav1.
 		return err
 	}
 	state := sb.UpgradeState.DeepCopy()
-	if statusCondition == vapi.UpgradeInProgress {
-		state.UpgradeInProgress = newVal == metav1.ConditionTrue
-	}
-	if statusCondition == vapi.OfflineUpgradeInProgress {
-		state.OfflineUpgradeInProgress = newVal == metav1.ConditionTrue
-	}
+	state.UpgradeInProgress = newVal == metav1.ConditionTrue
 	return vdbstatus.SetSandboxUpgradeState(ctx, i.Rec.GetClient(), i.Vdb, sbName, state)
 }
 

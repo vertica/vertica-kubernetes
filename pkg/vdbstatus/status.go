@@ -88,9 +88,7 @@ func SetSandboxUpgradeState(ctx context.Context, clnt client.Client, vdb *vapi.V
 		if err != nil {
 			return err
 		}
-		sb.UpgradeState.UpgradeStatus = state.UpgradeStatus
-		sb.UpgradeState.UpgradeInProgress = state.UpgradeInProgress
-		sb.UpgradeState.OfflineUpgradeInProgress = state.OfflineUpgradeInProgress
+		sb.UpgradeState = *state
 		return nil
 	})
 }
