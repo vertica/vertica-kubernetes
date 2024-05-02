@@ -16,13 +16,11 @@ kind: ConfigMap
 metadata:
   annotations:
     vertica.com/operator-deployment-method: helm
-    vertica.com/operator-version: 2.1.2
   labels:
     app.kubernetes.io/component: database
     app.kubernetes.io/instance: v-sandbox
     app.kubernetes.io/managed-by: verticadb-operator
     app.kubernetes.io/name: vertica
-    app.kubernetes.io/version: 2.1.2
     vertica.com/database: sandbox_db
     vertica.com/watched-by-sandbox-controller: "true"
   name: v-sandbox-sandbox2
