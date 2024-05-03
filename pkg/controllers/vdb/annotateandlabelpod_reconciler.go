@@ -22,6 +22,7 @@ import (
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,17 +32,17 @@ import (
 
 // AnnotateAndLabelPodReconciler will maintain annotations and labels in pods about the running system
 type AnnotateAndLabelPodReconciler struct {
-	VRec   *VerticaDBReconciler
+	Rec    config.ReconcilerInterface
 	Log    logr.Logger
 	Vdb    *vapi.VerticaDB
 	PFacts *PodFacts
 }
 
 // MakeAnnotateAndLabelPodReconciler will build a AnnotateAndLabelPodReconciler object
-func MakeAnnotateAndLabelPodReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeAnnotateAndLabelPodReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, pfacts *PodFacts) controllers.ReconcileActor {
 	return &AnnotateAndLabelPodReconciler{
-		VRec:   vdbrecon,
+		Rec:    recon,
 		Log:    log.WithName("AnnotateAndLabelPodReconciler"),
 		Vdb:    vdb,
 		PFacts: pfacts,
@@ -86,7 +87,7 @@ func (s *AnnotateAndLabelPodReconciler) generateAnnotations() (map[string]string
 	// collisions of the cluster roles/rolebindings, harder to deploy with a
 	// predefined service account.  Getting the server from the client is good
 	// enough, as it doesn't require any new rbac rules.
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(s.VRec.Cfg)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(s.Rec.GetConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +120,7 @@ func (s *AnnotateAndLabelPodReconciler) applyAnnotationsAndLabels(ctx context.Co
 		NewLabels:      labels,
 	}
 	pod := corev1.Pod{}
-	updated, err := vk8s.MetaUpdate(ctx, s.VRec.Client, podName, &pod, chgs)
+	updated, err := vk8s.MetaUpdate(ctx, s.Rec.GetClient(), podName, &pod, chgs)
 	if updated {
 		// We have added/updated the annotations.  Refresh the podfacts.
 		// This saves having to invalidate the entire thing.

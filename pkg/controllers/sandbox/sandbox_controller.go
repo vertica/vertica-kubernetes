@@ -50,11 +50,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const (
-	verticaDBNameKey = "verticaDBName"
-	sandboxNameKey   = "sandboxName"
-)
-
 // SandboxConfigMapReconciler reconciles a ConfigMap for sandboxing
 type SandboxConfigMapReconciler struct {
 	client.Client
@@ -121,7 +116,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Fetch the VDB found in the configmap
 	vdb := &v1.VerticaDB{}
-	nm := names.GenNamespacedName(configMap, configMap.Data[verticaDBNameKey])
+	nm := names.GenNamespacedName(configMap, configMap.Data[v1.VerticaDBNameKey])
 	var res ctrl.Result
 	if res, err = vk8s.FetchVDB(ctx, r, configMap, nm, vdb); verrors.IsReconcileAborted(res, err) {
 		return res, err
@@ -133,7 +128,7 @@ func (r *SandboxConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	prunner := cmds.MakeClusterPodRunner(log, r.Cfg, vdb.GetVerticaUser(), passwd)
-	sandboxName := configMap.Data[sandboxNameKey]
+	sandboxName := configMap.Data[v1.SandboxNameKey]
 	pfacts := vdbcontroller.MakePodFactsForSandbox(r, prunner, log, passwd, sandboxName)
 	dispatcher := vadmin.MakeVClusterOps(log, vdb, r.Client, passwd, r.EVRec, vadmin.SetupVClusterOps)
 
@@ -160,6 +155,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 	// The actors that will be applied, in sequence, to reconcile a sandbox configmap.
 	return []controllers.ReconcileActor{
 		MakeVerifyDeploymentReconciler(r, vdb, log),
+		vdbcontroller.MakeOfflineUpgradeReconciler(r, log, vdb, prunner, pfacts, dispatcher),
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 	}
 }
@@ -236,6 +232,11 @@ func (r *SandboxConfigMapReconciler) Eventf(obj runtime.Object, eventtype, reaso
 	evWriter.Eventf(obj, eventtype, reason, messageFmt, args...)
 }
 
+// GetConfig gives access to *rest.Config
+func (r *SandboxConfigMapReconciler) GetConfig() *rest.Config {
+	return r.Cfg
+}
+
 // findObjectsForStatesulSet will generate requests to reconcile sandbox ConfigMaps
 // based on watched Statefulset
 func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object) []reconcile.Request {
@@ -263,8 +264,8 @@ func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object
 		// That's why we filter the configmaps to keep only the one that has the same
 		// sandbox name and vdb name as the statefulset
 		cm := &configMaps.Items[i]
-		cmVdbName, vdbExists := cm.Data[verticaDBNameKey]
-		cmSbName, sbExists := cm.Data[sandboxNameKey]
+		cmVdbName, vdbExists := cm.Data[v1.VerticaDBNameKey]
+		cmSbName, sbExists := cm.Data[v1.SandboxNameKey]
 		if (!vdbExists || !sbExists) ||
 			cmVdbName != vdbName ||
 			cmSbName != sandbox {
@@ -284,10 +285,10 @@ func (r *SandboxConfigMapReconciler) findObjectsForStatesulSet(sts client.Object
 // validateConfigMapData verifies that sandbox configmap contains
 // a sandbox and a verticaDB
 func validateConfigMapData(cm *corev1.ConfigMap) error {
-	_, hasVDBName := cm.Data[verticaDBNameKey]
-	_, hasSandbox := cm.Data[sandboxNameKey]
+	_, hasVDBName := cm.Data[v1.VerticaDBNameKey]
+	_, hasSandbox := cm.Data[v1.SandboxNameKey]
 	if !hasVDBName || !hasSandbox {
-		return fmt.Errorf("configmap data must contain '%q' and '%q'", verticaDBNameKey, sandboxNameKey)
+		return fmt.Errorf("configmap data must contain '%q' and '%q'", v1.VerticaDBNameKey, v1.SandboxNameKey)
 	}
 	return nil
 }

@@ -84,7 +84,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
-		o.Manager.startUpgrade,
+		o.startUpgrade,
 		o.logEventIfThisUpgradeWasNotChosen,
 		// Load up state that is used for the subsequent steps
 		o.loadSubclusterState,
@@ -115,7 +115,7 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 		o.postNextStatusMsg,
 		o.installPackages,
 		// Cleanup up the condition and event recording for a completed upgrade
-		o.Manager.finishUpgrade,
+		o.finishUpgrade,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
@@ -129,6 +129,14 @@ func (o *OnlineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Request
 	}
 
 	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
+}
+
+func (o *OnlineUpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return o.Manager.startUpgrade(ctx, o.PFacts.GetSandboxName())
+}
+
+func (o *OnlineUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return o.Manager.finishUpgrade(ctx, o.PFacts.GetSandboxName())
 }
 
 // logEventIfThisUpgradeWasNotChosen will write an event log if we are doing this
@@ -192,7 +200,7 @@ func (o *OnlineUpgradeReconciler) precomputeStatusMsgs(ctx context.Context) (ctr
 // postNextStatusMsg will set the next status message for an online upgrade
 func (o *OnlineUpgradeReconciler) postNextStatusMsg(ctx context.Context) (ctrl.Result, error) {
 	o.MsgIndex++
-	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, o.StatusMsgs, o.MsgIndex)
+	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, o.StatusMsgs, o.MsgIndex, o.PFacts.GetSandboxName())
 }
 
 // postNextStatusMsgForSts will set the next status message for the online image

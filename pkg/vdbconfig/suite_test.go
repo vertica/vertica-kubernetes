@@ -68,6 +68,7 @@ var _ = BeforeSuite(func() {
 
 	vdbRec = &VerticaReconciler{
 		Client: k8sClient,
+		Cfg:    restCfg,
 		Log:    logger,
 		EVRec:  mgr.GetEventRecorderFor(vmeta.OperatorName),
 	}

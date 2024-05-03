@@ -1150,7 +1150,18 @@ func (p *PodFacts) GetSandboxName() string {
 		// the same sandbox or the main cluster
 		return v.sandbox
 	}
-	return ""
+	// In case collection has not happened yet
+	return p.SandboxName
+}
+
+// GetClusterExtendedName returns the extended name of the cluster
+// handled by the podfacts
+func (p *PodFacts) GetClusterExtendedName() string {
+	sbName := p.GetSandboxName()
+	if sbName == vapi.MainCluster {
+		return "main cluster"
+	}
+	return fmt.Sprintf("sandbox %s", sbName)
 }
 
 // setSandboxNodeType sets the isPrimary state for a sandboxed

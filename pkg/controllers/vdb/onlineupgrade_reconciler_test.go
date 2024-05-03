@@ -449,7 +449,7 @@ var _ = Describe("onlineupgrade_reconcile", func() {
 		Expect(k8sClient.Update(ctx, vdb)).Should(Succeed())
 
 		r := createOnlineUpgradeReconciler(ctx, vdb)
-		Expect(r.Manager.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
+		Expect(r.startUpgrade(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.loadSubclusterState(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.addTransientToVdb(ctx)).Should(Equal(ctrl.Result{}))
 		Expect(r.createTransientSts(ctx)).Should(Equal(ctrl.Result{}))

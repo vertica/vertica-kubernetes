@@ -263,6 +263,9 @@ const (
 	// This is the name of the VerticaReplicator that is generated during a replicated upgrade
 	ReplicatedUpgradeReplicatorAnnotation = "vertica.com/replicated-upgrade-replicator-name"
 
+	// This will be set in a sandbox configMap by the vdb controller to wake up the sandbox
+	// controller
+	SandboxControllerTriggerID = "vertica.com/sandbox-controller-trigger-id"
 	// Use this to override the name of the statefulset and its pods. This needs
 	// to be set in the spec.subclusters[].annotations field to take effect. If
 	// omitted, then the name of the subclusters' statefulset will be
