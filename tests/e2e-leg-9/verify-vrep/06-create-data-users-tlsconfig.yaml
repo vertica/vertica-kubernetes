@@ -22,7 +22,7 @@ data:
     set -o xtrace
 
     POD_NAME=v-source-sc1-0
-    
+
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"ALTER DATABASE DEFAULT SET EnableConnectCredentialForwarding = 1;\""
 
     kubectl exec $POD_NAME -i -c server -- bash -c "vsql -U dbadmin -w superuser -tAc \"CREATE KEY mtls_root_key TYPE 'RSA' LENGTH 2048;\""

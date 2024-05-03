@@ -68,47 +68,20 @@ status:
   replicas: 1
   readyReplicas: 1
 ---
-apiVersion: v1
-kind: Event
-reason: SandboxSubclusterSucceeded
-message: Successfully added subcluster "sc2" to sandbox "sandbox1"
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
+apiVersion: vertica.com/v1
+kind: VerticaDB
+metadata:
   name: v-target
----
-apiVersion: v1
-kind: Event
-reason: SandboxSubclusterSucceeded
-message: Successfully added subcluster "sc3" to sandbox "sandbox2"
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-target
----
-apiVersion: v1
-kind: Event
-reason: SandboxSubclusterSucceeded
-message: Successfully added subcluster "sc4" to sandbox "sandbox3"
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-target
----
-apiVersion: v1
-kind: Event
-reason: SandboxSubclusterSucceeded
-message: Successfully added subcluster "sc5" to sandbox "sandbox4"
-source:
-  component: verticadb-operator
-involvedObject:
-  apiVersion: vertica.com/v1
-  kind: VerticaDB
-  name: v-target
+status:
+  subclusters:
+    - addedToDBCount: 1
+      upNodeCount: 1
+    - addedToDBCount: 1
+      upNodeCount: 1
+    - addedToDBCount: 1
+      upNodeCount: 1
+    - addedToDBCount: 1
+      upNodeCount: 1
+    - addedToDBCount: 1
+      upNodeCount: 1
 

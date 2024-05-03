@@ -15,33 +15,17 @@ apiVersion: vertica.com/v1
 kind: VerticaDB
 metadata:
   name: v-target
-  annotations:
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/k-safety: "0"
 spec:
-  image: kustomize-vertica-image
-  dbName: targetdb
-  initPolicy: CreateSkipPackageInstall
-  communal: {}
-  local:
-    requestSize: 250Mi
-  subclusters:
-    - name: sc1
-      size: 1
-      type: primary
-    - name: sc2
-      size: 1
-      type: secondary
-    - name: sc3
-      size: 1
-      type: secondary
-    - name: sc4
-      size: 1
-      type: secondary
-    - name: sc5
-      size: 1
-      type: secondary
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  sandboxes:
+    - name: sandbox1
+      subclusters:
+        - name: sc2
+    - name: sandbox2
+      subclusters:
+        - name: sc3
+    - name: sandbox3
+      subclusters:
+        - name: sc4
+    - name: sandbox4
+      subclusters:
+        - name: sc5
