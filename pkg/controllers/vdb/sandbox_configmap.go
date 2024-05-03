@@ -17,7 +17,6 @@ package vdb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -29,9 +28,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// SandboxTrigger triggers the sandbox controller
-// for a given sandbox
-type SandboxTrigger struct {
+// SandboxConfigMapManager allows to make some actions
+// on a sandbox's configmap
+type SandboxConfigMapManager struct {
 	vrec      config.ReconcilerInterface
 	vdb       *vapi.VerticaDB
 	configMap *corev1.ConfigMap
@@ -39,9 +38,9 @@ type SandboxTrigger struct {
 	triggerID string
 }
 
-func MakeSandboxTrigger(recon config.ReconcilerInterface, vdb *vapi.VerticaDB,
-	sbName, id string) *SandboxTrigger {
-	return &SandboxTrigger{
+func MakeSandboxConfigMapManager(recon config.ReconcilerInterface, vdb *vapi.VerticaDB,
+	sbName, id string) *SandboxConfigMapManager {
+	return &SandboxConfigMapManager{
 		vrec:      recon,
 		vdb:       vdb,
 		sandbox:   sbName,
@@ -51,8 +50,8 @@ func MakeSandboxTrigger(recon config.ReconcilerInterface, vdb *vapi.VerticaDB,
 }
 
 // triggerSandboxController will wake up the sandbox controller by setting
-// the vdb resource version in the sandbox configmap annotations
-func (s *SandboxTrigger) triggerSandboxController(ctx context.Context) (bool, error) {
+// a uuid in the sandbox configmap annotations
+func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context) (bool, error) {
 	if err := s.fetchConfigMap(ctx); err != nil {
 		return false, err
 	}
@@ -71,7 +70,7 @@ func (s *SandboxTrigger) triggerSandboxController(ctx context.Context) (bool, er
 }
 
 // fetchConfigMap will fetch the sandbox configmap
-func (s *SandboxTrigger) fetchConfigMap(ctx context.Context) error {
+func (s *SandboxConfigMapManager) fetchConfigMap(ctx context.Context) error {
 	nm := names.GenConfigMapName(s.vdb, s.sandbox)
 	err := s.vrec.GetClient().Get(ctx, nm, s.configMap)
 	if err != nil {
@@ -85,25 +84,23 @@ func (s *SandboxTrigger) fetchConfigMap(ctx context.Context) error {
 }
 
 // validateConfigMap checks that the configMap contains valid fields
-func (s *SandboxTrigger) validateConfigMapDataValues() bool {
+func (s *SandboxConfigMapManager) validateConfigMapDataValues() bool {
 	vdbName := s.configMap.Data[vapi.VerticaDBNameKey]
 	sbName := s.configMap.Data[vapi.SandboxNameKey]
 	return vdbName == s.vdb.Name && sbName == s.sandbox
 }
 
 // getSandboxVersion returns the vertica version running in the sandbox
-func (s *SandboxTrigger) getSandboxVersion(ctx context.Context) (string, error) {
-	if err := s.fetchConfigMap(ctx); err != nil {
-		return "", err
+func (s *SandboxConfigMapManager) getSandboxVersion(ctx context.Context) (ver string, ok bool, err error) {
+	err = s.fetchConfigMap(ctx)
+	if err != nil {
+		return "", false, err
 	}
-	ver, ok := s.configMap.Annotations[vmeta.VersionAnnotation]
-	if !ok {
-		return "", fmt.Errorf("could not find version from ConfigMap")
-	}
-	return ver, nil
+	ver, ok = s.configMap.Annotations[vmeta.VersionAnnotation]
+	return ver, ok, nil
 }
 
-func (s *SandboxTrigger) getTriggerID() string {
+func (s *SandboxConfigMapManager) getTriggerID() string {
 	if s.triggerID != "" {
 		return s.triggerID
 	}

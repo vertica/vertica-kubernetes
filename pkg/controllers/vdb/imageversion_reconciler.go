@@ -109,15 +109,34 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	return v.verifyNMADeployment(vinf, pod)
 }
 
-// genSandboxOldVersionInfo will build and return the sandbox in the configmap
-// annotations
-func (v *ImageVersionReconciler) genSandboxOldVersionInfo(ctx context.Context) (*version.Info, error) {
-	sbTrigger := MakeSandboxTrigger(v.Rec, v.Vdb, v.PFacts.SandboxName, "" /*no uuid*/)
-	oldVersion, err := sbTrigger.getSandboxVersion(ctx)
+// isValidSandboxUpgradePath wreturns true if the version annotations is a valid version transition
+// from the version in the configmap.
+func (v *ImageVersionReconciler) isValidSandboxUpgradePath(ctx context.Context,
+	versionAnn map[string]string) (ok bool, failureReason string, err error) {
+	var vinf *version.Info
+	vinf, ok, err = v.makeSandboxVersionInfo(ctx)
 	if err != nil {
-		return nil, err
+		return false, "", err
 	}
-	return version.MakeInfoFromStrCheck(oldVersion)
+	if !ok {
+		// Version info is not in the vdb.  Fine to skip.
+		return true, "", nil
+	}
+	ok, failureReason = vinf.IsValidUpgradePath(versionAnn[vmeta.VersionAnnotation])
+	return ok, failureReason, nil
+}
+
+// makeSandboxVersionInfo will build and return the sandbox version info based
+// on the configmap annotations
+func (v *ImageVersionReconciler) makeSandboxVersionInfo(ctx context.Context) (*version.Info, bool, error) {
+	sbMan := MakeSandboxConfigMapManager(v.Rec, v.Vdb, v.PFacts.SandboxName, "" /*no uuid*/)
+	oldVersion, found, err := sbMan.getSandboxVersion(ctx)
+	// If the version annotation isn't present, we abort creation of Info
+	if !found || err != nil {
+		return nil, false, err
+	}
+	vinf, makeOk := version.MakeInfoFromStr(oldVersion)
+	return vinf, makeOk, nil
 }
 
 // Verify whether the NMA is configured to run as a sidecar container
@@ -282,12 +301,7 @@ func (v *ImageVersionReconciler) isUpgradePathSupported(ctx context.Context, ver
 		ok, failureReason = v.Vdb.IsUpgradePathSupported(versionAnn)
 		return ok, failureReason, nil
 	}
-	vinf, err := v.genSandboxOldVersionInfo(ctx)
-	if err != nil {
-		return false, "", err
-	}
-	ok, failureReason = vinf.IsValidUpgradePath(versionAnn[vmeta.VersionAnnotation])
-	return ok, failureReason, nil
+	return v.isValidSandboxUpgradePath(ctx, versionAnn)
 }
 
 // Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type

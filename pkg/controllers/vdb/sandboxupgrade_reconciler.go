@@ -72,11 +72,11 @@ func (s *SandboxUpgradeReconciler) reconcileSandboxImage(ctx context.Context, sb
 		return ctrl.Result{}, err
 	}
 	// Once we find out that a sandbox upgrade is needed, we need to wake up
-	// the sandbox controller to drive it. We will use a SandboxTrigger object
+	// the sandbox controller to drive it. We will use a SandboxConfigMapManager object
 	// that will update that sandbox's configmap watched by the sandbox controller
 	triggerUUID := uuid.NewString()
-	sbTrigger := MakeSandboxTrigger(s.VRec, s.Vdb, sbName, triggerUUID)
-	triggered, err := sbTrigger.triggerSandboxController(ctx)
+	sbMan := MakeSandboxConfigMapManager(s.VRec, s.Vdb, sbName, triggerUUID)
+	triggered, err := sbMan.triggerSandboxController(ctx)
 	if triggered {
 		s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the upgrade",
 			"trigger-uuid", triggerUUID, "Sandbox", sbName)
