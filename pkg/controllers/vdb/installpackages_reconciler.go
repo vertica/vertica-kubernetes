@@ -28,6 +28,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/events"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/installpackages"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +37,7 @@ import (
 // InstallPackagesReconciler will install all packages under /opt/vertica/packages where Autoinstall is marked true
 type InstallPackagesReconciler struct {
 	Log        logr.Logger
-	VRec       *VerticaDBReconciler
+	Rec        config.ReconcilerInterface
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
 	PFacts     *PodFacts
@@ -45,13 +46,13 @@ type InstallPackagesReconciler struct {
 
 // MakeInstallPackagesReconciler will build a InstallPackagesReconciler object
 func MakeInstallPackagesReconciler(
-	vdbrecon *VerticaDBReconciler, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
+	recon config.ReconcilerInterface, vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	dispatcher vadmin.Dispatcher,
 	log logr.Logger,
 ) controllers.ReconcileActor {
 	return &InstallPackagesReconciler{
 		Log:        log.WithName("InstallPackagesReconciler"),
-		VRec:       vdbrecon,
+		Rec:        recon,
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,
@@ -107,7 +108,7 @@ type categorizedInstallPackageStatus struct {
 
 // runCmd issues the admintools or vclusterops command to force install the default packages
 func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName types.NamespacedName, initiatorIP string) error {
-	i.VRec.Event(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesStarted, "Starting install packages")
+	i.Rec.Event(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesStarted, "Starting install packages")
 	start := time.Now()
 	opts := []installpackages.Option{
 		installpackages.WithInitiator(initiatorName, initiatorIP),
@@ -115,7 +116,7 @@ func (i *InstallPackagesReconciler) runCmd(ctx context.Context, initiatorName ty
 	}
 	status, err := i.Dispatcher.InstallPackages(ctx, opts...)
 	categorizedStatus := categorizeInstallPackageStatus(status)
-	i.VRec.Eventf(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesFinished,
+	i.Rec.Eventf(i.Vdb, corev1.EventTypeNormal, events.InstallPackagesFinished,
 		"Packages installation finished. It took %s. Number of packages succeeded: %v."+
 			" Number of packages failed: %v. Number of packages skipped: %v.", time.Since(start).Truncate(time.Second),
 		len(categorizedStatus.succeededPackages),

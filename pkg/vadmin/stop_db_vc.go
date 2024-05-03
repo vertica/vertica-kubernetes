@@ -19,6 +19,7 @@ import (
 	"context"
 
 	vops "github.com/vertica/vcluster/vclusterops"
+	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/net"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
 )
@@ -54,6 +55,11 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 
 	opts.DBName = &v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
+
+	*opts.Sandbox = s.Sandbox
+	// We want to stop db on either the main cluster or a sandbox,
+	// not both
+	*opts.MainCluster = s.Sandbox == vapi.MainCluster
 
 	// auth options
 	*opts.UserName = v.VDB.GetVerticaUser()

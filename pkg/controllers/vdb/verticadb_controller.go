@@ -258,6 +258,9 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeClientRoutingLabelReconciler(r, log, vdb, pfacts, AddNodeApplyMethod, ""),
 		// Handle calls to add subclusters to sandboxes
 		MakeSandboxSubclusterReconciler(r, log, vdb, pfacts, dispatcher, r.Client),
+		// Trigger sandbox upgrade when the image field for the sandbox
+		// is changed
+		MakeSandboxUpgradeReconciler(r, log, vdb),
 		// Resize any PVs if the local data size changed in the vdb
 		MakeResizePVReconciler(r, log, vdb, prunner, pfacts),
 		// This must be the last reconciler. It makes sure that all dependent
@@ -325,4 +328,9 @@ func (r *VerticaDBReconciler) GetClient() client.Client {
 // GetEventRecorder gives access to the event recorder
 func (r *VerticaDBReconciler) GetEventRecorder() record.EventRecorder {
 	return r.EVRec
+}
+
+// GetConfig gives access to *rest.Config
+func (r *VerticaDBReconciler) GetConfig() *rest.Config {
+	return r.Cfg
 }

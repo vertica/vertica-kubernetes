@@ -503,16 +503,18 @@ func convertFromSubclusterStatus(src v1.SubclusterStatus) SubclusterStatus {
 // convertToSandboxStatus will convert to a v1 SubcluterStatus from a v1beta1 version
 func convertToSandboxStatus(src SandboxStatus) v1.SandboxStatus {
 	return v1.SandboxStatus{
-		Name:        src.Name,
-		Subclusters: src.Subclusters,
+		Name:         src.Name,
+		Subclusters:  src.Subclusters,
+		UpgradeState: v1.SandboxUpgradeState(src.UpgradeState),
 	}
 }
 
 // convertFromSandboxStatus will convert from a v1 SubcluterStatus to a v1beta1 version
 func convertFromSandboxStatus(src v1.SandboxStatus) SandboxStatus {
 	return SandboxStatus{
-		Name:        src.Name,
-		Subclusters: src.Subclusters,
+		Name:         src.Name,
+		Subclusters:  src.Subclusters,
+		UpgradeState: SandboxUpgradeState(src.UpgradeState),
 	}
 }
 

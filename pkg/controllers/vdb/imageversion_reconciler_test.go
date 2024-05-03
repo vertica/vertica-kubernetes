@@ -26,6 +26,7 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
+	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -65,6 +66,39 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal("v11.1.1-0"))
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.BuildRefAnnotation]).Should(Equal("releases/VER_10_1_RELEASE_BUILD_10_20210413"))
 		Expect(fetchVdb.ObjectMeta.Annotations[vmeta.BuildDateAnnotation]).Should(Equal("Wed Jun  2 2021"))
+	})
+
+	It("should update annotations in configmap since they differ", func() {
+		vdb := vapi.MakeVDB()
+		vdb.ObjectMeta.Annotations = map[string]string{
+			vmeta.VClusterOpsAnnotation: vmeta.VClusterOpsAnnotationTrue,
+			vmeta.VersionAnnotation:     "v23.4.0",
+		}
+		const sbName = "sb1"
+		vdb.Spec.Subclusters[0].Size = 1
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{vdb.Spec.Subclusters[0].Name}},
+		}
+		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
+		defer test.DeletePods(ctx, k8sClient, vdb)
+		test.CreateConfigMap(ctx, k8sClient, vdb, "", sbName)
+		defer test.DeleteConfigMap(ctx, k8sClient, vdb, sbName)
+
+		fpr := &cmds.FakePodRunner{}
+		pfacts := MakePodFactsForSandbox(vdbRec, fpr, logger, TestPassword, sbName)
+		Expect(pfacts.Collect(ctx, vdb)).Should(Succeed())
+		podName := names.GenPodName(vdb, &vdb.Spec.Subclusters[0], 0)
+		fpr.Results = cmds.CmdResults{
+			podName: []cmds.CmdResult{{Stdout: mockVerticaVersionOutput("v11.1.1-0")}},
+		}
+		r := MakeImageVersionReconciler(vdbRec, logger, vdb, fpr, &pfacts, false)
+		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
+
+		cm := &corev1.ConfigMap{}
+		nm := names.GenConfigMapName(vdb, sbName)
+		Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
+		Expect(cm.ObjectMeta.Annotations).ShouldNot(BeNil())
+		Expect(cm.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal("v11.1.1-0"))
 	})
 
 	It("should fail the reconciler if doing a downgrade", func() {

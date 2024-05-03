@@ -110,7 +110,7 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
-		r.Manager.startUpgrade,
+		r.startUpgrade,
 		r.postStartReplicatedUpgradeMsg,
 		// Load up state that is used for the subsequent steps
 		r.loadUpgradeState,
@@ -154,7 +154,7 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 		r.postRecreateSecondariesMsg,
 		r.scaleOutSecondariesInReplicaGroupB,
 		// Cleanup up the condition and event recording for a completed upgrade
-		r.Manager.finishUpgrade,
+		r.finishUpgrade,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
@@ -168,6 +168,14 @@ func (r *ReplicatedUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Req
 	}
 
 	return ctrl.Result{}, r.Manager.logUpgradeSucceeded(vapi.MainCluster)
+}
+
+func (r *ReplicatedUpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return r.Manager.startUpgrade(ctx, vapi.MainCluster)
+}
+
+func (r *ReplicatedUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return r.Manager.finishUpgrade(ctx, vapi.MainCluster)
 }
 
 // postStartReplicatedUpgradeMsg will update the status message to indicate that
@@ -905,5 +913,5 @@ func (r *ReplicatedUpgradeReconciler) redirectConnectionsForSubcluster(ctx conte
 // postNextStatusMsg will set the next status message for a replicated upgrade
 // according to msgIndex
 func (r *ReplicatedUpgradeReconciler) postNextStatusMsg(ctx context.Context, msgIndex int) (ctrl.Result, error) {
-	return ctrl.Result{}, r.Manager.postNextStatusMsg(ctx, replicatedUpgradeStatusMsgs, msgIndex)
+	return ctrl.Result{}, r.Manager.postNextStatusMsg(ctx, replicatedUpgradeStatusMsgs, msgIndex, vapi.MainCluster)
 }

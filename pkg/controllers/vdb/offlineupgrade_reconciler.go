@@ -29,6 +29,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/iter"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/stopdb"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,7 +39,7 @@ import (
 // OfflineUpgradeReconciler will handle the process of doing an offline upgrade
 // of the Vertica server.
 type OfflineUpgradeReconciler struct {
-	VRec       *VerticaDBReconciler
+	Rec        config.ReconcilerInterface
 	Log        logr.Logger
 	Vdb        *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner    cmds.PodRunner
@@ -63,18 +64,28 @@ var OfflineUpgradeStatusMsgs = []string{
 }
 
 // MakeOfflineUpgradeReconciler will build an OfflineUpgradeReconciler object
-func MakeOfflineUpgradeReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger, vdb *vapi.VerticaDB,
+func MakeOfflineUpgradeReconciler(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
 	prunner cmds.PodRunner, pfacts *PodFacts, dispatcher vadmin.Dispatcher) controllers.ReconcileActor {
 	return &OfflineUpgradeReconciler{
-		VRec:       vdbrecon,
+		Rec:        recon,
 		Log:        log.WithName("OfflineUpgradeReconciler"),
 		Vdb:        vdb,
 		PRunner:    prunner,
 		PFacts:     pfacts,
-		Finder:     iter.MakeSubclusterFinder(vdbrecon.Client, vdb),
-		Manager:    *MakeUpgradeManager(vdbrecon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
+		Finder:     iter.MakeSubclusterFinder(recon.GetClient(), vdb),
+		Manager:    *makeUpgradeManagerForOfflineUpgrade(recon, log, vdb, pfacts.GetSandboxName()),
 		Dispatcher: dispatcher,
 	}
+}
+
+// makeUpgradeManagerForOfflineUpgrade builds a suitable Upgrade object based on
+// the cluster being upgraded(main cluster or a sandbox)
+func makeUpgradeManagerForOfflineUpgrade(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
+	sandbox string) *UpgradeManager {
+	if sandbox == vapi.MainCluster {
+		return MakeUpgradeManager(recon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed)
+	}
+	return MakeUpgradeManagerForSandboxOffline(recon, log, vdb, statusConditionEmpty)
 }
 
 // Reconcile will handle the process of the vertica image changing.  For
@@ -96,7 +107,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	// Functions to perform when the image changes.  Order matters.
 	funcs := []func(context.Context) (ctrl.Result, error){
 		// Initiate an upgrade by setting condition and event recording
-		o.Manager.startUpgrade,
+		o.startUpgrade,
 		o.logEventIfThisUpgradeWasNotChosen,
 		// Do a clean shutdown of the cluster
 		o.postStoppingClusterMsg,
@@ -123,7 +134,7 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 		// Apply labels so svc objects can route to the new pods that came up
 		o.addClientRoutingLabel,
 		// Cleanup up the condition and event recording for a completed upgrade
-		o.Manager.finishUpgrade,
+		o.finishUpgrade,
 	}
 	for _, fn := range funcs {
 		if res, err := fn(ctx); verrors.IsReconcileAborted(res, err) {
@@ -137,6 +148,14 @@ func (o *OfflineUpgradeReconciler) Reconcile(ctx context.Context, _ *ctrl.Reques
 	}
 
 	return ctrl.Result{}, o.Manager.logUpgradeSucceeded(sandbox)
+}
+
+func (o *OfflineUpgradeReconciler) startUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return o.Manager.startUpgrade(ctx, o.PFacts.GetSandboxName())
+}
+
+func (o *OfflineUpgradeReconciler) finishUpgrade(ctx context.Context) (ctrl.Result, error) {
+	return o.Manager.finishUpgrade(ctx, o.PFacts.GetSandboxName())
 }
 
 // logEventIfThisUpgradeWasNotChosen will log an event if the vdb had requested
@@ -179,18 +198,22 @@ func (o *OfflineUpgradeReconciler) stopCluster(ctx context.Context) (ctrl.Result
 		return ctrl.Result{}, err
 	}
 
+	opts := []stopdb.Option{
+		stopdb.WithInitiator(pf.name, pf.podIP),
+		stopdb.WithSandbox(o.PFacts.GetSandboxName()),
+	}
 	start := time.Now()
-	o.VRec.Event(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
-		"Starting stop database")
-	err := o.Dispatcher.StopDB(ctx, stopdb.WithInitiator(pf.name, pf.podIP))
+	o.Rec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownStarted,
+		"Starting stop database on %s", o.PFacts.GetClusterExtendedName())
+	err := o.Dispatcher.StopDB(ctx, opts...)
 	if err != nil {
-		o.VRec.Event(o.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
-			"Failed to shutdown the cluster")
+		o.Rec.Eventf(o.Vdb, corev1.EventTypeWarning, events.ClusterShutdownFailed,
+			"Failed to shutdown the %s", o.PFacts.GetClusterExtendedName())
 		return ctrl.Result{}, err
 	}
 
-	o.VRec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
-		"Successfully shutdown the database and it took %s", time.Since(start).Truncate(time.Second))
+	o.Rec.Eventf(o.Vdb, corev1.EventTypeNormal, events.ClusterShutdownSucceeded,
+		"Successfully shutdown the database on %s and it took %s", o.PFacts.GetClusterExtendedName(), time.Since(start).Truncate(time.Second))
 	return ctrl.Result{}, nil
 }
 
@@ -292,7 +315,7 @@ func (o *OfflineUpgradeReconciler) checkVersion(ctx context.Context) (ctrl.Resul
 	}
 
 	const EnforceUpgradePath = true
-	vr := MakeImageVersionReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
+	vr := MakeImageVersionReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts, EnforceUpgradePath)
 	return vr.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -311,7 +334,7 @@ func (o *OfflineUpgradeReconciler) postInstallPackagesMsg(ctx context.Context) (
 // addPodAnnotations will call the PodAnnotationReconciler so that we have the
 // necessary annotations on the pod prior to restart.
 func (o *OfflineUpgradeReconciler) addPodAnnotations(ctx context.Context) (ctrl.Result, error) {
-	r := MakeAnnotateAndLabelPodReconciler(o.VRec, o.Log, o.Vdb, o.PFacts)
+	r := MakeAnnotateAndLabelPodReconciler(o.Rec, o.Log, o.Vdb, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -319,7 +342,7 @@ func (o *OfflineUpgradeReconciler) addPodAnnotations(ctx context.Context) (ctrl.
 // the end user license agreement.  This may have changed when we move to the
 // new vertica version.
 func (o *OfflineUpgradeReconciler) runInstaller(ctx context.Context) (ctrl.Result, error) {
-	r := MakeInstallReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts)
+	r := MakeInstallReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -330,14 +353,14 @@ func (o *OfflineUpgradeReconciler) restartCluster(ctx context.Context) (ctrl.Res
 
 	// The restart reconciler is called after this reconciler.  But we call the
 	// restart reconciler here so that we restart while the status condition is set.
-	r := MakeRestartReconciler(o.VRec, o.Log, o.Vdb, o.PRunner, o.PFacts, true, o.Dispatcher)
+	r := MakeRestartReconciler(o.Rec, o.Log, o.Vdb, o.PRunner, o.PFacts, true, o.Dispatcher)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
 // installPackages will install default packages. This is called after the clusters have
 // all been restarted.
 func (o *OfflineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Result, error) {
-	r := MakeInstallPackagesReconciler(o.VRec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher, o.Log)
+	r := MakeInstallPackagesReconciler(o.Rec, o.Vdb, o.PRunner, o.PFacts, o.Dispatcher, o.Log)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
 
@@ -345,7 +368,7 @@ func (o *OfflineUpgradeReconciler) installPackages(ctx context.Context) (ctrl.Re
 // objects will route to the pods.  This is done after the pods have been
 // reschedulde and vertica restarted.
 func (o *OfflineUpgradeReconciler) addClientRoutingLabel(ctx context.Context) (ctrl.Result, error) {
-	r := MakeClientRoutingLabelReconciler(o.VRec, o.Log, o.Vdb, o.PFacts,
+	r := MakeClientRoutingLabelReconciler(o.Rec, o.Log, o.Vdb, o.PFacts,
 		PodRescheduleApplyMethod, "" /* all subclusters */)
 	return r.Reconcile(ctx, &ctrl.Request{})
 }
@@ -363,7 +386,7 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 		}
 
 		pod := &corev1.Pod{}
-		err := o.VRec.Client.Get(ctx, pn, pod)
+		err := o.Rec.GetClient().Get(ctx, pn, pod)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, fmt.Errorf("error getting pod info for '%s'", pn)
 		}
@@ -384,5 +407,5 @@ func (o *OfflineUpgradeReconciler) anyPodsRunningWithOldImage(ctx context.Contex
 // postNextStatusMsg will set the next status message for an offline upgrade
 // according to msgIndex
 func (o *OfflineUpgradeReconciler) postNextStatusMsg(ctx context.Context, msgIndex int) (ctrl.Result, error) {
-	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, OfflineUpgradeStatusMsgs, msgIndex)
+	return ctrl.Result{}, o.Manager.postNextStatusMsg(ctx, OfflineUpgradeStatusMsgs, msgIndex, o.PFacts.GetSandboxName())
 }

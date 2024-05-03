@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,10 +58,12 @@ type ReconcilerInterface interface {
 	Eventf(vdb runtime.Object, eventType, reason, messageFmt string, args ...interface{})
 	GetClient() client.Client
 	GetEventRecorder() record.EventRecorder
+	GetConfig() *rest.Config
 }
 
 type VerticaReconciler struct {
 	client.Client
+	Cfg   *rest.Config
 	Log   logr.Logger
 	EVRec record.EventRecorder
 }
@@ -91,6 +94,10 @@ func (v *VerticaReconciler) Eventf(vdb runtime.Object, eventtype, reason, messag
 		EVRec: v.EVRec,
 	}
 	evWriter.Eventf(vdb, eventtype, reason, messageFmt, args...)
+}
+
+func (v *VerticaReconciler) GetConfig() *rest.Config {
+	return v.Cfg
 }
 
 // ConfigParamsGenerator can fill up incoming ConfigurationParams
