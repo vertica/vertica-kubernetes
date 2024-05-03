@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	vops "github.com/vertica/vcluster/vclusterops"
+	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/fetchnodestate"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -64,6 +65,9 @@ var _ = Describe("fetch_node_state_vc", func() {
 
 	It("should call vcluster-ops library with fetch_node_state task", func() {
 		dispatcher := mockVClusterOpsDispatcher()
+		dispatcher.VDB.Spec.NMATLSSecret = TestNMATLSSecret
+		test.CreateFakeTLSSecret(ctx, dispatcher.VDB, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
+		defer test.DeleteSecret(ctx, dispatcher.Client, dispatcher.VDB.Spec.NMATLSSecret)
 		dispatcher.VDB.Spec.DBName = TestDBName
 		actualResults, ctrlRes, err := dispatcher.FetchNodeState(ctx,
 			fetchnodestate.WithInitiator(dispatcher.VDB.ExtractNamespacedName(), nodeIPs[0]),
