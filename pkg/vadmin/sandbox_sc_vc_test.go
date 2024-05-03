@@ -42,10 +42,10 @@ func (m *MockVClusterOps) VSandbox(options *vops.VSandboxOptions) error {
 	}
 
 	// verify basic options
-	if *options.SCName != TestSCName {
+	if options.SCName != TestSCName {
 		return fmt.Errorf("failed to retrieve subcluster name")
 	}
-	if *options.SandboxName != TestSandboxName {
+	if options.SandboxName != TestSandboxName {
 		return fmt.Errorf("failed to retrieve sandbox name")
 	}
 

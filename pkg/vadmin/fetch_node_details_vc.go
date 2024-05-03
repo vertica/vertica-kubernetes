@@ -55,13 +55,13 @@ func (v *VClusterOps) FetchNodeDetails(_ context.Context, opts ...fetchnodedetai
 func (v *VClusterOps) genFetchNodeDetailsOptions(s *fetchnodedetails.Parms) vops.VFetchNodesDetailsOptions {
 	opts := vops.VFetchNodesDetailsOptionsFactory()
 
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	return opts

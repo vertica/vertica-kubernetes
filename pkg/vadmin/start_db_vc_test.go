@@ -45,18 +45,18 @@ func (m *MockVClusterOps) VStartDatabase(options *vops.VStartDatabaseOptions) (*
 	if err != nil {
 		return nil, err
 	}
-	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	err = m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
 		return nil, err
 	}
 
 	// verify catalog prefix
-	if *options.CatalogPrefix != TestCatalogPrefix {
+	if options.CatalogPrefix != TestCatalogPrefix {
 		return nil, fmt.Errorf("failed to retrieve catalog prefix")
 	}
 
 	// verify timeout
-	if *options.StatePollingTimeout != TestTimeout {
+	if options.StatePollingTimeout != TestTimeout {
 		return nil, fmt.Errorf("failed to retrieve timeout")
 	}
 

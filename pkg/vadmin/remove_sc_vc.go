@@ -61,24 +61,25 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 	opts := vops.VRemoveScOptionsFactory()
 
 	// required options
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.SubclusterToRemove = &s.Subcluster
+	opts.DBName = v.VDB.Spec.DBName
+	opts.SubclusterToRemove = s.Subcluster
 
 	opts.RawHosts = []string{s.InitiatorIP}
 	v.Log.Info("Setup remove subcluster options", "hosts", opts.RawHosts[0])
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
-	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
-	*opts.ForceDelete = true
+	opts.DataPrefix = v.VDB.Spec.Local.DataPath
+	opts.IsEon = v.VDB.IsEON()
+	opts.ForceDelete = true
 
 	if v.VDB.Spec.Communal.Path != "" {
-		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath
+		opts.DepotPrefix = v.VDB.Spec.Local.DepotPath
 	}
 
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	return opts
