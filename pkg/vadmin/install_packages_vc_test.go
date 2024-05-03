@@ -44,7 +44,7 @@ func (m *MockVClusterOps) VInstallPackages(options *vops.VInstallPackagesOptions
 	}
 
 	// verify force reinstall option
-	if !*options.ForceReinstall {
+	if !options.ForceReinstall {
 		return nil, err
 	}
 

@@ -42,7 +42,7 @@ func (v *VClusterOps) StopDB(_ context.Context, opts ...stopdb.Option) error {
 		return err
 	}
 
-	v.Log.Info("Successfully stopped a database", "dbName", *vopts.DBName)
+	v.Log.Info("Successfully stopped a database", "dbName", vopts.DBName)
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 	v.Log.Info("Setup stop db options", "hosts", opts.RawHosts[0])
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
 
 	*opts.Sandbox = s.Sandbox
@@ -62,7 +62,7 @@ func (v *VClusterOps) genStopDBOptions(s *stopdb.Parms) vops.VStopDatabaseOption
 	*opts.MainCluster = s.Sandbox == vapi.MainCluster
 
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	return opts
