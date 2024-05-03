@@ -28,7 +28,9 @@ import (
 	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
+	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,7 +38,7 @@ import (
 
 // ImageVersionReconciler will verify type of image deployment and set the version as annotations in the vdb.
 type ImageVersionReconciler struct {
-	VRec               *VerticaDBReconciler
+	Rec                config.ReconcilerInterface
 	Log                logr.Logger
 	Vdb                *vapi.VerticaDB // Vdb is the CRD we are acting on.
 	PRunner            cmds.PodRunner
@@ -46,11 +48,11 @@ type ImageVersionReconciler struct {
 }
 
 // MakeImageVersionReconciler will build a VersionReconciler object
-func MakeImageVersionReconciler(vdbrecon *VerticaDBReconciler, log logr.Logger,
+func MakeImageVersionReconciler(recon config.ReconcilerInterface, log logr.Logger,
 	vdb *vapi.VerticaDB, prunner cmds.PodRunner, pfacts *PodFacts,
 	enforceUpgradePath bool) controllers.ReconcileActor {
 	return &ImageVersionReconciler{
-		VRec:               vdbrecon,
+		Rec:                recon,
 		Log:                log.WithName("ImageVersionReconciler"),
 		Vdb:                vdb,
 		PRunner:            prunner,
@@ -91,7 +93,7 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	}
 
 	if vinf.IsUnsupported(vapi.MinimumVersion) {
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version %s is unsupported with this operator.  The minimum version supported is %s.",
 			vinf.VdbVer, vapi.MinimumVersion)
 		return ctrl.Result{Requeue: true}, nil
@@ -105,6 +107,36 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	}
 
 	return v.verifyNMADeployment(vinf, pod)
+}
+
+// isValidSandboxUpgradePath wreturns true if the version annotations is a valid version transition
+// from the version in the configmap.
+func (v *ImageVersionReconciler) isValidSandboxUpgradePath(ctx context.Context,
+	versionAnn map[string]string) (ok bool, failureReason string, err error) {
+	var vinf *version.Info
+	vinf, ok, err = v.makeSandboxVersionInfo(ctx)
+	if err != nil {
+		return false, "", err
+	}
+	if !ok {
+		// Version info is not in the vdb.  Fine to skip.
+		return true, "", nil
+	}
+	ok, failureReason = vinf.IsValidUpgradePath(versionAnn[vmeta.VersionAnnotation])
+	return ok, failureReason, nil
+}
+
+// makeSandboxVersionInfo will build and return the sandbox version info based
+// on the configmap annotations
+func (v *ImageVersionReconciler) makeSandboxVersionInfo(ctx context.Context) (*version.Info, bool, error) {
+	sbMan := MakeSandboxConfigMapManager(v.Rec, v.Vdb, v.PFacts.SandboxName, "" /*no uuid*/)
+	oldVersion, found, err := sbMan.getSandboxVersion(ctx)
+	// If the version annotation isn't present, we abort creation of Info
+	if !found || err != nil {
+		return nil, false, err
+	}
+	vinf, makeOk := version.MakeInfoFromStr(oldVersion)
+	return vinf, makeOk, nil
 }
 
 // Verify whether the NMA is configured to run as a sidecar container
@@ -148,7 +180,7 @@ func (v *ImageVersionReconciler) logWarningIfVersionDoesNotSupportsCGroupV2(ctx 
 	if _, _, err := v.PRunner.ExecInPod(ctx, pod.name, names.ServerContainer, cmd...); err == nil {
 		// Log a warning but we will continue on.  We may have a hotfix that
 		// addresses the bug so don't want to block any attempts to start vertica.
-		v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+		v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 			"The Vertica version is unsupported with cgroups v2. Try using a version other than %s.", vinf.VdbVer)
 	}
 }
@@ -164,13 +196,13 @@ func (v *ImageVersionReconciler) checkNMACertCompatability(vinf *version.Info) c
 		return ctrl.Result{}
 	} else if secrets.IsGSMSecret(v.Vdb.Spec.NMATLSSecret) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInGSMMinVersion) {
-			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from Google Secret Manager")
 			return ctrl.Result{Requeue: true}
 		}
 	} else if secrets.IsAWSSecretsManagerSecret(v.Vdb.Spec.NMATLSSecret) {
 		if !vinf.IsEqualOrNewer(vapi.NMATLSSecretInAWSSecretsManagerMinVersion) {
-			v.VRec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
+			v.Rec.Event(v.Vdb, corev1.EventTypeWarning, events.UnsupportedVerticaVersion,
 				"The NMA version does not support reading its cert from AWS Secrets Manager")
 			return ctrl.Result{Requeue: true}
 		}
@@ -204,22 +236,38 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
 
 	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {
-		ok, failureReason := v.Vdb.IsUpgradePathSupported(versionAnnotations)
+		ok, failureReason, err := v.isUpgradePathSupported(ctx, versionAnnotations)
+		if err != nil {
+			return ctrl.Result{}, nil
+		}
 		if !ok {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
+			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
 				"Invalid upgrade path detected.  %s", failureReason)
 			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
-	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	return ctrl.Result{}, v.updateAnnotations(ctx, versionAnnotations)
+}
+
+// updateAnnotations the annotations in either vdb or configmap with the new version
+func (v *ImageVersionReconciler) updateAnnotations(ctx context.Context, versionAnn map[string]string) error {
+	if v.PFacts.GetSandboxName() == vapi.MainCluster {
+		return v.updateVDBAnnotations(ctx, versionAnn)
+	}
+	return v.updateConfigMapAnnotations(ctx, versionAnn)
+}
+
+// updateVDBAnnotations updates the vdb annotations with the version
+func (v *ImageVersionReconciler) updateVDBAnnotations(ctx context.Context, versionAnn map[string]string) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch to get latest Vdb incase this is a retry
-		err := v.VRec.Client.Get(ctx, v.Vdb.ExtractNamespacedName(), v.Vdb)
+		err := v.Rec.GetClient().Get(ctx, v.Vdb.ExtractNamespacedName(), v.Vdb)
 		if err != nil {
 			return err
 		}
-		if v.Vdb.MergeAnnotations(versionAnnotations) {
-			err = v.VRec.Client.Update(ctx, v.Vdb)
+		if v.Vdb.MergeAnnotations(versionAnn) {
+			err = v.Rec.GetClient().Update(ctx, v.Vdb)
 			if err != nil {
 				return err
 			}
@@ -230,6 +278,32 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 	})
 }
 
+// updateConfigMapAnnotations updates the sandbox's configmap annotations with
+// the version
+func (v *ImageVersionReconciler) updateConfigMapAnnotations(ctx context.Context, versionAnn map[string]string) error {
+	nm := names.GenConfigMapName(v.Vdb, v.PFacts.SandboxName)
+
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: map[string]string{
+			vmeta.VersionAnnotation: versionAnn[vmeta.VersionAnnotation],
+		},
+	}
+
+	_, err := vk8s.MetaUpdate(ctx, v.Rec.GetClient(), nm, &corev1.ConfigMap{}, chgs)
+	return err
+}
+
+// isUpgradePathSupported returns true if the version annotations is a valid version transition from the version
+// in Vdb or configmap(incase of sandbox).
+func (v *ImageVersionReconciler) isUpgradePathSupported(ctx context.Context, versionAnn map[string]string,
+) (ok bool, failureReason string, err error) {
+	if v.PFacts.GetSandboxName() == vapi.MainCluster {
+		ok, failureReason = v.Vdb.IsUpgradePathSupported(versionAnn)
+		return ok, failureReason, nil
+	}
+	return v.isValidSandboxUpgradePath(ctx, versionAnn)
+}
+
 // Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
 func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 	if vmeta.GetSkipDeploymentCheck(v.Vdb.Annotations) {
@@ -238,7 +312,7 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 
 	if vmeta.UseVClusterOps(v.Vdb.Annotations) {
 		if pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for vclusterops deployments. Change the deployment by changing the %s annotation",
 				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for admintools style of deployments and cannot be used for vclusterops",
@@ -246,7 +320,7 @@ func (v *ImageVersionReconciler) verifyDeploymentType(pod *PodFact) error {
 		}
 	} else {
 		if !pod.admintoolsExists {
-			v.VRec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
+			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.WrongImage,
 				"Image cannot be used for admintools deployments. Change the deployment by changing the %s annotation",
 				vmeta.VClusterOpsAnnotation)
 			return fmt.Errorf("image %s is meant for vclusterops style of deployments and cannot be used for admintools",

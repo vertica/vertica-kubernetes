@@ -55,7 +55,8 @@ var _ = Describe("dbaddsubcluster_reconcile", func() {
 
 	It("should call AT to add a new subcluster", func() {
 		vdb := vapi.MakeVDB()
-		vdb.Spec.Subclusters[0].Name = "sc1"
+		const scName = "sc1"
+		vdb.Spec.Subclusters[0].Name = scName
 		// We only want a single pod created between both subclusters so that
 		// the atPod is deterministic.
 		vdb.Spec.Subclusters[0].Size = 1
