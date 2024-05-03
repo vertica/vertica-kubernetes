@@ -26,17 +26,23 @@ import (
 
 // FetchNodeState will determine if the given set of nodes are considered UP
 // or DOWN in our consensous state. It returns a map of vnode to its node state.
-func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
+func (v *VClusterOps) FetchNodeState(ctx context.Context, opts ...fetchnodestate.Option) (map[string]string, ctrl.Result, error) {
 	v.setupForAPICall("FetchNodeState")
 	defer v.tearDownForAPICall()
 	v.Log.Info("Starting vcluster FetchNodeState")
+
+	// get the certs
+	certs, err := v.retrieveNMACerts(ctx)
+	if err != nil {
+		return map[string]string{}, ctrl.Result{}, err
+	}
 
 	// get fetch node state options
 	s := fetchnodestate.Parms{}
 	s.Make(opts...)
 
 	// call vcluster-ops library to fetch node states
-	vopts := v.genFetchNodeStateOptions(&s)
+	vopts := v.genFetchNodeStateOptions(&s, certs)
 	nodesInfo, err := v.VFetchNodeState(&vopts)
 	if err != nil {
 		v.Log.Error(err, "failed to fetch node states")
@@ -52,13 +58,16 @@ func (v *VClusterOps) FetchNodeState(_ context.Context, opts ...fetchnodestate.O
 	return stateMap, ctrl.Result{}, nil
 }
 
-func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms) vops.VFetchNodeStateOptions {
+func (v *VClusterOps) genFetchNodeStateOptions(s *fetchnodestate.Parms, certs *HTTPSCerts) vops.VFetchNodeStateOptions {
 	opts := vops.VFetchNodeStateOptionsFactory()
 
 	opts.DBName = v.VDB.Spec.DBName
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
+	opts.Key = certs.Key
+	opts.Cert = certs.Cert
+	opts.CaCert = certs.CaCert
 
 	// auth options
 	opts.UserName = v.VDB.GetVerticaUser()
