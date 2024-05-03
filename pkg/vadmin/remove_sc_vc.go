@@ -68,6 +68,7 @@ func (v *VClusterOps) genRemoveSubclusterOptions(s *removesc.Parms, certs *HTTPS
 	v.Log.Info("Setup remove subcluster options", "hosts", opts.RawHosts[0])
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 	opts.DataPrefix = v.VDB.Spec.Local.DataPath
+	opts.IsEon = v.VDB.IsEON()
 	opts.ForceDelete = true
 
 	if v.VDB.Spec.Communal.Path != "" {
