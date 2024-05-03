@@ -97,6 +97,7 @@ func CreateConfigMap(ctx context.Context, c client.Client, vdb *vapi.VerticaDB, 
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
 				vmeta.SandboxControllerTriggerID: id,
+				vmeta.VersionAnnotation:          "v23.4.0",
 			},
 			Name:      nm.Name,
 			Namespace: vdb.Namespace,

@@ -17,6 +17,7 @@ package vdb
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -88,6 +89,18 @@ func (s *SandboxTrigger) validateConfigMapDataValues() bool {
 	vdbName := s.configMap.Data[vapi.VerticaDBNameKey]
 	sbName := s.configMap.Data[vapi.SandboxNameKey]
 	return vdbName == s.vdb.Name && sbName == s.sandbox
+}
+
+// getSandboxVersion returns the vertica version running in the sandbox
+func (s *SandboxTrigger) getSandboxVersion(ctx context.Context) (string, error) {
+	if err := s.fetchConfigMap(ctx); err != nil {
+		return "", err
+	}
+	ver, ok := s.configMap.Annotations[vmeta.VersionAnnotation]
+	if !ok {
+		return "", fmt.Errorf("could not find version from ConfigMap")
+	}
+	return ver, nil
 }
 
 func (s *SandboxTrigger) getTriggerID() string {

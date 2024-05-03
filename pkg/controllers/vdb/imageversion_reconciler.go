@@ -30,6 +30,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/secrets"
 	config "github.com/vertica/vertica-kubernetes/pkg/vdbconfig"
 	"github.com/vertica/vertica-kubernetes/pkg/version"
+	"github.com/vertica/vertica-kubernetes/pkg/vk8s"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -106,6 +107,17 @@ func (v *ImageVersionReconciler) Reconcile(ctx context.Context, _ *ctrl.Request)
 	}
 
 	return v.verifyNMADeployment(vinf, pod)
+}
+
+// genSandboxOldVersionInfo will build and return the sandbox in the configmap
+// annotations
+func (v *ImageVersionReconciler) genSandboxOldVersionInfo(ctx context.Context) (*version.Info, error) {
+	sbTrigger := MakeSandboxTrigger(v.Rec, v.Vdb, v.PFacts.SandboxName, "" /*no uuid*/)
+	oldVersion, err := sbTrigger.getSandboxVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return version.MakeInfoFromStrCheck(oldVersion)
 }
 
 // Verify whether the NMA is configured to run as a sidecar container
@@ -205,7 +217,10 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 	versionAnnotations := vapi.ParseVersionOutput(newVersion)
 
 	if v.EnforceUpgradePath && !v.Vdb.GetIgnoreUpgradePath() {
-		ok, failureReason := v.Vdb.IsUpgradePathSupported(versionAnnotations)
+		ok, failureReason, err := v.isUpgradePathSupported(ctx, versionAnnotations)
+		if err != nil {
+			return ctrl.Result{}, nil
+		}
 		if !ok {
 			v.Rec.Eventf(v.Vdb, corev1.EventTypeWarning, events.InvalidUpgradePath,
 				"Invalid upgrade path detected.  %s", failureReason)
@@ -213,13 +228,26 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 		}
 	}
 
-	return ctrl.Result{}, retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	return ctrl.Result{}, v.updateAnnotations(ctx, versionAnnotations)
+}
+
+// updateAnnotations the annotations in either vdb or configmap with the new version
+func (v *ImageVersionReconciler) updateAnnotations(ctx context.Context, versionAnn map[string]string) error {
+	if v.PFacts.GetSandboxName() == vapi.MainCluster {
+		return v.updateVDBAnnotations(ctx, versionAnn)
+	}
+	return v.updateConfigMapAnnotations(ctx, versionAnn)
+}
+
+// updateVDBAnnotations updates the vdb annotations with the version
+func (v *ImageVersionReconciler) updateVDBAnnotations(ctx context.Context, versionAnn map[string]string) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		// Always fetch to get latest Vdb incase this is a retry
 		err := v.Rec.GetClient().Get(ctx, v.Vdb.ExtractNamespacedName(), v.Vdb)
 		if err != nil {
 			return err
 		}
-		if v.Vdb.MergeAnnotations(versionAnnotations) {
+		if v.Vdb.MergeAnnotations(versionAnn) {
 			err = v.Rec.GetClient().Update(ctx, v.Vdb)
 			if err != nil {
 				return err
@@ -229,6 +257,37 @@ func (v *ImageVersionReconciler) updateVDBVersion(ctx context.Context, newVersio
 		}
 		return nil
 	})
+}
+
+// updateConfigMapAnnotations updates the sandbox's configmap annotations with
+// the version
+func (v *ImageVersionReconciler) updateConfigMapAnnotations(ctx context.Context, versionAnn map[string]string) error {
+	nm := names.GenConfigMapName(v.Vdb, v.PFacts.SandboxName)
+
+	chgs := vk8s.MetaChanges{
+		NewAnnotations: map[string]string{
+			vmeta.VersionAnnotation: versionAnn[vmeta.VersionAnnotation],
+		},
+	}
+
+	_, err := vk8s.MetaUpdate(ctx, v.Rec.GetClient(), nm, &corev1.ConfigMap{}, chgs)
+	return err
+}
+
+// isUpgradePathSupported returns true if the version annotations is a valid version transition from the version
+// in Vdb or configmap(incase of sandbox).
+func (v *ImageVersionReconciler) isUpgradePathSupported(ctx context.Context, versionAnn map[string]string,
+) (ok bool, failureReason string, err error) {
+	if v.PFacts.GetSandboxName() == vapi.MainCluster {
+		ok, failureReason = v.Vdb.IsUpgradePathSupported(versionAnn)
+		return ok, failureReason, nil
+	}
+	vinf, err := v.genSandboxOldVersionInfo(ctx)
+	if err != nil {
+		return false, "", err
+	}
+	ok, failureReason = vinf.IsValidUpgradePath(versionAnn[vmeta.VersionAnnotation])
+	return ok, failureReason, nil
 }
 
 // Verify whether the correct image is being used by checking the vclusterOps feature flag and the deployment type
