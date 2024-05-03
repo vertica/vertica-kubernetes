@@ -76,7 +76,7 @@ const (
 	// This label is added to a statefulset to indicate the sandbox it belongs
 	// to. This will allow the operator to filter these objects if it is looking
 	// for objects from the main cluster or a sandbox.  Moreover, the sandbox
-	// controller will be watching statefulsets witGh this label and will trigger
+	// controller will be watching statefulsets with this label and will trigger
 	// a reconcile loop if it finds a configmap with a sandbox name equal to
 	// this label's value
 	SandboxNameLabel = "vertica.com/sandbox"

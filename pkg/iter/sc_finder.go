@@ -146,10 +146,10 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 	return subclusters, nil
 }
 
-// hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
+// hasSubclusterLabelFromVdb returns true if the given set of labels include a
+// subcluster that is in the vdb. Note, for pods, objLabels will be from the
+// statefulset. So, it is safe to use SubclusterNameLabel.
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
-	// Note, for pods, objLabels will be from the statefulset. So, it is safe to
-	// use SubclusterNameLabel.
 	scName := objLabels[vmeta.SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
 	return ok
@@ -209,18 +209,17 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 }
 
 // shouldSkipBasedOnSandboxState returns true if the object whose labels
-// is passed does not belong to the given sandbox or main cluster
+// is passed does not belong to the given sandbox or main cluster. Note, for a
+// pod, the labels passed in will be from the statefulset. So, it is fine to use
+// SubclusterNameLabel.
 func shouldSkipBasedOnSandboxState(l map[string]string, sandbox string) bool {
-	// Note, for a pod, the labels passed in will be from the statefulset. So,
-	// it is fine to use SubclusterNameLabel.
 	return l[vmeta.SandboxNameLabel] != sandbox
 }
 
 // hasSubclusterNameLabel returns true if there exists a label that indicates
-// the object is for a subcluster
+// the object is for a subcluster. Note, for a pod, the labels passed in will be
+// from the statefulset. So, it is fine to use SubclusterNameLabel.
 func hasSubclusterNameLabel(l map[string]string) bool {
-	// Note, for a pod, the labels passed in will be from the statefulset. So,
-	// it is fine to use SubclusterNameLabel.
 	_, ok := l[vmeta.SubclusterNameLabel]
 	if ok {
 		return true

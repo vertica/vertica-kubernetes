@@ -157,7 +157,7 @@ func (d *DBRemoveSubclusterReconciler) resetDefaultSubcluster(ctx context.Contex
 	_, ok := scMap[defSc]
 	if !ok {
 		scFinder := iter.MakeSubclusterFinder(d.VRec.Client, d.Vdb)
-		// We use the FindServices() API to get subclusters that already exist.
+		// We use the FindStatefulSets() API to get subclusters that already exist.
 		// We can only change the default subcluster to one of those.
 		stss, err := scFinder.FindStatefulSets(ctx, iter.FindInVdb, vapi.MainCluster)
 		if err != nil {
