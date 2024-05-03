@@ -49,22 +49,22 @@ func (v *VClusterOps) genRemoveNodeOptions(s *removenode.Parms, certs *HTTPSCert
 
 	// required options
 	opts.HostsToRemove = s.Hosts
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 
 	opts.RawHosts = []string{s.InitiatorIP}
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
-	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
-	*opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
+	opts.DataPrefix = v.VDB.Spec.Local.DataPath
+	opts.CatalogPrefix = v.VDB.Spec.Local.GetCatalogPath()
 
 	if v.VDB.Spec.Communal.Path != "" {
-		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath
+		opts.DepotPrefix = v.VDB.Spec.Local.DepotPath
 	}
 
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	return opts
