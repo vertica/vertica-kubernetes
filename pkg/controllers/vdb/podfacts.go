@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -377,7 +376,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		pf.dnsName = fmt.Sprintf("%s.%s.%s", pod.Spec.Hostname, pod.Spec.Subdomain, pod.Namespace)
 		pf.podIP = pod.Status.PodIP
 		pf.creationTimestamp = pod.CreationTimestamp.Format(time.DateTime)
-		pf.isTransient, _ = strconv.ParseBool(pod.Labels[vmeta.SubclusterTransientLabel])
+		pf.isTransient = sc.IsTransient()
 		pf.isPendingDelete = podIndex >= sc.Size
 		// Let's just pick the first container image
 		pf.image, err = vk8s.GetServerImage(pod.Spec.Containers)
