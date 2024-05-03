@@ -54,7 +54,7 @@ func (m *MockVClusterOps) VAddNode(options *vops.VAddNodeOptions) (vops.VCoordin
 	if !reflect.DeepEqual(options.NewHosts, TestNewHosts) {
 		return vdb, fmt.Errorf("failed to retrieve hosts to add")
 	}
-	if *options.SCName != TestSCName {
+	if options.SCName != TestSCName {
 		return vdb, fmt.Errorf("failed to retrieve subcluster name")
 	}
 	if !reflect.DeepEqual(options.RawHosts, []string{TestInitiatorPodIP}) {

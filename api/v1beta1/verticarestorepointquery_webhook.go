@@ -84,9 +84,9 @@ func (vrpq *VerticaRestorePointsQuery) validateVrpqSpec() field.ErrorList {
 func (vrpq *VerticaRestorePointsQuery) validateTimeStamp(allErrs field.ErrorList) field.ErrorList {
 	if filter := vrpq.Spec.FilterOptions; filter != nil {
 		options := vops.ShowRestorePointFilterOptions{}
-		options.ArchiveName = &filter.ArchiveName
-		options.StartTimestamp = &filter.StartTimestamp
-		options.EndTimestamp = &filter.EndTimestamp
+		options.ArchiveName = filter.ArchiveName
+		options.StartTimestamp = filter.StartTimestamp
+		options.EndTimestamp = filter.EndTimestamp
 		timestampErr := options.ValidateAndStandardizeTimestampsIfAny()
 		if timestampErr != nil {
 			err := field.Invalid(field.NewPath("spec").Child("filterOptions"),

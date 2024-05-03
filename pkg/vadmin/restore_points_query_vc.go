@@ -53,8 +53,8 @@ func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs 
 	opts := vops.VShowRestorePointsFactory()
 
 	// required options
-	opts.DBName = &v.VDB.Spec.DBName
-	opts.CommunalStorageLocation = &s.CommunalPath
+	opts.DBName = v.VDB.Spec.DBName
+	opts.CommunalStorageLocation = s.CommunalPath
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	v.Log.Info("Setup restore point options", "rawhosts", opts.RawHosts)
@@ -68,7 +68,7 @@ func (v *VClusterOps) genRestorePointsOptions(s *showrestorepoints.Parms, certs 
 	opts.CaCert = certs.CaCert
 
 	// optional query filter options
-	opts.FilterOptions = &s.FilterOptions
+	opts.FilterOptions = s.FilterOptions
 
 	return &opts
 }

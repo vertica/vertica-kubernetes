@@ -51,7 +51,7 @@ func (m *MockVClusterOps) VReviveDatabase(options *vops.VReviveDatabaseOptions) 
 	if err != nil {
 		return "", nil, err
 	}
-	err = m.VerifyCommunalStorageOptions(*options.CommunalStorageLocation, options.ConfigurationParameters)
+	err = m.VerifyCommunalStorageOptions(options.CommunalStorageLocation, options.ConfigurationParameters)
 	if err != nil {
 		return "", nil, err
 	}
