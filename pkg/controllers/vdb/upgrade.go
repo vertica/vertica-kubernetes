@@ -42,6 +42,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const (
+	statusConditionEmpty = ""
+)
+
 type UpgradeManager struct {
 	Rec               config.ReconcilerInterface
 	Vdb               *vapi.VerticaDB
@@ -66,6 +70,16 @@ func MakeUpgradeManager(recon config.ReconcilerInterface, log logr.Logger, vdb *
 		StatusCondition:               statusCondition,
 		IsAllowedForUpgradePolicyFunc: isAllowedForUpgradePolicyFunc,
 	}
+}
+
+// MakeUpgradeManagerForSandboxOffline will construct a UpgradeManager object for
+// sandbox offline upgrade only
+func MakeUpgradeManagerForSandboxOffline(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
+	statusCondition string) *UpgradeManager {
+	// For sandbox upgrade, offline upgrade path must always be selected regardless
+	// of the upgrade policy set in vdb. Moreover, we don't use status conditions
+	// during sandbox upgrade
+	return MakeUpgradeManager(recon, log, vdb, statusConditionEmpty, func(vdb *vapi.VerticaDB) bool { return true })
 }
 
 // IsUpgradeNeeded checks whether an upgrade is needed and/or in
@@ -103,7 +117,7 @@ func (i *UpgradeManager) isUpgradeStatusTrue(sbName string) bool {
 	if sbName == vapi.MainCluster {
 		return i.Vdb.IsStatusConditionTrue(i.StatusCondition)
 	}
-	return i.Vdb.IsSandBoxUpgradeInProgress(i.StatusCondition, sbName)
+	return i.Vdb.IsSandBoxUpgradeInProgress(sbName)
 }
 
 // isVDBImageDifferent will check if an upgrade is needed based on the

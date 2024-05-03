@@ -364,7 +364,7 @@ func (v *VerticaDB) FindStatusCondition(conditionType string) *metav1.Condition 
 
 // IsSandBoxUpgradeInProgress returns true if is an upgrade
 // is already occurring in the given sandbox
-func (v *VerticaDB) IsSandBoxUpgradeInProgress(statusCondition, sbName string) bool {
+func (v *VerticaDB) IsSandBoxUpgradeInProgress(sbName string) bool {
 	sb := v.GetSandboxStatus(sbName)
 	return sb != nil && sb.UpgradeState.UpgradeInProgress
 }

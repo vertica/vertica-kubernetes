@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	verrors "github.com/vertica/vertica-kubernetes/pkg/errors"
@@ -73,10 +74,12 @@ func (s *SandboxUpgradeReconciler) reconcileSandboxImage(ctx context.Context, sb
 	// Once we find out that a sandbox upgrade is needed, we need to wake up
 	// the sandbox controller to drive it. We will use a SandboxTrigger object
 	// that will update that sandbox's configmap watched by the sandbox controller
-	sbTrigger := MakeSandboxTrigger(s.VRec, s.Vdb, sbName)
+	triggerUUID := uuid.NewString()
+	sbTrigger := MakeSandboxTrigger(s.VRec, s.Vdb, sbName, triggerUUID)
 	triggered, err := sbTrigger.triggerSandboxController(ctx)
 	if triggered {
-		s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the upgrade", "Sandbox", sbName)
+		s.Log.Info("Sandbox ConfigMap updated. The sandbox controller will drive the upgrade",
+			"trigger-uuid", triggerUUID, "Sandbox", sbName)
 	}
 	return ctrl.Result{}, err
 }

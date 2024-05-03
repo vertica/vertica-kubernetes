@@ -942,6 +942,7 @@ type SandboxStatus struct {
 	Subclusters []string `json:"subclusters"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
+	// +optional
 	// State of the current running upgrade in the sandbox
 	UpgradeState SandboxUpgradeState `json:"upgradeState"`
 }

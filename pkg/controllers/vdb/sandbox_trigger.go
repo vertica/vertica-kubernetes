@@ -35,13 +35,16 @@ type SandboxTrigger struct {
 	vdb       *vapi.VerticaDB
 	configMap *corev1.ConfigMap
 	sandbox   string
+	triggerID string
 }
 
-func MakeSandboxTrigger(recon config.ReconcilerInterface, vdb *vapi.VerticaDB, sbName string) *SandboxTrigger {
+func MakeSandboxTrigger(recon config.ReconcilerInterface, vdb *vapi.VerticaDB,
+	sbName, id string) *SandboxTrigger {
 	return &SandboxTrigger{
 		vrec:      recon,
 		vdb:       vdb,
 		sandbox:   sbName,
+		triggerID: id,
 		configMap: &corev1.ConfigMap{},
 	}
 }
@@ -52,7 +55,7 @@ func (s *SandboxTrigger) triggerSandboxController(ctx context.Context) (bool, er
 	if err := s.fetchConfigMap(ctx); err != nil {
 		return false, err
 	}
-	triggerID := uuid.NewString()
+	triggerID := s.getTriggerID()
 	anns := map[string]string{
 		// This will ensure that we always set a new value
 		// for this annotation which will wake up the sandbox
@@ -85,4 +88,12 @@ func (s *SandboxTrigger) validateConfigMapDataValues() bool {
 	vdbName := s.configMap.Data[vapi.VerticaDBNameKey]
 	sbName := s.configMap.Data[vapi.SandboxNameKey]
 	return vdbName == s.vdb.Name && sbName == s.sandbox
+}
+
+func (s *SandboxTrigger) getTriggerID() string {
+	if s.triggerID != "" {
+		return s.triggerID
+	}
+	// Let's generate an id if one is not set
+	return uuid.NewString()
 }

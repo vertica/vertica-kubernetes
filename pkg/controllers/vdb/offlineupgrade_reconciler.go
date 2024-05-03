@@ -73,9 +73,19 @@ func MakeOfflineUpgradeReconciler(recon config.ReconcilerInterface, log logr.Log
 		PRunner:    prunner,
 		PFacts:     pfacts,
 		Finder:     iter.MakeSubclusterFinder(recon.GetClient(), vdb),
-		Manager:    *MakeUpgradeManager(recon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed),
+		Manager:    *makeUpgradeManagerForOfflineUpgrade(recon, log, vdb, pfacts.GetSandboxName()),
 		Dispatcher: dispatcher,
 	}
+}
+
+// makeUpgradeManagerForOfflineUpgrade builds a suitable Upgrade object based on
+// the cluster being upgraded(main cluster or a sandbox)
+func makeUpgradeManagerForOfflineUpgrade(recon config.ReconcilerInterface, log logr.Logger, vdb *vapi.VerticaDB,
+	sandbox string) *UpgradeManager {
+	if sandbox == vapi.MainCluster {
+		return MakeUpgradeManager(recon, log, vdb, vapi.OfflineUpgradeInProgress, offlineUpgradeAllowed)
+	}
+	return MakeUpgradeManagerForSandboxOffline(recon, log, vdb, statusConditionEmpty)
 }
 
 // Reconcile will handle the process of the vertica image changing.  For
