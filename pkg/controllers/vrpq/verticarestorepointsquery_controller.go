@@ -150,3 +150,8 @@ func (r *VerticaRestorePointsQueryReconciler) GetClient() client.Client {
 func (r *VerticaRestorePointsQueryReconciler) GetEventRecorder() record.EventRecorder {
 	return r.EVRec
 }
+
+// GetConfig gives access to *rest.Config
+func (r *VerticaRestorePointsQueryReconciler) GetConfig() *rest.Config {
+	return r.Cfg
+}
