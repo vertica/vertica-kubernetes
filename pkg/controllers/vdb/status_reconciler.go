@@ -103,10 +103,6 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 				// is necessary so we don't lose state in case all of the
 				// subcluster pods are down
 				vdbChg.Status.Subclusters[i] = *sc
-			} else {
-				// It is very unlikely to get here but just in case let's initialiaze
-				// subcluster[].detail
-				vdbChg.Status.Subclusters[i].Detail = make([]vapi.VerticaDBPodStatus, 0)
 			}
 			// Sandboxed subclusters are always in vdb so,
 			// all subclusters not in vdb will be considered
@@ -115,6 +111,11 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 			// The reconciler controls subclusters that are
 			// part of the same cluster(main cluster or a sandbox)
 			if sbName != s.PFacts.GetSandboxName() {
+				if sc == nil {
+				// It is very unlikely to get here but just in case let's initialize
+				// subcluster[].detail
+				vdbChg.Status.Subclusters[i].Detail = make([]vapi.VerticaDBPodStatus, 0)
+				}
 				continue
 			}
 
