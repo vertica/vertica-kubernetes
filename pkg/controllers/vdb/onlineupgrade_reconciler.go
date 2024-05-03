@@ -18,7 +18,6 @@ package vdb
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -357,9 +356,8 @@ func (o *OnlineUpgradeReconciler) iterateSubclusterType(ctx context.Context, scT
 
 	for i := range stss.Items {
 		sts := &stss.Items[i]
-		if matches, err := o.isMatchingSubclusterType(sts, scType); err != nil {
-			return ctrl.Result{}, err
-		} else if !matches {
+		matches := o.isMatchingSubclusterType(sts, scType)
+		if !matches {
 			continue
 		}
 
@@ -434,12 +432,17 @@ func (o *OnlineUpgradeReconciler) processSecondary(ctx context.Context, sts *app
 
 // isMatchingSubclusterType will return true if the subcluster type matches the
 // input string.  Always returns false for the transient subcluster.
-func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) (bool, error) {
-	isTransient, err := strconv.ParseBool(sts.Labels[vmeta.SubclusterTransientLabel])
-	if err != nil {
-		return false, fmt.Errorf("could not parse label %s: %w", vmeta.SubclusterTransientLabel, err)
+func (o *OnlineUpgradeReconciler) isMatchingSubclusterType(sts *appsv1.StatefulSet, scType string) bool {
+	stsScType := sts.Labels[vmeta.SubclusterTypeLabel]
+	if stsScType != scType {
+		return false
 	}
-	return sts.Labels[vmeta.SubclusterTypeLabel] == scType && !isTransient, nil
+
+	transientName, hasTransient := o.Vdb.GetTransientSubclusterName()
+	if !hasTransient {
+		return true
+	}
+	return sts.Labels[vmeta.SubclusterNameLabel] != transientName
 }
 
 // drainSubcluster will reroute traffic away from a subcluster and wait for it to be idle.

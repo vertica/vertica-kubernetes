@@ -26,5 +26,5 @@ metadata:
 spec:
   selector:
     app.kubernetes.io/instance: v-base-upgrade
-    vertica.com/subcluster-name: pri
+    vertica.com/subcluster-selector-name: v-base-upgrade-pri
     vertica.com/client-routing: "true"
