@@ -21,7 +21,7 @@ spec:
   template:
     metadata:
       labels:
-        vertica.com/subcluster-name: sc1
+        vertica.com/subcluster-selector-name: v-shared-svc-sc1
         vertica.com/subcluster-svc: one
 ---
 apiVersion: apps/v1
@@ -34,7 +34,7 @@ spec:
   template:
     metadata:
       labels:
-        vertica.com/subcluster-name: sc2
+        vertica.com/subcluster-selector-name: v-shared-svc-sc2
         vertica.com/subcluster-svc: one
 ---
 apiVersion: apps/v1
@@ -45,7 +45,7 @@ spec:
   template:
     metadata:
       labels:
-        vertica.com/subcluster-name: sc3
+        vertica.com/subcluster-selector-name: v-shared-svc-sc3
         vertica.com/subcluster-svc: one
 status:
   replicas: 1

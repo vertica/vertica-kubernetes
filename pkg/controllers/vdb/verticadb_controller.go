@@ -176,7 +176,7 @@ func (r *VerticaDBReconciler) constructActors(log logr.Logger, vdb *vapi.Vertica
 		MakeLocalDataCheckReconciler(r, vdb, pfacts),
 		// Handle upgrade actions for any k8s objects created in prior versions
 		// of the operator.
-		MakeUpgradeOperator120Reconciler(r, log, vdb),
+		MakeUpgradeOperatorReconciler(r, log, vdb),
 		// Create a TLS secret for the NMA service
 		MakeHTTPServerCertGenReconciler(r, log, vdb),
 		// Create ServiceAcount, Role and RoleBindings needed for vertica pods
