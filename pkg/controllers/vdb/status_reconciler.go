@@ -112,9 +112,9 @@ func (s *StatusReconciler) updateStatusFields(ctx context.Context) error {
 			// part of the same cluster(main cluster or a sandbox)
 			if sbName != s.PFacts.GetSandboxName() {
 				if sc == nil {
-				// It is very unlikely to get here but just in case let's initialize
-				// subcluster[].detail
-				vdbChg.Status.Subclusters[i].Detail = make([]vapi.VerticaDBPodStatus, 0)
+					// It is very unlikely to get here but just in case let's initialize
+					// subcluster[].detail
+					vdbChg.Status.Subclusters[i].Detail = make([]vapi.VerticaDBPodStatus, 0)
 				}
 				continue
 			}
