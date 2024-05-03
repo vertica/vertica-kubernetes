@@ -37,11 +37,11 @@ func (v *VClusterOps) AddSubcluster(_ context.Context, opts ...addsc.Option) err
 	vopts := v.genAddSubclusterOptions(&s)
 	err := v.VAddSubcluster(&vopts)
 	if err != nil {
-		v.Log.Error(err, "failed to add a subcluster", "scName", *vopts.SCName)
+		v.Log.Error(err, "failed to add a subcluster", "scName", vopts.SCName)
 		return err
 	}
 
-	v.Log.Info("Successfully added a subcluster to the database", "scName", *vopts.SCName, "dbName", *vopts.DBName)
+	v.Log.Info("Successfully added a subcluster to the database", "scName", vopts.SCName, "dbName", vopts.DBName)
 	return nil
 }
 
@@ -52,13 +52,13 @@ func (v *VClusterOps) genAddSubclusterOptions(s *addsc.Parms) vops.VAddSubcluste
 	v.Log.Info("Setup add subcluster options", "hosts", opts.RawHosts[0])
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
 
-	opts.SCName = &s.Subcluster
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.SCName = s.Subcluster
+	opts.DBName = v.VDB.Spec.DBName
 	opts.IsEon = v.VDB.IsEON()
-	opts.IsPrimary = &s.IsPrimary
+	opts.IsPrimary = s.IsPrimary
 
 	// auth options
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	return opts

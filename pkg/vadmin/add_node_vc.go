@@ -58,29 +58,29 @@ func (v *VClusterOps) genAddNodeOptions(s *addnode.Parms, certs *HTTPSCerts) vop
 
 	// required options
 	opts.NewHosts = s.Hosts
-	opts.DBName = &v.VDB.Spec.DBName
+	opts.DBName = v.VDB.Spec.DBName
 
 	opts.RawHosts = append(opts.RawHosts, s.InitiatorIP)
 	opts.IPv6 = net.IsIPv6(s.InitiatorIP)
-	opts.SCName = &s.Subcluster
-	opts.DataPrefix = &v.VDB.Spec.Local.DataPath
-	*opts.ForceRemoval = true
+	opts.SCName = s.Subcluster
+	opts.DataPrefix = v.VDB.Spec.Local.DataPath
+	opts.ForceRemoval = true
 	*opts.SkipRebalanceShards = true
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
-		*opts.StartUpConf = paths.StartupConfFile
+		opts.StartUpConf = paths.StartupConfFile
 	}
 	opts.ExpectedNodeNames = s.ExpectedNodeNames
 	v.Log.Info("Nodes in request", "ExpectedNodeNames", opts.ExpectedNodeNames, "NewHosts", opts.NewHosts)
 
 	if v.VDB.Spec.Communal.Path != "" {
-		opts.DepotPrefix = &v.VDB.Spec.Local.DepotPath
+		opts.DepotPrefix = v.VDB.Spec.Local.DepotPath
 	}
 
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	opts.Password = &v.Password
 
 	return opts

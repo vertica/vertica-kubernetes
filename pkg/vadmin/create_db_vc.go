@@ -79,44 +79,44 @@ func (v *VClusterOps) genCreateDBOptions(s *createdb.Parms, certs *HTTPSCerts) v
 	if len(opts.RawHosts) > 0 {
 		opts.IPv6 = net.IsIPv6(opts.RawHosts[0])
 	}
-	opts.CatalogPrefix = &s.CatalogPath
-	opts.DBName = &s.DBName
-	opts.LicensePathOnNode = &s.LicensePath
-	*opts.ForceRemovalAtCreation = true
-	opts.SkipPackageInstall = &s.SkipPackageInstall
-	opts.DataPrefix = &s.DataPath
+	opts.CatalogPrefix = s.CatalogPath
+	opts.DBName = s.DBName
+	opts.LicensePathOnNode = s.LicensePath
+	opts.ForceRemovalAtCreation = true
+	opts.SkipPackageInstall = s.SkipPackageInstall
+	opts.DataPrefix = s.DataPath
 	if v.VDB.IsNMASideCarDeploymentEnabled() {
-		*opts.StartUpConf = paths.StartupConfFile
+		opts.StartUpConf = paths.StartupConfFile
 	}
 
 	// If a communal path is set, include all of the EON parameters.
 	if s.CommunalPath != "" {
-		opts.DepotPrefix = &s.DepotPath
-		opts.CommunalStorageLocation = &s.CommunalPath
+		opts.DepotPrefix = s.DepotPath
+		opts.CommunalStorageLocation = s.CommunalPath
 	}
 
 	// Additional configuration parameters for create db.
 	opts.ConfigurationParameters = s.ConfigurationParams
 
 	// Flag to generate HTTPS tls conf in vertica bootstrap catalog
-	*opts.GenerateHTTPCerts = true
+	opts.GenerateHTTPCerts = true
 
 	if s.ShardCount > 0 {
-		opts.ShardCount = &s.ShardCount
+		opts.ShardCount = s.ShardCount
 	}
 
 	// auth options
 	opts.Key = certs.Key
 	opts.Cert = certs.Cert
 	opts.CaCert = certs.CaCert
-	*opts.UserName = v.VDB.GetVerticaUser()
+	opts.UserName = v.VDB.GetVerticaUser()
 	if v.Password != "" {
 		opts.Password = &v.Password
 	}
 
 	// Timeout
 	if timeout := v.VDB.GetCreateDBNodeStartTimeout(); timeout != 0 {
-		opts.TimeoutNodeStartupSeconds = &timeout
+		opts.TimeoutNodeStartupSeconds = timeout
 	}
 
 	return opts
