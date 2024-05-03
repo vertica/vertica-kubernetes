@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -145,7 +146,9 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 	return subclusters, nil
 }
 
-// hasSubclusterLabelFromVdb returns true if the given set of labels include a subcluster that is in the vdb
+// hasSubclusterLabelFromVdb returns true if the given set of labels include a
+// subcluster that is in the vdb. Note, for pods, objLabels will be from the
+// statefulset. So, it is safe to use SubclusterNameLabel.
 func (m *SubclusterFinder) hasSubclusterLabelFromVdb(objLabels map[string]string) bool {
 	scName := objLabels[vmeta.SubclusterNameLabel]
 	_, ok := m.Subclusters[scName]
@@ -161,9 +164,9 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	}
 	rawObjs := []runtime.Object{}
 	if err := meta.EachListItem(list, func(obj runtime.Object) error {
-		l, ok := getLabelsFromObject(obj)
-		if !ok {
-			return fmt.Errorf("could not find labels from k8s object %s", obj)
+		l, err := m.getLabelsFromObject(ctx, obj)
+		if err != nil {
+			return err
 		}
 		if flags&FindAll == FindAll {
 			// When FindAll is passed, we want the entire list to be returned,
@@ -174,6 +177,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 			}
 			return nil
 		}
+
 		// Skip if object is not subcluster specific.  This is necessary for objects like
 		// the headless service object that is cluster wide.
 		if !hasSubclusterNameLabel(l) {
@@ -205,13 +209,16 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 }
 
 // shouldSkipBasedOnSandboxState returns true if the object whose labels
-// is passed does not belong to the given sandbox or main cluster
+// is passed does not belong to the given sandbox or main cluster. Note, for a
+// pod, the labels passed in will be from the statefulset. So, it is fine to use
+// SubclusterNameLabel.
 func shouldSkipBasedOnSandboxState(l map[string]string, sandbox string) bool {
 	return l[vmeta.SandboxNameLabel] != sandbox
 }
 
 // hasSubclusterNameLabel returns true if there exists a label that indicates
-// the object is for a subcluster
+// the object is for a subcluster. Note, for a pod, the labels passed in will be
+// from the statefulset. So, it is fine to use SubclusterNameLabel.
 func hasSubclusterNameLabel(l map[string]string) bool {
 	_, ok := l[vmeta.SubclusterNameLabel]
 	if ok {
@@ -228,15 +235,42 @@ func hasSubclusterNameLabel(l map[string]string) bool {
 // If labels were not found then false is return for bool output.
 //
 //nolint:gocritic
-func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
+func (m *SubclusterFinder) getLabelsFromObject(ctx context.Context, obj runtime.Object) (map[string]string, error) {
 	if sts, ok := obj.(*appsv1.StatefulSet); ok {
-		return sts.Labels, true
+		return sts.Labels, nil
 	} else if svc, ok := obj.(*corev1.Service); ok {
-		return svc.Labels, true
+		return svc.Labels, nil
 	} else if pod, ok := obj.(*corev1.Pod); ok {
-		return pod.Labels, true
+		// Instead of retrieving labels directly from the pod, we retrieve them
+		// from the StatefulSet that owns the pod. The labels we need, such as
+		// the subcluster name or sandbox, aren't present in the pods
+		// themselves. These values may change, and maintaining them becomes
+		// challenging because any modifications to the StatefulSet's pod
+		// template trigger a rolling update. Therefore, the solution is to
+		// obtain the labels from the owning object.
+		stsName, err := getStatefulSetOwnerName(pod)
+		if err != nil {
+			return nil, err
+		}
+		sts := appsv1.StatefulSet{}
+		err = m.Client.Get(ctx, stsName, &sts)
+		if err != nil {
+			return nil, err
+		}
+		return sts.Labels, nil
 	}
-	return nil, false
+	return nil, fmt.Errorf("unexpected object type: %v", obj.GetObjectKind().GroupVersionKind())
+}
+
+func getStatefulSetOwnerName(pod *corev1.Pod) (types.NamespacedName, error) {
+	if stsName, found := pod.Labels[vmeta.SubclusterSelectorLabel]; found {
+		return types.NamespacedName{
+			Namespace: pod.Namespace,
+			Name:      stsName,
+		}, nil
+	}
+	return types.NamespacedName{},
+		fmt.Errorf("could not find statefulset owner for pod %q in namespace %q", pod.Name, pod.Namespace)
 }
 
 // getSubclusterSandboxStatusMap returns a map that contains sandboxed

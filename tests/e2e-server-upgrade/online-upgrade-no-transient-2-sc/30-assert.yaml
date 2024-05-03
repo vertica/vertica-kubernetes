@@ -26,7 +26,7 @@ spec:
   selector:
     app.kubernetes.io/instance: v-base-upgrade
     vertica.com/client-routing: "true"
-    vertica.com/subcluster-name: sec
+    vertica.com/subcluster-selector-name: v-base-upgrade-sec
 ---
 apiVersion: v1
 kind: Service

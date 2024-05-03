@@ -340,6 +340,16 @@ func (v *VerticaDB) RequiresTransientSubcluster() bool {
 		v.Spec.TemporarySubclusterRouting.Template.Size > 0
 }
 
+// GetTransientSubclusterName returns the name of the transient subcluster, if
+// it should exist. The bool output parameter will be false if no transient is
+// used.
+func (v *VerticaDB) GetTransientSubclusterName() (string, bool) {
+	if !v.RequiresTransientSubcluster() {
+		return "", false
+	}
+	return v.Spec.TemporarySubclusterRouting.Template.Name, true
+}
+
 // IsOnlineUpgradeInProgress returns true if an online upgrade is in progress
 func (v *VerticaDB) IsOnlineUpgradeInProgress() bool {
 	return v.IsStatusConditionTrue(OnlineUpgradeInProgress)
