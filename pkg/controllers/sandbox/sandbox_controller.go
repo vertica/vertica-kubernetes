@@ -160,6 +160,7 @@ func (r *SandboxConfigMapReconciler) constructActors(vdb *v1.VerticaDB, log logr
 	// The actors that will be applied, in sequence, to reconcile a sandbox configmap.
 	return []controllers.ReconcileActor{
 		MakeVerifyDeploymentReconciler(r, vdb, log),
+		vdbcontroller.MakeStatusReconciler(r.Client, r.Scheme, log, vdb, pfacts),
 		vdbcontroller.MakeRestartReconciler(r, log, vdb, prunner, pfacts, true, dispatcher),
 	}
 }

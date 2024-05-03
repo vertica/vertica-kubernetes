@@ -782,8 +782,30 @@ func (v *VerticaDB) IsHTTPSTLSConfGenerationEnabled() (bool, error) {
 	return !inf.IsEqualOrNewer(AutoGenerateHTTPSCertsForNewDatabasesMinVersion), nil
 }
 
-// GetSubclusterSandboxName returns the sandbox the given subcluster belongs to,
-// or an empty string if it does not belong to any
+// GetSubclusterSandboxStatusMap returns a map that contains sandboxed
+// subclusters
+func (v *VerticaDB) GetSubclusterSandboxStatusMap() map[string]string {
+	scMap := map[string]string{}
+	for i := range v.Status.Sandboxes {
+		sb := &v.Status.Sandboxes[i]
+		for _, sc := range sb.Subclusters {
+			scMap[sc] = sb.Name
+		}
+	}
+	return scMap
+}
+
+// GetSubclusterStatusMap returns a map that has a subcluster name as key
+// and its status as value
+func (v *VerticaDB) GetSubclusterStatusMap() map[string]*SubclusterStatus {
+	scMap := map[string]*SubclusterStatus{}
+	for i := range v.Status.Subclusters {
+		sb := &v.Status.Subclusters[i]
+		scMap[sb.Name] = sb
+	}
+	return scMap
+}
+
 func (v *VerticaDB) GetSubclusterSandboxName(scName string) string {
 	for i := range v.Spec.Sandboxes {
 		for j := range v.Spec.Sandboxes[i].Subclusters {

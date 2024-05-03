@@ -49,8 +49,14 @@ const (
 	FindExisting
 	// Find will return a list of objects that are sorted by their name
 	FindSorted
+	// Find will return a list of objects without filtering based on the
+	// cluster
+	FindNoClusterFilter
 	// Find all subclusters, both in the vdb and not in the vdb.
 	FindAll = FindInVdb | FindNotInVdb
+	// Find all subclusters, both in the vdb and not in the vdb, regardless
+	// of the cluster they belong to.
+	FindAllClusters = FindAll | FindNoClusterFilter
 )
 
 func MakeSubclusterFinder(cli client.Client, vdb *vapi.VerticaDB) SubclusterFinder {
@@ -113,7 +119,10 @@ func (m *SubclusterFinder) FindSubclusters(ctx context.Context, flags FindFlags,
 	subclusters := []*vapi.Subcluster{}
 
 	if flags&FindInVdb != 0 {
-		subclusters = append(subclusters, m.getVdbSubclusters(sandbox)...)
+		// This is true when we want to get all subclusters without any
+		// cluster distinction
+		ignoreCluster := flags&FindNoClusterFilter != 0
+		subclusters = append(subclusters, m.getVdbSubclusters(sandbox, ignoreCluster)...)
 	}
 
 	if flags&FindNotInVdb != 0 || flags&FindExisting != 0 {
@@ -159,6 +168,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 	if err := listObjectsOwnedByOperator(ctx, m.Client, m.Vdb, list); err != nil {
 		return err
 	}
+	ignoreCluster := flags&FindNoClusterFilter != 0
 	rawObjs := []runtime.Object{}
 	if err := meta.EachListItem(list, func(obj runtime.Object) error {
 		l, ok := getLabelsFromObject(obj)
@@ -169,7 +179,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 			// When FindAll is passed, we want the entire list to be returned,
 			// but still want to filter out objects that do not belong to the given
 			// sandbox or main cluster.
-			if !shouldSkipBasedOnSandboxState(l, sandbox) {
+			if ignoreCluster || !shouldSkipBasedOnSandboxState(l, sandbox) {
 				rawObjs = append(rawObjs, obj)
 			}
 			return nil
@@ -181,7 +191,7 @@ func (m *SubclusterFinder) buildObjList(ctx context.Context, list client.ObjectL
 		}
 
 		// Skip if the object does not belong to the given sandbox
-		if shouldSkipBasedOnSandboxState(l, sandbox) {
+		if !ignoreCluster && shouldSkipBasedOnSandboxState(l, sandbox) {
 			return nil
 		}
 
@@ -239,52 +249,15 @@ func getLabelsFromObject(obj runtime.Object) (map[string]string, bool) {
 	return nil, false
 }
 
-// getSubclusterSandboxStatusMap returns a map that contains sandboxed
-// subclusters
-func (m *SubclusterFinder) getSubclusterSandboxStatusMap() map[string]string {
-	scMap := map[string]string{}
-	for i := range m.Vdb.Status.Sandboxes {
-		sb := &m.Vdb.Status.Sandboxes[i]
-		for _, sc := range sb.Subclusters {
-			scMap[sc] = sb.Name
-		}
-	}
-	return scMap
-}
-
 // getVdbSubclusters returns the subclusters that are in the vdb
-func (m *SubclusterFinder) getVdbSubclusters(sandbox string) []*vapi.Subcluster {
-	if sandbox != vapi.MainCluster {
-		return m.getSandboxedSubclusters(sandbox)
-	}
-	return m.getMainSubclusters()
-}
-
-// getMainSubclusters returns the subclusters that are not part
-// of any sandboxes
-func (m *SubclusterFinder) getMainSubclusters() []*vapi.Subcluster {
+func (m *SubclusterFinder) getVdbSubclusters(sandbox string, ignoreCluster bool) []*vapi.Subcluster {
 	subclusters := []*vapi.Subcluster{}
-	scMap := m.getSubclusterSandboxStatusMap()
+	scMap := m.Vdb.GetSubclusterSandboxStatusMap()
 	for i := range m.Vdb.Spec.Subclusters {
 		sc := &m.Vdb.Spec.Subclusters[i]
-		if _, ok := scMap[sc.Name]; !ok {
+		sbName := scMap[sc.Name]
+		if ignoreCluster || sbName == sandbox {
 			subclusters = append(subclusters, sc)
-		}
-	}
-	return subclusters
-}
-
-// getSandboxedSubclusters returns the subclusters that belong to the given
-// sandbox
-func (m *SubclusterFinder) getSandboxedSubclusters(sandbox string) []*vapi.Subcluster {
-	subclusters := []*vapi.Subcluster{}
-	for i := range m.Vdb.Status.Sandboxes {
-		sb := &m.Vdb.Status.Sandboxes[i]
-		if sb.Name != sandbox {
-			continue
-		}
-		for _, scName := range sb.Subclusters {
-			subclusters = append(subclusters, m.Subclusters[scName])
 		}
 	}
 	return subclusters

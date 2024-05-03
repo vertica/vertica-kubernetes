@@ -41,20 +41,36 @@ var _ = Describe("sc_finder", func() {
 			{Name: scNames[2], Size: scSizes[2]},
 		}
 
-		verifySubclustersInVdb(ctx, vdb, scNames, scSizes, vapi.MainCluster)
+		verifySubclusters(ctx, vdb, scNames, scSizes, vapi.MainCluster, FindInVdb)
 		// FindSubclusters should return an empty slice if a sandbox name,
 		// that does not exist in the vdb status, is passed in
-		verifySubclustersInVdb(ctx, vdb, []string{}, []int32{}, sbName)
+		verifySubclusters(ctx, vdb, []string{}, []int32{}, sbName, FindInVdb)
 
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sbName, Subclusters: scNames[:2]},
 		}
 		// FindSubclusters should only return subclusters that belong to the given
 		// sandbox
-		verifySubclustersInVdb(ctx, vdb, scNames[:2], scSizes[:2], sbName)
+		verifySubclusters(ctx, vdb, scNames[:2], scSizes[:2], sbName, FindInVdb)
 		// FindSubclusters should only return subclusters that are not part of
 		// any sandboxes
-		verifySubclustersInVdb(ctx, vdb, scNames[2:], scSizes[2:], vapi.MainCluster)
+		verifySubclusters(ctx, vdb, scNames[2:], scSizes[2:], vapi.MainCluster, FindInVdb)
+	})
+
+	It("should find all subclusters regardless of cluster", func() {
+		vdb := vapi.MakeVDB()
+		scNames := []string{"sc1", "sc2", "sc3"}
+		scSizes := []int32{10, 5, 8}
+		const sbName = "sand"
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: scNames[0], Size: scSizes[0]},
+			{Name: scNames[1], Size: scSizes[1]},
+			{Name: scNames[2], Size: scSizes[2]},
+		}
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: scNames[:2]},
+		}
+		verifySubclusters(ctx, vdb, scNames, scSizes, sbName, FindAllClusters)
 	})
 
 	It("should find subclusters that don't exist in the vdb", func() {
@@ -307,10 +323,10 @@ var _ = Describe("sc_finder", func() {
 	})
 })
 
-func verifySubclustersInVdb(ctx context.Context, vdb *vapi.VerticaDB, scNames []string,
-	scSizes []int32, sandbox string) {
+func verifySubclusters(ctx context.Context, vdb *vapi.VerticaDB, scNames []string,
+	scSizes []int32, sandbox string, flag FindFlags) {
 	finder := MakeSubclusterFinder(k8sClient, vdb)
-	scs, err := finder.FindSubclusters(ctx, FindInVdb, sandbox)
+	scs, err := finder.FindSubclusters(ctx, flag, sandbox)
 	Expect(err).Should(Succeed())
 	Expect(len(scs)).Should(Equal(len(scNames)))
 	for i := 0; i < len(scNames); i++ {
