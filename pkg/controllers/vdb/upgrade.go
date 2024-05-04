@@ -713,7 +713,7 @@ func (i *UpgradeManager) logEventIfRequestedUpgradeIsDifferent(actualUpgrade vap
 func (i *UpgradeManager) getSubclusterNameFromSts(ctx context.Context, stsName string) (string, error) {
 	sts := appsv1.StatefulSet{}
 	nm := names.GenNamespacedName(i.Vdb, stsName)
-	err := i.VRec.GetClient().Get(ctx, nm, &sts)
+	err := i.Rec.GetClient().Get(ctx, nm, &sts)
 	if err != nil {
 		return "", fmt.Errorf("could not find statefulset %q: %w", stsName, err)
 	}
