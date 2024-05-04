@@ -42,12 +42,12 @@ func (m *MockVClusterOps) VStopDatabase(options *vops.VStopDatabaseOptions) erro
 		return err
 	}
 
-	if *options.Sandbox != sbName {
+	if options.Sandbox != sbName {
 		return fmt.Errorf("failed to retrieve sandbox name")
 	}
 
 	mainCluster := sbName == vapi.MainCluster
-	if *options.MainCluster != mainCluster {
+	if options.MainCluster != mainCluster {
 		return fmt.Errorf("wrong value for MainCluster option")
 	}
 	return nil
