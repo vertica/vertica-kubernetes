@@ -19,7 +19,7 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaReplicator
-  name: vrep-test-sandbox
+  name: vrep-test-target-main
 ---
 apiVersion: v1
 kind: Event
@@ -29,11 +29,11 @@ source:
 involvedObject:
   apiVersion: vertica.com/v1beta1
   kind: VerticaReplicator
-  name: vrep-test-sandbox
+  name: vrep-test-target-main
 ---
 apiVersion: vertica.com/v1beta1
 kind: VerticaReplicator
 metadata:
-  name: vrep-test-sandbox
+  name: vrep-test-target-main
 status:
   state: "Replication successful"

@@ -14,7 +14,7 @@
 apiVersion: vertica.com/v1beta1
 kind: VerticaReplicator
 metadata:
-  name: vrep-test-target-sandbox
+  name: vrep-test-target-main
 spec:
   source:
     verticaDB: "v-source"

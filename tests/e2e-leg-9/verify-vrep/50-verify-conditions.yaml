@@ -15,5 +15,5 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestStep
 commands:
     # verifying type:"ReplicationReady" and "ReplicationComplete", and status:"True"
-    - script: kubectl wait --for=condition=ReplicationReady=True -n $NAMESPACE vrep/vrep-test-target-sandbox --timeout=600s
-    - script: kubectl wait --for=condition=ReplicationComplete=True -n $NAMESPACE vrep/vrep-test-target-sandbox --timeout=600s
+    - script: kubectl wait --for=condition=ReplicationReady=True -n $NAMESPACE vrep/vrep-test-target-main --timeout=600s
+    - script: kubectl wait --for=condition=ReplicationComplete=True -n $NAMESPACE vrep/vrep-test-target-main --timeout=600s
