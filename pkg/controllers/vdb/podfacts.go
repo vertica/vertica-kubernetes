@@ -392,7 +392,7 @@ func (p *PodFacts) collectPodByStsIndex(ctx context.Context, vdb *vapi.VerticaDB
 		// we get the sandbox name from the sts labels if the subcluster
 		// belongs to a sandbox. If the node is up, we will later retrieve
 		// the sandbox state from the catalog
-		pf.sandbox = p.SandboxName
+		pf.sandbox = sts.Labels[vmeta.SandboxNameLabel]
 		setSandboxNodeType(&pf)
 	}
 

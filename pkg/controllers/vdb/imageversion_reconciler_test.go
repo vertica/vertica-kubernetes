@@ -75,10 +75,19 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 			vmeta.VersionAnnotation:     "v23.4.0",
 		}
 		const sbName = "sb1"
-		vdb.Spec.Subclusters[0].Size = 1
+		vdb.Spec.Subclusters = []vapi.Subcluster{
+			{Name: "sc1", Size: 1, Type: vapi.SecondarySubcluster},
+			{Name: "default", Size: 1, Type: vapi.PrimarySubcluster},
+		}
+		vdb.Spec.Sandboxes = []vapi.Sandbox{
+			{Name: sbName, Subclusters: []vapi.SubclusterName{{Name: vdb.Spec.Subclusters[0].Name}}},
+		}
+		test.CreateVDB(ctx, k8sClient, vdb)
+		defer test.DeleteVDB(ctx, k8sClient, vdb)
 		vdb.Status.Sandboxes = []vapi.SandboxStatus{
 			{Name: sbName, Subclusters: []string{vdb.Spec.Subclusters[0].Name}},
 		}
+		Expect(k8sClient.Status().Update(ctx, vdb)).Should(Succeed())
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateConfigMap(ctx, k8sClient, vdb, "", sbName)
@@ -95,7 +104,7 @@ vertica(v11.1.0) built by @re-docker2 from tag@releases/VER_10_1_RELEASE_BUILD_1
 		Expect(r.Reconcile(ctx, &ctrl.Request{})).Should(Equal(ctrl.Result{}))
 
 		cm := &corev1.ConfigMap{}
-		nm := names.GenConfigMapName(vdb, sbName)
+		nm := names.GenSandboxConfigMapName(vdb, sbName)
 		Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
 		Expect(cm.ObjectMeta.Annotations).ShouldNot(BeNil())
 		Expect(cm.ObjectMeta.Annotations[vmeta.VersionAnnotation]).Should(Equal("v11.1.1-0"))
