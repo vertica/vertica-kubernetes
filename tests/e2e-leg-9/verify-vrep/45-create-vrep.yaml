@@ -11,33 +11,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: vertica.com/v1
-kind: VerticaDB
+apiVersion: vertica.com/v1beta1
+kind: VerticaReplicator
 metadata:
-  name: v-source
-  annotations:
-    vertica.com/include-uid-in-path: "true"
-    vertica.com/k-safety: "0"
+  name: vrep-test-target-sandbox
 spec:
-  image: kustomize-vertica-image
-  dbName: sourcedb
-  passwordSecret: su-passwd
-  initPolicy: CreateSkipPackageInstall
-  communal: {}
-  local:
-    requestSize: 250Mi
-  subclusters:
-    - name: sc1
-      size: 1
-      type: primary
-    - name: sc2
-      size: 1
-      type: secondary
-  sandboxes:
-    - name: sandbox2
-      subclusters:
-        - name: sc2
-  certSecrets: []
-  imagePullSecrets: []
-  volumes: []
-  volumeMounts: []
+  source:
+    verticaDB: "v-source"
+    sandboxName: "sandbox2"
+  target:
+    verticaDB: "v-target"
