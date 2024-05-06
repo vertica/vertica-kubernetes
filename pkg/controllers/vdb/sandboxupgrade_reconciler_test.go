@@ -61,7 +61,7 @@ var _ = Describe("sandboxupgrade_reconciler", func() {
 
 		validateReconcile(ctx, vdb, false)
 		cm := &corev1.ConfigMap{}
-		nm := names.GenConfigMapName(vdb, sandbox1)
+		nm := names.GenSandboxConfigMapName(vdb, sandbox1)
 		Expect(k8sClient.Get(ctx, nm, cm)).Should(Succeed())
 		Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).ShouldNot(Equal(""))
 		Expect(cm.Annotations[vmeta.SandboxControllerTriggerID]).ShouldNot(Equal(tID))
