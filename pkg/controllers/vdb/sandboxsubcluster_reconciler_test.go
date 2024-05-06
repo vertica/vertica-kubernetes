@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	vapi "github.com/vertica/vertica-kubernetes/api/v1"
 	"github.com/vertica/vertica-kubernetes/pkg/cmds"
-	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/test"
 	"k8s.io/apimachinery/pkg/types"
@@ -269,10 +268,11 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(cm.Data[vapi.SandboxNameKey]).Should(Equal(sandbox1))
 		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Spec.DBName))
-		Expect(cm.Annotations[vmeta.VersionAnnotation]).Should(Equal(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion))
 
-		newVersion := "v24.3.0"
-		r.Vdb.Annotations[vmeta.VersionAnnotation] = newVersion
+		testAnnotation := "test-annotation"
+		testValue := "test-value"
+		r.Vdb.Spec.Annotations = make(map[string]string)
+		r.Vdb.Spec.Annotations[testAnnotation] = testValue
 		// should update config map for sandbox1
 		err = r.checkSandboxConfigMap(ctx, sandbox1)
 		Expect(err).Should(BeNil())
@@ -283,6 +283,6 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		Expect(res).Should(Equal(ctrl.Result{}))
 		Expect(cm.Data[vapi.SandboxNameKey]).Should(Equal(sandbox1))
 		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Spec.DBName))
-		Expect(cm.Annotations[vmeta.VersionAnnotation]).Should(Equal(newVersion))
+		Expect(cm.Annotations[testAnnotation]).Should(Equal(testValue))
 	})
 })

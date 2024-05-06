@@ -201,17 +201,29 @@ func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM 
 	// exclude sandbox controller trigger ID from the annotations because
 	// vdb controller will set this in current config map, and the new
 	// config map cannot get it
-	triggerID, ok := curCM.Annotations[vmeta.SandboxControllerTriggerID]
-	if ok {
+	triggerID, hasTriggerID := curCM.Annotations[vmeta.SandboxControllerTriggerID]
+	if hasTriggerID {
 		delete(curCM.Annotations, vmeta.SandboxControllerTriggerID)
 	}
+	delete(newCM.Annotations, vmeta.SandboxControllerTriggerID)
+	// exclude version annotation because vdb controller can set a different
+	// vertica version annotation for a sandbox in current config map
+	version, hasVersion := curCM.Annotations[vmeta.VersionAnnotation]
+	if hasVersion {
+		delete(curCM.Annotations, vmeta.VersionAnnotation)
+	}
+	delete(newCM.Annotations, vmeta.VersionAnnotation)
 	if stringMapDiffer(curCM.ObjectMeta.Annotations, newCM.ObjectMeta.Annotations) {
 		updated = true
 		curCM.ObjectMeta.Annotations = newCM.ObjectMeta.Annotations
 	}
 	// add sandbox controller trigger ID back to the annotations
-	if ok {
+	if hasTriggerID {
 		curCM.Annotations[vmeta.SandboxControllerTriggerID] = triggerID
+	}
+	// add vertica version back to the annotations
+	if hasVersion {
+		curCM.Annotations[vmeta.VersionAnnotation] = version
 	}
 	if stringMapDiffer(curCM.ObjectMeta.Labels, newCM.ObjectMeta.Labels) {
 		updated = true
