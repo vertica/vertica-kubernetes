@@ -65,13 +65,13 @@ func (s *SandboxConfigMapManager) triggerSandboxController(ctx context.Context) 
 	chgs := vk8s.MetaChanges{
 		NewAnnotations: anns,
 	}
-	nm := names.GenConfigMapName(s.vdb, s.sandbox)
+	nm := names.GenSandboxConfigMapName(s.vdb, s.sandbox)
 	return vk8s.MetaUpdate(ctx, s.vrec.GetClient(), nm, s.configMap, chgs)
 }
 
 // fetchConfigMap will fetch the sandbox configmap
 func (s *SandboxConfigMapManager) fetchConfigMap(ctx context.Context) error {
-	nm := names.GenConfigMapName(s.vdb, s.sandbox)
+	nm := names.GenSandboxConfigMapName(s.vdb, s.sandbox)
 	err := s.vrec.GetClient().Get(ctx, nm, s.configMap)
 	if err != nil {
 		return err
