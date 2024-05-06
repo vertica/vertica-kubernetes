@@ -113,7 +113,3 @@ func GenPVName(vdb *vapi.VerticaDB, sc *vapi.Subcluster, podIndex int32) types.N
 		Name: fmt.Sprintf("pv-%s-%s-%d", vapi.LocalDataPVC, sc.GetStatefulSetName(vdb), podIndex),
 	}
 }
-
-func GenConfigMapName(vdb *vapi.VerticaDB, sandbox string) types.NamespacedName {
-	return GenNamespacedName(vdb, fmt.Sprintf("%s-%s", vdb.Name, sandbox))
-}

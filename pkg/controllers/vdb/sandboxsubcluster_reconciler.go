@@ -25,6 +25,7 @@ import (
 	"github.com/vertica/vertica-kubernetes/pkg/builder"
 	"github.com/vertica/vertica-kubernetes/pkg/controllers"
 	"github.com/vertica/vertica-kubernetes/pkg/events"
+	vmeta "github.com/vertica/vertica-kubernetes/pkg/meta"
 	"github.com/vertica/vertica-kubernetes/pkg/names"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin"
 	"github.com/vertica/vertica-kubernetes/pkg/vadmin/opts/sandboxsc"
@@ -197,9 +198,20 @@ func (s *SandboxSubclusterReconciler) checkSandboxConfigMap(ctx context.Context,
 // if so, we will update the content of that config map and return true
 func (s *SandboxSubclusterReconciler) updateSandboxConfigMapFields(curCM, newCM *corev1.ConfigMap) bool {
 	updated := false
+	// exclude sandbox controller trigger ID from the annotations because
+	// vdb controller will set this in current config map, and the new
+	// config map cannot get it
+	triggerID, ok := curCM.Annotations[vmeta.SandboxControllerTriggerID]
+	if ok {
+		delete(curCM.Annotations, vmeta.SandboxControllerTriggerID)
+	}
 	if stringMapDiffer(curCM.ObjectMeta.Annotations, newCM.ObjectMeta.Annotations) {
 		updated = true
 		curCM.ObjectMeta.Annotations = newCM.ObjectMeta.Annotations
+	}
+	// add sandbox controller trigger ID back to the annotations
+	if ok {
+		curCM.Annotations[vmeta.SandboxControllerTriggerID] = triggerID
 	}
 	if stringMapDiffer(curCM.ObjectMeta.Labels, newCM.ObjectMeta.Labels) {
 		updated = true

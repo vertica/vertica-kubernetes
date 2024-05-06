@@ -267,8 +267,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		cm, res, err := getConfigMap(ctx, r.VRec, r.Vdb, nm)
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(cm.Data["sandboxName"]).Should(Equal(sandbox1))
-		Expect(cm.Data["verticaDBName"]).Should(Equal(r.Vdb.Spec.DBName))
+		Expect(cm.Data[vapi.SandboxNameKey]).Should(Equal(sandbox1))
+		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Spec.DBName))
 		Expect(cm.Annotations[vmeta.VersionAnnotation]).Should(Equal(vapi.VcluseropsAsDefaultDeploymentMethodMinVersion))
 
 		newVersion := "v24.3.0"
@@ -281,8 +281,8 @@ var _ = Describe("sandboxsubcluster_reconcile", func() {
 		cm, res, err = getConfigMap(ctx, r.VRec, r.Vdb, nm)
 		Expect(err).Should(Succeed())
 		Expect(res).Should(Equal(ctrl.Result{}))
-		Expect(cm.Data["sandboxName"]).Should(Equal(sandbox1))
-		Expect(cm.Data["verticaDBName"]).Should(Equal(r.Vdb.Spec.DBName))
+		Expect(cm.Data[vapi.SandboxNameKey]).Should(Equal(sandbox1))
+		Expect(cm.Data[vapi.VerticaDBNameKey]).Should(Equal(r.Vdb.Spec.DBName))
 		Expect(cm.Annotations[vmeta.VersionAnnotation]).Should(Equal(newVersion))
 	})
 })
