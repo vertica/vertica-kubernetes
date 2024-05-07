@@ -79,14 +79,13 @@ var _ = Describe("upgrade", func() {
 		vdb.Spec.Sandboxes = []vapi.Sandbox{
 			{Name: sbName, Image: "new-img", Subclusters: []vapi.SubclusterName{{Name: "sc2"}}},
 		}
+		vdb.Status.Sandboxes = []vapi.SandboxStatus{
+			{Name: sbName, Subclusters: []string{"sc2"}},
+		}
 		test.CreatePods(ctx, k8sClient, vdb, test.AllPodsRunning)
 		defer test.DeletePods(ctx, k8sClient, vdb)
 		test.CreateVDB(ctx, k8sClient, vdb)
 		defer test.DeleteVDB(ctx, k8sClient, vdb)
-
-		vdb.Status.Sandboxes = []vapi.SandboxStatus{
-			{Name: sbName, Subclusters: []string{"sc2"}},
-		}
 
 		// upgrade not needed on main cluster
 		mgr := MakeUpgradeManager(vdbRec, logger, vdb, vapi.OnlineUpgradeInProgress,
