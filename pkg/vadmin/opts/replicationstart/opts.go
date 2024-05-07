@@ -17,13 +17,14 @@ package replicationstart
 
 // Parms holds all of the option for a replication start invocation.
 type Parms struct {
-	SourceIP        string
-	SourceUserName  string
-	TargetIP        string
-	TargetDBName    string
-	TargetUserName  string
-	TargetPassword  string
-	SourceTLSConfig string
+	SourceIP          string
+	SourceUserName    string
+	TargetIP          string
+	TargetDBName      string
+	TargetUserName    string
+	TargetPassword    string
+	SourceTLSConfig   string
+	SourceSandboxName string
 }
 
 type Option func(*Parms)
@@ -74,5 +75,11 @@ func WithTargetPassword(targetPassword string) Option {
 func WithSourceTLSConfig(sourceTLSConfig string) Option {
 	return func(s *Parms) {
 		s.SourceTLSConfig = sourceTLSConfig
+	}
+}
+
+func WithSourceSandboxName(sandboxName string) Option {
+	return func(s *Parms) {
+		s.SourceSandboxName = sandboxName
 	}
 }
