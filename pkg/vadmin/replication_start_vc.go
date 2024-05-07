@@ -62,6 +62,7 @@ func (v *VClusterOps) genReplicateDBOptions(s *replicationstart.Parms, certs *HT
 	opts.Password = &v.Password
 	opts.TargetDB = s.TargetDBName
 	opts.TargetUserName = s.TargetUserName
+	opts.Sandbox = s.SourceSandboxName
 	if s.SourceTLSConfig != "" {
 		opts.TargetPassword = nil
 	} else {
